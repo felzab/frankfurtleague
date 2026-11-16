@@ -5,7 +5,7 @@
  */
 import { expect } from "@playwright/test";
 
-import { save, saveBar, scrollsSideways, typeInto } from "../support/controls";
+import { enteredDialog, save, saveBar, scrollsSideways, typeInto } from "../support/controls";
 import { ADMINISTRATOR_STATE, test } from "../support/journey";
 import { PEOPLE, RUNNING } from "../support/madeUpLeague";
 
@@ -56,8 +56,7 @@ test("an administrator creates a venue over the Spielorte list, moves a match's 
   if (desktop !== null) await page.setViewportSize(desktop);
 
   await page.getByRole("button", { name: "Spielort anlegen" }).click();
-  const dialog = page.getByRole("dialog");
-  await expect(dialog).toBeVisible();
+  const dialog = await enteredDialog(page);
   // By the label's start: a required field's label ends in its asterisk.
   await typeInto(dialog.getByRole("textbox", { name: /^Name/ }), NEW_VENUE);
   await typeInto(dialog.getByRole("textbox", { name: /^Straße/ }), "Ulmenring");

@@ -4,7 +4,7 @@
  */
 import { expect } from "@playwright/test";
 
-import { box, labelOf, save, typeInto, valueOf } from "./support/controls";
+import { box, comboOptions, labelOf, save, typeInto, valueOf } from "./support/controls";
 import { test } from "./support/journey";
 import { RUNNING } from "./support/madeUpLeague";
 import { declinePasskeyOffer, signInWithCode } from "./support/signIn";
@@ -29,7 +29,7 @@ function gameRow(page: Page, game: string): Locator {
 async function pickPupil(page: Page, row: Locator): Promise<string> {
   await row.getByRole("combobox", { name: "Spieler" }).click();
   await page.keyboard.press("ArrowDown");
-  const pupil = page.getByRole("option").filter({ hasNotText: "Anonym" }).first();
+  const pupil = (await comboOptions(page)).filter({ hasNotText: "Anonym" }).first();
   const words = (await pupil.innerText()).trim();
   await pupil.click();
   return words;

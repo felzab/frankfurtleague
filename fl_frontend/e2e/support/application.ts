@@ -5,7 +5,7 @@
  */
 import { expect } from "@playwright/test";
 
-import { box, choose, typeInto } from "./controls";
+import { box, choose, comboOptions, typeInto } from "./controls";
 import { PLANNED } from "./madeUpLeague";
 
 import type { Locator, Page } from "@playwright/test";
@@ -70,7 +70,7 @@ async function fillNewSchool(page: Page, school: string): Promise<void> {
 /** A school the form lists, picked by typing its name, as a person finds one among many. */
 async function pickSchool(page: Page, school: string): Promise<void> {
   await typeInto(box(page, "Schule").getByRole("combobox", { name: /^Schule/ }), school);
-  await page.getByRole("option", { name: school, exact: true }).click();
+  await (await comboOptions(page, school)).click();
 }
 
 /**

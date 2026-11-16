@@ -8,7 +8,7 @@
 import { expect } from "@playwright/test";
 
 import { chooseWho } from "../support/actionLog";
-import { chip, pressRowAct, typeInto } from "../support/controls";
+import { chip, enteredDialog, enteredQuestion, pressRowAct, typeInto } from "../support/controls";
 import { test } from "../support/journey";
 import { PEOPLE } from "../support/madeUpLeague";
 import { filedMessages, mailedMessage } from "../support/mailSink";
@@ -37,7 +37,7 @@ test("an administrator's acts on Adressänderungen and Löschungen take the touc
   const newAddress = MOVER.replace("@", ".neu@");
   await page.goto("/admin/address-changes");
   await page.getByRole("button", { name: "Änderung eintragen" }).click();
-  const dialog = page.getByRole("dialog", { name: "Änderung eintragen" });
+  const dialog = await enteredDialog(page, "Änderung eintragen");
   await typeInto(dialog.getByRole("textbox", { name: /^Bisherige E-Mail-Adresse/ }), MOVER);
   await typeInto(dialog.getByRole("textbox", { name: /^Neue E-Mail-Adresse/ }), newAddress);
   await dialog.getByRole("button", { name: "Änderung eintragen" }).click();
@@ -48,9 +48,8 @@ test("an administrator's acts on Adressänderungen and Löschungen take the touc
   await expect(chip(row, "Neue offen")).toBeVisible();
   await mailedMessage(newAddress, "E-Mail-Adresse bestätigen", before);
 
-  // A question is named: the toast each act answers in is an `alertdialog` too.
   await pressRowAct(row, "Verwerfen");
-  const discard = page.getByRole("alertdialog", { name: "Änderung verwerfen?" });
+  const discard = await enteredQuestion(page, "Änderung verwerfen?");
   await discard.getByRole("button", { name: "Verwerfen" }).click();
   await expect(discard).toBeHidden();
   await expect(row).toHaveCount(0);
@@ -64,7 +63,7 @@ test("an administrator's acts on Adressänderungen and Löschungen take the touc
   await main.getByRole("button", { name: "Löschen" }).click();
 
   // The counts the press read, and no name: the person's one record is a referee's.
-  const question = page.getByRole("alertdialog", { name: "Daten löschen?" });
+  const question = await enteredQuestion(page, "Daten löschen?");
   await expect(question).toContainText("Schiedsrichter");
   await question.getByRole("button", { name: "Löschen" }).click();
   await expect(question).toBeHidden();

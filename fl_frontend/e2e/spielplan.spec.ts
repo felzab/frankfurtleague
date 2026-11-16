@@ -4,6 +4,7 @@
  */
 import { expect } from "@playwright/test";
 
+import { enteredDialog, expectNoDialog } from "./support/controls";
 import { hydrated, test } from "./support/journey";
 import { PEOPLE, RUNNING } from "./support/madeUpLeague";
 
@@ -32,8 +33,7 @@ test("a visitor opens a match from the Spielplan, and Back returns to the matchd
   // A match row is a link to the match's page, which opens over the Spielplan. Only the chosen matchday's
   // matches are on the page, so the row's name finds it.
   await page.getByRole("link", { name: ROW }).click();
-  const popup = page.getByRole("dialog", { name: OPENED });
-  await expect(popup).toBeVisible();
+  const popup = await enteredDialog(page, OPENED);
   await expect(popup.getByText(PEOPLE.spielplan.ergebnis)).toBeVisible();
   await expect(page).toHaveURL((url) => new RegExp(`^/saisons/${RUNNING}/spiele/[0-9a-f]{24}$`).test(url.pathname));
   // The Spielplan stays beneath it, on the matchday it showed. The open pop-up hides everything outside
@@ -53,14 +53,13 @@ test("a visitor opens a match from the Spielplan, and Back returns to the matchd
   // showing its last page unless the new address matches one of its routes; the slot's catch-all matches the
   // club's page and draws no pop-up.
   await page.getByRole("link", { name: ROW }).click();
-  await expect(popup).toBeVisible();
-  await popup.getByRole("link", { name: HOME, exact: true }).click();
+  await (await enteredDialog(page, OPENED)).getByRole("link", { name: HOME, exact: true }).click();
   await expect(page).toHaveURL((url) => new RegExp(`^/saisons/${RUNNING}/teams/[0-9a-f]{24}$`).test(url.pathname));
   await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: HOME })).toBeVisible();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expectNoDialog(page);
 
   // Loaded directly, the match's address is the match's own page, with no pop-up.
   await page.goto(matchPage);
   await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: OPENED })).toBeVisible();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expectNoDialog(page);
 });

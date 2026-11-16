@@ -5,6 +5,7 @@
  */
 import { expect } from "@playwright/test";
 
+import { enteredDialog } from "../support/controls";
 import { hydrated, test } from "../support/journey";
 import { RUNNING } from "../support/madeUpLeague";
 
@@ -33,8 +34,7 @@ test("the landing's Spielplan leads to the season's Spielplan, and a landing mat
   const row = page.getByRole("main").locator(`a[href^='/saisons/${RUNNING}/spiele/']`).first();
   await row.click();
   await expect(page).toHaveURL((url) => MATCH.test(url.pathname));
-  const popup = page.getByRole("dialog");
-  await expect(popup).toBeVisible();
+  const popup = await enteredDialog(page);
   // The landing stays beneath it, drawn: the open pop-up hides it from the accessibility tree alone, where a landing
   // Next keeps after leaving it is not drawn at all.
   await expect(

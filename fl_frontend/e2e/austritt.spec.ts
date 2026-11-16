@@ -4,7 +4,7 @@
  */
 import { expect } from "@playwright/test";
 
-import { typeInto } from "./support/controls";
+import { enteredDialog, typeInto } from "./support/controls";
 import { ADMINISTRATOR_STATE, test } from "./support/journey";
 import { PEOPLE, RUNNING } from "./support/madeUpLeague";
 import { filedMessages, mailedMessage } from "./support/mailSink";
@@ -22,7 +22,7 @@ test("a club leaves the season, and its opponent is told at once", async ({ page
   // The dialog opens on a withdrawal from today: the reason is what it cannot know.
   const before = await filedMessages();
   await page.getByRole("main").getByRole("button", { name: "Entfernen" }).click();
-  const dialog = page.getByRole("dialog", { name: "Aus der Saison nehmen" });
+  const dialog = await enteredDialog(page, "Aus der Saison nehmen");
   await typeInto(dialog.getByRole("textbox", { name: /^Grund/ }), "Das Team tritt nicht mehr an.");
   await dialog.getByRole("button", { name: "Entfernen" }).click();
   await expect(dialog).toBeHidden();

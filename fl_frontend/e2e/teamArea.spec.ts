@@ -4,7 +4,7 @@
  */
 import { expect } from "@playwright/test";
 
-import { box, labelOf, risenSheet, save, saveBar } from "./support/controls";
+import { box, enteredDialog, labelOf, save, saveBar, toast } from "./support/controls";
 import { test } from "./support/journey";
 import { RUNNING } from "./support/madeUpLeague";
 import { declinePasskeyOffer, signInWithCode } from "./support/signIn";
@@ -34,13 +34,10 @@ async function openPage(page: Page, name: string): Promise<void> {
   if (await entry.isVisible()) await entry.click();
   else {
     await more.click();
-    await (await risenSheet(page, "Mehr")).getByRole("link", { name, exact: true }).click();
+    await (await enteredDialog(page, "Mehr")).getByRole("link", { name, exact: true }).click();
   }
   await expect(titleOf(page, name)).toBeVisible();
 }
-
-/** The toast an act at once answers with, by its title. */
-const toast = (page: Page, title: string): Locator => page.getByRole("alertdialog", { name: title });
 
 test("a contact answers the date, admits the pupil and enters the line-up", async ({ page, contact: { address, fixture, pupil } }) => {
   await signInWithCode(page, address);
@@ -67,7 +64,7 @@ test("a contact answers the date, admits the pupil and enters the line-up", asyn
   await openPage(page, "Registrierungen");
   const registration = page.getByRole("main").getByRole("row").filter({ hasText: pupil });
   await registration.getByRole("button", { name: pupil, exact: true }).click();
-  await page.getByRole("dialog", { name: pupil }).getByRole("button", { name: "Aufnehmen", exact: true }).click();
+  await (await enteredDialog(page, pupil)).getByRole("button", { name: "Aufnehmen", exact: true }).click();
   await expect(toast(page, "Aufgenommen")).toBeVisible();
   await expect(registration).toHaveCount(0);
 
