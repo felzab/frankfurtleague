@@ -368,12 +368,14 @@ scope_format() {
 
   # Every tracked text file, for the zero-width, bidirectional and line-separator characters that hide
   # or reorder what a reviewer reads (CVE-2021-42574), the Arabic letter mark U+061C the one
-  # bidirectional mark outside U+2000's block; the one deliberate fixture is left out. A UTF-8 locale,
-  # which `-P` needs to read a code point past U+00FF.
+  # bidirectional mark outside U+2000's block, and the other invisible ones the address fixtures type:
+  # the soft hyphen U+00AD, U+180E, the word joiner U+2060 and U+FEFF. Those two fixtures, which type
+  # them on purpose, are left out. A UTF-8 locale, which `-P` needs to read a code point past U+00FF.
   step "format · no invisible or bidirectional character in any tracked file"
   check --exits git-grep "A tracked file above carries an invisible or bidirectional character, each named by its line." \
-    env LC_ALL=C.UTF-8 git grep -I -n -P '[\x{061C}\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{2028}\x{2029}]' \
-    -- . ':!fl_frontend/src/core/emailAddress.test.ts' \
+    env LC_ALL=C.UTF-8 git grep -I -n -P \
+    '[\x{00AD}\x{061C}\x{180E}\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2060}\x{2066}-\x{2069}\x{2028}\x{2029}\x{FEFF}]' \
+    -- . ':!fl_frontend/src/core/emailAddress.test.ts' ':!fl_backend/tests/shared/email_addresses.json' \
     && ok "no invisible or bidirectional character"
   return 0
 }
