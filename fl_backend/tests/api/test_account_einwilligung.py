@@ -13,19 +13,16 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from httpx2 import AsyncClient
+from httpx2 import AsyncClient, Response
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.registrierungen.services import compose_decline_update
-from app.api.schiedsrichter.admin_router import patch_schiedsrichter
-from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLPatchSchiedsrichterResponse
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.recording import actor_var
 from app.shared.einwilligung_evidence import EVIDENCE, TextVersions, evidence_state_of
 from tests.app_client import app_client, app_under_test
-from tests.config import ADMIN_KEY
+from tests.config import ADMIN_KEY, grants_for_the_suite
 from tests.database import a_clean_database
 from tests.documents import (
     SCHIEDSRICHTER_TEXT_VERSIONS,
@@ -143,6 +140,10 @@ def _payload(*, scope: str = "kader_public", media: bool = False, state: Mapping
 RETIRED_STATE = evidence_state_of(blocks=[_einwilligung(media=True)])
 
 
+# The administrator whose save a case sends, one the suite's grants hold.
+EDITOR = "admin@frankfurtleague.de"
+
+
 def _person(email: str) -> StampedHeaders:
     return StampedHeaders(email, ADMIN_KEY, lane="person")
 
@@ -151,30 +152,22 @@ def _referee_path(schiedsrichter_id: ObjectId | str) -> str:
     return f"/api/v{API_VERSION}/schiedsrichter/account/{schiedsrichter_id}/einwilligung"
 
 
-async def _editor_save(database: AsyncDatabase, *, version: int, default_payment: int) -> FLPatchSchiedsrichterResponse:
-    """The referee editor's save of the seeded referee on `version`, by the administrator `bind_actor` binds on its request."""
+async def _editor_save(http: AsyncClient, database: AsyncDatabase, *, version: int, default_payment: int) -> Response:
+    """The referee editor's save of the seeded referee on `version`, sent by an administrator the suite's grants hold."""
 
-    token = actor_var.set("admin@frankfurtleague.de")
-    try:
-        return await patch_schiedsrichter(
-            schiedsrichter_id=REFEREE_OID,
-            schiedsrichter_data=FLPatchSchiedsrichterPayload.model_validate(
-                {
-                    "name": "Ortrud Zwiebelmayer",
-                    "schule": None,
-                    "default_payment": default_payment,
-                    "kontakt": {"phone": "+49 69 5550202", "email": REFEREE_STORED},
-                    "version": version,
-                }
-            ),
-            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-            outbox_collection=database[Collection.OUTBOX],
-            db=database.client,
-            today="2026-10-03",
-            now=NOW,
-        )
-    finally:
-        actor_var.reset(token)
+    await database[Collection.GRANTS].insert_many(grants_for_the_suite())
+
+    return await http.patch(
+        f"/api/v{API_VERSION}/schiedsrichter/{REFEREE_OID}",
+        json={
+            "name": "Ortrud Zwiebelmayer",
+            "schule": None,
+            "default_payment": default_payment,
+            "kontakt": {"phone": "+49 69 5550202", "email": REFEREE_STORED},
+            "version": version,
+        },
+        headers=StampedHeaders(EDITOR, ADMIN_KEY),
+    )
 
 
 async def _served_state(http: AsyncClient, email: str, arm: str, **key: str) -> Any:
@@ -355,13 +348,13 @@ class TestTheTwoChoices:
             opened = await database[Collection.SCHIEDSRICHTER].find_one({"_id": REFEREE_OID}, {"version": 1})
             assert opened is not None
             pressed = await http.patch(_referee_path(REFEREE_OID), json=_payload(scope="internal"), headers=_person(IDENTIFIER))
-            saved = await _editor_save(database, version=opened["version"], default_payment=25)
+            saved = await _editor_save(http, database, version=opened["version"], default_payment=25)
             return pressed, saved, await database[Collection.SCHIEDSRICHTER].find_one({"_id": REFEREE_OID})
 
         pressed, saved, stored = await served(mongo_replica_set_url, steps)
 
-        assert pressed.status_code == 204, pressed.text
-        assert (saved.version, stored["default_payment"], stored["einwilligung"]["scope"]) == (1, 25, "internal")
+        assert (pressed.status_code, saved.status_code) == (204, 200), (pressed.text, saved.text)
+        assert (saved.json()["version"], stored["default_payment"], stored["einwilligung"]["scope"]) == (1, 25, "internal")
 
 
 @pytest.mark.db

@@ -28,8 +28,6 @@ from app.api.address_change.services import (
     build_address_filter,
 )
 from app.api.address_change.system_router import get_address_change_address
-from app.api.grants.admin_router import post_grant
-from app.api.grants.schemas import FLPostGrantPayload
 from app.api.identity.admin_router import post_erasure
 from app.api.identity.crud import find_sign_in, find_subject, unreferenced_of
 from app.api.identity.schemas import FLErasurePayload
@@ -43,16 +41,16 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.logging import JSONFormatter
-from app.core.recording import actor_var
 from app.shared.schemas.bounds import ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAITING_PERIOD_DAYS, GRANT_WAIT_HOURS, OWNER_WAIT_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.app_client import app_client, app_under_test
-from tests.config import ADMINISTRATORS, SYSTEM_AUTH
+from tests.config import ADMIN_KEY, ADMINISTRATORS, SYSTEM_AUTH
 from tests.holds import HeldCollection
 from tests.isolation import COMMITTED, outcome_of, refused_code
 from tests.records import record_collections
+from tests.session_headers import StampedHeaders
 from tests.stored import the_row
 from tests.whole_database import where_held
 from tests.worker import worker_database
@@ -1043,20 +1041,21 @@ class TestAHoldersOwnChange:
         """Unanchored, the two share no row and both commit: a change an administrator may not start stands at a grant."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            async def addition() -> Any:
-                token = actor_var.set(OWNER)
-                try:
-                    return await call(post_grant, database, client, payload=FLPostGrantPayload(email=EMAIL), operator=OWNER)
-                finally:
-                    actor_var.reset(token)
+            added: list[int] = []
+            async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
 
-            racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.GRANTS], addition)
-            outcome = await outcome_of(administrator_starts(database, client, grants_collection=cast(Any, racing)))
+                async def addition() -> None:
+                    # The owner's addition as its page sends it, on a request of its own.
+                    response = await http.post(f"/api/v{API_VERSION}/grants", json={"email": EMAIL}, headers=StampedHeaders(OWNER, ADMIN_KEY))
+                    added.append(response.status_code)
+
+                racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.GRANTS], addition)
+                outcome = await outcome_of(administrator_starts(database, client, grants_collection=cast(Any, racing)))
             racing.assert_landed_inside(serially=1)
 
-            return racing.rival_outcome, outcome, await database[Collection.ADDRESS_CHANGES].count_documents(build_address_filter(EMAIL))
+            return added, outcome, await database[Collection.ADDRESS_CHANGES].count_documents(build_address_filter(EMAIL))
 
-        assert await on_a_person(mongo_replica_set_url, body) == (COMMITTED, Code.ADMIN_ADDRESS, 0)
+        assert await on_a_person(mongo_replica_set_url, body) == ([201], Code.ADMIN_ADDRESS, 0)
 
     @pytest.mark.parametrize(
         ("what", "moves"),
