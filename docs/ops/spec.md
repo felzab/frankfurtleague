@@ -525,11 +525,8 @@ its pinned release.
 running `./scripts/gate/verify.sh` with that scope's flag. Beside them:
 
 - **`journeys`** runs the Playwright journeys against the end-to-end stack, raised from the images
-  the `images` job built, in six legs, each on a runner and a stack of its own: `desktop` with
-  `first-pass`, `phone`, and the layout-shift guard's four, `layout-public`, which re-seeds its
-  database under each state of the landing (`fl_backend/tests/made_up_seed.py :: LANDING_STATES`) and
-  runs the landing's cases again, and `layout-signed-in-1` to `-3`, whose cases Playwright's `--shard`
-  splits in three.
+  the `images` job built, in two legs, each on a runner and a stack of its own: `desktop` with
+  `first-pass`, and `phone`.
 - **`verify`**, the required check, fails on a job that failed, was cancelled or was skipped, and on
   a job missing from its `needs:`.
 - **`publish`**, on a push to `main` that `verify` passed, pushes the two images the `images` job
@@ -761,7 +758,6 @@ be true there, a check the owner makes in its list of monitors:
 | Every gate scope has one CI job, and every job but `journeys`, `verify` and `publish` runs one scope                                       | `scripts/tests/test_gate_jobs.py`; the `verify` job holds every job to its `needs:`                                                                                                    |
 | Scripts carry the git executable bit                                                                                                       | `scripts/gate/selfcheck.sh`, its second step                                                                                                                                           |
 | A deploy pins no build its last read finds with a service not running and healthy, and a stopped one-off container names no service        | `scripts/tests/test_deploy.py`, which runs `scripts/ops/deploy.sh` behind a stand-in engine; no real engine is driven                                                                  |
-| CI's landing loop names every landing state the seed seeds but the seed as written                                                         | `scripts/tests/test_landing_states.py`                                                                                                                                                 |
 | Production never builds                                                                                                                    | unenforced: `docker-compose.yml` declares no `build:`, and `deploy.sh` only pulls                                                                                                      |
 | The builder stage has no reachable backend and no real environment                                                                         | `fl_frontend/Dockerfile`'s `SKIP_ENV_VALIDATION=true`, with no secrets directory and no `API_URL`                                                                                      |
 | The three API keys are 64 printable ASCII characters without the space, one file each that both sides read                                 | `fl_frontend/src/core/config.ts :: INTERNAL_API_KEY` and `fl_backend/app/core/config.py :: INTERNAL_API_KEY_CHARACTERS`                                                                |
