@@ -32,30 +32,62 @@ from app.core.config import API_VERSION
 from app.core.recording import ACT_BY_KONTAKT, record_act
 from app.core.transactions import UNKNOWN_COMMIT_RESULT
 from app.shared.einwilligung_evidence import evidence_state_of
+from tests import spiel_saves
+from tests import spielbestaetigung_corpus as confirmations
 from tests.acts import journal_records
 from tests.app_client import app_client, app_under_test
-from tests.config import ADMIN_KEY
+from tests.config import ADMIN_KEY, ADMINISTRATORS, grants_for_the_suite
 from tests.database import a_clean_database
 from tests.documents import SPIELER_TEXT_VERSIONS, own_einwilligung_document, saison_document, spieler_document
+from tests.erasure import erased_on_request
+from tests.erasure_corpus import (
+    IDENTIFIER,
+    THEIR_GRANT_OID,
+    THEIR_REPORT_OID,
+    TYPED,
+    a_grant,
+    a_person_holding_everything,
+    action_log_row,
+)
+from tests.erasure_corpus import NOW as ERASURE_NOW
+from tests.erasure_corpus import PUPIL_OID as THEIR_PUPIL_OID
+from tests.erasure_corpus import erased_by_the_handler as erased_by_the_person
+from tests.erasure_sweep_corpus import a_due_pupil, a_report_naming, seeded
+from tests.erasure_sweep_corpus import numbered as pupil_numbered
+from tests.erasure_sweep_corpus import run as a_deletion_call
+from tests.erasure_sweep_corpus import the_league as the_pupils_league
 from tests.records import record_collections
 from tests.session_headers import StampedHeaders
+from tests.subject_corpus import IDENTIFIER as SUBJECTS_SEAT_HOLDER
+from tests.subject_corpus import the_subjects_corpus
 from tests.whole_database import where_held
 from tests.worker import worker_database
 
-from . import test_spielbestaetigung_sweep_execution as confirmations
-from . import test_spiele_write_execution as spiel_saves
-from .test_identity_erasure_execution import IDENTIFIER, THEIR_GRANT_OID, THEIR_REPORT_OID, a_grant, action_log_row
-from .test_identity_erasure_execution import PUPIL_OID as THEIR_PUPIL_OID
-from .test_identity_erasure_execution import erased_by_the_handler as erased_by_the_person
-from .test_identity_erasure_execution import on_a_league as on_their_league
-from .test_identity_erasure_on_request import erased_by_the_handler as erased_on_request
-from .test_identity_erasure_on_request import on_a_league as on_the_administrators_league
-from .test_identity_erasure_sweep import a_due_pupil, a_report_naming, seeded
-from .test_identity_erasure_sweep import numbered as pupil_numbered
-from .test_identity_erasure_sweep import on_a_league as on_the_pupils_league
-from .test_identity_erasure_sweep import run as a_deletion_call
-from .test_identity_subject_execution import IDENTIFIER as SUBJECTS_SEAT_HOLDER
-from .test_identity_subject_execution import on_a_league as on_the_subjects_league
+# The one database every case here seeds, whichever suite's records it borrows.
+PRESS_DATABASE = worker_database("fl_commit_fail_points_test")
+
+# The administrator who enters an erasure on a mailed request, one the suite's grants hold.
+OPERATOR = ADMINISTRATORS[1]
+REQUEST_REASON = "Mail vom 30.03.2126, Betreff: Bitte löscht alle meine Daten"
+
+Seed = Callable[[AsyncDatabase], Awaitable[None]]
+
+
+async def on_a_league(url: str, seed: Seed, body: Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]) -> Any:
+    """`body` on this suite's database, on the shipped indexes, once `seed` has run."""
+
+    async with a_clean_database(url, PRESS_DATABASE, constraints=True) as (client, database):
+        await seed(database)
+
+        return await body(database, client)
+
+
+async def the_administrators_league(database: AsyncDatabase) -> None:
+    """The person holding everything, beside the suite's grants an administrator presses through."""
+
+    await database[Collection.GRANTS].insert_many(grants_for_the_suite())
+    await a_person_holding_everything(database)
+
 
 # The client a configuration hits, chosen by its name: the commits of every other client, each seed's own among them,
 # run as they would.
@@ -162,7 +194,7 @@ class TestALookupInsideATransaction:
 
             return await _first_reads(mongo_replica_set_url, database, lookup)
 
-        answer, sent = await on_the_subjects_league(mongo_replica_set_url, body)
+        answer, sent = await on_a_league(mongo_replica_set_url, the_subjects_corpus, lambda database, _client: body(database))
 
         assert answer.seats, "the lookup found no seat, so a single read sent proves nothing of the others"
         assert len(sent) == 1, f"the lookup sent {sent} before the first answered"
@@ -187,7 +219,7 @@ class TestThePersonsOwnErasure:
             return commits.answered, lost.value.has_error_label(UNKNOWN_COMMIT_RESULT), await where_held(database, IDENTIFIER)
 
         with caplog.at_level(logging.INFO):
-            commits, labelled, after = await on_their_league(mongo_replica_set_url, body)
+            commits, labelled, after = await on_a_league(mongo_replica_set_url, a_person_holding_everything, body)
 
         # The premise first, so a failure names its cause: one commit ran, its answer was lost, and the erasure landed.
         assert (commits, labelled, after) == ([MAX_TIME_EXPIRED], True, {IDENTIFIER: []})
@@ -222,7 +254,7 @@ class TestThePersonsOwnErasure:
             return commits.answered, await database[Collection.GRANTS].count_documents({"_id": THEIR_GRANT_OID})
 
         with caplog.at_level(logging.INFO):
-            refused, left = await on_their_league(mongo_replica_set_url, body)
+            refused, left = await on_a_league(mongo_replica_set_url, a_person_holding_everything, body)
 
         assert len(journal_records(caplog)) == 1
         # The premise last: one commit refused, so the line counted above is the second attempt's alone.
@@ -267,7 +299,7 @@ class TestThePersonsOwnErasure:
             return commits.answered, before, await _every_document(database)
 
         with caplog.at_level(logging.INFO):
-            commits, before, after = await on_their_league(mongo_replica_set_url, body)
+            commits, before, after = await on_a_league(mongo_replica_set_url, a_person_holding_everything, body)
 
         # The premise first: one commit, refused, so what follows is the rollback's state.
         assert commits == [NO_SUCH_TRANSACTION]
@@ -301,7 +333,9 @@ class TestAnErasureOnRequest:
             }
             await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=refusal)
             try:
-                await erased_on_request(refusing[database.name], refusing)
+                await erased_on_request(
+                    refusing[database.name], refusing, email=TYPED, reason=REQUEST_REASON, by=OPERATOR, germany_now=ERASURE_NOW
+                )
             finally:
                 await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
                 await refusing.close()
@@ -309,7 +343,7 @@ class TestAnErasureOnRequest:
             return commits.answered, await database[Collection.SPIELER].count_documents({"_id": THEIR_PUPIL_OID})
 
         with caplog.at_level(logging.INFO):
-            refused, left = await on_the_administrators_league(mongo_replica_set_url, body)
+            refused, left = await on_a_league(mongo_replica_set_url, the_administrators_league, body)
 
         assert len(journal_records(caplog)) == 1
         # The premise last: one commit refused, so the line above is the rerun's alone.
@@ -324,7 +358,9 @@ class TestAnErasureOnRequest:
             await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=UNANSWERED)
             try:
                 with pytest.raises(PyMongoError) as lost:
-                    await erased_on_request(losing[database.name], losing)
+                    await erased_on_request(
+                        losing[database.name], losing, email=TYPED, reason=REQUEST_REASON, by=OPERATOR, germany_now=ERASURE_NOW
+                    )
             finally:
                 await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
                 await losing.close()
@@ -332,7 +368,7 @@ class TestAnErasureOnRequest:
             return commits.answered, lost.value.has_error_label(UNKNOWN_COMMIT_RESULT), await where_held(database, IDENTIFIER)
 
         with caplog.at_level(logging.INFO):
-            commits, labelled, after = await on_the_administrators_league(mongo_replica_set_url, body)
+            commits, labelled, after = await on_a_league(mongo_replica_set_url, the_administrators_league, body)
 
         # The premise first, so a failure names its cause: one commit ran, its answer was lost, and the erasure landed.
         assert (commits, labelled, after) == ([MAX_TIME_EXPIRED], True, {IDENTIFIER: []})
@@ -344,7 +380,6 @@ CONSENT_PRESS = f"/api/v{API_VERSION}/spieler/account/einwilligung"
 PERSON = "ortrud.zwiebelmayer@schule.de"
 PUPIL_OID = ObjectId("6890a1b2c3d4e5f607870011")
 PRESS_NOW = datetime(2126, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
-PRESS_DATABASE = worker_database("fl_commit_fail_points_test")
 RECORDED_TEAM = "Lessing"
 THEIR_CONSENT = own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at="2126-09-02", media=True)
 
@@ -479,8 +514,9 @@ class TestAConfirmationMintWhoseCommitAnswerIsLost:
 
             return commits.answered, lost.value, standing, owed, await confirmations.a_pass(database, client)
 
-        commits, lost, standing, owed, nxt = await confirmations.on_a_league(
-            mongo_replica_set_url, body, spiele=[confirmations.a_spiel(confirmations.SPIEL, 1, confirmations.NEXT_WEEK)]
+        spiele = [confirmations.a_spiel(confirmations.SPIEL, 1, confirmations.NEXT_WEEK)]
+        commits, lost, standing, owed, nxt = await on_a_league(
+            mongo_replica_set_url, lambda database: confirmations.the_league(database, spiele=spiele), body
         )
 
         # The premise first: the close committed, and the mint's commit landed with its answer lost.
@@ -541,7 +577,9 @@ class TestASpielSaveRefusedAtItsCommit:
 
             return commits.answered, await spiel_saves.spiele_now(database), before, await spiel_saves.reports_now(database)
 
-        commits, spiele, before, after = await spiel_saves.on_a_seeded_season(mongo_replica_set_url, body, spiele=spiele)
+        commits, spiele, before, after = await on_a_league(
+            mongo_replica_set_url, lambda database: spiel_saves.the_season(database, spiele), body
+        )
 
         # The premise first: one commit, refused, and the fixture it carried not written.
         assert (commits, spiele[spiel_saves.VIERTELFINALE_NR]["ergebnis"]) == ([NO_SUCH_TRANSACTION], "1:3")
@@ -582,7 +620,7 @@ class TestAPupilsErasureRefusedAtItsCommit:
 
             return commits.answered, (answer.spieler, answer.failed), report, standing
 
-        commits, counted, report, standing = await on_the_pupils_league(mongo_replica_set_url, body)
+        commits, counted, report, standing = await on_a_league(mongo_replica_set_url, the_pupils_league, body)
 
         # The premise first: one commit, refused, and the erasure it carried counted as failed.
         assert (commits, counted) == ([NO_SUCH_TRANSACTION], (0, 1))

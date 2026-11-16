@@ -1,7 +1,7 @@
 """
 API · an administrator's erasure on a mailed request, held against the person's own erasure's whole-database seed
 
-The seed is `tests/api/test_identity_erasure_execution.py`'s, one address holding every kind of record, beside
+The seed is `tests/erasure_corpus.py`'s, one address holding every kind of record, beside
 the suite's grants an administrator signs in through. Every case asks what the database holds after
 the request, so a step, a refusal or a reset missing from the route fails here.
 """
@@ -27,19 +27,13 @@ from app.core.config import API_VERSION
 from app.core.crud import ANCHOR_FIELD
 from app.core.db import collection_dependency
 from app.core.exceptions import APIError
-from app.core.recording import actor_var
 from tests.acts import journal_records
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_KEY, ADMINISTRATORS, grants_for_the_suite
 from tests.database import a_clean_database
 from tests.documents import address_change_document, spiel_document, spieler_document
-from tests.erasure import erasure_collections, what_the_erasure_took
-from tests.isolation import InterleavedCollection
-from tests.session_headers import StampedHeaders
-from tests.whole_database import where_held
-from tests.worker import worker_database
-
-from .test_identity_erasure_execution import (
+from tests.erasure import erased_on_request, what_the_erasure_took
+from tests.erasure_corpus import (
     FIRST_NAME,
     IDENTIFIER,
     LAST_NAME,
@@ -58,7 +52,11 @@ from .test_identity_erasure_execution import (
     as_person,
     everything_in,
 )
-from .test_identity_erasure_execution import PATH as OWN_ERASURE_PATH
+from tests.erasure_corpus import PATH as OWN_ERASURE_PATH
+from tests.isolation import InterleavedCollection
+from tests.session_headers import StampedHeaders
+from tests.whole_database import where_held
+from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_erasure_on_request_test")
 
@@ -115,17 +113,7 @@ async def erased_by_the_handler(
 ) -> None:
     """The route's own function outside a request, as `OPERATOR`, for a case driving the driver itself."""
 
-    token = actor_var.set(OPERATOR)
-    try:
-        await post_erasure(
-            erasure_data=FLErasurePayload(email=email, reason=reason),
-            **erasure_collections(database, **replaced),
-            db=client,
-            operator=OPERATOR,
-            germany_now=NOW,
-        )
-    finally:
-        actor_var.reset(token)
+    await erased_on_request(database, client, email=email, reason=reason, by=OPERATOR, germany_now=NOW, **replaced)
 
 
 def _object_ids(value: Any) -> Iterator[ObjectId]:
