@@ -534,13 +534,15 @@ repository cannot act on belongs in zizmor.yml with its reason, never suppressed
   stage_compose_models "$OPS_SCRATCH"
   render_compose_model "$OPS_SCRATCH" production || die "docker-compose.yml does not parse."
   render_compose_model "$OPS_SCRATCH" local || die "docker-compose.local.yml does not merge over docker-compose.yml."
-  ok "both stacks parse"
+  render_compose_model "$OPS_SCRATCH" e2e || die "docker-compose.e2e.yml does not merge over the local stack."
+  ok "the three stacks parse"
 
   # A parse accepts a published port and a database alike.
   step "ops · what each stack exposes, mounts, trusts, hands out and keeps"
   check --exits contract "A stack exposes, mounts, trusts, hands out or keeps more than the rule it breaks allows. The
 findings above name the service and the rule." \
-    "$PY" scripts/lib/checker_kernel.py scripts/checks/check_compose_model.py "${OPS_SCRATCH}/production.json" "${OPS_SCRATCH}/local.json" \
+    "$PY" scripts/lib/checker_kernel.py scripts/checks/check_compose_model.py \
+    "${OPS_SCRATCH}/production.json" "${OPS_SCRATCH}/local.json" "${OPS_SCRATCH}/e2e.json" \
     && ok "each stack publishes, mounts, trusts and holds only what its rules allow"
 
   step "ops · every route handler, link page and metadata convention is metered at the edge"

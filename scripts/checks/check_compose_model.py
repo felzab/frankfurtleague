@@ -332,9 +332,9 @@ def moved_names(model: dict[str, Any], name: str) -> list[Finding]:
 
 
 def local(model: dict[str, Any], name: str) -> list[Finding]:
-    """Every published port binds a loopback address, the edge's included.
+    """Every published port binds a loopback address, the edge's included, in either local stack.
 
-    The local stack's database asks no login, so a port on any other interface serves it, and the
+    A local stack's database asks no login, so a port on any other interface serves it, and the
     stack, to the developer's whole network.
     """
     findings = host_network(model, name)
@@ -347,7 +347,7 @@ def local(model: dict[str, Any], name: str) -> list[Finding]:
                 findings.append(
                     Finding(
                         f"{name}: {service} publishes {port.get('published')}->{port.get('target')} on {where}\n"
-                        f"{CONTINUATION}nothing of the local stack is reachable off this host; bind 127.0.0.1",
+                        f"{CONTINUATION}nothing of a local stack is reachable off this host; bind 127.0.0.1",
                     )
                 )
     return findings
@@ -547,23 +547,28 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Does either stack expose more than its edge, or mount the edge's configuration by file?")
     parser.add_argument("production", metavar="PROD_JSON", help="docker compose -f docker-compose.yml config --format json")
     parser.add_argument("local", metavar="LOCAL_JSON", help="the same, with docker-compose.local.yml merged over it")
+    parser.add_argument("e2e", metavar="E2E_JSON", help="the same, with docker-compose.e2e.yml merged over the local pair")
     args = parser.parse_args()
     try:
         prod_model = json.loads(Path(args.production).read_bytes())
         local_model = json.loads(Path(args.local).read_bytes())
+        e2e_model = json.loads(Path(args.e2e).read_bytes())
         connector = connector_address(prod_model, "production")
         stacks = (
             Stack(prod_model, "production", Path(args.production).resolve().parent, connector),
             Stack(local_model, "local", Path(args.local).resolve().parent, connector),
         )
         findings = [finding for rule in RULES for stack in stacks for finding in rule(stack)]
+        # The end-to-end stack is the local one again under its own project, with its own keys, settings
+        # and made-up data, so it is held to what it can still loosen there: where it publishes.
+        findings += local(e2e_model, "e2e")
     except (*UNREADABLE, ValueError, NginxSyntax) as error:
         print(f"      {error}", file=sys.stderr)
         print("      Nothing was judged, so this is a refusal rather than a verdict on either stack.", file=sys.stderr)
         return EXIT_REFUSED
     code = report_findings(findings)
     if not findings:
-        print(f"      production publishes nothing and runs {len(PRODUCTION_SERVICES)} services; locally every port binds loopback")
+        print(f"      production publishes nothing and runs {len(PRODUCTION_SERVICES)} services; both local stacks bind loopback alone")
         print(f"      both edges mount {EDGE_CONFIG_ROOT}/ by directory")
         print(f"      either edge trusts the {CONNECTOR_SERVICE} address alone")
         print("      each application service reads its package's environment file alone")

@@ -256,18 +256,22 @@ def declared_secrets(project: Path, stack: str, **moved: str) -> dict[str, Any]:
 CHECKER_FILES: Final = ("scripts/checks/check_compose_model.py", "scripts/lib/checker_kernel.py", "scripts/lib/nginx_conf.py")
 
 
-def run_main(production: dict[str, Any], local: dict[str, Any], project: Path) -> subprocess.CompletedProcess[str]:
-    """The checker run as the gate runs it, as its own process, over two rendered models beside `project`.
+def run_main(
+    production: dict[str, Any], local: dict[str, Any], project: Path, e2e: dict[str, Any] | None = None
+) -> subprocess.CompletedProcess[str]:
+    """The checker run as the gate runs it, through the kernel's launcher, over three rendered models beside `project`.
 
     It reads the edge's directories from the checkout it sits in, so `project` holds the checker too,
-    and is the checkout their edges mount as well as the directory Compose rendered them in.
+    and is the checkout their edges mount as well as the directory Compose rendered them in. The
+    end-to-end model is the local one where a case gives none, as the end-to-end file publishes nothing of its own.
     """
     for rel in CHECKER_FILES:
         (project / rel).parent.mkdir(parents=True, exist_ok=True)
         (project / rel).write_bytes((REPO_ROOT / rel).read_bytes())
-    for name, rendered in (("production.json", production), ("local.json", local)):
+    models = (("production.json", production), ("local.json", local), ("e2e.json", local if e2e is None else e2e))
+    for name, rendered in models:
         (project / name).write_bytes(json.dumps(rendered).encode())
-    command = (sys.executable, str(project / CHECKER_FILES[0]), str(project / "production.json"), str(project / "local.json"))
+    command = (sys.executable, str(project / CHECKER_FILES[1]), str(project / CHECKER_FILES[0]), *(str(project / name) for name, _ in models))
     # Its own encoding, not the machine's: the checker's streams are utf-8 whatever the codepage.
     return subprocess.run(command, capture_output=True, encoding="utf-8", errors="replace", check=False)
 
@@ -292,7 +296,20 @@ def test_a_clean_pair_exits_zero():
     done = run_main(*clean_pair(project), project)
 
     assert done.returncode == 0, done.stdout + done.stderr
-    assert "production publishes nothing and runs 4 services; locally every port binds loopback" in done.stdout, done.stdout
+    assert "production publishes nothing and runs 4 services; both local stacks bind loopback alone" in done.stdout, done.stdout
+
+
+def test_an_end_to_end_stack_publishing_off_loopback_fails_the_run():
+    """The end-to-end file can override a port the local stack binds to loopback, and its database asks no login either."""
+    project = new_root("fl-compose-main-")
+    production, local = clean_pair(project)
+    e2e = json.loads(json.dumps(local))
+    e2e["services"]["nginx"]["ports"] = [port("3000", 80)]
+
+    done = run_main(production, local, project, e2e)
+
+    assert done.returncode == 1, done.stdout + done.stderr
+    assert failures(done) == ["FAIL    e2e: nginx publishes 3000->80 on every interface"], done.stdout
 
 
 @pytest.mark.parametrize("failing", ["production", "local"])
@@ -649,7 +666,7 @@ COMPOSE_STUB: Final = '#!/usr/bin/env bash\nprintf \'%s\n\' "$*" >> "$FL_COMPOSE
 
 
 def _staged_and_rendered() -> tuple[Path, list[str]]:
-    """`stage_compose_models` and both renders, as the gate's ops scope calls them, behind a stand-in docker."""
+    """`stage_compose_models` and the three renders, as the gate's ops scope calls them, behind a stand-in docker."""
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
     root = new_root("fl-compose-stage-")
     stubs = root / "stubs"
@@ -662,6 +679,7 @@ def _staged_and_rendered() -> tuple[Path, list[str]]:
         f'stage_compose_models "{staged.as_posix()}"\n'
         f'render_compose_model "{staged.as_posix()}" production\n'
         f'render_compose_model "{staged.as_posix()}" local\n'
+        f'render_compose_model "{staged.as_posix()}" e2e\n'
     )
     done = run_shell(BASH, write_shell(root / "parent.sh", body), env=environment)
     assert done.returncode == 0, done.stdout + done.stderr
@@ -676,15 +694,18 @@ def test_each_stand_in_names_itself_in_the_names_the_checker_reads():
         text = (staged / env_file).read_bytes().decode()
         assert text == f"{checker.STAND_IN_READ}{number}={env_file}\n", env_file
     assert (staged / "docker-compose.yml").read_bytes() == (checker.REPO_ROOT / "docker-compose.yml").read_bytes()
-    assert (staged / "docker-compose.local.yml").read_bytes() == (checker.REPO_ROOT / "docker-compose.local.yml").read_bytes()
+    for compose_file in ("docker-compose.yml", "docker-compose.local.yml", "docker-compose.e2e.yml"):
+        assert (staged / compose_file).read_bytes() == (checker.REPO_ROOT / compose_file).read_bytes(), compose_file
 
 
-def test_the_local_model_is_the_merge_and_neither_render_skips_the_environment():
+def test_each_local_model_is_its_merge_and_no_render_skips_the_environment():
     """`--no-env-resolution` is ignored by one Compose release and honoured by the next, so it renders two models."""
     staged, argv = _staged_and_rendered()
     base = f"-f {staged.as_posix()}/docker-compose.yml"
+    local = f"{base} -f {staged.as_posix()}/docker-compose.local.yml"
 
     assert argv == [
         f"compose {base} config --format json --output {staged.as_posix()}/production.json",
-        f"compose {base} -f {staged.as_posix()}/docker-compose.local.yml config --format json --output {staged.as_posix()}/local.json",
+        f"compose {local} config --format json --output {staged.as_posix()}/local.json",
+        f"compose {local} -f {staged.as_posix()}/docker-compose.e2e.yml config --format json --output {staged.as_posix()}/e2e.json",
     ]

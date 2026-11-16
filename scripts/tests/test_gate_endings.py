@@ -3,7 +3,7 @@
 A tool's status is read through `scripts/lib/_lib.sh :: EXIT_CODES`, so a row read wrongly ends a run on the wrong
 class with every line still printed: a refusal reads as a finding to fix, or a finding as a crash. Nobody reading the
 scope's output alone sees that, and a caller branching on the code acts on the wrong one. Each case copies the gate and
-its library into a fixture tree with both compose files and the tools file, a stand-in virtualenv whose interpreter
+its library into a fixture tree with the three compose files and the tools file, a stand-in virtualenv whose interpreter
 and zizmor answer what the case says, a stand-in edge test answering 0, and a stand-in `docker` and `uv` first on PATH,
 so the docs and ops scopes run with no daemon, no audit and no install.
 """
@@ -56,7 +56,14 @@ ok "the edge passed"
 """
 
 TOOLS_FILE: Final = "scripts/gate/tools.Dockerfile"
-COPIED: Final = ("scripts/gate/verify.sh", "scripts/lib/_lib.sh", "docker-compose.yml", "docker-compose.local.yml", TOOLS_FILE)
+COPIED: Final = (
+    "scripts/gate/verify.sh",
+    "scripts/lib/_lib.sh",
+    "docker-compose.yml",
+    "docker-compose.local.yml",
+    "docker-compose.e2e.yml",
+    TOOLS_FILE,
+)
 
 
 def _gate(*scopes: str, answers: dict[str, str], tools: str | None = None) -> tuple[int, str]:

@@ -635,21 +635,23 @@ COMPOSE_STAND_INS=(fl_backend/.env fl_frontend/.env)
 stage_compose_models() {
   local directory="$1" env_file number=0
   mkdir -p "${directory}/fl_backend" "${directory}/fl_frontend"
-  cp docker-compose.yml docker-compose.local.yml "${directory}/"
+  cp docker-compose.yml docker-compose.local.yml docker-compose.e2e.yml "${directory}/"
   for env_file in "${COMPOSE_STAND_INS[@]}"; do
     number=$(( number + 1 ))
     printf 'FL_STAND_IN_READ_%s=%s\n' "$number" "$env_file" > "${directory}/${env_file}"
   done
 }
 
-# `$2` is `production` or `local`, written to `$1/$2.json`. The local stack is the merge `local.sh` runs,
-# the override being no stack alone. `--output` keeps a text-mode stream off the model.
+# `$2` is `production`, `local` or `e2e`, written to `$1/$2.json`. The local stack is the merge
+# `local.sh` runs and the end-to-end stack the merge `e2e_stack.sh` runs, neither override being a
+# stack alone. `--output` keeps a text-mode stream off the model.
 render_compose_model() {
   # The base file names both images by the tag a deploy pins and refuses to parse without one, and a
   # rendered model runs no image, so any word stands in.
   local -x TAG=gate
   local -a files=(-f "$1/docker-compose.yml")
-  if [[ "$2" == local ]]; then files+=(-f "$1/docker-compose.local.yml"); fi
+  if [[ "$2" == local || "$2" == e2e ]]; then files+=(-f "$1/docker-compose.local.yml"); fi
+  if [[ "$2" == e2e ]]; then files+=(-f "$1/docker-compose.e2e.yml"); fi
   # Never `--no-env-resolution`: Compose 2.38 ignores it and later releases honour it, so it would
   # make the rendered environment depend on the release.
   quietly docker compose "${files[@]}" config --format json --output "$1/$2.json"
