@@ -325,8 +325,6 @@ jobs:
       # journeys' `docker run` pulls the image itself and says why it cannot.
       - name: Start pulling the image holding the browsers
         run: docker pull "$PLAYWRIGHT_IMAGE" > /dev/null 2>&1 &
-      # The image holds no Playwright package, so the journeys run from this install.
-      - uses: ./.github/actions/frontend-toolchain
       - name: Generate the stack's throwaway keys
         # As `local.sh`'s `write_e2e_keys` generates them, each file readable by the containers' own
         # users, which the runner's user is not. Nothing is printed.
@@ -360,7 +358,14 @@ jobs:
       # container's address to fail a later journey.
       - name: Keep Docker's interfaces from changing an address under the browser
         run: sudo sysctl --write net.ipv6.conf.default.addr_gen_mode=1
+      # Started without waiting, so the database's pull and both starts overlap the install below; the
+      # `up --wait` after it recreates neither container, since `up` recreates one only for a changed
+      # configuration or image (https://docs.docker.com/reference/cli/docker/compose/up/).
       - name: Start the database and the backend
+        run: docker compose up -d --no-build mongo backend
+      # The image holds no Playwright package, so the journeys run from this install.
+      - uses: ./.github/actions/frontend-toolchain
+      - name: Wait for the database and the backend
         run: docker compose up -d --no-build --wait --wait-timeout 180 mongo backend
       - name: Load the made-up seed and judge it
         run: |
