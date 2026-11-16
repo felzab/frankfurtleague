@@ -430,21 +430,19 @@ or name production code knip cannot see in fl_frontend/knip.production.json." \
 OPS_SCRATCH=""
 cleanup_ops() { if [[ -n "$OPS_SCRATCH" ]]; then rm -rf "$OPS_SCRATCH" || true; fi; }
 
-# zizmor answers 11 to 14 for findings and 1 for its own failure. Installed at the release and the
-# file hashes scripts/gate/zizmor/requirements.txt pins, being no backend dependency; Dependabot moves
-# that file. An environment of the scope's own rather than `uv tool run`, which checks no hash in a
-# constraints or requirements file; `--no-build`, or a wheel refused by its hash falls back to
-# building the sdist, whose Rust toolchain and build backend no hash covers.
+# zizmor answers 11 to 14 for findings and 1 for its own failure, a GitHub API it could not read
+# among them. The release is the backend lockfile's, from the `zizmor` dependency group. Its wheel
+# installs the program alone, with no module `-m` could run, so it runs from beside the interpreter.
 run_zizmor() {
-  local rc=0 env="${OPS_SCRATCH}/zizmor" bin
-  uv venv --quiet --python "$PY" "$env" || return 3
-  uv pip install --quiet --python "$env" --require-hashes --no-build \
-    --requirements scripts/gate/zizmor/requirements.txt || return 3
-  bin="${env}/bin/zizmor"
-  [[ -x "$bin" ]] || bin="${env}/Scripts/zizmor.exe"
-  # `--offline`, or a token in the environment turns on rules that reach the network;
+  local rc=0 bin="${PY%/*}/zizmor"
+  local -a network=(--offline)
+  [[ -x "$bin" ]] || bin="${PY%/*}/zizmor.exe"
+  # Online under Actions alone, with the job's read-only token, where the audits reading GitHub's API
+  # run: an action pinned to a commit gets no Dependabot alert, so `known-vulnerable-actions` is what
+  # names one. Offline everywhere else, or a token in a person's environment turns those audits on.
+  if [[ -n "${GITHUB_ACTIONS:-}" ]]; then network=(); fi
   # `--strict-collection`, or a malformed `.github/dependabot.yml` is a warning it exits 0 on.
-  "$bin" --offline --strict-collection --persona regular . || rc=$?
+  "$bin" "${network[@]}" --strict-collection --persona regular . || rc=$?
   case "$rc" in
     0) return 0 ;;
     11|12|13|14) return 1 ;;
