@@ -31,7 +31,9 @@
 **/.ruff_cache/
 **/*.log
 
-# `uv sync --no-dev` installs no pytest, so the suite could only ever be inert bytes in the image.
+# The suite, which no image runs, since `uv sync --no-dev` installs no pytest, and the made-up seed,
+# which empties the database it writes: `scripts/ops/made_up_seed.sh` hands it to a local stack's
+# running container alone, so no image carries it to production.
 tests/
 
 # The published document the frontend's contract test compares against. The running app
