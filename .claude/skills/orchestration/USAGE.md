@@ -90,8 +90,9 @@ added or changed finds it after `/reload-skills`, which re-scans the command dir
   when you give no number, by sizing the fleet to it and pausing agents gracefully above it. It holds
   until `/fullspeed`.
 - **`/away [until]`** prepares the session before you leave. Claude adds the permission overlay that
-  keeps an agent's prompt from parking the fleet, and replies once, asking nothing. The reply says
-  when a usage stop is due, whether it will continue on its own, and what will wait for you. While
+  keeps an agent's prompt from parking the fleet and refuses Claude's own questions to you, then
+  replies once, asking nothing. The reply says when a usage stop is due, whether it will continue on
+  its own, and what will wait for you. While
   you are away, questions are queued with a recommendation instead of asked. Where one blocks work,
   the recommended option is built provisionally.
 - **`/back`** undoes the preparation and reports what changed while you were away, every
