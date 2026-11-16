@@ -12,8 +12,8 @@ const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..");
 
 const STATUS = z.enum(FLSaisonStatus);
 
-// Read rather than retyped. No backend case reads this table, so it holds this tier's predicate alone:
-// a status the backend's `grants_a_panel` decides otherwise fails no suite.
+// Read rather than retyped: the backend's own suite holds `grants_a_panel` to the same table, so a status either tier
+// decides otherwise fails that tier's suite.
 const VERDICTS = z
   .array(z.object({ saison_status: STATUS, grants_a_panel: z.boolean() }))
   .parse(JSON.parse(readFileSync(path.resolve(REPO_ROOT, "fl_backend", "tests", "shared", "grants_a_panel.json"), "utf8")));
