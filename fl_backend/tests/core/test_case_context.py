@@ -7,11 +7,11 @@ the file, the last of them would pass on a context nothing set.
 """
 
 import re
-import subprocess
 import sys
 from pathlib import Path
 
 from tests.database import CASE_BOUND_S
+from tests.processes import to_its_exit
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 CANARIES = Path(__file__).with_name("context_canary_cases.py")
@@ -25,14 +25,10 @@ assert CASE_BOUND_S < CANARIES_BOUND_S, "the canaries' run must outlast a case i
 
 def test_each_case_runs_in_a_context_of_its_own():
     # The environment passes through as it is and is never held in a local: `--showlocals` prints a failing case's.
-    ran = subprocess.run(
+    ran = to_its_exit(
         [sys.executable, "-m", "pytest", str(CANARIES), "-p", "no:cacheprovider", "--no-header", "-q"],
+        bound_s=CANARIES_BOUND_S,
         cwd=BACKEND_ROOT,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        timeout=CANARIES_BOUND_S,
-        check=False,
     )
 
     assert ran.returncode == 0, ran.stdout

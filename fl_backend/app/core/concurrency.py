@@ -32,32 +32,36 @@ async def concurrently[A, B, C, D, E, F, G, H](
 @overload
 async def concurrently[T](*runs: Run[T]) -> tuple[T, ...]: ...
 async def concurrently(*runs: Run[Any]) -> tuple[Any, ...]:
-    """Every result in the order given, or the first exception raised, as itself, once every other run has stopped.
+    """Every result in the order given, or one exception raised, as itself, once every other run has stopped.
 
     A task group, where `asyncio.gather` would leave the others running past a failure. The group's
     `ExceptionGroup` is unwrapped because a handler is chosen by the exception's own type, so a 404
-    raised in a run answers as a 404. Where several raise, the first to finish failing set off the
-    cancellation, and every later one finished in the same step or was raised by that cancellation:
-    each of those is logged rather than raised.
+    raised in a run answers as a 404. Where several raise in the step that sets off the cancellation, or
+    as that cancellation unwinds them, a crash outranks a refusal, so the answer does not hang on which
+    finished first: the first failure that is not a refusal is raised, else the first refusal, and every
+    other crash is logged. A run the cancellation stopped before it raised has nothing to rank.
     """
 
     try:
         async with asyncio.TaskGroup() as group:
             tasks = [group.create_task(run) for run in runs]
     except BaseExceptionGroup as failed:
-        failure, *discarded = failed.exceptions
+        failures = failed.exceptions
     else:
         return tuple(task.result() for task in tasks)
 
-    for other in discarded:
-        _log_discarded(other)
+    crashes = [failure for failure in failures if not isinstance(failure, APIError)]
+    failure = (crashes or failures)[0]
+    for other in failures:
+        if other is not failure:
+            _log_discarded(other)
 
     # Raised outside the handler, which would otherwise overwrite the exception's own context with the group.
     raise failure
 
 
 def _log_discarded(failure: BaseException) -> None:
-    """A failure the call does not raise, located as the request's own handler would locate it, so a crash beside a refusal is found.
+    """A failure the call does not raise, located as the request's own handler would locate it, so a second crash is found.
 
     A refusal is an answer, for which `api_error_handler` writes no line either.
     """

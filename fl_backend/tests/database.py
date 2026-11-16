@@ -1,14 +1,17 @@
 import asyncio
 import io
+import weakref
 from collections.abc import AsyncGenerator, Awaitable, Callable, Coroutine, Iterable, Mapping, Sequence
 from contextlib import AsyncExitStack, asynccontextmanager, redirect_stdout
-from contextvars import Context, ContextVar
+from contextvars import Context, ContextVar, copy_context
 from datetime import UTC, datetime, timedelta
+from types import CoroutineType
 from typing import Any
 
 import pymongo
-from pymongo import AsyncMongoClient
+from pymongo import AsyncMongoClient, monitoring
 from pymongo.asynchronous.database import AsyncDatabase
+from pymongo.periodic_executor import AsyncPeriodicExecutor
 from pymongo.uri_parser import parse_uri
 
 from app.core.concurrency import concurrently
@@ -69,7 +72,7 @@ assert LONGEST_WAIT_S < CASE_BOUND_S < TRANSACTION_LIFETIME_S, (
 _DRAIN_S = 5.0
 
 _UNFINISHED = (
-    "{what} ran past {bound:.0f} s and was cancelled. Where it waits inside a write's transaction, the likely cause is a"
+    "{what} ran past {bound:g} s and was cancelled. Where it waits inside a write's transaction, the likely cause is a"
     " rival run inside that write which waits on the write's own transaction, a deadlock until MongoDB aborts it at its"
     " lifetime limit: run the rival before the write it contends with."
 )
@@ -114,6 +117,39 @@ _CASE: ContextVar[asyncio.Timeout | None] = ContextVar("_CASE", default=None)
 # Set while any scope runs, to its bound: asyncio copies the current context into every task it creates, so each task the
 # scope's code starts, and each task those start, carries it, and a task begun anywhere else does not.
 _SCOPE: ContextVar[asyncio.Timeout | None] = ContextVar("_SCOPE", default=None)
+
+
+# pymongo starts each of its background tasks from the context of whatever calls the executor's `open`, and restarts a
+# task that ended uncancelled from an operation's server selection. A shared topology's monitor restarted inside a case
+# would carry that case's mark, be cancelled at its end, and, cancelled, never be reopened.
+_EXECUTOR_RUN = AsyncPeriodicExecutor._run.__code__
+
+# Every executor whose first task started outside every scope, as a shared client's start in a context of its own.
+_UNSCOPED_EXECUTORS: weakref.WeakSet[AsyncPeriodicExecutor] = weakref.WeakSet()
+
+
+def _restarted_where_it_first_started(loop: asyncio.AbstractEventLoop, coro: Coroutine[Any, Any, Any], **options: Any) -> asyncio.Task[Any]:
+    """The loop's task factory: an executor first started outside every scope starts every later task outside them too."""
+
+    if isinstance(coro, CoroutineType) and coro.cr_code is _EXECUTOR_RUN:
+        # An unstarted coroutine's frame holds its arguments, `self` among them.
+        assert coro.cr_frame is not None, "the executor's task was handed a coroutine already run"
+        executor = coro.cr_frame.f_locals["self"]
+        context = options.get("context") or copy_context()
+        if context.get(_SCOPE) is None:
+            _UNSCOPED_EXECUTORS.add(executor)
+        elif executor in _UNSCOPED_EXECUTORS:
+            options["context"] = Context()
+
+    return asyncio.Task(coro, loop=loop, **options)
+
+
+def restart_background_tasks_where_they_first_started() -> None:
+    """Installs the running loop's task factory, before any client opens on it: the session's loop, once."""
+
+    loop = asyncio.get_running_loop()
+    assert loop.get_task_factory() is None, f"the loop already runs a task factory, {loop.get_task_factory()!r}"
+    loop.set_task_factory(_restarted_where_it_first_started)
 
 
 def case_deadline() -> float | None:
@@ -171,30 +207,30 @@ def _refuse_while_one_runs[T](work: Coroutine[Any, Any, T], what: str) -> None:
     raise AssertionError(_NOT_ISOLATED.format(what=what, first=first, tasks=", ".join(_named(tasks))))
 
 
-async def _within[T](bound: asyncio.Timeout, work: Awaitable[T], what: str) -> T:
+async def _within[T](bound: asyncio.Timeout, bound_s: float | None, work: Awaitable[T], what: str) -> T:
     try:
         async with bound:
             return await work
     except TimeoutError as timeout:
         # A `TimeoutError` the work raised itself passes as it was.
         if bound.expired():
-            raise TimeoutError(_UNFINISHED.format(what=what, bound=CASE_BOUND_S)) from timeout
+            raise TimeoutError(_UNFINISHED.format(what=what, bound=bound_s)) from timeout
         raise
 
 
-async def _scoped[T](work: Coroutine[Any, Any, T], what: str, *, named: str, a_case: bool) -> T:
-    """`work` under `CASE_BOUND_S`, failing if it leaves a task of its own running; a case is marked as one while it runs.
+async def _scoped[T](work: Coroutine[Any, Any, T], what: str, *, named: str, a_case: bool, bound_s: float | None = CASE_BOUND_S) -> T:
+    """`work` under `bound_s`, unbounded at `None`, failing if it leaves a task of its own running; a case is marked as one.
 
     Past the bound the work is cancelled and unwound before this raises, so its sessions abort their transactions here.
     A task still running once cancelled refuses every later scope, which a later refusal names by `named`.
     """
 
     _refuse_while_one_runs(work, what)
-    bound = asyncio.timeout(CASE_BOUND_S)
+    bound = asyncio.timeout(bound_s)
     scope = _SCOPE.set(bound)
     token = _CASE.set(bound) if a_case else None
     try:
-        return await _within(bound, work, what)
+        return await _within(bound, bound_s, work, what)
     finally:
         if token is not None:
             _CASE.reset(token)
@@ -217,10 +253,26 @@ async def bounded_case[T](case: Coroutine[Any, Any, T], nodeid: str) -> T:
     return await _scoped(case, "this case", named=nodeid, a_case=True)
 
 
-async def bounded[T](work: Coroutine[Any, Any, T], *, what: str = "this") -> T:
-    """`work` outside a case, under the case's bound and its check on the tasks it leaves."""
+async def bounded[T](work: Coroutine[Any, Any, T], *, what: str = "this", bound_s: float = CASE_BOUND_S) -> T:
+    """`work` outside a case, under the case's bound unless `bound_s` names a shorter one, and its check on the tasks it leaves."""
 
-    return await _scoped(work, what, named=what, a_case=False)
+    return await _scoped(work, what, named=what, a_case=False, bound_s=bound_s)
+
+
+async def fixture_phase[T](work: Coroutine[Any, Any, T], what: str) -> T:
+    """An async fixture's setup or teardown, as `tests/conftest.py :: pytest_fixture_setup` runs every one: its check on the tasks it leaves.
+
+    No bound of its own: a fixture's work bounds itself, a module's corpus each phase by `CASE_BOUND_S` and a boot by its
+    own, and a second bound around those would nest.
+    """
+
+    return await _scoped(work, what, named=what, a_case=False, bound_s=None)
+
+
+def in_a_scope() -> bool:
+    """Whether the running code is inside any scope, a case, a bounded phase or a fixture's."""
+
+    return _SCOPE.get() is not None
 
 
 async def close_the_shared_clients() -> None:
@@ -245,8 +297,9 @@ async def shared_client(url: str) -> AsyncMongoClient:
 
     Public because a module reading a seeded corpus needs that client without `a_clean_database`'s clearing. Called on a
     running loop, which is the one the client belongs to. Its topology opens in a task with a context of its own, so the
-    background tasks pymongo starts as it opens carry no scope's mark, as a server's own work would not: a client a case
-    opens itself is that case's to close, and fails its scope while open.
+    background tasks pymongo starts as it opens, and those it restarts later (`_restarted_where_it_first_started`), carry
+    no scope's mark, as a server's own work would not: a client a case opens itself is that case's to close, and fails
+    its scope while open.
     """
 
     key = (asyncio.get_running_loop(), url)
@@ -263,6 +316,58 @@ async def shared_client(url: str) -> AsyncMongoClient:
     await asyncio.shield(opening)
 
     return client
+
+
+class _TransactionsStarted(monitoring.CommandListener):
+    """The session of every transaction a client of this process starts, as the command starting it names it.
+
+    A listener rather than the server's view alone: under `-n` every worker writes to one server, and another worker's
+    transaction in flight is open as of right.
+    """
+
+    def __init__(self) -> None:
+        self.sessions: list[Mapping[str, Any]] = []
+
+    def started(self, event: monitoring.CommandStartedEvent) -> None:
+        if event.command.get("startTransaction"):
+            self.sessions.append(event.command["lsid"])
+
+    def succeeded(self, event: monitoring.CommandSucceededEvent) -> None:
+        pass
+
+    def failed(self, event: monitoring.CommandFailedEvent) -> None:
+        pass
+
+
+# Registered at import, before any client exists: a listener reaches only the clients created after it.
+_STARTED = _TransactionsStarted()
+monitoring.register(_STARTED)
+
+_LEFT_OPEN = (
+    "{count} transaction(s) this process started stood open as '{database}' was left, and were ended here: a session"
+    " was neither committed nor aborted, and a later write to a document it wrote would wait behind it."
+)
+
+
+async def _ended_open_transactions(client: AsyncMongoClient) -> int:
+    """Every transaction a client of this process started since the last call and left open, ended; how many there were."""
+
+    sessions, _STARTED.sessions = _STARTED.sessions, []
+    if not sessions:
+        return 0
+
+    open_ = await (
+        await client.admin.aggregate(
+            [
+                {"$currentOp": {"allUsers": True, "idleSessions": True}},
+                {"$match": {"transaction": {"$exists": True}, "lsid.id": {"$in": [session["id"] for session in sessions]}}},
+            ]
+        )
+    ).to_list(length=None)
+    if open_:
+        await client.admin.command({"killSessions": [found["lsid"] for found in open_]})
+
+    return len(open_)
 
 
 _DRIFT = (
@@ -488,7 +593,15 @@ async def _cleaned(
     else:
         await _clear(database, baseline)
 
-    yield client, database
+    try:
+        yield client, database
+    except BaseException:
+        # Ended rather than judged: a failing body already fails its case, and what it left open would hold the next.
+        await _ended_open_transactions(client)
+        raise
+
+    if left_open := await _ended_open_transactions(client):
+        raise AssertionError(_LEFT_OPEN.format(count=left_open, database=name))
 
     # After the body rather than before the next one, so the test pytest names is the one that
     # moved the schema -- and so being last, or alone under `-k`, cannot exempt a body from this.
