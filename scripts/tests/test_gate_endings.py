@@ -23,7 +23,8 @@ from conftest import BASH, REPO_ROOT, base_env, new_root, run_shell, write_shell
 
 # `version` is the engine's, which every case answers. `compose version` is the plugin's, which the
 # missing case answers as the CLI does for a command it does not hold, and every other `compose` call
-# is a render, which the broken case fails with a parse error. `run` is the docs scope's lychee.
+# is a render, which the broken case fails with a parse error, answering 1 as Compose 5.7.0 does, and the
+# interrupted case ends with a cancel's 130. `run` is the docs scope's lychee.
 DOCKER: Final = r"""#!/usr/bin/env bash
 case "${1:-}" in
   version) printf 'stub\n'; exit 0 ;;
@@ -33,8 +34,9 @@ case "${1:-}" in
     fi
     if [[ "${2:-}" == version ]]; then printf 'Docker Compose version stub\n'; exit 0; fi
     if [[ "${FL_COMPOSE:-}" == broken ]]; then
-      printf '%s\n' 'yaml: line 3: mapping values are not allowed in this context' >&2; exit 15
+      printf '%s\n' 'yaml: line 3: mapping values are not allowed in this context' >&2; exit 1
     fi
+    if [[ "${FL_COMPOSE:-}" == interrupted ]]; then exit 130; fi
     exit 0 ;;
   run) printf 'stub: lychee answered %s\n' "${FL_LYCHEE_EXIT:-0}"; exit "${FL_LYCHEE_EXIT:-0}" ;;
 esac
@@ -146,6 +148,7 @@ CRASHED: Final = "exit status "
     [
         pytest.param("--ops", {"FL_COMPOSE": "missing"}, 2, NO_PLUGIN, UNPARSED, id="no-compose-plugin-is-a-refusal"),
         pytest.param("--ops", {"FL_COMPOSE": "broken"}, 1, UNPARSED, NO_PLUGIN, id="a-parse-error-is-a-finding"),
+        pytest.param("--ops", {"FL_COMPOSE": "interrupted"}, 130, "Interrupted after", UNPARSED, id="a-render-a-cancel-ended-is-an-interrupt"),
         pytest.param("--ops", {"FL_ZIZMOR_EXIT": "13"}, 1, "zizmor found a finding", JUDGED_NOTHING, id="a-zizmor-severity-is-a-finding"),
         pytest.param("--ops", {"FL_ZIZMOR_EXIT": "1"}, 2, JUDGED_NOTHING, "zizmor found a finding", id="zizmor-s-own-error-is-a-refusal"),
         pytest.param("--docs", {"FL_LYCHEE_EXIT": "2"}, 1, BROKEN_LINKS, JUDGED_NOTHING, id="a-failed-link-is-a-finding"),

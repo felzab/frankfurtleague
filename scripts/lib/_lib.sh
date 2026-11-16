@@ -573,6 +573,10 @@ declare -grA EXIT_CODES=(
   # Next.js 16.4.6 names no status. `next build` and `next typegen` answer 1 for a build that fails, and
   # for any error the command meets; 130 a SIGINT, 143 a SIGTERM.
   [next]="0:0 1:1"
+  # Compose names no status, and the repository pins no release of it. The source of v5.7.0
+  # (cmd/compose/compose.go and cmd/main.go) answers 1 for any error, a file that does not parse among
+  # them, and 130 for a cancel.
+  [compose]="0:0 1:1"
   # buildx names no status, and the repository pins no release of it. The source of v0.38.1
   # (cmd/buildx/main.go) answers 1 for any error, a build that fails and a registry it cannot reach
   # alike, 100 an internal error of BuildKit's, 102 BuildKit out of a resource, 130 a cancel.
@@ -732,17 +736,20 @@ stage_compose_models() {
 
 # `$2` is `production`, `local` or `e2e`, written to `$1/$2.json`. The local stack is the merge
 # `local.sh` runs and the end-to-end stack the merge `e2e_stack.sh` runs, neither override being a
-# stack alone. `--output` keeps a text-mode stream off the model.
+# stack alone. `--output` keeps a text-mode stream off the model. Answers 1 for files that do not
+# parse or merge, for the caller to word; an interrupt and a crash end the run here.
 render_compose_model() {
   # The base file names both images by the tag a deploy pins and refuses to parse without one, and a
   # rendered model runs no image, so any word stands in.
   local -x TAG=gate
+  local rc=0
   local -a files=(-f "$1/docker-compose.yml")
   if [[ "$2" == local || "$2" == e2e ]]; then files+=(-f "$1/docker-compose.local.yml"); fi
   if [[ "$2" == e2e ]]; then files+=(-f "$1/docker-compose.e2e.yml"); fi
   # Never `--no-env-resolution`: Compose 2.38 ignores it and later releases honour it, so it would
   # make the rendered environment depend on the release.
-  quietly docker compose "${files[@]}" config --format json --output "$1/$2.json"
+  quietly docker compose "${files[@]}" config --format json --output "$1/$2.json" || rc=$?
+  settle compose "$rc" "${BASH_LINENO[0]}" "docker compose config, the ${2} stack"
 }
 
 # --- What a successful build does not prove ------------------------------------------------------------
