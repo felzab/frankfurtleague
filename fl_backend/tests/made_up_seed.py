@@ -369,12 +369,12 @@ class MadeUpLeague:
 
         self.venues = [
             venue("Sportplatz Ahornweg", 0, address("Ahornweg", "2", "60316", "Nordend"), None),
-            venue("Sporthalle Birkenallee", 40, address("Birkenallee", "14a", "60489", "Rödelheim"), None),
+            venue(PEOPLE["venues"]["edited"], 40, address("Birkenallee", "14a", "60489", "Rödelheim"), None),
             venue("Kunstrasen Eichenhain", 25, address("Eichenhain", "7", "60599", "Sachsenhausen"), None),
             venue("Bolzplatz Lindenstraße", 0, address("Lindenstraße", "30", "60325", "Westend"), self.day(-120)),
             # Last, so no fixture's booking (`booked`, by index) changes: a name as long as a real ground's can be.
             venue(
-                "Bezirkssportanlage Frankfurt-Nieder-Eschbach Nord",
+                PEOPLE["venues"]["longest"],
                 30,
                 address("Deuil-la-Barre-Straße", "100", "60437", "Nieder-Eschbach"),
                 None,
@@ -1176,7 +1176,7 @@ class MadeUpLeague:
         )
         # Its Ansprechperson's mail bounced, which the seat's row says, for an administrator to correct the address.
         self.bounced = self.application(
-            new_school=("Espe", 4),
+            new_school=(PEOPLE["firstPass"]["applications"]["left"], 4),
             submitted_on=-2,
             wunschfarbe="orange",
             states={
@@ -1257,7 +1257,7 @@ class MadeUpLeague:
             # Past its deadline: the first pass, a minute after the frontend starts, erases it and tells the Trainerin, the
             # one seat that confirmed, the one deletion a journey can read.
             self.application(
-                new_school=("Lärche", 6),
+                new_school=(PEOPLE["firstPass"]["applications"]["lapsed"], 6),
                 owner="laerche",
                 submitted_on=-16,
                 wunschfarbe="braun",
@@ -1411,7 +1411,7 @@ class MadeUpLeague:
             logged(50, "person", "erasure.own"),
             logged(40, "system", "retention.kontakte", label=FINISHED, count=2),
             logged(30, "schiedsrichter", "spielbericht.saved", label=f"{FINISHED} / 1"),
-            logged(20, "kontakt", "spielbestaetigung.answered", team="Birke", label=FINISHED),
+            logged(20, "kontakt", "spielbestaetigung.answered", team=PEOPLE["access"]["loggedTeam"], label=FINISHED),
             logged(10, PEOPLE["owner"], "grant.added", label=PEOPLE["administrators"]["waiting"]),
         ]
 
