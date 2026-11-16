@@ -87,7 +87,7 @@ type TableCell = Words | { value: Words; cancelled: number } | { counts: Counts 
  */
 type AddressLine = { before: Copy; address: RecordText; after?: Copy };
 
-const isAddressLine = (line: Words | AddressLine): line is AddressLine => typeof line !== "string" && "address" in line;
+const isAddressLine = (line: Words | AddressLine) => typeof line !== "string" && "address" in line;
 
 export type TableRow = {
   id: string;

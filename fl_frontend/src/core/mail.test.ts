@@ -67,7 +67,7 @@ beforeEach(() => {
   provider = () => ({ id: "re-1" });
 });
 
-const sends = () => steps.filter((step): step is Extract<Step, { kind: "send" }> => step.kind === "send");
+const sends = () => steps.filter((step) => step.kind === "send");
 // Each report's outcome, its claim aside: every case's claim is the one the backend hands out.
 const reports = () => steps.flatMap((step) => (step.kind === "report" ? [omitClaim(step.payload)] : []));
 const omitClaim = ({ lease: _claim, ...result }: FLOutboxResultPayload) => result;
