@@ -545,7 +545,10 @@ running `./scripts/gate/verify.sh` with that scope's flag. Beside them:
 - **`publish`**, on a push that `verify` passed, pushes what the `images` job built and checked,
   building nothing again: on `main` both images under their `sha-` tags, on `follow-up` the backend
   image alone under `follow-up-sha-` and the same seven hex digits, a tag `deploy.sh` refuses, so a
-  branch's backend can be run against production's database by hand before the branch merges.
+  branch's read-back can be run against production's database by hand before the branch merges:
+  `TAG=follow-up-sha-<commit> docker compose run --rm --no-deps backend python -m app.readback`,
+  which only reads. **The image's own command is never run against production**: its boot builds
+  every index the branch declares, on production's database, before the branch merges.
 
 **Every CI job that needs the backend virtualenv creates it through
 `.github/actions/backend-toolchain/action.yml`**, on the uv the backend image copies in (§1.1).

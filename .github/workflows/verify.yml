@@ -427,9 +427,11 @@ jobs:
 
   # On a push that `verify` passed, the images the images job built and checked are pushed, building
   # and checking nothing again: on main both, under their `sha-<commit>` tags; on follow-up the
-  # backend alone, under `follow-up-sha-<commit>`, so its code can be run against the production
-  # database by hand before the branch merges. `deploy.sh` refuses that tag, and no frontend image
-  # carries it, so no deploy can put a follow-up build live.
+  # backend alone, under `follow-up-sha-<commit>`, so its read-back can be run against the production
+  # database by hand before the branch merges, as `TAG=follow-up-sha-<commit> docker compose run
+  # --rm --no-deps backend python -m app.readback`, which only reads. Never the image's own command:
+  # its boot builds every index the branch declares, on production's database. `deploy.sh` refuses
+  # that tag, and no frontend image carries it, so no deploy can put a follow-up build live.
   publish:
     # `images` for its outputs, which only a job named here can read.
     needs: [verify, images]
