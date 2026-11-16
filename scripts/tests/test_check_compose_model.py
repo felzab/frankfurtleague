@@ -339,6 +339,19 @@ def test_a_model_compose_did_not_render_exits_two():
     assert "Nothing was judged, so this is a refusal rather than a verdict on either stack." in done.stderr, done.stderr
 
 
+def test_an_edge_configuration_the_parser_cannot_read_exits_two():
+    """The edge's trust is read through nginx_conf.py, whose refusal of a spelling is no verdict on either stack."""
+    project = new_root("fl-compose-main-")
+    production, local = clean_pair(project)
+    # An unclosed block, which nginx itself refuses too.
+    (project / "nginx/shared/edge.conf").write_bytes(conf().encode() + b"location / {\n")
+
+    done = run_main(production, local, project)
+
+    assert done.returncode == checker.EXIT_REFUSED, done.stdout + done.stderr
+    assert "Nothing was judged, so this is a refusal rather than a verdict on either stack." in done.stderr, done.stderr
+
+
 @pytest.mark.parametrize("stack", ["production", "local"])
 def test_a_frontend_under_another_deployment_name_or_none_fails(stack: str):
     """Compose ranks `environment` above the package's file, so the name the compose file writes is the one that boots."""
