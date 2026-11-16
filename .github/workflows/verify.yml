@@ -85,9 +85,7 @@ jobs:
       - uses: ./.github/actions/backend-toolchain
         with:
           application: true
-          # The uv cache's one writer: on a miss every saving job would archive the whole cache. Its key
-          # carries the runner's OS release, so a writer on the db job's ubuntu-22.04 would serve no
-          # ubuntu-latest job.
+          # The uv cache's one writer: on a miss every saving job would archive the whole cache.
           save-cache: true
       - name: Run the backend scope
         run: ./scripts/gate/verify.sh --backend
@@ -96,13 +94,7 @@ jobs:
   # contract check, which regenerates openapi.json and the client from it and diffs both, needing
   # both toolchains.
   db:
-    # mongod 8.3.13 refuses ubuntu-24.04's 7.0.0 kernel at start (SERVER-121912); 22.04's 6.8 it accepts.
-    # SERVER-131779, a kernel exemption for Ubuntu, lists 8.3.16, 9.0.4 and 8.0.37 as its fix
-    # versions, and Docker Hub publishes no mongo:8.3.16, so 8.3.17 is the first 8.3 image to carry it.
-    # Back to ubuntu-latest once the image pins move there and a run shows mongod starting. Until then
-    # this job restores none of the backend job's uv cache, whose key carries the runner's OS release,
-    # and installs from the registry on every run.
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -296,8 +288,7 @@ jobs:
   journeys:
     # Its images, built once by buildx: compose's own builder refuses the frontend Dockerfile's `COPY --exclude`.
     needs: images
-    # mongod 8.3.13 refuses ubuntu-24.04's 7.0.0 kernel at start (SERVER-121912), as the db job says.
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     timeout-minutes: 33
     # Six legs, each on a runner and a stack of its own, every case on every event
     # (https://playwright.dev/docs/ci: "consider sharding - distributing tests across multiple CI

@@ -244,7 +244,7 @@ async function startedNamingItsLog(
 
 /** The replica set every db suite runs, unstarted. */
 const replicaSetContainer = (): ReplicaSetContainer =>
-  new ReplicaSetContainer("mongo:8.3.13@sha256:e16e606f792ea89d2b4907b54e5e31eb86a7a23e27231dce3a982cc8f2d73cd2").withStartupTimeout(
+  new ReplicaSetContainer("mongo:8.0.38@sha256:d97fea17ccb8d004cd137be8dab54d70d0df11be69c9f422aefe4484c8414ab7").withStartupTimeout(
     HEALTHY_WITHIN_MS,
   );
 

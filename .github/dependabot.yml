@@ -200,3 +200,7 @@ updates:
       stack-images-minor-patch:
         patterns: ["*"]
         update-types: ["minor", "patch"]
+    ignore:
+      # The 8.0 series the managed cluster runs, so no test passes on a feature production lacks.
+      - dependency-name: mongo
+        versions: [">= 8.1"]

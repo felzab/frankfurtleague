@@ -55,7 +55,9 @@ it. **Each tag names the exact release its digest is**, since a series tag (`mon
 reader can hold to one release. Dependabot compares the tag to propose the next pair; the pins
 `.github/dependabot.yml` lists move by hand, no ecosystem reading a shell string. Both database test
 tiers run the local stack's own mongo. `scripts/tests/test_image_pins.py` holds every reference to
-that form, and the two tiers to the stack.
+that form, and the two tiers to the stack. **That mongo stays in the release series the managed
+cluster runs**, so no test passes on a feature production lacks: `.github/dependabot.yml` proposes
+no later series, and a move of the cluster moves the three pins by hand.
 
 **The toolchain an image bakes in is the one the checkout declares**, so what CI tested is what
 production runs:
