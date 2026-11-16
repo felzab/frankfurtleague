@@ -205,8 +205,8 @@ class TestMovingAClubBetweenGroups:
 KONTAKTPERSON = {
     "first_name": "Anke",
     "last_name": "Koerner",
-    "email": "a.koerner@example.de",
-    "phone": "+49 170 1234567",
+    "email": "a.koerner@example.net",
+    "phone": "+49 171 3920000",
     "birth_date": "1984-05-09",
     "einwilligung": confirmed_kenntnisnahme(),
 }

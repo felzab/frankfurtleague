@@ -676,7 +676,7 @@ class TestARolloverLandingMidRenameIsJudgedAgain:
                         "shorthand": "UMX",
                         "description": "",
                         "full_name": f"{RENAMED}-Schule",
-                        "website_url": "https://umbenannt.example.de",
+                        "website_url": "https://umbenannt.example.net",
                         "schulform": "gymnasium_g9",
                         "address": dict(ADDRESS),
                     },

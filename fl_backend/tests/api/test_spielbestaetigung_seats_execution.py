@@ -47,7 +47,7 @@ REASON_SPIEL_OIDS = [ObjectId(f"6890a1b2c3d4e5f607b6003{position}") for position
 SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f607b60041")
 LATER_SPIEL_OID = ObjectId("6890a1b2c3d4e5f607b60061")
 
-PHONE = {"Ida": "+4917010000001", "Jonas": "+4917010000002", "Klara": "+4917010000003"}
+PHONE = {"Ida": "+491713920001", "Jonas": "+491713920002", "Klara": "+491713920003"}
 
 
 def stored(first_name: str) -> dict[str, Any]:

@@ -61,7 +61,7 @@ NOW = datetime(2126, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 TYPED = "Zorbanax.Quillfeather@Example.org"
 IDENTIFIER = "zorbanax.quillfeather@example.org"
 FIRST_NAME, LAST_NAME = "Zorbanax", "Quillfeather"
-PHONE = "+49 69 7771234"
+PHONE = "+49 69 90009777"
 BIRTH_DATE = "2008-07-14"
 # The one their referee row holds, which they typed otherwise.
 REFEREE_BIRTH_DATE = "1990-02-03"
@@ -74,7 +74,7 @@ THEIR_VALUES = (
     FIRST_NAME,
     LAST_NAME,
     IDENTIFIER,
-    "7771234",
+    "90009777",
     BIRTH_DATE,
     REFEREE_BIRTH_DATE,
     THEIR_REASON,
@@ -102,7 +102,7 @@ MOVING_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607b00081")
 READDRESSED_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607b00082")
 # Another mailbox at the person's local part, whose records every read narrowed by that local part reaches: the fold
 # after each read alone keeps them. Lower case, so no exact scan for the person's names finds it.
-ELSEWHERE = IDENTIFIER.replace("@example.org", "@anderswo.org")
+ELSEWHERE = IDENTIFIER.replace("@example.org", "@anderswo.example.net")
 ELSEWHERE_REGISTRATION_OID = ObjectId("6890a1b2c3d4e5f607b00091")
 ELSEWHERE_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607b00092")
 ELSEWHERE_GRANT_OID = ObjectId("6890a1b2c3d4e5f607b00093")

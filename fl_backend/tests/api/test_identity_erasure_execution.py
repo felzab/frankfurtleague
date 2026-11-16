@@ -611,7 +611,9 @@ class TestTheChangeOfAPupilsAddress:
         """The person is a referee and a seat holder beside the pupil, so their change still has those to move."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await pending_changes(database, (THEIR_CHANGE_OID, IDENTIFIER, "neu.adresse@anderswo.org", "their-own-change", "2126-03-30"))
+            await pending_changes(
+                database, (THEIR_CHANGE_OID, IDENTIFIER, "neu.adresse@anderswo.example.net", "their-own-change", "2126-03-30")
+            )
             await erased_in_scope(database, client, frozenset({"spieler"}))
 
             return await the_row(database, Collection.ADDRESS_CHANGES, {"_id": THEIR_CHANGE_OID})

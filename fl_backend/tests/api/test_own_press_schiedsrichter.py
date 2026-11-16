@@ -95,7 +95,7 @@ async def pressed_then_saved(url: str, press: Press) -> dict[str, Any]:
                     "name": "Pierluigi Collina",
                     "schule": "Carl-Schurz-Schule",
                     "default_payment": 20,
-                    "kontakt": {"phone": "+49 69 5550202", "email": EMAIL},
+                    "kontakt": {"phone": "+49 69 90009202", "email": EMAIL},
                     "version": SERVED_VERSION,
                 }
             ),

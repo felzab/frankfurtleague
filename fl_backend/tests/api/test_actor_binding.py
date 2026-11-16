@@ -157,8 +157,8 @@ async def test_an_act_on_a_route_binding_no_administrator_names_who_acted_or_fai
     assert log.rows == []
 
 
-KNOWN_IDENTIFIER = "anna@beispielschule.de"
-MIXED_CASE = "Anna@BeispielSchule.DE"
+KNOWN_IDENTIFIER = "anna@beispielschule.example.org"
+MIXED_CASE = "Anna@BeispielSchule.EXAMPLE.ORG"
 
 # A person's read with no path parameter, so a refusal can only come from the session it is sent.
 PERSON_READ_PATH = "/api/v0/spieler/self/saisons"

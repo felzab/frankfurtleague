@@ -56,10 +56,10 @@ NOW = datetime(2026, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 PAST, ACTIVE = "2025", "2026"
 
 # One address holding every kind, several records of some and every state of each.
-WILTRUDIS = "wiltrudis.ehrenpreis@schule.de"
+WILTRUDIS = "wiltrudis.ehrenpreis@schule.example.org"
 # Asked with its domain in capitals, stored folded.
-KAETHE = "kaethe@XN--MLLER-KVA.DE"
-NOBODY = "niemand@schule.de"
+KAETHE = "kaethe@XN--MLLER-KVA.EXAMPLE.ORG"
+NOBODY = "niemand@schule.example.org"
 
 TEAMS = [ObjectId(f"6890a1b2c3d4e5f6078600{n:02d}") for n in range(1, 6)]
 
@@ -117,7 +117,7 @@ def _seat(email: str, *, confirmed_at: str | None = "2026-09-03") -> dict[str, A
         "Wiltrudis",
         confirmed_at=confirmed_at,
         email=email,
-        phone="+49 69 5550101",
+        phone="+49 69 90009101",
         birth_date="2000-05-09",
         einwilligung={"date": "2026-09-01", "media": True},
     )
@@ -176,7 +176,7 @@ async def _seed(database: AsyncDatabase) -> None:
             _referee(REFEREE_LIVE, WILTRUDIS, "Wiltrudis Ehrenpreis"),
             _referee(REFEREE_RETIRED, WILTRUDIS, "Wiltrudis E.", inactive_since="2026-07-01"),
             _referee(REFEREE_UNCONFIRMED, WILTRUDIS, "W. Ehrenpreis", einwilligung=None),
-            _referee(REFEREE_KAETHE, "kaethe@xn--mller-kva.de", "Käthe Müller"),
+            _referee(REFEREE_KAETHE, "kaethe@xn--mller-kva.example.org", "Käthe Müller"),
         ]
     )
     await database[Collection.SAISON_TEAMS].insert_many(
@@ -208,7 +208,7 @@ async def _seed(database: AsyncDatabase) -> None:
             _registrierung(REGISTRIERUNG_NEW, WILTRUDIS),
             _registrierung(REGISTRIERUNG_UNCONFIRMED, WILTRUDIS, answered=False),
             declined,
-            _registrierung(REGISTRIERUNG_KAETHE, "kaethe@xn--mller-kva.de", first_name="Käthe"),
+            _registrierung(REGISTRIERUNG_KAETHE, "kaethe@xn--mller-kva.example.org", first_name="Käthe"),
         ]
     )
 

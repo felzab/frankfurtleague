@@ -46,14 +46,14 @@ DEFAULT_PAYMENT = 20
 
 # The pair the seeded edit replaced.
 FORMER_KONTAKT = {
-    SCHIEDSRICHTER_OID: {"phone": "+49 69 7654321", "email": "ak-vertretung@example.com"},
-    OTHER_SCHIEDSRICHTER_OID: {"phone": "+49 69 9998887", "email": "bk-vertretung@example.com"},
+    SCHIEDSRICHTER_OID: {"phone": "+49 69 90009765", "email": "ak-vertretung@example.com"},
+    OTHER_SCHIEDSRICHTER_OID: {"phone": "+49 69 90009998", "email": "bk-vertretung@example.com"},
 }
 
 # What each referee holds when the erasure runs.
 KONTAKT = {
-    SCHIEDSRICHTER_OID: {"phone": "+49 69 1234567", "email": "koerner.anna@example.com"},
-    OTHER_SCHIEDSRICHTER_OID: {"phone": "+49 69 2223334", "email": "kraus.bernd@example.com"},
+    SCHIEDSRICHTER_OID: {"phone": "+49 69 90009123", "email": "koerner.anna@example.com"},
+    OTHER_SCHIEDSRICHTER_OID: {"phone": "+49 69 90009334", "email": "kraus.bernd@example.com"},
 }
 
 # Injected through `get_germany_now`, and in summer, so the conversion below moves the clock. A century ahead of the

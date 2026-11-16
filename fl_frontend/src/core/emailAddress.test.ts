@@ -14,7 +14,7 @@ const INVISIBLE = ["\u200B", "\uFEFF", "\u00AD", "\u2060", "\u180E"];
 /** Outside a host label's letters, digits and hyphens: an umlaut and a CJK letter, which the rule refuses rather than converts, among them. */
 const REFUSED = [...INVISIBLE, "\t", "@", "_", "ü", "日"];
 
-const hostOf = (middle: string): string => `person@x${middle}y.de`;
+const hostOf = (middle: string): string => `person@x${middle}y.example.org`;
 
 describe("the host alphabet an address is held to", () => {
   it("refuses every character outside a label's letters, digits and hyphens", () => {
@@ -45,19 +45,19 @@ describe("one bare mailbox, the only recipient the mailer takes", () => {
   /* Each a spelling the ban list's keying answers unbarred where a provider may still find a mailbox
      in it: handed on, it reached a barred person past the gate. */
   const AROUND_A_MAILBOX: readonly (readonly [string, string])[] = [
-    ["a display name", "Gerda <gerda.gesperrt@schule.de>"],
-    ["angle brackets", "<gerda.gesperrt@schule.de>"],
-    ["a trailing dot", "gerda.gesperrt@schule.de."],
-    ["a list", "gerda.gesperrt@schule.de, x@schule.de"],
-    ["a semicolon list", "gerda.gesperrt@schule.de;x@schule.de"],
-    ["leading whitespace", " gerda.gesperrt@schule.de"],
-    ["trailing whitespace", "gerda.gesperrt@schule.de\n"],
-    ["a quoted local part", '"gerda gesperrt"@schule.de'],
-    ["a comment", "gerda.gesperrt(x)@schule.de"],
+    ["a display name", "Gerda <gerda.gesperrt@schule.example.org>"],
+    ["angle brackets", "<gerda.gesperrt@schule.example.org>"],
+    ["a trailing dot", "gerda.gesperrt@schule.example.org."],
+    ["a list", "gerda.gesperrt@schule.example.org, x@schule.example.org"],
+    ["a semicolon list", "gerda.gesperrt@schule.example.org;x@schule.example.org"],
+    ["leading whitespace", " gerda.gesperrt@schule.example.org"],
+    ["trailing whitespace", "gerda.gesperrt@schule.example.org\n"],
+    ["a quoted local part", '"gerda gesperrt"@schule.example.org'],
+    ["a comment", "gerda.gesperrt(x)@schule.example.org"],
     ["a domain literal", "gerda@[192.0.2.1]"],
-    ["a leading dot", ".gerda@schule.de"],
-    ["a doubled dot", "gerda..gesperrt@schule.de"],
-    ["two at signs", "gerda@x@schule.de"],
+    ["a leading dot", ".gerda@schule.example.org"],
+    ["a doubled dot", "gerda..gesperrt@schule.example.org"],
+    ["two at signs", "gerda@x@schule.example.org"],
     ["no at sign", "gerda.barred"],
     ["an undotted domain", "gerda@localhost"],
   ];
@@ -74,9 +74,9 @@ describe("one bare mailbox, the only recipient the mailer takes", () => {
     for (const address of [
       "trainer@example.org",
       "Trainer@Example.ORG",
-      "anna+u12@schule.de",
-      "vorstand@münchen-schule.de",
-      "jörg@schule.de",
+      "anna+u12@schule.example.org",
+      "vorstand@münchen-schule.example.org",
+      "jörg@schule.example.org",
     ]) {
       expect(isOneBareMailbox(address), address).toBe(true);
     }

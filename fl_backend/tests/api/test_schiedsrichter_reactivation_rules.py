@@ -58,7 +58,7 @@ def sent_address(email: str) -> str:
             "name": "Anna Körner",
             "schule": "Bettina-Schule",
             "default_payment": 25,
-            "kontakt": {"phone": "+49 69 5550303", "email": email},
+            "kontakt": {"phone": "+49 69 90009303", "email": email},
             "version": 0,
         }
     )

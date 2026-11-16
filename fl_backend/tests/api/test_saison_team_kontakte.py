@@ -55,7 +55,7 @@ AUSTRITT: dict[str, Any] = {"type": "rueckzug", "reason": "Keine Mannschaft mehr
 
 CONFIRMED_ON = "2026-03-15"
 # An edit to a seat that changes nothing about who holds it: `person` writes the other number.
-OTHER_PHONE = "+4915199999999"
+OTHER_PHONE = "+4917604069099"
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 TODAY = "2026-04-01"
 
@@ -66,13 +66,13 @@ BIRTH_DATE = "1990-05-17"
 
 # One number per person: two different people sharing one is a payload the save refuses.
 PHONE: dict[str, str] = {
-    "Ida": "+4915110000001",
-    "Jonas": "+4915110000002",
-    "Klara": "+4915110000003",
-    "Lea": "+4915110000004",
-    "Mika": "+4915110000005",
-    "Nils": "+4915110000006",
-    "Bert": "+4915110000008",
+    "Ida": "+4917604069001",
+    "Jonas": "+4917604069002",
+    "Klara": "+4917604069003",
+    "Lea": "+4917604069004",
+    "Mika": "+4917604069005",
+    "Nils": "+4917604069006",
+    "Bert": "+4917604069008",
 }
 
 
@@ -388,7 +388,7 @@ class TestTheSeatWriteDecidesFromItsArguments:
     def test_a_number_another_seats_person_holds_in_another_spelling_is_refused_on_its_box(self):
         """The block's rule, which no payload can judge: the other seats are stored, not sent."""
 
-        kontakte, seats = compose_seat_block(stored=SEAT_BLOCK, seat="trainer", sent=seat_sent("Lea", phone="0151 10000002"), today=TODAY)
+        kontakte, seats = compose_seat_block(stored=SEAT_BLOCK, seat="trainer", sent=seat_sent("Lea", phone="0176 04069002"), today=TODAY)
         refusal = find_kontakt_taken_refusal(kontakte=kontakte, seats=seats)
 
         assert refusal is not None

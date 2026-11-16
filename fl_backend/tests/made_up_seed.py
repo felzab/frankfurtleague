@@ -688,15 +688,18 @@ class MadeUpLeague:
     def seated(self, first_name: str, last_name: str, entered_on: int, email: str | None = None) -> dict[str, Any]:
         """A person as the form or the league seats them, nobody having answered.
 
-        Every phone its own: the form refuses two people one number (`find_repeated_contact_refusal`).
+        Every phone its own: the form refuses two people one number (`find_repeated_contact_refusal`). Each is one of the
+        hundred the Bundesnetzagentur keeps unassigned for media productions, (0)176 040690 00 to 99.
         """
 
         self.seated_people += 1
+        if self.seated_people > 99:
+            raise ValueError("the seed seats more people than the media range holds numbers")
         return {
             "first_name": first_name,
             "last_name": last_name,
             "email": email or f"{first_name}.{last_name}@example.com".lower(),
-            "phone": f"+49 170 {2000000 + self.seated_people}",
+            "phone": f"+49 176 040690{self.seated_people:02d}",
             "birth_date": None,
             "einwilligung": compose_seat_einwilligung(today=self.day(entered_on)),
         }

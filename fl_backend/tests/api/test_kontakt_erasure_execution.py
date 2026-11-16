@@ -50,20 +50,20 @@ LATER_SAISON = "2526"
 # Deliberately unusual, so a hit in the whole-database sweep below cannot be a coincidence: no
 # fixture, no other suite and no seeded default anywhere spells any of these.
 ERASED_EMAIL = "wiltrudis.quastenflosser@example.com"
-ERASED_PHONE = "+49 69 5550101"
-ERASED_FORMER_PHONE = "+49 69 5559901"
+ERASED_PHONE = "+49 69 90009101"
+ERASED_FORMER_PHONE = "+49 69 90009901"
 ERASED_LAST_NAME = "Quastenflosser"
 
 # The person beside them in the SAME block, whose record must survive untouched.
 BYSTANDER_EMAIL = "ortwinia.pfeffernuss@example.com"
-BYSTANDER_PHONE = "+49 69 5550202"
-BYSTANDER_FORMER_PHONE = "+49 69 5559902"
+BYSTANDER_PHONE = "+49 69 90009202"
+BYSTANDER_FORMER_PHONE = "+49 69 90009902"
 BYSTANDER_LAST_NAME = "Pfeffernuss"
 
 # The third slot, and the whole of the row that must not be reached at all.
 UNREACHED_EMAIL = "baldur.krautzberger@example.com"
-UNREACHED_PHONE = "+49 69 5550303"
-UNREACHED_FORMER_PHONE = "+49 69 5559903"
+UNREACHED_PHONE = "+49 69 90009303"
+UNREACHED_FORMER_PHONE = "+49 69 90009903"
 UNREACHED_LAST_NAME = "Krautzberger"
 
 # An address stored nowhere, for the no-op case.
@@ -85,7 +85,7 @@ CASE_VARIANTS: tuple[str, ...] = (
 
 # Addresses the same request must leave standing. The pattern reads those at another domain, the fold
 # refusing them; unanchored, or with the `.` unescaped, it reads the other local parts too.
-OTHER_DOMAINS: tuple[str, ...] = ("wiltrudis.quastenflosser@example.org", "wiltrudis.quastenflosser@example.community")
+OTHER_DOMAINS: tuple[str, ...] = ("wiltrudis.quastenflosser@example.org", "wiltrudis.quastenflosser@example.com.example")
 OTHER_LOCAL_PARTS: tuple[str, ...] = ("nichtwiltrudis.quastenflosser@example.com", "wiltrudisXquastenflosser@example.com")
 NEAR_MISSES: tuple[str, ...] = (*OTHER_DOMAINS, *OTHER_LOCAL_PARTS)
 
@@ -528,7 +528,9 @@ PADDED_SPELLINGS: tuple[str, ...] = (f"{chr(0x20)}{ERASED_EMAIL}", f"{ERASED_EMA
         pytest.param(VARIANT_REQUEST_EMAIL, (*CASE_VARIANTS, *PADDED_SPELLINGS), NEAR_MISSES, id="one spelling"),
         # Both ends are anchored; one anchor alone takes the start's or the end's near miss.
         pytest.param(NO_AT_IDENTIFIER, NO_AT_CLAIMED, NO_AT_UNCLAIMED, id="no @"),
-        pytest.param("@x.de", ("@x.de", "@X.DE"), ("x@x.de", "@x.dex"), id="an empty local part"),
+        pytest.param(
+            "@x.example.org", ("@x.example.org", "@X.EXAMPLE.ORG"), ("x@x.example.org", "@x.example.org.example"), id="an empty local part"
+        ),
         # Padded or blank as stored, which a pattern built off that spelling reads less of than its fold claims.
         pytest.param(
             f"{chr(0x20)}{VARIANT_REQUEST_EMAIL}{chr(0xA0)}", (*CASE_VARIANTS, *PADDED_SPELLINGS), OTHER_LOCAL_PARTS, id="a padded spelling"
@@ -558,17 +560,53 @@ SERVER_CORPUS: tuple[str, ...] = (
     *("", chr(0x20), chr(0x20) * 3, chr(0xA0), f"{chr(0x20)}{chr(0xA0)}{chr(0x09)}", chr(0x3000), chr(0xFEFF), chr(0x85)),
     *(f"{chr(0xFEFF)}no-at{chr(0x3000)}", f"{chr(0x85)}no-at", *NO_AT_CLAIMED, *NO_AT_UNCLAIMED),
     *("kein-at@", "KEIN-AT@", f"{chr(0x20)}kein-at@{chr(0xA0)}", "kein-at@@", "kein-at@x@y"),
-    *("a@b@c", "A@B@C", f"{chr(0x20)}a@b@C{chr(0xA0)}", "a@b@cx", "a@b@x.de", "a@bx@c"),
-    *("@x.de", f"@{chr(0xFF58)}.de", "@X.DE", "x@x.de", "@", "@@"),
+    *("a@b@c", "A@B@C", f"{chr(0x20)}a@b@C{chr(0xA0)}", "a@b@cx", "a@b@x.example.org", "a@bx@c"),
+    *("@x.example.org", f"@{chr(0xFF58)}.example.org", "@X.EXAMPLE.ORG", "x@x.example.org", "@", "@@"),
     *("someone@example.org", f"{chr(0x017F)}omeone@example.org", f"{chr(0x212A)}im@example.org", "kim@example.org"),
-    *("a.b@x.de", "axb@x.de", "a+b@x.de", "aab@x.de", "a(b)@x.de", "a\\b@x.de", "a[b]@x.de", "a$b@x.de", "a^b@x.de"),
-    *("a|b@x.de", "a{2}@x.de", "aa@x.de", "a?b@x.de", "a*b@x.de", "ab@x.de", "b@x.de", "a\x00b@x.de"),
+    *(
+        "a.b@x.example.org",
+        "axb@x.example.org",
+        "a+b@x.example.org",
+        "aab@x.example.org",
+        "a(b)@x.example.org",
+        "a\\b@x.example.org",
+        "a[b]@x.example.org",
+        "a$b@x.example.org",
+        "a^b@x.example.org",
+    ),
+    *(
+        "a|b@x.example.org",
+        "a{2}@x.example.org",
+        "aa@x.example.org",
+        "a?b@x.example.org",
+        "a*b@x.example.org",
+        "ab@x.example.org",
+        "b@x.example.org",
+        "a\x00b@x.example.org",
+    ),
     *("wiltrudis.quastenflosser@example.com", "Wiltrudis.Quastenflosser@EXAMPLE.COM", "wiltrudisXquastenflosser@example.com"),
 )
 SERVER_IDENTIFIERS: tuple[str, ...] = (
-    *(NO_AT_IDENTIFIER, "kein-at@", "KEIN-AT@", "a@b@c", chr(0x20) * 3, "", f"{chr(0xA0)}{chr(0x09)}", "@x.de", "@", "@@"),
-    *("someone@example.org", "kim@example.org", "a.b@x.de", "a+b@x.de", "a(b)@x.de", "a\\b@x.de", "a[b]@x.de", "a$b@x.de"),
-    *("a^b@x.de", "a|b@x.de", "a{2}@x.de", "a?b@x.de", "a*b@x.de", "a\x00b@x.de", "Wiltrudis.Quastenflosser@EXAMPLE.COM"),
+    *(NO_AT_IDENTIFIER, "kein-at@", "KEIN-AT@", "a@b@c", chr(0x20) * 3, "", f"{chr(0xA0)}{chr(0x09)}", "@x.example.org", "@", "@@"),
+    *(
+        "someone@example.org",
+        "kim@example.org",
+        "a.b@x.example.org",
+        "a+b@x.example.org",
+        "a(b)@x.example.org",
+        "a\\b@x.example.org",
+        "a[b]@x.example.org",
+        "a$b@x.example.org",
+    ),
+    *(
+        "a^b@x.example.org",
+        "a|b@x.example.org",
+        "a{2}@x.example.org",
+        "a?b@x.example.org",
+        "a*b@x.example.org",
+        "a\x00b@x.example.org",
+        "Wiltrudis.Quastenflosser@EXAMPLE.COM",
+    ),
 )
 
 
@@ -613,8 +651,8 @@ async def test_the_server_reads_each_pattern_as_python_does_and_misses_nothing_t
 
 
 # Two domains to the sign-in fold, so two people an application may seat side by side.
-SHARP_S_EMAIL = "wiltrudis.quastenflosser@straße.de"
-DOUBLE_S_EMAIL = "wiltrudis.quastenflosser@strasse.de"
+SHARP_S_EMAIL = "wiltrudis.quastenflosser@straße.example.org"
+DOUBLE_S_EMAIL = "wiltrudis.quastenflosser@strasse.example.org"
 SHARP_S_ROW_OID = ObjectId("6890a1b2c3d4e5f607816001")
 
 HAND_EDITED_ROW_OID = ObjectId("6890a1b2c3d4e5f607816002")
@@ -644,10 +682,10 @@ async def test_erase_one_of_two_people_parted_by_sharp_s_leaves_the_other_seated
 @pytest.mark.parametrize(
     "stored",
     [
-        pytest.param("jürgen@schule.de", id="an umlaut in the local part"),
+        pytest.param("jürgen@schule.example.org", id="an umlaut in the local part"),
         # Built from its code point: it renders like the ASCII stop.
-        pytest.param(f"anna{chr(0xFF0E)}@schule.de", id="a full-width stop in the local part"),
-        pytest.param("anna..mueller@schule.de", id="an address the installed EmailStr refuses"),
+        pytest.param(f"anna{chr(0xFF0E)}@schule.example.org", id="a full-width stop in the local part"),
+        pytest.param("anna..mueller@schule.example.org", id="an address the installed EmailStr refuses"),
     ],
 )
 async def test_a_seat_stored_under_an_address_no_payload_takes_now_is_erased(mongo_replica_set_url: str, stored: str):

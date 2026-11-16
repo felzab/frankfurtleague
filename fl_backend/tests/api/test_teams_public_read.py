@@ -37,8 +37,8 @@ RETIRED_ON = "2026-08-01"
 
 # The three values a leak would carry: a teacher's mailbox, the number the league runs its whole
 # WhatsApp channel on, and a private person's date of birth.
-KONTAKT_EMAIL = "a.koerner@helmholtz.example.de"
-KONTAKT_PHONE = "+49 170 1234567"
+KONTAKT_EMAIL = "a.koerner@helmholtz.example.net"
+KONTAKT_PHONE = "+49 171 3920000"
 KONTAKT_BIRTH_DATE = "1984-05-09"
 
 Body = Callable[[AsyncDatabase], Awaitable[Any]]

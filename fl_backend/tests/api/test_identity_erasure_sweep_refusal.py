@@ -13,7 +13,7 @@ from app.api.identity.services import completed_saison_id, erasure_due, kept_sai
 from app.shared.schemas.literals import FLSaisonStatus
 
 LEAGUE: dict[str, FLSaisonStatus] = {"2023": "past", "2024": "past", "2025": "past", "2026": "active", "2027": "future"}
-ADDRESS = "thessaly.okonkwo@beispielschule.de"
+ADDRESS = "thessaly.okonkwo@beispielschule.example.org"
 
 
 def due_for_erasure(

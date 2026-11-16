@@ -65,7 +65,7 @@ OPEN_WINDOW = {"open": True, "start": "2026-03-01", "end": "2026-04-30"}
 OPEN_REGISTRATION_WINDOW = {"open": True, "end": "2026-04-30"}
 
 REFEREE_NAME = "Bernd Kraus"
-PHONE = "+49 69 5550202"
+PHONE = "+49 69 90009202"
 
 Rival = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
@@ -155,7 +155,7 @@ SEATED = {
     "phone": PHONE,
     "einwilligung": {"scope": "kontakt_data", "date": "2026-03-01"},
 }
-BESIDE = {**SEATED, "first_name": "Ottilie", "last_name": "Andere", "email": "ottilie.andere@example.com", "phone": "+49 69 5550404"}
+BESIDE = {**SEATED, "first_name": "Ottilie", "last_name": "Andere", "email": "ottilie.andere@example.com", "phone": "+49 69 90009404"}
 
 
 async def club_row(database: AsyncDatabase) -> Mapping[str, Any]:

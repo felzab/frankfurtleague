@@ -38,30 +38,30 @@ STAMP = "2026-01-20"
 
 # One mailbox per kind of record, each held by that record alone, so an arm the read drops answers
 # exactly its own address.
-SEAT_PAST = "sitz.vergangen@schule.de"
-SEAT_PAST_OPEN = "sitz.vergangen.offen@schule.de"
-SEAT_OPEN = "sitz.offen@schule.de"
-SEAT_EXITED = "sitz.ausgetreten@schule.de"
-BEWERBUNG_OPEN = "bewerbung.offen@schule.de"
-BEWERBUNG_UNCONFIRMED = "bewerbung.unbestaetigt@schule.de"
-SPIELER = "spieler.anna@schule.de"
-SCHIEDSRICHTER_RETIRED = "pfeife.ruhestand@schule.de"
-REGISTERED = "rita.registriert@schule.de"
-ADMIN = "verena.verwaltung@schule.de"
+SEAT_PAST = "sitz.vergangen@schule.example.org"
+SEAT_PAST_OPEN = "sitz.vergangen.offen@schule.example.org"
+SEAT_OPEN = "sitz.offen@schule.example.org"
+SEAT_EXITED = "sitz.ausgetreten@schule.example.org"
+BEWERBUNG_OPEN = "bewerbung.offen@schule.example.org"
+BEWERBUNG_UNCONFIRMED = "bewerbung.unbestaetigt@schule.example.org"
+SPIELER = "spieler.anna@schule.example.org"
+SCHIEDSRICHTER_RETIRED = "pfeife.ruhestand@schule.example.org"
+REGISTERED = "rita.registriert@schule.example.org"
+ADMIN = "verena.verwaltung@schule.example.org"
 # Barred while the running season lasts, the one holding a referee record and the other nothing: a ban
 # keeps no account, so the record alone decides.
-BARRED_SCHIEDSRICHTER = "gesa.pfeife@schule.de"
-BARRED = "gerda.gesperrt@schule.de"
+BARRED_SCHIEDSRICHTER = "gesa.pfeife@schule.example.org"
+BARRED = "gerda.gesperrt@schule.example.org"
 # Today's address rule refuses a local part beyond ASCII, so no ban can be keyed under this one, and no
 # record holds it: a ban keeping no account, it is judged as any other.
-OUTSIDE_THE_RULE = "jürgen@schule.de"
+OUTSIDE_THE_RULE = "jürgen@schule.example.org"
 
-REGISTERED_OPEN = "rita.offen@schule.de"
+REGISTERED_OPEN = "rita.offen@schule.example.org"
 # Asked as an account may store it, so the answer is shown to keep the asker's spelling.
 NOBODY = "Niemand.Hier@Example.COM"
 
 # The league's owner, asked about nowhere: what lets the read answer at all.
-OWNER = "olga.inhaberin@schule.de"
+OWNER = "olga.inhaberin@schule.example.org"
 
 TEAM_OIDS = [ObjectId(f"6890a1b2c3d4e5f6079900{n:02d}") for n in range(1, 5)]
 GRANT_OID = ObjectId("6890a1b2c3d4e5f607990051")
@@ -76,7 +76,7 @@ ASKED = [
     NOBODY,
     BEWERBUNG_OPEN,
     BEWERBUNG_UNCONFIRMED,
-    "Spieler.Anna@Schule.DE",
+    "Spieler.Anna@Schule.EXAMPLE.ORG",
     SCHIEDSRICHTER_RETIRED,
     REGISTERED,
     REGISTERED_OPEN,

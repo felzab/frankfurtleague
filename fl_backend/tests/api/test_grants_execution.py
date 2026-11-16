@@ -64,8 +64,8 @@ ANNA = "anna.admin@frankfurtleague.de"
 BERND = "bernd.admin@frankfurtleague.de"
 
 # An address the league adds in the cases below, in a spelling the fold changes.
-NORA_TYPED = "Nora.Neu@Beispielschule.de"
-NORA = "nora.neu@beispielschule.de"
+NORA_TYPED = "Nora.Neu@Beispielschule.example.org"
+NORA = "nora.neu@beispielschule.example.org"
 
 BAN_REASON = "Wiederholt gemeldet"
 
@@ -269,13 +269,13 @@ class TestAnAddition:
         """The holder list is who is in effect: a row still waiting may yet be withdrawn, and hears only of itself."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await add(database, client, "paul@beispielschule.de")
+            await add(database, client, "paul@beispielschule.example.org")
 
             return await owed(database)
 
         [(_, _, _, to, _)] = await on_a_league(mongo_replica_set_url, body, grants=[WAITING])
 
-        assert to == sorted([*EVERY_HOLDER, "paul@beispielschule.de"])
+        assert to == sorted([*EVERY_HOLDER, "paul@beispielschule.example.org"])
 
     async def test_an_address_held_is_refused_in_another_spelling_a_waiting_row_included(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[APIError, list[str]]:
@@ -294,7 +294,7 @@ class TestAnAddition:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             change = await database[Collection.ADDRESS_CHANGES].insert_one(
-                address_change_document(address=NORA, email="woanders@beispielschule.de", token_hash=None, day=TODAY)
+                address_change_document(address=NORA, email="woanders@beispielschule.example.org", token_hash=None, day=TODAY)
             )
             await add(database, client)
 
@@ -623,14 +623,14 @@ class TestAMove:
             async def move(session: AsyncClientSession) -> None:
                 await move_the_grant_in_session(
                     await the_row(database, Collection.GRANTS, NORA_ID),
-                    new_address="nora@neu.de",
+                    new_address="nora@neu.example.org",
                     grants_collection=database[Collection.GRANTS],
                     now=NOW,
                     session=session,
                 )
                 await move_the_grant_in_session(
                     await the_row(database, Collection.GRANTS, ANNA_ID),
-                    new_address="anna@neu.de",
+                    new_address="anna@neu.example.org",
                     grants_collection=database[Collection.GRANTS],
                     now=NOW,
                     session=session,
@@ -643,9 +643,9 @@ class TestAMove:
 
         nora, anna = await on_a_league(mongo_replica_set_url, body, grants=[WAITING])
 
-        assert (nora["address"], nora["effective_from"]) == ("nora@neu.de", stored(cast(datetime, WAITING["effective_from"])))
+        assert (nora["address"], nora["effective_from"]) == ("nora@neu.example.org", stored(cast(datetime, WAITING["effective_from"])))
         # In effect, the date rises to the switch, so a session from before it holds nothing.
-        assert (anna["address"], anna["effective_from"]) == ("anna@neu.de", stored(NOW))
+        assert (anna["address"], anna["effective_from"]) == ("anna@neu.example.org", stored(NOW))
 
 
 def signed_in_at(email: str, auth_time: int) -> dict[str, str]:

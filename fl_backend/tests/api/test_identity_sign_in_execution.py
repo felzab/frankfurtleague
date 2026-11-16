@@ -42,25 +42,25 @@ ACTIVE_SAISON = "2526"
 STAMP = "2026-01-20"
 
 # One mailbox per case, each spelled so that a hit in the corpus cannot be a coincidence.
-SEAT_ACTIVE = "sitz.aktiv@schule.de"
-SEAT_PAST = "sitz.vergangen@schule.de"
-SEAT_EXITED = "sitz.ausgetreten@schule.de"
-SEAT_OPEN = "sitz.offen@schule.de"
-SEAT_EXITED_OPEN = "sitz.ausgetreten.offen@schule.de"
-BEWERBUNG_OPEN = "bewerbung.offen@schule.de"
-BEWERBUNG_DECIDED = "bewerbung.entschieden@schule.de"
-BEWERBUNG_UNCONFIRMED = "bewerbung.unbestaetigt@schule.de"
-SPIELER_ACTIVE = "spieler.aktiv@schule.de"
-SCHIEDSRICHTER_ACTIVE = "pfeife.aktiv@schule.de"
-SCHIEDSRICHTER_RETIRED = "pfeife.ruhestand@schule.de"
-SCHIEDSRICHTER_OPEN = "pfeife.offen@schule.de"
-SCHIEDSRICHTER_RETIRED_OPEN = "pfeife.ruhestand.offen@schule.de"
+SEAT_ACTIVE = "sitz.aktiv@schule.example.org"
+SEAT_PAST = "sitz.vergangen@schule.example.org"
+SEAT_EXITED = "sitz.ausgetreten@schule.example.org"
+SEAT_OPEN = "sitz.offen@schule.example.org"
+SEAT_EXITED_OPEN = "sitz.ausgetreten.offen@schule.example.org"
+BEWERBUNG_OPEN = "bewerbung.offen@schule.example.org"
+BEWERBUNG_DECIDED = "bewerbung.entschieden@schule.example.org"
+BEWERBUNG_UNCONFIRMED = "bewerbung.unbestaetigt@schule.example.org"
+SPIELER_ACTIVE = "spieler.aktiv@schule.example.org"
+SCHIEDSRICHTER_ACTIVE = "pfeife.aktiv@schule.example.org"
+SCHIEDSRICHTER_RETIRED = "pfeife.ruhestand@schule.example.org"
+SCHIEDSRICHTER_OPEN = "pfeife.offen@schule.example.org"
+SCHIEDSRICHTER_RETIRED_OPEN = "pfeife.ruhestand.offen@schule.example.org"
 # A registration's address, stored folded as every payload stores one, and asked in another spelling.
-REGISTERED = "rita.registriert@schule.de"
-REGISTERED_DECLINED = "rita.abgelehnt@schule.de"
-REGISTERED_OPEN = "rita.offen@schule.de"
-BARRED = "gerda.gesperrt@schule.de"
-ADMIN = "verena.verwaltung@schule.de"
+REGISTERED = "rita.registriert@schule.example.org"
+REGISTERED_DECLINED = "rita.abgelehnt@schule.example.org"
+REGISTERED_OPEN = "rita.offen@schule.example.org"
+BARRED = "gerda.gesperrt@schule.example.org"
+ADMIN = "verena.verwaltung@schule.example.org"
 NOBODY = "niemand.hierverzeichnet@example.com"
 
 TEAM_OIDS = [ObjectId(f"6890a1b2c3d4e5f6078600{n:02d}") for n in range(1, 8)]
@@ -239,7 +239,10 @@ class TestWhatCountsAsAnOwnRecord:
             pytest.param(BEWERBUNG_UNCONFIRMED, id="an unconfirmed seat on a pending application"),
             pytest.param(SCHIEDSRICHTER_OPEN, id="an unconfirmed referee"),
             pytest.param(SCHIEDSRICHTER_RETIRED_OPEN, id="an unconfirmed retired referee"),
-            pytest.param(SCHIEDSRICHTER_ACTIVE.replace("@schule.de", "@anderswo.de"), id="a confirmed referee's local part at another domain"),
+            pytest.param(
+                SCHIEDSRICHTER_ACTIVE.replace("@schule.example.org", "@anderswo.example.org"),
+                id="a confirmed referee's local part at another domain",
+            ),
             pytest.param(SEAT_EXITED_OPEN, id="an unconfirmed seat on a withdrawn team's row"),
             pytest.param(REGISTERED_DECLINED, id="a declined registration"),
             pytest.param(REGISTERED_OPEN, id="an unconfirmed registration"),
@@ -289,7 +292,7 @@ def test_every_role_list_is_drawn_from_the_own_records():
     are pure over the rows the subject's reads hand them, so the rows are given as those reads leave them.
     """
 
-    identifier = "ortrud.zwiebelmayer@schule.de"
+    identifier = "ortrud.zwiebelmayer@schule.example.org"
     seat_rows: list[Mapping[str, Any]] = [
         {
             **_row(TEAM_OIDS[4], ACTIVE_SAISON, "OZX", trainer=_seat(identifier), ansprechperson=_seat(identifier, confirmed_at=None)),

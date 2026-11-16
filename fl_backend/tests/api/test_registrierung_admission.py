@@ -72,8 +72,8 @@ OTTO = "otto@example.com"
 NORA = "nora@example.com"
 
 # As a visitor may type it, and the fold every record stores it under.
-TYPED_EMAIL = "Thessaly.Okonkwo@beispielschule.de"
-FOLDED_EMAIL = "thessaly.okonkwo@beispielschule.de"
+TYPED_EMAIL = "Thessaly.Okonkwo@beispielschule.example.org"
+FOLDED_EMAIL = "thessaly.okonkwo@beispielschule.example.org"
 BIRTH_DATE = "2009-05-04"
 # The label of the media wording a press withdrawing it is given under.
 MEDIA_LABEL = SPIELER_TEXT_VERSIONS["media"]
@@ -464,7 +464,7 @@ class TestTheSquadCap:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             first = await seed(database, registrierung_document())
-            second = await seed(database, registrierung_document(email="zweite@beispielschule.de", first_name="Zweite"))
+            second = await seed(database, registrierung_document(email="zweite@beispielschule.example.org", first_name="Zweite"))
 
             async def the_rival_takes_the_place() -> None:
                 await admit(database, client, second)
@@ -727,7 +727,7 @@ class TestThePersonAnAdmissionNames:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPIELER].insert_many(
-                [a_stored_person(ObjectId()), a_stored_person(other_id, email="andere@beispielschule.de")]
+                [a_stored_person(ObjectId()), a_stored_person(other_id, email="andere@beispielschule.example.org")]
             )
             registrierung_id = await seed(database, registrierung_document())
 
@@ -738,7 +738,7 @@ class TestThePersonAnAdmissionNames:
     async def test_a_body_naming_anyone_where_the_address_resolves_to_nobody_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         """A person holding another address is never admitted into: a yes would hand their record to whoever holds the registering mailbox."""
 
-        named = a_stored_person(ObjectId(), email="andere@beispielschule.de")
+        named = a_stored_person(ObjectId(), email="andere@beispielschule.example.org")
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPIELER].insert_one(dict(named))
@@ -825,7 +825,9 @@ class TestTheAddressesOtherPendingRows:
             tagged = await seed(
                 database,
                 registrierung_document(
-                    email="thessaly.okonkwo+zwei@beispielschule.de", first_name="Zweite", token="Qm3vB7xL1cR9sT4yN6wK2pD8fJ5hG0aZ3eU1iO7kXbc"
+                    email="thessaly.okonkwo+zwei@beispielschule.example.org",
+                    first_name="Zweite",
+                    token="Qm3vB7xL1cR9sT4yN6wK2pD8fJ5hG0aZ3eU1iO7kXbc",
                 ),
             )
             await admit(database, client, admitted)
@@ -990,8 +992,10 @@ class TestTheDecline:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             declined = await seed(database, registrierung_document(confirmed=False))
-            pending = await seed(database, registrierung_document(confirmed=False, email="zweite@beispielschule.de", first_name="Zweite"))
-            for registrierung_id, address in ((declined, FOLDED_EMAIL), (pending, "zweite@beispielschule.de")):
+            pending = await seed(
+                database, registrierung_document(confirmed=False, email="zweite@beispielschule.example.org", first_name="Zweite")
+            )
+            for registrierung_id, address in ((declined, FOLDED_EMAIL), (pending, "zweite@beispielschule.example.org")):
                 owed = confirmation_mail(
                     registrierung_id=registrierung_id,
                     key=f"{Collection.REGISTRIERUNGEN}/{registrierung_id}/confirmation",
@@ -1004,7 +1008,7 @@ class TestTheDecline:
 
             return [(mail.to, mail.data.kind) for mail in await drained(database, client)]
 
-        assert await on_a_league(mongo_replica_set_url, body) == [("zweite@beispielschule.de", "registrierung_confirmation")]
+        assert await on_a_league(mongo_replica_set_url, body) == [("zweite@beispielschule.example.org", "registrierung_confirmation")]
 
 
 def keys_at_every_depth(value: Any) -> Iterator[str]:
@@ -1024,7 +1028,7 @@ class TestThePendingReadServesTheShirtNumbers:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed(database, registrierung_document())
             # The one squad row of `on_a_league` wears „0“.
-            await seed(database, registrierung_document(email="doppelt@beispielschule.de", first_name="Doppelt", nummer="0"))
+            await seed(database, registrierung_document(email="doppelt@beispielschule.example.org", first_name="Doppelt", nummer="0"))
 
             return (await read(database, client)).registrierungen
 
@@ -1044,7 +1048,7 @@ class TestThePendingReadsCap:
             confirmed = await seed(database, registrierung_document())
             # One insert, in order: each `ObjectId` is newer than the one before, which the read's sort breaks its tie on.
             flood = [
-                registrierung_document(confirmed=False, email=f"flut{index}@beispielschule.de", first_name=f"Flut{index}")
+                registrierung_document(confirmed=False, email=f"flut{index}@beispielschule.example.org", first_name=f"Flut{index}")
                 for index in range(OPEN_REGISTRIERUNGEN_CAP)
             ]
             await database[Collection.REGISTRIERUNGEN].insert_many(flood)
@@ -1069,8 +1073,8 @@ class TestThePendingReadServesNoAddress:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPIELER].insert_one(a_stored_person(ObjectId(), first_name="Thessa"))
             await seed(database, registrierung_document())
-            await seed(database, registrierung_document(email="zweite@beispielschule.de", first_name="Zweite"))
-            await seed(database, registrierung_document(confirmed=False, email="dritte@beispielschule.de", first_name="Dritte"))
+            await seed(database, registrierung_document(email="zweite@beispielschule.example.org", first_name="Zweite"))
+            await seed(database, registrierung_document(confirmed=False, email="dritte@beispielschule.example.org", first_name="Dritte"))
 
             async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
                 response = await http.get(
@@ -1086,4 +1090,4 @@ class TestThePendingReadServesNoAddress:
         assert "person" in keys_at_every_depth(served)
         assert not {"email", "phone", "birth_date", "einwilligung"} & set(keys_at_every_depth(served))
         text = json.dumps(served)
-        assert not any(value in text for value in ("beispielschule.de", BIRTH_DATE, "@"))
+        assert not any(value in text for value in ("beispielschule.example.org", BIRTH_DATE, "@"))

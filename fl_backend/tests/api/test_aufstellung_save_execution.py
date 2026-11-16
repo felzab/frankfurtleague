@@ -47,9 +47,9 @@ LINA, OLE, MIA, NEWCOMER, LEAVER = (ObjectId(f"6890a1b2c3d4e5f6074700{n}") for n
 # The away club's pupil, in no squad of the home club.
 AWAY_PUPIL = ObjectId("6890a1b2c3d4e5f607470051")
 
-HOME_SEAT, AWAY_SEAT = "ansprech.heim@schule.de", "ansprech.gast@schule.de"
+HOME_SEAT, AWAY_SEAT = "ansprech.heim@schule.example.org", "ansprech.gast@schule.example.org"
 # The home club's seat for the next season alone.
-LATER_SAISON_ID, LATER_SEAT = "2027", "ansprech.folge@schule.de"
+LATER_SAISON_ID, LATER_SEAT = "2027", "ansprech.folge@schule.example.org"
 ADMIN = "admin@example.org"
 # The administrator a served save is sent by, one the suite's grants hold.
 SERVED_ADMIN = ADMINISTRATORS[0]
@@ -64,7 +64,7 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def _junction(team_id: ObjectId, name: str, seat: str, *, saison_id: str = SAISON_ID) -> dict[str, Any]:
-    ansprech = documents.kontaktperson_document("Anna", confirmed_at="2026-01-06", email=seat, phone="+49 69 5550199")
+    ansprech = documents.kontaktperson_document("Anna", confirmed_at="2026-01-06", email=seat, phone="+49 69 90009199")
     kontakte = {**{slot: None for slot in KONTAKT_ROLLEN}, "ansprechperson": ansprech, "trainer_is_also": None}
     return documents.saison_team_document(saison_id, team_id, name, name[:3].upper(), kontakte=kontakte)
 
@@ -523,7 +523,9 @@ class FixturesCountingTheAttempts:
 
 
 async def the_seat_is_handed_on(database: AsyncDatabase, client: AsyncMongoClient) -> None:
-    ansprech = documents.kontaktperson_document("Berta", confirmed_at="2026-01-06", email="ansprech.neu@schule.de", phone="+49 69 5550198")
+    ansprech = documents.kontaktperson_document(
+        "Berta", confirmed_at="2026-01-06", email="ansprech.neu@schule.example.org", phone="+49 69 90009198"
+    )
     await database[Collection.SAISON_TEAMS].update_one(
         {"saison_id": SAISON_ID, "team_id": HOME}, {"$set": {"kontakte.ansprechperson": ansprech}}
     )

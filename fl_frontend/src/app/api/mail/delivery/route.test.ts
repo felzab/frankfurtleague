@@ -37,7 +37,7 @@ const { NextRequest } = await import("next/server");
 const { Webhook } = await import("svix");
 
 const ROW_ID = `${"b".repeat(23)}2`;
-const ADDRESS = "erika@schule.de";
+const ADDRESS = "erika@schule.example.org";
 
 /** The envelope's own instant, which orders events; `data.created_at` is the message's and repeats. */
 const EVENT_AT = "2026-09-08T10:15:00.000Z";

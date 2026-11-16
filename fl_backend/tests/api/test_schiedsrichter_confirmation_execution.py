@@ -68,7 +68,7 @@ DEFAULT_PAYMENT = 20
 
 EMAIL = "collina@example.com"
 CORRECTED_EMAIL = "collina.pierluigi@example.com"
-PHONE = "+49 69 1234567"
+PHONE = "+49 69 90009123"
 
 AN_ADULTS_BIRTHDATE = "1984-05-09"
 A_CHILDS_BIRTHDATE = "2018-01-01"

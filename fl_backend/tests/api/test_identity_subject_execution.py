@@ -32,18 +32,18 @@ PATH = f"/api/v{API_VERSION}/identity/subject"
 
 
 # Holding nothing, at the unconfirmed mailbox's local part: a read wider than the address takes that mailbox's records.
-UNCONFIRMED_ELSEWHERE = UNCONFIRMED.replace("@schule.de", "@anderswo.de")
+UNCONFIRMED_ELSEWHERE = UNCONFIRMED.replace("@schule.example.org", "@anderswo.example.org")
 
 # The banned address, banned in one spelling and asked in another; and an address whose ban ended
 # with the season before the running one.
-BARRED_BANNED = "Gerda.Gesperrt@Schule.de"
-BARRED_ASKED = "GERDA.GESPERRT@schule.de"
-EXPIRED = "arno.abgelaufen@schule.de"
+BARRED_BANNED = "Gerda.Gesperrt@Schule.example.org"
+BARRED_ASKED = "GERDA.GESPERRT@schule.example.org"
+EXPIRED = "arno.abgelaufen@schule.example.org"
 BAN_ACTIVE_OID = ObjectId("6890a1b2c3d4e5f607820041")
 BAN_LAPSED_OID = ObjectId("6890a1b2c3d4e5f607820042")
 
 # A grant holder's address, asked in capitals.
-ADMIN_ASKED = "Verena.Verwaltung@SCHULE.de"
+ADMIN_ASKED = "Verena.Verwaltung@SCHULE.example.org"
 
 # Past every grant the seed dates.
 NOW = datetime(2026, 6, 1, tzinfo=UTC)

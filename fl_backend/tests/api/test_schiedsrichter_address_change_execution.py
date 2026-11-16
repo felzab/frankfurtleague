@@ -42,7 +42,7 @@ SCHIEDSRICHTER_OID = ObjectId("6890a1b2c3d4e5f607830001")
 NAME = "Ortwin Pfeiffenberger"
 EMAIL = "ortwin.pfeiffenberger@example.com"
 NEW_EMAIL = "o.pfeiffenberger@neuepost.example.org"
-PHONE = "+49 69 5550303"
+PHONE = "+49 69 90009303"
 
 
 def referee_document(**overrides: Any) -> dict[str, Any]:
