@@ -39,8 +39,7 @@ minimumReleaseAge: 1440
 minimumReleaseAgeStrict: true
 # Each entry is keyed to one exact version, because pnpm fails an install when a patch applies to
 # nothing (`allowUnusedPatches` stays at its default, false): a bump stops here and someone reads the
-# patch. The comment above an entry names its upstream issue and what removes it, which
-# `scripts/tests/test_patched_dependencies.py` holds.
+# patch. The comment above an entry names its upstream issue and what removes it.
 patchedDependencies:
   # https://github.com/vercel/next.js/issues/88986 -- a link to the fragment the address already
   # holds counts as a refresh of the page and never scrolls. Under the patch a person's navigation

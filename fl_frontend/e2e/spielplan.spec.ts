@@ -5,10 +5,11 @@
 import { expect } from "@playwright/test";
 
 import { hydrated, test } from "./support/journey";
+import { RUNNING } from "./support/madeUpLeague";
 
 test("a visitor opens a match from the Spielplan, and Back returns to the matchday it showed", async ({ page }) => {
   const prefetched = hydrated(page);
-  await page.goto("/saisons/2027");
+  await page.goto(`/saisons/${RUNNING}`);
 
   // The tabs open on the current matchday, the first holding a match still to play: the seed's running season played its
   // first matchday, and its second is today.
@@ -20,7 +21,7 @@ test("a visitor opens a match from the Spielplan, and Back returns to the matchd
   const first = tabs.getByRole("link", { name: "1. Spieltag" });
   await first.click();
   await expect(first).toHaveAttribute("aria-current", "page");
-  await expect(page).toHaveURL((url) => url.pathname === "/saisons/2027" && url.searchParams.get("tab") === "gruppenphase-1");
+  await expect(page).toHaveURL((url) => url.pathname === `/saisons/${RUNNING}` && url.searchParams.get("tab") === "gruppenphase-1");
 
   // A match row is a link to the match's page, which opens over the Spielplan. Only the chosen matchday's
   // matches are on the page, so the row's name finds it: the seed's first match, Ahorn against Kastanie, 2:1.
@@ -28,7 +29,7 @@ test("a visitor opens a match from the Spielplan, and Back returns to the matchd
   const popup = page.getByRole("dialog", { name: "Ahorn vs. Kastanie" });
   await expect(popup).toBeVisible();
   await expect(popup.getByText("2:1")).toBeVisible();
-  await expect(page).toHaveURL((url) => /^\/saisons\/2027\/spiele\/[0-9a-f]{24}$/.test(url.pathname));
+  await expect(page).toHaveURL((url) => new RegExp(`^/saisons/${RUNNING}/spiele/[0-9a-f]{24}$`).test(url.pathname));
   // The Spielplan stays beneath it, on the matchday it showed. The open pop-up hides everything outside
   // itself from the accessibility tree, which a role query skips unless told to include it.
   const beneath = page.getByRole("navigation", { name: "Spieltage", includeHidden: true });
@@ -39,7 +40,7 @@ test("a visitor opens a match from the Spielplan, and Back returns to the matchd
   // Back closes the pop-up and leaves the Spielplan on the matchday it showed.
   await page.goBack();
   await expect(popup).toBeHidden();
-  await expect(page).toHaveURL((url) => url.pathname === "/saisons/2027" && url.searchParams.get("tab") === "gruppenphase-1");
+  await expect(page).toHaveURL((url) => url.pathname === `/saisons/${RUNNING}` && url.searchParams.get("tab") === "gruppenphase-1");
   await expect(first).toHaveAttribute("aria-current", "page");
 
   // Opened again, the pop-up's club name leads to the club's page. A client navigation leaves a parallel slot
@@ -48,7 +49,7 @@ test("a visitor opens a match from the Spielplan, and Back returns to the matchd
   await page.getByRole("link", { name: /Ahorn.*Kastanie/ }).click();
   await expect(popup).toBeVisible();
   await popup.getByRole("link", { name: "Ahorn", exact: true }).click();
-  await expect(page).toHaveURL((url) => /^\/saisons\/2027\/teams\/[0-9a-f]{24}$/.test(url.pathname));
+  await expect(page).toHaveURL((url) => new RegExp(`^/saisons/${RUNNING}/teams/[0-9a-f]{24}$`).test(url.pathname));
   await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Ahorn" })).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 

@@ -3,13 +3,14 @@
  *
  * Options rather than constants per file, so one journey runs under both projects as each project's
  * own people (https://playwright.dev/docs/test-parameterize#parameterized-projects). Each is a
- * record of `scripts/ops/seed/seed.js`, and no two projects share one: a passkey or a code one
+ * record of the made-up seed, and no two projects share one: a passkey or a code one
  * project made is never the other's to find.
  */
 import path from "node:path";
 
 import { test as base, expect } from "@playwright/test";
 
+import { RUNNING } from "./madeUpLeague";
 import { standInForTurnstile } from "./turnstileStandIn";
 
 import type { Browser, BrowserContext, BrowserContextOptions, Page, Request } from "@playwright/test";
@@ -29,8 +30,8 @@ export type JourneyOptions = {
   departing: { club: string; fixture: string };
   /**
    * The club the administration enters into the planned season, and the kit colour its editor saves. A season's colour
-   * is one team's and both projects enter the one season, so each has its own, and neither is one `PLANNED_ROWS` of
-   * `scripts/ops/seed/seed.js` holds nor the wish `application.ts :: apply` picks, which a colour given away would close.
+   * is one team's and both projects enter the one season, so each has its own, and neither is one the seed's planned
+   * season holds nor the wish the applications pick, which a colour given away would close.
    */
   entered: { club: string; colour: string };
   /** The pupil the administration edits in the running season's squads. */
@@ -61,7 +62,7 @@ type JourneyFixtures = {
 export const E2E_DIR = path.resolve(process.env.E2E_DIR ?? path.join(__dirname, "..", "..", "..", ".tmp-e2e"));
 
 /**
- * The session `./administrator.setup.ts` saves, which every administration journey opens with
+ * The session the administrator's setup saves, which every administration journey opens with
  * (https://playwright.dev/docs/auth). Beside the stack's keys, which go when the stack goes and no failed run uploads:
  * it holds a live session of that stack.
  */
@@ -75,9 +76,10 @@ export const ADMINISTRATOR_STATE = path.join(E2E_DIR, "administrator.json");
  * route intercepts, not full loads. Called before the load, so the prefetch cannot be missed.
  */
 export function hydrated(page: Page): Promise<Request> {
+  const match = new RegExp(`^/saisons/${RUNNING}/spiele/[0-9a-f]{24}$`);
   return page.waitForRequest((request) => {
     const url = new URL(request.url());
-    return /^\/saisons\/2027\/spiele\/[0-9a-f]{24}$/.test(url.pathname) && url.searchParams.has("_rsc");
+    return match.test(url.pathname) && url.searchParams.has("_rsc");
   });
 }
 
@@ -118,16 +120,16 @@ function expectNoRefusal(refusals: readonly string[]): void {
  * too. The project's `use` options reach it as they reach every context the test's browser makes
  * (https://playwright.dev/docs/test-use-options#explicit-context-creation-and-option-inheritance).
  */
-async function provideDevice(browser: Browser, options: BrowserContextOptions, provide: (page: Page) => Promise<void>): Promise<void> {
+async function provideDevice(browser: Browser, options: BrowserContextOptions, use: (page: Page) => Promise<void>): Promise<void> {
   const device = await browser.newContext(options);
   const refusals = await readyForJourney(device);
-  await provide(await device.newPage());
+  await use(await device.newPage());
   await device.close();
   expectNoRefusal(refusals);
 }
 
 export const test = base.extend<JourneyFixtures & JourneyOptions>({
-  // Empty until a project sets them, which `fl_frontend/playwright.config.ts` does for each.
+  // Empty until a project sets them.
   administrator: ["", { option: true }],
   twoDevices: ["", { option: true }],
   mover: ["", { option: true }],
@@ -140,19 +142,18 @@ export const test = base.extend<JourneyFixtures & JourneyOptions>({
   registering: [{ club: "", token: "", admitter: "" }, { option: true }],
   booked: [{ address: "", played: "", coming: "" }, { option: true }],
 
-  // The test's own context. `provide` is the fixture's `use`, named apart from React's hook, which a lint rule reads it
-  // as.
-  context: async ({ context }, provide) => {
+  // The test's own context.
+  context: async ({ context }, use) => {
     const refusals = await readyForJourney(context);
-    await provide(context);
+    await use(context);
     expectNoRefusal(refusals);
   },
 
-  administration: async ({ browser }, provide) => {
-    await provideDevice(browser, { storageState: ADMINISTRATOR_STATE }, provide);
+  administration: async ({ browser }, use) => {
+    await provideDevice(browser, { storageState: ADMINISTRATOR_STATE }, use);
   },
 
-  secondDevice: async ({ browser }, provide) => {
-    await provideDevice(browser, {}, provide);
+  secondDevice: async ({ browser }, use) => {
+    await provideDevice(browser, {}, use);
   },
 });

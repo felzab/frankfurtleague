@@ -1,6 +1,6 @@
 /**
  * E2E · an administrator's passkey, where no lower tier sees a passkey set up after the mailed code fail to sign in
- * alone. Desktop alone, for the reason `fl_frontend/playwright.config.ts` gives at its projects.
+ * alone. Desktop alone: Playwright's WebKit has no WebAuthn of its own, so a phone ceremony would test its stand-in.
  */
 import { expect } from "@playwright/test";
 

@@ -7,33 +7,33 @@ import { expect } from "@playwright/test";
 
 import { save, saveBar, scrollsSideways, typeInto } from "../support/controls";
 import { ADMINISTRATOR_STATE, test } from "../support/journey";
+import { PEOPLE, RUNNING } from "../support/madeUpLeague";
 
 import type { Page } from "@playwright/test";
 
 test.use({ storageState: ADMINISTRATOR_STATE });
 
 /** The seed's longest venue name, which no width of the page may break. */
-const LONG_NAME = "Bezirkssportanlage Frankfurt-Nieder-Eschbach Nord";
+const LONG_NAME = PEOPLE.venues.longest;
 
 /** The venue this journey creates; the stack is seeded afresh for every run. */
 const NEW_VENUE = "Sportplatz Ulmenring";
 
 /**
  * The running season's match 6, today at 16:00 between Kastanie and Eiche, the only match today at its
- * venue and with its referee, so a later kick-off meets no clash (`scripts/ops/seed/seed.js`). It stands on
+ * venue and with its referee, so a later kick-off meets no clash. It stands on
  * the group stage's second matchday, which the Spiele list is opened on by its address, so the journey edits
  * that match whatever matchday the list would open on by itself.
  */
-const SAISON = "2027";
 const MATCHDAY = "gruppenphase-2";
 // The match card's link is named by all its words, the date and the plaques among them, as the Spielplan's is.
 const PAIRING = /Kastanie.*Eiche/;
 
 /** The match's id, read off its card on its matchday's tab of the season's Spiele list, whose link opens its editor. */
 async function spielId(page: Page): Promise<string> {
-  await page.goto(`/admin/saisons/${SAISON}/spiele?tab=${MATCHDAY}`);
+  await page.goto(`/admin/saisons/${RUNNING}/spiele?tab=${MATCHDAY}`);
   const href = await page.getByRole("main").getByRole("link", { name: PAIRING }).getAttribute("href");
-  const id = new RegExp(`^/admin/saisons/${SAISON}/spiele/([0-9a-f]{24})$`).exec(href ?? "")?.[1];
+  const id = new RegExp(`^/admin/saisons/${RUNNING}/spiele/([0-9a-f]{24})$`).exec(href ?? "")?.[1];
   if (id === undefined) throw new Error(`no editor link for ${PAIRING} on the Spiele list's ${MATCHDAY} tab`);
   return id;
 }
@@ -72,7 +72,7 @@ test("an administrator creates a venue over the Spielorte list, moves a match's 
 
   // --- The match editor --------------------------------------------------------------------------
 
-  const editor = `/admin/saisons/${SAISON}/spiele/${await spielId(page)}`;
+  const editor = `/admin/saisons/${RUNNING}/spiele/${await spielId(page)}`;
   await page.goto(editor);
   await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Kastanie vs. Eiche" })).toBeVisible();
 
@@ -91,7 +91,7 @@ test("an administrator creates a venue over the Spielorte list, moves a match's 
   // --- The matchday editor -----------------------------------------------------------------------
 
   // The matchday's „Bearbeiten“ leads to an editor page of its own, named as its tab is, on its one read.
-  await page.goto(`/admin/saisons/${SAISON}/spiele?tab=${MATCHDAY}`);
+  await page.goto(`/admin/saisons/${RUNNING}/spiele?tab=${MATCHDAY}`);
   await page.getByRole("main").getByRole("link", { name: "Bearbeiten", exact: true }).click();
   await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "2. Spieltag" })).toBeVisible();
   await expect(page.getByRole("group", { name: /^Beginn/ })).toBeVisible();

@@ -1,7 +1,7 @@
 /**
  * E2E · an administrator's mailed code on the phone, which leads to setting up a passkey and no
- * further. The ceremony itself runs in `desktop/passkey.spec.ts`, for the reason
- * `fl_frontend/playwright.config.ts` gives at its projects.
+ * further. The ceremony itself runs on desktop alone: Playwright's WebKit has no WebAuthn of its
+ * own, so a phone ceremony would test its stand-in.
  */
 import { expect } from "@playwright/test";
 
