@@ -6,7 +6,6 @@ the actor bound as `bind_actor` binds it; the mounted route is what reads a requ
 class goes through it.
 """
 
-import functools
 import time
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime, timedelta
@@ -15,7 +14,6 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -31,10 +29,9 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.security import PASSKEY_FACTOR
-from app.main import create_app
 from app.shared.schemas.bounds import GRANT_WAIT_HOURS, OWNER_WAIT_DAYS
 from tests import acts
-from tests.app_client import app_client
+from tests.app_client import app_client, app_under_test
 from tests.bans import ban_through_the_route
 from tests.config import ADMIN_KEY
 from tests.database import a_clean_database
@@ -43,13 +40,9 @@ from tests.isolation import COMMITTED, InterleavedCollection, Rival, outcome_of
 from tests.session_headers import StampedHeaders, session_headers
 from tests.worker import worker_database
 
-from .conftest import config_for
-
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_grants_test")
-
-CONFIG = config_for(DATABASE_NAME)
 
 # A century ahead of the real clock: the TTL monitor deletes a row whose delete date has passed, under a case reading it back.
 NOW = datetime(2126, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
@@ -83,16 +76,6 @@ def stored(moment: datetime) -> datetime:
     """An instant as the driver reads it back."""
 
     return moment.astimezone(UTC).replace(tzinfo=None)
-
-
-@functools.cache
-def _served() -> FastAPI:
-    """One app for every case serving through it: building one costs more than the request a case sends through it.
-
-    Built on first use rather than at import, which every xdist worker pays at collection.
-    """
-
-    return create_app(CONFIG)
 
 
 def grant_document(grant_id: ObjectId, address: str, admin_tier: str, *, effective_from: datetime = IN_EFFECT) -> dict[str, Any]:
@@ -726,7 +709,7 @@ class TestTheMountedRouteReadsTheGrants:
             await database[Collection.GRANTS].insert_one(
                 grant_document(NORA_ID, NORA, "administration", effective_from=at_most(effective_in_s))
             )
-            async with app_client(mongo_replica_set_url, app=_served()) as http:
+            async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME)) as http:
                 response = await http.get(f"/api/v{API_VERSION}/grants", headers=signed_in_at(NORA, int(time.time()) - 60))
 
             return response.status_code, response.json().get("error_code")
@@ -739,7 +722,7 @@ class TestTheMountedRouteReadsTheGrants:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[int, str | None]]:
             await database[Collection.GRANTS].update_one({"_id": ANNA_ID}, {"$set": {"owner_from": at_most(-5)}})
             older = int(time.time()) - 60
-            async with app_client(mongo_replica_set_url, app=_served()) as http:
+            async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME)) as http:
 
                 async def removing(address: str, auth_time: int) -> tuple[int, str | None]:
                     response = await http.delete(f"/api/v{API_VERSION}/grants/{BERND_ID}", headers=signed_in_at(address, auth_time))
@@ -762,7 +745,7 @@ class TestTheMountedRouteReadsTheGrants:
 
     async def test_a_removed_administrator_is_refused_on_the_very_next_request(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[int]:
-            async with app_client(mongo_replica_set_url, app=_served()) as http:
+            async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME)) as http:
                 headers = StampedHeaders(BERND, ADMIN_KEY)
                 before = await http.get(f"/api/v{API_VERSION}/grants", headers=headers)
                 removed = await http.delete(f"/api/v{API_VERSION}/grants/{BERND_ID}", headers=StampedHeaders(OWNER, ADMIN_KEY))
@@ -776,7 +759,7 @@ class TestTheMountedRouteReadsTheGrants:
         """The only grant case reaching `get_actor_email`: a mixed-case identity is stored folded in the log."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, ...]:
-            async with app_client(mongo_replica_set_url, app=_served()) as http:
+            async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME)) as http:
                 response = await http.post(
                     f"/api/v{API_VERSION}/grants", headers=StampedHeaders(OWNER.upper(), ADMIN_KEY), json={"email": NORA_TYPED}
                 )

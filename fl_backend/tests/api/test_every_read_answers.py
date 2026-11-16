@@ -8,7 +8,6 @@ later is asked without a case of its own, and a path or a query parameter no see
 """
 
 import asyncio
-import functools
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from datetime import datetime
@@ -17,7 +16,6 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from fastapi.dependencies.models import Dependant
 from fastapi.routing import APIRoute
 from pydantic import BaseModel
@@ -28,9 +26,8 @@ from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.security import verify_access_admin, verify_access_base, verify_access_system, verify_admin_actor, verify_person_actor
-from app.main import create_app
 from tests import documents
-from tests.app_client import app_client
+from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_AUTH, ADMIN_KEY, BASE_AUTH, SYSTEM_AUTH, build_test_config, grants_for_the_suite
 from tests.core.app_source import api_routes, application, dependency_calls
 from tests.database import a_clean_database_sync
@@ -329,11 +326,6 @@ def _path(route: APIRoute, values: Mapping[str, str]) -> str:
     return route.path_format.format(**{param.name: values[param.name] for param in route.dependant.path_params})
 
 
-@functools.cache
-def _served() -> FastAPI:
-    return create_app(build_test_config())
-
-
 @pytest.fixture(scope="module", params=list(PHASES), ids=list(PHASES))
 def league(request: pytest.FixtureRequest, mongo_replica_set_url: str) -> Iterator[Phase]:
     phase = PHASES[request.param]
@@ -350,7 +342,7 @@ def league(request: pytest.FixtureRequest, mongo_replica_set_url: str) -> Iterat
 
 def _get(league: Phase, url: str, path: str, *, headers: Mapping[str, str], params: Mapping[str, str] | None = None) -> Any:
     async def asked() -> Any:
-        async with app_client(url, app=_served(), now=league.now) as http:
+        async with app_client(url, app=app_under_test(), now=league.now) as http:
             return await http.get(path, params=dict(params or {}), headers=dict(headers))
 
     return asyncio.run(asked())

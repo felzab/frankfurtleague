@@ -11,6 +11,7 @@ Invariants:
   as in production, so a route that forgets its `by` fails here rather than recording the suite's.
 """
 
+import functools
 from collections.abc import AsyncGenerator
 from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import datetime
@@ -24,6 +25,20 @@ from app.core.dependencies import get_germany_now
 from app.core.recording import actor_var
 from app.main import create_app
 from tests.config import TEST_BASE_URL, build_test_config
+
+
+@functools.cache
+def app_under_test(database_name: str | None = None) -> FastAPI:
+    """The suite's settings built into an app reading `database_name`, or the shared corpus where none is named.
+
+    One for each database a process serves, since a build costs more than most requests sent through it, and every
+    module naming that database shares it: `app_client` hands it back as it came. Built on first use rather than at
+    import, which every xdist worker pays at collection.
+    """
+
+    config = build_test_config()
+
+    return create_app(config if database_name is None else config.model_copy(update={"db_base_name": database_name}))
 
 
 @asynccontextmanager

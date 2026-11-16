@@ -44,12 +44,11 @@ from app.core.config import API_VERSION
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.logging import JSONFormatter
 from app.core.recording import actor_var
-from app.main import create_app
 from app.shared.schemas.bounds import ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAITING_PERIOD_DAYS, GRANT_WAIT_HOURS, OWNER_WAIT_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests import documents
-from tests.app_client import app_client
+from tests.app_client import app_client, app_under_test
 from tests.config import ADMINISTRATORS, SYSTEM_AUTH
 from tests.holds import HeldCollection
 from tests.isolation import COMMITTED, outcome_of
@@ -103,7 +102,6 @@ from .address_change_harness import (
     view,
 )
 from .address_change_harness import on_a_person as _on_a_person
-from .conftest import config_for
 from .test_grants_execution import GrantsRunningARivalAfterTheFirstRead
 
 # Module level: every case below reaches a real mongod, each write being one transaction.
@@ -488,7 +486,7 @@ class TestTheSystemsReadOfTheNewAddress:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await start(database, client)
-            async with app_client(mongo_replica_set_url, app=create_app(config_for(DATABASE_NAME))) as http:
+            async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME)) as http:
                 caplog.clear()
                 with caplog.at_level(logging.INFO):
                     response = await http.post(f"/api/v{API_VERSION}/address_change/address", headers=SYSTEM_AUTH, json={"token": minted.token})

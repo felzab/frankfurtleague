@@ -1,11 +1,9 @@
-import functools
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from httpx2 import Response
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -13,9 +11,8 @@ from app.api.identity.schemas import FLSignInResponse, FLSubjectPayload, FLSubje
 from app.api.identity.system_router import get_sign_in, get_subject
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.main import create_app
 from app.shared.schemas.literals import KONTAKT_ROLLEN
-from tests.app_client import app_client
+from tests.app_client import app_client, app_under_test
 from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database
 from tests.documents import (
@@ -32,8 +29,6 @@ from tests.documents import (
 from tests.plans import plans_of_sent_reads
 from tests.records import record_collections
 from tests.worker import worker_database
-
-from .conftest import config_for
 
 DATABASE_NAME = worker_database("fl_identity_subject_test")
 
@@ -285,23 +280,13 @@ async def test_a_seat_carries_its_own_season_s_status(mongo_replica_set_url: str
     assert [seat.saison_status for seat in (await answered(mongo_replica_set_url)).seats] == ["past", "active", "active"]
 
 
-@functools.cache
-def _served() -> FastAPI:
-    """One app for every case serving through it: building one costs more than the request a case sends through it.
-
-    Built on first use rather than at import, which every xdist worker pays at collection.
-    """
-
-    return create_app(config_for(DATABASE_NAME))
-
-
 async def served_over_http(url: str, email: str = IDENTIFIER) -> Response:
     """The corpus seeded, then one request through the MOUNTED route."""
 
     await on_a_league(url, _no_body)
 
     async def _answered() -> Response:
-        async with app_client(url, app=_served()) as http:
+        async with app_client(url, app=app_under_test(DATABASE_NAME)) as http:
             return await http.post(PATH, headers=SYSTEM_AUTH, json={"email": email})
 
     return await _answered()

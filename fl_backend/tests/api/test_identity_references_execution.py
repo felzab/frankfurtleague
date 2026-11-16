@@ -5,14 +5,12 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.main import create_app
-from tests.app_client import app_client
+from tests.app_client import app_client, app_under_test
 from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database
 from tests.documents import (
@@ -32,7 +30,7 @@ from tests.documents import (
 )
 from tests.worker import worker_database
 
-from .conftest import AUSTRITT, config_for
+from .conftest import AUSTRITT
 
 DATABASE_NAME = worker_database("fl_identity_references_test")
 
@@ -186,13 +184,8 @@ async def _seed(database: AsyncDatabase) -> None:
     )
 
 
-@functools.cache
-def _served() -> FastAPI:
-    return create_app(config_for(DATABASE_NAME))
-
-
 async def _ask(url: str, identifiers: list[str]) -> tuple[int, Mapping[str, Any]]:
-    async with app_client(url, app=_served()) as http:
+    async with app_client(url, app=app_under_test(DATABASE_NAME)) as http:
         response = await http.post(PATH, headers=SYSTEM_AUTH, json={"identifiers": identifiers})
 
     return response.status_code, response.json()

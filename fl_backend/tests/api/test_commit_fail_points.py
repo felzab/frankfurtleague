@@ -10,7 +10,6 @@ workers, so a second module configuring it on another worker would replace this 
 `off` would clear both. The gate's `--dist loadfile` runs one module on one worker, its cases one after another.
 """
 
-import functools
 import logging
 from collections.abc import Awaitable, Callable
 from datetime import datetime
@@ -19,7 +18,6 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from httpx2 import AsyncClient
 from pymongo import AsyncMongoClient, monitoring
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -33,9 +31,8 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.recording import ACT_BY_KONTAKT, record_act
 from app.core.transactions import UNKNOWN_COMMIT_RESULT
-from app.main import create_app
 from app.shared.einwilligung_evidence import evidence_state_of
-from tests.app_client import app_client
+from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_KEY
 from tests.database import a_clean_database
 from tests.documents import SPIELER_TEXT_VERSIONS, own_einwilligung_document, saison_document, spieler_document
@@ -46,7 +43,6 @@ from tests.worker import worker_database
 
 from . import test_spielbestaetigung_sweep_execution as confirmations
 from . import test_spiele_write_execution as spiel_saves
-from .conftest import config_for
 from .test_identity_erasure_execution import IDENTIFIER, THEIR_GRANT_OID, THEIR_REPORT_OID, a_grant, action_log_row, journal_records
 from .test_identity_erasure_execution import PUPIL_OID as THEIR_PUPIL_OID
 from .test_identity_erasure_execution import erased_by_the_handler as erased_by_the_person
@@ -352,11 +348,6 @@ RECORDED_TEAM = "Lessing"
 THEIR_CONSENT = own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at="2126-09-02", media=True)
 
 
-@functools.cache
-def _app() -> FastAPI:
-    return create_app(config_for(PRESS_DATABASE))
-
-
 def _person(email: str) -> StampedHeaders:
     return StampedHeaders(email, ADMIN_KEY, lane="person")
 
@@ -371,7 +362,7 @@ async def served(url: str, steps: Callable[[AsyncClient, AsyncDatabase, AsyncMon
         await database[Collection.SPIELER].insert_one(
             spieler_document(PUPIL_OID, "Ortrud", "Zwiebelmayer", email=PERSON, birth_date="1990-05-09", einwilligung=THEIR_CONSENT)
         )
-        async with app_client(url, app=_app(), now=PRESS_NOW) as http:
+        async with app_client(url, app=app_under_test(PRESS_DATABASE), now=PRESS_NOW) as http:
             return await steps(http, database, client)
 
 

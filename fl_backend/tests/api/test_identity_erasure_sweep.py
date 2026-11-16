@@ -8,7 +8,6 @@ The decisions underneath are `tests/api/test_identity_erasure_sweep_refusal.py`'
 """
 
 import asyncio
-import functools
 import logging
 import re
 from collections import Counter
@@ -20,7 +19,6 @@ from zoneinfo import ZoneInfo
 import pymongo
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -33,9 +31,8 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.logging import JSONFormatter
-from app.main import create_app
 from tests.acts import deletions_of
-from tests.app_client import app_client
+from tests.app_client import app_client, app_under_test
 from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database
 from tests.documents import (
@@ -57,13 +54,9 @@ from tests.whole_database import where_held
 from tests.wire import commands_by_name
 from tests.worker import worker_database
 
-from .conftest import config_for
-
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_erasure_sweep_test")
-CONFIG = config_for(DATABASE_NAME)
-
 PATH = f"/api/v{API_VERSION}/identity/erasure/sweep"
 
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
@@ -512,7 +505,7 @@ class TestOneRecordHoldsBackNobody:
             await seeded(database, a_due_pupil(1), a_due_pupil(2), a_report_naming(1))
             await refuse_writes_breaking(database, Collection.SPIELBERICHTE, NO_REPORT_WRITTEN)
 
-            async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
+            async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
                 response = await http.post(PATH, headers=SYSTEM_AUTH)
 
             return response.status_code, response.json(), await database[Collection.SPIELER].distinct("_id", {"email": {"$type": "string"}})
@@ -626,11 +619,6 @@ class TestTheDeadlineStopsTheCall:
             if getattr(record, "error_code", None) in {Code.DATABASE_FAILED, Code.UNKNOWN_OUTCOME}
         ]
         assert lines == [("WARNING", "identity.erasure_cut", str(numbered(2)), False)]
-
-
-@functools.cache
-def _app() -> FastAPI:
-    return create_app(CONFIG)
 
 
 class TestEachCallTakesAShare:

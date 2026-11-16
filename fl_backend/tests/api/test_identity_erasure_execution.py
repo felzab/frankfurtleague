@@ -9,7 +9,6 @@ seat holder. Another mailbox at their local part holds records beside them. Ever
 fails here.
 """
 
-import functools
 import logging
 import sys
 from collections.abc import Awaitable, Callable, Mapping
@@ -19,7 +18,6 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
@@ -35,10 +33,9 @@ from app.core.config import API_VERSION
 from app.core.logging import JSONFormatter
 from app.core.security import PASSKEY_FACTOR
 from app.core.transactions import transaction_session
-from app.main import create_app
 from app.shared.tokens import hash_token
 from tests import documents
-from tests.app_client import app_client
+from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_KEY, ADMINISTRATORS, grants_for_the_suite
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database
 from tests.documents import (
@@ -69,13 +66,9 @@ from tests.session_headers import StampedHeaders, actor_headers
 from tests.whole_database import where_folded_to, where_held, where_referenced
 from tests.worker import worker_database
 
-from .conftest import config_for
-
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_roles_erasure_test")
-
-CONFIG = config_for(DATABASE_NAME)
 
 PATH = f"/api/v{API_VERSION}/identity/account/erasure"
 
@@ -165,11 +158,6 @@ REFEREE_NAME = f"{FIRST_NAME} {LAST_NAME}"
 PAYMENT = 25
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
-
-
-@functools.cache
-def _app() -> FastAPI:
-    return create_app(CONFIG)
 
 
 def their_seat() -> dict[str, Any]:
@@ -573,14 +561,14 @@ def by_passkey(email: str) -> dict[str, str]:
 
 
 async def erased_over_http(url: str, *, email: str = TYPED, headers: Mapping[str, str] | None = None) -> Any:
-    async with app_client(url, app=_app(), now=NOW) as http:
+    async with app_client(url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
         return await http.post(PATH, headers=headers or as_person(email))
 
 
 async def erased_on_request(url: str, *, by: str) -> Any:
     """The administrator's route, as `by` presses it on a mailed request."""
 
-    async with app_client(url, app=_app(), now=NOW) as http:
+    async with app_client(url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
         return await http.post(
             f"/api/v{API_VERSION}/identity/erasure",
             json={"email": TYPED, "reason": "Mail vom 30.03.2126, Betreff: Bitte löscht alle meine Daten"},
@@ -1156,7 +1144,7 @@ class TestThePreview:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             if admin_tier is not None:
                 await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, admin_tier)
-            async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
+            async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
                 return (await http.get(f"{PATH}/view", headers=as_person(TYPED))).json()["admin_tier"]
 
         assert await on_a_league(mongo_replica_set_url, body) == admin_tier
@@ -1172,7 +1160,7 @@ class TestThePreview:
                 address="noch.gefragt@example.com", email=IDENTIFIER, token_hash=None, day="2126-03-30", way="account"
             )
             await database[Collection.ADDRESS_CHANGES].insert_one(asked_first)
-            async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
+            async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
                 preview = (await http.get(f"{PATH}/view", headers=as_person(TYPED))).json()["address_change"]
 
             before = await everything_in(database)

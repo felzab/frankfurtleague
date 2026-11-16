@@ -14,7 +14,7 @@ being flat.
 | [`../../docs/backend/overview.md`](../../docs/backend/overview.md#tests) | The two tiers and the `db` marker                                                                                         |
 | `conftest.py`                                                            | The factory fixtures, and the session-scoped `mongod` replica set, yielded as a url                                       |
 | `config.py`                                                              | The settings an application under test is built with                                                                      |
-| `app_client.py`                                                          | The application under test, served in process to an HTTP client of the test's own                                         |
+| `app_client.py`                                                          | The application under test, built once per database and served in process to an HTTP client of the test's own             |
 | `boot.py`                                                                | The image's own boot, run in a process of its own over an environment and a secrets folder a case writes                  |
 | `session_headers.py`                                                     | The actor's session headers as the frontend's server sends them (`fl_backend/tests/session_headers.py :: StampedHeaders`) |
 | `database.py`                                                            | The database a db test opens for itself: built once, emptied per call, every document it leaves read back                 |

@@ -5,7 +5,6 @@ What each serves of the dates the league asked the team to confirm, of its line-
 whom: every case reads the wire, so a field the model would drop and a key a nested block would smuggle in are both seen.
 """
 
-import functools
 import json
 from collections.abc import Iterator, Mapping
 from datetime import datetime
@@ -14,15 +13,13 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.main import create_app
 from tests import documents
-from tests.app_client import app_client
-from tests.config import ADMIN_KEY, build_test_config
+from tests.app_client import app_client, app_under_test
+from tests.config import ADMIN_KEY
 from tests.database import a_clean_database
 from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
@@ -31,7 +28,6 @@ from tests.worker import worker_database
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_team_panel_test")
-WIRE_CONFIG = build_test_config().model_copy(update={"db_base_name": DATABASE_NAME})
 
 SAISON_ID = "2026"
 PAST_SAISON_ID = "2025"
@@ -215,15 +211,10 @@ async def seed(database: AsyncDatabase) -> None:
     )
 
 
-@functools.cache
-def _served() -> FastAPI:
-    return create_app(WIRE_CONFIG)
-
-
 async def read(url: str, what: str, *, identifier: str = THEO, saison_id: str = SAISON_ID) -> tuple[int, Any]:
     async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
         await seed(database)
-        async with app_client(url, app=_served(), now=NOW) as http:
+        async with app_client(url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
             response = await http.get(
                 f"/api/v{API_VERSION}/teams/{TEAM}/saisons/{saison_id}/self/{what}",
                 headers=StampedHeaders(identifier, ADMIN_KEY, lane="person"),

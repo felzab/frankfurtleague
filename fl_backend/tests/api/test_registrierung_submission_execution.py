@@ -1,5 +1,4 @@
 import asyncio
-import functools
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
@@ -8,7 +7,6 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from httpx2 import Response
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
@@ -21,12 +19,11 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import APIError
-from app.main import create_app
 from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
 from tests import documents
-from tests.app_client import app_client
-from tests.config import BASE_AUTH, build_test_config
+from tests.app_client import app_client, app_under_test
+from tests.config import BASE_AUTH
 from tests.database import a_clean_database
 from tests.holds import HoldsAfterItsLookup
 from tests.outbox import MAIL_NOW, drained
@@ -36,10 +33,6 @@ from tests.worker import worker_database
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_registrierung_submission_test")
-
-CONFIG = build_test_config()
-# The same settings against this suite's own database, for the cases a request reaches over the wire.
-WIRE_CONFIG = CONFIG.model_copy(update={"db_base_name": DATABASE_NAME})
 
 SAISON_ID = "2026"
 # A century ahead of the real clock, every seeded day with it: the TTL monitor deletes a row whose delete date has passed,
@@ -375,20 +368,10 @@ class TestTheSubmissionKey:
         assert not any("idempotency_key" in row for row in rows)
 
 
-@functools.cache
-def _served() -> FastAPI:
-    """One app for every case serving through it: building one costs more than the request a case sends through it.
-
-    Built on first use rather than at import, which every xdist worker pays at collection.
-    """
-
-    return create_app(WIRE_CONFIG)
-
-
 async def over_the_wire(url: str, *, key: str) -> Response:
     """One registration as a request carries it, so the header is parsed as the route handler sends it."""
 
-    async with app_client(url, app=_served(), now=NOW) as http:
+    async with app_client(url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
         sent = dict(BASE_AUTH) | {"Idempotency-Key": key}
         return await http.post(f"/api/v{API_VERSION}/registrierungen", json=payload(), headers=sent)
 

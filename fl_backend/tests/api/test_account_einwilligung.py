@@ -6,7 +6,6 @@ payload shape; this file holds what differs on a referee row: a record the confi
 yet written.
 """
 
-import functools
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
@@ -14,7 +13,6 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from httpx2 import AsyncClient
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -25,9 +23,8 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.recording import actor_var
-from app.main import create_app
 from app.shared.einwilligung_evidence import EVIDENCE, TextVersions, evidence_state_of
-from tests.app_client import app_client
+from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_KEY
 from tests.database import a_clean_database
 from tests.documents import (
@@ -51,11 +48,9 @@ from tests.documents import (
 from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
 
-from .conftest import AUSTRITT, config_for
+from .conftest import AUSTRITT
 
 DATABASE_NAME = worker_database("fl_account_einwilligung_test")
-
-CONFIG = config_for(DATABASE_NAME)
 
 NOW = datetime(2026, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 
@@ -277,17 +272,10 @@ async def _seed(database: AsyncDatabase) -> None:
     )
 
 
-@functools.cache
-def _app() -> FastAPI:
-    """Built once for the module: a build per case would be about half of what a case here costs."""
-
-    return create_app(CONFIG)
-
-
 async def served[T](url: str, steps: Callable[[AsyncClient, AsyncDatabase], Awaitable[T]], *, now: datetime = NOW) -> T:
     async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_client, database):
         await _seed(database)
-        async with app_client(url, app=_app(), now=now) as http:
+        async with app_client(url, app=app_under_test(DATABASE_NAME), now=now) as http:
             return await steps(http, database)
 
 

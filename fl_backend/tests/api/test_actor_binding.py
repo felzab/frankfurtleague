@@ -22,12 +22,10 @@ from app.core.collections import Collection
 from app.core.exceptions import ACTOR_CHALLENGE
 from app.core.recording import actor_var, record_act
 from app.core.security import AUTH_TIME_HEADER, PASSKEY_FACTOR, Factor, bind_actor, get_actor_email, get_person_identifier
-from app.main import create_app
 from app.shared.schemas.bounds import ADMIN_WINDOW_HOURS, PERSON_WINDOW_DAYS
-from tests.config import ADMIN_KEY, BASE_AUTH, build_test_config
+from tests.app_client import app_under_test
+from tests.config import ADMIN_KEY, BASE_AUTH
 from tests.session_headers import SESSION_AGE_S, actor_headers, verified_actor
-
-CONFIG = build_test_config()
 
 TEAM_ID = "6890a1b2c3d4e5f607182930"
 WRITE_PATH = f"/api/v0/teams/{TEAM_ID}"
@@ -41,7 +39,7 @@ ACTOR = "admin@example.com"
 def client() -> TestClient:
     """No lifespan, so nothing opens the database: a request clearing every session check fails on `no_database_client`, which is observable."""
 
-    return TestClient(create_app(CONFIG), raise_server_exceptions=False)
+    return TestClient(app_under_test(), raise_server_exceptions=False)
 
 
 def answer(response: Any) -> tuple[int, str]:

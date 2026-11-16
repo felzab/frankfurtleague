@@ -1,4 +1,3 @@
-import functools
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any, Final, cast
@@ -6,7 +5,6 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId, encode
-from fastapi import FastAPI
 from pydantic import TypeAdapter
 from pymongo import AsyncMongoClient, monitoring
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -36,10 +34,9 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.transactions import transaction_session
-from app.main import create_app
 from app.shared.tokens import hash_token
 from tests import documents
-from tests.app_client import app_client
+from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_AUTH, ADMIN_KEY, grants_for_the_suite
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database
 from tests.delivery import a_mail_that_bounced
@@ -58,8 +55,6 @@ from tests.isolation import InterleavedCollection, Rival
 from tests.outbox import MAIL_NOW, drained
 from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
-
-from .conftest import config_for
 
 DATABASE_NAME = worker_database("fl_bewerbung_triage_test")
 
@@ -262,16 +257,6 @@ async def junction_rows(database: AsyncDatabase, **narrow: Any) -> list[Mapping[
 SEEDED_CLUBS = 2
 
 
-@functools.cache
-def _served() -> FastAPI:
-    """One app for every case serving through it: building one costs more than the request a case sends through it.
-
-    Built on first use rather than at import, which every xdist worker pays at collection.
-    """
-
-    return create_app(config_for(DATABASE_NAME))
-
-
 async def through_the_app(
     url: str, bewerbung_id: ObjectId, endpoint: str, payload: Mapping[str, Any], *, actor: str | None = ADMIN_EMAIL
 ) -> Any:
@@ -286,7 +271,7 @@ async def through_the_app(
 
     # A client of its own rather than the seeding one: the seeding client has to outlive the
     # request, every caller reading `database` afterwards to assert what the request wrote.
-    async with app_client(url, app=_served(), now=NOW) as http:
+    async with app_client(url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
         return await http.post(path, json=dict(payload), headers=headers)
 
 

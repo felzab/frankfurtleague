@@ -8,24 +8,21 @@ selections and predicates, so each case also holds the set to what the seed mean
 both sides alike would leave the two equal.
 """
 
-import functools
 from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identity.crud import find_own_entries
 from app.api.registrierungen.services import compose_decline_update
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.main import create_app
 from app.shared.einwilligung_evidence import TextVersions
 from app.shared.folding import sign_in_identifier
-from tests.app_client import app_client
+from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_KEY
 from tests.database import a_clean_database
 from tests.documents import (
@@ -48,22 +45,13 @@ from tests.records import record_collections
 from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
 
-from .conftest import AUSTRITT, config_for
+from .conftest import AUSTRITT
 
 DATABASE_NAME = worker_database("fl_account_entries_test")
-
-CONFIG = config_for(DATABASE_NAME)
 
 ACCOUNT_PATH = f"/api/v{API_VERSION}/account/einwilligungen"
 
 NOW = datetime(2026, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
-
-
-@functools.cache
-def _app() -> FastAPI:
-    """One build for every case here, all on one configuration: `tests/app_client.py :: app_client` hands each the app as it came."""
-
-    return create_app(CONFIG)
 
 
 PAST, ACTIVE = "2025", "2026"
@@ -250,7 +238,7 @@ async def test_the_gate_counts_exactly_what_the_account_page_serves(mongo_replic
     async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True) as (_client, database):
         await _seed(database)
         _subject, entries = await find_own_entries(sign_in_identifier(address), record_collections(database))
-        async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
+        async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
             response = await http.get(ACCOUNT_PATH, headers=_person(address))
             assert response.status_code == 200, response.text
 
@@ -266,7 +254,7 @@ async def test_the_account_page_serves_a_registration_as_its_pupil_stored_it(mon
 
     async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True) as (_client, database):
         await _seed(database)
-        async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
+        async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
             response = await http.get(ACCOUNT_PATH, headers=_person(WILTRUDIS))
 
     assert response.status_code == 200, response.text

@@ -1,20 +1,17 @@
 import asyncio
-import functools
 from collections.abc import Iterator, Mapping
 from typing import Any
 
 import pymongo
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from httpx2 import Response
 from pymongo import MongoClient
 
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.main import create_app
 from tests import documents
-from tests.app_client import app_client
+from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config, grants_for_the_suite
 from tests.database import a_clean_database_sync
 
@@ -191,19 +188,9 @@ def kader_rows() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     )
 
 
-@functools.cache
-def _served() -> FastAPI:
-    """One app for every case serving through it: building one costs more than the request a case sends through it.
-
-    Built on first use rather than at import, which every xdist worker pays at collection.
-    """
-
-    return create_app(build_test_config())
-
-
 def answered(uri: str, path: str, headers: Mapping[str, str]) -> Response:
     async def _answered() -> Response:
-        async with app_client(uri, app=_served()) as http:
+        async with app_client(uri, app=app_under_test()) as http:
             with pymongo.timeout(UNANSWERED_DEADLINE_S if uri == UNANSWERED_URI else None):
                 return await http.get(path, headers=dict(headers))
 

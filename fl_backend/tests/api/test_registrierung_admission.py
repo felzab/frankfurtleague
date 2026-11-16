@@ -1,4 +1,3 @@
-import functools
 import json
 from collections.abc import Awaitable, Callable, Iterator, Mapping
 from datetime import datetime
@@ -7,7 +6,6 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -31,14 +29,13 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import APIError, DocumentNotFoundError
-from app.main import create_app
 from app.shared.einwilligung_evidence import evidence_state_of
 from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload, FLSpielerTextVersions
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.acts import acts_of
-from tests.app_client import app_client
-from tests.config import ADMIN_KEY, build_test_config
+from tests.app_client import app_client, app_under_test
+from tests.config import ADMIN_KEY
 from tests.database import a_clean_database
 from tests.documents import SPIELER_TEXT_VERSIONS
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
@@ -52,7 +49,6 @@ from tests.worker import worker_database
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_registrierung_admission_test")
-WIRE_CONFIG = build_test_config().model_copy(update={"db_base_name": DATABASE_NAME})
 
 SAISON_ID = "2026"
 NEXT_SAISON_ID = "2027"
@@ -1014,11 +1010,6 @@ class TestTheDecline:
         assert await on_a_league(mongo_replica_set_url, body) == [("zweite@beispielschule.de", "registrierung_confirmation")]
 
 
-@functools.cache
-def _served() -> FastAPI:
-    return create_app(WIRE_CONFIG)
-
-
 def keys_at_every_depth(value: Any) -> Iterator[str]:
     if isinstance(value, Mapping):
         for key, inner in value.items():
@@ -1084,7 +1075,7 @@ class TestThePendingReadServesNoAddress:
             await seed(database, registrierung_document(email="zweite@beispielschule.de", first_name="Zweite"))
             await seed(database, registrierung_document(confirmed=False, email="dritte@beispielschule.de", first_name="Dritte"))
 
-            async with app_client(mongo_replica_set_url, app=_served(), now=NOW) as http:
+            async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
                 response = await http.get(
                     f"/api/v{API_VERSION}/registrierungen/kader/{TEAM_OID}/{SAISON_ID}", headers=StampedHeaders(ANNA, ADMIN_KEY, lane="person")
                 )

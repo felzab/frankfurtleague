@@ -1,11 +1,9 @@
-import functools
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
 from typing import Any
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from httpx2 import Response
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -16,9 +14,8 @@ from app.api.identity.services import own_entries, seat_saisons
 from app.api.identity.system_router import get_sign_in
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.main import create_app
 from app.shared.folding import sign_in_identifier
-from tests.app_client import app_client
+from tests.app_client import app_client, app_under_test
 from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database
 from tests.documents import (
@@ -39,7 +36,7 @@ from tests.documents import (
 from tests.records import record_collections
 from tests.worker import worker_database
 
-from .conftest import AUSTRITT, config_for
+from .conftest import AUSTRITT
 
 DATABASE_NAME = worker_database("fl_identity_sign_in_test")
 
@@ -357,11 +354,6 @@ def test_every_role_list_is_drawn_from_the_own_records():
     assert subject.schiedsrichter == []
 
 
-@functools.cache
-def _served() -> FastAPI:
-    return create_app(config_for(DATABASE_NAME))
-
-
 @pytest.mark.db
 async def test_the_mounted_route_answers_the_four_flags_and_nothing_else(mongo_replica_set_url: str):
     """The whole body through the mounted route: a lookup bound to the wrong handle answers a flag false, which no keyword call can tell."""
@@ -372,7 +364,7 @@ async def test_the_mounted_route_answers_the_four_flags_and_nothing_else(mongo_r
     await on_a_league(mongo_replica_set_url, _no_body)
 
     async def _answered() -> Response:
-        async with app_client(mongo_replica_set_url, app=_served()) as http:
+        async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME)) as http:
             return await http.post(PATH, headers=SYSTEM_AUTH, json={"email": REGISTERED_STORED.upper()})
 
     response = await _answered()
