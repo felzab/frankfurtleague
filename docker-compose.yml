@@ -137,7 +137,7 @@ services:
           memory: "128M"
 
   nginx:
-    # Tag and digest. The local stack and `nginx/edge_test.sh` read this
+    # Tag and digest. The local stack and `scripts/checks/edge_test.sh` read this
     # line.
     image: nginx:1.31.8-alpine@sha256:713fc2ebfd92e8217db451477182ee91944b123d2b1ee9fd5a8c6e91ca6c3a11
     restart: unless-stopped

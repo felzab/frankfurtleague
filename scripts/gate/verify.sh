@@ -552,7 +552,7 @@ findings above name the service and the rule." \
   # A parse sees neither a log line nor a response, and both edges starting is the parse.
   step "ops · the edge starts, logs no credential and sends every security header once"
   check --checker "The running edge failed a case. Each failing case above is what nginx WROTE or SENT, and the
-files under nginx/shared/ decide it." bash nginx/edge_test.sh \
+files under nginx/shared/ decide it." bash scripts/checks/edge_test.sh \
     && ok "the edge logged and sent every case as written"
   return 0
 }

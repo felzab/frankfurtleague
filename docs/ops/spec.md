@@ -322,7 +322,7 @@ exactly that type, and the frontend reads the sentence as a press that wrote not
 (`fl_frontend/src/kit/edgeRefusal.ts`); a `charset` would make every refused press read as an
 unclear save. The page withholds the referrer, its URL possibly carrying a link's token, and its
 colours are the site's, copied by hand from `fl_frontend/src/app/tokens.css`, which
-`nginx/edge_test.sh` holds them to name by name.
+`scripts/checks/edge_test.sh` holds them to name by name.
 
 **The edge reaches each upstream by its service name as it serves**, never by an address read at
 load: each `proxy_pass` names a variable, and nginx asks Docker's DNS again once its answer is ten
@@ -338,7 +338,7 @@ answered by FastAPI's own not-found body: no further route opens, but the body n
 
 **A location declaring any `proxy_set_header` replaces the whole inherited set rather than extending
 it.** That set mints the `traceparent` every upstream receives, a visitor's own discarded, so no
-location declares one, and `nginx/edge_test.sh` fails a frontend location handing Next a visitor's
+location declares one, and `scripts/checks/edge_test.sh` fails a frontend location handing Next a visitor's
 `traceparent`. **No upstream is handed the visitor's address**: neither application reads one, so the
 set sends `X-Forwarded-For` and `CF-Connecting-IP` empty, which nginx drops.
 
@@ -372,7 +372,7 @@ Every response carries four, each sent with `always`, from `nginx/shared/securit
 in each location adding a header of its own, because `add_header` in a location replaces the
 inherited set, and `nginx/prod/prod.conf`'s www redirect includes it too. The file also drops an
 upstream's copy of each header, so a response carries the edge's alone and never a second enforcing
-policy. `nginx/edge_test.sh` asks every location and the www redirect for each header, and compares
+policy. `scripts/checks/edge_test.sh` asks every location and the www redirect for each header, and compares
 its value with the file's.
 
 **`frame-ancestors 'none'` is the one framing rule.** CSP3 has it override `X-Frame-Options`, which
@@ -404,7 +404,7 @@ library's release.
 
 **Cloudflare's `https://challenges.cloudflare.com` stands in `script-src` and in `frame-src`, and in
 no other directive**: the bot check on the sign-in and the two public forms loads its script from
-there and renders its widget in a frame of that origin. `nginx/edge_test.sh` fails a response whose
+there and renders its widget in a frame of that origin. `scripts/checks/edge_test.sh` fails a response whose
 policy loses it from either. Cloudflare's own list for the check adds `connect-src 'self'` for
 pre-clearance alone, which the widget does not use
 (<https://developers.cloudflare.com/turnstile/reference/content-security-policy/>, read
@@ -479,7 +479,7 @@ merged over the local stack's two files):
 - its keys generated under `.tmp-e2e/` on every start rather than read from `secrets/`;
 - the made-up seed on an empty volume every start;
 - the local edge with every rate and connection limit counting and refusing nothing
-  (`nginx/e2e/e2e.conf`), since every journey arrives from one address. `nginx/edge_test.sh` proves
+  (`nginx/e2e/e2e.conf`), since every journey arrives from one address. `scripts/checks/edge_test.sh` proves
   the limits instead.
 
 Both stacks publish ports 3000 and 27017, so one runs at a time. `--e2e --down` deletes the volume
@@ -580,7 +580,7 @@ each entry point inserting it at its own top, and `pyrightconfig.json`'s `extraP
 listing of that fact.
 
 **The ops scope exists because the compose files and the nginx configuration have no compiler.**
-A parse sees no response, so `nginx/edge_test.sh` starts the checkout's own edges as
+A parse sees no response, so `scripts/checks/edge_test.sh` starts the checkout's own edges as
 `docker-compose.yml` starts nginx, fails a configuration either refuses to start on with nginx's own
 log, and grades what each wrote, sent and answered:
 
@@ -670,7 +670,7 @@ variable, how `verify.sh` hands each scope's run its answer without exporting on
 take as an instruction.
 
 **`--verbose` streams each tool's own output instead of capturing it**, the one thing a captured run
-cannot give back afterwards; `verify.sh` and `nginx/edge_test.sh` take it.
+cannot give back afterwards; `verify.sh` and `scripts/checks/edge_test.sh` take it.
 
 ### 1.8 The edge's declared state
 
@@ -748,19 +748,19 @@ be true there, a check the owner makes in its list of monitors:
 | Production publishes no port, and the local stacks publish on loopback alone                                                               | `scripts/checks/check_compose_model.py :: production` and `:: local`, over the models `docker compose config` renders                                                                  |
 | Production declares exactly `frontend`, `backend`, `nginx` and `cloudflared`, and no database                                              | `scripts/checks/check_compose_model.py :: PRODUCTION_SERVICES`                                                                                                                         |
 | Only nginx shares a network with the connector, and only nginx with the application pair, in both stacks                                   | `scripts/checks/check_compose_model.py :: networks`                                                                                                                                    |
-| Every service drops every capability and sets `no-new-privileges`; nginx alone adds any back, `CHOWN`, `SETUID` and `SETGID`               | `scripts/checks/check_compose_model.py :: privileges`; `nginx/edge_test.sh` starts nginx with them                                                                                     |
+| Every service drops every capability and sets `no-new-privileges`; nginx alone adds any back, `CHOWN`, `SETUID` and `SETGID`               | `scripts/checks/check_compose_model.py :: privileges`; `scripts/checks/edge_test.sh` starts nginx with them                                                                            |
 | Every credential reaches a service as a Compose file secret, held by exactly the services that read it, from its own file under `secrets/` | `scripts/checks/check_compose_model.py :: secret_holders` over `:: SECRET_HOLDERS`, and `:: secrets_directory`                                                                         |
 | No service's environment names a value a secret file holds, in any letter case                                                             | `scripts/checks/check_compose_model.py :: moved_names`                                                                                                                                 |
 | Each application service reads its own package's `.env` and no other                                                                       | `scripts/checks/check_compose_model.py :: env_files`, over the models rendered from the gate's stand-ins                                                                               |
 | The frontend's `APP_ENV` is each stack's own, written above the package's file                                                             | `scripts/checks/check_compose_model.py :: deployment_name`                                                                                                                             |
 | Both edges mount their configuration from `nginx/` by directory, and trust the connector's rendered address alone                          | `scripts/checks/check_compose_model.py :: edge_mounts` and `:: trusted_connector`                                                                                                      |
-| Each security header is sent once, as `nginx/shared/security_headers.conf` writes it, on every location and the www redirect               | `nginx/edge_test.sh`                                                                                                                                                                   |
-| No mailed link's query reaches an access line, and every access line holds its request's trace id                                          | `nginx/edge_test.sh`                                                                                                                                                                   |
-| A visitor's `traceparent` never reaches an upstream                                                                                        | `nginx/edge_test.sh`                                                                                                                                                                   |
-| Each upstream is named through a variable and found through Docker's DNS, so a recreated container needs no reload                         | `nginx/edge_test.sh`                                                                                                                                                                   |
-| Each zone and the connection ceiling refuse past their figure with the edge's `429`                                                        | `nginx/edge_test.sh`, which reads each figure off the configuration it judges                                                                                                          |
+| Each security header is sent once, as `nginx/shared/security_headers.conf` writes it, on every location and the www redirect               | `scripts/checks/edge_test.sh`                                                                                                                                                          |
+| No mailed link's query reaches an access line, and every access line holds its request's trace id                                          | `scripts/checks/edge_test.sh`                                                                                                                                                          |
+| A visitor's `traceparent` never reaches an upstream                                                                                        | `scripts/checks/edge_test.sh`                                                                                                                                                          |
+| Each upstream is named through a variable and found through Docker's DNS, so a recreated container needs no reload                         | `scripts/checks/edge_test.sh`                                                                                                                                                          |
+| Each zone and the connection ceiling refuse past their figure with the edge's `429`                                                        | `scripts/checks/edge_test.sh`, which reads each figure off the configuration it judges                                                                                                 |
 | Every route handler, link page and metadata convention is metered or accounted for at the edge                                             | `scripts/checks/check_public_routes.py`, its rules driven red in `scripts/tests/test_check_public_routes.py`                                                                           |
-| A link page's location writes no error line, withholds the referrer, and takes a burst sized for the largest squad                         | `scripts/checks/check_public_routes.py :: unlogged_links`, `:: referring_links` and `:: unsized_links`; `nginx/edge_test.sh`                                                           |
+| A link page's location writes no error line, withholds the referrer, and takes a burst sized for the largest squad                         | `scripts/checks/check_public_routes.py :: unlogged_links`, `:: referring_links` and `:: unsized_links`; `scripts/checks/edge_test.sh`                                                  |
 | Every image this repository does not build is pinned by tag and digest                                                                     | `scripts/tests/test_image_pins.py`                                                                                                                                                     |
 | The frontend image's Node, the backend image's Python series and its uv are the ones the checkout and CI run                               | `scripts/tests/test_image_pins.py`                                                                                                                                                     |
 | The journeys' Playwright image is the Playwright release the frontend lockfile resolves                                                    | `scripts/tests/test_image_pins.py`                                                                                                                                                     |
@@ -829,7 +829,7 @@ Each gap is open, waiting on work, or accepted, with its reason.
 - **The API version is spelled outside `API_VERSION`.** Open. Four sites spell it again:
   `fl_frontend/src/core/api.ts :: BASE_FETCH_PATH`, which the generated client's paths must start
   with; `docker-compose.yml`'s backend healthcheck; `nginx/shared/site.conf`'s two probe locations;
-  and `nginx/edge_test.sh`. §3 carries two symptoms.
+  and `scripts/checks/edge_test.sh`. §3 carries two symptoms.
 - **A deploy's verdict reads no page.** Accepted: health is each container's healthcheck and
   nginx's reload, so a site whose every page errors can pass ([`runbooks.md`](runbooks.md) §1).
 - **Going back moves the images alone.** Accepted: the compose file and `nginx/` stay as pulled, so
