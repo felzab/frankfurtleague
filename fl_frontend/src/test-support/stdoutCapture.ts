@@ -8,8 +8,17 @@ import { afterAll, afterEach, assert, beforeEach } from "vitest";
  */
 const LOGGER_FRAME = /[\\/]src[\\/]core[\\/]logging\.ts:\d+/;
 
-/** Whether the write in progress is the logger's: its frame stands right below the replaced `write`. */
-const writtenByTheLogger = (): boolean => LOGGER_FRAME.test(new Error("the write's caller").stack ?? "");
+/**
+ * Whether the write in progress is the logger's: its frame stands right below the replaced `write`, the first frame
+ * Node's `Error.captureStackTrace` keeps once it leaves out `write` and every frame above it. A chunk written by
+ * anything the logger calls is not the logger's.
+ */
+function writtenByTheLogger(write: typeof process.stdout.write): boolean {
+  const call = new Error("the write's caller");
+  Error.captureStackTrace(call, write);
+  // The first line is the error's own; the frame below it is the caller's.
+  return LOGGER_FRAME.test(call.stack?.split("\n")[1] ?? "");
+}
 
 /** The stream's own `write`, bound, for every chunk a capture passes on. */
 type Write = (chunk: unknown, ...rest: unknown[]) => boolean;
@@ -23,8 +32,8 @@ function beginCapture(read: (raw: string) => void): { faults: string[]; restore:
   const original = process.stdout.write;
   const passOn = original.bind(process.stdout) as Write;
 
-  process.stdout.write = ((chunk: unknown, ...rest: unknown[]) => {
-    if (!writtenByTheLogger()) return passOn(chunk, ...rest);
+  const write = ((chunk: unknown, ...rest: unknown[]) => {
+    if (!writtenByTheLogger(write)) return passOn(chunk, ...rest);
     const raw = String(chunk);
     try {
       // The logger writes each line in one call ending in a newline, so a chunk without one is a writer this
@@ -36,6 +45,7 @@ function beginCapture(read: (raw: string) => void): { faults: string[]; restore:
     }
     return true;
   }) as typeof process.stdout.write;
+  process.stdout.write = write;
 
   return {
     faults,
