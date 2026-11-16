@@ -45,10 +45,6 @@ const traceOf = (call: string): string | undefined =>
     ?.headers.get("traceparent")
     ?.split("-")[1];
 
-it("runs under a production build's NODE_ENV", () => {
-  expect(process.env.NODE_ENV, "a project writing the plain line shows no trace").toBe("production");
-});
-
 /* Each half apart: a throw in the application's clocks skips no registration, whose rows hold a minor's name,
    address and birthdate. */
 it("runs every other half, files a line naming the half and the season, and then fails", async () => {

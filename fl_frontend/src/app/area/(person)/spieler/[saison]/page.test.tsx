@@ -7,12 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import { COPY } from "@/core/copy";
 
 import type { FLSpielerSaisonSelfResponse, FLSpielerSaisonSelfSpiel } from "@/core/generated/client/types";
-import type { ComponentProps } from "react";
 
-vi.mock("next/link", async (original) => ({
-  ...(await original<object>()),
-  default: ({ children, ...props }: ComponentProps<"a">) => <a {...props}>{children}</a>,
-}));
 vi.mock("next/navigation", () => ({ usePathname: () => "/area/spieler/2027", useRouter: () => ({ replace: vi.fn() }) }));
 
 /** The pupil's own season as the backend holds it, which each case sets. */

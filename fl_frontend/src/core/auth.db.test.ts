@@ -5,8 +5,6 @@ import {
   Barrier,
   configDouble,
   cookieHeader,
-  GATE_BACKEND_CONFIG,
-  HOLDS_NOTHING,
   lastMailedCode,
   ORIGIN,
   overriding,
@@ -14,9 +12,10 @@ import {
   signInByCode,
 } from "@/test-support/authDoubles.ts";
 import { serveBackend } from "@/test-support/backend.ts";
+import { emptyStore } from "@/test-support/emptyStore.ts";
 import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
 import { captureLog } from "@/test-support/stdoutCapture.ts";
-import { answerAt, SEAT } from "@/test-support/subjectFixtures.ts";
+import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures.ts";
 import { registrationFor } from "@/test-support/testAuthenticator.ts";
 import { MongoServerError } from "mongodb";
 import { assert, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -135,7 +134,7 @@ let deletingUser: () => Promise<unknown> = async () => undefined;
 const { sent } = registerAuthDoubles({
   // The admin key the person lane's erasure is sent under, beside the store's address.
   core: {
-    config: configDouble(GATE_BACKEND_CONFIG, { mongodbUri: () => MONGO_URL, internalApiKeyAdmin: () => "fabricated-admin-not-a-credential" }),
+    config: configDouble({}, { mongodbUri: () => MONGO_URL, internalApiKeyAdmin: () => "fabricated-admin-not-a-credential" }),
     db: DB_DOUBLE,
   },
 });
@@ -162,7 +161,7 @@ serveBackend(({ path: endpoint, body }) => {
   const { email } = (body ?? {}) as { email?: string };
   const granted = email === ADMIN_EMAIL;
   return answerAt(path, {
-    ...HOLDS_NOTHING,
+    ...NO_RECORDS,
     admin_tier: granted ? "administration" : null,
     // Before every session a case makes.
     granted_since: granted ? "2026-01-01T00:00:00Z" : null,
@@ -223,9 +222,7 @@ beforeEach(async () => {
   atCommit = async () => undefined;
   deletingAccounts = async () => undefined;
   deletingUser = async () => undefined;
-  // An empty store, its indexes kept.
-  const collections = await authDb().listCollections({}, { nameOnly: true }).toArray();
-  await Promise.all(collections.map(({ name }) => authDb().collection(name).deleteMany({})));
+  await emptyStore(authDb());
 });
 
 const handler = toNextJsHandler(auth);

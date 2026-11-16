@@ -1,14 +1,6 @@
-import {
-  ADMIN_EMAIL,
-  HOLDS_NOTHING,
-  memoryAdapterDouble,
-  memoryStore,
-  ORIGIN,
-  overriding,
-  registerAuthDoubles,
-} from "@/test-support/authDoubles.ts";
+import { ADMIN_EMAIL, memoryAdapterDouble, memoryStore, ORIGIN, overriding, registerAuthDoubles } from "@/test-support/authDoubles.ts";
 import { serveBackend, serveHost } from "@/test-support/backend.ts";
-import { answerAt } from "@/test-support/subjectFixtures.ts";
+import { answerAt, NO_RECORDS } from "@/test-support/subjectFixtures.ts";
 import { assert, describe, expect, it } from "vitest";
 
 import { TURNSTILE_FIELD } from "@/core/turnstileToken.ts";
@@ -28,7 +20,7 @@ const REJECTED = "fremde@example.org";
 
 /** What the backend holds for an address, answered at each read in that read's shape. */
 const BACKENDS: Readonly<Record<string, LookupFixture>> = {
-  [GRANTED]: { ...HOLDS_NOTHING, admin_tier: "administration", granted_since: "2026-01-01T00:00:00Z", account: false },
+  [GRANTED]: { ...NO_RECORDS, admin_tier: "administration", granted_since: "2026-01-01T00:00:00Z", account: false },
 };
 
 /** The gate's read and the subject's, by the path each is spelled at below the base path. */
@@ -41,7 +33,7 @@ const LOOKUPS: ReadonlySet<string> = new Set(["/identity/sign_in", "/identity/su
 function answerFromTheBackend({ method, path, body }: { method: string; path: string; body: unknown }): unknown {
   if (method !== "POST" || !LOOKUPS.has(path)) return undefined;
   const asked = ((body ?? {}) as { email?: string }).email ?? "";
-  const backend = BACKENDS[asked] ?? { ...HOLDS_NOTHING, account: false };
+  const backend = BACKENDS[asked] ?? { ...NO_RECORDS, account: false };
 
   return answerAt(path, backend);
 }

@@ -1,6 +1,9 @@
 // First, as Next's server loads it: its request stores take this global at their own load, and the
 // adapter `visit` runs needs real ones.
+import { thrownRedirect } from "@/test-support/thrownRedirect.ts";
 import { assert, describe, expect, it, vi } from "vitest";
+
+import type { ThrownRedirect } from "@/test-support/thrownRedirect.ts";
 
 import "next/dist/server/node-environment-baseline.js";
 
@@ -8,7 +11,7 @@ import {
   ADMIN_EMAIL,
   configDouble,
   cookiePair,
-  GATE_BACKEND_CONFIG,
+  deleteRow,
   madeByPasskey,
   memoryAdapterDouble,
   memoryStore,
@@ -34,7 +37,7 @@ const REMOVED_EMAIL = "ehemalig@example.org";
 seatEveryAddress();
 
 registerAuthDoubles({
-  core: { config: configDouble(GATE_BACKEND_CONFIG) },
+  core: { config: configDouble() },
   specifiers: {
     // This file's subject is the SHAPE of a turn-away rather than the store behind it.
     "@better-auth/mongo-adapter": memoryAdapterDouble(STORE),
@@ -87,31 +90,24 @@ function redirectedTo(answer: Response): string | null {
 }
 
 /** Where the landing sends the session `cookie` names, asked to return to `asked` where given: the redirect it throws. */
-async function landedAt(cookie: string, asked?: string): Promise<string> {
+async function landedAt(cookie: string, asked?: string): Promise<ThrownRedirect> {
   arriveAs(cookie);
   const url = new URL("http://localhost:3000/signin/continue");
   if (asked !== undefined) url.searchParams.set("return", asked);
-  try {
-    await continueTo(new NextRequest(url));
-  } catch (error) {
-    const digest: unknown = Reflect.get(error as object, "digest");
-    assert.ok(typeof digest === "string", "the landing threw other than a redirect");
-    return digest;
-  }
-  throw new Error("the landing answered without a redirect");
+  return thrownRedirect(continueTo(new NextRequest(url)));
 }
 
-const landsOn = (path: string) => `NEXT_REDIRECT;replace;${path};307;`;
+const landsOn = (path: string): ThrownRedirect => ({ type: "replace", address: path, status: 307 });
 
 describe("where the sign-in's landing sends a session asked to return somewhere", () => {
   it("lands a session the area serves straight on an allowlisted address it was asked for", async () => {
-    expect(await landedAt(removed.cookie, "/account")).toBe(landsOn("/account"));
-    expect(await landedAt(removed.cookie, "/erasure")).toBe(landsOn("/erasure"));
+    expect(await landedAt(removed.cookie, "/account")).toStrictEqual(landsOn("/account"));
+    expect(await landedAt(removed.cookie, "/erasure")).toStrictEqual(landsOn("/erasure"));
   });
 
   it("lands it on the area's own page instead of an outside, an encoded, a protocol-relative or a token-bearing address", async () => {
     const unasked = await landedAt(removed.cookie);
-    assert.ok(unasked.startsWith("NEXT_REDIRECT;replace;/area"), `the control landed on ${unasked}`);
+    assert.ok(unasked.type === "replace" && unasked.address.startsWith("/area"), `the control landed on ${JSON.stringify(unasked)}`);
 
     for (const asked of [
       "https://example.com/area",
@@ -120,15 +116,15 @@ describe("where the sign-in's landing sends a session asked to return somewhere"
       "/\\example.com/area",
       "/erasure?token=ein-token",
     ]) {
-      expect(await landedAt(removed.cookie, asked), `${asked} was honoured`).toBe(unasked);
+      expect(await landedAt(removed.cookie, asked), `${asked} was honoured`).toStrictEqual(unasked);
     }
   });
 
   it("carries an allowlisted address on through the passkey step", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
 
-    expect(await landedAt(cookie, "/account")).toBe(landsOn("/signin/passkey?return=%2Faccount"));
-    expect(await landedAt(cookie, "//example.com/area")).toBe(landsOn("/signin/passkey"));
+    expect(await landedAt(cookie, "/account")).toStrictEqual(landsOn("/signin/passkey?return=%2Faccount"));
+    expect(await landedAt(cookie, "//example.com/area")).toStrictEqual(landsOn("/signin/passkey"));
   });
 });
 
@@ -172,9 +168,7 @@ describe("where the proxy sends a request for the administrator's subtree carryi
     expect((await callProxy(cookie)).headers.get("x-middleware-next"), "the proxy judged the session's factor").toBe("1");
 
     arriveAs(cookie);
-    await expect(requireAdminRequest()).rejects.toSatisfy(
-      (error: { digest?: unknown }) => error.digest === `NEXT_REDIRECT;replace;${ROUTES.signInLanding.path()};307;`,
-    );
+    expect(await thrownRedirect(requireAdminRequest())).toStrictEqual(landsOn(ROUTES.signInLanding.path()));
     expect((await getSignInLanding()).destination, "the landing sends a code-borne administrator somewhere else").toBe("/signin/passkey");
   });
 });
@@ -248,7 +242,7 @@ describe("where the proxy sends a request for an area's page", () => {
       ["person", await signIn("leserin@example.org")],
       ["administrator", administrator],
     ] as const) {
-      store.session.splice(store.session.indexOf(row), 1);
+      deleteRow(store, "session", row.id);
 
       for (const url of [...PERSON_URLS, ADMIN_URL]) {
         const answer = await visit(url, cookie, "document");
@@ -261,9 +255,7 @@ describe("where the proxy sends a request for an area's page", () => {
       // sends it to the landing.
       arriveAs(cookie);
       expect(await getSubjectSession(), `the person guard served a ${name}'s ended session`).toBe(null);
-      await expect(requireAdminRequest()).rejects.toSatisfy(
-        (error: { digest?: unknown }) => error.digest === `NEXT_REDIRECT;replace;${ROUTES.signInLanding.path()};307;`,
-      );
+      expect(await thrownRedirect(requireAdminRequest())).toStrictEqual(landsOn(ROUTES.signInLanding.path()));
     }
   });
 });
@@ -332,7 +324,7 @@ describe("where a session that is only read slides", () => {
   it("revives no ended session: no row is written, and the cookie is expired", async () => {
     for (const ending of ["deleted", "lapsed"] as const) {
       const { cookie, row } = await signIn("leserin@example.org");
-      if (ending === "deleted") store.session.splice(store.session.indexOf(row), 1);
+      if (ending === "deleted") deleteRow(store, "session", row.id);
       else row.expiresAt = new Date(Date.now() - MINUTE_MS);
 
       const set = setSessionCookie(await visit(PERSON_URL, cookie), cookie);
@@ -389,7 +381,7 @@ describe("where the proxy sends a session asking for the sign-in", () => {
 
   it("lets a cookie naming no stored session through to the form", async () => {
     const { cookie, row } = await signIn("leserin@example.org");
-    store.session.splice(store.session.indexOf(row), 1);
+    deleteRow(store, "session", row.id);
 
     expect(sentTo(await visit(SIGN_IN_URL, cookie, "document"))).toBe(null);
   });
@@ -405,7 +397,7 @@ describe("where the proxy sends a session asking for the sign-in", () => {
     assert.ok(await getSubjectSession(), "the person lane serves no such session, so the case proves nothing");
 
     expect(sentTo(await visit(SIGN_IN_URL, cookie, "document"))).toBe(ROUTES.signInLanding.path());
-    expect(await landedAt(cookie)).toBe(landsOn(ROUTES.signIn.path()));
+    expect(await landedAt(cookie)).toStrictEqual(landsOn(ROUTES.signIn.path()));
     expect(
       store.session.some(({ token }) => token === row.token),
       "the landing left the spent session standing",
@@ -438,7 +430,10 @@ describe("where the proxy sends a request for the passkey step", () => {
 
     // The landing sends it to its place rather than back here, so the two cannot loop.
     const landed = await landedAt(removed.cookie);
-    assert.ok(landed.startsWith("NEXT_REDIRECT;replace;/area"), `the landing sent a session holding no step to ${landed}`);
+    assert.ok(
+      landed.type === "replace" && landed.address.startsWith("/area"),
+      `the landing sent a session holding no step to ${JSON.stringify(landed)}`,
+    );
   });
 
   it("lets a session holding each kind of step through to the page the landing sends it to", async () => {
@@ -460,7 +455,9 @@ describe("where the proxy sends a request for the passkey step", () => {
       assert.equal((await getPasskeyStep())?.step, kind, `the session holds no ${kind} step, so the case proves nothing`);
 
       expect(sentTo(await visit(PASSKEY_URL, cookie, "document")), `the proxy turned away a session owing the ${kind} step`).toBe(null);
-      expect(await landedAt(cookie), `the landing sends a session owing the ${kind} step elsewhere`).toBe(landsOn(ROUTES.signInPasskey.path()));
+      expect(await landedAt(cookie), `the landing sends a session owing the ${kind} step elsewhere`).toStrictEqual(
+        landsOn(ROUTES.signInPasskey.path()),
+      );
     }
   });
 });

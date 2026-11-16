@@ -20,7 +20,6 @@ import {
   ADMIN_EMAIL,
   answerTheLookup,
   GRANTED,
-  HOLDS_NOTHING,
   madeByPasskey,
   memoryAdapterDouble,
   memoryStore,
@@ -29,6 +28,7 @@ import {
   sessionByCode,
 } from "@/test-support/authDoubles.ts";
 import { arriveWith, doubleNextRequest } from "@/test-support/nextRequest.ts";
+import { NO_RECORDS } from "@/test-support/subjectFixtures.ts";
 import { beforeEach } from "vitest";
 
 import { asSignInIdentifier } from "@/core/emailAddress.ts";
@@ -51,7 +51,7 @@ const STORE = "__flSignedInRequestStore";
 
 /** What the backend holds for `visitor`: an account, its records, and the grant where it is an administrator's. */
 const fixtureOf = ({ records = {}, admin = false }: NonNullable<Visitor>): LookupFixture => ({
-  ...(admin ? GRANTED : HOLDS_NOTHING),
+  ...(admin ? GRANTED : NO_RECORDS),
   ...records,
   account: true,
 });
