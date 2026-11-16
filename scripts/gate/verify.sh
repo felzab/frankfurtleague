@@ -269,29 +269,6 @@ scope_scripts() {
 
 # --- docs ------------------------------------------------------------------------------------------
 
-# The empty tree against the working tree: every tracked file is read whole, and a shallow clone needs
-# no history for it. git answers 2 for what it found.
-diff_check() {
-  local rc=0
-  git diff --check "$(git hash-object -t tree /dev/null)" || rc=$?
-  if (( rc == 2 )); then return 1; fi
-  return "$rc"
-}
-
-# Every tracked text file, for the zero-width, bidirectional and line-separator characters that hide
-# or reorder what a reviewer reads (CVE-2021-42574); the one deliberate fixture is left out. A UTF-8
-# locale, which `-P` needs to read a code point past U+00FF. git grep answers 0 for a match, 1 for none.
-invisible_check() {
-  local rc=0
-  LC_ALL=C.UTF-8 git grep -I -n -P '[\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{2028}\x{2029}]' \
-    -- . ':!fl_frontend/src/core/emailAddress.test.ts' || rc=$?
-  case "$rc" in
-    0) return 1 ;;
-    1) return 0 ;;
-    *) return "$rc" ;;
-  esac
-}
-
 # Offline, every link and fragment inside the repository, through the pinned image with no network;
 # links leaving it are no part of this gate. lychee answers 2 for a broken one. The image is the one
 # its stage names in the tools file, the one place Dependabot moves it.
@@ -310,14 +287,6 @@ check_links() {
 
 scope_docs() {
   section docs
-  step "docs · no conflict marker or whitespace error in any tracked file"
-  check "A tracked file above carries a conflict marker or a whitespace error, each named by its line." diff_check \
-    && ok "no conflict marker or whitespace error"
-
-  step "docs · no invisible or bidirectional character in any tracked file"
-  check "A tracked file above carries an invisible or bidirectional character, each named by its line." invisible_check \
-    && ok "no invisible or bidirectional character"
-
   step "docs · every link and fragment inside the repository resolves"
   check "lychee names each broken link or fragment above, with the file it stands in." check_links \
     && ok "every link inside the repository resolves"
@@ -357,6 +326,29 @@ scope_backend() {
 
 # --- format ----------------------------------------------------------------------------------------
 
+# The empty tree against the working tree: every tracked file is read whole, and a shallow clone needs
+# no history for it. git answers 2 for what it found.
+diff_check() {
+  local rc=0
+  git diff --check "$(git hash-object -t tree /dev/null)" || rc=$?
+  if (( rc == 2 )); then return 1; fi
+  return "$rc"
+}
+
+# Every tracked text file, for the zero-width, bidirectional and line-separator characters that hide
+# or reorder what a reviewer reads (CVE-2021-42574); the one deliberate fixture is left out. A UTF-8
+# locale, which `-P` needs to read a code point past U+00FF. git grep answers 0 for a match, 1 for none.
+invisible_check() {
+  local rc=0
+  LC_ALL=C.UTF-8 git grep -I -n -P '[\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{2028}\x{2029}]' \
+    -- . ':!fl_frontend/src/core/emailAddress.test.ts' || rc=$?
+  case "$rc" in
+    0) return 1 ;;
+    1) return 0 ;;
+    *) return "$rc" ;;
+  esac
+}
+
 # Its own scope: prettier governs markdown, YAML and the compose files too.
 scope_format() {
   section format
@@ -369,6 +361,14 @@ scope_format() {
   step "format · markdownlint"
   check "markdownlint names each finding above with its file, line and rule." in_dir fl_frontend pnpm run lint:md \
     && ok "the Markdown keeps its rules"
+
+  step "format · no conflict marker or whitespace error in any tracked file"
+  check "A tracked file above carries a conflict marker or a whitespace error, each named by its line." diff_check \
+    && ok "no conflict marker or whitespace error"
+
+  step "format · no invisible or bidirectional character in any tracked file"
+  check "A tracked file above carries an invisible or bidirectional character, each named by its line." invisible_check \
+    && ok "no invisible or bidirectional character"
   return 0
 }
 
