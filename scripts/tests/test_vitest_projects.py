@@ -13,10 +13,9 @@ import json
 import os
 import re
 import shutil
-import subprocess
 from typing import Final
 
-from conftest import REPO_ROOT
+from conftest import REPO_ROOT, run_bounded
 
 FRONTEND: Final = REPO_ROOT / "fl_frontend"
 # The tier scripts the gate runs, each selecting its projects by `--project='<pattern>'`.
@@ -56,14 +55,8 @@ def resolved(patterns: list[str]) -> tuple[list[str], list[list[str]]]:
         "fl_frontend holds no install of vitest: run `pnpm install --frozen-lockfile` in fl_frontend"
     )
     # Its answer on stderr behind a marker, since the instance writes to stdout as it starts and closes.
-    run = subprocess.run(
-        (pnpm, "exec", "node", "--input-type=module", "-e", NAMES),
-        cwd=FRONTEND,
-        env=os.environ | {"FL_SELECTIONS": json.dumps(patterns)},
-        capture_output=True,
-        encoding="utf-8",
-        errors="replace",
-        check=False,
+    run = run_bounded(
+        (pnpm, "exec", "node", "--input-type=module", "-e", NAMES), cwd=FRONTEND, env=os.environ | {"FL_SELECTIONS": json.dumps(patterns)}
     )
     answer = [line.removeprefix("FL_PROJECTS ") for line in run.stderr.splitlines() if line.startswith("FL_PROJECTS ")]
     assert run.returncode == 0 and len(answer) == 1, f"Vitest's projects for {patterns} exited {run.returncode}:\n{run.stderr[-2000:]}"

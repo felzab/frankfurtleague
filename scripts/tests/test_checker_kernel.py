@@ -13,12 +13,11 @@ from __future__ import annotations
 import os
 import re
 import shlex
-import subprocess
 import sys
 from typing import Final
 
 import pytest
-from conftest import PROCESS_BOUND_S, REPO_ROOT, new_root
+from conftest import REPO_ROOT, new_root, run_bounded
 
 KERNEL: Final = REPO_ROOT / "scripts" / "lib" / "checker_kernel.py"
 LAUNCHER: Final = "scripts/lib/checker_kernel.py"
@@ -28,14 +27,7 @@ def _launched(script: str, *arguments: str) -> tuple[int, str]:
     """`script` written to a fixture file and run through the launcher, its exit code and both streams."""
     path = new_root("fl-checker-kernel-") / "checker.py"
     path.write_bytes(script.encode("utf-8"))
-    done = subprocess.run(
-        (sys.executable, str(KERNEL), str(path), *arguments),
-        capture_output=True,
-        encoding="utf-8",
-        errors="replace",
-        check=False,
-        timeout=PROCESS_BOUND_S,
-    )
+    done = run_bounded((sys.executable, str(KERNEL), str(path), *arguments))
     return done.returncode, done.stdout + done.stderr
 
 
@@ -69,15 +61,7 @@ def test_a_module_run_through_the_launcher_answers_a_crash_for_what_escapes_it(m
     """A tool whose findings exit 1 shares that 1 with Python's own for an exception escaping it, which the launcher answers 3."""
     directory = new_root("fl-checker-kernel-module-")
     (directory / "fixture_tool.py").write_bytes(module.encode("utf-8"))
-    done = subprocess.run(
-        (sys.executable, str(KERNEL), "-m", "fixture_tool", "."),
-        capture_output=True,
-        encoding="utf-8",
-        errors="replace",
-        env={**os.environ, "PYTHONPATH": str(directory)},
-        check=False,
-        timeout=PROCESS_BOUND_S,
-    )
+    done = run_bounded((sys.executable, str(KERNEL), "-m", "fixture_tool", "."), env={**os.environ, "PYTHONPATH": str(directory)})
     assert done.returncode == code, f"exited {done.returncode}, and the exit contract gives it {code}\n{done.stdout}{done.stderr}"
 
 

@@ -10,6 +10,7 @@ import {
 } from "@/test-support/authDoubles";
 import { NEXT_CACHE_DOUBLE } from "@/test-support/nextRequest";
 import { replicaSetUrl, startReplicaSet } from "@/test-support/replicaSet";
+import { signInIndexesBuilt } from "@/test-support/signInIndexes";
 import { captureLog } from "@/test-support/stdoutCapture";
 import { ObjectId } from "mongodb";
 import { assert, beforeEach, describe, expect, it } from "vitest";
@@ -109,12 +110,12 @@ describe("ending every other session on a real store", () => {
 describe("the index build against a real store", () => {
   // Production's hand-made indexes are the case: one standing under another name refuses its build.
   it("logs a same-key index standing under another name, and builds every other", async () => {
-    await buildAuthIndexes();
+    await signInIndexesBuilt(buildAuthIndexes);
     const reference = await heldIndexes();
     await store().dropDatabase();
     await store().collection("session").createIndex({ token: 1 }, { unique: true, name: "made_by_hand" }, undefined);
 
-    await buildAuthIndexes();
+    await signInIndexesBuilt(buildAuthIndexes);
 
     const errors = errorLines();
     expect(errors.length, JSON.stringify(errors)).toBe(1);
@@ -131,7 +132,7 @@ describe("the index build against a real store", () => {
 
   // An expiry stored as anything but a date is never deleted by its index, and nothing reports it.
   it("stores every expiry the library writes as a date", async () => {
-    await buildAuthIndexes();
+    await signInIndexesBuilt(buildAuthIndexes);
     await signInByCode(auth, ADMIN_EMAIL);
     // A code mailed and never typed, and the send's own counts, stay behind in `verification`.
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });

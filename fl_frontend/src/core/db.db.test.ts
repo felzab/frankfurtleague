@@ -3,6 +3,7 @@ import { setTimeout as pause } from "node:timers/promises";
 
 import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, overriding, registerAuthDoubles, signInByCode } from "@/test-support/authDoubles";
 import { startReplicaSet } from "@/test-support/replicaSet";
+import { signInIndexesBuilt } from "@/test-support/signInIndexes";
 import { captureLog } from "@/test-support/stdoutCapture";
 import { StoreRelay } from "@/test-support/storeRelay";
 import { isAPIError } from "better-auth/api";
@@ -153,12 +154,16 @@ describe("the sign-in store's indexes recover with the store", () => {
       }
       return names.sort();
     };
-    await buildAuthIndexes();
+    await signInIndexesBuilt(buildAuthIndexes);
     const reference = await held();
     await store.dropDatabase();
     log.clear();
 
-    await relay.dropFirst("createIndexes", () => buildAuthIndexes());
+    // The dropped answer's socket bound, then the ask again on a connection of its own: a build still running past
+    // both is asking again for what never answers, the retry this case holds.
+    await relay.dropFirst("createIndexes", () =>
+      settledWithin(STAGE_BOUND * 2, "the build whose first answer was dropped", () => buildAuthIndexes()),
+    );
 
     assert.ok(relay.triggered, "the run sent no createIndexes, so no answer went missing");
     expect(errorLines(), "a build whose answer never came was logged unbuilt").toStrictEqual([]);
@@ -170,7 +175,7 @@ describe("the sign-in store's indexes recover with the store", () => {
   it("builds an index again once a store that stopped answering after the first open answers again", async () => {
     const { MONGO_DB_NAME, buildAuthIndexes } = await import("./authIndexes");
     const sessions = client.db(MONGO_DB_NAME).collection("session");
-    await buildAuthIndexes();
+    await signInIndexesBuilt(buildAuthIndexes);
     await sessions.dropIndex("session_userId_idx");
     let opens = 0;
     const counted = () => {
@@ -180,7 +185,9 @@ describe("the sign-in store's indexes recover with the store", () => {
 
     try {
       log.clear();
-      await relay.sever(() => buildAuthIndexes());
+      // The build's bound, not a stage count: a severed store fails each index of a collection on its own server
+      // selection, so a count would copy the production table's longest collection.
+      await relay.sever(() => signInIndexesBuilt(buildAuthIndexes));
       assert.ok(
         errorLines().some((line) => line.event === "auth.index_unbuilt" && line.index === "session_userId_idx"),
         `the run met no outage: ${JSON.stringify(errorLines())}`,
@@ -194,7 +201,7 @@ describe("the sign-in store's indexes recover with the store", () => {
       expect(await indexed(), "the index was not built again once the store answered").toBe(true);
       // The rebuild's other indexes may still be on the wire: a run queues behind the one in flight, so the file's
       // close meets no build to cut.
-      await buildAuthIndexes();
+      await signInIndexesBuilt(buildAuthIndexes);
       expect(opens, "the client emitted `open`, so this drove a new topology rather than a recovered one").toBe(0);
     } finally {
       client.off("open", counted);

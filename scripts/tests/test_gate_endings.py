@@ -216,23 +216,30 @@ def test_each_tool_s_status_ends_the_scope_as_its_table_reads_it(scope: str, ans
 
 
 @pytest.mark.parametrize(
-    ("lychee", "code", "row"),
+    ("lychee", "code", "row", "closes"),
     [
-        pytest.param("0", 0, "pass", id="green"),
-        pytest.param("2", 1, "failed", id="a-finding"),
-        pytest.param("3", 2, "refused", id="a-refusal"),
-        pytest.param("127", 3, "crashed", id="a-crash"),
-        pytest.param("130", 130, "interrupted", id="an-interrupt"),
+        pytest.param("0", 0, "pass", "Green — 2 scopes, no findings, ", id="green"),
+        pytest.param("2", 1, "failed", "finding(s) in this run", id="a-finding"),
+        pytest.param("3", 2, "refused", "Refused after", id="a-refusal"),
+        pytest.param("127", 3, "crashed", "Crashed after", id="a-crash"),
+        pytest.param("130", 130, "interrupted", "Interrupted after", id="an-interrupt"),
     ],
 )
-def test_a_run_beside_others_ends_on_the_class_its_scope_ended_on(lychee: str, code: int, row: str) -> None:
-    """The docs scope ends on each class beside a green ops scope, and the run and the docs row end on that class."""
+def test_a_run_beside_others_ends_on_the_class_its_scope_ended_on(lychee: str, code: int, row: str, closes: str) -> None:
+    """The docs scope ends on each class beside a green ops scope, and the run and the docs row end on that class.
+
+    The run closes on its class's line, a green one naming the scopes it ran: only a run of every scope is safe to merge.
+    """
     exited, output = _gate("--docs", "--ops", answers={"FL_LYCHEE_EXIT": lychee})
     wrong = _wrong(exited, output, code, "running side by side: docs ops", "no verdict")
     if not re.search(rf"^\s+docs\s+{row}\s", output, re.MULTILINE):
         wrong.append(f"the table gives the docs row no {row!r}")
     if not re.search(r"^\s+ops\s+pass\s", output, re.MULTILINE):
         wrong.append("the table gives the ops row no 'pass'")
+    if closes not in output:
+        wrong.append(f"the run closed on no {closes!r}")
+    if "Safe to merge" in output:
+        wrong.append("a run of two scopes called itself safe to merge, which only a run of every scope is")
     assert not wrong, "\n".join(wrong) + "\n" + output
 
 
@@ -270,6 +277,58 @@ def test_a_tools_file_without_lychee_s_line_is_a_finding_of_its_own() -> None:
     exited, output = _gate("--docs", answers={}, tools=without)
     wrong = _wrong(exited, output, 1, "names no single FROM line for lychee", BROKEN_LINKS)
     assert not wrong, "\n".join(wrong) + "\n" + output
+
+
+# The one row whose tool answers 0 for what it found and a nonzero status for nothing found, as git-grep(1)'s "EXIT
+# STATUS" documents it.
+INVERTED: Final = {"git-grep": "0:1 1:0"}
+
+
+def _tables() -> dict[str, dict[str, str]]:
+    """`EXIT_CODES`, `EXIT_LINES` and `PNPM_ERRORS` as `_lib.sh` declares them once sourced, each entry's key beside its value."""
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    body = (
+        f'source "{(REPO_ROOT / "scripts" / "lib" / "_lib.sh").as_posix()}"\n'
+        "for table in EXIT_CODES EXIT_LINES PNPM_ERRORS; do\n"
+        '  declare -n rows="$table"\n'
+        '  for key in "${!rows[@]}"; do printf \'%s\\t%s\\t%s\\n\' "$table" "$key" "${rows[$key]}"; done\n'
+        "  unset -n rows\n"
+        "done\n"
+    )
+    done = run_shell(BASH, write_shell(new_root("fl-exit-tables-") / "dump.sh", body), env=base_env())
+    assert done.returncode == 0, done.stdout + done.stderr
+    tables: dict[str, dict[str, str]] = {"EXIT_CODES": {}, "EXIT_LINES": {}, "PNPM_ERRORS": {}}
+    for line in done.stdout.splitlines():
+        table, key, value = line.split("\t")
+        tables[table][key] = value
+    assert all(tables.values()), f"a table read empty, so nothing below is judged: {tables}"
+    return tables
+
+
+def test_no_row_reads_a_tool_s_nonzero_status_as_clean_or_its_zero_as_anything_else() -> None:
+    """A row reading a finding as 0 ends the scope green over it, every line still printed, which no case driving a tool sees.
+
+    Every reading a status takes is held at once: a pair of `EXIT_CODES`, the class an `EXIT_LINES` row gives its
+    statuses, and the class a pnpm code reads as.
+    """
+    tables = _tables()
+    wrong: list[str] = []
+    for table, row in tables["EXIT_CODES"].items():
+        if table in INVERTED:
+            continue
+        pairs = dict(pair.split(":") for pair in row.split(" "))
+        if pairs.get("0") != "0":
+            wrong.append(f"EXIT_CODES[{table}]={row!r} reads 0 as {pairs.get('0')!r}, never as clean")
+        wrong += [f"EXIT_CODES[{table}]={row!r} reads {status} as clean" for status, read in pairs.items() if status != "0" and read == "0"]
+    for table, row in tables["EXIT_LINES"].items():
+        statuses, read, _ = row.split(" ", 2)
+        if read == "0":
+            wrong.append(f"EXIT_LINES[{table}]={row!r} reads {statuses} as clean by the tool's words")
+    wrong += [f"PNPM_ERRORS[{code}]={read} reads a pnpm failure as clean" for code, read in tables["PNPM_ERRORS"].items() if read == "0"]
+    inverted = {table: tables["EXIT_CODES"].get(table) for table in INVERTED}
+    if inverted != INVERTED:
+        wrong.append(f"the inverted rows read {inverted}, where git-grep(1) documents {INVERTED}")
+    assert not wrong, "\n".join(wrong)
 
 
 KEPT: Final = "def test_kept() -> None:\n    pass\n"
