@@ -17,8 +17,9 @@ from app.api.spieler.admin_router import delete_saison_spieler, reactivate_saiso
 from app.api.spielorte.admin_router import delete_spielort, reactivate_spielort
 from app.api.teams.admin_router import delete_team, reactivate_team
 from app.core.collections import Collection
-from app.core.recording import ACT_BY_SYSTEM, ERASED_ACTOR_MARKER, FLAction, actor_var, record_act
+from app.core.recording import ACT_BY_SYSTEM, ERASED_ACTOR_MARKER, FLAction, record_act
 from app.shared.schemas.bounds import ACTION_LOG_PAGE_SIZE
+from tests.acts import acting_as
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
     saison_document,
@@ -261,14 +262,11 @@ def test_a_press_that_changes_nothing_writes_no_row(mongo_replica_set_url: str, 
         for collection, documents in case.seeds.items():
             await database[collection].insert_many(documents)
 
-        token = actor_var.set(ERASED_ADDRESS)
-        try:
+        with acting_as(ERASED_ADDRESS):
             await case.retire(database, client)
             await case.retire(database, client)
             await case.revive(database, client)
             await case.revive(database, client)
-        finally:
-            actor_var.reset(token)
 
         return [row["action"] async for row in database[Collection.ACTION_LOG].find().sort("_id")]
 

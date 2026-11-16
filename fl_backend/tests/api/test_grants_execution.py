@@ -30,10 +30,10 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import APIError, DocumentNotFoundError
-from app.core.recording import actor_var
 from app.core.security import PASSKEY_FACTOR
 from app.main import create_app
 from app.shared.schemas.bounds import GRANT_WAIT_HOURS, OWNER_WAIT_DAYS
+from tests import acts
 from tests.app_client import app_client
 from tests.bans import ban_through_the_route
 from tests.config import ADMIN_KEY
@@ -128,16 +128,6 @@ def on_a_league(url: str, body: Body, *, grants: list[dict[str, Any]] | None = N
     return on_the_seed_loop(_run())
 
 
-async def administering(acting_as: str, call: Callable[[], Awaitable[Any]]) -> Any:
-    """`call` as one request of the administrator: the actor `bind_actor` binds."""
-
-    token = actor_var.set(acting_as)
-    try:
-        return await call()
-    finally:
-        actor_var.reset(token)
-
-
 async def add(
     database: AsyncDatabase,
     client: AsyncMongoClient,
@@ -148,26 +138,26 @@ async def add(
     outbox: Any = None,
     now: datetime = NOW,
 ) -> ObjectId:
-    async def call() -> Any:
-        return await post_grant(
-            payload=FLPostGrantPayload(email=email),
-            grants_collection=grants if grants is not None else database[Collection.GRANTS],
-            ban_list_collection=database[Collection.BAN_LIST],
-            address_changes_collection=database[Collection.ADDRESS_CHANGES],
-            outbox_collection=outbox if outbox is not None else database[Collection.OUTBOX],
-            db=client,
-            operator=acting_as,
-            now=now,
-        )
-
-    return (await administering(acting_as, call)).grant_id
+    with acts.acting_as(acting_as):
+        return (
+            await post_grant(
+                payload=FLPostGrantPayload(email=email),
+                grants_collection=grants if grants is not None else database[Collection.GRANTS],
+                ban_list_collection=database[Collection.BAN_LIST],
+                address_changes_collection=database[Collection.ADDRESS_CHANGES],
+                outbox_collection=outbox if outbox is not None else database[Collection.OUTBOX],
+                db=client,
+                operator=acting_as,
+                now=now,
+            )
+        ).grant_id
 
 
 async def remove(
     database: AsyncDatabase, client: AsyncMongoClient, grant_id: ObjectId, *, acting_as: str = OWNER, grants: Any = None, outbox: Any = None
 ) -> None:
-    async def call() -> Any:
-        return await delete_grant(
+    with acts.acting_as(acting_as):
+        await delete_grant(
             grant_id=grant_id,
             grants_collection=grants if grants is not None else database[Collection.GRANTS],
             outbox_collection=outbox if outbox is not None else database[Collection.OUTBOX],
@@ -175,8 +165,6 @@ async def remove(
             operator=acting_as,
             now=NOW,
         )
-
-    await administering(acting_as, call)
 
 
 async def hand_over(
@@ -188,8 +176,8 @@ async def hand_over(
     grants: Any = None,
     now: datetime = NOW,
 ) -> None:
-    async def call() -> Any:
-        return await post_handover(
+    with acts.acting_as(acting_as):
+        await post_handover(
             grant_id=grant_id,
             grants_collection=grants if grants is not None else database[Collection.GRANTS],
             ban_list_collection=database[Collection.BAN_LIST],
@@ -199,12 +187,10 @@ async def hand_over(
             now=now,
         )
 
-    await administering(acting_as, call)
-
 
 async def stop(database: AsyncDatabase, client: AsyncMongoClient, grant_id: ObjectId = ANNA_ID, *, acting_as: str = OWNER) -> None:
-    async def call() -> Any:
-        return await delete_handover(
+    with acts.acting_as(acting_as):
+        await delete_handover(
             grant_id=grant_id,
             grants_collection=database[Collection.GRANTS],
             outbox_collection=database[Collection.OUTBOX],
@@ -212,8 +198,6 @@ async def stop(database: AsyncDatabase, client: AsyncMongoClient, grant_id: Obje
             operator=acting_as,
             now=NOW,
         )
-
-    await administering(acting_as, call)
 
 
 async def pass_at(
@@ -630,10 +614,7 @@ class GrantsRunningARivalAfterTheFirstRead(InterleavedCollection):
 
 
 async def ban(database: AsyncDatabase, client: AsyncMongoClient, email: str = NORA_TYPED, *, grants: Any = None) -> Any:
-    async def call() -> Any:
-        return await ban_through_the_route(database, client, email=email, ban_reason=BAN_REASON, by=ANNA, today=TODAY, grants=grants)
-
-    return await administering(ANNA, call)
+    return await ban_through_the_route(database, client, email=email, ban_reason=BAN_REASON, by=ANNA, today=TODAY, grants=grants)
 
 
 class TestTheAnchorClosesEachRace:

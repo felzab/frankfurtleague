@@ -13,7 +13,7 @@ from app.api.ban_list.crud import address_is_barred
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
-from app.core.recording import actor_var
+from tests.acts import acting_as
 from tests.bans import ban_through_the_route
 from tests.config import grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
@@ -81,11 +81,8 @@ async def ban(
 
 
 async def lift(database: AsyncDatabase, client: AsyncMongoClient, ban_list_entry_id: ObjectId) -> Any:
-    token = actor_var.set(ADMIN)
-    try:
+    with acting_as(ADMIN):
         return await delete_ban_list_entry(ban_list_entry_id=ban_list_entry_id, ban_list_collection=database[Collection.BAN_LIST], db=client)
-    finally:
-        actor_var.reset(token)
 
 
 async def rows_of(database: AsyncDatabase) -> list[Mapping[str, Any]]:

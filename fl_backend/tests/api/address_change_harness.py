@@ -7,6 +7,7 @@ what it changes: the address, the instant, the actor.
 
 import inspect
 from collections.abc import Awaitable, Callable, Mapping
+from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
@@ -36,10 +37,10 @@ from app.api.address_change.system_router import sweep_address_change
 from app.api.outbox.system_router import post_handout
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from app.core.recording import actor_var
 from app.shared.schemas.bounds import ADDRESS_CHANGE_WAITING_PERIOD_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
 from tests import documents
+from tests.acts import acting_as
 from tests.config import ADMINISTRATORS, build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.outbox import claimable
@@ -259,17 +260,14 @@ def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, client
             supplied[name] = verified_actor(given.get("operator", ADMIN) if "operator" in parameters else EMAIL)
 
     async def as_its_route_binds_it() -> Any:
-        token = actor_var.set(supplied["operator"]) if "operator" in supplied else None
-        try:
+        # A person's handler names no operator, and its route binds no administrator.
+        with acting_as(supplied["operator"]) if "operator" in supplied else nullcontext():
             if "session" in parameters and "session" not in given:
                 # The request's snapshot session (`app/core/dependencies.py :: SnapshotSession`), open for the handler's run.
                 async with client.start_session(snapshot=True) as session:
                     return await handler(**supplied, session=session)
 
             return await handler(**supplied)
-        finally:
-            if token is not None:
-                actor_var.reset(token)
 
     return as_its_route_binds_it()
 
