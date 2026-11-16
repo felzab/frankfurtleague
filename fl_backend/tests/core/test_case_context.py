@@ -1,41 +1,33 @@
 """
 TESTS · the context an async case runs in
 
-pytest-asyncio runs each case in a copy of pytest's context, on one loop the session shares. A runner keeping every case
-in one task instead, as anyio's plugin does, would hand each case whatever the case before it set.
-
-Invariants:
-- A case sees the administrator the suite binds.
-- A case sees nothing an earlier case set, nor a binding an earlier case's fixture left behind.
-
-The cases run in the order written, which `--dist loadfile` keeps on one worker.
+Each case of `tests/core/context_canary_cases.py` holds only after the one before it, so they run here whole, in a pytest
+of their own over the suite's own configuration: under `-k`, a rerun of the last failure, or a distribution splitting
+the file, the last of them would pass on a context nothing set.
 """
 
-import pytest
+import re
+import subprocess
+import sys
+from pathlib import Path
 
-from app.core.logging import NO_REQUEST_SENTINEL, trace_id_var
-from app.core.recording import actor_var
+from tests.database import CASE_BOUND_S
 
-# What the earlier case sets and leaves: neither is a value anything else in the suite binds.
-LEFT_BEHIND_ACTOR = "left.behind@example.com"
-LEFT_BEHIND_TRACE = "0af7651916cd43dd8448eb211c80319c"
-
-
-async def test_a_case_sees_the_administrator_the_suite_binds():
-    assert actor_var.get() == "admin@frankfurtleague.de"
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
+CANARIES = Path(__file__).with_name("context_canary_cases.py")
 
 
-async def test_a_case_sets_both_and_resets_neither():
-    actor_var.set(LEFT_BEHIND_ACTOR)
-    trace_id_var.set(LEFT_BEHIND_TRACE)
+def test_each_case_runs_in_a_context_of_its_own():
+    # The environment passes through as it is and is never held in a local: `--showlocals` prints a failing case's.
+    ran = subprocess.run(
+        [sys.executable, "-m", "pytest", str(CANARIES), "-p", "no:cacheprovider", "--no-header", "-q"],
+        cwd=BACKEND_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=CASE_BOUND_S,
+        check=False,
+    )
 
-    assert (actor_var.get(), trace_id_var.get()) == (LEFT_BEHIND_ACTOR, LEFT_BEHIND_TRACE)
-
-
-class TestTheNextCase:
-    @pytest.fixture
-    def an_administrator_bound(self) -> None:
-        """Binds nobody, so what the case reads is whatever the case before it left behind."""
-
-    async def test_meets_neither_what_the_case_before_it_set_nor_that_case_s_binding(self):
-        assert (actor_var.get(), trace_id_var.get()) == (None, NO_REQUEST_SENTINEL)
+    assert ran.returncode == 0, ran.stdout
+    assert re.fullmatch(r"3 passed in [\d.]+s", ran.stdout.splitlines()[-1]), ran.stdout

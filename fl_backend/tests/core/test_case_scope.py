@@ -9,6 +9,8 @@ Invariants:
   into the next case; the driver's own monitors, which outlive a case by design, do not.
 - A clean database is entered in a case's body alone, and a module's corpus is judged after the module's cases: it is
   refused when released in the task that seeded it, and nothing clears it while it is held.
+- A variable a corpus's seed binds stays out of the fixture's context, which pytest-asyncio carries into every case of
+  the module.
 """
 
 import asyncio
@@ -19,6 +21,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.collections import Collection
+from app.core.logging import NO_REQUEST_SENTINEL, trace_id_var
 from tests.config import UNANSWERED_URI
 from tests.database import CASE_BOUND_S, a_clean_database, bounded, case_deadline, held_corpus, shared_client
 from tests.documents import saison_document
@@ -97,4 +100,17 @@ class TestAModuleCorpus:
         await shared_client(mongo_replica_set_url)[DATABASE_NAME][Collection.SAISONS].insert_one(dict(saison_document("2127", "future")))
 
         with pytest.raises(AssertionError, match=r"holds documents its seed did not put there \(saisons\)"):
+            await asyncio.create_task(corpus.__aexit__(None, None, None))
+
+    async def test_keeps_what_its_seed_binds_out_of_the_fixture_s_context(self, mongo_replica_set_url: str):
+        async def binds_a_trace(database: AsyncDatabase) -> None:
+            trace_id_var.set("0af7651916cd43dd8448eb211c80319c")
+            await _one_season(database)
+
+        corpus = held_corpus(mongo_replica_set_url, DATABASE_NAME, binds_a_trace)
+        setup = asyncio.create_task(corpus.__aenter__())
+        await setup
+        try:
+            assert setup.get_context().run(trace_id_var.get) == NO_REQUEST_SENTINEL
+        finally:
             await asyncio.create_task(corpus.__aexit__(None, None, None))

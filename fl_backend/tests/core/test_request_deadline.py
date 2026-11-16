@@ -242,10 +242,11 @@ async def cut_transactions(mongo_replica_set_url: str) -> AsyncIterator[Mapping[
     """Every cut at once, each in a request of its own: each waits out the whole deadline, and together they wait it once."""
 
     async def cut_each(_: AsyncDatabase) -> dict[_Cut, _Transacted]:
-        cuts = list(_Cut)
-        transacted = await asyncio.gather(*(_transacted(mongo_replica_set_url, cut) for cut in cuts))
+        # A group rather than a gather, which leaves the other cuts running once one raises.
+        async with asyncio.TaskGroup() as group:
+            running = {cut: group.create_task(_transacted(mongo_replica_set_url, cut)) for cut in _Cut}
 
-        return dict(zip(cuts, transacted, strict=True))
+        return {cut: task.result() for cut, task in running.items()}
 
     async with held_corpus(mongo_replica_set_url, CUTS_DATABASE_NAME, cut_each, constraints=False) as transacted:
         yield transacted

@@ -20,6 +20,7 @@ from app.api.spiele.schemas import (
 from app.core import clock
 from app.core.collections import Collection
 from tests import documents
+from tests.handles import wired
 from tests.payloads import spiel_patch_body
 from tests.stored import the_row
 
@@ -92,15 +93,7 @@ def spieltag_documents() -> list[dict[str, Any]]:
     # Position 1 in each: the three sit in three different phases, where the positions restart, so
     # one number for all of them still satisfies `uniq_saison_id_saison_phase_position`.
     return [
-        {
-            "_id": spieltag_id,
-            "start": start,
-            "end": end,
-            "position": 1,
-            "saison_id": SAISON_ID,
-            "saison_phase": saison_phase,
-            "version": 0,
-        }
+        documents.spieltag_document(spieltag_id, SAISON_ID, 1, saison_phase=saison_phase, start=start, end=end)
         for spieltag_id, (saison_phase, start, end) in SPIELTAGE.items()
     ]
 
@@ -196,22 +189,20 @@ def venue_documents() -> list[dict[str, Any]]:
 
 def referee_documents() -> list[dict[str, Any]]:
     return [
-        {
-            "_id": schiedsrichter_id,
-            "name": name,
-            "schule": None,
-            "default_payment": DEFAULT_PAYMENT,
+        documents.schiedsrichter_document(
+            schiedsrichter_id,
             # Every referee record holds an address: an administrator enters each, and it is how the person learns of it.
-            "kontakt": {"phone": None, "email": f"schiedsrichter.{schiedsrichter_id}@example.com"},
-            "inactive_since": inactive_since,
+            email=f"schiedsrichter.{schiedsrichter_id}@example.com",
+            name=name,
+            default_payment=DEFAULT_PAYMENT,
             # Every row confirmed by its person but the one a case books unconfirmed.
-            "einwilligung": (
+            einwilligung=(
                 None
                 if schiedsrichter_id == SCHIEDSRICHTER_UNCONFIRMED
                 else documents.own_einwilligung_document(text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2026-01-20")
             ),
-            "version": 0,
-        }
+            inactive_since=inactive_since,
+        )
         for schiedsrichter_id, (name, inactive_since) in REFEREES.items()
     ]
 
@@ -249,20 +240,14 @@ async def call_patch(
     if not dry_run and confirming is None:
         confirming = (await call_patch(database, client, spiel_id, spiel_data, dry_run=True, now=now)).voided_results
 
+    # The handles a case hands in by name, each in place of the one wired off `database`.
+    replaced = {"spiele_collection": spiele, "aufstellungen_collection": aufstellungen, "spielbestaetigungen_collection": spielbestaetigungen}
+
     return await patch_spiel(
         spiel_id=spiel_id,
         spiel_data=spiel_data if confirming is None else spiel_data.model_copy(update={"voided_results": confirming}),
         db=client,
-        spiele_collection=database[Collection.SPIELE] if spiele is None else spiele,
-        teams_collection=database[Collection.TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        spieltage_collection=database[Collection.SPIELTAGE],
-        spielorte_collection=database[Collection.SPIELORTE],
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        spielberichte_collection=database[Collection.SPIELBERICHTE],
-        aufstellungen_collection=database[Collection.AUFSTELLUNGEN] if aufstellungen is None else aufstellungen,
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN] if spielbestaetigungen is None else spielbestaetigungen,
+        **wired(patch_spiel, database, **{name: handle for name, handle in replaced.items() if handle is not None}),
         adopts_bericht=adopts_bericht,
         now=ADOPTED_AT if now is None else now,
         dry_run=dry_run,

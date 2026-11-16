@@ -132,30 +132,17 @@ async def the_league(database: AsyncDatabase, *, spiele: list[dict[str, Any]], j
     """A running season and a past one, two clubs, a ground and two referees, and `spiele` on them."""
 
     await database[Collection.SAISONS].insert_many(
-        [documents.saison_document(SAISON_ID, "active"), documents.saison_document(PAST_SAISON_ID, "past")]
+        [
+            documents.saison_document(SAISON_ID, "active", start_date="2126-01-01", end_date="2126-06-30"),
+            documents.saison_document(PAST_SAISON_ID, "past", start_date="2125-01-01", end_date="2125-06-30"),
+        ]
     )
     await database[Collection.TEAMS].insert_many([documents.team_document(team_id, *NAMES[team_id]) for team_id in NAMES])
     await database[Collection.SAISON_TEAMS].insert_many(junctions if junctions is not None else [junction(ALPHA), junction(BETA)])
     await database[Collection.SPIELTAGE].insert_many(
         [
-            {
-                "_id": SPIELTAG,
-                "start": "2126-03-01",
-                "end": "2126-06-30",
-                "position": 1,
-                "saison_id": SAISON_ID,
-                "saison_phase": "gruppenphase",
-                "version": 0,
-            },
-            {
-                "_id": PAST_SPIELTAG,
-                "start": "2125-03-01",
-                "end": "2125-06-30",
-                "position": 1,
-                "saison_id": PAST_SAISON_ID,
-                "saison_phase": "gruppenphase",
-                "version": 0,
-            },
+            documents.spieltag_document(SPIELTAG, SAISON_ID, 1, start="2126-03-01", end="2126-06-30"),
+            documents.spieltag_document(PAST_SPIELTAG, PAST_SAISON_ID, 1, start="2125-03-01", end="2125-06-30"),
         ]
     )
     await database[Collection.SPIELORTE].insert_one(documents.spielort_document(SPIELORT, "Sportpark"))
