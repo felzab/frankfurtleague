@@ -111,6 +111,21 @@ describe("a line no case reads", () => {
       expect(log.lines()).toStrictEqual([]);
     });
   });
+
+  describe("cleared before a hook read the lines after it", () => {
+    beforeAll(() => {
+      logger.info("capture.cleared_unread");
+      log.clear();
+      logger.info("capture.read_after_the_clear");
+      expect(log.lines().map(({ message }) => message)).toStrictEqual(["capture.read_after_the_clear"]);
+    });
+
+    failsNaming(
+      "fails the case it was written ahead of, the line read after it judged",
+      /^the logger wrote before this case began, where no case reads it:\nINFO capture\.cleared_unread \{\}\n$/,
+      () => undefined,
+    );
+  });
 });
 
 describe("the captures' end", () => {

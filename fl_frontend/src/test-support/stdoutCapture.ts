@@ -205,16 +205,18 @@ export function captureLog(build?: "production"): { lines(): readonly LoggedLine
   const lines: LoggedLine[] = [];
   /** Whether a case's window is open, from the case's start to the capture's `afterEach`. */
   let inCase = false;
-  /** Each line written outside a case's window that no `lines` call has returned yet. */
-  const unread: string[] = [];
+  /** Each line written outside a case's window that no `lines` call has returned yet, a `clear`ed one among them. */
+  const unread = new Set<LoggedLine>();
   const { faults, restore } = beginCapture((raw) => {
-    lines.push(read(raw));
-    if (!inCase) unread.push(raw);
+    const line = read(raw);
+    lines.push(line);
+    if (!inCase) unread.add(line);
   });
 
   /** The failure naming every line written outside a case's window that nothing read, and every chunk not read. */
   const unjudged = (when: string): string | undefined => {
-    const left = [...unread.splice(0), ...faults.splice(0)];
+    const left = [...[...unread].map(({ raw }) => raw), ...faults.splice(0)];
+    unread.clear();
     return left.length === 0 ? undefined : `the logger wrote ${when}, where no case reads it:\n${left.join("")}`;
   };
 
@@ -243,7 +245,7 @@ export function captureLog(build?: "production"): { lines(): readonly LoggedLine
 
   return {
     lines: () => {
-      unread.length = 0;
+      for (const line of lines) unread.delete(line);
       return [...lines];
     },
     clear: () => void (lines.length = 0),
