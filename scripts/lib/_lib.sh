@@ -380,7 +380,7 @@ none is a verdict on the change (exit 130)." >&2 ;;
 # second one. A sentence passed in is appended to the green statement alone, and `--what` names what
 # ran there in place of the count of sections.
 finish() { # [--what <what ran>] · a sentence for the green statement
-  local i count what="" failed=0 refused=0 crashed=0
+  local i count what="" failed=0 refused=0 crashed=0 interrupted=0
   if [[ "${1-}" == --what ]]; then what="$2"; shift 2; fi
   end_section
   count="${#_SECTION_NAMES[@]}"
@@ -394,9 +394,12 @@ finish() { # [--what <what ran>] · a sentence for the green statement
       3) refused=1 ;;
       4) failed=1 ;;
       # Only a row run elsewhere arrives here so: this process's own crash or interrupt has exited.
-      5|6) crashed=1 ;;
+      5) crashed=1 ;;
+      6) interrupted=1 ;;
     esac
   done
+  # First, as an interrupt ends a run of this process whatever it had recorded: the run is not whole.
+  if (( interrupted )); then _closing interrupted; exit 130; fi
   if (( _RUN_FINDINGS > 0 || failed )); then _closing findings; exit 1; fi
   if (( refused )); then _closing refused; exit 2; fi
   if (( crashed )); then _closing crashed; exit 3; fi
