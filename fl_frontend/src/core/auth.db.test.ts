@@ -19,7 +19,7 @@ import { captureLog } from "@/test-support/stdoutCapture.ts";
 import { answerAt, SEAT } from "@/test-support/subjectFixtures.ts";
 import { registrationFor } from "@/test-support/testAuthenticator.ts";
 import { MongoServerError } from "mongodb";
-import { assert, beforeEach, describe, expect, it } from "vitest";
+import { assert, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
 
@@ -197,13 +197,24 @@ type Collection = {
   deleteMany: (filter: object) => Promise<unknown>;
 };
 type RealClient = {
-  db: (name: string) => { dropDatabase: () => Promise<unknown>; collection: (name: string) => Collection };
+  db: (name: string) => {
+    listCollections: (filter: object, options: { nameOnly: true }) => { toArray: () => Promise<{ name: string }[]> };
+    collection: (name: string) => Collection;
+  };
   close: () => Promise<void>;
 };
 
 const realClient = productionClient as RealClient;
 closing(() => realClient.close());
 const authDb = () => realClient.db("auth");
+
+// Production's indexes under every case, so the library is driven over what it meets there: built once for the
+// file, since a build runs under the client's socket bound, which a stall on a loaded machine outlasts.
+beforeAll(async () => {
+  const from = log.lines().length;
+  await buildAuthIndexes();
+  expect(eventsAt("ERROR", from), "an index of the sign-in store was left unbuilt").toStrictEqual([]);
+});
 
 beforeEach(async () => {
   gateAnswer = { seats: [], barred: false, account: false };
@@ -212,11 +223,9 @@ beforeEach(async () => {
   atCommit = async () => undefined;
   deletingAccounts = async () => undefined;
   deletingUser = async () => undefined;
-  await authDb().dropDatabase();
-
-  // Production's indexes under every case, so the library is driven over what it meets there.
-  await buildAuthIndexes();
-  expect(eventsAt("ERROR"), "an index of the sign-in store was left unbuilt").toStrictEqual([]);
+  // An empty store, its indexes kept.
+  const collections = await authDb().listCollections({}, { nameOnly: true }).toArray();
+  await Promise.all(collections.map(({ name }) => authDb().collection(name).deleteMany({})));
 });
 
 const handler = toNextJsHandler(auth);

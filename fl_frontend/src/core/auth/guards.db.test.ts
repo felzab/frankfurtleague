@@ -2,7 +2,7 @@ import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, overriding, registerAu
 import { beginRenderPass, serveServerReact } from "@/test-support/cacheScope.ts";
 import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
 import { captureLog } from "@/test-support/stdoutCapture.ts";
-import { assert, beforeEach, describe, expect, it } from "vitest";
+import { assert, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import type { MongoClient } from "mongodb";
 
@@ -46,15 +46,24 @@ const { getSubjectSession } = await import("@/core/subject.ts");
 const { devicesOf } = await import("@/features/account/security");
 const { heldPasskeysOf } = await import("@/features/passkeys/held.ts");
 
-// Production's indexes under every case, so the library is driven over what it meets there, and an
-// empty store, each case signing the administrator in afresh.
-beforeEach(async () => {
-  await Promise.all(["session", "user", "passkey", "verification"].map((name) => client.db("auth").collection(name).deleteMany({})));
+// Production's indexes under every case, so the library is driven over what it meets there: built once for the
+// file, since a build runs under the client's socket bound, which a stall on a loaded machine outlasts.
+beforeAll(async () => {
+  const from = log.lines().length;
   await buildAuthIndexes();
   expect(
-    log.lines().flatMap(({ level, message }) => (level === "ERROR" ? [message] : [])),
+    log
+      .lines()
+      .slice(from)
+      .flatMap(({ level, message }) => (level === "ERROR" ? [message] : [])),
     "an index of the sign-in store was left unbuilt",
   ).toStrictEqual([]);
+});
+
+// An empty store, its indexes kept, each case signing the administrator in afresh.
+beforeEach(async () => {
+  const collections = await client.db("auth").listCollections({}, { nameOnly: true }).toArray();
+  await Promise.all(collections.map(({ name }) => client.db("auth").collection(name).deleteMany({})));
 });
 
 // Set before the first operation opens a connection, which is when the pool reads it; the option is
