@@ -58,8 +58,6 @@ These compile, pass, and silently do nothing:
 
 | Never                                   | Always                               |
 | --------------------------------------- | ------------------------------------ |
-| `middleware.ts`                         | `proxy.ts`                           |
-| `tailwind.config.js`                    | CSS-first `@theme` / `@layer`        |
 | `@tailwind base/components/utilities`   | `@import "tailwindcss"`              |
 | `getServerSideProps` / `getStaticProps` | Server Components + `use cache`      |
 | A direct DB query for application data  | FastAPI (the sign-in store excepted) |
