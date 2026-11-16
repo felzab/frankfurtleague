@@ -26,7 +26,7 @@ from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.config import build_test_config, grants_for_the_suite
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -87,41 +87,38 @@ SPIELE = [spiel(spiel_id, spiel_nr=position) for position, spiel_id in enumerate
 Write = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Write) -> Any:
+async def on_a_league(url: str, body: Write) -> Any:
     """The season, two clubs, and this team's row holding `STORED` and its own links."""
 
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
-            await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active", start_date="2026-04-02"))
-            for team_id, name, shorthand in ((TEAM_OID, "Adler", "ADX"), (OTHER_TEAM_OID, "Falken", "FAX")):
-                await database[Collection.TEAMS].insert_one(
-                    documents.team_document(team_id, name, shorthand, website_url=None, schulform="gymnasium_g9")
-                )
-            await database[Collection.SAISON_TEAMS].insert_many(
-                [
-                    {
-                        "_id": ROW_OID,
-                        **documents.saison_team_document(
-                            SAISON_ID,
-                            TEAM_OID,
-                            "Adler",
-                            "ADX",
-                            kontakte=STORED,
-                            confirmations={
-                                seat: {**compose_kontakt_confirmation(today=TODAY), "token_hashes": [hash_token(row_link(seat))]}
-                                for seat in KONTAKT_ROLLEN
-                            },
-                        ),
-                    },
-                    {"_id": OTHER_ROW_OID, **documents.saison_team_document(SAISON_ID, OTHER_TEAM_OID, "Falken", "FAX", kontakte=None)},
-                ]
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+        await database[Collection.GRANTS].insert_many(grants_for_the_suite())
+        await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active", start_date="2026-04-02"))
+        for team_id, name, shorthand in ((TEAM_OID, "Adler", "ADX"), (OTHER_TEAM_OID, "Falken", "FAX")):
+            await database[Collection.TEAMS].insert_one(
+                documents.team_document(team_id, name, shorthand, website_url=None, schulform="gymnasium_g9")
             )
-            await database[Collection.SPIELE].insert_many([dict(spiel) for spiel in SPIELE])
+        await database[Collection.SAISON_TEAMS].insert_many(
+            [
+                {
+                    "_id": ROW_OID,
+                    **documents.saison_team_document(
+                        SAISON_ID,
+                        TEAM_OID,
+                        "Adler",
+                        "ADX",
+                        kontakte=STORED,
+                        confirmations={
+                            seat: {**compose_kontakt_confirmation(today=TODAY), "token_hashes": [hash_token(row_link(seat))]}
+                            for seat in KONTAKT_ROLLEN
+                        },
+                    ),
+                },
+                {"_id": OTHER_ROW_OID, **documents.saison_team_document(SAISON_ID, OTHER_TEAM_OID, "Falken", "FAX", kontakte=None)},
+            ]
+        )
+        await database[Collection.SPIELE].insert_many([dict(spiel) for spiel in SPIELE])
 
-            await body(database, client)
-
-    return on_the_seed_loop(_run())
+        await body(database, client)
 
 
 async def erase_the_trainer(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -213,7 +210,7 @@ class TestALeavingContactsReasonsGo:
             pytest.param(contradict, id="their Widerspruch on the season row"),
         ],
     )
-    def test_theirs_go_from_the_rows_and_nobody_elses_do(self, mongo_replica_set_url: str, write: Write):
+    async def test_theirs_go_from_the_rows_and_nobody_elses_do(self, mongo_replica_set_url: str, write: Write):
         """A reason typed from the seat an erased person held would survive them: an answer records the seat and never its holder."""
 
         found: dict[str, Any] = {}
@@ -228,6 +225,6 @@ class TestALeavingContactsReasonsGo:
                 [left_behind(NAMED[row["spiel_id"]], row["answer"]) async for row in collection.find({"spiel_id": {"$in": list(NAMED)}})]
             )
 
-        on_a_league(mongo_replica_set_url, after_the_answers)
+        await on_a_league(mongo_replica_set_url, after_the_answers)
 
         assert found["rows"] == sorted(expected(name) for name in REASONS)

@@ -27,7 +27,7 @@ from app.shared.einwilligung_evidence import TextVersions
 from app.shared.folding import sign_in_identifier
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.documents import (
     SCHIEDSRICHTER_TEXT_VERSIONS,
     SPIELER_TEXT_VERSIONS,
@@ -253,34 +253,28 @@ def _counted(entries: frozenset[tuple[str, Any]]) -> set[tuple[str, str]]:
 
 @pytest.mark.db
 @pytest.mark.parametrize("address", list(EXPECTED), ids=["every kind and state", "a domain asked in capitals", "nothing held"])
-def test_the_gate_counts_exactly_what_the_account_page_serves(mongo_replica_set_url: str, address: str):
-    async def run() -> tuple[set[tuple[str, str]], set[tuple[str, str]]]:
-        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True) as (_client, database):
-            await _seed(database)
-            _subject, entries = await find_own_entries(sign_in_identifier(address), record_collections(database))
-            async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
-                response = await http.get(ACCOUNT_PATH, headers=_person(address))
-                assert response.status_code == 200, response.text
+async def test_the_gate_counts_exactly_what_the_account_page_serves(mongo_replica_set_url: str, address: str):
+    async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True) as (_client, database):
+        await _seed(database)
+        _subject, entries = await find_own_entries(sign_in_identifier(address), record_collections(database))
+        async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
+            response = await http.get(ACCOUNT_PATH, headers=_person(address))
+            assert response.status_code == 200, response.text
 
-            return _counted(entries), _served(response.json())
-
-    counted, served = on_the_seed_loop(run())
+        counted, served = _counted(entries), _served(response.json())
 
     assert served == counted
     assert served == EXPECTED[address]
 
 
 @pytest.mark.db
-def test_the_account_page_serves_a_registration_as_its_pupil_stored_it(mongo_replica_set_url: str):
+async def test_the_account_page_serves_a_registration_as_its_pupil_stored_it(mongo_replica_set_url: str):
     """The stored fields the box names its pupil by, and the words' fill read today."""
 
-    async def run() -> Any:
-        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True) as (_client, database):
-            await _seed(database)
-            async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
-                return await http.get(ACCOUNT_PATH, headers=_person(WILTRUDIS))
-
-    response = on_the_seed_loop(run())
+    async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True) as (_client, database):
+        await _seed(database)
+        async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
+            response = await http.get(ACCOUNT_PATH, headers=_person(WILTRUDIS))
 
     assert response.status_code == 200, response.text
     [entry] = [entry for entry in response.json()["registrierungen"] if entry["registrierung_id"] == str(REGISTRIERUNG_NEW)]

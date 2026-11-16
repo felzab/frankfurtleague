@@ -23,7 +23,7 @@ from app.core.collections import Collection
 from app.shared.einwilligung_evidence import evidence_state_of
 from app.shared.schemas.einwilligung import FLSeatEinwilligungPayload
 from tests import documents
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.outbox import MAIL_NOW
 from tests.worker import worker_database
 
@@ -105,41 +105,38 @@ async def confirm_the_last_seat(database: AsyncDatabase, client: AsyncMongoClien
 Press = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[None]]
 
 
-def pressed_then_accepted(url: str, press: Press, *, ansprechperson_confirmed_at: str | None) -> tuple[dict[str, Any], dict[str, Any]]:
+async def pressed_then_accepted(url: str, press: Press, *, ansprechperson_confirmed_at: str | None) -> tuple[dict[str, Any], dict[str, Any]]:
     """The application and the season row its acceptance entered, the acceptance sent on the version served before the press."""
 
-    async def _run() -> tuple[dict[str, Any], dict[str, Any]]:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "future"))
-            await database[Collection.TEAMS].insert_one(documents.team_document(TEAM_OID, "Adler", "ADX"))
-            await database[Collection.BEWERBUNGEN].insert_one(bewerbung_document(ansprechperson_confirmed_at=ansprechperson_confirmed_at))
-            await press(database, client)
-            await accept_bewerbung(
-                bewerbung_id=BEWERBUNG_OID,
-                acceptance_data=FLAcceptBewerbungPayload.model_validate(
-                    {"gruppe": "A", "trikot_farbe": "blau", "shorthand": None, "version": SERVED_VERSION}
-                ),
-                bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                teams_collection=database[Collection.TEAMS],
-                saison_teams_collection=database[Collection.SAISON_TEAMS],
-                saisons_collection=database[Collection.SAISONS],
-                outbox_collection=database[Collection.OUTBOX],
-                db=client,
-                today=TODAY,
-                germany_now=MAIL_NOW,
-            )
-            bewerbung = await database[Collection.BEWERBUNGEN].find_one({"_id": BEWERBUNG_OID})
-            row = await database[Collection.SAISON_TEAMS].find_one({"team_id": TEAM_OID})
-            assert bewerbung is not None and row is not None
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+        await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "future"))
+        await database[Collection.TEAMS].insert_one(documents.team_document(TEAM_OID, "Adler", "ADX"))
+        await database[Collection.BEWERBUNGEN].insert_one(bewerbung_document(ansprechperson_confirmed_at=ansprechperson_confirmed_at))
+        await press(database, client)
+        await accept_bewerbung(
+            bewerbung_id=BEWERBUNG_OID,
+            acceptance_data=FLAcceptBewerbungPayload.model_validate(
+                {"gruppe": "A", "trikot_farbe": "blau", "shorthand": None, "version": SERVED_VERSION}
+            ),
+            bewerbungen_collection=database[Collection.BEWERBUNGEN],
+            teams_collection=database[Collection.TEAMS],
+            saison_teams_collection=database[Collection.SAISON_TEAMS],
+            saisons_collection=database[Collection.SAISONS],
+            outbox_collection=database[Collection.OUTBOX],
+            db=client,
+            today=TODAY,
+            germany_now=MAIL_NOW,
+        )
+        bewerbung = await database[Collection.BEWERBUNGEN].find_one({"_id": BEWERBUNG_OID})
+        row = await database[Collection.SAISON_TEAMS].find_one({"team_id": TEAM_OID})
+        assert bewerbung is not None and row is not None
 
-            return bewerbung, row
-
-    return on_the_seed_loop(_run())
+        return bewerbung, row
 
 
 class TestTheAcceptanceLandsOverThePress:
-    def test_a_withdrawn_media_consent_stands_on_the_application_and_on_the_season_row(self, mongo_replica_set_url: str):
-        bewerbung, row = pressed_then_accepted(mongo_replica_set_url, withdraw_media, ansprechperson_confirmed_at="2026-02-10")
+    async def test_a_withdrawn_media_consent_stands_on_the_application_and_on_the_season_row(self, mongo_replica_set_url: str):
+        bewerbung, row = await pressed_then_accepted(mongo_replica_set_url, withdraw_media, ansprechperson_confirmed_at="2026-02-10")
 
         assert bewerbung["status"] == "accepted"
         assert (bewerbung["kontakte"]["trainer"]["einwilligung"]["media"], row["kontakte"]["trainer"]["einwilligung"]["media"]) == (
@@ -147,10 +144,10 @@ class TestTheAcceptanceLandsOverThePress:
             False,
         )
 
-    def test_the_last_seats_confirmation_stands_and_lets_the_acceptance_in(self, mongo_replica_set_url: str):
+    async def test_the_last_seats_confirmation_stands_and_lets_the_acceptance_in(self, mongo_replica_set_url: str):
         """The page was read while the seat was open; the acceptance judges the seat as the confirmation left it."""
 
-        bewerbung, row = pressed_then_accepted(mongo_replica_set_url, confirm_the_last_seat, ansprechperson_confirmed_at=None)
+        bewerbung, row = await pressed_then_accepted(mongo_replica_set_url, confirm_the_last_seat, ansprechperson_confirmed_at=None)
 
         assert bewerbung["status"] == "accepted"
         seat = row["kontakte"]["ansprechperson"]

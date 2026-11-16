@@ -23,7 +23,7 @@ from app.main import create_app
 from tests import documents
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, build_test_config
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
 
@@ -220,19 +220,16 @@ def _served() -> FastAPI:
     return create_app(WIRE_CONFIG)
 
 
-def read(url: str, what: str, *, identifier: str = THEO, saison_id: str = SAISON_ID) -> tuple[int, Any]:
-    async def _run() -> tuple[int, Any]:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
-            await seed(database)
-            async with app_client(url, app=_served(), now=NOW) as http:
-                response = await http.get(
-                    f"/api/v{API_VERSION}/teams/{TEAM}/saisons/{saison_id}/self/{what}",
-                    headers=StampedHeaders(identifier, ADMIN_KEY, lane="person"),
-                )
+async def read(url: str, what: str, *, identifier: str = THEO, saison_id: str = SAISON_ID) -> tuple[int, Any]:
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
+        await seed(database)
+        async with app_client(url, app=_served(), now=NOW) as http:
+            response = await http.get(
+                f"/api/v{API_VERSION}/teams/{TEAM}/saisons/{saison_id}/self/{what}",
+                headers=StampedHeaders(identifier, ADMIN_KEY, lane="person"),
+            )
 
-            return response.status_code, response.json()
-
-    return on_the_seed_loop(_run())
+        return response.status_code, response.json()
 
 
 def keys_at_every_depth(value: Any) -> Iterator[str]:
@@ -252,15 +249,15 @@ class TestEachReadAnswersTheTeamsSeatHoldersAlone:
         [(OTTO, SAISON_ID), (ANNA, SAISON_ID), (PAULA, PAST_SAISON_ID), (NORA, SAISON_ID)],
         ids=("another team's seat", "an unconfirmed seat", "the team's past season", "the same team in another season"),
     )
-    def test_a_seat_granting_nothing_here_is_refused(self, mongo_replica_set_url: str, what: str, identifier: str, saison_id: str):
-        status, served = read(mongo_replica_set_url, what, identifier=identifier, saison_id=saison_id)
+    async def test_a_seat_granting_nothing_here_is_refused(self, mongo_replica_set_url: str, what: str, identifier: str, saison_id: str):
+        status, served = await read(mongo_replica_set_url, what, identifier=identifier, saison_id=saison_id)
 
         assert (status, served["error_code"]) == (403, "role_not_held")
 
-    def test_no_address_telephone_birthdate_or_other_clubs_reason_at_any_depth(self, mongo_replica_set_url: str, what: str):
+    async def test_no_address_telephone_birthdate_or_other_clubs_reason_at_any_depth(self, mongo_replica_set_url: str, what: str):
         """Over the serialised body, keys and values both, so a nested block cannot smuggle one in."""
 
-        status, served = read(mongo_replica_set_url, what)
+        status, served = await read(mongo_replica_set_url, what)
 
         # A refused read would pass the scan below with nothing scanned.
         assert status == 200
@@ -270,8 +267,8 @@ class TestEachReadAnswersTheTeamsSeatHoldersAlone:
 
 
 class TestTheOverview:
-    def test_it_lists_the_open_work_and_nothing_settled(self, mongo_replica_set_url: str):
-        status, served = read(mongo_replica_set_url, "overview")
+    async def test_it_lists_the_open_work_and_nothing_settled(self, mongo_replica_set_url: str):
+        status, served = await read(mongo_replica_set_url, "overview")
 
         assert status == 200
         assert (served["name"], served["full_name"], served["rollen"]) == ("Zorbanax", "Zorbanax-Schule", ["trainer"])
@@ -307,8 +304,8 @@ class TestTheOverview:
 
 
 class TestTheTeamsSpiele:
-    def test_each_fixture_carries_its_date_s_state_and_its_line_up_s_marks(self, mongo_replica_set_url: str):
-        status, served = read(mongo_replica_set_url, "spiele")
+    async def test_each_fixture_carries_its_date_s_state_and_its_line_up_s_marks(self, mongo_replica_set_url: str):
+        status, served = await read(mongo_replica_set_url, "spiele")
 
         assert status == 200
         by_spiel = {entry["id"]: entry for entry in served["spiele"]}

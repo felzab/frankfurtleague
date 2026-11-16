@@ -14,7 +14,7 @@ from app.core.config import API_VERSION
 from app.main import create_app
 from tests.app_client import app_client
 from tests.config import SYSTEM_AUTH
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.documents import (
     SCHIEDSRICHTER_TEXT_VERSIONS,
     SPIELER_TEXT_VERSIONS,
@@ -199,25 +199,22 @@ async def _ask(url: str, identifiers: list[str]) -> tuple[int, Mapping[str, Any]
 
 
 @functools.cache
-def answered(url: str) -> tuple[int, Mapping[str, Any]]:
+async def answered(url: str) -> tuple[int, Mapping[str, Any]]:
     """One pass's batch through the MOUNTED route over the whole league, which every case reads.
 
     One request rather than one per address: a judgement mixing two addresses of one batch shows only in a batch.
     """
 
-    async def _run() -> tuple[int, Mapping[str, Any]]:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
-            await _seed(database)
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
+        await _seed(database)
 
-            return await _ask(url, ASKED)
-
-    return on_the_seed_loop(_run())
+        return await _ask(url, ASKED)
 
 
 @pytest.mark.db
 class TestWhatLetsAnAccountGo:
-    def test_the_answer_holds_each_once_in_the_spelling_asked_and_nothing_else(self, mongo_replica_set_url: str):
-        assert answered(mongo_replica_set_url) == (
+    async def test_the_answer_holds_each_once_in_the_spelling_asked_and_nothing_else(self, mongo_replica_set_url: str):
+        assert await answered(mongo_replica_set_url) == (
             200,
             {
                 "unreferenced": [NOBODY, REGISTERED_OPEN, BARRED, OUTSIDE_THE_RULE],
@@ -229,12 +226,9 @@ class TestWhatLetsAnAccountGo:
 class TestALeagueWithoutAnOwner:
     """An empty or foreign database answers every address unreferenced, and the sweep would delete every account on it."""
 
-    def test_the_whole_batch_is_refused(self, mongo_replica_set_url: str):
-        async def _run() -> tuple[int, Mapping[str, Any]]:
-            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True):
-                return await _ask(mongo_replica_set_url, [NOBODY, SEAT_OPEN])
-
-        status, body = on_the_seed_loop(_run())
+    async def test_the_whole_batch_is_refused(self, mongo_replica_set_url: str):
+        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True):
+            status, body = await _ask(mongo_replica_set_url, [NOBODY, SEAT_OPEN])
 
         assert (status, body["error_code"]) == (409, Code.NO_OWNER), body
         assert "unreferenced" not in body

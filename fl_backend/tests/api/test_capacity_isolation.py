@@ -26,7 +26,7 @@ from app.api.teams.schemas import FLPostTeamEntryPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from tests import documents
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.documents import kontaktperson_document
 from tests.isolation import MISCOUNTED_JUDGEMENTS, InterleavedCollection, Rival, outcome_of
 from tests.outbox import MAIL_NOW
@@ -155,18 +155,15 @@ class SeasonsRunningAHookBeforeTheAnchor(InterleavedCollection):
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Body, seed: dict[str, list[Any]]) -> Any:
+async def on_a_league(url: str, body: Body, seed: dict[str, list[Any]]) -> Any:
     """A transaction cannot create a collection, so every one a body writes in is built by the seed."""
 
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            for name, rows in seed.items():
-                if rows:
-                    await database[name].insert_many(rows)
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+        for name, rows in seed.items():
+            if rows:
+                await database[name].insert_many(rows)
 
-            return await body(database, client)
-
-    return on_the_seed_loop(_run())
+        return await body(database, client)
 
 
 async def anchor_now(database: AsyncDatabase) -> int:
@@ -206,7 +203,7 @@ async def redate(database: AsyncDatabase, client: AsyncMongoClient, position: in
 class TestASecondEntryLandingMidEntryIsJudgedAgain:
     """Group A holds one free place when both entries judge, and none when the second one writes."""
 
-    def test_the_second_entry_is_refused_on_the_place_the_first_took(self, mongo_replica_set_url: str):
+    async def test_the_second_entry_is_refused_on_the_place_the_first_took(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def the_rival_takes_the_place() -> None:
                 await enter_the_group(database, client, 21, database[Collection.SAISONS])
@@ -218,7 +215,7 @@ class TestASecondEntryLandingMidEntryIsJudgedAgain:
 
             return outcome, seasons.season_reads, occupied, await anchor_now(database)
 
-        outcome, season_reads, occupied, anchor = on_a_league(
+        outcome, season_reads, occupied, anchor = await on_a_league(
             mongo_replica_set_url,
             body,
             {
@@ -264,7 +261,7 @@ class TestASecondReturnLandingMidReturnIsJudgedAgain:
             db=client,
         )
 
-    def test_a_return_is_refused_on_the_place_a_rival_return_took(self, mongo_replica_set_url: str):
+    async def test_a_return_is_refused_on_the_place_a_rival_return_took(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def the_rival_takes_the_place() -> None:
                 await self._bring_back(database, client, 91, database[Collection.SAISONS])
@@ -276,7 +273,7 @@ class TestASecondReturnLandingMidReturnIsJudgedAgain:
 
             return outcome, seasons.season_reads, squad, await anchor_now(database)
 
-        outcome, season_reads, squad, anchor = on_a_league(mongo_replica_set_url, body, self._squad_seed())
+        outcome, season_reads, squad, anchor = await on_a_league(mongo_replica_set_url, body, self._squad_seed())
 
         assert (outcome, squad) == (Code.KADER_FULL, MAX_KADER_SIZE)
         assert (season_reads, anchor) == (2, 1), (
@@ -287,7 +284,7 @@ class TestASecondReturnLandingMidReturnIsJudgedAgain:
 class TestASecondDatingLandingMidDatingIsJudgedAgain:
     """Each writer's step passes against the day the other is replacing, and the pair they would leave runs backwards."""
 
-    def test_the_second_dating_is_refused_on_the_day_the_first_left(self, mongo_replica_set_url: str):
+    async def test_the_second_dating_is_refused_on_the_day_the_first_left(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def the_rival_advances_the_second() -> None:
                 await redate(database, client, 2, ADVANCED_SECOND, database[Collection.SAISONS])
@@ -299,7 +296,7 @@ class TestASecondDatingLandingMidDatingIsJudgedAgain:
 
             return outcome, seasons.season_reads, [row["start"] for row in rows], await anchor_now(database)
 
-        outcome, season_reads, starts, anchor = on_a_league(
+        outcome, season_reads, starts, anchor = await on_a_league(
             mongo_replica_set_url,
             body,
             {
@@ -318,7 +315,7 @@ class TestASecondDatingLandingMidDatingIsJudgedAgain:
 class TestAGroupMoveLandingMidEntryIsJudgedAgain:
     """The move reaches the same rule an entry does, from the endpoint that writes an existing row."""
 
-    def test_the_move_is_refused_on_the_place_a_rival_entry_took(self, mongo_replica_set_url: str):
+    async def test_the_move_is_refused_on_the_place_a_rival_entry_took(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def move(saisons: Any) -> Any:
                 return await save_the_team(database, team_id=oid(30), saison_id=SAISON, gruppe="A", saisons_collection=saisons)
@@ -333,7 +330,7 @@ class TestAGroupMoveLandingMidEntryIsJudgedAgain:
 
             return outcome, seasons.season_reads, occupied
 
-        outcome, season_reads, occupied = on_a_league(
+        outcome, season_reads, occupied = await on_a_league(
             mongo_replica_set_url,
             body,
             {
@@ -355,7 +352,7 @@ ACCEPTED_ON = "2026-02-20"
 class TestAnAcceptanceLandingMidEntryIsJudgedAgain:
     """The rule reached from the OTHER package: a triage acceptance enters a school where the entry route enters a club."""
 
-    def test_the_acceptance_is_refused_on_the_place_a_rival_entry_took(self, mongo_replica_set_url: str):
+    async def test_the_acceptance_is_refused_on_the_place_a_rival_entry_took(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def accept(saisons: Any) -> Any:
                 return await accept_bewerbung(
@@ -384,7 +381,7 @@ class TestAnAcceptanceLandingMidEntryIsJudgedAgain:
 
             return outcome, seasons.season_reads, occupied, (applied or {})["status"], await anchor_now(database)
 
-        outcome, season_reads, occupied, status, anchor = on_a_league(
+        outcome, season_reads, occupied, status, anchor = await on_a_league(
             mongo_replica_set_url,
             body,
             {

@@ -1,5 +1,5 @@
 import json
-from collections.abc import Iterator
+from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
@@ -12,7 +12,7 @@ from app.api.saisons.public_router import get_spiel
 from app.api.spielberichte.services import PUBLIC_PERSONS_AS, compose_public_bericht
 from app.core.collections import Collection
 from tests import documents
-from tests.database import a_clean_database, on_the_seed_loop, shared_client
+from tests.database import a_clean_database, bounded, shared_client
 from tests.worker import worker_database
 
 from .conftest import unwritten
@@ -127,7 +127,7 @@ def named_only_report(spiel: dict[str, Any]) -> dict[str, Any]:
 
 
 @pytest.fixture(scope="module")
-def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
+async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
     spiel = adopted_match()
     internal = {**documents.EINWILLIGUNG, "scope": "internal"}
 
@@ -177,25 +177,22 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
                 ]
             )
 
-    on_the_seed_loop(_seed())
+    await bounded(_seed())
 
     with unwritten(mongo_replica_set_url, DATABASE_NAME):
         yield mongo_replica_set_url
 
 
-def the_page(url: str, spiel_id: ObjectId | None = None) -> Any:
-    async def body() -> Any:
-        database: AsyncDatabase = shared_client(url)[DATABASE_NAME]
-        return await get_spiel(
-            saison_id=SAISON,
-            spiel_id=spiel_id or adopted_match()["_id"],
-            saisons_collection=database[Collection.SAISONS],
-            spiele_collection=database[Collection.SPIELE],
-            teams_collection=database[Collection.TEAMS],
-            spielberichte_collection=database[Collection.SPIELBERICHTE],
-        )
-
-    return on_the_seed_loop(body())
+async def the_page(url: str, spiel_id: ObjectId | None = None) -> Any:
+    database: AsyncDatabase = shared_client(url)[DATABASE_NAME]
+    return await get_spiel(
+        saison_id=SAISON,
+        spiel_id=spiel_id or adopted_match()["_id"],
+        saisons_collection=database[Collection.SAISONS],
+        spiele_collection=database[Collection.SPIELE],
+        teams_collection=database[Collection.TEAMS],
+        spielberichte_collection=database[Collection.SPIELBERICHTE],
+    )
 
 
 def test_a_line_ups_nameless_rows_read_alike_after_its_named_ones():
@@ -224,10 +221,10 @@ def test_a_line_ups_nameless_rows_read_alike_after_its_named_ones():
 
 
 @pytest.mark.db
-def test_each_entry_reads_as_a_name_or_as_nobody(seeded_url: str):
+async def test_each_entry_reads_as_a_name_or_as_nobody(seeded_url: str):
     """By minute; a withheld name, an erased pupil and a scorer nobody named are served alike, and no card says which."""
 
-    bericht = the_page(seeded_url).bericht
+    bericht = (await the_page(seeded_url)).bericht
     entries = [*bericht.scorers, *bericht.cards]
     served = [(entry.minute, entry.spieler.model_dump()) for entry in entries]
 
@@ -237,20 +234,20 @@ def test_each_entry_reads_as_a_name_or_as_nobody(seeded_url: str):
 
 
 @pytest.mark.db
-def test_a_report_naming_only_pupils_joins_each_by_their_id(seeded_url: str):
+async def test_a_report_naming_only_pupils_joins_each_by_their_id(seeded_url: str):
     """The case above holds a null entry, which a broken join matches against every pupil and so still names the scorer."""
 
-    scorers = the_page(seeded_url, named_only_match()["_id"]).bericht.scorers
+    scorers = (await the_page(seeded_url, named_only_match()["_id"])).bericht.scorers
 
     assert scorers is not None
     assert [scorer.spieler.model_dump() for scorer in scorers] == [{"first_name": "Maxim", "last_name": "M."}]
 
 
 @pytest.mark.db
-def test_each_side_serves_the_line_up_of_its_club_through_the_mask(seeded_url: str):
+async def test_each_side_serves_the_line_up_of_its_club_through_the_mask(seeded_url: str):
     """In the order the club entered it, the captaincy beside a published name alone; the replaced club's line-up never."""
 
-    aufstellungen = the_page(seeded_url).aufstellungen
+    aufstellungen = (await the_page(seeded_url)).aufstellungen
 
     def served(side: FLAufstellungPublic | None) -> list[tuple[Any, ...]]:
         assert side is not None

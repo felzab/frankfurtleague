@@ -20,7 +20,7 @@ from app.main import create_app
 from app.shared.tokens import hash_token
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
-from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
+from tests.database import a_clean_database, a_clean_database_sync
 from tests.documents import (
     SPIELER_TEXT_VERSIONS,
     own_einwilligung_document,
@@ -121,22 +121,19 @@ def season(saison_id: str, status: str) -> dict[str, Any]:
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Body, *, status: str = "active", mutates_schema: bool = False) -> Any:
+async def on_a_league(url: str, body: Body, *, status: str = "active", mutates_schema: bool = False) -> Any:
     """The SHIPPED indexes.
 
     `mutates_schema` for a body that installs a validator through `refuse_writes_breaking`.
     """
 
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
-            await database[Collection.SAISONS].insert_many([season(SAISON_ID, status), season(OTHER_SAISON_ID, "past")])
-            await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, TEAM_NAME, "ADX", website_url=None, schulform="gymnasium_g9"))
-            await database[Collection.SAISON_TEAMS].insert_one(saison_team_document(SAISON_ID, TEAM_OID, TEAM_NAME, "ADX"))
-            await database[Collection.REGISTRIERUNGEN].insert_many(the_corpus())
+    async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
+        await database[Collection.SAISONS].insert_many([season(SAISON_ID, status), season(OTHER_SAISON_ID, "past")])
+        await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, TEAM_NAME, "ADX", website_url=None, schulform="gymnasium_g9"))
+        await database[Collection.SAISON_TEAMS].insert_one(saison_team_document(SAISON_ID, TEAM_OID, TEAM_NAME, "ADX"))
+        await database[Collection.REGISTRIERUNGEN].insert_many(the_corpus())
 
-            return await body(database, client)
-
-    return on_the_seed_loop(_run())
+        return await body(database, client)
 
 
 async def sweep(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -160,7 +157,7 @@ async def standing(database: AsyncDatabase) -> list[ObjectId]:
 
 
 class TestTheDeadlineClock:
-    def test_a_registration_of_another_season_is_untouched(self, mongo_replica_set_url: str):
+    async def test_a_registration_of_another_season_is_untouched(self, mongo_replica_set_url: str):
         """Every removal names this season alone."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -168,17 +165,17 @@ class TestTheDeadlineClock:
 
             return await standing(database)
 
-        assert OTHER_SEASON_OID in on_a_league(mongo_replica_set_url, body)
+        assert OTHER_SEASON_OID in await on_a_league(mongo_replica_set_url, body)
 
 
 class TestTheSeasonsOwnEnd:
-    def test_it_takes_every_undecided_row_whatever_the_pupil_answered(self, mongo_replica_set_url: str):
+    async def test_it_takes_every_undecided_row_whatever_the_pupil_answered(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await sweep(database, client)
 
             return response, await standing(database)
 
-        response, left = on_a_league(mongo_replica_set_url, body, status="past")
+        response, left = await on_a_league(mongo_replica_set_url, body, status="past")
 
         assert response.erased_without_decision == 4
         # The other season's row alone: the declined one goes to the decline clock in the same pass,
@@ -195,7 +192,7 @@ async def refuse_writes_breaking(database: AsyncDatabase, collection: Collection
 class TestOneRowHoldsBackNoOther:
     """One case per write the call makes: with the site's isolation gone the whole call raises, every hour."""
 
-    def test_a_refused_retention_row_leaves_its_rows_and_stops_no_later_clock(self, mongo_replica_set_url: str):
+    async def test_a_refused_retention_row_leaves_its_rows_and_stops_no_later_clock(self, mongo_replica_set_url: str):
         """No deletion stands without its row, and a clock that raised would end the pass ahead of every clock behind it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -206,7 +203,7 @@ class TestOneRowHoldsBackNoOther:
 
             return answer, await standing(database)
 
-        answer, left = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
+        answer, left = await on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
         assert (answer.erased_declined, answer.erased_unconfirmed, answer.failed) == (0, 0, 2)
         assert {DECLINED_OID, EXPIRED_OID} <= set(left)
@@ -246,7 +243,7 @@ class TestAPageAndOneMoreIsDrainedRatherThanRefused:
             ),
         ],
     )
-    def test_every_due_row_goes_in_one_pass(self, mongo_replica_set_url: str, clock: str, overrides: Any, status: str, counted: str):
+    async def test_every_due_row_goes_in_one_pass(self, mongo_replica_set_url: str, clock: str, overrides: Any, status: str, counted: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.REGISTRIERUNGEN].delete_many({})
             await database[Collection.REGISTRIERUNGEN].insert_many(overflowing(**overrides))
@@ -254,7 +251,7 @@ class TestAPageAndOneMoreIsDrainedRatherThanRefused:
 
             return getattr(response, counted), await database[Collection.REGISTRIERUNGEN].count_documents({"saison_id": SAISON_ID})
 
-        erased_count, left = on_a_league(mongo_replica_set_url, body, status=status)
+        erased_count, left = await on_a_league(mongo_replica_set_url, body, status=status)
 
         assert (erased_count, left) == (OVERFLOW, 0), f"the {clock} clock left rows the next pass would read into the same full page"
 
@@ -264,7 +261,7 @@ COMMANDS = 9
 
 
 class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
-    def test_the_sweep(self, mongo_replica_set_url: str):
+    async def test_the_sweep(self, mongo_replica_set_url: str):
         """Both erasing clocks take a page.
 
         A command added to the call turns this red, so the call is judged against the request's deadline again.
@@ -273,7 +270,7 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Any, Counter[str]]:
             return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, sweep)
 
-        answer, names = on_a_league(mongo_replica_set_url, body)
+        answer, names = await on_a_league(mongo_replica_set_url, body)
 
         assert (answer.erased_declined, answer.erased_unconfirmed) == (1, 1)
         assert sum(names.values()) == COMMANDS, names

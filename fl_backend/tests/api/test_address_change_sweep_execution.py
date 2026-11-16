@@ -32,7 +32,7 @@ from app.shared.tokens import hash_token
 from tests import documents
 from tests.acts import deletions_of
 from tests.config import grants_for_the_suite
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.documents import saison_document, schiedsrichter_document, spieler_document
 from tests.records import record_collections
 from tests.whole_database import where_held
@@ -124,15 +124,12 @@ async def a_due_person(database: AsyncDatabase, position: int) -> None:
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
-            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
-            await database[Collection.SAISONS].insert_one(saison_document("2026", "active"))
+async def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
+    async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
+        await database[Collection.GRANTS].insert_many(grants_for_the_suite())
+        await database[Collection.SAISONS].insert_one(saison_document("2026", "active"))
 
-            return await body(database, client)
-
-    return on_the_seed_loop(_run())
+        return await body(database, client)
 
 
 async def sweep(database: AsyncDatabase, client: AsyncMongoClient, *, after: Any = None, **replaced: Any) -> Any:
@@ -186,7 +183,7 @@ def refusing_a_move_to(positions: Sequence[int]) -> dict[str, Any]:
 
 
 class TestALapsedChangeEndsOnceItsDeadlinePassed:
-    def test_its_address_goes_from_the_record_and_a_change_before_its_deadline_stands(self, mongo_replica_set_url: str):
+    async def test_its_address_goes_from_the_record_and_a_change_before_its_deadline_stands(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await stored(database, a_change(1, minted=MINTED_TO_LAPSE_YESTERDAY), a_change(2, minted=MINTED_TO_LAPSE_TODAY))
             answer = await sweep(database, client)
@@ -194,7 +191,7 @@ class TestALapsedChangeEndsOnceItsDeadlinePassed:
 
             return answer, ended, await live(database), await where_held(database, pending(1), folded=True)
 
-        answer, ended, standing, held = on_a_league(mongo_replica_set_url, body)
+        answer, ended, standing, held = await on_a_league(mongo_replica_set_url, body)
 
         assert (answer.removed, answer.discarded, answer.effective, answer.remaining, answer.after) == (1, 0, 0, 0, None)
         assert (ended["ended"]["kind"], ended["address"], ended["email"]) == ("expired", None, None)
@@ -202,7 +199,7 @@ class TestALapsedChangeEndsOnceItsDeadlinePassed:
         assert held == {pending(1): []}
 
     @pytest.mark.parametrize("lapses", [1, 2])
-    def test_a_page_s_lapses_write_one_row_with_their_count(self, mongo_replica_set_url: str, lapses: int):
+    async def test_a_page_s_lapses_write_one_row_with_their_count(self, mongo_replica_set_url: str, lapses: int):
         """No deletion stands without its row; one per change would fill a year's list with nothing an administrator asks of it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -212,38 +209,38 @@ class TestALapsedChangeEndsOnceItsDeadlinePassed:
             rows = database[Collection.ACTION_LOG].find({"action": "retention.address_changes"})
             return [(row["by"], row["count"], row["record_id"]) async for row in rows]
 
-        assert on_a_league(mongo_replica_set_url, body) == [("system", lapses, None)]
+        assert await on_a_league(mongo_replica_set_url, body) == [("system", lapses, None)]
 
-    def test_a_waiting_change_is_no_lapse_and_stands_until_it_is_due(self, mongo_replica_set_url: str):
+    async def test_a_waiting_change_is_no_lapse_and_stands_until_it_is_due(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await stored(database, confirmed_on(a_change(1, minted=MINTED_TO_LAPSE_YESTERDAY), CONFIRMED_TO_WAIT))
             return await sweep(database, client), await live(database)
 
-        answer, standing = on_a_league(mongo_replica_set_url, body)
+        answer, standing = await on_a_league(mongo_replica_set_url, body)
 
         assert (answer.removed, answer.discarded, answer.effective) == (0, 0, 0)
         assert standing == [numbered(1)]
 
 
 class TestADueChangeTakesEffect:
-    def test_it_moves_the_person_and_names_whom_to_notify(self, mongo_replica_set_url: str):
+    async def test_it_moves_the_person_and_names_whom_to_notify(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_due_person(database, 1)
             answer = await sweep(database, client)
             return answer, await database[Collection.SPIELER].distinct("email", {"first_name": "Quintessa"}), await owed(database)
 
-        answer, addresses, notices = on_a_league(mongo_replica_set_url, body)
+        answer, addresses, notices = await on_a_league(mongo_replica_set_url, body)
 
         assert answer.effective == 1
         assert notices == [{"kind": "effective", "to": on_file(1)}]
         assert addresses == [pending(1)]
 
-    def test_a_change_finding_nothing_to_move_is_refused_alike(self, mongo_replica_set_url: str):
+    async def test_a_change_finding_nothing_to_move_is_refused_alike(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await stored(database, confirmed_on(a_change(1, minted=MINTED_TO_LAPSE_YESTERDAY), CONFIRMED_TO_BE_DUE))
             return await sweep(database, client), await owed(database), await deletions_of(database, "retention.address_changes")
 
-        answer, notices, deletions = on_a_league(mongo_replica_set_url, body)
+        answer, notices, deletions = await on_a_league(mongo_replica_set_url, body)
 
         assert (answer.discarded, answer.effective, [notice["to"] for notice in notices]) == (1, 0, [pending(1)])
         assert deletions == [("system", None, 1, None)]
@@ -270,7 +267,7 @@ class WrittenAfterTheRead:
 
 
 class TestEachChangeIsJudgedAgainInItsTransaction:
-    def test_a_link_sent_again_after_the_read_keeps_its_change(self, mongo_replica_set_url: str):
+    async def test_a_link_sent_again_after_the_read_keeps_its_change(self, mongo_replica_set_url: str):
         """End the change by its id alone rather than its lapsed terms and this fails: the fresh link and its address go."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -287,14 +284,14 @@ class TestEachChangeIsJudgedAgainInItsTransaction:
 
             return (answer.removed, answer.remaining), await live(database)
 
-        counts, standing = on_a_league(mongo_replica_set_url, body)
+        counts, standing = await on_a_league(mongo_replica_set_url, body)
 
         assert counts == (0, 0)
         assert standing == [numbered(1)]
 
 
 class TestEachCallTakesAShare:
-    def test_a_share_and_one_more_take_a_pass_of_two_calls(self, mongo_replica_set_url: str):
+    async def test_a_share_and_one_more_take_a_pass_of_two_calls(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.ADDRESS_CHANGES].insert_many(
                 [a_change(position, minted=MINTED_TO_LAPSE_YESTERDAY) for position in range(ADDRESS_CHANGE_PER_PASS + 1)]
@@ -304,7 +301,7 @@ class TestEachCallTakesAShare:
 
             return [(answer.removed, answer.remaining, answer.after) for answer in answers], (later.removed, later.remaining, later.after)
 
-        answers, later = on_a_league(mongo_replica_set_url, body)
+        answers, later = await on_a_league(mongo_replica_set_url, body)
 
         assert answers == [(ADDRESS_CHANGE_PER_PASS, 1, numbered(ADDRESS_CHANGE_PER_PASS - 1)), (1, 0, None)]
         assert later == (0, 0, None)
@@ -339,7 +336,9 @@ class RaisesOnOneChange:
 
 
 class TestOneChangeHoldsBackNoOther:
-    def test_a_failure_not_the_databases_is_passed_over_and_the_next_goes(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    async def test_a_failure_not_the_databases_is_passed_over_and_the_next_goes(
+        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
+    ):
         """Catch the database's failures alone and the call fails, the second change standing and the next pass stopping at the first again."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -352,7 +351,7 @@ class TestOneChangeHoldsBackNoOther:
             return (answer.effective, answer.remaining, answer.after), await live(database)
 
         with caplog.at_level("ERROR"):
-            counts, standing = on_a_league(mongo_replica_set_url, body)
+            counts, standing = await on_a_league(mongo_replica_set_url, body)
 
         assert counts == (1, 1, None)
         assert standing == [numbered(1)]
@@ -367,7 +366,7 @@ class TestOneChangeHoldsBackNoOther:
         diagnosis = getattr(failure, "diagnosis", "")
         assert re.fullmatch(r"NotTheDatabases in find_one_and_update at .+\.py:\d+", diagnosis) is not None, diagnosis
 
-    def test_a_failed_page_of_lapses_holds_back_no_due_change(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    async def test_a_failed_page_of_lapses_holds_back_no_due_change(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """The page's one transaction is its own step: raise through it and the due change behind it waits on nothing of its own."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -380,7 +379,7 @@ class TestOneChangeHoldsBackNoOther:
             return (answer.removed, answer.effective, answer.remaining), await live(database)
 
         with caplog.at_level("ERROR"):
-            counts, standing = on_a_league(mongo_replica_set_url, body)
+            counts, standing = await on_a_league(mongo_replica_set_url, body)
 
         assert counts == (0, 1, 1)
         assert standing == [numbered(1)]
@@ -388,7 +387,7 @@ class TestOneChangeHoldsBackNoOther:
             "lapsed"
         ]
 
-    def test_a_refused_effect_is_passed_over_and_the_next_goes(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    async def test_a_refused_effect_is_passed_over_and_the_next_goes(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """A write the database itself refuses, whose message quotes the value. Remove the catch and the call fails."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -400,7 +399,7 @@ class TestOneChangeHoldsBackNoOther:
             return (answer.effective, answer.remaining), await live(database)
 
         with caplog.at_level("ERROR"):
-            counts, standing = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
+            counts, standing = await on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
         assert counts == (1, 1)
         assert standing == [numbered(1)]
@@ -410,7 +409,7 @@ class TestOneChangeHoldsBackNoOther:
             for record in failures
         ] == [True]
 
-    def test_a_share_of_failing_changes_holds_back_none_behind_it_in_the_pass(self, mongo_replica_set_url: str):
+    async def test_a_share_of_failing_changes_holds_back_none_behind_it_in_the_pass(self, mongo_replica_set_url: str):
         """Restart each call at the lowest id and the same share fails every call, the last change never reached."""
 
         failing = range(ADDRESS_CHANGE_PER_PASS)
@@ -424,7 +423,7 @@ class TestOneChangeHoldsBackNoOther:
 
             return [answer.effective for answer in answers], numbered(last) in await live(database)
 
-        ended, standing = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
+        ended, standing = await on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
         assert (ended, standing) == ([0, 1], False)
 
@@ -453,7 +452,7 @@ class StallsItsWrite:
 
 
 class TestTheDeadlineStopsTheCall:
-    def test_a_change_dearer_than_the_budgets_row_moves_nothing_and_stays_due(self, mongo_replica_set_url: str):
+    async def test_a_change_dearer_than_the_budgets_row_moves_nothing_and_stays_due(self, mongo_replica_set_url: str):
         """Nothing bounds what one address holds, so a share can meet a change dearer than the one it is sized at.
 
         Stalled at its last registration, its pupil row already written: the transaction takes everything back.
@@ -488,7 +487,7 @@ class TestTheDeadlineStopsTheCall:
                 await database[Collection.REGISTRIERUNGEN].distinct("email", {"_id": {"$in": [row["_id"] for row in registrations]}}),
             )
 
-        answer, dear, moved = on_a_league(mongo_replica_set_url, body)
+        answer, dear, moved = await on_a_league(mongo_replica_set_url, body)
 
         assert (answer.effective, answer.remaining, answer.after) == (1, 1, numbered(2))
         assert (dear, moved) == ([on_file(2)], [on_file(2)])
@@ -497,7 +496,7 @@ class TestTheDeadlineStopsTheCall:
 class TestTheOwedCarries:
     """Owed by an effect on its ended record, listed until the frontend reports each carried."""
 
-    def test_each_is_listed_until_it_is_reported_carried_and_a_repeat_counts_nothing(self, mongo_replica_set_url: str):
+    async def test_each_is_listed_until_it_is_reported_carried_and_a_repeat_counts_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.ADDRESS_CHANGES].insert_many(
                 [
@@ -513,7 +512,7 @@ class TestTheOwedCarries:
 
             return [(row.id, row.old, row.new) for row in listed], first.done, again.done, [row.id for row in left]
 
-        assert on_a_league(mongo_replica_set_url, body) == (
+        assert await on_a_league(mongo_replica_set_url, body) == (
             [(numbered(1), on_file(1), pending(1)), (numbered(2), on_file(2), pending(2))],
             1,
             0,

@@ -29,7 +29,7 @@ from app.main import create_app
 from app.shared.einwilligung_evidence import EVIDENCE, TextVersions, evidence_state_of
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.documents import (
     SCHIEDSRICHTER_TEXT_VERSIONS,
     SEAT_TEXT_VERSIONS,
@@ -291,14 +291,11 @@ def _built_before_any_case() -> None:
     _app()
 
 
-def served[T](url: str, steps: Callable[[AsyncClient, AsyncDatabase], Awaitable[T]], *, now: datetime = NOW) -> T:
-    async def _run() -> T:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_client, database):
-            await _seed(database)
-            async with app_client(url, app=_app(), now=now) as http:
-                return await steps(http, database)
-
-    return on_the_seed_loop(_run())
+async def served[T](url: str, steps: Callable[[AsyncClient, AsyncDatabase], Awaitable[T]], *, now: datetime = NOW) -> T:
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_client, database):
+        await _seed(database)
+        async with app_client(url, app=_app(), now=now) as http:
+            return await steps(http, database)
 
 
 async def _records(database: AsyncDatabase) -> dict[Any, Any]:
@@ -307,13 +304,13 @@ async def _records(database: AsyncDatabase) -> dict[Any, Any]:
 
 @pytest.mark.db
 class TestTheTwoChoices:
-    def test_moving_the_scope_moves_this_row_alone_writes_no_spiel_and_leaves_the_media_answer(self, mongo_replica_set_url: str):
+    async def test_moving_the_scope_moves_this_row_alone_writes_no_spiel_and_leaves_the_media_answer(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             before = await _records(database)
             response = await http.patch(_referee_path(REFEREE_OID), json=_payload(scope="internal"), headers=_person(IDENTIFIER))
             return response, before, await _records(database), await database[Collection.SPIELE].find({}).to_list()
 
-        response, before, after, spiele = served(mongo_replica_set_url, steps)
+        response, before, after, spiele = await served(mongo_replica_set_url, steps)
 
         assert response.status_code == 204, response.text
         assert _block(after[REFEREE_OID]["einwilligung"]) == {**_block(before[REFEREE_OID]["einwilligung"]), "scope": "internal"}
@@ -328,7 +325,7 @@ class TestTheTwoChoices:
         # No copy of the verdict on the fixture naming the referee, held byte for byte.
         assert spiele == [SPIEL]
 
-    def test_a_press_from_a_page_served_older_evidence_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
+    async def test_a_press_from_a_page_served_older_evidence_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await database[Collection.SCHIEDSRICHTER].update_one(
                 {"_id": REFEREE_OID},
@@ -338,12 +335,12 @@ class TestTheTwoChoices:
             response = await http.patch(_referee_path(REFEREE_OID), json=_payload(scope="internal"), headers=_person(IDENTIFIER))
             return response, before, await _records(database)
 
-        response, before, after = served(mongo_replica_set_url, steps)
+        response, before, after = await served(mongo_replica_set_url, steps)
 
         assert (response.status_code, response.json()["error_code"]) == (409, Code.CHOICES_STALE)
         assert after == before
 
-    def test_a_press_moving_neither_choice_writes_nothing(self, mongo_replica_set_url: str):
+    async def test_a_press_moving_neither_choice_writes_nothing(self, mongo_replica_set_url: str):
         """The stored answer pressed again: no evidence restamped, and no log row."""
 
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
@@ -351,17 +348,17 @@ class TestTheTwoChoices:
             response = await http.patch(_referee_path(REFEREE_OID), json=_payload(), headers=_person(IDENTIFIER))
             return response, before, (await _records(database), await database[Collection.ACTION_LOG].count_documents({}))
 
-        response, before, after = served(mongo_replica_set_url, steps)
+        response, before, after = await served(mongo_replica_set_url, steps)
 
         assert response.status_code == 204, response.text
         assert after == before
 
-    def test_moving_the_media_answer_leaves_the_scope(self, mongo_replica_set_url: str):
+    async def test_moving_the_media_answer_leaves_the_scope(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             response = await http.patch(_referee_path(REFEREE_OID), json=_payload(media=True), headers=_person(IDENTIFIER))
             return response, await _records(database)
 
-        response, after = served(mongo_replica_set_url, steps)
+        response, after = await served(mongo_replica_set_url, steps)
 
         assert response.status_code == 204, response.text
         assert _block(after[REFEREE_OID]["einwilligung"]) == _block(_einwilligung(media=True))
@@ -370,7 +367,7 @@ class TestTheTwoChoices:
             "media": {"at": AT, "text_version": SCHIEDSRICHTER_TEXT_VERSIONS["media"]},
         }
 
-    def test_an_editor_opened_before_the_press_saves_and_the_press_stands(self, mongo_replica_set_url: str):
+    async def test_an_editor_opened_before_the_press_saves_and_the_press_stands(self, mongo_replica_set_url: str):
         """The consent is no field the editor saves, so a press leaves the version the editor was served."""
 
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
@@ -380,7 +377,7 @@ class TestTheTwoChoices:
             saved = await _editor_save(database, version=opened["version"], default_payment=25)
             return pressed, saved, await database[Collection.SCHIEDSRICHTER].find_one({"_id": REFEREE_OID})
 
-        pressed, saved, stored = served(mongo_replica_set_url, steps)
+        pressed, saved, stored = await served(mongo_replica_set_url, steps)
 
         assert pressed.status_code == 204, pressed.text
         assert (saved.version, stored["default_payment"], stored["einwilligung"]["scope"]) == (1, 25, "internal")
@@ -393,7 +390,7 @@ class TestARecordNotHeld:
         [(IDENTIFIER, BYSTANDER_OID), (IDENTIFIER, ELSEWHERE_OID), (UNCONFIRMED, UNCONFIRMED_OID)],
         ids=["another-persons-row", "another-mailbox-at-the-local-part", "unconfirmed"],
     )
-    def test_a_row_that_is_not_the_addresss_own_is_refused_and_unwritten(
+    async def test_a_row_that_is_not_the_addresss_own_is_refused_and_unwritten(
         self, mongo_replica_set_url: str, email: str, schiedsrichter_id: ObjectId
     ):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
@@ -401,12 +398,12 @@ class TestARecordNotHeld:
             response = await http.patch(_referee_path(schiedsrichter_id), json=_payload(scope="internal"), headers=_person(email))
             return response, before, await _records(database)
 
-        response, before, after = served(mongo_replica_set_url, steps)
+        response, before, after = await served(mongo_replica_set_url, steps)
 
         assert (response.status_code, response.json()["error_code"]) == (403, Code.ROLE_NOT_HELD)
         assert after == before
 
-    def test_a_grant_on_a_retired_row_is_refused_where_its_withdrawal_is_taken(self, mongo_replica_set_url: str):
+    async def test_a_grant_on_a_retired_row_is_refused_where_its_withdrawal_is_taken(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             withdrawn = await http.patch(
                 _referee_path(RETIRED_OID),
@@ -424,7 +421,7 @@ class TestARecordNotHeld:
             )
             return withdrawn, granted, await _records(database)
 
-        withdrawn, granted, after = served(mongo_replica_set_url, steps)
+        withdrawn, granted, after = await served(mongo_replica_set_url, steps)
 
         assert withdrawn.status_code == 204, withdrawn.text
         assert (granted.status_code, granted.json()["error_code"]) == (403, Code.GIVING_NOT_ALLOWED)
@@ -455,7 +452,7 @@ class TestGivableIsTheGrantThePressTakes:
         )
 
     @pytest.mark.parametrize("email", [IDENTIFIER, RETIRED], ids=["a live person", "a retired referee"])
-    def test_a_grant_is_taken_on_each_served_entry_exactly_where_the_read_offered_one(self, mongo_replica_set_url: str, email: str):
+    async def test_a_grant_is_taken_on_each_served_entry_exactly_where_the_read_offered_one(self, mongo_replica_set_url: str, email: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> list[tuple[str, bool, int]]:
             await self._a_withdrawn_teams_confirmed_seat(database)
             body = (await http.get(ACCOUNT_PATH, headers=_person(email))).json()
@@ -493,7 +490,7 @@ class TestGivableIsTheGrantThePressTakes:
 
             return outcomes
 
-        outcomes = served(mongo_replica_set_url, steps)
+        outcomes = await served(mongo_replica_set_url, steps)
 
         assert outcomes, "the read served nothing, so nothing was compared"
         assert [(entry, givable, status == 204) for entry, givable, status in outcomes] == [
@@ -504,13 +501,13 @@ class TestGivableIsTheGrantThePressTakes:
 
 @pytest.mark.db
 class TestTheMediaAge:
-    def test_a_media_consent_below_the_floor_is_refused_and_unwritten(self, mongo_replica_set_url: str):
+    async def test_a_media_consent_below_the_floor_is_refused_and_unwritten(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             before = await _records(database)
             response = await http.patch(_referee_path(YOUNG_OID), json=_payload(media=True), headers=_person(YOUNG))
             return response, before, await _records(database)
 
-        response, before, after = served(mongo_replica_set_url, steps)
+        response, before, after = await served(mongo_replica_set_url, steps)
 
         assert (response.status_code, response.json()["error_code"]) == (422, Code.MEDIA_AGE)
         assert after == before
@@ -518,11 +515,11 @@ class TestTheMediaAge:
 
 @pytest.mark.db
 class TestTheAccountPagesRead:
-    def test_every_confirmed_record_the_address_holds_is_answered_past_seasons_included(self, mongo_replica_set_url: str):
+    async def test_every_confirmed_record_the_address_holds_is_answered_past_seasons_included(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, _database: AsyncDatabase) -> Any:
             return await http.get(ACCOUNT_PATH, headers=_person(IDENTIFIER))
 
-        response = served(mongo_replica_set_url, steps)
+        response = await served(mongo_replica_set_url, steps)
 
         assert response.status_code == 200, response.text
         body = response.json()
@@ -592,10 +589,10 @@ def _seat_press(email: str, team_id: ObjectId, saison_id: str, media: bool, *, b
 
 @pytest.mark.db
 class TestTheSeatsMediaChoice:
-    def test_a_withdrawal_moves_the_askers_seats_on_that_row_and_no_other_seat_or_row(self, mongo_replica_set_url: str):
+    async def test_a_withdrawal_moves_the_askers_seats_on_that_row_and_no_other_seat_or_row(self, mongo_replica_set_url: str):
         """The case that goes red the day the write reaches every seat of the row rather than the asker's."""
 
-        response, before, after = served(mongo_replica_set_url, _seat_press(IDENTIFIER, TEAM_B_OID, ACTIVE_SAISON, False))
+        response, before, after = await served(mongo_replica_set_url, _seat_press(IDENTIFIER, TEAM_B_OID, ACTIVE_SAISON, False))
 
         assert response.status_code == 204, response.text
         row_before, row_after = before[(TEAM_B_OID, ACTIVE_SAISON)], after[(TEAM_B_OID, ACTIVE_SAISON)]
@@ -609,7 +606,7 @@ class TestTheSeatsMediaChoice:
             key: value for key, value in before.items() if key != (TEAM_B_OID, ACTIVE_SAISON)
         }
 
-    def test_a_past_seasons_seats_take_a_withdrawal_each_and_refuse_a_grant(self, mongo_replica_set_url: str):
+    async def test_a_past_seasons_seats_take_a_withdrawal_each_and_refuse_a_grant(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             body = _seat_body(media=False, state=_seated_state(2))
             withdrawn = await http.patch(_seat_path(TEAM_A_OID, PAST_SAISON), json=body, headers=_person(IDENTIFIER))
@@ -624,7 +621,7 @@ class TestTheSeatsMediaChoice:
             )
             return withdrawn, granted, await _rows(database)
 
-        withdrawn, granted, after = served(mongo_replica_set_url, steps)
+        withdrawn, granted, after = await served(mongo_replica_set_url, steps)
 
         assert withdrawn.status_code == 204, withdrawn.text
         assert (granted.status_code, granted.json()["error_code"]) == (403, Code.GIVING_NOT_ALLOWED)
@@ -633,22 +630,22 @@ class TestTheSeatsMediaChoice:
             assert (seat["media"], seat[EVIDENCE]) == (False, {"scope": SEAT_RECEIPT["scope"], "media": SEAT_WITHDRAWAL["media"]})
 
     @pytest.mark.parametrize(("email", "team_id"), [(IDENTIFIER, TEAM_A_OID), (NOBODY, TEAM_B_OID)], ids=["unconfirmed-seat", "no-seat"])
-    def test_a_row_holding_no_confirmed_seat_of_the_address_is_refused_and_unwritten(
+    async def test_a_row_holding_no_confirmed_seat_of_the_address_is_refused_and_unwritten(
         self, mongo_replica_set_url: str, email: str, team_id: ObjectId
     ):
-        response, before, after = served(mongo_replica_set_url, _seat_press(email, team_id, ACTIVE_SAISON, False))
+        response, before, after = await served(mongo_replica_set_url, _seat_press(email, team_id, ACTIVE_SAISON, False))
 
         assert (response.status_code, response.json()["error_code"]) == (403, Code.ROLE_NOT_HELD)
         assert after == before
 
-    def test_a_grant_below_the_media_age_is_refused_and_unwritten(self, mongo_replica_set_url: str):
+    async def test_a_grant_below_the_media_age_is_refused_and_unwritten(self, mongo_replica_set_url: str):
         async def young_and_off(database: AsyncDatabase) -> None:
             await database[Collection.SAISON_TEAMS].update_one(
                 {"team_id": TEAM_B_OID, "saison_id": ACTIVE_SAISON},
                 {"$set": {"kontakte.stellvertretung.birth_date": SEVENTEEN_BIRTHDATE, "kontakte.stellvertretung.einwilligung.media": False}},
             )
 
-        response, before, after = served(
+        response, before, after = await served(
             mongo_replica_set_url,
             _seat_press(IDENTIFIER, TEAM_B_OID, ACTIVE_SAISON, True, before=young_and_off, state=_seated_state(1, media=False)),
         )
@@ -656,7 +653,7 @@ class TestTheSeatsMediaChoice:
         assert (response.status_code, response.json()["error_code"]) == (422, Code.MEDIA_AGE)
         assert after == before
 
-    def test_a_press_from_a_page_served_older_evidence_is_refused_and_unwritten(self, mongo_replica_set_url: str):
+    async def test_a_press_from_a_page_served_older_evidence_is_refused_and_unwritten(self, mongo_replica_set_url: str):
         """Over every held seat: the read serves the latest of their instants, which a press elsewhere has moved."""
 
         async def withdrawn_elsewhere(database: AsyncDatabase) -> None:
@@ -665,14 +662,14 @@ class TestTheSeatsMediaChoice:
                 {"$set": {"kontakte.stellvertretung.einwilligung.evidence.media": {"at": AT, "text_version": SEAT_TEXT_VERSIONS["media"]}}},
             )
 
-        response, before, after = served(
+        response, before, after = await served(
             mongo_replica_set_url, _seat_press(IDENTIFIER, TEAM_B_OID, ACTIVE_SAISON, True, before=withdrawn_elsewhere)
         )
 
         assert (response.status_code, response.json()["error_code"]) == (409, Code.CHOICES_STALE)
         assert after == before
 
-    def test_a_press_moving_no_seat_writes_nothing(self, mongo_replica_set_url: str):
+    async def test_a_press_moving_no_seat_writes_nothing(self, mongo_replica_set_url: str):
         """The row's held seat already grants media, so pressing it on again restamps nothing and logs nothing."""
 
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
@@ -680,7 +677,7 @@ class TestTheSeatsMediaChoice:
             response, _, _ = await _seat_press(IDENTIFIER, TEAM_B_OID, ACTIVE_SAISON, True)(http, database)
             return response, before, (await _rows(database), await database[Collection.ACTION_LOG].count_documents({}))
 
-        response, before, after = served(mongo_replica_set_url, steps)
+        response, before, after = await served(mongo_replica_set_url, steps)
 
         assert response.status_code == 204, response.text
         assert after == before
@@ -703,14 +700,14 @@ async def _whatsapp_on_every_held_seat(database: AsyncDatabase) -> None:
 class TestTheSeatsWhatsAppChoice:
     """The seat control moves the WhatsApp scope beside the media consent, each with its own evidence."""
 
-    def test_a_past_seasons_withdrawal_lands_on_every_held_slot_naming_the_grant_it_ended(self, mongo_replica_set_url: str):
+    async def test_a_past_seasons_withdrawal_lands_on_every_held_slot_naming_the_grant_it_ended(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await _whatsapp_on_every_held_seat(database)
             body = _seat_body(media=True, state=_seated_state(2, scope="kontakt_data_whatsapp"))
             response = await http.patch(_seat_path(TEAM_A_OID, PAST_SAISON), json=body, headers=_person(IDENTIFIER))
             return response, await _rows(database)
 
-        response, after = served(mongo_replica_set_url, steps)
+        response, after = await served(mongo_replica_set_url, steps)
 
         assert response.status_code == 204, response.text
         for slot in ("trainer", "ansprechperson"):
@@ -721,7 +718,7 @@ class TestTheSeatsWhatsAppChoice:
                 {"scope": SEAT_WITHDRAWAL["scope"], "media": SEAT_RECEIPT["media"]},
             )
 
-    def test_a_past_seasons_re_grant_is_refused_and_unwritten(self, mongo_replica_set_url: str):
+    async def test_a_past_seasons_re_grant_is_refused_and_unwritten(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await _whatsapp_on_every_held_seat(database)
             withdrawn = await http.patch(
@@ -738,13 +735,13 @@ class TestTheSeatsWhatsAppChoice:
             )
             return withdrawn, granted, before, await _rows(database)
 
-        withdrawn, granted, before, after = served(mongo_replica_set_url, steps)
+        withdrawn, granted, before, after = await served(mongo_replica_set_url, steps)
 
         assert withdrawn.status_code == 204, withdrawn.text
         assert (granted.status_code, granted.json()["error_code"]) == (403, Code.GIVING_NOT_ALLOWED)
         assert after == before
 
-    def test_moving_the_scope_leaves_the_media_consent_and_its_evidence_standing(self, mongo_replica_set_url: str):
+    async def test_moving_the_scope_leaves_the_media_consent_and_its_evidence_standing(self, mongo_replica_set_url: str):
         """The media evidence seeded first, so a write setting the block's evidence whole is seen to drop it."""
 
         media_receipt = {"at": "2026-09-20T08:00:00+00:00", "text_version": SEAT_TEXT_VERSIONS["media"]}
@@ -765,7 +762,7 @@ class TestTheSeatsWhatsAppChoice:
             )
             return response, await _rows(database)
 
-        response, after = served(mongo_replica_set_url, steps)
+        response, after = await served(mongo_replica_set_url, steps)
 
         assert response.status_code == 204, response.text
         seat = after[(TEAM_B_OID, ACTIVE_SAISON)]["stellvertretung"]["einwilligung"]
@@ -835,12 +832,12 @@ async def _application_docs(database: AsyncDatabase) -> dict[Any, Any]:
 class TestAPendingApplicationsSeats:
     """A media consent given on an application's link is withdrawn on the account page before the application is decided."""
 
-    def test_the_read_lists_a_pending_application_the_address_confirmed_and_no_other(self, mongo_replica_set_url: str):
+    async def test_the_read_lists_a_pending_application_the_address_confirmed_and_no_other(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await _applications(database)
             return await http.get(ACCOUNT_PATH, headers=_person(IDENTIFIER))
 
-        response = served(mongo_replica_set_url, steps)
+        response = await served(mongo_replica_set_url, steps)
 
         assert response.status_code == 200, response.text
         assert response.json()["bewerbungen"] == [
@@ -855,14 +852,14 @@ class TestAPendingApplicationsSeats:
             }
         ]
 
-    def test_a_withdrawal_reaches_every_seat_the_person_holds_there_and_no_other(self, mongo_replica_set_url: str):
+    async def test_a_withdrawal_reaches_every_seat_the_person_holds_there_and_no_other(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await _applications(database)
             before = await _application_docs(database)
             response = await http.patch(_application_path(PENDING_OID), json=_withdrawal(), headers=_person(IDENTIFIER))
             return response, before, await _application_docs(database)
 
-        response, before, after = served(mongo_replica_set_url, steps)
+        response, before, after = await served(mongo_replica_set_url, steps)
 
         assert response.status_code == 204, response.text
         for slot in ("trainer", "ansprechperson"):
@@ -876,7 +873,7 @@ class TestAPendingApplicationsSeats:
             key: value for key, value in before.items() if key != PENDING_OID
         }
 
-    def test_a_withdrawal_finding_every_seat_off_writes_nothing(self, mongo_replica_set_url: str):
+    async def test_a_withdrawal_finding_every_seat_off_writes_nothing(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await _applications(database)
             await database[Collection.BEWERBUNGEN].update_one(
@@ -888,13 +885,13 @@ class TestAPendingApplicationsSeats:
             )
             return response, before, (await _application_docs(database), await database[Collection.ACTION_LOG].count_documents({}))
 
-        response, before, after = served(mongo_replica_set_url, steps)
+        response, before, after = await served(mongo_replica_set_url, steps)
 
         assert response.status_code == 204, response.text
         assert after == before
 
     @pytest.mark.parametrize(("email", "bewerbung_id"), [(IDENTIFIER, DECIDED_OID), (IDENTIFIER, UNANSWERED_OID), (NOBODY, PENDING_OID)])
-    def test_a_decided_application_or_one_holding_no_confirmed_seat_of_the_address_is_refused(
+    async def test_a_decided_application_or_one_holding_no_confirmed_seat_of_the_address_is_refused(
         self, mongo_replica_set_url: str, email: str, bewerbung_id: ObjectId
     ):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
@@ -903,7 +900,7 @@ class TestAPendingApplicationsSeats:
             response = await http.patch(_application_path(bewerbung_id), json=_withdrawal(), headers=_person(email))
             return response, before, await _application_docs(database)
 
-        response, before, after = served(mongo_replica_set_url, steps)
+        response, before, after = await served(mongo_replica_set_url, steps)
 
         assert (response.status_code, response.json()["error_code"]) == (403, Code.ROLE_NOT_HELD)
         assert after == before
@@ -911,7 +908,7 @@ class TestAPendingApplicationsSeats:
     @pytest.mark.parametrize(
         ("scope", "media"), [("kontakt_data_whatsapp", False), ("kontakt_data", True)], ids=["the WhatsApp scope", "the media consent"]
     )
-    def test_a_grant_of_either_choice_is_refused_and_unwritten(self, mongo_replica_set_url: str, scope: str, media: bool):
+    async def test_a_grant_of_either_choice_is_refused_and_unwritten(self, mongo_replica_set_url: str, scope: str, media: bool):
         """Withdraw-only by kind: the season seat's payload carries a grant, and the press refuses it before any rule a grant meets."""
 
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
@@ -924,12 +921,12 @@ class TestAPendingApplicationsSeats:
             response = await http.patch(_application_path(PENDING_OID), json=body, headers=_person(IDENTIFIER))
             return response, before, await _application_docs(database)
 
-        response, before, after = served(mongo_replica_set_url, steps)
+        response, before, after = await served(mongo_replica_set_url, steps)
 
         assert (response.status_code, response.json()["error_code"]) == (403, Code.GIVING_NOT_ALLOWED)
         assert after == before
 
-    def test_a_whatsapp_withdrawal_reaches_every_seat_the_person_holds_there(self, mongo_replica_set_url: str):
+    async def test_a_whatsapp_withdrawal_reaches_every_seat_the_person_holds_there(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await _applications(database)
             await database[Collection.BEWERBUNGEN].update_one(
@@ -943,7 +940,7 @@ class TestAPendingApplicationsSeats:
             )
             return response, await _application_docs(database)
 
-        response, after = served(mongo_replica_set_url, steps)
+        response, after = await served(mongo_replica_set_url, steps)
 
         assert response.status_code == 204, response.text
         for slot in ("trainer", "ansprechperson"):
@@ -954,7 +951,7 @@ class TestAPendingApplicationsSeats:
                 {"scope": {**SEAT_WITHDRAWAL["scope"], "at": AT}, "media": SEAT_RECEIPT["media"]},
             )
 
-    def test_a_press_from_a_page_served_older_evidence_is_refused_and_unwritten(self, mongo_replica_set_url: str):
+    async def test_a_press_from_a_page_served_older_evidence_is_refused_and_unwritten(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await _applications(database)
             first = await http.patch(_application_path(PENDING_OID), json=_withdrawal(), headers=_person(IDENTIFIER))
@@ -962,7 +959,7 @@ class TestAPendingApplicationsSeats:
             again = await http.patch(_application_path(PENDING_OID), json=_withdrawal(), headers=_person(IDENTIFIER))
             return first, again, before, await _application_docs(database)
 
-        first, again, before, after = served(mongo_replica_set_url, steps)
+        first, again, before, after = await served(mongo_replica_set_url, steps)
 
         assert first.status_code == 204, first.text
         assert (again.status_code, again.json()["error_code"]) == (409, Code.CHOICES_STALE)
@@ -1045,7 +1042,7 @@ def _registrierung_body(database_row: Mapping[str, Any], **chosen: Any) -> dict[
 class TestAPendingRegistration:
     """A consent a new pupil gave on their registration's link, withdrawn on the account page before their team decides."""
 
-    def test_a_withdrawal_lands_with_its_evidence_and_moves_nothing_else(self, mongo_replica_set_url: str):
+    async def test_a_withdrawal_lands_with_its_evidence_and_moves_nothing_else(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await _registrierungen(database)
             before = await _registrierung_docs(database)
@@ -1053,7 +1050,7 @@ class TestAPendingRegistration:
             response = await http.patch(_registrierung_path(REGISTRIERUNG_OWN), json=body, headers=_person(IDENTIFIER))
             return response, before, await _registrierung_docs(database)
 
-        response, before, after = served(mongo_replica_set_url, steps)
+        response, before, after = await served(mongo_replica_set_url, steps)
 
         assert response.status_code == 204, response.text
         einwilligung = after[REGISTRIERUNG_OWN]["einwilligung"]
@@ -1074,7 +1071,7 @@ class TestAPendingRegistration:
     @pytest.mark.parametrize(
         ("scope", "media"), [("kader_public", False), ("internal", True)], ids=["the publication scope", "the media consent"]
     )
-    def test_a_grant_of_either_choice_is_refused_and_unwritten(self, mongo_replica_set_url: str, scope: str, media: bool):
+    async def test_a_grant_of_either_choice_is_refused_and_unwritten(self, mongo_replica_set_url: str, scope: str, media: bool):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await _registrierungen(database, scope="internal", media=False)
             before = await _registrierung_docs(database)
@@ -1082,7 +1079,7 @@ class TestAPendingRegistration:
             response = await http.patch(_registrierung_path(REGISTRIERUNG_OWN), json=body, headers=_person(IDENTIFIER))
             return response, before, await _registrierung_docs(database)
 
-        response, before, after = served(mongo_replica_set_url, steps)
+        response, before, after = await served(mongo_replica_set_url, steps)
 
         assert (response.status_code, response.json()["error_code"]) == (403, Code.GIVING_NOT_ALLOWED)
         assert after == before
@@ -1092,7 +1089,9 @@ class TestAPendingRegistration:
         [REGISTRIERUNG_UNCONFIRMED, REGISTRIERUNG_DECLINED, REGISTRIERUNG_BYSTANDER],
         ids=["unconfirmed", "declined", "another address's"],
     )
-    def test_a_registration_leaving_this_person_nothing_to_withdraw_is_refused(self, mongo_replica_set_url: str, registrierung_id: ObjectId):
+    async def test_a_registration_leaving_this_person_nothing_to_withdraw_is_refused(
+        self, mongo_replica_set_url: str, registrierung_id: ObjectId
+    ):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await _registrierungen(database)
             before = await _registrierung_docs(database)
@@ -1101,12 +1100,12 @@ class TestAPendingRegistration:
             response = await http.patch(_registrierung_path(registrierung_id), json=body, headers=_person(IDENTIFIER))
             return response, before, await _registrierung_docs(database)
 
-        response, before, after = served(mongo_replica_set_url, steps)
+        response, before, after = await served(mongo_replica_set_url, steps)
 
         assert (response.status_code, response.json()["error_code"]) == (403, Code.ROLE_NOT_HELD)
         assert after == before
 
-    def test_a_press_from_a_page_served_older_evidence_is_refused_and_unwritten(self, mongo_replica_set_url: str):
+    async def test_a_press_from_a_page_served_older_evidence_is_refused_and_unwritten(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await _registrierungen(database)
             served_page = _registrierung_body((await _registrierung_docs(database))[REGISTRIERUNG_OWN], media=False)
@@ -1117,7 +1116,7 @@ class TestAPendingRegistration:
             )
             return first, again, before, await _registrierung_docs(database)
 
-        first, again, before, after = served(mongo_replica_set_url, steps)
+        first, again, before, after = await served(mongo_replica_set_url, steps)
 
         assert first.status_code == 204, first.text
         assert (again.status_code, again.json()["error_code"]) == (409, Code.CHOICES_STALE)
@@ -1163,14 +1162,14 @@ async def _as_the_page_was_served(http: AsyncClient, team_id: ObjectId, saison_i
 class TestSeatsAnsweredApart:
     """A press moves the choices its person changed on the page, never the other choice the page showed as the row's."""
 
-    def test_a_past_seasons_media_withdrawal_is_taken_and_leaves_each_seats_whatsapp_answer(self, mongo_replica_set_url: str):
+    async def test_a_past_seasons_media_withdrawal_is_taken_and_leaves_each_seats_whatsapp_answer(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await _seats_disagreeing(database)
             body = await _as_the_page_was_served(http, TEAM_A_OID, PAST_SAISON, media=False)
             response = await http.patch(_seat_path(TEAM_A_OID, PAST_SAISON), json=body, headers=_person(IDENTIFIER))
             return body, response, await _rows(database)
 
-        body, response, after = served(mongo_replica_set_url, steps)
+        body, response, after = await served(mongo_replica_set_url, steps)
 
         assert body["scope"] == "kontakt_data_whatsapp", "the page did not show the row's WhatsApp as on, so this case proves nothing"
         assert response.status_code == 204, response.text
@@ -1184,14 +1183,14 @@ class TestSeatsAnsweredApart:
             for slot in ("trainer", "ansprechperson")
         )
 
-    def test_a_running_seasons_media_withdrawal_grants_no_whatsapp(self, mongo_replica_set_url: str):
+    async def test_a_running_seasons_media_withdrawal_grants_no_whatsapp(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await _seats_disagreeing(database)
             body = await _as_the_page_was_served(http, TEAM_B_OID, ACTIVE_SAISON, media=False)
             response = await http.patch(_seat_path(TEAM_B_OID, ACTIVE_SAISON), json=body, headers=_person(IDENTIFIER))
             return body, response, await _rows(database)
 
-        body, response, after = served(mongo_replica_set_url, steps)
+        body, response, after = await served(mongo_replica_set_url, steps)
 
         assert body["scope"] == "kontakt_data_whatsapp", "the page did not show the row's WhatsApp as on, so this case proves nothing"
         assert response.status_code == 204, response.text
@@ -1201,14 +1200,14 @@ class TestSeatsAnsweredApart:
             ("kontakt_data", False),
         ]
 
-    def test_a_whatsapp_withdrawal_reaches_the_seat_that_held_it_alone(self, mongo_replica_set_url: str):
+    async def test_a_whatsapp_withdrawal_reaches_the_seat_that_held_it_alone(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await _seats_disagreeing(database)
             body = await _as_the_page_was_served(http, TEAM_A_OID, PAST_SAISON, scope="kontakt_data")
             response = await http.patch(_seat_path(TEAM_A_OID, PAST_SAISON), json=body, headers=_person(IDENTIFIER))
             return response, await _rows(database)
 
-        response, after = served(mongo_replica_set_url, steps)
+        response, after = await served(mongo_replica_set_url, steps)
 
         assert response.status_code == 204, response.text
         row = after[(TEAM_A_OID, PAST_SAISON)]
@@ -1223,7 +1222,7 @@ class TestSeatsAnsweredApart:
 
 
 @pytest.mark.db
-def test_a_pending_applications_media_withdrawal_leaves_each_seats_whatsapp_answer(mongo_replica_set_url: str):
+async def test_a_pending_applications_media_withdrawal_leaves_each_seats_whatsapp_answer(mongo_replica_set_url: str):
     """The application's seat press takes the same repair, a split there being stored data rather than an answer the API takes."""
 
     async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
@@ -1241,7 +1240,7 @@ def test_a_pending_applications_media_withdrawal_leaves_each_seats_whatsapp_answ
         response = await http.patch(_application_path(PENDING_OID), json=body, headers=_person(IDENTIFIER))
         return entry, response, await _application_docs(database)
 
-    entry, response, after = served(mongo_replica_set_url, steps)
+    entry, response, after = await served(mongo_replica_set_url, steps)
 
     assert entry["scope"] == "kontakt_data_whatsapp", "the page did not show the application's WhatsApp as on, so this case proves nothing"
     assert response.status_code == 204, response.text

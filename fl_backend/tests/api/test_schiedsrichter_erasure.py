@@ -23,7 +23,7 @@ from app.core.collections import Collection
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.kontakt import FLKontaktPayload
 from app.shared.tokens import hash_token
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.documents import SCHIEDSRICHTER_TEXT_VERSIONS, own_einwilligung_document, saison_document, spiel_document
 from tests.erasure import erased
 from tests.outbox import MAIL_NOW
@@ -201,22 +201,19 @@ async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoCl
     await answer_the_change(database, client, minted.token, germany_now=NOW)
 
 
-def on_a_league(url: str, body: Body) -> Any:
+async def on_a_league(url: str, body: Body) -> Any:
     """The REAL indexes."""
 
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            # A referee save carrying an address reads the running season, the ban list being
-            # judged against it, so a league with none would 404 in the seed rather than in a case.
-            await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active"))
-            await database[Collection.SCHIEDSRICHTER].insert_many([referee_document(oid) for oid in REFEREE_NAMES])
-            await database[Collection.SPIELE].insert_many(spiel_documents())
-            for oid in REFEREE_NAMES:
-                await a_referee_with_a_history(database, client, oid)
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+        # A referee save carrying an address reads the running season, the ban list being
+        # judged against it, so a league with none would 404 in the seed rather than in a case.
+        await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active"))
+        await database[Collection.SCHIEDSRICHTER].insert_many([referee_document(oid) for oid in REFEREE_NAMES])
+        await database[Collection.SPIELE].insert_many(spiel_documents())
+        for oid in REFEREE_NAMES:
+            await a_referee_with_a_history(database, client, oid)
 
-            return await body(database, client)
-
-    return on_the_seed_loop(_run())
+        return await body(database, client)
 
 
 async def erase_the_referee(database: AsyncDatabase, client: AsyncMongoClient, schiedsrichter_id: ObjectId = SCHIEDSRICHTER_OID) -> None:
@@ -261,20 +258,20 @@ async def stored_referees(database: AsyncDatabase) -> dict[Any, Mapping[str, Any
     return {row["_id"]: row for row in await database[Collection.SCHIEDSRICHTER].find().to_list(length=None)}
 
 
-def after_erasure(url: str) -> dict[Any, Mapping[str, Any]]:
+async def after_erasure(url: str) -> dict[Any, Mapping[str, Any]]:
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         await erase_the_referee(database, client)
 
         return await stored_referees(database)
 
-    return on_a_league(url, body)
+    return await on_a_league(url, body)
 
 
 @pytest.mark.db
-def test_the_referees_document_is_gone(mongo_replica_set_url: str):
+async def test_the_referees_document_is_gone(mongo_replica_set_url: str):
     """The case the endpoint exists for. Kills nulling the row in place, and a transaction that never commits."""
 
-    referees = after_erasure(mongo_replica_set_url)
+    referees = await after_erasure(mongo_replica_set_url)
 
     assert SCHIEDSRICHTER_OID not in referees
     # The control, without which emptying the whole collection would pass.
@@ -284,7 +281,7 @@ def test_the_referees_document_is_gone(mongo_replica_set_url: str):
 
 
 @pytest.mark.db
-def test_two_erasures_leave_no_referee_row_behind(mongo_replica_set_url: str):
+async def test_two_erasures_leave_no_referee_row_behind(mongo_replica_set_url: str):
     """Kills a row standing in for the erased: a nameless row would be booked, listed and counted as somebody."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -293,13 +290,13 @@ def test_two_erasures_leave_no_referee_row_behind(mongo_replica_set_url: str):
 
         return await stored_referees(database), await stored_spiele(database)
 
-    referees, spiele = on_a_league(mongo_replica_set_url, body)
+    referees, spiele = await on_a_league(mongo_replica_set_url, body)
 
     assert referees == {}
     assert [row["schiedsrichter"] for row in spiele.values()] == [NAMELESS_BOOKING] * 3
 
 
-def after_moving_one_spiel(
+async def after_moving_one_spiel(
     url: str, *, date: str, sonderereignis: str | None = None
 ) -> tuple[dict[Any, Mapping[str, Any]], dict[Any, Mapping[str, Any]]]:
     """One league holding a fixture moved to `date` beside a played one, so both halves are read off a single run."""
@@ -310,18 +307,18 @@ def after_moving_one_spiel(
 
         return await stored_spiele(database), await stored_referees(database)
 
-    return on_a_league(url, body)
+    return await on_a_league(url, body)
 
 
 @pytest.mark.db
-def test_a_spiel_still_to_come_does_not_stop_the_erasure_and_loses_the_booking(mongo_replica_set_url: str):
+async def test_a_spiel_still_to_come_does_not_stop_the_erasure_and_loses_the_booking(mongo_replica_set_url: str):
     """`DELETE` owes `schiedsrichter_still_assigned` and this does not: a request to be forgotten is not something a booking may block.
 
     Kills consulting that refusal here, and kills a match to come keeping a booking that names nobody, which no confirmation
     asks and no referee can take.
     """
 
-    spiele, referees = after_moving_one_spiel(mongo_replica_set_url, date=TO_COME)
+    spiele, referees = await after_moving_one_spiel(mongo_replica_set_url, date=TO_COME)
 
     assert SCHIEDSRICHTER_OID not in referees
     assert spiele[MOVED_SPIEL_OID]["schiedsrichter"] is None
@@ -332,23 +329,23 @@ def test_a_spiel_still_to_come_does_not_stop_the_erasure_and_loses_the_booking(m
 
 
 @pytest.mark.db
-def test_a_spiel_later_on_the_erasures_day_loses_the_booking(mongo_replica_set_url: str):
+async def test_a_spiel_later_on_the_erasures_day_loses_the_booking(mongo_replica_set_url: str):
     """Kills judging by the day alone: the seeded kick-off is 14:00 and `NOW` 12:30, so this match is still to come.
 
     Read by its hour, which the erasure must project and hand on: without it the match counts as played and keeps a
     booking naming nobody, with its fee, for a match nobody is booked to referee.
     """
 
-    spiele, _ = after_moving_one_spiel(mongo_replica_set_url, date=TODAY)
+    spiele, _ = await after_moving_one_spiel(mongo_replica_set_url, date=TODAY)
 
     assert spiele[MOVED_SPIEL_OID]["schiedsrichter"] is None
 
 
 @pytest.mark.db
-def test_a_spiel_kicked_off_with_no_result_yet_keeps_the_booking_naming_nobody(mongo_replica_set_url: str):
+async def test_a_spiel_kicked_off_with_no_result_yet_keeps_the_booking_naming_nobody(mongo_replica_set_url: str):
     """Kills a partition reading the result: the match took place, and its record says somebody officiated it and what it cost."""
 
-    spiele, _ = after_moving_one_spiel(mongo_replica_set_url, date=KICKED_OFF)
+    spiele, _ = await after_moving_one_spiel(mongo_replica_set_url, date=KICKED_OFF)
 
     assert spiele[MOVED_SPIEL_OID]["schiedsrichter"] == NAMELESS_BOOKING
 
@@ -357,16 +354,16 @@ def test_a_spiel_kicked_off_with_no_result_yet_keeps_the_booking_naming_nobody(m
 @pytest.mark.parametrize(
     ("date", "booking"), [pytest.param(TO_COME, None, id="before-its-day"), pytest.param(KICKED_OFF, NAMELESS_BOOKING, id="after-its-day")]
 )
-def test_a_cancelled_spiel_is_judged_by_its_day(mongo_replica_set_url: str, date: str, booking: Any):
+async def test_a_cancelled_spiel_is_judged_by_its_day(mongo_replica_set_url: str, date: str, booking: Any):
     """Kills a partition reading `sonderereignis`: a fixture called off keeps its booking once its day has passed, as a retirement does."""
 
-    spiele, _ = after_moving_one_spiel(mongo_replica_set_url, date=date, sonderereignis=A_CANCELLATION)
+    spiele, _ = await after_moving_one_spiel(mongo_replica_set_url, date=date, sonderereignis=A_CANCELLATION)
 
     assert spiele[MOVED_SPIEL_OID]["schiedsrichter"] == booking
 
 
 @pytest.mark.db
-def test_another_referees_spiel_keeps_its_assignment(mongo_replica_set_url: str):
+async def test_another_referees_spiel_keeps_its_assignment(mongo_replica_set_url: str):
     """Kills an erasure ignoring the id in its filter, which would take away a referee nobody asked about."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -375,34 +372,34 @@ def test_another_referees_spiel_keeps_its_assignment(mongo_replica_set_url: str)
 
         return await stored_spiele(database)
 
-    spiele = on_a_league(mongo_replica_set_url, body)
+    spiele = await on_a_league(mongo_replica_set_url, body)
 
     assert spiele[OTHER_SPIEL_OID]["schiedsrichter"] == {"schiedsrichter_id": OTHER_SCHIEDSRICHTER_OID, "payment": DEFAULT_PAYMENT}
 
 
-def spiele_after_erasure(url: str) -> dict[Any, Mapping[str, Any]]:
+async def spiele_after_erasure(url: str) -> dict[Any, Mapping[str, Any]]:
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         await erase_the_referee(database, client)
 
         return await stored_spiele(database)
 
-    return on_a_league(url, body)
+    return await on_a_league(url, body)
 
 
 @pytest.mark.db
-def test_every_played_spiel_they_officiated_names_nobody(mongo_replica_set_url: str):
+async def test_every_played_spiel_they_officiated_names_nobody(mongo_replica_set_url: str):
     """Kills an erasure reaching the row alone: a fixture stores its own reference.
 
     Both of their fixtures, so an erasure stopping at one fails here rather than passing on whichever it reached.
     """
 
-    spiele = spiele_after_erasure(mongo_replica_set_url)
+    spiele = await spiele_after_erasure(mongo_replica_set_url)
 
     assert [spiele[spiel_id]["schiedsrichter"] for spiel_id in SPIEL_OIDS[SCHIEDSRICHTER_OID]] == [NAMELESS_BOOKING] * 2
 
 
 @pytest.mark.db
-def test_a_closed_seasons_spiel_names_nobody_as_well(mongo_replica_set_url: str):
+async def test_a_closed_seasons_spiel_names_nobody_as_well(mongo_replica_set_url: str):
     """The archive records them too, and a referee's fan-out carries no `past` bound where a club's stops."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -411,14 +408,14 @@ def test_a_closed_seasons_spiel_names_nobody_as_well(mongo_replica_set_url: str)
 
         return await stored_spiele(database)
 
-    spiele = on_a_league(mongo_replica_set_url, body)
+    spiele = await on_a_league(mongo_replica_set_url, body)
 
     assert spiele[ARCHIVED_SPIEL_OID]["saison_id"] == PAST_SAISON_ID, "the archived fixture was seeded into the open season"
     assert spiele[ARCHIVED_SPIEL_OID]["schiedsrichter"] == NAMELESS_BOOKING
 
 
 @pytest.mark.db
-def test_the_fee_the_match_agreed_survives_the_erasure(mongo_replica_set_url: str):
+async def test_the_fee_the_match_agreed_survives_the_erasure(mongo_replica_set_url: str):
     """Kills an erasure that `$set`s the whole `schiedsrichter` block: `payment` records what THIS match cost and no request rewrites it."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -427,7 +424,7 @@ def test_the_fee_the_match_agreed_survives_the_erasure(mongo_replica_set_url: st
 
         return await stored_spiele(database)
 
-    spiele = on_a_league(mongo_replica_set_url, body)
+    spiele = await on_a_league(mongo_replica_set_url, body)
 
     assert spiele[PLAYED_SPIEL_OID]["schiedsrichter"]["payment"] == 45
     # The fixture beside it keeps its own, so this cannot pass on an erasure copying one fee everywhere.
@@ -438,7 +435,7 @@ class TestTheRetirePressKeepsTheDayItFinds:
     """Driven through the endpoint, since what keeps the day is the write's own filter (`app/core/crud.py :: set_inactive_since`)."""
 
     @pytest.mark.db
-    def test_a_press_after_an_earlier_retirement_leaves_that_day(self, mongo_replica_set_url: str):
+    async def test_a_press_after_an_earlier_retirement_leaves_that_day(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SCHIEDSRICHTER].update_one(
                 {"_id": SCHIEDSRICHTER_OID}, {"$set": {"inactive_since": AN_EARLIER_RETIREMENT}}
@@ -447,6 +444,6 @@ class TestTheRetirePressKeepsTheDayItFinds:
 
             return await stored_referees(database)
 
-        referees = on_a_league(mongo_replica_set_url, body)
+        referees = await on_a_league(mongo_replica_set_url, body)
 
         assert referees[SCHIEDSRICHTER_OID]["inactive_since"] == AN_EARLIER_RETIREMENT

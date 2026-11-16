@@ -11,7 +11,7 @@ from app.api.saisons.admin_router import activate_saison
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
+from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database
 from tests.documents import saison_document, spiel_document
 from tests.worker import worker_database
 
@@ -64,7 +64,7 @@ def spieltag_document(saison_id: str, position: int, *, start: str | None) -> di
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def on_a_league(
+async def on_a_league(
     url: str,
     body: Body,
     *,
@@ -75,19 +75,16 @@ def on_a_league(
 ) -> Any:
     """`mutates_schema=True` where the body attaches a validator (`tests/database.py :: a_clean_database`)."""
 
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, mutates_schema=mutates_schema) as (client, database):
-            await database[Collection.SAISONS].insert_many(saisons)
-            if spiele:
-                await database[Collection.SPIELE].insert_many(spiele)
-            # Absent on every case but `activate_spieltage_undated`'s: a season holding no matchday row owes no
-            # date, which is the state each of the older cases here is about.
-            if spieltage:
-                await database[Collection.SPIELTAGE].insert_many(spieltage)
+    async with a_clean_database(url, DATABASE_NAME, mutates_schema=mutates_schema) as (client, database):
+        await database[Collection.SAISONS].insert_many(saisons)
+        if spiele:
+            await database[Collection.SPIELE].insert_many(spiele)
+        # Absent on every case but `activate_spieltage_undated`'s: a season holding no matchday row owes no
+        # date, which is the state each of the older cases here is about.
+        if spieltage:
+            await database[Collection.SPIELTAGE].insert_many(spieltage)
 
-            return await body(database, client)
-
-    return on_the_seed_loop(_run())
+        return await body(database, client)
 
 
 async def call_activate(database: AsyncDatabase, client: AsyncMongoClient, saison_id: str) -> Any:
@@ -110,7 +107,7 @@ async def statuses_now(database: AsyncDatabase) -> dict[str, str]:
 
 
 class TestTheRolloverLeavesExactlyOneActiveSeason:
-    def test_the_incumbent_is_demoted_and_the_target_promoted(self, mongo_replica_set_url: str):
+    async def test_the_incumbent_is_demoted_and_the_target_promoted(self, mongo_replica_set_url: str):
         """A `past` season beside them, which the demotion's filter must leave where it is."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -118,7 +115,7 @@ class TestTheRolloverLeavesExactlyOneActiveSeason:
 
             return response, await statuses_now(database)
 
-        response, statuses = on_a_league(
+        response, statuses = await on_a_league(
             mongo_replica_set_url,
             body,
             saisons=[
@@ -137,7 +134,7 @@ class TestTheRolloverLeavesExactlyOneActiveSeason:
 
 
 class TestAMidFlightFailureTakesTheDemotionBack:
-    def test_a_refused_promotion_leaves_the_incumbent_active(self, mongo_replica_set_url: str):
+    async def test_a_refused_promotion_leaves_the_incumbent_active(self, mongo_replica_set_url: str):
         """A validator refusing `active` lets the demotion land and stops the promotion -- the half-rollover the transaction exists for."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -153,7 +150,7 @@ class TestAMidFlightFailureTakesTheDemotionBack:
 
             return failure.value.code, await statuses_now(database)
 
-        code, statuses = on_a_league(
+        code, statuses = await on_a_league(
             mongo_replica_set_url,
             body,
             saisons=[saison_document(INCUMBENT, "active"), saison_document(TARGET, "future")],
@@ -174,7 +171,7 @@ class TestTheRolloverRefusesAnUndatedMatchday:
     league with no active season.
     """
 
-    def test_the_last_undated_matchday_refuses_the_rollover(self, mongo_replica_set_url: str):
+    async def test_the_last_undated_matchday_refuses_the_rollover(self, mongo_replica_set_url: str):
         """One dated matchday beside it, so the count is what refuses rather than the collection being empty."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -183,7 +180,7 @@ class TestTheRolloverRefusesAnUndatedMatchday:
 
             return refusal.value.error_code, await statuses_now(database)
 
-        code, statuses = on_a_league(
+        code, statuses = await on_a_league(
             mongo_replica_set_url,
             body,
             saisons=[saison_document(INCUMBENT, "active"), saison_document(TARGET, "future")],

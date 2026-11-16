@@ -7,6 +7,7 @@ what it changes: the address, the instant, the actor.
 
 import inspect
 from collections.abc import Awaitable, Callable, Mapping
+from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
@@ -36,12 +37,12 @@ from app.api.address_change.system_router import sweep_address_change
 from app.api.outbox.system_router import post_handout
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from app.core.recording import actor_var
 from app.shared.schemas.bounds import ADDRESS_CHANGE_WAITING_PERIOD_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
 from tests import documents
+from tests.acts import acting_as
 from tests.config import ADMINISTRATORS, build_test_config, grants_for_the_suite
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.outbox import claimable
 from tests.records import record_collections
 from tests.session_headers import verified_actor
@@ -208,15 +209,12 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def on_a_person(
+async def on_a_person(
     url: str, database_name: str, body: Body, *, pupil: bool = True, records: bool = True, stores_a_refused_shape: str | None = None
 ) -> Any:
-    async def _run() -> Any:
-        async with a_clean_database(url, database_name, constraints=True, stores_a_refused_shape=stores_a_refused_shape) as (client, database):
-            await _seed(database, pupil=pupil, records=records)
-            return await body(database, client)
-
-    return on_the_seed_loop(_run())
+    async with a_clean_database(url, database_name, constraints=True, stores_a_refused_shape=stores_a_refused_shape) as (client, database):
+        await _seed(database, pupil=pupil, records=records)
+        return await body(database, client)
 
 
 async def granted(database: AsyncDatabase, address: str = EMAIL, *, admin_tier: str = "administration") -> ObjectId:
@@ -259,17 +257,14 @@ def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, client
             supplied[name] = verified_actor(given.get("operator", ADMIN) if "operator" in parameters else EMAIL)
 
     async def as_its_route_binds_it() -> Any:
-        token = actor_var.set(supplied["operator"]) if "operator" in supplied else None
-        try:
+        # A person's handler names no operator, and its route binds no administrator.
+        with acting_as(supplied["operator"]) if "operator" in supplied else nullcontext():
             if "session" in parameters and "session" not in given:
                 # The request's snapshot session (`app/core/dependencies.py :: SnapshotSession`), open for the handler's run.
                 async with client.start_session(snapshot=True) as session:
                     return await handler(**supplied, session=session)
 
             return await handler(**supplied)
-        finally:
-            if token is not None:
-                actor_var.reset(token)
 
     return as_its_route_binds_it()
 

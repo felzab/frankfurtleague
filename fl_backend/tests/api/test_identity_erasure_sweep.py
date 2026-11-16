@@ -37,7 +37,7 @@ from app.main import create_app
 from tests.acts import deletions_of
 from tests.app_client import app_client
 from tests.config import SYSTEM_AUTH
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.documents import (
     aufstellung_document,
     kontakte_document,
@@ -150,17 +150,14 @@ async def seeded(database: AsyncDatabase, *shapes: Mapping[Collection, list[dict
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Body, *, saisons: Mapping[str, str] = LEAGUE, mutates_schema: bool = False) -> Any:
+async def on_a_league(url: str, body: Body, *, saisons: Mapping[str, str] = LEAGUE, mutates_schema: bool = False) -> Any:
     """The shipped indexes, the seasons and one team."""
 
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
-            await database[Collection.SAISONS].insert_many([saison_document(saison_id, status) for saison_id, status in saisons.items()])
-            await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, "Lindenschule", "LSX"))
+    async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
+        await database[Collection.SAISONS].insert_many([saison_document(saison_id, status) for saison_id, status in saisons.items()])
+        await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, "Lindenschule", "LSX"))
 
-            return await body(database, client)
-
-    return on_the_seed_loop(_run())
+        return await body(database, client)
 
 
 async def run(database: AsyncDatabase, client: AsyncMongoClient, *, after: Any = None, **replaced: Any) -> Any:
@@ -284,7 +281,7 @@ async def a_league_of_every_kind(database: AsyncDatabase) -> None:
 
 
 class TestThePopulation:
-    def test_it_names_the_pupils_the_rule_makes_due_and_no_other(self, mongo_replica_set_url: str):
+    async def test_it_names_the_pupils_the_rule_makes_due_and_no_other(self, mongo_replica_set_url: str):
         """Each pupil stands for one arm of the rule; a kept one appearing names the arm that broke."""
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> list[str]:
@@ -292,7 +289,7 @@ class TestThePopulation:
 
             return [LABELS.get(spieler_id, str(spieler_id)) for spieler_id in await population(database)]
 
-        assert on_a_league(mongo_replica_set_url, body) == [LABELS[TWO_SEASONS_BACK], LABELS[DECLINED_ALONE]]
+        assert await on_a_league(mongo_replica_set_url, body) == [LABELS[TWO_SEASONS_BACK], LABELS[DECLINED_ALONE]]
 
 
 # --- The run.
@@ -342,7 +339,7 @@ async def one_address_in_four_roles(database: AsyncDatabase) -> None:
 
 
 class TestThePupilsOwnDataAlone:
-    def test_the_pupil_goes_whole_and_every_other_role_at_the_address_stands(self, mongo_replica_set_url: str):
+    async def test_the_pupil_goes_whole_and_every_other_role_at_the_address_stands(self, mongo_replica_set_url: str):
         """Run in the full scope and this fails: the seat empties, the referee row and the grant go."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -353,7 +350,7 @@ class TestThePupilsOwnDataAlone:
 
             return counts(answer), held, await deletions_of(database, "retention.spieler")
 
-        answer, held, deletions = on_a_league(mongo_replica_set_url, body)
+        answer, held, deletions = await on_a_league(mongo_replica_set_url, body)
 
         assert deletions == [("system", JUST_ENDED, 1, None)]
         assert answer == {
@@ -384,7 +381,9 @@ class TestEachPupilIsJudgedAgainInTheirOwnTransaction:
             ),
         ],
     )
-    def test_what_arrives_after_the_read_keeps_its_pupil(self, mongo_replica_set_url: str, rival: Callable[[AsyncDatabase], Awaitable[Any]]):
+    async def test_what_arrives_after_the_read_keeps_its_pupil(
+        self, mongo_replica_set_url: str, rival: Callable[[AsyncDatabase], Awaitable[Any]]
+    ):
         """Drop the re-judgement and this fails: the read named them due, and the erasure would take the new record too."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -394,11 +393,11 @@ class TestEachPupilIsJudgedAgainInTheirOwnTransaction:
 
             return counts(answer), await database[Collection.SPIELER].count_documents({"_id": numbered(1)})
 
-        answer, standing = on_a_league(mongo_replica_set_url, body)
+        answer, standing = await on_a_league(mongo_replica_set_url, body)
 
         assert (answer["spieler"], answer["skipped"], answer["remaining"], standing) == (0, 1, 0, 1)
 
-    def test_an_address_corrected_by_hand_is_erased_as_it_stands_now(self, mongo_replica_set_url: str):
+    async def test_an_address_corrected_by_hand_is_erased_as_it_stands_now(self, mongo_replica_set_url: str):
         """Carry the read's address into the erasure and this fails: the pupil stands, and a stranger's registration goes."""
 
         corrected = "quintessa.neu@beispielschule.de"
@@ -421,7 +420,7 @@ class TestEachPupilIsJudgedAgainInTheirOwnTransaction:
                 [row["_id"] for row in await database[Collection.REGISTRIERUNGEN].find().to_list(None)],
             )
 
-        answer, standing, registrations = on_a_league(mongo_replica_set_url, body)
+        answer, standing, registrations = await on_a_league(mongo_replica_set_url, body)
 
         assert (answer["spieler"], answer["registrierungen"], standing) == (1, 1, 0)
         assert registrations == [stranger]
@@ -465,7 +464,7 @@ BELOW_THE_ENDED = {PLANNED_BELOW: "future", "2024": "active", "2025": "past"}
 
 
 class TestAnActivationInsideThePupilsTransactionKeepsThem:
-    def test_the_pupil_stands(self, mongo_replica_set_url: str):
+    async def test_the_pupil_stands(self, mongo_replica_set_url: str):
         """Remove the planned season's anchor in `erase_if_still_due` and the pupil goes.
 
         The pupil's only row is in the planned season, which activating it keeps; the transaction read it planned.
@@ -496,14 +495,14 @@ class TestAnActivationInsideThePupilsTransactionKeepsThem:
 
             return seasons.committed, counts(answer), await database[Collection.SPIELER].count_documents({"_id": numbered(1)})
 
-        committed, answer, standing = on_a_league(mongo_replica_set_url, body, saisons=BELOW_THE_ENDED)
+        committed, answer, standing = await on_a_league(mongo_replica_set_url, body, saisons=BELOW_THE_ENDED)
 
         assert committed, "the activation never committed inside the pupil's transaction, so this case proves nothing"
         assert (answer["spieler"], answer["skipped"], standing) == (0, 1, 1)
 
 
 class TestOneRecordHoldsBackNobody:
-    def test_a_refused_erasure_is_counted_and_the_next_pupil_goes(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    async def test_a_refused_erasure_is_counted_and_the_next_pupil_goes(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """A report refusing the pupil's repoint, a real failure under strict validation.
 
         Remove the catch and the call fails, the second pupil standing.
@@ -519,7 +518,7 @@ class TestOneRecordHoldsBackNobody:
             return response.status_code, response.json(), await database[Collection.SPIELER].distinct("_id", {"email": {"$type": "string"}})
 
         with caplog.at_level(logging.ERROR):
-            status, answer, standing = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
+            status, answer, standing = await on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
         assert status == 200, answer
         assert (answer["spieler"], answer["failed"], answer["remaining"]) == (1, 1, 1)
@@ -532,7 +531,9 @@ class TestOneRecordHoldsBackNobody:
         lines = [JSONFormatter().format(record) for record in failures]
         assert not [line for line in lines if address_of(1) in line or "Quintessa" in line]
 
-    def test_a_failure_not_the_databases_is_counted_and_the_next_pupil_goes(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    async def test_a_failure_not_the_databases_is_counted_and_the_next_pupil_goes(
+        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
+    ):
         """Catch the database's failures alone and the call fails, the second pupil standing and the next pass stopping at the first again."""
 
         class NotTheDatabases(Exception):
@@ -560,7 +561,7 @@ class TestOneRecordHoldsBackNobody:
             return counts(answer), answer.after, await database[Collection.SPIELER].distinct("_id", {"email": {"$type": "string"}})
 
         with caplog.at_level(logging.ERROR):
-            answer, after, standing = on_a_league(mongo_replica_set_url, body)
+            answer, after, standing = await on_a_league(mongo_replica_set_url, body)
 
         assert (answer["spieler"], answer["failed"], answer["remaining"], after) == (1, 1, 1, None)
         assert standing == [numbered(1)]
@@ -600,7 +601,7 @@ class StallsOnePupil:
 
 
 class TestTheDeadlineStopsTheCall:
-    def test_it_warns_once_and_the_rest_stay_due(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    async def test_it_warns_once_and_the_rest_stay_due(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """Fail each pupil past the deadline instead and every later one is logged an ERROR naming a refusal that never happened."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -614,7 +615,7 @@ class TestTheDeadlineStopsTheCall:
             return counts(answer), answer.after, standing, await database[Collection.SPIELER].distinct("_id", {"email": {"$type": "string"}})
 
         with caplog.at_level(logging.WARNING):
-            answer, after, standing, after_the_next_pass = on_a_league(mongo_replica_set_url, body)
+            answer, after, standing, after_the_next_pass = await on_a_league(mongo_replica_set_url, body)
 
         assert (answer["spieler"], answer["failed"], answer["remaining"], after) == (1, 0, 2, numbered(2))
         assert standing == [numbered(2), numbered(3)]
@@ -640,7 +641,7 @@ def _built_before_any_case() -> None:
 
 
 class TestEachCallTakesAShare:
-    def test_a_share_and_one_more_take_a_pass_of_two_calls_and_a_later_call_finds_nobody(self, mongo_replica_set_url: str):
+    async def test_a_share_and_one_more_take_a_pass_of_two_calls_and_a_later_call_finds_nobody(self, mongo_replica_set_url: str):
         """The shipped share, seeded one over: ignore it and the first call takes everybody and ends the pass."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -649,12 +650,12 @@ class TestEachCallTakesAShare:
 
             return [(answer.spieler, answer.remaining, answer.after) for answer in answers], await run(database, client)
 
-        answers, later = on_a_league(mongo_replica_set_url, body)
+        answers, later = await on_a_league(mongo_replica_set_url, body)
 
         assert answers == [(ERASURES_PER_PASS, 1, numbered(ERASURES_PER_PASS - 1)), (1, 0, None)]
         assert (later.spieler, later.remaining, later.after) == (0, 0, None)
 
-    def test_a_share_of_failing_pupils_holds_back_none_behind_it_in_the_pass(self, mongo_replica_set_url: str):
+    async def test_a_share_of_failing_pupils_holds_back_none_behind_it_in_the_pass(self, mongo_replica_set_url: str):
         """A whole share whose erasures the database refuses, and one ordinary pupil after them.
 
         Restart each call at the lowest id and the same share fails every call, the last pupil never reached.
@@ -672,14 +673,14 @@ class TestEachCallTakesAShare:
                 {"_id": numbered(last)}
             )
 
-        answers, standing = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
+        answers, standing = await on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
         assert answers == [(0, ERASURES_PER_PASS), (1, 0)]
         assert standing == 0
 
 
 class TestNoJournalLine:
-    def test_the_run_writes_none(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    async def test_the_run_writes_none(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """Repeating it by hand after a restore would erase the whole address, where the rule deletes the pupil again on its own."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
@@ -688,7 +689,7 @@ class TestNoJournalLine:
             return (await run(database, client)).spieler
 
         with caplog.at_level(logging.INFO):
-            erased_count = on_a_league(mongo_replica_set_url, body)
+            erased_count = await on_a_league(mongo_replica_set_url, body)
 
         assert erased_count == 1
         assert "journal.act" not in [record.getMessage() for record in caplog.records]
@@ -711,7 +712,7 @@ OTHER_COMMANDS = 3 + 1
 
 
 class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
-    def test_a_full_share(self, mongo_replica_set_url: str):
+    async def test_a_full_share(self, mongo_replica_set_url: str):
         """A share and one more due, pending registrations past the first batch.
 
         A command added to the call turns this red, so `ERASURES_PER_PASS` is judged against the deadline again.
@@ -732,7 +733,7 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
 
             return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, run)
 
-        answer, names = on_a_league(mongo_replica_set_url, body)
+        answer, names = await on_a_league(mongo_replica_set_url, body)
 
         # The premise first: a full share erased, and the pending registrations read past the first batch.
         assert (answer.spieler, names["getMore"]) == (ERASURES_PER_PASS, 1), names
