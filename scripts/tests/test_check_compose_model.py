@@ -338,6 +338,23 @@ def test_a_model_compose_did_not_render_exits_two():
     assert "Nothing was judged, so this is a refusal rather than a verdict on any stack." in done.stderr, done.stderr
 
 
+def test_a_rendered_model_without_an_edge_or_a_pinned_connector_fails_the_run():
+    """Each is a model Compose rendered, so a change dropping the service or the address is a finding, never a refusal."""
+    project = new_root("fl-compose-main-")
+    production, local = clean_pair(project)
+    del local["services"]["nginx"]
+    # Replaced, not edited: the rendered connector shares `CONNECTED`'s mapping.
+    production["services"]["cloudflared"]["networks"] = {EDGE: None}
+
+    done = run_main(production, local, project)
+
+    assert done.returncode == 1, done.stdout + done.stderr
+    assert "FAIL    local: no nginx service, so it serves none of this checkout's edge" in failures(done), done.stdout
+    assert "FAIL    production: cloudflared has 0 static addresses, not one, so neither edge's trust in it was compared" in failures(done), (
+        done.stdout
+    )
+
+
 def test_an_edge_configuration_the_parser_cannot_read_exits_two():
     """The edge's trust is read through nginx_conf.py, whose refusal of a spelling is no verdict on either stack."""
     project = new_root("fl-compose-main-")
@@ -397,14 +414,15 @@ def test_an_environment_that_is_no_mapping_refuses():
         checker.env_files(model(frontend={"environment": [f"{checker.STAND_IN_READ}1=fl_frontend/.env"]}, backend={}), "p")
 
 
-def test_a_connector_without_one_static_address_refuses():
-    """The daemon's own assignment differs per host, so an unpinned connector has no address to compare."""
-    for networks in ({"frankfurtleague-net": None}, {}):
-        try:
-            checker.connector_address(model(cloudflared={"networks": networks}), "p")
-        except checker.NotRendered:
-            continue
-        raise AssertionError(f"a connector with networks {networks!r} was given an address")
+@pytest.mark.parametrize("networks", [{"frankfurtleague-net": None}, {}], ids=["unpinned", "no-network"])
+def test_a_connector_without_one_static_address_fails(networks: dict[str, Any]):
+    """Compose rendered it, so it is the change's to fix: the daemon's own assignment differs per host."""
+    address, findings = checker.connector_address(model(cloudflared={"networks": networks}), "p")
+
+    assert address is None
+    assert [finding.detail for finding in findings] == [
+        "p: cloudflared has 0 static addresses, not one, so neither edge's trust in it was compared"
+    ]
 
 
 # --- who shares a network with whom ---------------------------------------------------------------------

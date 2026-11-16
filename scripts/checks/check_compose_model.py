@@ -371,8 +371,9 @@ def edge_mounts(model: dict[str, Any], name: str, project: Path, checkout: Path)
     A file mount keeps the inode a pull replaces, so a reload re-reads the old file.
     """
     edge = services(model, name).get(EDGE_SERVICE)
+    # A rendered model without the service, so a finding: what the stack serves is the change's.
     if not isinstance(edge, dict):
-        raise NotRendered(f"{name}: no {EDGE_SERVICE} service, so no edge mount was read")
+        return [], [Finding(f"{name}: no {EDGE_SERVICE} service, so it serves none of this checkout's edge")]
     pairs: list[tuple[str, str]] = []
     findings: list[Finding] = []
     for volume in edge.get("volumes") or []:
@@ -400,17 +401,20 @@ def edge_mounts(model: dict[str, Any], name: str, project: Path, checkout: Path)
     return pairs, findings
 
 
-def connector_address(model: dict[str, Any], name: str) -> str:
-    """The one static address the rendered model gives the connector."""
+def connector_address(model: dict[str, Any], name: str) -> tuple[str | None, list[Finding]]:
+    """The one static address the rendered model gives the connector, or none and the finding saying so.
+
+    The daemon's own assignment differs per host, so a connector without one pinned address is the change's to fix.
+    """
     connector = services(model, name).get(CONNECTOR_SERVICE)
     networks = connector.get("networks") if isinstance(connector, dict) else None
     addresses = [n.get("ipv4_address") for n in networks.values() if isinstance(n, dict)] if isinstance(networks, dict) else []
     addresses = [address for address in addresses if address]
     if len(addresses) != 1:
-        raise NotRendered(
-            f"{name}: {CONNECTOR_SERVICE} has {len(addresses)} static addresses, not one, so the edge's trust in it was not compared"
-        )
-    return str(addresses[0])
+        return None, [
+            Finding(f"{name}: {CONNECTOR_SERVICE} has {len(addresses)} static addresses, not one, so neither edge's trust in it was compared")
+        ]
+    return str(addresses[0]), []
 
 
 def edge_configuration(pairs: list[tuple[str, str]], checkout: Path) -> str:
@@ -514,13 +518,13 @@ class Stack:
     `name` is the stack's, which the tables key by and every finding opens with; `project` is the directory Compose
     resolved the model's paths against; `connector` is production's connector address, which either edge trusts
     alone, since the local stack starts no connector and an edge trusting what the other does not serves another
-    edge's configuration.
+    edge's configuration, and none where production pins no one address, which `connector_address` reports.
     """
 
     model: dict[str, Any]
     name: str
     project: Path
-    connector: str
+    connector: str | None
 
 
 # How each stack's edge names itself in a finding about its trust.
@@ -535,6 +539,10 @@ def exposure(stack: Stack) -> list[Finding]:
 def edge(stack: Stack) -> list[Finding]:
     """The edge's mounts, and the trust the configuration those mounts carry places in the connector."""
     pairs, findings = edge_mounts(stack.model, stack.name, stack.project, REPO_ROOT)
+    # The comparison needs both sides: an edge mounting nothing and a connector with no one address are each
+    # already a finding of their own.
+    if not pairs or stack.connector is None:
+        return findings
     return findings + trusted_connector(edge_configuration(pairs, REPO_ROOT), stack.connector, EDGE_NAMES[stack.name])
 
 
@@ -565,12 +573,12 @@ def main() -> int:
         prod_model = json.loads(Path(args.production).read_bytes())
         local_model = json.loads(Path(args.local).read_bytes())
         e2e_model = json.loads(Path(args.e2e).read_bytes())
-        connector = connector_address(prod_model, "production")
+        connector, findings = connector_address(prod_model, "production")
         stacks = (
             Stack(prod_model, "production", Path(args.production).resolve().parent, connector),
             Stack(local_model, "local", Path(args.local).resolve().parent, connector),
         )
-        findings = [finding for rule in RULES for stack in stacks for finding in rule(stack)]
+        findings += [finding for rule in RULES for stack in stacks for finding in rule(stack)]
         # The end-to-end stack is the local one again under its own project, with its own keys, settings
         # and made-up data, so it is held to what it can still loosen there: where it publishes.
         findings += local(e2e_model, "e2e")
