@@ -5,6 +5,10 @@ every job green. Playwright itself answers both sides: its JSON reporter's `conf
 config defines, and each test it lists for a leg's flags carries the project it runs in, the projects those reach
 through `dependencies` among them (https://playwright.dev/docs/test-reporters#json-reporter). `--list` runs no test,
 so no stack is needed, only the frontend's install.
+
+Here in the scripts scope rather than as a step of a journeys leg, which installs the frontend anyway, so a local run of
+the gate holds the rule too: the price is that the scripts scope needs `fl_frontend/node_modules`, and CI's scripts job
+a frontend install of its own.
 """
 
 from __future__ import annotations

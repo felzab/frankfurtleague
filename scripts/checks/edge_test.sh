@@ -75,7 +75,7 @@ mkdir -p "$SCRATCH"
 EDGE_PY="$(venv_python)" \
   || refuse "No fl_backend virtualenv found, so the edge's configuration could not be read. Create it with:  uv sync --project fl_backend --dev"
 conf_query() { # the query and its arguments, as scripts/lib/nginx_conf.py --help lists them
-  MSYS_NO_PATHCONV=1 "$EDGE_PY" scripts/lib/nginx_conf.py "$@"
+  MSYS_NO_PATHCONV=1 "$EDGE_PY" scripts/lib/checker_kernel.py scripts/lib/nginx_conf.py "$@"
 }
 
 # Each header's name and value off the file the set is written in, so a location restating the set
@@ -140,7 +140,7 @@ RECORD
 LOCAL_MOUNTS=( --tmpfs /etc/nginx/conf.d )
 for conf in "${REPO_ROOT}"/nginx/local/*.conf; do
   [[ -f "$conf" ]] || continue
-  LOCAL_MOUNTS+=( -v "${conf}:/etc/nginx/conf.d/${conf##*/}:ro" )
+  LOCAL_MOUNTS+=( -v "$(mount_source "$conf"):/etc/nginx/conf.d/${conf##*/}:ro" )
 done
 (( ${#LOCAL_MOUNTS[@]} > 2 )) || refuse "nginx/local/ holds no *.conf, so there is no edge to serve."
 
@@ -184,7 +184,7 @@ quietly docker network create "$NETWORK" \
 # Before either edge, as compose orders the pair before nginx: a configuration resolving its upstreams
 # at load still starts, and fails only the case aimed at it.
 MSYS_NO_PATHCONV=1 docker run -d --name "$BACKEND_STUB" --network "$NETWORK" --network-alias backend \
-  -v "${SCRATCH}/zz-upstream-stub.conf:/etc/nginx/conf.d/zz-upstream-stub.conf:ro" \
+  -v "$(mount_source "${SCRATCH}/zz-upstream-stub.conf"):/etc/nginx/conf.d/zz-upstream-stub.conf:ro" \
   "$EDGE_IMAGE" >/dev/null \
   || refuse "could not start the stub answering as backend."
 
@@ -193,9 +193,9 @@ MSYS_NO_PATHCONV=1 docker run -d --name "$CONTAINER" \
   --network "$NETWORK" --network-alias frontend \
   "${LOCAL_MOUNTS[@]}" \
   "${EDGE_PRIVILEGES[@]}" \
-  -v "${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
-  -v "${SCRATCH}/zz-upstream-stub.conf:/etc/nginx/conf.d/zz-upstream-stub.conf:ro" \
-  -v "${SCRATCH}/relay-record.sh:/relay-record.sh:ro" \
+  -v "$(mount_source "${REPO_ROOT}/nginx/shared"):/etc/nginx/shared:ro" \
+  -v "$(mount_source "${SCRATCH}/zz-upstream-stub.conf"):/etc/nginx/conf.d/zz-upstream-stub.conf:ro" \
+  -v "$(mount_source "${SCRATCH}/relay-record.sh"):/relay-record.sh:ro" \
   "$EDGE_IMAGE" >/dev/null \
   || refuse "could not start the pinned nginx for the edge test."
 
@@ -248,8 +248,8 @@ MSYS_NO_PATHCONV=1 docker run -d --name "$PROD_CONTAINER" \
   -p 127.0.0.1:0:80 \
   --network "$NETWORK" \
   "${EDGE_PRIVILEGES[@]}" \
-  -v "${REPO_ROOT}/nginx/prod:/etc/nginx/conf.d:ro" \
-  -v "${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
+  -v "$(mount_source "${REPO_ROOT}/nginx/prod"):/etc/nginx/conf.d:ro" \
+  -v "$(mount_source "${REPO_ROOT}/nginx/shared"):/etc/nginx/shared:ro" \
   "$EDGE_IMAGE" >/dev/null \
   || refuse "could not start the pinned nginx over nginx/prod/."
 PROD_ADDR="$(docker port "$PROD_CONTAINER" 80/tcp | head -n 1)" \
@@ -1068,7 +1068,7 @@ if [[ -n "$TOKEN_LINES" ]]; then
 fi
 
 if (( LINE_FAILURES + HEADER_FAILURES + ACTION_FAILURES + BODY_FAILURES + RESOLVE_FAILURES + UPSTREAM_FAILURES > 0 )); then
-  die "${LINE_FAILURES} access-line, ${HEADER_FAILURES} header, ${ACTION_FAILURES} limit, ${BODY_FAILURES} body-cap, ${RESOLVE_FAILURES} upstream and ${UPSTREAM_FAILURES} failing-frontend cases failed.
+  die --summary "${LINE_FAILURES} access-line, ${HEADER_FAILURES} header, ${ACTION_FAILURES} limit, ${BODY_FAILURES} body-cap, ${RESOLVE_FAILURES} upstream and ${UPSTREAM_FAILURES} failing-frontend cases failed.
 Each is what nginx SENT or ANSWERED, or what reached Next through it."
 fi
 

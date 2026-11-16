@@ -135,7 +135,7 @@ _MONGO: Final = r"(?:[\w.-]+/)*mongo"
 # What makes a string an image reference, in any file and any call: a tag or a digest after the name.
 MONGO_TAGGED_RE: Final = re.compile(rf"""(["'`])({_MONGO}[:@][^"'`\s]+)\1""")
 # The bare name where an image is taken: a container class's first argument, or an `image` argument
-# or key, the two tiers' calls being `DockerContainer(...)` and `new MongoDBContainer(...)`.
+# or key.
 MONGO_TAKEN_RE: Final = re.compile(rf"""(?:\w*Container\(\s*|\bimage\s*[=:]\s*)(["'`])({_MONGO})\1""")
 # A mongo container class given no image: testcontainers' Python `MongoDbContainer` then runs its own
 # default, `mongo:latest`, with no string naming it.

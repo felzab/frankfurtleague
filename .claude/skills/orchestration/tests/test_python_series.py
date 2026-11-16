@@ -1,4 +1,4 @@
-"""ORCHESTRATION · the tools are type-checked as the Python series every CI job installs.
+"""ORCHESTRATION · the tools are type-checked as the Python series every CI job installing one takes.
 
 pyright takes the version from `pythonVersion`, or else from whichever `python` it finds on PATH,
 never from the virtualenv `venvPath` names, so the pin is what makes one judgement on every machine.

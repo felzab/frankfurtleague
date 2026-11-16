@@ -90,7 +90,10 @@ if (( ${#SELECTED[@]} > 1 )); then
     ROW[$scope]=${#ROW[@]}
     add_row "$scope"
   done
-  # In the order they end: `wait -n -p`, bash 5.1's, names the run it reaped.
+  # In the order they end: `wait -n -p`, bash 5.1's, names the run it reaped. Each run's own exit
+  # code is its row's verdict, and its count of findings fills the row's column alone: a run that
+  # counted a finding and then refused ends as the refusal it ended on alone.
+  declare -A RANK_OF=([0]=1 [1]=4 [2]=3 [3]=5 [130]=6)
   while (( ${#PID[@]} )); do
     rc=0
     wait -n -p reaped || rc=$?
@@ -99,15 +102,9 @@ if (( ${#SELECTED[@]} > 1 )); then
     # A run that ended before its closing statement left no count, and found nothing it could report.
     count=0
     if [[ -s "${RUNS_DIR}/${scope}.findings" ]]; then read -r count < "${RUNS_DIR}/${scope}.findings"; fi
-    # The exit contract read back into the rank its row shows.
-    case "$rc" in
-      0)   rank=1 ;;
-      1)   rank=4 ;;
-      2)   rank=3 ;;
-      130) rank=6 ;;
-      *)   rank=5 ;;
-    esac
-    end_row "${ROW[$scope]}" "$rank" "$(( $(_now_ms) - started ))" "$count"
+    class=0
+    exit_class contract "$rc" || class=$?
+    end_row "${ROW[$scope]}" "${RANK_OF[$class]}" "$(( $(_now_ms) - started ))" "$count"
   done
   for scope in "${SELECTED[@]}"; do cat "${RUNS_DIR}/${scope}.log"; done
 
@@ -119,16 +116,17 @@ fi
 
 SCOPE="${SELECTED[0]}"
 
-# A command's status read into the exit contract through `--exits`, its tool's tables in
-# `_lib.sh :: EXIT_CODES` (`tool` where none is named, `pytest` under `--pytest`): what it found is a
-# finding, what it could not judge a refusal, anything else a crash. `--summary` is for a tool raising
-# an annotation per finding itself under Actions, as Vitest and the self-check do: what is said then
-# sums them, `fail --summary`. `--pytest` raises those annotations for pytest, one per case its
+# A command's status read into the exit contract through the `EXIT_CODES` tables `--exits` names
+# (`tool` where none is named, `pytest` under `--pytest`): what it found is a finding, what it could
+# not judge a refusal, anything else a crash. `--summary` is for a tool raising an annotation per
+# finding itself under Actions, as Vitest does: what is said then sums them, `fail --summary`.
+# `--annotated` is for a script on this library, which annotates its own findings, refusals and
+# crashes, so none is raised again. `--pytest` raises those annotations for pytest, one per case its
 # summary names.
-check() { # [--exits <tables>] [--summary | --pytest] $1 what to say on a finding · the command
+check() { # [--exits <tables>] [--summary | --annotated | --pytest] $1 what to say on a finding · the command
   local said rc=0 command
   local -a flags=()
-  while [[ "$1" == --exits || "$1" == --summary || "$1" == --pytest ]]; do
+  while [[ "$1" == --exits || "$1" == --summary || "$1" == --annotated || "$1" == --pytest ]]; do
     if [[ "$1" == --exits ]]; then flags+=("$1" "$2"); shift 2; else flags+=("$1"); shift; fi
   done
   said="$1"; shift
@@ -155,12 +153,13 @@ exits_of() { # the flags
 }
 
 # `check`'s reading of a status the command has already answered, its output in `QUIETLY_OUTPUT`.
-verdict() { # [--exits <tables>] [--summary | --pytest] $1 what to say on a finding · $2 the status · $3 the caller's line · $4 the command
+verdict() { # [--exits <tables>] [--summary | --annotated | --pytest] $1 what to say on a finding · $2 the status · $3 the caller's line · $4 the command
   local exits pytest=0 class=0
-  local -a summary=()
+  local -a summary=() annotated=()
   exits="$(exits_of "$@")"
   if [[ "$1" == --exits ]]; then shift 2; fi
   if [[ "$1" == --summary ]]; then summary=(--summary); shift; fi
+  if [[ "$1" == --annotated ]]; then summary=(--summary); annotated=(--summary); shift; fi
   if [[ "$1" == --pytest ]]; then pytest=1; shift; fi
   exit_class "$exits" "$2" || class=$?
   case "$class" in
@@ -169,10 +168,10 @@ verdict() { # [--exits <tables>] [--summary | --pytest] $1 what to say on a find
     1) if [[ "$QUIETLY_OUTPUT" == *ERR_PNPM_NO_SCRIPT* ]]; then on_error "$2" "$3" "$4"; fi
        if (( pytest )) && annotate_cases; then summary=(--summary); fi
        fail "${summary[@]}" "$1"; return 1 ;;
-    2) refuse "${_STEP_LABEL} could not judge its input, so nothing here stands as a verdict on the
+    2) refuse "${annotated[@]}" "${_STEP_LABEL} could not judge its input, so nothing here stands as a verdict on the
 change. Its own reason is above (exit status $2)." ;;
     130) on_interrupt ;;
-    *) on_error "$2" "$3" "$4" ;;
+    *) on_error "${annotated[@]}" "$2" "$3" "$4" ;;
   esac
 }
 
@@ -218,7 +217,7 @@ run_beside() { # $1 where its files go · the command
 # A command `run_beside` ran, read under the open step as `check` reads its own: its output where
 # it failed, or under `--verbose` whole, since two steps streaming at once would interleave. The
 # step's time is the command's own rather than the moment its step was printed.
-beside_verdict() { # $1 its files · [--exits <tables>] [--summary | --pytest] $2 what to say on a finding · $3 the command, as a crash names it
+beside_verdict() { # $1 its files · [--exits <tables>] [--summary | --annotated | --pytest] $2 what to say on a finding · $3 the command, as a crash names it
   local at="$1" rc=3 ms=0 class=0
   local -a said=()
   shift
@@ -260,11 +259,13 @@ PY=""
 case "$SCOPE" in
   scripts|backend|ops|db)
     PY="$(venv_python)" || refuse "No fl_backend virtualenv found. Create it with:  uv sync --project fl_backend --dev"
-    # On a runner the job's own `uv sync --locked` has just run.
+    # On a runner the job's own `uv sync --locked` has just run. `--frozen`, so the virtualenv is held to
+    # the lockfile alone: whether the lockfile answers pyproject.toml is the change's, which the backend
+    # scope's `uv lock --check` reports as a finding.
     if [[ -z "${GITHUB_ACTIONS:-}" ]]; then
-      quietly uv sync --project fl_backend --dev --check \
+      quietly uv sync --project fl_backend --dev --check --frozen \
         || refuse "fl_backend/.venv does not match fl_backend/uv.lock, so a finding here would be about this
-machine rather than the change. Sync it with:  uv sync --project fl_backend --dev"
+machine rather than the change. Sync it with:  uv sync --project fl_backend --dev --frozen"
     fi ;;
 esac
 
@@ -273,7 +274,7 @@ esac
 scope_scripts() {
   section scripts
   step "scripts · selfcheck"
-  check --exits contract --summary "scripts/gate/selfcheck.sh found the findings above." bash scripts/gate/selfcheck.sh \
+  check --exits contract --annotated "scripts/gate/selfcheck.sh found the findings above." bash scripts/gate/selfcheck.sh \
     && ok "the shell scripts parse, are executable in git and lint clean, and the workflows lint clean"
 
   step "scripts · ruff  (lint, and format in check mode)"
@@ -367,12 +368,14 @@ scope_format() {
 
   # Every tracked text file, for the zero-width, bidirectional and line-separator characters that hide
   # or reorder what a reviewer reads (CVE-2021-42574), the Arabic letter mark U+061C the one
-  # bidirectional mark outside U+2000's block; the one deliberate fixture is left out. A UTF-8 locale,
-  # which `-P` needs to read a code point past U+00FF.
+  # bidirectional mark outside U+2000's block, and the other invisible ones the address fixtures type:
+  # the soft hyphen U+00AD, U+180E, the word joiner U+2060 and U+FEFF. Those two fixtures, which type
+  # them on purpose, are left out. A UTF-8 locale, which `-P` needs to read a code point past U+00FF.
   step "format · no invisible or bidirectional character in any tracked file"
   check --exits git-grep "A tracked file above carries an invisible or bidirectional character, each named by its line." \
-    env LC_ALL=C.UTF-8 git grep -I -n -P '[\x{061C}\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{2028}\x{2029}]' \
-    -- . ':!fl_frontend/src/core/emailAddress.test.ts' \
+    env LC_ALL=C.UTF-8 git grep -I -n -P \
+    '[\x{00AD}\x{061C}\x{180E}\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2060}\x{2066}-\x{2069}\x{2028}\x{2029}\x{FEFF}]' \
+    -- . ':!fl_frontend/src/core/emailAddress.test.ts' ':!fl_backend/tests/shared/email_addresses.json' \
     && ok "no invisible or bidirectional character"
   return 0
 }
@@ -533,23 +536,25 @@ repository cannot act on belongs in zizmor.yml with its reason, never suppressed
   stage_compose_models "$OPS_SCRATCH"
   render_compose_model "$OPS_SCRATCH" production || die "docker-compose.yml does not parse."
   render_compose_model "$OPS_SCRATCH" local || die "docker-compose.local.yml does not merge over docker-compose.yml."
-  ok "both stacks parse"
+  render_compose_model "$OPS_SCRATCH" e2e || die "docker-compose.e2e.yml does not merge over the local stack."
+  ok "the three stacks parse"
 
   # A parse accepts a published port and a database alike.
   step "ops · what each stack exposes, mounts, trusts, hands out and keeps"
   check --exits contract "A stack exposes, mounts, trusts, hands out or keeps more than the rule it breaks allows. The
 findings above name the service and the rule." \
-    "$PY" scripts/checks/check_compose_model.py "${OPS_SCRATCH}/production.json" "${OPS_SCRATCH}/local.json" \
+    "$PY" scripts/lib/checker_kernel.py scripts/checks/check_compose_model.py \
+    "${OPS_SCRATCH}/production.json" "${OPS_SCRATCH}/local.json" "${OPS_SCRATCH}/e2e.json" \
     && ok "each stack publishes, mounts, trusts and holds only what its rules allow"
 
   step "ops · every route handler, link page and metadata convention is metered at the edge"
   check --exits contract "The route accounting is out. Each finding above names the handler, the location or the reason." \
-    "$PY" scripts/checks/check_public_routes.py \
+    "$PY" scripts/lib/checker_kernel.py scripts/checks/check_public_routes.py \
     && ok "every route handler is accounted for at the edge"
 
   # A parse sees neither a log line nor a response, and both edges starting is the parse.
   step "ops · the edge starts, logs no credential and sends every security header once"
-  check --exits contract "The running edge failed a case. Each failing case above is what nginx WROTE or SENT, and the
+  check --exits contract --annotated "The running edge failed a case. Each failing case above is what nginx WROTE or SENT, and the
 files under nginx/shared/ decide it." bash scripts/checks/edge_test.sh \
     && ok "the edge logged and sent every case as written"
   return 0
@@ -662,19 +667,20 @@ scope_images() {
     ok "both images build"
   fi
 
-  # Each assertion answers 1 for what it found and 3 for an image that would not run.
+  # Each assertion answers 1 for what it found, and for a probe that did not run the class Docker's
+  # own status reads as.
   step "images · instrumentation.js is in the frontend image"
-  check "instrumentation.js is MISSING from the image. It must live at fl_frontend/src/instrumentation.ts, not the repository root." \
+  check --exits contract "instrumentation.js is MISSING from the image. It must live at fl_frontend/src/instrumentation.ts, not the repository root." \
     image_has_instrumentation "${IMAGES_TAG}:frontend" \
     && ok "instrumentation.js present — the environment gate and error logging will run"
 
   step "images · neither image runs as root"
-  check "An image runs as root, which a build reports as success. The USER line in that image's Dockerfile sets it." \
+  check --exits contract "An image runs as root, which a build reports as success. The USER line in that image's Dockerfile sets it." \
     image_runs_unprivileged "${IMAGES_TAG}:frontend" "${IMAGES_TAG}:backend" \
     && ok "both images drop to an unprivileged user"
 
   step "images · the dockerignore kept its promise about the build context"
-  check "A build context carried a file its dockerignore exists to exclude, named above." \
+  check --exits contract "A build context carried a file its dockerignore exists to exclude, named above." \
     image_context_clean "${IMAGES_TAG}:frontend" "${IMAGES_TAG}:backend" \
     && ok "no environment file, key, certificate or npm configuration reached either image"
   return 0

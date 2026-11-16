@@ -65,6 +65,8 @@ unset FL_GATE_FINDINGS_FILE
 # alone would close a run green over it. Advisories count apart, never failing a run.
 _RUN_FINDINGS=0
 _RUN_ADVISORIES=0
+# What the rows of units run as processes of their own counted, for the closing count alone.
+_ROW_FINDINGS=0
 
 VERBOSE="${VERBOSE:-0}"
 
@@ -327,9 +329,11 @@ add_row() {
 }
 
 # A row's verdict, printed as a line of the table the moment it arrives, the header before the first.
+# The rank alone decides how the run ends; the findings fill the row's column and the closing count,
+# never this run's own total, so a unit that counted a finding and then refused stays a refusal.
 end_row() { # $1 the row's index · $2 its rank · $3 its milliseconds · $4 its findings
   _SECTION_RANKS[$1]=$2; _SECTION_MS[$1]=$3; _SECTION_FINDINGS[$1]=$4
-  _RUN_FINDINGS=$(( _RUN_FINDINGS + $4 ))
+  _ROW_FINDINGS=$(( _ROW_FINDINGS + $4 ))
   if (( ! _ROWS_ENDED )); then _table_header; _ROWS_ENDED=1; fi
   _table_row "$1"
 }
@@ -351,29 +355,24 @@ _closing() { # $1 the ending · $2 a sentence for the green statement · $3 what
   case "$state" in
     # Named in the green statement, so a run cannot report "no findings" over a warning on screen.
     green)
-      printf '
-'
+      printf '\n'
       ok "Green — ${what}, no findings, ${elapsed}.${advisories}${extra:+ ${extra}}" ;;
     # "In the section it came from" survives Actions folding, where "the lines above" would not.
     findings)
-      printf '
-' >&2
-      _emit "$C_RED" "   ✗" "${_RUN_FINDINGS} finding(s) in this run, ${count} section(s), ${elapsed}. Each is
+      printf '\n' >&2
+      _emit "$C_RED" "   ✗" "$(( _RUN_FINDINGS + _ROW_FINDINGS )) finding(s) in this run, ${count} section(s), ${elapsed}. Each is
 named in the section it came from, and each names something to fix in the change — exit 1." >&2 ;;
     refused)
-      printf '
-' >&2
+      printf '\n' >&2
       _emit "$C_RED" "   ✗" "Refused after ${elapsed}, so nothing here stands as a verdict on the change and the
 refusal above names what could not be judged. Not findings, which would name what to
 fix; not a crash, which would mean the check never ran at all — exit 2." >&2 ;;
     crashed)
-      printf '
-' >&2
+      printf '\n' >&2
       _emit "$C_RED" "   ✗" "Crashed after ${elapsed}. A line above names the script itself failing rather than
 anything about the change, and nothing past that line ran — exit 3 or more." >&2 ;;
     interrupted)
-      printf '
-' >&2
+      printf '\n' >&2
       _emit "$C_YELLOW" "  !!" "Interrupted after ${elapsed}. The sections that had opened are all there is, and
 none is a verdict on the change (exit 130)." >&2 ;;
   esac
@@ -412,13 +411,16 @@ finish() { # [--what <what ran>] · a sentence for the green statement
 }
 
 # Its own ending: the check ran and its result cannot stand as a verdict. Ranked above `pass`, so
-# a step that passed before the refusal cannot leave the row reading green.
+# a step that passed before the refusal cannot leave the row reading green. `--summary` first, as
+# `fail`'s: the refusal restates one a script annotated itself.
 refuse() {
+  local summary=0
+  if [[ "${1-}" == --summary ]]; then summary=1; shift; fi
   _escalate 3
   # Closed first, so the message lands outside the Actions fold: a reader told to look above must
   # not be sent into something collapsed.
   end_section
-  _annotate "$*"
+  if (( ! summary )); then _annotate "$*"; fi
   printf '\n' >&2
   _emit "$C_RED" "   ✗" "$*" >&2
   # As `die` and an interrupt: a script speaking the verbs plainly ends on its own sentence.
@@ -430,7 +432,10 @@ refuse() {
 
 # `set -e` otherwise exits in silence. A library helper passes $4, the file its line is in, read off
 # `BASH_SOURCE` at that line's frame: its caller may be a sourced file rather than the script.
+# `--summary` first, as `fail`'s: the crash is a script's that annotated its own.
 on_error() {
+  local summary=0
+  if [[ "${1-}" == --summary ]]; then summary=1; shift; fi
   local rc="$1" line="$2" cmd="$3" file="${4:-$SELF}"
   local where="${file##*/}"
   # The open section crashed whatever its steps reached: a row reading `pass` beside a crash
@@ -438,7 +443,7 @@ on_error() {
   _escalate 5
   # Outside the fold, so a reader told to look above is not sent into something collapsed.
   end_section
-  _annotate "${where} failed at line ${line}: ${cmd} (exit status ${rc})"
+  if (( ! summary )); then _annotate "${where} failed at line ${line}: ${cmd} (exit status ${rc})"; fi
   printf '\n' >&2
   _emit "$C_RED" "   ✗" "${where} failed
 line ${line}:  ${cmd}
@@ -509,23 +514,22 @@ trap on_interrupt INT TERM HUP
 #   either of those and anything else, and any status its documentation does not name.
 # A status no row names is 3, and 130, the shell's for a command a SIGINT ended, is 130 in every row.
 declare -grA EXIT_CODES=(
-  # This repository's scripts, and every checker on scripts/lib/checker_kernel.py.
+  # This repository's scripts, and every checker built on the checker kernel.
   [contract]="0:0 1:1 2:2"
   # A tool documenting 1 for what it found and every other failure as its own, or no other status.
   [tool]="0:0 1:1"
   # `docker run`'s own statuses, which come ahead of the container's: 125 the daemon failed, so
   # nothing ran; 126 and 127 the image cannot invoke or find its command.
   [docker]="125:2 126:3 127:3"
-  # 0.24.2: 1 missing inputs, a runtime failure or a configuration error, 2 a link that failed, 3 an
+  # 1 missing inputs, a runtime failure or a configuration error, 2 a link that failed, 3 an
   # error in the config file.
   [lychee]="0:0 1:2 2:1 3:2"
-  # 1.32.0: 1 an error during the audit, a GitHub API it could not reach among them, 2 an argument it
-  # could not parse, 3 no input collected, 11 to 14 findings by their highest severity. Nothing
-  # answers 10 since 1.14.0.
+  # 1 an error during the audit, a GitHub API it could not reach among them, 2 an argument it
+  # could not parse, 3 no input collected, 11 to 14 findings by their highest severity, and no 10.
   [zizmor]="0:0 1:2 2:3 3:2 11:1 12:1 13:1 14:1"
-  # 0.11.0: 2 a file it could not process, 3 and 4 a flag or an option it was handed wrong.
+  # 2 a file it could not process, 3 and 4 a flag or an option it was handed wrong.
   [shellcheck]="0:0 1:1 2:2 3:3 4:3"
-  # 1.7.12: 2 an invalid command-line option, which Go's own panic status shares, 3 a fatal error.
+  # 2 an invalid command-line option, which Go's own panic status shares, 3 a fatal error.
   [actionlint]="0:0 1:1 2:3 3:2"
   # 2 an interrupt and a test module that does not collect alike, 3 an internal error, 4 a usage
   # error or a conftest.py that fails to import, 5 no test collected.
@@ -598,9 +602,13 @@ venv_python() {
 require_dir()  { [[ -d "$1" ]] || refuse "Missing required directory: $1${2:+
 $2}"; }
 
-# The checkout as a `docker run -v` source, in Windows' own spelling under Git Bash: Git Bash mounts
-# %TEMP% at /tmp, so a checkout there spelled `/tmp/...` binds an unrelated directory of the engine's.
-mount_source() { cygpath -w "$REPO_ROOT" 2>/dev/null || printf '/%s' "$REPO_ROOT"; }
+# A path as a `docker run -v` source, the checkout where none is given, in Windows' own spelling under
+# Git Bash: Git Bash mounts %TEMP% at /tmp, so a checkout there spelled `/tmp/...` binds an unrelated
+# directory of the engine's.
+mount_source() { # [$1 the path]
+  local path="${1:-$REPO_ROOT}"
+  cygpath -w "$path" 2>/dev/null || printf '/%s' "$path"
+}
 
 # The image the gate runs a linter from, read off the line its stage name marks in the tools file,
 # since Dependabot moves a `FROM` line and no image typed in a shell string. Answers 1 where the file
@@ -625,21 +633,23 @@ COMPOSE_STAND_INS=(fl_backend/.env fl_frontend/.env)
 stage_compose_models() {
   local directory="$1" env_file number=0
   mkdir -p "${directory}/fl_backend" "${directory}/fl_frontend"
-  cp docker-compose.yml docker-compose.local.yml "${directory}/"
+  cp docker-compose.yml docker-compose.local.yml docker-compose.e2e.yml "${directory}/"
   for env_file in "${COMPOSE_STAND_INS[@]}"; do
     number=$(( number + 1 ))
     printf 'FL_STAND_IN_READ_%s=%s\n' "$number" "$env_file" > "${directory}/${env_file}"
   done
 }
 
-# `$2` is `production` or `local`, written to `$1/$2.json`. The local stack is the merge `local.sh` runs,
-# the override being no stack alone. `--output` keeps a text-mode stream off the model.
+# `$2` is `production`, `local` or `e2e`, written to `$1/$2.json`. The local stack is the merge
+# `local.sh` runs and the end-to-end stack the merge `e2e_stack.sh` runs, neither override being a
+# stack alone. `--output` keeps a text-mode stream off the model.
 render_compose_model() {
   # The base file names both images by the tag a deploy pins and refuses to parse without one, and a
   # rendered model runs no image, so any word stands in.
   local -x TAG=gate
   local -a files=(-f "$1/docker-compose.yml")
-  if [[ "$2" == local ]]; then files+=(-f "$1/docker-compose.local.yml"); fi
+  if [[ "$2" == local || "$2" == e2e ]]; then files+=(-f "$1/docker-compose.local.yml"); fi
+  if [[ "$2" == e2e ]]; then files+=(-f "$1/docker-compose.e2e.yml"); fi
   # Never `--no-env-resolution`: Compose 2.38 ignores it and later releases honour it, so it would
   # make the rendered environment depend on the release.
   quietly docker compose "${files[@]}" config --format json --output "$1/$2.json"
@@ -647,8 +657,19 @@ render_compose_model() {
 
 # --- What a successful build does not prove ------------------------------------------------------------
 
-# Asked of the image itself, by the gate's images scope. Each answers 0, 1 for what it found, and 3
-# for an image that would not run, which says nothing about the image.
+# Asked of the image itself, by the gate's images scope. Each answers 0, 1 for what it found, and
+# for a probe that did not run the class `EXIT_CODES`'s `docker` row reads Docker's status as: 2
+# where the daemon itself failed, 3 where the image could not start the probe or the probe failed,
+# neither saying anything about the image.
+
+# A probe's `docker run` that did not answer what the probe found, the reason printed. 130 travels:
+# flattened it would read as a crash rather than an interrupt.
+_unprobed() { # $1 the image · $2 docker's status · $3 what was never read
+  local class=0
+  exit_class docker "$2" || class=$?
+  if (( class != 130 )); then printf '%s\n' "the ${1} image did not run its probe (exit ${2}), so ${3} was never read"; fi
+  return "$class"
+}
 
 # From the repo root `instrumentation.ts` compiles but is not traced into the standalone output,
 # which silently disables the startup env gate and onRequestError.
@@ -657,12 +678,9 @@ image_has_instrumentation() { # $1 the frontend image
   docker run --rm --entrypoint sh "$1" -c '[ -f .next/server/instrumentation.js ]' || rc=$?
   case "$rc" in
     0) ;;
-    # The test's own answer. Anything higher is docker's, and says nothing about the file.
+    # The test's own answer. Anything else is Docker's or the shell's, and says nothing about the file.
     1) printf '%s\n' "the ${1} image has no .next/server/instrumentation.js"; return 1 ;;
-    # 130 travels: flattened to 3 it reads as a crash, and the caller cannot recover the interrupt.
-    130) return 130 ;;
-    *) printf '%s\n' "the ${1} image would not run (exit ${rc}), so whether instrumentation.js reached it was never read"
-       return 3 ;;
+    *) _unprobed "$1" "$rc" "whether instrumentation.js reached it" || return ;;
   esac
 }
 
@@ -672,12 +690,7 @@ image_runs_unprivileged() { # $1.. the images
   for image in "$@"; do
     rc=0
     uid="$(docker run --rm --entrypoint sh "$image" -c 'id -u')" || rc=$?
-    # 130 travels: flattened to 3 it would read as a crash rather than an interrupt.
-    if (( rc == 130 )); then return 130; fi
-    if (( rc )); then
-      printf '%s\n' "the ${image} image would not run, so its runtime user was never read"
-      return 3
-    fi
+    if (( rc )); then _unprobed "$image" "$rc" "its runtime user" || return; fi
     if [[ "$uid" == "0" ]]; then
       printf '%s\n' "the ${image} image runs as uid 0, so no USER line takes effect in it"
       return 1
@@ -695,12 +708,7 @@ image_context_clean() { # $1.. the images
   for image in "$@"; do
     rc=0
     found="$(docker run --rm --entrypoint sh "$image" -c "$IMAGE_CONTEXT_FIND")" || rc=$?
-    # 130 travels: flattened to 3 it would read as a crash rather than an interrupt.
-    if (( rc == 130 )); then return 130; fi
-    if (( rc )); then
-      printf '%s\n' "the ${image} image would not run, so its context was never read"
-      return 3
-    fi
+    if (( rc )); then _unprobed "$image" "$rc" "its context" || return; fi
     if [[ -n "$found" ]]; then
       printf '%s\n' "the ${image} image carries what its dockerignore exists to keep out:" "$found"
       return 1

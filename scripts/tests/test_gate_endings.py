@@ -3,7 +3,7 @@
 A tool's status is read through `scripts/lib/_lib.sh :: EXIT_CODES`, so a row read wrongly ends a run on the wrong
 class with every line still printed: a refusal reads as a finding to fix, or a finding as a crash. Nobody reading the
 scope's output alone sees that, and a caller branching on the code acts on the wrong one. Each case copies the gate and
-its library into a fixture tree with both compose files and the tools file, a stand-in virtualenv whose interpreter
+its library into a fixture tree with the three compose files and the tools file, a stand-in virtualenv whose interpreter
 and zizmor answer what the case says, a stand-in edge test answering 0, and a stand-in `docker` and `uv` first on PATH,
 so the docs and ops scopes run with no daemon, no audit and no install.
 """
@@ -11,6 +11,7 @@ so the docs and ops scopes run with no daemon, no audit and no install.
 from __future__ import annotations
 
 import os
+import re
 import shutil
 from typing import Final
 
@@ -44,8 +45,25 @@ def _answers(variable: str) -> str:
     return f'#!/usr/bin/env bash\nexit "${{{variable}:-0}}"\n'
 
 
+# A script on the library, as the edge test is, ending as `FL_EDGE` says, each ending annotating itself.
+EDGE: Final = r"""#!/usr/bin/env bash
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
+case "${FL_EDGE:-pass}" in
+  finding) fail "HEADER /"; die --summary "1 header case failed." ;;
+  refusal) refuse "could not start the pinned nginx for the edge test." ;;
+esac
+ok "the edge passed"
+"""
+
 TOOLS_FILE: Final = "scripts/gate/tools.Dockerfile"
-COPIED: Final = ("scripts/gate/verify.sh", "scripts/lib/_lib.sh", "docker-compose.yml", "docker-compose.local.yml", TOOLS_FILE)
+COPIED: Final = (
+    "scripts/gate/verify.sh",
+    "scripts/lib/_lib.sh",
+    "docker-compose.yml",
+    "docker-compose.local.yml",
+    "docker-compose.e2e.yml",
+    TOOLS_FILE,
+)
 
 
 def _gate(*scopes: str, answers: dict[str, str], tools: str | None = None) -> tuple[int, str]:
@@ -58,7 +76,7 @@ def _gate(*scopes: str, answers: dict[str, str], tools: str | None = None) -> tu
     if tools is not None:
         write_shell(root / TOOLS_FILE, tools)
     (root / "scripts" / "checks").mkdir()
-    write_shell(root / "scripts" / "checks" / "edge_test.sh", "#!/usr/bin/env bash\nexit 0\n")
+    write_shell(root / "scripts" / "checks" / "edge_test.sh", EDGE)
     venv = root / "fl_backend" / ".venv" / "bin"
     venv.mkdir(parents=True)
     os.chmod(write_shell(venv / "python", _answers("FL_CHECKER_EXIT")), 0o755)
@@ -103,6 +121,53 @@ def test_each_tool_s_status_ends_the_scope_as_its_table_reads_it(scope: str, ans
     """What the tool found is the finding 1, what it says it could not judge the refusal 2."""
     exited, output = _gate(scope, answers=answers)
     wrong = _wrong(exited, output, code, says, never)
+    assert not wrong, "\n".join(wrong) + "\n" + output
+
+
+@pytest.mark.parametrize(
+    ("lychee", "code", "row"),
+    [
+        pytest.param("0", 0, "pass", id="green"),
+        pytest.param("2", 1, "failed", id="a-finding"),
+        pytest.param("1", 2, "refused", id="a-refusal"),
+        pytest.param("127", 3, "crashed", id="a-crash"),
+        pytest.param("130", 130, "interrupted", id="an-interrupt"),
+    ],
+)
+def test_a_run_beside_others_ends_on_the_class_its_scope_ended_on(lychee: str, code: int, row: str) -> None:
+    """The docs scope ends on each class beside a green ops scope, and the run and the docs row end on that class."""
+    exited, output = _gate("--docs", "--ops", answers={"FL_LYCHEE_EXIT": lychee})
+    wrong = _wrong(exited, output, code, "running side by side: docs ops", "no verdict")
+    if not re.search(rf"^\s+docs\s+{row}\s", output, re.MULTILINE):
+        wrong.append(f"the table gives the docs row no {row!r}")
+    if not re.search(r"^\s+ops\s+pass\s", output, re.MULTILINE):
+        wrong.append("the table gives the ops row no 'pass'")
+    assert not wrong, "\n".join(wrong) + "\n" + output
+
+
+# zizmor's finding is counted, and the compose checker then refuses its input.
+COUNTED_THEN_REFUSED: Final = {"FL_ZIZMOR_EXIT": "13", "FL_CHECKER_EXIT": "2"}
+
+
+@pytest.mark.parametrize("scopes", [pytest.param(("--ops",), id="alone"), pytest.param(("--docs", "--ops"), id="beside-another-scope")])
+def test_a_scope_that_counted_a_finding_and_then_refused_ends_the_run_refused(scopes: tuple[str, ...]) -> None:
+    """The scope's own exit code decides its ending, never the count its row shows, so both runs end 2."""
+    exited, output = _gate(*scopes, answers=COUNTED_THEN_REFUSED)
+    wrong = _wrong(exited, output, 2, "zizmor found a finding", "finding(s) in this run")
+    if "Refused after" not in output:
+        wrong.append("the run closed on no refusal")
+    assert not wrong, "\n".join(wrong) + "\n" + output
+
+
+@pytest.mark.parametrize(("edge", "code"), [pytest.param("finding", 1, id="a-finding"), pytest.param("refusal", 2, id="a-refusal")])
+def test_a_script_annotating_its_own_ending_raises_one_annotation_under_actions(edge: str, code: int) -> None:
+    """The edge test annotates each finding and its refusal itself, so the gate's own verdict on it raises none."""
+    exited, output = _gate("--ops", answers={"FL_EDGE": edge, "GITHUB_ACTIONS": "true"})
+    # Replayed under the step as the gate replays a failing tool's output, indented, which the runner trims.
+    annotations = [line for line in output.splitlines() if line.lstrip().startswith("::error::")]
+    wrong = _wrong(exited, output, code, "::error::", "no verdict")
+    if len(annotations) != 1:
+        wrong.append(f"raised {len(annotations)} annotations, where the one ending raises one: {annotations}")
     assert not wrong, "\n".join(wrong) + "\n" + output
 
 

@@ -532,7 +532,7 @@ and frontend scopes alone, of which the scripts scope needs Docker for shellchec
 | `--format`         | Prettier in check mode over the whole repository, then markdownlint over every Markdown file, then no conflict marker, whitespace error or invisible character in any tracked file                              | pnpm install                                                                                                                                   |
 | `--frontend-units` | the unit tests `fl_frontend/package.json`'s `test` script finds under `fl_frontend/`                                                                                                                            | pnpm install                                                                                                                                   |
 | `--frontend`       | the frozen lockfile, peer and dedupe checks, `next typegen`, tsc, eslint, both knip runs and `next build`                                                                                                       | pnpm install                                                                                                                                   |
-| `--ops`            | zizmor audits `.github/`; both stacks parse; `check_compose_model.py` judges both models; `check_public_routes.py` accounts for every route; `edge_test.sh` starts both edges and drives them                   | Docker with its Compose plugin, refused at start-up without it, and the backend virtualenv with its `zizmor` group                             |
+| `--ops`            | zizmor audits `.github/`; the three stacks parse; `check_compose_model.py` judges their models; `check_public_routes.py` accounts for every route; `edge_test.sh` starts both edges and drives them             | Docker with its Compose plugin, refused at start-up without it, and the backend virtualenv with its `zizmor` group                             |
 | `--db`             | the contract and its client generated into an ignored scratch folder and compared with the committed ones, `pytest -m db` over the backend and `pnpm run test:db` over `*.db.test.ts`, the three side by side   | venv + pnpm install + Docker                                                                                                                   |
 | `--images`         | both images baked from `docker-bake.hcl`, CI's own definition, then what a build does not prove: `instrumentation.js` present, neither image running as uid 0, neither holding a file its dockerignore excludes | Docker                                                                                                                                         |
 
@@ -604,9 +604,10 @@ log, and grades what each wrote, sent and answered:
 - every zone and the connection ceiling refusing past their figure;
 - every body cap, taking its figure and refusing a byte past it.
 
-`scripts/checks/check_compose_model.py` reads the models `docker compose config` renders,
-production's alone and the merged local pair, and holds each to §2's rows. A model it cannot read is
-a refusal rather than a verdict (§1.7).
+`scripts/checks/check_compose_model.py` reads the models `docker compose config` renders:
+production's alone and the merged local pair, each held to §2's rows, and the end-to-end stack
+merged over that pair, held to where it publishes, since it sets its own settings, keys and
+environment on purpose. A model it cannot read is a refusal rather than a verdict (§1.7).
 
 **The images scope exists because code that compiles can still fail to build inside the image**, or
 be left out of the standalone output. **Both test tiers run**: the `db`-marked tests need a real
@@ -630,8 +631,9 @@ prefix names the class, the stem names the subject, and the extension names the 
 | `.sh` `.py` | bash, and Python at the version `fl_backend/.python-version` pins: the backend virtualenv's |
 | `.mjs`      | node, taken only where the subject needs a parser bash and Python do not have               |
 
-`scripts/lib/checker_kernel.py` is the one name the scheme does not classify: it is imported rather
-than run, so the `_` marking a sourced script would say the wrong thing about it.
+`scripts/lib/checker_kernel.py` is the one name the scheme does not classify: every checker imports
+it and every caller runs a checker through it, so neither the `_` of a sourced script nor the bare
+name of one run directly says what it is.
 
 **The output standard.** One vocabulary, one verb per meaning, and no script writes formatting of its
 own:
@@ -669,14 +671,30 @@ change needs work" from "the check never ran" acts on the wrong one.
 | `crashed`     | 3 or more | The script itself failed, so nothing past that line ran                                |
 | `interrupted` | 130       | Ctrl-C or a hangup: the sections that had opened are all there is, none a verdict      |
 
+**Every tool's status reaches an ending through one table**, `scripts/lib/_lib.sh :: EXIT_CODES`,
+a row per tool read from its documentation for the release the repository pins:
+
+- the status by which the tool reports what it found is a finding;
+- one by which it says it could not judge, an input it could not read, a network it could not
+  reach or a configuration it could not load, is a refusal;
+- one saying it was invoked wrong or died, one it shares between either and anything else, and
+  one its documentation does not name, is a crash.
+
+`docker run`'s own statuses come ahead of the tool's in its container: 125, the daemon failing,
+is a refusal. **A run of several scopes ends on the class its scopes ended on**, each scope's own
+exit code deciding its row and its count of findings filling the row's column alone: an interrupt
+first, then a finding, a refusal and a crash.
+
 **A `pnpm` script the manifest does not declare ends its step as a crash, never a finding**: pnpm
 answers it 1, as a tool finding something does, but no tool ran (`scripts/gate/verify.sh ::
 verdict`).
 
 The checkers answer on the same scale: `scripts/lib/checker_kernel.py` fixes 0 for a pass, 1 for
 findings, 2 for a check that could not judge its input and 3 or more for a broken environment, in
-one place. `deploy.sh` keeps the scale's meaning for a deploy: 1 a failed deploy, 2 a refusal with
-the stack unchanged ([`runbooks.md`](runbooks.md) §1).
+one place. Every caller runs a checker through the kernel,
+`python scripts/lib/checker_kernel.py <checker> [arguments]`, so a checker that fails to import or
+compile answers 3 rather than Python's own 1. `deploy.sh` keeps the scale's meaning for a deploy: 1
+a failed deploy, 2 a refusal with the stack unchanged ([`runbooks.md`](runbooks.md) §1).
 
 **Colour is decided centrally, through `FL_GATE_COLOR` ahead of everything else**: the gate's own
 variable, how `verify.sh` hands each scope's run its answer without exporting one every tool would
