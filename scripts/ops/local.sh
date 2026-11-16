@@ -93,15 +93,13 @@ load_made_up_seed() {
   local rc=0 class=0 landing=()
   if (( RESEED )); then landing=("--landing=${LANDING}"); fi
   quietly "${REPO_ROOT}/scripts/ops/made_up_seed.sh" "${landing[@]}" || rc=$?
-  exit_class contract "$rc" || class=$?
+  settle contract "$rc" "$LINENO" "scripts/ops/made_up_seed.sh" || class=$?
   case "$class" in
     0) ok "seeded the made-up league, and every document it wrote reads back through its model" ;;
     1) die "the made-up seed failed, and the lines above name what to correct.
 The frontend has not been started or recreated." ;;
     2) refuse "the made-up seed was refused, and the lines above say why.
 The frontend has not been started or recreated." ;;
-    130) on_interrupt ;;
-    *) on_error "$rc" "$LINENO" "scripts/ops/made_up_seed.sh" ;;
   esac
 }
 
@@ -110,16 +108,13 @@ The frontend has not been started or recreated." ;;
 e2e_stack() {
   local rc=0 class=0
   "${REPO_ROOT}/scripts/ops/e2e_stack.sh" "$@" || rc=$?
-  exit_class contract "$rc" || class=$?
+  settle contract "$rc" "$LINENO" "scripts/ops/e2e_stack.sh $*" || class=$?
   case "$class" in
-    0) ;;
     1) die "the end-to-end stack did not come up, and the lines above name what to correct.
 Each service's own lines:  ${BY_HAND} logs <service>
 Stop what is left:  ${STOP_COMMAND}" ;;
     2) refuse "the end-to-end stack was refused, and the lines above say why.
 Stop what is left:  ${STOP_COMMAND}" ;;
-    130) on_interrupt ;;
-    *) on_error "$rc" "$LINENO" "scripts/ops/e2e_stack.sh $*" ;;
   esac
 }
 

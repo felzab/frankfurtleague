@@ -118,25 +118,40 @@ FUNCTION_RE: Final = re.compile(r"^(\w+)\(\) \{")
 
 
 def _called(name: str) -> re.Pattern[str]:
-    """`name` where a command starts: a line's first word, or the word after a separator or a keyword opening a list."""
-    return re.compile(rf"(?:^|[;&|({{]|\bthen|\bdo|\belse)\s*{name}(?=\s|$)")
+    """`name` where a command starts: a line's first word, or the word after a separator, a case arm's pattern or a keyword opening a list."""
+    return re.compile(rf"(?:^|[;&|(){{]|\bthen|\bdo|\belse)\s*{name}(?=\s|$)")
+
+
+def _scripts() -> dict[str, list[str]]:
+    """Every shell script under scripts/, by its path, as lines."""
+    return {
+        path.relative_to(REPO_ROOT).as_posix(): path.read_text(encoding="utf-8").splitlines()
+        for path in sorted((REPO_ROOT / "scripts").rglob("*.sh"))
+    }
+
+
+def _commands(lines: list[str]) -> list[tuple[int, str | None, str]]:
+    """Each line that is not a comment, numbered, with the function whose body holds it, None at a script's top level."""
+    out: list[tuple[int, str | None, str]] = []
+    name = None
+    for number, line in enumerate(lines, start=1):
+        opened = FUNCTION_RE.match(line)
+        if opened:
+            name = opened[1]
+        elif name is not None and line == "}":
+            name = None
+        elif not line.lstrip().startswith("#"):
+            out.append((number, name, line))
+    return out
 
 
 def _settlers(scripts: dict[str, list[str]]) -> set[str]:
     """Every shell function calling `settle`, directly or through another such function."""
     bodies: dict[str, list[str]] = {}
     for lines in scripts.values():
-        name = None
-        for line in lines:
-            opened = FUNCTION_RE.match(line)
-            if opened:
-                name = opened[1]
-                bodies[name] = []
-            elif name is not None:
-                if line == "}":
-                    name = None
-                elif not line.lstrip().startswith("#"):
-                    bodies[name].append(line)
+        for _, name, line in _commands(lines):
+            if name is not None:
+                bodies.setdefault(name, []).append(line)
     reached = {"settle"}
     while grown := {
         name for name, body in bodies.items() if name not in reached and any(_called(one).search(line) for one in reached for line in body)
@@ -147,10 +162,7 @@ def _settlers(scripts: dict[str, list[str]]) -> set[str]:
 
 def test_no_status_is_settled_inside_a_substitution() -> None:
     """`settle` ends the run for a crash, which inside `$(…)` or `<(…)` ends the subshell alone and reads as the caller's refusal."""
-    scripts = {
-        path.relative_to(REPO_ROOT).as_posix(): path.read_text(encoding="utf-8").splitlines()
-        for path in sorted((REPO_ROOT / "scripts").rglob("*.sh"))
-    }
+    scripts = _scripts()
     settlers = _settlers(scripts) - {"settle"}
     # Per caller: a sweep reading no settler passes over none at all.
     assert {"conf_query", "verdict", "check"} <= settlers, f"the sweep found {sorted(settlers)} alone reaching settle"
@@ -162,3 +174,21 @@ def test_no_status_is_settled_inside_a_substitution() -> None:
         if inside.search(line)
     ]
     assert substituted == [], "a status settled inside a substitution, where a crash ends the subshell alone:\n" + "\n".join(substituted)
+
+
+INTERRUPT: Final = _called("on_interrupt")
+
+
+def test_only_settle_ends_a_run_on_a_status_it_read_as_an_interrupt() -> None:
+    """A case arm handing a status's 130 to `on_interrupt` beside `settle` is a hand copy of the reader, which drifts from the table."""
+    reached: list[str] = []
+    copies: list[str] = []
+    for name, lines in _scripts().items():
+        for number, function, line in _commands(lines):
+            # The signal trap, which no status reaches.
+            if line.startswith("trap ") or not INTERRUPT.search(line):
+                continue
+            (reached if function == "settle" else copies).append(f"{name}:{number}: {line.strip()}")
+    # The reader's own arm: a sweep that finds none matches no arm at all.
+    assert reached, "the sweep found no `on_interrupt` arm in `settle`"
+    assert copies == [], "a status read to an interrupt outside `settle`:\n" + "\n".join(copies)
