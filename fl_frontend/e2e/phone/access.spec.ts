@@ -6,7 +6,7 @@
 import { expect } from "@playwright/test";
 
 import { chooseWho } from "../support/actionLog";
-import { chip } from "../support/controls";
+import { chip, risenSheet } from "../support/controls";
 import { ADMINISTRATOR_STATE, test } from "../support/journey";
 import { FINISHED, PEOPLE } from "../support/madeUpLeague";
 
@@ -76,10 +76,7 @@ test("the Protokoll's filter sheet narrows to one who", async ({ page }) => {
   await page.goto("/admin/log");
   await main.getByRole("button", { name: "Filter" }).click();
   // A phone's selects stand in a sheet, which stays open over the list until „Fertig“.
-  const sheet = page.getByRole("dialog", { name: "Filter" });
-  // It takes the focus once it has risen. Playwright retries a press on a moving button behind a `scrollIntoView`, which
-  // carries the sheet back down its scroller and the page under it, and React Aria closes a sheet the viewport has lost.
-  await expect(sheet).toBeFocused();
+  const sheet = await risenSheet(page, "Filter");
   await chooseWho(page, sheet, chosen.option);
   await sheet.getByRole("button", { name: "Fertig" }).click();
   await expect(sheet).toBeHidden();
