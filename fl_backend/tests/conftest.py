@@ -16,7 +16,7 @@ from pydantic import BaseModel, ValidationError
 from pymongo import MongoClient
 
 from app.core.recording import actor_var
-from tests.database import bounded, close_the_shared_clients
+from tests.database import bounded_case, close_the_shared_clients
 from tests.documents import EINWILLIGUNG, rules_document
 from tests.payloads import PayloadFactory
 from tests.tier import is_db_marked, refuse_server_fixtures
@@ -77,23 +77,24 @@ def an_administrator_bound() -> Iterator[None]:
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
-    """Every async case runs under `tests/database.py :: bounded`, in its own task, where an expiry fails it by name.
+    """Every async case runs under `tests/database.py :: bounded_case`, in its own task, where an expiry fails it by name.
 
-    Wrapped at collection, as the case pytest-asyncio's `runtest` takes off `obj`. A deadline around a fixture's `yield`
-    cannot stand in for it: pytest-asyncio runs the setup and the teardown as two tasks.
+    Wrapped at collection, in `obj`, which pytest's `pytest_pyfunc_call` calls and pytest-asyncio's `runtest` takes the
+    case from. A deadline around a fixture's `yield` cannot stand in for it: pytest-asyncio runs the setup and the
+    teardown as two tasks. `tests/core/test_case_scope.py` fails if a case runs unwrapped.
     """
 
     for item in items:
         if isinstance(item, pytest.Function) and inspect.iscoroutinefunction(item.obj):
-            item.obj = _bounded_case(item.obj)
+            item.obj = _bounded(item.obj)
 
 
-def _bounded_case(case: Callable[..., Coroutine[Any, Any, Any]]) -> Callable[..., Coroutine[Any, Any, Any]]:
+def _bounded(case: Callable[..., Coroutine[Any, Any, Any]]) -> Callable[..., Coroutine[Any, Any, Any]]:
     @functools.wraps(case)
-    async def bounded_case(*args: Any, **kwargs: Any) -> Any:
-        return await bounded(case(*args, **kwargs))
+    async def scoped(*args: Any, **kwargs: Any) -> Any:
+        return await bounded_case(case(*args, **kwargs))
 
-    return bounded_case
+    return scoped
 
 
 RejectsAssertion = Callable[[type[BaseModel], dict[str, Any], str], ValidationError]
