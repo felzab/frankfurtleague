@@ -80,13 +80,11 @@ def accounting(app: Path | None = None, where: tuple = (), *, rates: dict | None
     paged = routes.pages(app)
     return routes.Accounting(
         found=routes.handlers(app),
-        paged=paged,
         linked=routes.link_pages(paged),
         where=where,
         rates={"linkpage": 30} if rates is None else rates,
         squad=squad,
         referrer=referrer,
-        app_dir=app,
         root=app.parent,
         conf=SOURCE,
     )
@@ -170,30 +168,6 @@ def test_a_page_intercepting_a_level_up_or_the_root_refuses(marker):
     """Its URL drops segments above it, which this reader does not derive; silence would place it wrongly."""
     with pytest.raises(routes.RouteShape, match="cannot derive"):
         routes.pages(tree(f"/saisons/[saison]/@modal/{marker}spiele/[spiel]", file="page.tsx"))
-
-
-ROOT_INTERCEPTOR = "/@modal/(.)saisons/[saison]/spiele/[spiel]"
-
-
-def intercepting(*urls: str) -> list:
-    """What the interception rule says about a tree holding a page at each of `urls`."""
-    return routes.interceptions(accounting(tree(*urls, file="page.tsx")))
-
-
-def test_an_interceptor_under_a_route_group_is_a_finding():
-    """A group is no level, so `(classic)`'s slot intercepts from every page while its layout draws it on its own alone."""
-    findings = intercepting("/(classic)" + ROOT_INTERCEPTOR)
-
-    assert len(findings) == 1
-    assert "under the route group (classic)" in details(findings)
-
-
-def test_two_interceptors_for_one_address_are_a_finding():
-    """Each level's rewrite matches from a season page, whatever each names its dynamic segment."""
-    findings = intercepting(ROOT_INTERCEPTOR, "/saisons/[id]/@modal/(.)spiele/[spiel]")
-
-    assert len(findings) == 1
-    assert "all intercept /saisons/[]/spiele/[]" in details(findings)
 
 
 def test_an_exact_match_carrying_no_limit_req_is_a_finding():

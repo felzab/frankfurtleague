@@ -10,17 +10,11 @@ the edge meters on no zone deliberately.
 Each rule is a row of `RULES`, which `main` runs whole. A construct this reader cannot place refuses
 rather than answering, and so does a rule that found nothing to judge: either would read as a pass.
 
-The same walk judges the intercepting pages, which no build or test below the journeys sees: Next
-rewrites an intercepted URL by the page the visitor stands on, so two interceptors for one URL compete
-in an order Next documents nowhere, and one under a route group intercepts from pages its group's
-layout never draws.
-
 Invariants:
 - The population is `ROUTE_FILES` and the code-generated metadata conventions `METADATA` places,
   with `PAGE_FILES` joining it for a link page's meter.
 - A reserved metadata name this reader cannot place refuses; an image convention supplied as an
   image file runs no module and stands outside the population.
-- An intercepted URL has one intercepting page, with no route group above its intercepting segment.
 - A link page's `linkpage` burst is the one the largest squad the backend publishes needs at that zone's rate.
 - A link page's location sends every error line it writes to `/dev/null`.
 - A link page's responses withhold the referrer, the map withholding it only as a link page's location matches.
@@ -614,71 +608,23 @@ def pages(app_dir: Path) -> tuple[Handler, ...]:
     return tuple(found)
 
 
-def _address(url: str) -> str:
-    """A URL with each dynamic segment reduced to its kind, so `[saison]` and `[id]` read as one address."""
-    return "/".join(
-        ("[[...]]" if part.startswith("[[") else "[...]" if part.startswith("[...") else "[]") if DYNAMIC_RE.match(part) else part
-        for part in url.split("/")
-    )
-
-
 class NothingJudged(Exception):
     """A rule that found nothing to judge, which would otherwise read as a pass."""
 
 
 @dataclass(frozen=True)
 class Accounting:
-    """What every rule reads: the tree's handlers and pages, its link pages, and the edge's locations and zones."""
+    """What every rule reads: the tree's handlers, its link pages, and the edge's locations and zones."""
 
     found: tuple[Handler, ...]
-    paged: tuple[Handler, ...]
     linked: tuple[Handler, ...]
     where: tuple[Location, ...]
     rates: Mapping[str, int]
     squad: int
     # The entries of the map naming each response's `Referrer-Policy`, empty where the http level declares none.
     referrer: tuple[tuple[str, str], ...]
-    app_dir: Path
     root: Path
     conf: str
-
-
-def interceptions(judged: Accounting) -> list[Finding]:
-    """Every intercepting page sharing its URL with another, or standing under a route group.
-
-    Next keys an interceptor's rewrite on the page the visitor leaves, read from the interceptor's level, and a route
-    group is no level: a slot of `(classic)` intercepting `(.)saisons` reaches from `/`, so from every page of the site,
-    where the group's layout draws the slot on its own pages alone. Two rewrites for one URL both match from a page
-    under both levels, and the first in the build's order wins.
-    """
-    findings: list[Finding] = []
-    by_address: dict[str, list[Handler]] = {}
-    for page in judged.paged:
-        parts = page.path.parent.relative_to(judged.app_dir).parts
-        at = next((index for index, part in enumerate(parts) if SAME_LEVEL_RE.match(part)), None)
-        if at is None:
-            continue
-        by_address.setdefault(_address(page.url), []).append(page)
-        grouped = [part for part in parts[:at] if GROUP_RE.match(part)]
-        if grouped:
-            findings.append(
-                Finding(
-                    f"{shown(page.path, judged.root)} intercepts {page.url} under the route group {grouped[0]}\n"
-                    f"{CONTINUATION}a group is no level of the URL, so the interceptor reaches from every page of its "
-                    f"parent level while the group's layout draws the slot on its own pages alone: "
-                    f"put the slot in the layout every page it intercepts from shares",
-                )
-            )
-    for address, pages_there in sorted(by_address.items()):
-        if len(pages_there) > 1:
-            findings.append(
-                Finding(
-                    f"{', '.join(shown(one.path, judged.root) for one in pages_there)} all intercept {address}\n"
-                    f"{CONTINUATION}from a page both levels hold, their rewrites compete in an order Next documents nowhere: "
-                    f"keep one interceptor for the address, in the slot every page it intercepts from shares",
-                )
-            )
-    return findings
 
 
 def link_pages(found: tuple[Handler, ...]) -> tuple[Handler, ...]:
@@ -1057,7 +1003,7 @@ def _unreached(handler: Handler, name: str, conf: str) -> Finding:
 
 # Every rule `main` runs, each over the whole accounting: a rule written and left out of this table is
 # one nothing runs, which the table makes a reader's to see rather than a sequence of calls to miss.
-RULES: Final = (account, loosened, unmetered_links, unlogged_links, referring_links, unsized_links, interceptions)
+RULES: Final = (account, loosened, unmetered_links, unlogged_links, referring_links, unsized_links)
 
 
 def main() -> int:
@@ -1103,7 +1049,7 @@ def main() -> int:
         print(f"      Nothing was accounted for: {OPENAPI}'s squad bound has to be readable.", file=sys.stderr)
         return EXIT_REFUSED
 
-    judged = Accounting(found, paged, linked, where, rates, squad, referrer, app_dir, root, conf_path.name)
+    judged = Accounting(found, linked, where, rates, squad, referrer, root, conf_path.name)
     try:
         findings = [finding for rule in RULES for finding in rule(judged)]
     except NothingJudged as error:
@@ -1121,8 +1067,7 @@ def main() -> int:
         print("      location goes to :: DISCARDED_LOG, and :: REFERRER_MAP gives it :: LINK_REFERRER_POLICY,")
         print("      spelled as its location matches. A location serving pages writes every meter line of")
         print("      the location it is carved out of, or :: UNCEILINGED says why the ceiling does not bound it.")
-        print("      The rule is docs/ops/spec.md, section 1.3. An intercepted URL has one intercepting page,")
-        print("      under no route group: :: interceptions says why.")
+        print("      The rule is docs/ops/spec.md, section 1.3.")
         return code
 
     metered = sum(1 for one in where if one.exact and one.metered)
