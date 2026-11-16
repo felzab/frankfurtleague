@@ -31,7 +31,9 @@ WORKER_ALERT: Final = "2026/11/12 08:46:11 [alert] 31#31: 1024 worker_connection
 
 # Every engine call the script makes, logged one per line with the tag it ran under. `ps` reads the
 # containers of the tag the script exported, `service state health` a line, and prints the stopped
-# ones and the one-offs only under `--all`. `unread.<tag>` names the read that fails under a tag.
+# ones and the one-offs only under `--all`. `unread.<tag>` names the read that fails under a tag. A
+# `config` that fails answers 1, as Compose 5.7.0 does for a service naming a secret nobody declared:
+# its source hands such an error to the CLI's plugin runner, which answers 1.
 DOCKER: Final = r"""#!/usr/bin/env bash
 d="$FL_DEPLOY_DIR"
 printf '%s TAG=%s\n' "$*" "${TAG-}" >> "$d/calls"
@@ -41,7 +43,7 @@ unread="$(cat "$d/unread.${TAG-}" 2>/dev/null)"
 case "$1" in
   up) exit "$(cat "$d/up.$TAG" 2>/dev/null || printf 0)" ;;
   config)
-    if [[ "$unread" == config-fails ]]; then printf '%s\n' 'service "backend" refers to undefined secret' >&2; exit 15; fi
+    if [[ "$unread" == config-fails ]]; then printf '%s\n' 'service "backend" refers to undefined secret' >&2; exit 1; fi
     if [[ "$unread" != config-empty ]]; then printf '%s\n' frontend backend nginx cloudflared; fi ;;
   exec) if [[ " $* " == *" nginx -t "* ]]; then exit "$(cat "$d/nginx-t")"; fi ;;
   logs) if [[ " $* " == *" --since "* ]]; then cat "$d/reload-log"; fi ;;
