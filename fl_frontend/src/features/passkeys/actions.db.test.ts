@@ -182,7 +182,7 @@ let signingOut: () => Promise<unknown> = async () => undefined;
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { auth } = await import("@/core/auth/library");
-const { buildAuthIndexes } = await import("@/core/authIndexes");
+const { buildAuthIndexes, MONGO_DB_NAME } = await import("@/core/authIndexes");
 const { removePasskeyAction } = await import("./actions");
 
 type Collection = {
@@ -200,10 +200,10 @@ type RealClient = {
 
 const realClient = productionClient as RealClient;
 closing(() => realClient.close());
-const authDb = () => realClient.db("auth");
+const authDb = () => realClient.db(MONGO_DB_NAME);
 
 // Production's indexes under every case, so the library is driven over what it meets there: built once for the
-// file, since a build runs under the client's socket bound, which a stall on a loaded machine outlasts.
+// file, as a boot builds them once.
 beforeAll(async () => {
   const from = log.lines().length;
   await buildAuthIndexes();
