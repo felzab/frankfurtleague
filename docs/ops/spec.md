@@ -703,7 +703,9 @@ The checkers answer on the same scale: `scripts/lib/checker_kernel.py` fixes 0 f
 findings, 2 for a check that could not judge its input and 3 or more for a broken environment, in
 one place. Every caller runs a checker through the kernel,
 `python scripts/lib/checker_kernel.py <checker> [arguments]`, so a checker that fails to import or
-compile answers 3 rather than Python's own 1. `deploy.sh` keeps the scale's meaning for a deploy: 1
+compile answers 3 rather than Python's own 1. Each parses its arguments with the kernel's
+`ArgumentParser`, so an argument it refuses answers 3 rather than argparse's 2: only this
+repository's scripts call a checker, and a wrong argument is theirs. `deploy.sh` keeps the scale's meaning for a deploy: 1
 a failed deploy, 2 a refusal with the stack unchanged ([`runbooks.md`](runbooks.md) §1).
 
 **Colour is decided centrally, through `FL_GATE_COLOR` ahead of everything else**: the gate's own
