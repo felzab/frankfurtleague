@@ -14,24 +14,25 @@ import sys
 from pathlib import Path
 
 from app.readback import CLOSING_LINE, UNJUDGED
+from tests.processes import to_its_exit
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 LIBRARY = BACKEND_ROOT.parent / "scripts" / "lib" / "_lib.sh"
+
+# An interpreter's start and the read-back's imports take a few seconds; this is far past them, so only a read-back
+# that hangs reaches it.
+READ_BACK_BOUND_S = 60.0
 
 
 def _read_back(environment: dict[str, str]) -> subprocess.CompletedProcess[str]:
     # Windows' sockets cannot load their providers without it, so `asyncio` fails at its import (WinError 10106).
     system = {"SYSTEMROOT": os.environ["SYSTEMROOT"]} if "SYSTEMROOT" in os.environ else {}
 
-    return subprocess.run(
+    return to_its_exit(
         [sys.executable, "-m", "app.readback"],
+        bound_s=READ_BACK_BOUND_S,
         cwd=BACKEND_ROOT,
         env={**system, **environment},
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        timeout=60,
-        check=False,
     )
 
 

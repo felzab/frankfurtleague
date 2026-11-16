@@ -36,6 +36,7 @@ from app.core.config import MONGODB_URI_FILE, SECRET_FILES
 from app.core.exceptions import WriteRefusal
 from tests.boot import BACKEND_ROOT, Withheld
 from tests.made_up_seed import INSERT_REFUSED, LANDING_STATES, UNJUDGED, MadeUpLeague, Season, is_local_server
+from tests.processes import to_its_exit
 
 LIBRARY: Final = BACKEND_ROOT.parent / "scripts" / "lib" / "_lib.sh"
 
@@ -80,6 +81,11 @@ def seeded(directory: Path, uri: str) -> subprocess.CompletedProcess[str]:
     return run_seed(directory, {"SECRETS_DIR": str(settings), "DB_BASE_NAME": "fl_made_up", "PYTHONPATH": str(BACKEND_ROOT)})
 
 
+# An interpreter's start and the seed's imports take a few seconds, and every case here ends before any client exists;
+# this is far past them, so only a seed that hangs reaches it.
+SEED_BOUND_S: Final = 60.0
+
+
 def run_seed(directory: Path, settings: dict[str, str]) -> subprocess.CompletedProcess[str]:
     """`python -m tests.made_up_seed` run to its exit over `settings` alone.
 
@@ -91,15 +97,7 @@ def run_seed(directory: Path, settings: dict[str, str]) -> subprocess.CompletedP
     # Windows' sockets cannot load their providers without it, so `asyncio` fails at its import (WinError 10106).
     if "SYSTEMROOT" in os.environ:
         environment["SYSTEMROOT"] = os.environ["SYSTEMROOT"]
-    return subprocess.run(
-        (sys.executable, "-m", "tests.made_up_seed"),
-        capture_output=True,
-        encoding="utf-8",
-        errors="replace",
-        env=environment,
-        cwd=directory,
-        check=False,
-    )
+    return to_its_exit((sys.executable, "-m", "tests.made_up_seed"), bound_s=SEED_BOUND_S, cwd=directory, env=environment)
 
 
 @pytest.mark.parametrize("uri", ELSEWHERE.values(), ids=ELSEWHERE.keys())
