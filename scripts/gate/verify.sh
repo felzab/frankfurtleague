@@ -116,13 +116,13 @@ fi
 
 SCOPE="${SELECTED[0]}"
 
-# A command's status read into the exit contract through `--exits`, its tool's tables in
-# `_lib.sh :: EXIT_CODES` (`tool` where none is named, `pytest` under `--pytest`): what it found is a
-# finding, what it could not judge a refusal, anything else a crash. `--summary` is for a tool raising
-# an annotation per finding itself under Actions, as Vitest does: what is said then sums them,
-# `fail --summary`. `--annotated` is for a script on this library, which annotates its own findings,
-# refusals and crashes, so none is raised again. `--pytest` raises those annotations for pytest, one
-# per case its summary names.
+# A command's status read into the exit contract through the `EXIT_CODES` tables `--exits` names
+# (`tool` where none is named, `pytest` under `--pytest`): what it found is a finding, what it could
+# not judge a refusal, anything else a crash. `--summary` is for a tool raising an annotation per
+# finding itself under Actions, as Vitest does: what is said then sums them, `fail --summary`.
+# `--annotated` is for a script on this library, which annotates its own findings, refusals and
+# crashes, so none is raised again. `--pytest` raises those annotations for pytest, one per case its
+# summary names.
 check() { # [--exits <tables>] [--summary | --annotated | --pytest] $1 what to say on a finding · the command
   local said rc=0 command
   local -a flags=()
@@ -667,8 +667,8 @@ scope_images() {
     ok "both images build"
   fi
 
-  # Each assertion answers 1 for what it found, and for a probe that did not run the class Docker's status
-  # reads as (`_lib.sh :: _unprobed`).
+  # Each assertion answers 1 for what it found, and for a probe that did not run the class Docker's
+  # own status reads as.
   step "images · instrumentation.js is in the frontend image"
   check --exits contract "instrumentation.js is MISSING from the image. It must live at fl_frontend/src/instrumentation.ts, not the repository root." \
     image_has_instrumentation "${IMAGES_TAG}:frontend" \

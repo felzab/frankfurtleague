@@ -558,7 +558,7 @@ def test_the_local_stack_reading_a_database_login_from_secrets_fails():
 # --- which service reads which login from an inline config -------------------------------------------
 
 LOCAL_URI: Final = "mongodb://mongo:27017/?directConnection=true"
-# The file each application service reads its login from, as `docker-compose.local.yml` mounts the one inline config.
+# The file each application service reads its login from, as the local stack mounts its one inline config.
 LOCAL_LOGINS: Final = {"frontend": "frontend_mongodb_uri", "backend": "backend_mongodb_uri"}
 
 

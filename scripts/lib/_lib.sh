@@ -514,23 +514,22 @@ trap on_interrupt INT TERM HUP
 #   either of those and anything else, and any status its documentation does not name.
 # A status no row names is 3, and 130, the shell's for a command a SIGINT ended, is 130 in every row.
 declare -grA EXIT_CODES=(
-  # This repository's scripts, and every checker on scripts/lib/checker_kernel.py.
+  # This repository's scripts, and every checker built on the checker kernel.
   [contract]="0:0 1:1 2:2"
   # A tool documenting 1 for what it found and every other failure as its own, or no other status.
   [tool]="0:0 1:1"
   # `docker run`'s own statuses, which come ahead of the container's: 125 the daemon failed, so
   # nothing ran; 126 and 127 the image cannot invoke or find its command.
   [docker]="125:2 126:3 127:3"
-  # 0.24.2: 1 missing inputs, a runtime failure or a configuration error, 2 a link that failed, 3 an
+  # 1 missing inputs, a runtime failure or a configuration error, 2 a link that failed, 3 an
   # error in the config file.
   [lychee]="0:0 1:2 2:1 3:2"
-  # 1.32.0: 1 an error during the audit, a GitHub API it could not reach among them, 2 an argument it
-  # could not parse, 3 no input collected, 11 to 14 findings by their highest severity. Nothing
-  # answers 10 since 1.14.0.
+  # 1 an error during the audit, a GitHub API it could not reach among them, 2 an argument it
+  # could not parse, 3 no input collected, 11 to 14 findings by their highest severity, and no 10.
   [zizmor]="0:0 1:2 2:3 3:2 11:1 12:1 13:1 14:1"
-  # 0.11.0: 2 a file it could not process, 3 and 4 a flag or an option it was handed wrong.
+  # 2 a file it could not process, 3 and 4 a flag or an option it was handed wrong.
   [shellcheck]="0:0 1:1 2:2 3:3 4:3"
-  # 1.7.12: 2 an invalid command-line option, which Go's own panic status shares, 3 a fatal error.
+  # 2 an invalid command-line option, which Go's own panic status shares, 3 a fatal error.
   [actionlint]="0:0 1:1 2:3 3:2"
   # 2 an interrupt and a test module that does not collect alike, 3 an internal error, 4 a usage
   # error or a conftest.py that fails to import, 5 no test collected.

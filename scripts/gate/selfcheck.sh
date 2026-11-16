@@ -49,9 +49,8 @@ while IFS=$'\t' read -r meta path; do
   fi
 done < <(git ls-files -s -- "${SHELL_FILES[@]}")
 
-# A linter's status through its own table, Docker's ahead of it (`_lib.sh :: EXIT_CODES`): what it
-# found is a finding, and a linter whose image never ran, or that could not read a file it was
-# handed, judged nothing.
+# A linter's status through its own table, Docker's ahead of it: what it found is a finding, and a
+# linter whose image never ran, or that could not read a file it was handed, judged nothing.
 linted() { # $1 the linter · $2 its status · $3 the line it ran on
   local class=0
   exit_class "docker+$1" "$2" || class=$?
