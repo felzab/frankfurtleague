@@ -12,6 +12,7 @@ from app.core.collections import Collection
 from app.core.exceptions import APIError
 from tests import documents
 from tests.database import a_clean_database
+from tests.stored import the_row
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -122,10 +123,7 @@ async def date_the_matchday(database: AsyncDatabase, day: str) -> None:
 async def stored_season(database: AsyncDatabase) -> Mapping[str, Any]:
     """The season as a later request reads it."""
 
-    stored = await database[Collection.SAISONS].find_one({"_id": SAISON_ID})
-    assert stored is not None
-
-    return stored
+    return await the_row(database, Collection.SAISONS, {"_id": SAISON_ID})
 
 
 async def patch_the_rules(database: AsyncDatabase, *, today: str = THE_DAY_BEFORE, start_date: str = SAISON_START, **overrides: Any) -> Any:

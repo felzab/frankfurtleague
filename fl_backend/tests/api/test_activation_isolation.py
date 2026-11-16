@@ -30,6 +30,7 @@ from tests.database import a_clean_database
 from tests.documents import ADDRESS, rules_document, saison_document, saison_team_document, team_document
 from tests.isolation import MISCOUNTED_JUDGEMENTS, InterleavedCollection, Rival, outcome_of
 from tests.payloads import spiel_patch_body
+from tests.stored import the_row
 from tests.team_writes import save_the_team
 from tests.worker import worker_database
 
@@ -310,19 +311,13 @@ async def results_entered(database: AsyncDatabase) -> int:
 async def start_now(database: AsyncDatabase) -> str:
     """The target's stored start, read outside any transaction."""
 
-    stored = await database[Collection.SAISONS].find_one({"_id": TARGET})
-    assert stored is not None, f"the seed holds no season {TARGET}"
-
-    return str(stored["start_date"])
+    return str((await the_row(database, Collection.SAISONS, {"_id": TARGET}, f"the seed holds no season {TARGET}"))["start_date"])
 
 
 async def tiebreak_now(database: AsyncDatabase) -> str:
     """The target's stored order, read outside any transaction."""
 
-    stored = await database[Collection.SAISONS].find_one({"_id": TARGET})
-    assert stored is not None, f"the seed holds no season {TARGET}"
-
-    return str(stored["rules"]["tiebreak_order"])
+    return str((await the_row(database, Collection.SAISONS, {"_id": TARGET}, f"the seed holds no season {TARGET}"))["rules"]["tiebreak_order"])
 
 
 class TestADrawLandingMidRolloverIsJudgedAgain:

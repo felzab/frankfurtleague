@@ -1,4 +1,4 @@
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 
 import pytest
@@ -15,6 +15,7 @@ from tests.bewerbung_routes import answered
 from tests.database import a_clean_database
 from tests.documents import SEAT_TEXT_VERSIONS, kontaktperson_document, saison_document, saison_team_document
 from tests.outbox import MAIL_NOW, drained
+from tests.stored import the_row
 from tests.worker import worker_database
 
 # Module level: what a seat write leaves is a stored block and an owed mail, in one transaction.
@@ -98,19 +99,16 @@ async def write_seat(database: AsyncDatabase, seat: str, sent: dict[str, Any], *
     )
 
 
-async def row_and_mails(database: AsyncDatabase) -> tuple[dict[str, Any], list[Any]]:
-    row = await database[Collection.SAISON_TEAMS].find_one({"team_id": TEAM_OID})
-    assert row is not None
-
-    return row, await drained(database, database.client)
+async def row_and_mails(database: AsyncDatabase) -> tuple[Mapping[str, Any], list[Any]]:
+    return await the_row(database, Collection.SAISON_TEAMS, {"team_id": TEAM_OID}), await drained(database, database.client)
 
 
 async def refused(
     url: str, seat: str, sent: dict[str, Any], *, kontakte: dict[str, Any] | None, version: int = 0
-) -> tuple[Code, Any, dict[str, Any]]:
+) -> tuple[Code, Any, Mapping[str, Any]]:
     """The refusal and the row it left, which must be the row as seeded."""
 
-    async def body(database: AsyncDatabase) -> tuple[Code, Any, dict[str, Any]]:
+    async def body(database: AsyncDatabase) -> tuple[Code, Any, Mapping[str, Any]]:
         with pytest.raises(APIError) as refusal:
             await write_seat(database, seat, sent, version=version)
 
@@ -274,8 +272,8 @@ class TestAConfirmationLandingBeforeTheSave:
         "stellvertretung": None,
     }
 
-    async def pressed_then_written(self, url: str, sent: dict[str, Any]) -> tuple[dict[str, Any], list[Any]]:
-        async def body(database: AsyncDatabase) -> tuple[dict[str, Any], list[Any]]:
+    async def pressed_then_written(self, url: str, sent: dict[str, Any]) -> tuple[Mapping[str, Any], list[Any]]:
+        async def body(database: AsyncDatabase) -> tuple[Mapping[str, Any], list[Any]]:
             await confirm_by_link(database)
             await write_seat(database, "trainer", sent, version=0)
 

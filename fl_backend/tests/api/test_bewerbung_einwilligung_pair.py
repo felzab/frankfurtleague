@@ -17,6 +17,7 @@ from tests import documents
 from tests.bewerbung_routes import answered
 from tests.database import a_clean_database
 from tests.documents import SEAT_TEXT_VERSIONS, kontaktperson_document, minted_confirmations
+from tests.stored import the_row
 from tests.worker import worker_database
 
 # Module level, as the execution suite marks its own: every test below reaches a real mongod.
@@ -98,10 +99,7 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
 
 
 async def stored(database: AsyncDatabase) -> Mapping[str, Any]:
-    found = await database[Collection.BEWERBUNGEN].find_one({"_id": BEWERBUNG_OID})
-    assert found is not None, "the seeded application is gone"
-
-    return found
+    return await the_row(database, Collection.BEWERBUNGEN, {"_id": BEWERBUNG_OID}, "the seeded application is gone")
 
 
 class TestAPairedDecline:

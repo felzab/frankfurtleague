@@ -1,4 +1,4 @@
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Any
 
 import pytest
@@ -13,6 +13,7 @@ from app.core.exceptions import APIError
 from tests.database import a_clean_database
 from tests.documents import confirmed_kenntnisnahme, rules_document, saison_document, saison_team_document, spiel_document, team_document
 from tests.outbox import MAIL_NOW
+from tests.stored import the_row
 from tests.team_writes import save_the_team
 from tests.worker import worker_database
 
@@ -107,11 +108,10 @@ async def call_put(database: AsyncDatabase, austritt: dict[str, Any], *, today: 
     )
 
 
-async def stored_row(database: AsyncDatabase, team_id: ObjectId = ADLER) -> dict[str, Any]:
-    row = await database[Collection.SAISON_TEAMS].find_one({"saison_id": SAISON_ID, "team_id": team_id})
-    assert row is not None, f"the seed holds no junction row for {team_id}"
-
-    return row
+async def stored_row(database: AsyncDatabase, team_id: ObjectId = ADLER) -> Mapping[str, Any]:
+    return await the_row(
+        database, Collection.SAISON_TEAMS, {"saison_id": SAISON_ID, "team_id": team_id}, f"the seed holds no junction row for {team_id}"
+    )
 
 
 class TestRecordingAnExitFromTheSeason:

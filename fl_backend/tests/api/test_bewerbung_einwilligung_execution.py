@@ -22,6 +22,7 @@ from tests.bewerbung_routes import answered, resent, viewed
 from tests.database import a_clean_database
 from tests.documents import kontaktperson_document, team_document
 from tests.outbox import MAIL_NOW, drained
+from tests.stored import the_row
 from tests.worker import worker_database
 
 # Module level, as the submission suite marks its own: every test below reaches a real mongod.
@@ -131,10 +132,7 @@ async def resend(database: AsyncDatabase, seat: str, bewerbung_id: ObjectId = BE
 
 
 async def stored(database: AsyncDatabase, bewerbung_id: ObjectId = BEWERBUNG_OID) -> Mapping[str, Any]:
-    found = await database[Collection.BEWERBUNGEN].find_one({"_id": bewerbung_id})
-    assert found is not None, "the seeded application is gone"
-
-    return found
+    return await the_row(database, Collection.BEWERBUNGEN, {"_id": bewerbung_id}, "the seeded application is gone")
 
 
 class TestWhatALinkOpens:

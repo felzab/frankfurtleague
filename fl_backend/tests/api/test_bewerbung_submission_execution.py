@@ -28,6 +28,7 @@ from tests.database import a_clean_database
 from tests.documents import ADDRESS, minted_confirmations, rules_document, saison_document, saison_team_document, team_document
 from tests.holds import HoldsAfterItsLookup
 from tests.outbox import MAIL_NOW, drained
+from tests.stored import the_row
 from tests.worker import worker_database
 
 # Module level, as `tests/api/test_bewerbung_triage_execution.py` marks its suite: every test below
@@ -577,8 +578,7 @@ def naming(**addresses: str) -> dict[str, Any]:
 async def sent_days(database: AsyncDatabase, press: Any) -> dict[str, Any]:
     """Each seat's `sent_at` on the application this press stored."""
 
-    stored = await database[Collection.BEWERBUNGEN].find_one({"_id": press.created_id})
-    assert stored is not None
+    stored = await the_row(database, Collection.BEWERBUNGEN, {"_id": press.created_id})
 
     return {seat: entry["sent_at"] for seat, entry in stored["confirmations"].items()}
 

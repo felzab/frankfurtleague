@@ -18,6 +18,7 @@ from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.database import a_clean_database
+from tests.stored import the_row
 from tests.worker import worker_database
 
 # Module level, as the application's confirmation suite marks its own: every test below reaches a
@@ -145,10 +146,7 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
 
 
 async def stored(database: AsyncDatabase) -> Mapping[str, Any]:
-    found = await database[Collection.REGISTRIERUNGEN].find_one({"_id": REGISTRIERUNG_OID})
-    assert found is not None, "the seeded registration is gone"
-
-    return found
+    return await the_row(database, Collection.REGISTRIERUNGEN, {"_id": REGISTRIERUNG_OID}, "the seeded registration is gone")
 
 
 class TestWhatALinkOpens:

@@ -21,6 +21,7 @@ from app.core import clock
 from app.core.collections import Collection
 from tests import documents
 from tests.payloads import spiel_patch_body
+from tests.stored import the_row
 
 SAISON_ID = "2026"
 
@@ -277,8 +278,7 @@ async def payload_for(database: AsyncDatabase, spiel_id: ObjectId, **overrides: 
     erased rather than kept, and the test would be about that instead.
     """
 
-    stored = await database[Collection.SPIELE].find_one({"_id": spiel_id})
-    assert stored is not None, f"the seed holds no fixture {spiel_id}"
+    stored = await the_row(database, Collection.SPIELE, {"_id": spiel_id}, f"the seed holds no fixture {spiel_id}")
 
     return FLPatchSpielDataPayload.model_validate(spiel_patch_body(stored, **overrides))
 

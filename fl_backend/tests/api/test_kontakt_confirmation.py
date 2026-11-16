@@ -40,6 +40,7 @@ from tests.isolation import InterleavedCollection, refused_code
 from tests.outbox import MAIL_NOW, drained
 from tests.plans import plans_of_sent_reads
 from tests.records import record_collections
+from tests.stored import the_row
 from tests.team_writes import write_the_block
 from tests.whole_database import where_held
 from tests.worker import worker_database
@@ -287,11 +288,8 @@ async def ban(database: AsyncDatabase, client: AsyncMongoClient, email: str) -> 
     return await ban_through_the_route(database, client, email=email, ban_reason="Wiederholte Falschangaben", by=ADMIN, today=TODAY)
 
 
-async def row_now(database: AsyncDatabase, row_id: ObjectId = ROW_OID) -> dict[str, Any]:
-    found = await database[Collection.SAISON_TEAMS].find_one({"_id": row_id})
-    assert found is not None, "the seeded row is gone"
-
-    return found
+async def row_now(database: AsyncDatabase, row_id: ObjectId = ROW_OID) -> Mapping[str, Any]:
+    return await the_row(database, Collection.SAISON_TEAMS, {"_id": row_id}, "the seeded row is gone")
 
 
 async def seats_of(database: AsyncDatabase, client: AsyncMongoClient, email: str) -> list[tuple[str, str]]:
@@ -893,11 +891,8 @@ def accepted(kontakte: Mapping[str, Any]) -> dict[str, Any]:
     )
 
 
-async def the_application(database: AsyncDatabase) -> dict[str, Any]:
-    application = await database[Collection.BEWERBUNGEN].find_one({"_id": ACCEPTED_OID})
-    assert application is not None
-
-    return application
+async def the_application(database: AsyncDatabase) -> Mapping[str, Any]:
+    return await the_row(database, Collection.BEWERBUNGEN, {"_id": ACCEPTED_OID})
 
 
 class TestTheReplacementTakesThemOffTheApplication:

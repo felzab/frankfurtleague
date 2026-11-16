@@ -25,6 +25,7 @@ from tests import documents
 from tests.database import a_clean_database
 from tests.isolation import refused_code
 from tests.outbox import MAIL_NOW, drained
+from tests.stored import the_row
 from tests.worker import worker_database
 
 # Module level: every case below reaches a real mongod, each write being one transaction.
@@ -119,10 +120,7 @@ async def save(database: AsyncDatabase, client: AsyncMongoClient, *, email: str)
 
 
 async def stored(database: AsyncDatabase) -> Mapping[str, Any]:
-    found = await database[Collection.SCHIEDSRICHTER].find_one({"_id": SCHIEDSRICHTER_OID})
-    assert found is not None, "the referee this case seeded is gone"
-
-    return found
+    return await the_row(database, Collection.SCHIEDSRICHTER, {"_id": SCHIEDSRICHTER_OID}, "the referee this case seeded is gone")
 
 
 class TestTheSaveOnAConfirmedReferee:

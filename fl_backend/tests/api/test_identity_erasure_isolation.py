@@ -5,7 +5,7 @@ Each case runs one write to its commit inside the erasure, after the erasure's f
 database what holds the address once the erasure has answered.
 """
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -34,6 +34,7 @@ from tests.documents import (
 from tests.erasure import erased
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.outbox import MAIL_NOW
+from tests.stored import the_row
 from tests.team_writes import save_the_team, write_the_block
 from tests.whole_database import where_folded_to
 from tests.worker import worker_database
@@ -157,10 +158,8 @@ SEATED = {
 BESIDE = {**SEATED, "first_name": "Ottilie", "last_name": "Andere", "email": "ottilie.andere@example.com", "phone": "+49 69 5550404"}
 
 
-async def club_row(database: AsyncDatabase) -> dict[str, Any]:
-    found = await database[Collection.SAISON_TEAMS].find_one({"team_id": TEAM_OID, "saison_id": SAISON_ID})
-    assert found is not None, "the seeded row is gone"
-    return found
+async def club_row(database: AsyncDatabase) -> Mapping[str, Any]:
+    return await the_row(database, Collection.SAISON_TEAMS, {"team_id": TEAM_OID, "saison_id": SAISON_ID}, "the seeded row is gone")
 
 
 async def contacts_saved(database: AsyncDatabase, client: AsyncMongoClient, kontakte: Any, version: int) -> Any:
@@ -171,7 +170,7 @@ async def junction_patched(database: AsyncDatabase, client: AsyncMongoClient, va
     return await save_the_team(database, team_id=TEAM_OID, saison_id=SAISON_ID, **values)
 
 
-def junction_values(row: dict[str, Any], **changed: Any) -> dict[str, Any]:
+def junction_values(row: Mapping[str, Any], **changed: Any) -> dict[str, Any]:
     return {"gruppe": row["gruppe"], "trikot_farbe": row.get("trikot_farbe"), **changed}
 
 
