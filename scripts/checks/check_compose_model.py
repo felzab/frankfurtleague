@@ -88,15 +88,8 @@ SECRET_HOLDERS: Final[dict[str, dict[str, tuple[frozenset[str], str]]]] = {
         "frontend_mongodb_uri": (_FRONTEND, f"{SECRETS_PATH}/frontend_mongodb_uri"),
         "backend_mongodb_uri": (_BACKEND, f"{SECRETS_PATH}/backend_mongodb_uri"),
     },
-    # No connector, no mail and no provider event; both logins are `CONFIG_HOLDERS`'.
+    # No connector, no mail and no provider event; both logins are inline configs `local_logins` judges.
     "local": {secret: (holders, f"{SECRETS_PATH}/{secret}") for secret, holders in _EITHER_STACK.items()},
-}
-
-# Every file each stack hands a service as an inline config at `RUN_SECRETS`, by its holders: the local
-# stack's logins, which name its own database and no credential, so no machine keeps production's.
-CONFIG_HOLDERS: Final[dict[str, dict[str, frozenset[str]]]] = {
-    "production": {},
-    "local": {"frontend_mongodb_uri": _FRONTEND, "backend_mongodb_uri": _BACKEND},
 }
 
 # The environment names those files replace: one in a service's `environment:` is a second copy of a
@@ -288,15 +281,15 @@ def _not_the_local_database(content: object, services_declared: dict[str, Any]) 
     return None
 
 
-def config_holders(model: dict[str, Any], name: str, stack: str) -> list[Finding]:
-    """Exactly `CONFIG_HOLDERS[stack]` mounted at `RUN_SECRETS`, each by its services alone and naming this stack's database.
+def local_logins(model: dict[str, Any], name: str) -> list[Finding]:
+    """Every config a service mounts at `RUN_SECRETS` is a login-free URI naming the stack's own database.
 
-    A service reads any file there as a credential, so a config nothing lists there is one no secret table checks.
+    A service reads any file there as a credential, and a config sits in a tracked compose file: a login there is
+    published, and any other host aims the stack at a database it does not start. Production starts none, so a
+    config there is a finding whatever it holds.
     """
-    expected = CONFIG_HOLDERS[stack]
     declared = model.get("configs") or {}
     services_declared = services(model, name)
-    held: dict[str, list[str]] = {file: [] for file in expected}
     findings: list[Finding] = []
     for service, definition in sorted(services_declared.items()):
         for entry in definition.get("configs") or []:
@@ -305,13 +298,8 @@ def config_holders(model: dict[str, Any], name: str, stack: str) -> list[Finding
             source = str(entry.get("source"))
             # A config's default target is `/<source>` (https://docs.docker.com/reference/compose-file/services/#configs).
             target = str(entry.get("target") or f"/{source}")
-            directory, _, file = target.rpartition("/")
-            if directory != RUN_SECRETS:
+            if target.rpartition("/")[0] != RUN_SECRETS:
                 continue
-            if file not in held:
-                findings.append(Finding(f"{name}: {service} mounts the config {source} at {target}, a file CONFIG_HOLDERS lacks"))
-                continue
-            held[file].append(service)
             if (wrong := _not_the_local_database((declared.get(source) or {}).get("content"), services_declared)) is not None:
                 findings.append(
                     Finding(
@@ -319,9 +307,6 @@ def config_holders(model: dict[str, Any], name: str, stack: str) -> list[Finding
                         f"{CONTINUATION}a login there aims the stack at a database other than its own",
                     )
                 )
-    for file, holders in sorted(expected.items()):
-        if sorted(held[file]) != sorted(holders):
-            findings.append(Finding(f"{name}: {held[file] or 'nothing'} reads a config as {file}, not {sorted(holders)}"))
     return findings
 
 
@@ -593,7 +578,7 @@ RULES: Final[tuple[Callable[[Stack], list[Finding]], ...]] = (
     lambda stack: networks(stack.model, stack.name),
     lambda stack: privileges(stack.model, stack.name),
     lambda stack: secret_holders(stack.model, stack.name, stack.project, stack.name),
-    lambda stack: config_holders(stack.model, stack.name, stack.name),
+    lambda stack: local_logins(stack.model, stack.name),
     lambda stack: moved_names(stack.model, stack.name),
     lambda stack: secrets_directory(stack.model, stack.name, stack.project),
 )
