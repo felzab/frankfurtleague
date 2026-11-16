@@ -157,23 +157,22 @@ class TestTheEditorSaysAFixtureHasTakenPlace:
     ):
         """Read wrong, the start date's box stands open to a save `saison_start_taken_place` refuses, or locked for nothing."""
 
-        async def _run() -> bool:
-            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
-                await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "future", start_date=START))
-                await database[Collection.SPIELE].insert_one(
-                    spiel_document(
-                        spiel_id=ObjectId(),
-                        saison_id=SAISON_ID,
-                        spiel_nr=1,
-                        spieltag_id=ObjectId(),
-                        team1={"team_id": ObjectId(), "tore": sides[0]},
-                        team2={"team_id": ObjectId(), "tore": sides[1]},
-                    )
+        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
+            await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "future", start_date=START))
+            await database[Collection.SPIELE].insert_one(
+                spiel_document(
+                    spiel_id=ObjectId(),
+                    saison_id=SAISON_ID,
+                    spiel_nr=1,
+                    spieltag_id=ObjectId(),
+                    team1={"team_id": ObjectId(), "tore": sides[0]},
+                    team2={"team_id": ObjectId(), "tore": sides[1]},
                 )
+            )
 
-                return (await read(database)).saison.taken_place
+            served = (await read(database)).saison.taken_place
 
-        assert await _run() is taken_place
+        assert served is taken_place
 
 
 class TestTheEditorsActsAreRefusedAsTheirWritesRefuse:
@@ -218,7 +217,6 @@ class TestTheEditorsActsAreRefusedAsTheirWritesRefuse:
             await state(database)
 
             served = getattr((await read(database)).refusals, act)
-
-            served, answered = served, await pressed(act, database, client)
+            answered = await pressed(act, database, client)
 
         assert (served, answered) == (refused, refused)

@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from bson import ObjectId
 from httpx2 import Response
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.overview import _gaps
 from app.api.spiele.schemas import FLSpielJoinedInternal
@@ -22,7 +23,7 @@ from app.core.config import API_VERSION
 from tests import documents
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_AUTH, build_test_config, grants_for_the_suite
-from tests.database import a_clean_database, bounded, unwritten
+from tests.database import held_corpus
 
 SAISON = "2026"
 OTHER_SAISON = "2025"
@@ -149,45 +150,42 @@ def application(bewerbung_id: ObjectId, status: str, submitted_at: str, **fields
 async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
     database_name = build_test_config().db_base_name
 
-    async def _seed() -> None:
-        async with a_clean_database(mongo_replica_set_url, database_name) as (_, database):
-            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
-            await database[Collection.SAISONS].insert_many(
-                [documents.saison_document(OTHER_SAISON, "past"), documents.saison_document(SAISON, "active")]
+    async def seed(database: AsyncDatabase) -> None:
+        await database[Collection.GRANTS].insert_many(grants_for_the_suite())
+        await database[Collection.SAISONS].insert_many(
+            [documents.saison_document(OTHER_SAISON, "past"), documents.saison_document(SAISON, "active")]
+        )
+        await database[Collection.TEAMS].insert_many(
+            [
+                documents.team_document(HOME, "Lessing", "LES"),
+                documents.team_document(AWAY, "Goethe", "GOE"),
+                documents.team_document(PICKED, "Schiller", "SCH"),
+            ]
+        )
+        await database[Collection.SAISON_TEAMS].insert_many(
+            [
+                documents.saison_team_document(SAISON, team_id, name, name[:3].upper())
+                for team_id, name in ((HOME, "Lessing"), (AWAY, "Goethe"), (PICKED, "Schiller"))
+            ]
+        )
+        await database[Collection.SPIELORTE].insert_one(documents.spielort_document(SPIELORT, "Halle Ost", default_mietpreis=40))
+        await database[Collection.SCHIEDSRICHTER].insert_one(
+            documents.schiedsrichter_document(
+                SCHIEDSRICHTER, email="anna.koerner@example.com", name="Anna Körner", default_payment=20, einwilligung=None
             )
-            await database[Collection.TEAMS].insert_many(
-                [
-                    documents.team_document(HOME, "Lessing", "LES"),
-                    documents.team_document(AWAY, "Goethe", "GOE"),
-                    documents.team_document(PICKED, "Schiller", "SCH"),
-                ]
-            )
-            await database[Collection.SAISON_TEAMS].insert_many(
-                [
-                    documents.saison_team_document(SAISON, team_id, name, name[:3].upper())
-                    for team_id, name in ((HOME, "Lessing"), (AWAY, "Goethe"), (PICKED, "Schiller"))
-                ]
-            )
-            await database[Collection.SPIELORTE].insert_one(documents.spielort_document(SPIELORT, "Halle Ost", default_mietpreis=40))
-            await database[Collection.SCHIEDSRICHTER].insert_one(
-                documents.schiedsrichter_document(
-                    SCHIEDSRICHTER, email="anna.koerner@example.com", name="Anna Körner", default_payment=20, einwilligung=None
-                )
-            )
-            await database[Collection.SPIELE].insert_many(list(SPIELE.values()))
-            await database[Collection.SPIELBESTAETIGUNGEN].insert_many(ROWS)
-            await database[Collection.SPIELBERICHTE].insert_one(documents.spielbericht_document(SPIELE[REPORTED]))
-            await database[Collection.BEWERBUNGEN].insert_many(
-                [
-                    application(NEW_SCHOOL, "submitted", "2026-02-01", schule=documents.new_schule_document("Riedberg")),
-                    application(PICKED_CLUB, "submitted", "2026-02-10", team_id=PICKED),
-                    application(DECIDED, "declined", "2026-01-20", schule=documents.new_schule_document("Westend")),
-                ]
-            )
+        )
+        await database[Collection.SPIELE].insert_many(list(SPIELE.values()))
+        await database[Collection.SPIELBESTAETIGUNGEN].insert_many(ROWS)
+        await database[Collection.SPIELBERICHTE].insert_one(documents.spielbericht_document(SPIELE[REPORTED]))
+        await database[Collection.BEWERBUNGEN].insert_many(
+            [
+                application(NEW_SCHOOL, "submitted", "2026-02-01", schule=documents.new_schule_document("Riedberg")),
+                application(PICKED_CLUB, "submitted", "2026-02-10", team_id=PICKED),
+                application(DECIDED, "declined", "2026-01-20", schule=documents.new_schule_document("Westend")),
+            ]
+        )
 
-    await bounded(_seed())
-
-    with unwritten(mongo_replica_set_url, database_name):
+    async with held_corpus(mongo_replica_set_url, database_name, seed):
         yield mongo_replica_set_url
 
 

@@ -65,20 +65,10 @@ def saison_document() -> dict[str, Any]:
     return documents.saison_document(SAISON_ID, "active", start_date=SAISON_START, end_date=SAISON_END, rules=dict(RULES))
 
 
-def spieltag_document(**overrides: Any) -> dict[str, Any]:
+def matchday() -> dict[str, Any]:
     """No `count_spiele`, the shape a drawn schedule leaves, so the echo assertions are controls rather than readings of a stale key."""
 
-    return {
-        "_id": SPIELTAG_OID,
-        "start": SPIELTAG_START,
-        "end": SPIELTAG_END,
-        "position": 1,
-        "saison_phase": "gruppenphase",
-        "saison_id": SAISON_ID,
-        # As the draw's insert writes it: the save is checked against it.
-        "version": 0,
-        **overrides,
-    }
+    return documents.spieltag_document(SPIELTAG_OID, SAISON_ID, 1, start=SPIELTAG_START, end=SPIELTAG_END)
 
 
 def spiel_document(*, spiel_nr: int, **overrides: Any) -> dict[str, Any]:
@@ -93,7 +83,7 @@ Body = Callable[[AsyncDatabase], Awaitable[Any]]
 async def on_a_database(url: str, body: Body) -> Any:
     async with a_clean_database(url, DATABASE_NAME) as (_, database):
         await database.saisons.insert_one(saison_document())
-        await database.spieltage.insert_one(spieltag_document())
+        await database.spieltage.insert_one(matchday())
         return await body(database)
 
 
@@ -192,14 +182,7 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
         saison_id: str = SAISON_ID,
     ) -> None:
         await database.spieltage.insert_one(
-            spieltag_document(
-                _id=oid,
-                position=position,
-                saison_phase=phase,
-                saison_id=saison_id,
-                start=start,
-                end=None if start is None else end,
-            )
+            documents.spieltag_document(oid, saison_id, position, saison_phase=phase, start=start, end=None if start is None else end)
         )
 
     async def test_a_move_past_the_next_position_is_refused(self, mongo_replica_set_url: str):

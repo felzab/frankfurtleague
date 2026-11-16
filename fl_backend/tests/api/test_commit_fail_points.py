@@ -1,13 +1,14 @@
 """
-API · a commit refused or its answer lost, and a read held: the journal, the log, the sweeps, a stamp, a repoint, a lookup's transaction
+API · a write refused or its answer lost, and a read held: the journal, the log, the sweeps, a stamp, a repoint, the notices, a lookup
 
-The erasures' and a press's line, a recorded act's row, the confirmation pass's mint, an adoption's stamp and an erased
-pupil's repointed report entries meet a refused or unanswered commit; the subject lookup's reads are held on the server, so that the ones
-a transaction runs are seen going one at a time.
+The erasures' and a press's line, a recorded act's row, the confirmation pass's mint, an adoption's stamp, an erased
+pupil's repointed report entries and the notices a club's exit owes meet a refused or unanswered write; the subject
+lookup's reads are held on the server, so that the ones a transaction runs are seen going one at a time.
 
-Every case configuring `failCommand` lives in this module: the fail point is one setting the server holds for all
-workers, so a second module configuring it on another worker would replace this one's configuration, and either case's
-`off` would clear both. The gate's `--dist loadfile` runs one module on one worker, its cases one after another.
+Every case configuring `failCommand` lives in this module, through `fail_point`: MongoDB holds one configuration of a
+fail point for the whole server, which every worker shares, so a second module configuring it on another worker would
+replace this one's configuration, and either case's `off` would clear both. The gate's `--dist loadfile` runs one
+module on one worker, its cases one after another.
 """
 
 import logging
@@ -27,12 +28,15 @@ from pymongo.errors import PyMongoError
 
 from app.api.action_log.schemas import FLActionLogRecord
 from app.api.identity.crud import find_subject_in_session
+from app.api.teams.admin_router import put_austritt
+from app.api.teams.schemas import FLAustrittPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.recording import ACT_BY_KONTAKT, record_act
 from app.core.transactions import UNKNOWN_COMMIT_RESULT
 from app.shared.einwilligung_evidence import evidence_state_of
+from tests import austritt_corpus as austritt
 from tests import spiel_saves
 from tests import spielbestaetigung_corpus as confirmations
 from tests.acts import journal_records
@@ -57,6 +61,7 @@ from tests.erasure_sweep_corpus import a_due_pupil, a_report_naming, seeded
 from tests.erasure_sweep_corpus import numbered as pupil_numbered
 from tests.erasure_sweep_corpus import run as a_deletion_call
 from tests.erasure_sweep_corpus import the_league as the_pupils_league
+from tests.outbox import MAIL_NOW
 from tests.records import record_collections
 from tests.session_headers import StampedHeaders
 from tests.stored import the_row
@@ -571,3 +576,61 @@ class TestAPupilsErasureRefusedAtItsCommit:
         # `a_report_naming` names the pupil as the report's first scorer.
         assert report["bericht"]["scorers"][0]["spieler_id"] == pupil, "an erasure that rolled back repointed the report"
         assert standing == 1
+
+
+# The client whose exit the server refuses, by its name; each refusal carries no transient label, on which
+# `with_transaction` never retries.
+REFUSED_EXIT_APP = "austritt-refused"
+# The server's code for a bad value, which the write recording an exit on the club's row is refused with.
+BAD_VALUE = 2
+# The exit's commit, or the write recording it on the club's row (`findAndModify`, which no notice sends): the one is
+# what notices written off its session outlive, the other what notices committed apart from it outlive.
+EXIT_REFUSALS = [
+    pytest.param(["commitTransaction"], NO_SUCH_TRANSACTION, id="its commit refused"),
+    pytest.param(["findAndModify"], BAD_VALUE, id="its row's write refused"),
+]
+
+
+async def _exit_through(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    """The exit as its route's own function records it, the day before it takes effect."""
+
+    await put_austritt(
+        team_id=austritt.DEPARTED,
+        saison_id=austritt.SAISON_ID,
+        austritt_data=FLAustrittPayload.model_validate({"type": "rueckzug", "reason": "Schulwechsel", "date": austritt.EXIT_DAY}),
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=database[Collection.SAISONS],
+        spiele_collection=database[Collection.SPIELE],
+        outbox_collection=database[Collection.OUTBOX],
+        db=client,
+        today=austritt.DAY_BEFORE,
+        germany_now=MAIL_NOW,
+    )
+
+
+@pytest.mark.db
+class TestAnExitRefusedAtItsWrite:
+    @pytest.mark.parametrize(("commands", "code"), EXIT_REFUSALS)
+    async def test_the_exit_s_write_owes_the_notices_in_its_own_transaction(self, mongo_replica_set_url: str, commands: list[str], code: int):
+        """The one case holding that the route owes the notices: an exit recorded with that call gone would tell nobody.
+
+        The Austritt suite owes them through the crud alone. Owed outside the exit's transaction, a refused exit would tell
+        every opponent of an exit that never stood.
+        """
+
+        refusal = {"failCommands": commands, "appName": REFUSED_EXIT_APP, "errorCode": code, "errorLabels": []}
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            async with failing_client(client, mongo_replica_set_url, refusal, mode={"times": 1}) as refusing:
+                with pytest.raises(PyMongoError):
+                    await _exit_through(refusing[database.name], refusing)
+            refused = await austritt.told(database, client)
+            await _exit_through(database, client)
+
+            return refused, await austritt.told(database, client)
+
+        spiele = [austritt.spiel(1, austritt.DEPARTED, austritt.OPPONENT, austritt.LATER)]
+        refused, notices = await on_a_league(mongo_replica_set_url, lambda database: austritt.the_league(database, spiele=spiele), body)
+
+        assert refused == {}
+        assert sorted(notices) == austritt.addresses(austritt.OPPONENT)
