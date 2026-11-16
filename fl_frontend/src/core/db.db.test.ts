@@ -1,3 +1,4 @@
+import { once } from "node:events";
 import { setTimeout as pause } from "node:timers/promises";
 
 import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, overriding, registerAuthDoubles, signInByCode } from "@/test-support/authDoubles.ts";
@@ -5,7 +6,7 @@ import { startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
 import { captureLog } from "@/test-support/stdoutCapture.ts";
 import { StoreRelay } from "@/test-support/storeRelay.ts";
 import { isAPIError } from "better-auth/api";
-import { MongoError, MongoServerSelectionError } from "mongodb";
+import { MongoError } from "mongodb";
 import { assert, describe, expect, it } from "vitest";
 
 import type { MongoClient } from "mongodb";
@@ -15,8 +16,6 @@ const { mongod, closing } = await startJudgedReplicaSet();
 const relay = new StoreRelay(mongod);
 closing(() => relay.close());
 const RELAYED_URL = `mongodb://127.0.0.1:${await relay.listen()}/?directConnection=true`;
-/** The address the next client `db.ts` builds is given. */
-let storeUrl = RELAYED_URL;
 
 /** Every line the real logger writes, read off standard output. */
 const log = captureLog();
@@ -31,30 +30,27 @@ const PRODUCTION_DB = "@/core/db.ts";
 
 registerAuthDoubles({
   core: {
-    config: configDouble({}, { mongodbUri: () => storeUrl }),
+    config: configDouble({}, { mongodbUri: () => RELAYED_URL }),
     db: overriding(PRODUCTION_DB, {}),
   },
 });
 
-/** The client a fresh evaluation of `db.ts` builds, the URL's suffix naming the evaluation. */
-async function storeOf(url: string): Promise<MongoClient> {
-  const { signInStore } = (await import(url)) as { signInStore: () => MongoClient };
+type Db = { signInStore: () => MongoClient; connectSignInStore: () => Promise<void> };
+
+/** A client `db.ts` builds, the evaluation `url` names. */
+async function storeOf(url: string): Promise<{ client: MongoClient; connectSignInStore: () => Promise<void> }> {
+  const { signInStore, connectSignInStore } = (await import(url)) as Db;
   const client = signInStore();
   closing(() => client.close());
-  return client;
+  return { client, connectSignInStore };
 }
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
-const client = await storeOf(PRODUCTION_DB);
+const { client } = await storeOf(PRODUCTION_DB);
 const { auth } = await import("./auth/library.ts");
 const { readServedSession } = await import("./auth/session.ts");
-// The same module evaluated again, so further clients built by the same code, each connecting first
-// inside its own case.
-const coldClient = await storeOf(`${import.meta.resolve("./db.ts")}?cold-start`);
-// One whose pool keeps no connection idle, as a pool the store's outage emptied: every read opens its own.
-storeUrl = `${RELAYED_URL}&maxIdleTimeMS=1`;
-const openingClient = await storeOf(`${import.meta.resolve("./db.ts")}?openings`);
-storeUrl = RELAYED_URL;
+// The same module evaluated again, so the boot's connect starts on a client no other case has opened.
+const boot = await storeOf(`${import.meta.resolve("./db.ts")}?boot`);
 
 // What a timer firing late on a loaded machine adds to the bound.
 const LATENESS_MS = 2000;
@@ -82,42 +78,22 @@ async function settledWithin(bound: number, what: string, run: () => Promise<unk
   }
 }
 
-describe("the sign-in store's client bounds a cold start", () => {
-  /* Only a client that has never connected takes the driver's automatic connect, which server
-     selection alone bounds. */
-  it("ends the first read against a server that never answers within its `serverSelectionTimeoutMS`", async () => {
-    const outcome = await relay.hang(() =>
-      settledWithin(STAGE_BOUND, "the cold read", () => coldClient.db("store_bound").collection("probe").findOne({})),
-    );
+describe("the boot's connect recovers from a cold start the store refused", () => {
+  /* The driver closes the topology a refused connect built and builds no other on its own, so only the boot's retry
+     opens the client again. */
+  it("opens the client once the store answers, its first attempt having been refused", async () => {
+    // Wrapped, so the refusal ends with the attempt failed rather than waiting on the connect it started.
+    const { connecting } = await relay.refuse(async () => {
+      const attemptFailed = once(boot.client, "topologyClosed");
+      const connected = boot.connectSignInStore();
+      await settledWithin(STAGE_BOUND, "the refused attempt", () => attemptFailed);
+      return { connecting: connected };
+    });
 
-    assert.ok(outcome instanceof MongoServerSelectionError, `the cold read settled with ${String(outcome)}`);
-  });
-});
-
-describe("the sign-in store's client bounds a connection's opening", () => {
-  /* The pool opens two connections at once at most, and a checkout that gives up on an opening leaves it running: only
-     the opening's own bound frees its place, without which every read waits out its checkout once two openings hang. */
-  it("serves a read once the store answers again, two openings it never answered having filled the pool's places", async () => {
-    await openingClient.connect();
-    // Past the pool's idle bound, so the connection the connect checked out is pruned rather than handed to a read.
-    await pause(10);
-    const read = () => openingClient.db("store_bound").collection("probe").findOne({});
-
-    const { during, after, ignored } = await relay.ignoreOpenings(
-      () =>
-        settledWithin(STAGE_BOUND, "the reads the store never answered", () =>
-          Promise.all([read().catch((error: unknown) => error), read().catch((error: unknown) => error)]),
-        ),
-      // Two stages: an opening that timed out marks the server unknown, so the read selects it again before it opens one.
-      () => settledWithin(STAGE_BOUND * 2, "the read after the store answered again", read),
-    );
-
-    expect(ignored, "the reads opened no connection the store left unanswered").toBe(2);
-    assert.ok(
-      Array.isArray(during) && during.every((outcome) => outcome instanceof MongoError),
-      `the unanswered reads settled with ${String(during)}`,
-    );
-    expect(after).toBe(null);
+    // The attempt under way when the store answered, then the pause before the next.
+    await settledWithin(STAGE_BOUND + boot.client.options.minHeartbeatFrequencyMS, "the boot's connect", () => connecting);
+    const probe = () => boot.client.db("store_bound").collection("probe").findOne({});
+    expect(await settledWithin(STAGE_BOUND, "the read after the store answered again", probe)).toBe(null);
   });
 });
 

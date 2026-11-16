@@ -9,9 +9,6 @@ import { TEST_ENVIRONMENT } from "./src/test-support/testEnvironment.mts";
  */
 const PRODUCTION_BUILD = ["src/**/*.production.test.ts"];
 
-/** The database suites of the client `next dev` builds, which run under the `NODE_ENV` it sets. */
-const DEVELOPMENT_BUILD_DB = ["src/core/db.development.db.test.ts"];
-
 /**
  * A case here waits on a replica set in a container and on bounds of its own past Vitest's five seconds. The replica
  * set's start is bounded apart: each file awaits it at module level, where neither bound reaches
@@ -62,10 +59,7 @@ export default defineConfig({
         test: { name: "unit-production", include: PRODUCTION_BUILD, env: { NODE_ENV: "production" } },
       },
       {
-        test: { name: "db", include: ["src/**/*.db.test.ts"], exclude: DEVELOPMENT_BUILD_DB, ...DB_TIER },
-      },
-      {
-        test: { name: "db-development", include: DEVELOPMENT_BUILD_DB, env: { NODE_ENV: "development" }, ...DB_TIER },
+        test: { name: "db", include: ["src/**/*.db.test.ts"], ...DB_TIER },
       },
     ],
   },
