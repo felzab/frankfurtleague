@@ -74,18 +74,24 @@ mkdir -p "$SCRATCH"
 # Windows path.
 EDGE_PY="$(venv_python)" \
   || refuse "No fl_backend virtualenv found, so the edge's configuration could not be read. Create it with:  uv sync --project fl_backend --dev"
-conf_query() { # the query and its arguments, as scripts/lib/nginx_conf.py --help lists them
-  MSYS_NO_PATHCONV=1 "$EDGE_PY" scripts/lib/checker_kernel.py scripts/lib/nginx_conf.py "$@"
+# The answer goes to the file `$1`, never through a substitution, whose subshell a crash would end alone:
+# the status is settled in this shell, and a file that does not say what was asked answers 2, which each
+# caller refuses with its own sentence.
+conf_query() { # $1 the file the answer goes to · the query and its arguments, as scripts/lib/nginx_conf.py --help lists them
+  local into="$1" rc=0 IFS=' '
+  shift
+  MSYS_NO_PATHCONV=1 "$EDGE_PY" scripts/lib/checker_kernel.py scripts/lib/nginx_conf.py "$@" > "$into" || rc=$?
+  settle query "$rc" "${BASH_LINENO[0]}" "nginx_conf.py $*"
 }
 
 # Each header's name and value off the file the set is written in, so a location restating the set
 # with a different value fails as surely as one dropping it. A value naming a variable is the default of
 # the http-level map setting it, which every page but a link page is sent.
 declare -A SECURITY_HEADERS=()
-mapfile -t HEADER_SET < <(conf_query headers nginx/shared/security_headers.conf nginx/shared/http.conf || echo "unread")
+conf_query "${SCRATCH}/headers" headers nginx/shared/security_headers.conf nginx/shared/http.conf \
+  || refuse "nginx/shared/security_headers.conf yielded no header set this test can compare; the parser's reason is above."
+mapfile -t HEADER_SET < "${SCRATCH}/headers"
 for header_entry in "${HEADER_SET[@]}"; do
-  [[ "$header_entry" == *$'\t'* ]] \
-    || refuse "nginx/shared/security_headers.conf yielded no header set this test can compare; the parser's reason is above."
   SECURITY_HEADERS["${header_entry%%$'\t'*}"]="${header_entry#*$'\t'}"
 done
 # Every response under a link page's address withholds the referrer from the first byte, its token in
@@ -345,10 +351,10 @@ grade_security_headers() { # $1 what the request was, the headers already read; 
 HEADER_PATHS=()
 # By index into the paths, each location metering on the link pages' zone, which is a link page's.
 declare -A HEADER_LINK=()
-mapfile -t SITE_LOCATIONS < <(conf_query locations nginx/shared/site.conf || echo "unread")
+conf_query "${SCRATCH}/locations" locations nginx/shared/site.conf \
+  || refuse "nginx/shared/site.conf yielded no location list this probe can read; the parser's reason is above."
+mapfile -t SITE_LOCATIONS < "${SCRATCH}/locations"
 for location_entry in "${SITE_LOCATIONS[@]}"; do
-  [[ "$location_entry" == *$'\t'* ]] \
-    || refuse "nginx/shared/site.conf yielded no location list this probe can read; the parser's reason is above."
   location_args="${location_entry%%$'\t'*}"
   case "$location_args" in
     "= "*) HEADER_PATHS+=( "${location_args#= }" ) ;;
@@ -522,10 +528,9 @@ spent_request() { # $1 a label, the rest curl options naming one transfer; each 
 }
 # Into a variable rather than printed, so a refusal ends the run rather than a substitution's subshell.
 burst_of() { # $1 the variable to set, $2 the location's arguments as the file writes them, $3 the zone
-  local burst
-  burst="$(conf_query figure nginx/shared/site.conf "$2" limit_req "$3")" \
+  conf_query "${SCRATCH}/burst" figure nginx/shared/site.conf "$2" limit_req "$3" \
     || refuse "nginx/shared/site.conf's 'location $2' declares no $3 burst this test can read; the parser's reason is above."
-  printf -v "$1" '%s' "$burst"
+  printf -v "$1" '%s' "$(<"${SCRATCH}/burst")"
 }
 ACTION_LABELS=()
 ACTION_CONFIG=()
@@ -626,8 +631,9 @@ expect_action refusal some:429
 
 # The sentence site.conf's `@edge_refusal` returns, read off the file so a rewording there is graded
 # too.
-REFUSAL_WRITTEN="$(conf_query returned nginx/shared/site.conf @edge_refusal 429)" \
+conf_query "${SCRATCH}/refusal-sentence" returned nginx/shared/site.conf @edge_refusal 429 \
   || refuse "nginx/shared/site.conf returns no 429 sentence this test can read; the parser's reason is above."
+REFUSAL_WRITTEN="$(<"${SCRATCH}/refusal-sentence")"
 # "link" for a transfer to a link page, each of whose labels opens with `link-`.
 link_label() { # $1 the transfer's label
   if [[ "$1" == link-* ]]; then printf 'link'; fi
@@ -651,7 +657,7 @@ grade_refusal() { # $1 the transfer's label, its files named for it
 # The page site.conf's `@edge_refusal_page` returns, read off the file as nginx sends it:
 # the single-quoted string, its newlines kept.
 REFUSAL_PAGE="${SCRATCH}/refusal-page.html"
-conf_query returned nginx/shared/site.conf @edge_refusal_page 429 > "$REFUSAL_PAGE" \
+conf_query "$REFUSAL_PAGE" returned nginx/shared/site.conf @edge_refusal_page 429 \
   || refuse "nginx/shared/site.conf returns no 429 page this test can read; the parser's reason is above."
 
 # The page's colours against the tokens the rebuilt site paints, `fl_frontend/src/app/tokens.css`, each
@@ -784,8 +790,9 @@ grade_spent link-head head
 
 # The connection ceiling, on production's catch-all: one request more than it holds, all in flight at
 # once to an answer the stub sends slowly, meets a refusal.
-CONN_CEILING="$(conf_query figure nginx/shared/site.conf / limit_conn conn)" \
+conf_query "${SCRATCH}/ceiling" figure nginx/shared/site.conf / limit_conn conn \
   || refuse "nginx/shared/site.conf's 'location /' declares no connection ceiling this test can read; the parser's reason is above."
+CONN_CEILING="$(<"${SCRATCH}/ceiling")"
 CONN_REQUESTS=( --parallel --parallel-immediate --parallel-max $(( CONN_CEILING + 1 )) )
 for _ in $(seq 0 "$CONN_CEILING"); do
   CONN_REQUESTS+=( -s -o /dev/null -w '%{http_code}\n' --max-time 15 -H "Host: frankfurtleague.de" "${PROD_BASE}/held" )
@@ -950,8 +957,9 @@ CONF_FILES=()
 for conf in nginx/shared/*.conf nginx/local/*.conf nginx/prod/*.conf; do
   if [[ -f "$conf" ]]; then CONF_FILES+=( "$conf" ); fi
 done
-CONF_DIRECTIVES="$(conf_query directives "${CONF_FILES[@]}")" \
+conf_query "${SCRATCH}/directives" directives "${CONF_FILES[@]}" \
   || refuse "the directives of nginx/'s configuration could not be read, so no upstream or resolver was judged; the parser's reason is above."
+CONF_DIRECTIVES="$(<"${SCRATCH}/directives")"
 # A literal upstream is a server group, which a variable naming the same host and port matches before
 # the resolver is asked: one such directive pins every location naming that upstream to its address at load.
 while IFS=$'\t' read -r conf directive; do

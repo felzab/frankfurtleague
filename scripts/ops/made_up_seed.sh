@@ -68,26 +68,22 @@ state=()
 if (( GIVEN )); then state=(--env "SEED_LANDING=${LANDING}"); fi
 rc=0
 quietly docker compose exec -T "${state[@]}" backend env "PYTHONPATH=${SEED_ROOT}" python -m tests.made_up_seed || rc=$?
-class=0; exit_class contract "$rc" || class=$?
+class=0; settle contract "$rc" "$LINENO" "python -m tests.made_up_seed" || class=$?
 case "$class" in
   0) ok "seeded the made-up league" ;;
   1) die "the made-up seed did not load; its own account is above. A refused insert names the index's key: correct
 fl_backend/tests/made_up_seed.py." ;;
   # The seed's own refusal, a state it does not hold or a server not the local stack's, its account above saying which.
   2) refuse "the made-up seed refused, and its own account above says why." ;;
-  130) on_interrupt ;;
-  *) on_error "$rc" "$LINENO" "python -m tests.made_up_seed" ;;
 esac
 
 step "The backend's own check of what the seed wrote"
 rc=0
 quietly docker compose exec -T backend python -m app.readback || rc=$?
-class=0; exit_class contract "$rc" || class=$?
+class=0; settle contract "$rc" "$LINENO" "python -m app.readback" || class=$?
 case "$class" in
   0) ok "every document the seed wrote reads back through its model" ;;
   1) die "the made-up seed holds a document its model refuses, and the lines above name it: correct
 fl_backend/tests/made_up_seed.py." ;;
   2) refuse "the backend could not read what the seed wrote, so nothing of it was judged; its own account is above." ;;
-  130) on_interrupt ;;
-  *) on_error "$rc" "$LINENO" "python -m app.readback" ;;
 esac

@@ -53,13 +53,10 @@ done < <(git ls-files -s -- "${SHELL_FILES[@]}")
 # linter whose image never ran, or that could not read a file it was handed, judged nothing.
 linted() { # $1 the linter · $2 its status · $3 the line it ran on
   local class=0
-  exit_class "docker+$1" "$2" || class=$?
+  settle "docker+$1" "$2" "$3" "docker run of $1" || class=$?
   case "$class" in
-    0) ;;
     1) note_fail "$1 reported the findings above (exit $2)" ;;
     2) UNRUN+=("$1 judged nothing it was handed (exit $2): its own words, or Docker's, are above") ;;
-    130) on_interrupt ;;
-    *) on_error "$2" "$3" "docker run of $1" ;;
   esac
 }
 

@@ -1,12 +1,13 @@
 """What every checker under `scripts/` is built on.
 
-The repository root and the finding-to-exit-code tail, once each: a checker taking either from its
-own copy drifts into its own behaviour. The exit contract is 0 pass · 1 findings · 2 could not judge
+The repository root, the argument parser and the finding-to-exit-code tail, once each: a checker
+taking any of them from its own copy drifts into its own behaviour. The exit contract is 0 pass · 1 findings · 2 could not judge
 the input · 3 or more the environment is broken, spelled as a literal by no checker.
 """
 
 from __future__ import annotations
 
+import argparse
 import io
 import runpy
 import sys
@@ -14,7 +15,7 @@ import traceback
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final
+from typing import Final, NoReturn
 
 # Three levels: this file sits in `scripts/lib/`.
 REPO_ROOT: Final = Path(__file__).resolve().parents[2]
@@ -55,6 +56,19 @@ def report_findings(findings: Iterable[Finding]) -> int:
     for finding in collected:
         print(f"      FAIL    {finding.detail}")
     return EXIT_FINDINGS if collected else EXIT_OK
+
+
+class ArgumentParser(argparse.ArgumentParser):
+    """argparse's parser, a usage error answering `EXIT_CRASH` rather than argparse's 2, which is `EXIT_REFUSED` here.
+
+    Only this repository's scripts call a checker, so an argument it refuses is our invocation gone
+    wrong. `exit` is the method argparse's documentation offers for overriding, and every subparser
+    inherits it, `add_subparsers` building each from `type(self)`; `exit_on_error=False` reaches no
+    subparser's error.
+    """
+
+    def exit(self, status: int = 0, message: str | None = None) -> NoReturn:
+        super().exit(EXIT_CRASH if status else status, message)
 
 
 def run(entry: Callable[[], int]) -> int:

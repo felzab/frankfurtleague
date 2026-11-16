@@ -23,7 +23,6 @@ Invariants:
 
 from __future__ import annotations
 
-import argparse
 import json
 import re
 import sys
@@ -40,6 +39,7 @@ from checker_kernel import (
     CONTINUATION,
     EXIT_REFUSED,
     REPO_ROOT,
+    ArgumentParser,
     Finding,
     report_findings,
     run,
@@ -891,7 +891,7 @@ RULES: Final = (account, loosened, unmetered_links, unlogged_links, referring_li
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Is every Next route handler accounted for by an nginx location?")
+    parser = ArgumentParser(description="Is every Next route handler accounted for by an nginx location?")
     parser.add_argument(
         "paths", nargs="*", metavar="PATH", help=f"the App Router tree and the edge configuration (default: {APP_ROUTER} {NGINX_CONF})"
     )

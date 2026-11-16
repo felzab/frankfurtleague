@@ -102,13 +102,10 @@ ok "database and backend up"
 # Before the frontend's start, so no page renders, and no cache keeps, a read of a database still filling.
 rc=0
 "${REPO_ROOT}/scripts/ops/made_up_seed.sh" || rc=$?
-class=0; exit_class contract "$rc" || class=$?
+class=0; settle contract "$rc" "$LINENO" "scripts/ops/made_up_seed.sh" || class=$?
 case "$class" in
-  0) ;;
   1) die "the made-up seed failed, and the lines above name what to correct. The frontend and nginx have not been started." ;;
   2) refuse "the made-up seed was refused, and the lines above say why. The frontend and nginx have not been started." ;;
-  130) on_interrupt ;;
-  *) on_error "$rc" "$LINENO" "scripts/ops/made_up_seed.sh" ;;
 esac
 
 step "The rest of the stack"

@@ -7,7 +7,6 @@ than parsing YAML again.
 
 from __future__ import annotations
 
-import argparse
 import json
 import sys
 from collections.abc import Callable
@@ -25,6 +24,7 @@ from checker_kernel import (
     EXIT_REFUSED,
     REPO_ROOT,
     UNREADABLE,
+    ArgumentParser,
     Finding,
     report_findings,
     run,
@@ -544,7 +544,7 @@ RULES: Final[tuple[Callable[[Stack], list[Finding]], ...]] = (
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Does either stack expose more than its edge, or mount the edge's configuration by file?")
+    parser = ArgumentParser(description="Does either stack expose more than its edge, or mount the edge's configuration by file?")
     parser.add_argument("production", metavar="PROD_JSON", help="docker compose -f docker-compose.yml config --format json")
     parser.add_argument("local", metavar="LOCAL_JSON", help="the same, with docker-compose.local.yml merged over it")
     parser.add_argument("e2e", metavar="E2E_JSON", help="the same, with docker-compose.e2e.yml merged over the local pair")

@@ -17,7 +17,7 @@ The scripts that check, run and deploy this project. Each script's header is its
 | `scripts/ops/e2e_stack.sh`              | any           | The end-to-end stack raised with keys of its own and the made-up league; `local.sh --e2e` and CI run it |
 | `scripts/ops/deploy.sh`                 | prod — Linux  | Put one published build live by its tag, and go back to the build before it if it fails                 |
 | `scripts/lib/_lib.sh`                   | —             | Strict mode, the traps, the output verbs and the exit contract; sourced, never run                      |
-| `scripts/lib/checker_kernel.py`         | —             | The repository root and the exit contract every checker shares, and the launcher each runs under        |
+| `scripts/lib/checker_kernel.py`         | —             | The repository root, the argument parser and the exit contract every checker shares, and its launcher   |
 | `scripts/lib/nginx_conf.py`             | —             | nginx's configuration as a tree, for both checkers; the edge test runs it for each figure               |
 | `scripts/tests/`                        | any           | pytest over the gate's scripts, the checkers and the deploy                                             |
 | `scripts/pytest.ini`                    | —             | pytest's configuration for `scripts/tests/`                                                             |
