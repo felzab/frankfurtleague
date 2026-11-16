@@ -198,6 +198,9 @@ jobs:
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         with:
           driver-opts: image=moby/buildkit:v0.34.2@sha256:c5f8862f52499773af85bc07695b2379ef08e8002352b0df2c4864c91d78dabe
+          # The runner is discarded with the job, builder and all, so removing the builder in the
+          # post step would buy nothing but the wait for it.
+          cleanup: false
       # `sha-<commit>` beside the scope's own tag, the tag a deploy pins, and the version the build
       # stamps into each image.
       - id: meta-frontend
