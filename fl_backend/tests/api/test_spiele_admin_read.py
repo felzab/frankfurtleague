@@ -49,10 +49,6 @@ BERICHT_VERSION = 3
 PUBLIC_PATH = f"/api/v{API_VERSION}/spiele/{SPIEL_ID}"
 ADMIN_PATH = f"{PUBLIC_PATH}/admin"
 
-# Joined onto `team2`, which is how a response proves it came through `build_spiele_pipeline` rather
-# than through a plain `find`.
-AUSTRITT = {"type": "disqualifikation", "reason": "Nicht angetreten zum Spieltag", "date": "2026-03-14"}
-
 
 def spiel_document() -> dict[str, Any]:
     """Every field `FLSpielJoined` requires, so a response that validates proves the whole shape rather than the fields asserted on."""
@@ -75,7 +71,9 @@ def spiel_document() -> dict[str, Any]:
 def junction_rows() -> list[dict[str, Any]]:
     return [
         documents.saison_team_document(SAISON_ID, HOME, "Alpha", "ALX"),
-        documents.saison_team_document(SAISON_ID, AWAY, "Beta", "BEX", austritt=dict(AUSTRITT)),
+        # Joined onto `team2`, which is how a response proves it came through `build_spiele_pipeline` rather
+        # than through a plain `find`.
+        documents.saison_team_document(SAISON_ID, AWAY, "Beta", "BEX", austritt=dict(documents.AUSTRITT)),
     ]
 
 
@@ -254,7 +252,7 @@ async def test_the_admin_key_gets_the_spiel_with_the_rent_and_the_payment(seeded
     assert spiel["schiedsrichter"]["payment"] == PAYMENT
     # The joined field, which only `build_spiele_pipeline` produces. The route out and not the
     # record: the reason is free text about a school, and only a club's own page renders it.
-    assert spiel["team2"]["austritt_type"] == AUSTRITT["type"]
+    assert spiel["team2"]["austritt_type"] == documents.AUSTRITT["type"]
     assert spiel["team1"]["austritt_type"] is None
     # The season's status, read off the fixture's own season, which closes the editor once past.
     assert response.json()["saison_status"] == "past"
