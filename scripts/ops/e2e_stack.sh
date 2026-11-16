@@ -27,8 +27,7 @@ done
 if (( BUILD )) && [[ "$PHASE" != start ]]; then refuse "--build belongs to start, which builds before it starts a container."; fi
 
 # Set here, whatever the caller's environment says: `start` deletes the volume of the stack these files name, and the
-# local stack's holds the developer's database. The separator spelled out, since Compose's own differs by platform
-# (https://docs.docker.com/compose/how-tos/environment-variables/envvars/#compose_path_separator).
+# local stack's holds the developer's database. The separator spelled out, since Compose's own differs by platform.
 export COMPOSE_PATH_SEPARATOR=":"
 export COMPOSE_FILE="docker-compose.yml:docker-compose.local.yml:docker-compose.e2e.yml"
 # The tag docker-compose.yml's two images read, which Compose demands before it merges the files that name this stack's
@@ -92,8 +91,7 @@ if [[ "$PHASE" == start ]]; then
 fi
 
 # After the backend's boot, which gives every collection its indexes, so each insert meets them as it lands. The `up`
-# recreates neither container, since `up` recreates one only for a changed configuration or image
-# (https://docs.docker.com/reference/cli/docker/compose/up/).
+# recreates neither container, since `up` recreates one only for a changed configuration or image.
 step "The database and the backend, healthy"
 quietly docker compose up -d --no-build --wait --wait-timeout 180 mongo backend \
   || die "the database and the backend did not both come up healthy; compose's own account is above."
