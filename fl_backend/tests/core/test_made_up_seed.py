@@ -7,8 +7,9 @@ decides is judged here, beside the backend it imports.
 Invariants:
 - The seed writes only to `LOCAL_SERVER`, and refuses any other server, exit 2, before any client exists, quoting nothing
   of the settings it read.
-- Every state of the landing builds a league whose every document its record model reads, with no database, and none
-  holds an exit before its season's start or a report on a fixture without a result.
+- The seed fails in itself with 3, at its imports as in its run, never the 1 the script reads as a seed to correct.
+- Every state of the landing builds a league whose every document its record model reads, with no database, and that no
+  write of the app's refuses: each rule below is the app's own refusal, so a rule the app tightens tightens this one.
 """
 
 import os
@@ -17,14 +18,23 @@ import secrets
 import subprocess
 import sys
 from pathlib import Path
-from typing import Final
+from typing import Any, Final
 
 import pytest
 
+from app.api.aufstellungen.services import aufstellung_marks, find_undated_refusal
+from app.api.saisons.schemas import FLSaisonRules
+from app.api.saisons.services import find_activation_refusal, find_saison_span_refusal, has_started, unplayed_spiel_nrs
+from app.api.spielberichte.services import find_cancelled_refusal, find_not_played_refusal
+from app.api.spiele.schemas import FLSpiel
+from app.api.spiele.services import find_ergebnis_before_start_refusal, find_spiel_date_refusal
+from app.api.spieltage.services import DatedNeighbour, find_spieltag_order_refusal, find_spieltag_span_refusal
+from app.api.teams.services import find_austritt_refusal
 from app.core import clock
 from app.core.config import MONGODB_URI_FILE, SECRET_FILES
+from app.core.exceptions import WriteRefusal
 from tests.boot import BACKEND_ROOT, Withheld
-from tests.made_up_seed import CRASHED, LANDING_STATES, MadeUpLeague, is_local_server
+from tests.made_up_seed import CRASHED, LANDING_STATES, MadeUpLeague, Season, is_local_server
 
 # Each a server, or a way of naming one, that is not the local stack's own; named, never the URI itself, since a case's
 # name is printed by every run.
@@ -125,23 +135,109 @@ def test_a_run_that_fails_answers_crashed_and_names_no_value(tmp_path: Path) -> 
     assert re.fullmatch(r"The made-up seed crashed \(EnvironmentValidationError at \S+\.py:\d+\)\.\n", done.stderr), done.stderr
 
 
+def drawn(spiel: dict[str, Any]) -> FLSpiel:
+    """`spiel` as the draw leaves it: no goals, no shoot-out and no event."""
+
+    sides = {side: None if spiel[side] is None else {**spiel[side], "tore": None} for side in ("team1", "team2")}
+    return FLSpiel.model_validate({**spiel, **sides, "ergebnis": None, "elfmeterschiessen": None, "sonderereignis": None})
+
+
+def refused_writes(league: MadeUpLeague) -> list[str]:
+    """Every document of `league` a write of the app's refuses, each named by the refusal's code and the document."""
+
+    found: list[str] = []
+
+    def judge(refusal: WriteRefusal | None, what: str) -> None:
+        if refusal is not None:
+            found.append(f"{refusal.error_code}: {what}")
+
+    # The rollover is the one write of a status, and it activates a season as it retires the one running: once a season
+    # is `past`, one is `active` (`app/api/saisons/admin_router.py :: activate_saison`).
+    statuses = [season.saison["status"] for season in league.played] + [league.planned["status"]]
+    if "past" in statuses and "active" not in statuses:
+        found.append(f"a past season beside none active: {statuses}")
+
+    outgoing: Season | None = None
+    for season in league.played:
+        saison = season.saison
+        label = f"season {saison['_id']}"
+        if saison["status"] != "future":
+            # Each season as its own rollover judged it, its predecessor the season it retired.
+            judge(
+                find_activation_refusal(
+                    target_status="future",
+                    target_spiele=len(season.spiele),
+                    undated_spieltage=sum(1 for row in season.spieltage if row["start"] is None),
+                    outgoing_unplayed=[] if outgoing is None else unplayed_spiel_nrs(FLSpiel.model_validate(row) for row in outgoing.spiele),
+                ),
+                label,
+            )
+        outgoing = season
+        dated = [row for row in season.spieltage if row["start"] is not None]
+        judge(
+            find_saison_span_refusal(
+                start_date=saison["start_date"],
+                end_date=saison["end_date"],
+                rules=FLSaisonRules.model_validate(saison["rules"]),
+                spieltag_spans=[(row["start"], row["end"]) for row in dated],
+            ),
+            label,
+        )
+        for row in dated:
+            phase = sorted((other for other in dated if other["saison_phase"] == row["saison_phase"]), key=lambda other: other["position"])
+            before = [other for other in phase if other["position"] < row["position"]]
+            after = [other for other in phase if other["position"] > row["position"]]
+            what = f"{label}, matchday {row['position']} of {row['saison_phase']}"
+            judge(
+                find_spieltag_span_refusal(
+                    start=row["start"],
+                    end=row["end"],
+                    saison_start=saison["start_date"],
+                    saison_end=saison["end_date"],
+                    spiel_dates=[spiel["date"] for spiel in season.spiele if spiel["spieltag_id"] == row["_id"] and spiel["date"] is not None],
+                ),
+                what,
+            )
+            # Judged as a first dating, which a matchday's every neighbour bounds.
+            judge(
+                find_spieltag_order_refusal(
+                    start=row["start"],
+                    stored_start=None,
+                    previous=DatedNeighbour(position=before[-1]["position"], start=before[-1]["start"]) if before else None,
+                    following=DatedNeighbour(position=after[0]["position"], start=after[0]["start"]) if after else None,
+                ),
+                what,
+            )
+        spans = {row["_id"]: row for row in season.spieltage}
+        started = has_started(start_date=saison["start_date"], today=league.today)
+        for spiel in season.spiele:
+            what = f"{label}, match {spiel['spiel_nr']}"
+            span = spans[spiel["spieltag_id"]]
+            judge(find_spiel_date_refusal(date=spiel["date"], spieltag_start=span["start"], spieltag_end=span["end"]), what)
+            judge(find_ergebnis_before_start_refusal(drawn(spiel), FLSpiel.model_validate(spiel), started=started), what)
+        for row in season.rows:
+            if row["austritt"] is not None:
+                judge(find_austritt_refusal(start_date=saison["start_date"], started=started), f"{label}, {row['name']}'s exit")
+
+    fixtures = {spiel["_id"]: spiel for season in league.played for spiel in season.spiele}
+    for report in league.spielberichte:
+        spiel = fixtures[report["spiel_id"]]
+        what = f"the report on match {spiel['spiel_nr']} of season {spiel['saison_id']}"
+        judge(find_not_played_refusal(date=spiel["date"], time=spiel["time"], now=league.now), what)
+        judge(find_cancelled_refusal(sonderereignis=spiel["sonderereignis"]), what)
+    for aufstellung in league.aufstellungen:
+        spiel = fixtures[aufstellung["spiel_id"]]
+        marks = aufstellung_marks(date=spiel["date"], time=spiel["time"], stored=True, now=league.now)
+        judge(find_undated_refusal(marks), f"a line-up for match {spiel['spiel_nr']} of season {spiel['saison_id']}")
+
+    return found
+
+
 @pytest.mark.parametrize("state", LANDING_STATES)
-def test_every_landing_state_builds_and_reads_back(state: str) -> None:
+def test_every_landing_state_is_a_league_the_app_s_writes_reach(state: str) -> None:
     # Today, as the seed reads it: every date the league holds is relative to the day it runs.
-    league = MadeUpLeague(now=clock.now())
-    LANDING_STATES[state](league)
+    league = LANDING_STATES[state](clock.now())
     # Each document is read through its record model as it is gathered, so one the model refuses raises here.
     league.documents()
 
-
-@pytest.mark.parametrize("state", LANDING_STATES)
-def test_no_landing_state_holds_what_the_app_refuses_to_write(state: str) -> None:
-    league = MadeUpLeague(now=clock.now())
-    LANDING_STATES[state](league)
-    running = league.running
-    # An exit is recorded only once its season has started, whatever day it is dated.
-    if running.saison["start_date"] > league.today:
-        assert not [row["name"] for row in running.rows if row["austritt"] is not None]
-    # A report is adopted from a fixture with a result.
-    reported = {report["spiel_id"] for report in league.spielberichte}
-    assert not [row["spiel_nr"] for row in running.spiele if row["_id"] in reported and row["ergebnis"] is None]
+    assert refused_writes(league) == []
