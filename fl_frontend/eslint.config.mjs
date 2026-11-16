@@ -1274,6 +1274,12 @@ const ROUTE_FOLDER_CASE = String.raw`@(${KEBAB}|\[${PARAM}\]|\[...${CAMEL}\]|\($
 /** A module after its main export, a component after its component. */
 const MODULE_FILE_CASE = `@(${CAMEL}|${PASCAL})`;
 
+/** The roles React Aria's overlays and what they hold carry, as a selector's regular expression on a role's whole name. */
+const OVERLAY_ROLES = "alertdialog|dialog|menu|menuitem|listbox|option";
+const OVERLAY_ROLE = `/^(?:${OVERLAY_ROLES})$/`;
+/** One of them named in a selector string, a CSS `[role=…]` or Playwright's `role=` and `internal:role=` engines. */
+const OVERLAY_ROLE_SELECTOR = String.raw`/role\W*(?:${OVERLAY_ROLES})\b/`;
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
@@ -1465,6 +1471,30 @@ const eslintConfig = defineConfig([
         "error",
         { "src/**/!(not-found).{ts,tsx}": MODULE_FILE_CASE, "e2e/**/*.ts": MODULE_FILE_CASE },
         { ignoreMiddleExtensions: true },
+      ],
+    },
+  },
+
+  // A journey reaches a dialog, a question, a menu or a list's options through `e2e/support/controls.ts` alone, whose
+  // helpers press inside one only once it has entered: a press on an overlay still entering is retried behind a scroll,
+  // which closes a rising sheet or a combo box's list. A role a journey computes is looked up there too, where no such
+  // role can hide in it.
+  {
+    files: ["e2e/**/*.ts"],
+    ignores: ["e2e/support/controls.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        ...[
+          `CallExpression[callee.property.name="getByRole"][arguments.0.value=${OVERLAY_ROLE}]`,
+          `CallExpression[callee.property.name="getByRole"][arguments.0.type!="Literal"]`,
+          `Literal[value=${OVERLAY_ROLE_SELECTOR}]`,
+          `TemplateElement[value.raw=${OVERLAY_ROLE_SELECTOR}]`,
+        ].map((selector) => ({
+          selector,
+          message:
+            "An overlay is reached once it has entered, through e2e/support/controls.ts: enteredDialog, enteredQuestion, toast, expectNoDialog, comboOptions, choose or pressRowAct.",
+        })),
       ],
     },
   },
