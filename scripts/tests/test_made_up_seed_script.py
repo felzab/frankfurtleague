@@ -2,21 +2,16 @@
 
 Every caller fails on any code but 0, so only this suite tells a refusal from a failure: no engine, a stack without the
 local database service or without a running backend, a state the seed does not hold, or a read-back that could not
-judge, is 2, and a seed or a document to correct is 1. Each script case copies the script with `_lib.sh` into a fixture
+judge, is 2, and a seed or a document to correct is 1. Each case copies the script with `_lib.sh` into a fixture
 tree of its own and puts a stand-in `docker` first on PATH, which lists the services of the files `COMPOSE_FILE` names
-and answers every other call with the code the case gives.
-
-The seed's own refusal of any database server but the local stack's runs here too, as `python -m tests.made_up_seed`
-against settings of the case's own: the seed has no suite of its own, and this is the lowest tier that runs it whole.
+and answers every other call with the code the case gives. The seed's own decisions are judged by the backend's suite,
+`fl_backend/tests/core/test_made_up_seed.py`.
 """
 
 from __future__ import annotations
 
 import os
-import secrets
 import shutil
-import subprocess
-import sys
 from collections.abc import Mapping
 from types import MappingProxyType
 from typing import Final
@@ -135,46 +130,3 @@ def test_nothing_reaches_a_container_but_in_a_local_stack_with_its_backend_runni
     assert code == 2, said
     assert not handed, calls
     assert not any(" exec " in f" {call} " for call in calls), calls
-
-
-# The three keys the backend's settings demand beside the login, each of the length they pin.
-KEYS: Final = ("internal_api_key_base", "internal_api_key_system", "internal_api_key_admin")
-REFUSAL: Final = "The made-up seed writes only to the local or the end-to-end stack's own mongo service, at port 27017."
-
-
-@pytest.mark.parametrize(
-    "uri",
-    [
-        "mongodb+srv://seed-user:not-a-password@cluster0.seed-guard.invalid/?retryWrites=true",
-        "mongodb://db.seed-guard.invalid:27017/",
-        "mongodb://seed-user:not-a-password@mongo:27017/",
-        "mongodb://mongo:27018/",
-        "mongodb://mongo:27017,db.seed-guard.invalid:27017/?replicaSet=rs0",
-    ],
-    # Named, never the URI itself: a case's name is printed by every run.
-    ids=["managed-cluster", "another-host", "with-a-login", "another-port", "beside-another-host"],
-)
-def test_the_seed_refuses_any_server_but_the_local_stack_s_before_any_client_exists(uri: str) -> None:
-    settings = new_root("fl-seed-settings-")
-    (settings / "backend_mongodb_uri").write_bytes(uri.encode())
-    for name in KEYS:
-        (settings / name).write_bytes(secrets.token_hex(32).encode())
-    environment = {name: value for name, value in base_env().items() if name != "SEED_LANDING"}
-    environment |= {"SECRETS_DIR": str(settings), "DB_BASE_NAME": "fl_made_up", "PYTHONPATH": str(REPO_ROOT / "fl_backend")}
-    # From a directory of its own, so no package's `.env` is read beside the case's settings.
-    done = subprocess.run(
-        (sys.executable, "-m", "tests.made_up_seed"),
-        capture_output=True,
-        encoding="utf-8",
-        errors="replace",
-        env=environment,
-        cwd=settings,
-        check=False,
-    )
-    said = done.stdout + done.stderr
-    # Asked first and answered by a fixed message: the refusal must quote nothing it read, so no assertion prints it.
-    quoted = any(part in said for part in ("seed-guard", "seed-user", "not-a-password", "27018"))
-    assert not quoted, "the refusal quotes the settings it read"
-    assert done.returncode == 2, said
-    assert REFUSAL in done.stderr, said
-    assert "emptied" not in said and "seeded" not in said, said
