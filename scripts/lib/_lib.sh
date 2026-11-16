@@ -608,9 +608,13 @@ venv_python() {
 require_dir()  { [[ -d "$1" ]] || refuse "Missing required directory: $1${2:+
 $2}"; }
 
-# The checkout as a `docker run -v` source, in Windows' own spelling under Git Bash: Git Bash mounts
-# %TEMP% at /tmp, so a checkout there spelled `/tmp/...` binds an unrelated directory of the engine's.
-mount_source() { cygpath -w "$REPO_ROOT" 2>/dev/null || printf '/%s' "$REPO_ROOT"; }
+# A path as a `docker run -v` source, the checkout where none is given, in Windows' own spelling under
+# Git Bash: Git Bash mounts %TEMP% at /tmp, so a checkout there spelled `/tmp/...` binds an unrelated
+# directory of the engine's.
+mount_source() { # [$1 the path]
+  local path="${1:-$REPO_ROOT}"
+  cygpath -w "$path" 2>/dev/null || printf '/%s' "$path"
+}
 
 # The image the gate runs a linter from, read off the line its stage name marks in the tools file,
 # since Dependabot moves a `FROM` line and no image typed in a shell string. Answers 1 where the file
