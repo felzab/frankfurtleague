@@ -3,8 +3,9 @@
 What it compares: every image both Dockerfiles, both compose files and the listed scripts name, against the pin form; both
 database test tiers' mongo against the local stack's; and each image's toolchain against the one the checkout and CI run,
 the frontend's Node against `devEngines` and the lockfile, the backend's Python against `.python-version`'s series and
-its uv against CI's. Each pair drifts in silence: a tag alone is a pointer its publisher can move, a hand edit can drop a
-digest, and Dependabot moves each file's pin on its own, so one side ships a version the other never ran.
+its uv against CI's, and the journeys' Playwright image against the lockfile's Playwright. Each pair drifts in silence:
+a tag alone is a pointer its publisher can move, a hand edit can drop a digest, and Dependabot moves each file's pin on
+its own, so one side ships a version the other never ran.
 """
 
 from __future__ import annotations
@@ -227,6 +228,17 @@ def test_devengines_the_lockfile_and_the_frontend_image_name_one_exact_node_rele
     assert set(tags) == {runtime["version"]} == resolved, (
         f"devEngines {runtime['version']}, the lockfile's Node {sorted(resolved)}, fl_frontend/Dockerfile {tags}"
     )
+
+
+def test_the_journeys_image_carries_the_lockfile_s_playwright() -> None:
+    """The image's browsers are the builds one Playwright release finds, so another release fails every journeys leg at launch."""
+    _, image = script_references()[".github/workflows/verify.yml:playwright"]
+    tag = re.fullmatch(r"v(\d+\.\d+\.\d+)-[a-z]+", _tag(image))
+    resolved = set(re.findall(r"^  '@playwright/test@([^']+)':$", FRONTEND_LOCKFILE.read_text(encoding="utf-8"), re.MULTILINE))
+    assert tag and len(resolved) == 1, (
+        f"read the image's tag {_tag(image)} and the lockfile's {sorted(resolved)}, where the case reads one of each"
+    )
+    assert {tag[1]} == resolved, f"PLAYWRIGHT_IMAGE carries Playwright {tag[1]}, and fl_frontend/pnpm-lock.yaml resolves {sorted(resolved)}"
 
 
 def test_the_backend_image_runs_the_python_series_ci_installs() -> None:
