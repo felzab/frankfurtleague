@@ -14,6 +14,7 @@ from pymongo.mongo_client import MongoClient
 from pymongo.uri_parser import parse_uri
 
 from app.core.constraints import TTL_INDEXES, apply_constraints
+from app.core.middlewares import REQUEST_DEADLINE_S
 from app.readback import read_back
 
 # MongoDB's code for a document a `$jsonSchema` refused, which the driver names nowhere: a case forcing a
@@ -66,11 +67,21 @@ def _release() -> None:
     _LOOP.close()
 
 
+# MongoDB's default `transactionLifetimeLimitSeconds`: the server aborts a transaction open longer than this.
+TRANSACTION_LIFETIME_S = 60.0
+
+# The longest a seed waits on purpose: `tests/core/test_request_deadline.py`'s press waits out a whole request deadline,
+# and its case accepts an answer up to 10 s past it.
+SLOWEST_SEED_S = REQUEST_DEADLINE_S + 10
+
 # Each seed's bound. A rival a case runs inside a write that then waits on that write's own transaction deadlocks until
-# MongoDB aborts the transaction at its 60 s lifetime limit, and the retry that follows passes the case. Under that limit,
-# the case fails under its own name; above the slowest seeds of the tier, which wait out a whole request deadline, no
-# seed that would finish is cut.
+# MongoDB aborts the transaction at its lifetime limit, and the retry that follows passes the case. Under that limit,
+# the case fails under its own name; above the slowest seed, no seed that would finish is cut.
 SEED_BOUND_S = 30.0
+
+assert SLOWEST_SEED_S < SEED_BOUND_S < TRANSACTION_LIFETIME_S, (
+    "the seed bound must cut no seed that would finish, and fire before MongoDB aborts"
+)
 
 _UNFINISHED = (
     "this seed ran past {bound:.0f} s and was cancelled. A rival run inside a write that waits on that write's own transaction"

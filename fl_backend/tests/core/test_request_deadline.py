@@ -31,7 +31,7 @@ from app.main import create_app, create_shell
 from app.shared.tokens import hash_token
 from tests.boot import image_command
 from tests.config import ADMIN_KEY, TEST_BASE_URL, build_test_config, grants_for_the_suite
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import SLOWEST_SEED_S, a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document, rules_document, saison_document, saison_team_document
 from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
@@ -43,7 +43,7 @@ FRONTEND_API = BACKEND_ROOT.parent / "fl_frontend" / "src" / "core" / "api.ts"
 
 # Far under the stall's 60 s, what the case below would wait with no deadline, so an answer in time can
 # only be the deadline's doing.
-ANSWERED_WITHIN_S = REQUEST_DEADLINE_S + 10
+ANSWERED_WITHIN_S = SLOWEST_SEED_S
 
 ADMIN_HEADERS = StampedHeaders("admin@frankfurtleague.de", ADMIN_KEY)
 
