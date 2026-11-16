@@ -5,7 +5,8 @@
 import { setTimeout as wallClock } from "node:timers/promises";
 
 import { BACKEND_ORIGIN, networkFailure, serveBackend, serveHost } from "@/test-support/backend.ts";
-import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
+import { caseFailures } from "@/test-support/caseFailures.ts";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 /** The backend's own address for `path`, as the real client spells one. */
 const endpoint = (path: string): string => `${BACKEND_ORIGIN}/api/v0${path}`;
@@ -13,21 +14,7 @@ const endpoint = (path: string): string => `${BACKEND_ORIGIN}/api/v0${path}`;
 /** A host that cannot resolve (RFC 2606's `.invalid`): a request sent for real fails on its name, never on a server. */
 const NOWHERE = "https://nowhere.invalid";
 
-/** Each case's failure messages, read once every hook of the case, the setup file's last among them, has run. */
-const failures = new Map<string, string>();
-afterEach(({ task, onTestFinished: finished }) => {
-  finished(() => {
-    failures.set(task.name, (task.result?.errors ?? []).map(({ message }) => String(message)).join("\n"));
-  });
-});
-
-/** A case `body` the network must fail, and the case after it, which reads the failure for `named`. */
-function failsNaming(name: string, named: RegExp, body: () => Promise<void> | void): void {
-  it.fails(name, body);
-  it(`${name}: the failure names it`, () => {
-    expect(failures.get(name)).toMatch(named);
-  });
-}
+const { failsNaming } = caseFailures();
 
 /** The message Node's own `fetch` rejects a network failure with, a `TypeError`: what the answering one must match. */
 const PLATFORM_FETCH_FAILED = "fetch failed";
