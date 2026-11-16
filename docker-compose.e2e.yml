@@ -1,7 +1,8 @@
 # The local stack again, as a stack of its own for the Playwright journeys: its own compose project, database volume, sign-in store,
 # keys, settings and made-up data, sharing nothing with the developer's local stack but the two host
-# ports, 3000 and 27017, which is why only one of the two runs at a time. Started by
-# `./scripts/ops/local.sh --e2e` on a development machine and by the journeys' CI job on Linux.
+# ports, 3000 and 27017, which is why only one of the two runs at a time. Raised by
+# `scripts/ops/e2e_stack.sh`, which `./scripts/ops/local.sh --e2e` calls on a development machine and
+# the journeys' CI job on Linux.
 #
 # Invariants:
 # - An override merged over docker-compose.yml and docker-compose.local.yml, in that order, never a
@@ -26,11 +27,6 @@ services:
     # The mail sink inside `.tmp-e2e/`, so the journeys read this stack's codes and never the local stack's.
     volumes: !override
       - ./.tmp-e2e/mail:/app/.tmp-mail
-    # Cloudflare's address refuses at once inside this container, so a journey's bot check contacts no
-    # third party and passes as `turnstileRefusal` passes a
-    # submission while Cloudflare is unreachable.
-    extra_hosts:
-      - challenges.cloudflare.com=127.0.0.1
 
   backend:
     # Named for the same reason as the frontend's.

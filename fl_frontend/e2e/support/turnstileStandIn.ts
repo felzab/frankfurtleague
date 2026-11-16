@@ -1,7 +1,8 @@
 /**
- * E2E · Cloudflare's bot check as a journey meets it: this script in place of Cloudflare's, since a journey tests what
- * the league's stack does and contacts no third party (https://playwright.dev/docs/best-practices#avoid-testing-third-party-dependencies).
- * `docker-compose.e2e.yml` keeps the check's server half off Cloudflare the same way.
+ * E2E · Cloudflare's bot check as a journey meets it: this script in place of Cloudflare's widget, since a journey tests
+ * what the league's stack does rather than a page Cloudflare serves (https://playwright.dev/docs/best-practices#avoid-testing-third-party-dependencies).
+ * The check's server half is the real one: the frontend asks Cloudflare to judge the token under the published test
+ * secret, which passes it.
  *
  * It answers the three calls `fl_frontend/src/kit/useBotCheck.tsx` makes of `window.turnstile`, and a widget
  * mints as the published test site keys do (https://developers.cloudflare.com/turnstile/troubleshooting/testing/): on

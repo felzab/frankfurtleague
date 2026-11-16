@@ -13,8 +13,9 @@
 #   ./scripts/ops/local.sh --seed-made-up
 #                                    ALSO replace the local database's records with the made-up
 #                                    league in fl_backend/tests/made_up_seed.py; the sign-in store stays
-#   ./scripts/ops/local.sh --e2e         start the end-to-end stack instead (docker-compose.e2e.yml):
-#                                    its own volume, keys and made-up league, new on every start
+#   ./scripts/ops/local.sh --e2e         start the end-to-end stack instead (docker-compose.e2e.yml), through
+#                                    scripts/ops/e2e_stack.sh as CI's journeys start it: its own volume,
+#                                    keys and made-up league, new on every start
 #   ./scripts/ops/local.sh --e2e --landing=<state>
 #                                    load the made-up league again into the RUNNING end-to-end stack,
 #                                    the landing in <state> (the seed's LANDING_STATES), and restart its
@@ -70,7 +71,7 @@ if (( RESEED )) && (( ! E2E || DOWN )); then
 fi
 
 STOP_COMMAND="./scripts/ops/local.sh --down"
-# Where the frontend files the mail it does not send, as each stack's compose file mounts it.
+# Where the local stack's frontend files the mail it does not send, as its compose file mounts it.
 MAIL_SINK="${REPO_ROOT}/.tmp-mail"
 if (( E2E )); then
   # Merged over the local stack's two, as that one merges over production's (docker-compose.e2e.yml).
@@ -80,30 +81,12 @@ fi
 # Compose as a developer types it beside this stack.
 BY_HAND="COMPOSE_FILE='${COMPOSE_FILE}' TAG=${TAG} docker compose"
 
-# Everything the end-to-end stack holds on the host: its keys and its mail sink, each at the path
-# docker-compose.e2e.yml names. `.tmp-*/` is gitignored.
+# Everything the end-to-end stack holds on the host, its keys and its mail sink among it, which
+# scripts/ops/e2e_stack.sh writes. `.tmp-*/` is gitignored.
 E2E_DIR="${REPO_ROOT}/.tmp-e2e"
-if (( E2E )); then MAIL_SINK="${E2E_DIR}/mail"; fi
 
-# The local stack's secret files, which docker-compose.e2e.yml points at this stack's own copies.
-E2E_KEYS=(auth_secret internal_api_key_base internal_api_key_system internal_api_key_admin)
-
-# Generated on every start rather than copied from `secrets/`: the stack shares nothing with the
-# local one, and a key it held for longer than one run would be a key to keep. Nothing prints a
-# value.
-write_e2e_keys() {
-  local -
-  set +x
-  local name=""
-  (umask 077 && mkdir -p "${E2E_DIR}/secrets") || die "${E2E_DIR}/secrets could not be made; mkdir's own account is above."
-  for name in "${E2E_KEYS[@]}"; do
-    (umask 077 && openssl rand -hex 32 | tr -d '\r\n' > "${E2E_DIR}/secrets/${name}") \
-      || die "the end-to-end stack's ${name} could not be generated; openssl's own account is above."
-  done
-}
-
-# The made-up league loaded into the running backend's database and read back, as CI's journeys load it; `--landing`
-# hands its state on. The script's own account is shown only on a failure.
+# The made-up league loaded into the running backend's database and read back; `--landing` hands its
+# state on. The script's own account is shown only on a failure.
 load_made_up_seed() {
   local rc=0 landing=()
   if (( RESEED )); then landing=("--landing=${LANDING}"); fi
@@ -114,6 +97,21 @@ load_made_up_seed() {
 The frontend and nginx have not been started or recreated." ;;
     *) die "the made-up seed failed, and the lines above name what to correct.
 The frontend and nginx have not been started or recreated." ;;
+  esac
+}
+
+# The script CI's journeys raise the stack with, its steps shown as they run and its verdict kept: a
+# refusal stays 2.
+e2e_stack() {
+  local rc=0
+  "${REPO_ROOT}/scripts/ops/e2e_stack.sh" "$@" || rc=$?
+  case "$rc" in
+    0) ;;
+    2) refuse "the end-to-end stack was refused, and the lines above say why.
+Stop what is left:  ${STOP_COMMAND}" ;;
+    *) die "the end-to-end stack did not come up, and the lines above name what to correct.
+Each service's own lines:  ${BY_HAND} logs <service>
+Stop what is left:  ${STOP_COMMAND}" ;;
   esac
 }
 
@@ -198,22 +196,22 @@ Its own lines:  ${BY_HAND} logs frontend"
   finish "The end-to-end stack serves the landing ${LANDING} at http://localhost:3000."
 fi
 
-section "preflight"
-
 if (( E2E )); then
-  # First, so every file docker-compose.e2e.yml names exists before compose is asked anything, and
-  # every start runs on keys of its own. Written over a stack still running, whose next step is its
-  # teardown below.
-  step "This run's own keys"
-  write_e2e_keys
-  ok "generated under .tmp-e2e — none printed, none copied from secrets/"
-
-  step "An empty end-to-end stack"
-  # Every start from nothing, so no journey reads what an earlier run left: its database and its
-  # sign-in store, its mail going below and its keys being new already.
-  quietly docker compose down -v --remove-orphans || die "the end-to-end stack could not be torn down — the output above is compose's own."
-  ok "torn down"
+  section "start"
+  e2e_stack start --build
+  e2e_stack serve
+  ok "the end-to-end stack is healthy, the made-up league in its database"
+  end_section
+  # Once: a run keeps the records it creates, which the next run would meet as already there.
+  detail "Open:               http://localhost:3000" \
+         "Run the journeys:   (cd fl_frontend && pnpm run e2e), once per start of this stack" \
+         "Sign in as:         admin.desktop@example.com, its code in .tmp-e2e/mail" \
+         "Logs:               ${BY_HAND} logs -f frontend" \
+         "Stop:               ${STOP_COMMAND}"
+  finish "The end-to-end stack is up at http://localhost:3000."
 fi
+
+section "preflight"
 
 if (( FRESH )); then
   step "Tearing down, including volumes"
@@ -238,8 +236,8 @@ ok "images built"
 
 # After the backend's boot, which gives every collection its indexes, so each insert meets them as
 # it lands; before the frontend's, so no page renders, and no cache keeps, a read of a database
-# still filling. The waits are the journeys' CI job's for the same starts.
-if (( E2E || MADE_UP )); then
+# still filling.
+if (( MADE_UP )); then
   section "database"
 
   step "The database and the backend, before anything renders a page"
@@ -255,29 +253,18 @@ fi
 section "start"
 
 step "Starting the stack"
-# The local stack recreates every service, so a frontend left running from an earlier start drops
-# what it cached of a database `--seed-made-up` has just replaced. The end-to-end stack's database
-# and backend are the ones just started and seeded, which a recreate would only restart.
-UP=(up -d --remove-orphans --wait --wait-timeout 240)
-if (( ! E2E )); then UP+=(--force-recreate); fi
-if quietly docker compose "${UP[@]}"; then
+# Every service recreated, so a frontend left running from an earlier start drops what it cached of
+# a database `--seed-made-up` has just replaced.
+if quietly docker compose up -d --force-recreate --remove-orphans --wait --wait-timeout 240; then
   ok "every service is healthy"
 
   end_section
   CLOSING=("Open:               http://localhost:3000")
-  if (( E2E )); then
-    # Once: a run keeps the records it creates, which the next run would meet as already there.
-    CLOSING+=("Run the journeys:   (cd fl_frontend && pnpm run e2e), once per start of this stack" \
-              "Sign in as:         admin.desktop@example.com, its code in .tmp-e2e/mail" \
-              "Logs:               ${BY_HAND} logs -f frontend" \
-              "Stop:               ${STOP_COMMAND}")
-  else
-    # Offered only where it was not just done, so the table never names the step this run performed.
-    (( MADE_UP )) || CLOSING+=("Fill the database:  ./scripts/ops/local.sh --seed-made-up")
-    CLOSING+=("Security headers:   curl -sI http://localhost:3000 | grep -i content-security-policy" \
-              "Logs:               ${BY_HAND} logs -f frontend" \
-              "Stop:               ${STOP_COMMAND}")
-  fi
+  # Offered only where it was not just done, so the table never names the step this run performed.
+  (( MADE_UP )) || CLOSING+=("Fill the database:  ./scripts/ops/local.sh --seed-made-up")
+  CLOSING+=("Security headers:   curl -sI http://localhost:3000 | grep -i content-security-policy" \
+            "Logs:               ${BY_HAND} logs -f frontend" \
+            "Stop:               ${STOP_COMMAND}")
   detail "${CLOSING[@]}"
 else
   fail "The stack came up unhealthy, and compose's own account is above."
@@ -294,5 +281,4 @@ else
   finish
 fi
 
-if (( E2E )); then finish "The end-to-end stack is up at http://localhost:3000."; fi
 finish "The local stack is up at http://localhost:3000."
