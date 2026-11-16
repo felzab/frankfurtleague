@@ -9,6 +9,7 @@ Windows' sockets need.
 
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -46,12 +47,23 @@ def test_settings_that_cannot_load_are_a_refusal(tmp_path: Path):
     assert re.fullmatch(r"The settings could not be loaded: [^\n]*Invalid secret files: [^\n]+\n", ran.stdout), ran.stdout
 
 
+def _class_of(status: int, output: str) -> str:
+    """The class the scripts' library gives the read-back's `status` beside `output`, read by bash itself.
+
+    Bash matches the pattern as a POSIX extended expression, which Python's `re` reads otherwise: `\\d` matches a digit
+    there and a `d` here.
+    """
+    bash = shutil.which("bash")
+    assert bash is not None, "no bash on PATH, which every script under scripts/ needs"
+    read = 'source "$1"; class=0; exit_class readback "$2" "$3" || class=$?; printf "%s" "$class"'
+    ran = to_its_exit([bash, "-c", read, "bash", LIBRARY.as_posix(), str(status), output], bound_s=READ_BACK_BOUND_S, cwd=BACKEND_ROOT)
+    assert ran.returncode == 0, ran.stdout + ran.stderr
+    return ran.stdout
+
+
 def test_the_closing_line_is_the_one_the_scripts_read_a_refusal_by():
     """A wording the scripts' pattern stops matching turns every document to correct into a crash."""
 
-    rows = re.findall(r"^\s*\[readback\]='([^']*)'$", LIBRARY.read_text(encoding="utf-8"), re.MULTILINE)
-    assert len(rows) == 1, f"scripts/lib/_lib.sh :: EXIT_LINES holds {len(rows)} readback rows"
-    statuses, verdict, pattern = rows[0].split(" ", 2)
-    assert (statuses, verdict) == ("1", "1"), rows[0]
-    assert re.search(pattern, CLOSING_LINE.format(read=12, refused=3)), (pattern, CLOSING_LINE)
-    assert not re.search(pattern, CLOSING_LINE.format(read=12, refused=0)), (pattern, CLOSING_LINE)
+    assert _class_of(1, CLOSING_LINE.format(read=12, refused=3) + "\n") == "1", CLOSING_LINE
+    # A 1 beside a clean count is Compose's or Python's own.
+    assert _class_of(1, CLOSING_LINE.format(read=12, refused=0) + "\n") == "3", CLOSING_LINE

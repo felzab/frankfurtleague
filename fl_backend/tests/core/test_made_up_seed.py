@@ -16,6 +16,7 @@ Invariants:
 import os
 import re
 import secrets
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -124,11 +125,23 @@ def test_settings_that_cannot_load_are_a_refusal(tmp_path: Path) -> None:
 def test_the_refused_insert_s_line_is_the_one_the_script_reads_a_finding_by() -> None:
     """A wording the script's pattern stops matching turns every insert to correct into a crash."""
 
-    rows = re.findall(r"^\s*\[made-up-seed\]='([^']*)'$", LIBRARY.read_text(encoding="utf-8"), re.MULTILINE)
-    assert len(rows) == 1, f"scripts/lib/_lib.sh :: EXIT_LINES holds {len(rows)} made-up-seed rows"
-    statuses, verdict, pattern = rows[0].split(" ", 2)
-    assert (statuses, verdict) == ("1", "1"), rows[0]
-    assert re.search(pattern, INSERT_REFUSED.format(reason="E11000 duplicate key error")), (pattern, INSERT_REFUSED)
+    assert class_of(1, INSERT_REFUSED.format(reason="E11000 duplicate key error") + "\n") == "1", INSERT_REFUSED
+    # A 1 without that line is Compose's or Python's own.
+    assert class_of(1, "Traceback (most recent call last):\n") == "3"
+
+
+def class_of(status: int, output: str) -> str:
+    """The class the scripts' library gives the seed's `status` beside `output`, read by bash itself.
+
+    Bash matches the pattern as a POSIX extended expression, which Python's `re` reads otherwise: `\\d` matches a digit
+    there and a `d` here.
+    """
+    bash = shutil.which("bash")
+    assert bash is not None, "no bash on PATH, which every script under scripts/ needs"
+    read = 'source "$1"; class=0; exit_class made-up-seed "$2" "$3" || class=$?; printf "%s" "$class"'
+    ran = to_its_exit([bash, "-c", read, "bash", LIBRARY.as_posix(), str(status), output], bound_s=SEED_BOUND_S, cwd=BACKEND_ROOT)
+    assert ran.returncode == 0, ran.stdout + ran.stderr
+    return ran.stdout
 
 
 def drawn(spiel: dict[str, Any]) -> FLSpiel:
