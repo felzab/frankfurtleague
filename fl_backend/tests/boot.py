@@ -21,6 +21,7 @@ from typing import Any, Final
 from app.core.concurrency import concurrently
 from app.core.db import SERVER_SELECTION_TIMEOUT_MS
 from tests.database import CASE_BOUND_S
+from tests.processes import stopped, to_its_exit
 
 BACKEND_ROOT: Final = Path(__file__).resolve().parents[1]
 DOCKERFILE: Final = BACKEND_ROOT / "Dockerfile"
@@ -149,16 +150,17 @@ async def _started(directory: Path, files: Mapping[str, str], variables: Mapping
 
 
 async def _to_its_exit(directory: Path, files: Mapping[str, str], variables: Mapping[str, str]) -> Boot:
-    process = await _started(directory, files, variables)
-    try:
-        async with asyncio.timeout(BOOT_BOUND_S):
-            output, _ = await process.communicate()
-    finally:
-        if process.returncode is None:
-            process.kill()
-            await process.wait()
+    # In a thread of its own, so the boots still run at once.
+    ended = await asyncio.to_thread(
+        to_its_exit,
+        boot_command(),
+        bound_s=BOOT_BOUND_S,
+        cwd=directory,
+        env=_environment(_secrets_folder(directory, files), variables),
+        merged=True,
+    )
 
-    return Boot(process.returncode, output.decode("utf-8", errors="replace"))
+    return Boot(ended.returncode, ended.stdout)
 
 
 Booting = tuple[Path, Mapping[str, str], Mapping[str, str]]
@@ -197,21 +199,7 @@ async def serving(directory: Path, files: Mapping[str, str], variables: Mapping[
             raise
         yield Boot(process.returncode, b"".join(lines).decode("utf-8", errors="replace"))
     finally:
-        await _stopped(process)
-
-
-async def _stopped(process: asyncio.subprocess.Process) -> None:
-    """The boot asked to stop, and killed once `STOP_GRACE_S` has passed; on Windows the ask is already a kill."""
-
-    if process.returncode is None:
-        process.terminate()
-        try:
-            async with asyncio.timeout(STOP_GRACE_S):
-                await process.wait()
-        except TimeoutError:
-            process.kill()
-
-    await process.wait()
+        await stopped(process, grace_s=STOP_GRACE_S)
 
 
 def names(sentence: str | None, opening: str) -> set[str]:
