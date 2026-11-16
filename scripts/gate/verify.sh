@@ -277,7 +277,7 @@ check_links() {
     info "scripts/gate/tools.Dockerfile names no single FROM line for lychee, so no link was checked."
     return 1
   fi
-  MSYS_NO_PATHCONV=1 docker run --rm --network none -v "${REPO_ROOT}:/input:ro" -w /input \
+  MSYS_NO_PATHCONV=1 docker run --rm --network none -v "$(mount_source):/input:ro" -w /input \
     "$image" --config lychee.toml --no-progress . || rc=$?
   if (( rc == 2 )); then return 1; fi
   return "$rc"

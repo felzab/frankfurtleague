@@ -59,9 +59,6 @@ tool_image() { # $1 the stage naming the tool
   printf '%s' "$image"
 }
 
-# Git Bash mounts %TEMP% at /tmp, so a checkout there makes `/$REPO_ROOT` bind an unrelated directory.
-mount_source() { cygpath -w "$REPO_ROOT" 2>/dev/null || printf '/%s' "$REPO_ROOT"; }
-
 sc_rc=0
 al_rc=0
 if ! docker version >/dev/null 2>&1; then

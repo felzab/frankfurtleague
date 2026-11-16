@@ -532,6 +532,10 @@ venv_python() {
 require_dir()  { [[ -d "$1" ]] || refuse "Missing required directory: $1${2:+
 $2}"; }
 
+# The checkout as a `docker run -v` source, in Windows' own spelling under Git Bash: Git Bash mounts
+# %TEMP% at /tmp, so a checkout there spelled `/tmp/...` binds an unrelated directory of the engine's.
+mount_source() { cygpath -w "$REPO_ROOT" 2>/dev/null || printf '/%s' "$REPO_ROOT"; }
+
 # --- The rendered compose models ----------------------------------------------------------------------
 
 # Every environment file the compose files name. Compose refuses to parse a stack whose file is
