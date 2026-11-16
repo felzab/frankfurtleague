@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
+import pytest
 from conftest import BASH, base_env, run_shell, write_shell
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
@@ -149,19 +150,19 @@ def _run(case: Case) -> tuple[int, str]:
     return done.returncode, done.stdout + done.stderr
 
 
-def test_each_answer_the_image_assertions_can_give_ends_the_run_its_own_way() -> None:
+@pytest.mark.parametrize("case", CASES, ids=[case.label for case in CASES])
+def test_each_answer_the_image_assertions_can_give_ends_the_run_its_own_way(case: Case) -> None:
     """A build proves neither promise, so a wrong grading here ships behind a green gate."""
+    code, output = _run(case)
     wrong: list[str] = []
-    for case in CASES:
-        code, output = _run(case)
-        if code != case.code:
-            wrong.append(f"{case.label}: exited {code}, and the contract gives it {case.code}\n{output}")
-        if case.says not in output:
-            wrong.append(f"{case.label}: nothing it printed says {case.says!r}")
-        if case.never is not None and case.never in output:
-            wrong.append(f"{case.label}: it said {case.never!r}, which names a breach nothing observed")
-        if case.built and "docker build" in output:
-            wrong.append(f"{case.label}: it built the images the workflow had built")
+    if code != case.code:
+        wrong.append(f"exited {code}, and the contract gives it {case.code}\n{output}")
+    if case.says not in output:
+        wrong.append(f"nothing it printed says {case.says!r}")
+    if case.never is not None and case.never in output:
+        wrong.append(f"it said {case.never!r}, which names a breach nothing observed")
+    if case.built and "docker build" in output:
+        wrong.append("it built the images the workflow had built")
     assert not wrong, "\n".join(wrong)
 
 
