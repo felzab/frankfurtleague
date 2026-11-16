@@ -2,7 +2,6 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
-from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.public_router import get_landing
 from app.api.saisons.schemas import FLLandingDecided, FLLandingRunning
@@ -11,7 +10,7 @@ from app.api.spiele.services import podium_of
 from app.api.teams.schemas import FLAustritt
 from app.core.collections import Collection
 from tests import documents
-from tests.database import a_clean_database, shared_client
+from tests.database import a_clean_database
 from tests.worker import worker_database
 
 VACATED_DATABASE_NAME = worker_database("fl_saisons_landing_view_vacated_test")
@@ -55,30 +54,21 @@ def match(
     )
 
 
-async def seeded(url: str, database_name: str, collections: dict[str, list[dict[str, Any]]]) -> None:
-    """The season the site is on, and these documents."""
+async def landing_over(url: str, database_name: str, collections: dict[str, list[dict[str, Any]]]) -> Any:
+    """The landing, over the season the site is on and these documents."""
 
-    async def _seed() -> None:
-        async with a_clean_database(url, database_name) as (_, database):
-            await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON, "active", start_date="2026-01-01"))
-            for name, rows in collections.items():
-                await database[name].insert_many(rows)
+    async with a_clean_database(url, database_name) as (_, database):
+        await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON, "active", start_date="2026-01-01"))
+        for name, rows in collections.items():
+            await database[name].insert_many(rows)
 
-    await _seed()
-
-
-async def landing_of(database: AsyncDatabase) -> Any:
-    return await get_landing(
-        saisons_collection=database[Collection.SAISONS],
-        spiele_collection=database[Collection.SPIELE],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        teams_collection=database[Collection.TEAMS],
-        today=TODAY,
-    )
-
-
-async def landing(url: str, database_name: str) -> Any:
-    return await landing_of(shared_client(url)[database_name])
+        return await get_landing(
+            saisons_collection=database[Collection.SAISONS],
+            spiele_collection=database[Collection.SPIELE],
+            saison_teams_collection=database[Collection.SAISON_TEAMS],
+            teams_collection=database[Collection.TEAMS],
+            today=TODAY,
+        )
 
 
 @pytest.mark.db
@@ -86,7 +76,7 @@ async def test_a_place_decided_after_its_club_left_is_served_vacant_and_the_seas
     """Cara left the season the day before the match for third place, which it lost: fourth is in, and nobody's."""
 
     cara = ObjectId("6890a1b2c3d4e5f607440004")
-    await seeded(
+    landed = await landing_over(
         mongo_replica_set_url,
         VACATED_DATABASE_NAME,
         {
@@ -107,7 +97,7 @@ async def test_a_place_decided_after_its_club_left_is_served_vacant_and_the_seas
         },
     )
 
-    saison = (await landing(mongo_replica_set_url, VACATED_DATABASE_NAME)).saison
+    saison = landed.saison
 
     assert type(saison) is FLLandingDecided
     assert [place and place.name for place in saison.podium] == ["Alpha", "Beta", "Dora", None]
@@ -151,7 +141,7 @@ GROUP_DAY = ObjectId("6890a1b2c3d4e5f607440011")
 async def test_a_running_season_serves_two_matches_the_nearest_first(
     mongo_replica_set_url: str, database_name: str, spiele: list[dict[str, Any]], recent: list[int], upcoming: list[int]
 ):
-    await seeded(
+    landed = await landing_over(
         mongo_replica_set_url,
         database_name,
         {
@@ -163,7 +153,7 @@ async def test_a_running_season_serves_two_matches_the_nearest_first(
         },
     )
 
-    saison = (await landing(mongo_replica_set_url, database_name)).saison
+    saison = landed.saison
 
     assert type(saison) is FLLandingRunning
     assert ([spiel.spiel_nr for spiel in saison.recent], [spiel.spiel_nr for spiel in saison.upcoming]) == (recent, upcoming)

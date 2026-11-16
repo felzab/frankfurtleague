@@ -12,7 +12,7 @@ from app.api.saisons.public_router import get_spiel
 from app.api.spielberichte.services import PUBLIC_PERSONS_AS, compose_public_bericht
 from app.core.collections import Collection
 from tests import documents
-from tests.database import a_clean_database, bounded, shared_client, unwritten
+from tests.database import held_corpus, shared_client
 from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_saisons_spiel_view_test")
@@ -129,45 +129,42 @@ async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
     spiel = adopted_match()
     internal = {**documents.EINWILLIGUNG, "scope": "internal"}
 
-    async def _seed() -> None:
-        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
-            await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON, "active"))
-            await database[Collection.SPIELTAGE].insert_one(documents.spieltag_document(spiel["spieltag_id"], SAISON, 1))
-            await database[Collection.SAISON_TEAMS].insert_many(
-                [documents.saison_team_document(SAISON, HOME, "Alpha", "ALP"), documents.saison_team_document(SAISON, AWAY, "Beta", "BET")]
-            )
-            await database[Collection.SPIELE].insert_many([spiel, named_only_match()])
-            await database[Collection.SPIELBERICHTE].insert_many([report_of(spiel), named_only_report(named_only_match())])
-            await database[Collection.SPIELER].insert_many(
-                [
-                    documents.spieler_document(NAMED, "Maxim", "Müller"),
-                    documents.spieler_document(INTERNAL, "Nadja", "Gerber", einwilligung=internal),
-                ]
-            )
-            await database[Collection.AUFSTELLUNGEN].insert_many(
-                [
-                    # The club a knockout correction replaced on a side keeps its line-up, which no side joins.
-                    documents.aufstellung_document(spiel, REPLACED, starters=[NAMED]),
-                    # An erased pupil's entry, which names nobody, and a withheld one: served alike.
-                    documents.aufstellung_document(spiel, AWAY, starters=[None], bench=[INTERNAL]),
-                    documents.aufstellung_document(spiel, HOME, starters=[NAMED]),
-                ]
-            )
-            await database[Collection.SAISON_SPIELER].insert_many(
-                [
-                    documents.saison_spieler_document(NAMED, SAISON, HOME, nummer="7", position="Angriff", rolle="kapitaen"),
-                    # A captaincy beside a withheld name would say who the nameless pupil is.
-                    documents.saison_spieler_document(INTERNAL, SAISON, AWAY, nummer="4", position="Abwehr", rolle="co_kapitaen"),
-                    # The same pupil for the same club the seasons either side, under other numbers, so whichever row a join
-                    # without the season term kept last, it would not be this season's.
-                    documents.saison_spieler_document(NAMED, EARLIER, HOME, nummer="98", position="Abwehr"),
-                    documents.saison_spieler_document(NAMED, LATER, HOME, nummer="99", position="Abwehr"),
-                ]
-            )
+    async def seed(database: AsyncDatabase) -> None:
+        await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON, "active"))
+        await database[Collection.SPIELTAGE].insert_one(documents.spieltag_document(spiel["spieltag_id"], SAISON, 1))
+        await database[Collection.SAISON_TEAMS].insert_many(
+            [documents.saison_team_document(SAISON, HOME, "Alpha", "ALP"), documents.saison_team_document(SAISON, AWAY, "Beta", "BET")]
+        )
+        await database[Collection.SPIELE].insert_many([spiel, named_only_match()])
+        await database[Collection.SPIELBERICHTE].insert_many([report_of(spiel), named_only_report(named_only_match())])
+        await database[Collection.SPIELER].insert_many(
+            [
+                documents.spieler_document(NAMED, "Maxim", "Müller"),
+                documents.spieler_document(INTERNAL, "Nadja", "Gerber", einwilligung=internal),
+            ]
+        )
+        await database[Collection.AUFSTELLUNGEN].insert_many(
+            [
+                # The club a knockout correction replaced on a side keeps its line-up, which no side joins.
+                documents.aufstellung_document(spiel, REPLACED, starters=[NAMED]),
+                # An erased pupil's entry, which names nobody, and a withheld one: served alike.
+                documents.aufstellung_document(spiel, AWAY, starters=[None], bench=[INTERNAL]),
+                documents.aufstellung_document(spiel, HOME, starters=[NAMED]),
+            ]
+        )
+        await database[Collection.SAISON_SPIELER].insert_many(
+            [
+                documents.saison_spieler_document(NAMED, SAISON, HOME, nummer="7", position="Angriff", rolle="kapitaen"),
+                # A captaincy beside a withheld name would say who the nameless pupil is.
+                documents.saison_spieler_document(INTERNAL, SAISON, AWAY, nummer="4", position="Abwehr", rolle="co_kapitaen"),
+                # The same pupil for the same club the seasons either side, under other numbers, so whichever row a join
+                # without the season term kept last, it would not be this season's.
+                documents.saison_spieler_document(NAMED, EARLIER, HOME, nummer="98", position="Abwehr"),
+                documents.saison_spieler_document(NAMED, LATER, HOME, nummer="99", position="Abwehr"),
+            ]
+        )
 
-    await bounded(_seed())
-
-    with unwritten(mongo_replica_set_url, DATABASE_NAME):
+    async with held_corpus(mongo_replica_set_url, DATABASE_NAME, seed):
         yield mongo_replica_set_url
 
 

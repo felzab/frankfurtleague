@@ -358,7 +358,8 @@ RIVAL_BOUND_S = 5.0
 class CommittedInsideThePupilsTransaction:
     """The seasons, running `rival` to its commit after a pupil's transaction reads the statuses, its first read.
 
-    Bounded rather than awaited outright: a rival waiting on a write of the pupil's would never finish.
+    Bounded: a rival waiting on a write of the pupil's would never finish, so past `RIVAL_BOUND_S` it is cancelled, and
+    `committed` stays false for the case to fail on.
     """
 
     def __init__(self, collection: Any, rival: Callable[[], Awaitable[Any]]) -> None:
@@ -373,9 +374,12 @@ class CommittedInsideThePupilsTransaction:
         cursor = await self._collection.aggregate(*args, **kwargs)
         if self._rival is not None and kwargs.get("session") is not None:
             rival, self._rival = self._rival, None
-            task = asyncio.ensure_future(rival())
-            await asyncio.wait({task}, timeout=RIVAL_BOUND_S)
-            self.committed = task.done() and task.exception() is None
+            try:
+                async with asyncio.timeout(RIVAL_BOUND_S):
+                    await rival()
+            except TimeoutError:
+                return cursor
+            self.committed = True
 
         return cursor
 

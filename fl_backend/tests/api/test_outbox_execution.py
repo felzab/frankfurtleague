@@ -213,7 +213,9 @@ class TestTheDrain:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             owed = {await owe(database, client, f"ban/{position}") for position in range(4)}
-            first, second = await asyncio.gather(claimed(database, client), claimed(database, client))
+            async with asyncio.TaskGroup() as group:
+                drains = [group.create_task(claimed(database, client)) for _ in range(2)]
+            first, second = (drain.result() for drain in drains)
 
             return owed, [mail.id for mail in first.mails], [mail.id for mail in second.mails]
 

@@ -335,17 +335,13 @@ class TestTheSubmissionKey:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             committed = asyncio.Event()
             held = HoldsAfterItsLookup(database[Collection.REGISTRIERUNGEN], committed)
-            second = asyncio.create_task(register(database, client, key=KEY, registrierungen=held))
-            await held.until_held(second)
-
-            try:
+            async with asyncio.TaskGroup() as group:
+                second = group.create_task(register(database, client, key=KEY, registrierungen=held))
+                await held.until_held(second)
                 first = await register(database, client, key=KEY)
-            except BaseException:
-                await held.abandon(second)
-                raise
-            committed.set()
+                committed.set()
 
-            return first.registrierung_id, (await second).registrierung_id, held.lookups, held.insert_failures, len(await rows_of(database))
+            return first.registrierung_id, second.result().registrierung_id, held.lookups, held.insert_failures, len(await rows_of(database))
 
         first, second, lookups, failures, stored = await on_a_league(mongo_replica_set_url, body)
 
@@ -440,16 +436,11 @@ class TestAMailboxPastTheBound:
             await database[Collection.MAILBOX_ANCHORS].delete_many({})
             committed = asyncio.Event()
             held = HoldsAfterItsLookup(database[Collection.REGISTRIERUNGEN], committed)
-            second = asyncio.create_task(register(database, client, registrierungen=held, email=second_address))
-            await held.until_held(second)
-
-            try:
+            async with asyncio.TaskGroup() as group:
+                second = group.create_task(register(database, client, registrierungen=held, email=second_address))
+                await held.until_held(second)
                 await register(database, client, email=first)
-            except BaseException:
-                await held.abandon(second)
-                raise
-            committed.set()
-            await second
+                committed.set()
             days = {row["email"]: row["confirmation"]["sent_at"] for row in await rows_of(database)}
 
             return [days[first], days[second_address]]

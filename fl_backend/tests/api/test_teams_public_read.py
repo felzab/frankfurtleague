@@ -13,7 +13,7 @@ from app.api.teams.schemas import FLTeamSingleFilterParams
 from app.api.teams.services import build_team_pipeline
 from app.core.collections import Collection
 from tests import documents
-from tests.database import a_clean_database, bounded, shared_client, unwritten
+from tests.database import a_clean_database, held_corpus, shared_client
 from tests.documents import confirmed_kenntnisnahme
 from tests.worker import worker_database
 
@@ -85,21 +85,18 @@ def junction_row(key: str, shorthand: str, saison_id: str = SAISON) -> dict[str,
     )
 
 
-# Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
+# Module-scoped: every case below reads this corpus and none writes it, which `held_corpus` keeps
 # from being left as a claim.
 @pytest.fixture(scope="module")
 async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
     """A running season and a live club, its junction row carrying three people's contact records."""
 
-    async def _seed() -> None:
-        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
-            await database[Collection.SAISONS].insert_one(saison_document())
-            await database[Collection.TEAMS].insert_one(team_document("Helmholtz", "HGX", inactive_since=None))
-            await database[Collection.SAISON_TEAMS].insert_one(junction_row("Helmholtz", "HGX"))
+    async def seed(database: AsyncDatabase) -> None:
+        await database[Collection.SAISONS].insert_one(saison_document())
+        await database[Collection.TEAMS].insert_one(team_document("Helmholtz", "HGX", inactive_since=None))
+        await database[Collection.SAISON_TEAMS].insert_one(junction_row("Helmholtz", "HGX"))
 
-    await bounded(_seed())
-
-    with unwritten(mongo_replica_set_url, DATABASE_NAME):
+    async with held_corpus(mongo_replica_set_url, DATABASE_NAME, seed):
         yield mongo_replica_set_url
 
 

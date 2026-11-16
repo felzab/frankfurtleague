@@ -35,7 +35,7 @@ from app.shared.tokens import hash_token
 from tests import documents
 from tests.acts import deletions_of
 from tests.bewerbung_routes import answered, resent, viewed
-from tests.database import SEED_BOUND_S, a_clean_database
+from tests.database import CASE_BOUND_S, a_clean_database
 from tests.delivery import a_mail_that_bounced, mails_that_bounced
 from tests.documents import (
     SEAT_TEXT_VERSIONS,
@@ -989,9 +989,9 @@ class ActivatedAfterTheClocksRead(InterleavedCollection):
         return _ThenTheRival(cursor, self.run_the_rival)
 
 
-# Far past the call's few seconds over two pages, far short of a job's own budget, and inside the seed's own bound, so a
-# drain that never ends fails as one rather than as a seed cancelled for a deadlock.
-DRAIN_BOUND_S = SEED_BOUND_S / 2
+# Far past the call's few seconds over two pages, far short of a job's own budget, and inside the case's own bound, so a
+# drain that never ends fails as one rather than as a case cancelled at its bound.
+DRAIN_BOUND_S = CASE_BOUND_S / 2
 
 
 class TestAnActivationInsideAnEraseTransactionKeepsTheSeasonsRows:

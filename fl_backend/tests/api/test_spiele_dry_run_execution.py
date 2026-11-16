@@ -8,6 +8,7 @@ closures are judged by no type (`tests/core/test_safe_operations.py`). This hold
 every collection compared before and after the request, rather than the fields another test happens to read back.
 """
 
+from collections.abc import AsyncIterator
 from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -15,6 +16,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from bson import ObjectId
 from httpx2 import Response
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.spiele.schemas import FLPatchSpielDataPayload
 from app.core.collections import Collection
@@ -22,7 +24,7 @@ from app.core.config import API_VERSION
 from tests import documents
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_AUTH, grants_for_the_suite
-from tests.database import a_clean_database, bounded, unwritten
+from tests.database import held_corpus
 from tests.payloads import spiel_patch_body
 from tests.worker import worker_database
 
@@ -89,59 +91,59 @@ def bracket() -> list[dict[str, Any]]:
     return [viertelfinale, halbfinale]
 
 
-@pytest.fixture
-async def seeded_url(mongo_replica_set_url: str) -> str:
+@pytest.fixture(scope="module")
+async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
     """The season the save judges, the ground and the referee its names are composed from, and the report it stamps."""
 
-    async def _seed() -> None:
-        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
-            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
-            rules = documents.rules_document(win_points=3, draw_points=1, qualifiers_per_gruppe=2, tiebreak_order="tordifferenz")
-            await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active", rules=rules))
-            await database[Collection.TEAMS].insert_many([documents.team_document(team_id, *names) for team_id, names in NAMES.items()])
-            await database[Collection.SAISON_TEAMS].insert_many(
-                [documents.saison_team_document(SAISON_ID, team_id, *names, gruppe="A") for team_id, names in NAMES.items()]
-            )
-            # Position 1 in each: the two sit in different phases, where the positions restart.
-            await database[Collection.SPIELTAGE].insert_many(
-                [
-                    documents.spieltag_document(spieltag_id, SAISON_ID, 1, saison_phase=saison_phase, start=tag, end=tag)
-                    for spieltag_id, saison_phase, tag in (
-                        (SPIELTAG_VIERTELFINALE, "viertelfinale", "2026-05-01"),
-                        (SPIELTAG_HALBFINALE, "halbfinale", "2026-05-08"),
-                    )
-                ]
-            )
-            await database[Collection.SPIELORTE].insert_one(documents.spielort_document(SPIELORT, "Sportplatz Ost", default_mietpreis=65))
-            await database[Collection.SCHIEDSRICHTER].insert_one(
-                documents.schiedsrichter_document(
-                    SCHIEDSRICHTER,
-                    email="ada.kern@example.com",
-                    name="Ada Kern",
-                    default_payment=15,
-                    einwilligung=documents.own_einwilligung_document(
-                        text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2026-01-20"
-                    ),
+    async def seed(database: AsyncDatabase) -> None:
+        await database[Collection.GRANTS].insert_many(grants_for_the_suite())
+        rules = documents.rules_document(win_points=3, draw_points=1, qualifiers_per_gruppe=2, tiebreak_order="tordifferenz")
+        await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active", rules=rules))
+        await database[Collection.TEAMS].insert_many([documents.team_document(team_id, *names) for team_id, names in NAMES.items()])
+        await database[Collection.SAISON_TEAMS].insert_many(
+            [documents.saison_team_document(SAISON_ID, team_id, *names, gruppe="A") for team_id, names in NAMES.items()]
+        )
+        # Position 1 in each: the two sit in different phases, where the positions restart.
+        await database[Collection.SPIELTAGE].insert_many(
+            [
+                documents.spieltag_document(spieltag_id, SAISON_ID, 1, saison_phase=saison_phase, start=tag, end=tag)
+                for spieltag_id, saison_phase, tag in (
+                    (SPIELTAG_VIERTELFINALE, "viertelfinale", "2026-05-01"),
+                    (SPIELTAG_HALBFINALE, "halbfinale", "2026-05-08"),
                 )
+            ]
+        )
+        await database[Collection.SPIELORTE].insert_one(documents.spielort_document(SPIELORT, "Sportplatz Ost", default_mietpreis=65))
+        await database[Collection.SCHIEDSRICHTER].insert_one(
+            documents.schiedsrichter_document(
+                SCHIEDSRICHTER,
+                email="ada.kern@example.com",
+                name="Ada Kern",
+                default_payment=15,
+                einwilligung=documents.own_einwilligung_document(
+                    text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2026-01-20"
+                ),
             )
-            spiele = bracket()
-            await database[Collection.SPIELE].insert_many(spiele)
-            await database[Collection.SPIELBERICHTE].insert_one(
-                documents.spielbericht_document(
-                    spiele[0], bericht=documents.bericht_document(sides=documents.spielbericht_sides(spiele[0])), version=BERICHT_VERSION
-                )
+        )
+        spiele = bracket()
+        await database[Collection.SPIELE].insert_many(spiele)
+        await database[Collection.SPIELBERICHTE].insert_one(
+            documents.spielbericht_document(
+                spiele[0], bericht=documents.bericht_document(sides=documents.spielbericht_sides(spiele[0])), version=BERICHT_VERSION
             )
+        )
 
-    await bounded(_seed())
-
-    return mongo_replica_set_url
+    async with held_corpus(mongo_replica_set_url, DATABASE_NAME, seed):
+        yield mongo_replica_set_url
 
 
 async def previewed(url: str, body: dict[str, Any]) -> Response:
     """The dry run as a real request, guards and middleware included, which a write could hide in as well.
 
-    A write the preview defers past its response, in a task it starts and leaves running, escapes this: the comparison
-    after the response awaits nothing, so the loop gives that task no turn before it.
+    A write the preview defers to a task it leaves running gets loop turns while this client closes. One that lands then
+    is caught by the comparison `held_corpus` runs after the module's case, and one still pending as the case ends fails
+    it by the case scope's check on the tasks it leaves. One that meets this client closed fails in its task and writes
+    nothing, which nothing here sees.
     """
 
     async with app_client(url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
@@ -163,9 +165,8 @@ async def test_a_dry_run_moving_the_bracket_leaves_every_collection_as_it_was(se
     (stored,) = [spiel for spiel in bracket() if spiel["_id"] == VIERTELFINALE]
     payload = FLPatchSpielDataPayload.model_validate(spiel_patch_body(stored, team1=side(ALPHA, 3), team2=side(BETA, 1)))
 
-    with unwritten(seeded_url, DATABASE_NAME):
-        response = await previewed(seeded_url, payload.model_dump(mode="json"))
+    response = await previewed(seeded_url, payload.model_dump(mode="json"))
 
-        # The premise: the preview judged a save that would move another fixture, so it had something to write.
-        assert response.status_code == 200, response.text
-        assert [moved["spiel_id"] for moved in response.json()["advanced_to"]] == [str(HALBFINALE)]
+    # The premise: the preview judged a save that would move another fixture, so it had something to write.
+    assert response.status_code == 200, response.text
+    assert [moved["spiel_id"] for moved in response.json()["advanced_to"]] == [str(HALBFINALE)]

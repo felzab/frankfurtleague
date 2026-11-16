@@ -5,13 +5,14 @@ import pymongo
 import pytest
 from bson import ObjectId
 from httpx2 import Response
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from tests import documents
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config, grants_for_the_suite
-from tests.database import a_clean_database, bounded, unwritten
+from tests.database import held_corpus
 
 SAISON_ID = "2026"
 
@@ -188,7 +189,7 @@ async def answered(uri: str, path: str, headers: Mapping[str, str]) -> Response:
             return await http.get(path, headers=dict(headers))
 
 
-# Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
+# Module-scoped: every case below reads this corpus and none writes it, which `held_corpus` keeps
 # from being left as a claim.
 @pytest.fixture(scope="module")
 async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
@@ -196,35 +197,32 @@ async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
 
     database_name = build_test_config().db_base_name
 
-    async def _seed() -> None:
-        async with a_clean_database(mongo_replica_set_url, database_name) as (_, database):
-            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
-            # Finished, the one status that closes the editor, so the served status is this row's and no default's; a later
-            # season stored ahead of it, so a status read off whichever season comes first shows.
-            await database[Collection.SAISONS].insert_many(
-                [documents.saison_document(LATER_SAISON_ID, "future"), documents.saison_document(SAISON_ID, "past")]
-            )
-            await database[Collection.SPIELE].insert_one(spiel_document())
-            spiele = other_spiele()
-            await database[Collection.SPIELE].insert_many(spiele)
-            await database[Collection.SPIELBERICHTE].insert_many(spielberichte_rows(spiele))
-            await database[Collection.SPIELBESTAETIGUNGEN].insert_many(spielbestaetigungen_rows(spiele))
-            spieler, kader = kader_rows()
-            await database[Collection.SPIELER].insert_many(spieler)
-            await database[Collection.SAISON_SPIELER].insert_many(kader)
-            await database[Collection.SAISON_TEAMS].insert_many(junction_rows())
-            await database[Collection.SPIELORTE].insert_many(
-                [
-                    spielort_row(SPIELORT_ID, "Sportplatz Ost", inactive_since="2026-04-01"),
-                    spielort_row(LIVE_SPIELORT_ID, "Halle Nord", inactive_since=None),
-                    spielort_row(RETIRED_SPIELORT_ID, "Platz West", inactive_since="2026-02-01"),
-                ]
-            )
-            await database[Collection.SCHIEDSRICHTER].insert_many(schiedsrichter_rows())
+    async def seed(database: AsyncDatabase) -> None:
+        await database[Collection.GRANTS].insert_many(grants_for_the_suite())
+        # Finished, the one status that closes the editor, so the served status is this row's and no default's; a later
+        # season stored ahead of it, so a status read off whichever season comes first shows.
+        await database[Collection.SAISONS].insert_many(
+            [documents.saison_document(LATER_SAISON_ID, "future"), documents.saison_document(SAISON_ID, "past")]
+        )
+        await database[Collection.SPIELE].insert_one(spiel_document())
+        spiele = other_spiele()
+        await database[Collection.SPIELE].insert_many(spiele)
+        await database[Collection.SPIELBERICHTE].insert_many(spielberichte_rows(spiele))
+        await database[Collection.SPIELBESTAETIGUNGEN].insert_many(spielbestaetigungen_rows(spiele))
+        spieler, kader = kader_rows()
+        await database[Collection.SPIELER].insert_many(spieler)
+        await database[Collection.SAISON_SPIELER].insert_many(kader)
+        await database[Collection.SAISON_TEAMS].insert_many(junction_rows())
+        await database[Collection.SPIELORTE].insert_many(
+            [
+                spielort_row(SPIELORT_ID, "Sportplatz Ost", inactive_since="2026-04-01"),
+                spielort_row(LIVE_SPIELORT_ID, "Halle Nord", inactive_since=None),
+                spielort_row(RETIRED_SPIELORT_ID, "Platz West", inactive_since="2026-02-01"),
+            ]
+        )
+        await database[Collection.SCHIEDSRICHTER].insert_many(schiedsrichter_rows())
 
-    await bounded(_seed())
-
-    with unwritten(mongo_replica_set_url, database_name):
+    async with held_corpus(mongo_replica_set_url, database_name, seed):
         yield mongo_replica_set_url
 
 

@@ -366,16 +366,12 @@ class TestTwoMintsAtOnce:
         async def body(database: AsyncDatabase) -> Any:
             committed = asyncio.Event()
             held = _HoldsAfterItsRevoke(database[Collection.INVITATIONS], committed)
-            second = asyncio.create_task(mint(database, TWO_SEATS, invitations=held))
-            await held.until_held(second)
-
-            try:
+            async with asyncio.TaskGroup() as group:
+                second = group.create_task(mint(database, TWO_SEATS, invitations=held))
+                await held.until_held(second)
                 first = await mint(database, TWO_SEATS)
-            except BaseException:
-                await held.abandon(second)
-                raise
-            committed.set()
-            answered = await second
+                committed.set()
+            answered = second.result()
 
             live = await database[Collection.INVITATIONS].find({"team_id": TWO_SEATS, "revoked_at": None}).to_list(length=None)
 

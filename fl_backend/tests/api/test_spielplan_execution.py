@@ -861,9 +861,13 @@ async def a_report_crossed_by(database: AsyncDatabase, client: AsyncMongoClient,
         await take_the_referee_off(database, spiel_id)
         return await outcome_of(removal(anchors))
 
-    outcomes = await asyncio.gather(a_referees_first_report(database, client, spiel_id=spiel_id, spiele=spiele), the_removal())
+    # A group rather than a gather: whichever side raises, the other is cancelled and drained here, not left to land in the
+    # next case's database.
+    async with asyncio.TaskGroup() as group:
+        reported = group.create_task(a_referees_first_report(database, client, spiel_id=spiel_id, spiele=spiele))
+        removed = group.create_task(the_removal())
 
-    return outcomes, await orphaned_reports(database), anchors.conflicts
+    return [reported.result(), removed.result()], await orphaned_reports(database), anchors.conflicts
 
 
 class TestAFirstReportCrossingADrawsRemovalMeetsItOnTheSeason:
