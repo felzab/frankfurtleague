@@ -91,11 +91,11 @@ BY_HAND="COMPOSE_FILE='${COMPOSE_FILE}' TAG=${TAG} docker compose"
 E2E_DIR="${REPO_ROOT}/.tmp-e2e"
 
 # The made-up league loaded into the running backend's database and read back; `--landing` hands its
-# state on. The script's own account is shown only on a failure.
+# state on. The script's own account is shown only on a failure, and it annotates its own ending.
 load_made_up_seed() {
   local landing=()
   if (( RESEED )); then landing=("--landing=${LANDING}"); fi
-  run_tool contract \
+  run_tool contract --annotated \
     --finding "the made-up seed failed, and the lines above name what to correct.
 The frontend has not been started or recreated." \
     --refusal "the made-up seed was refused, and the lines above say why.
@@ -105,9 +105,9 @@ The frontend has not been started or recreated." -- \
 }
 
 # The script CI's journeys raise the stack with, its steps shown as they run and its verdict kept: a
-# refusal stays 2, an interrupt 130 and a crash its own status.
+# refusal stays 2, an interrupt 130 and a crash its own status, each annotated by the script itself.
 e2e_stack() {
-  run_tool contract \
+  run_tool contract --annotated \
     --finding "the end-to-end stack did not come up, and the lines above name what to correct.
 Each service's own lines:  ${BY_HAND} logs <service>
 Stop what is left:  ${STOP_COMMAND}" \

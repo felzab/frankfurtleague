@@ -824,8 +824,11 @@ _into() { # $1 the variable · the command
 # `die` on `--finding`'s sentence, a refusal through `refuse` on `--refusal`'s, and a crash, or a class the
 # site named no sentence for, through `on_error` naming `--crash`'s sentence or the command. `--stdout`
 # keeps the command's stdout in the variable it names. A command run as `quietly …` hands the rows its output.
-run_tool() { # $1 the rows · [--stdout <name>] [--finding <s>] [--refusal <s>] [--crash <s>] -- the command
+# `--annotated` is for a script on this library, which annotates its own finding, refusal and crash under Actions,
+# so the ending restating it raises none again, as the gate's `check --annotated` does.
+run_tool() { # $1 the rows · [--stdout <name>] [--finding <s>] [--refusal <s>] [--crash <s>] [--annotated] -- the command
   local _rt_rows="$1" _rt_into="" _rt_finding="" _rt_refusal="" _rt_crash="" _rt_rc=0 _rt_class=0 _rt_said="" _rt_command
+  local -a _rt_summary=()
   shift
   while [[ "${1-}" != -- ]]; do
     case "${1-}" in
@@ -833,6 +836,7 @@ run_tool() { # $1 the rows · [--stdout <name>] [--finding <s>] [--refusal <s>] 
       --finding) _rt_finding="$2" ;;
       --refusal) _rt_refusal="$2" ;;
       --crash) _rt_crash="$2" ;;
+      --annotated) _rt_summary=(--summary); shift; continue ;;
       *) on_error 3 "${BASH_LINENO[0]}" "run_tool: no option named '${1-}'" "${BASH_SOURCE[1]}" ;;
     esac
     shift 2
@@ -843,13 +847,13 @@ run_tool() { # $1 the rows · [--stdout <name>] [--finding <s>] [--refusal <s>] 
   _rt_command="${_rt_crash:-${_rt_command% }}"
   if [[ -n "$_rt_into" ]]; then _into "$_rt_into" "$@" || _rt_rc=$?; else "$@" || _rt_rc=$?; fi
   if [[ "$1" == quietly ]]; then _rt_said="$QUIETLY_OUTPUT"; fi
-  settle "$_rt_rows" "$_rt_rc" "${BASH_LINENO[0]}" "$_rt_command" "$_rt_said" || _rt_class=$?
+  settle "${_rt_summary[@]}" "$_rt_rows" "$_rt_rc" "${BASH_LINENO[0]}" "$_rt_command" "$_rt_said" || _rt_class=$?
   case "$_rt_class" in
     0) return 0 ;;
-    1) if [[ -n "$_rt_finding" ]]; then die "$_rt_finding"; fi ;;
-    2) if [[ -n "$_rt_refusal" ]]; then refuse "$_rt_refusal"; fi ;;
+    1) if [[ -n "$_rt_finding" ]]; then die "${_rt_summary[@]}" "$_rt_finding"; fi ;;
+    2) if [[ -n "$_rt_refusal" ]]; then refuse "${_rt_summary[@]}" "$_rt_refusal"; fi ;;
   esac
-  on_error "$_rt_rc" "${BASH_LINENO[0]}" "$_rt_command" "${BASH_SOURCE[1]}"
+  on_error "${_rt_summary[@]}" "$_rt_rc" "${BASH_LINENO[0]}" "$_rt_command" "${BASH_SOURCE[1]}"
 }
 
 # Whether a command answered, its status read through the rows `$1` names: 0 for the class 0, an interrupt

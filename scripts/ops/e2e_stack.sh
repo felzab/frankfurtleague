@@ -106,8 +106,9 @@ run_tool compose-wait --finding "the database and the backend did not both come 
   quietly docker compose up -d --no-build --wait --wait-timeout 180 mongo backend
 ok "database and backend up"
 
-# Before the frontend's start, so no page renders, and no cache keeps, a read of a database still filling.
-run_tool contract \
+# Before the frontend's start, so no page renders, and no cache keeps, a read of a database still filling. The seed
+# script annotates its own ending.
+run_tool contract --annotated \
   --finding "the made-up seed failed, and the lines above name what to correct. The frontend and nginx have not been started." \
   --refusal "the made-up seed was refused, and the lines above say why. The frontend and nginx have not been started." -- \
   "${REPO_ROOT}/scripts/ops/made_up_seed.sh"

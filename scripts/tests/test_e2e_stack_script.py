@@ -86,6 +86,7 @@ def stack(
     script: str = "scripts/ops/e2e_stack.sh",
     reaches: tuple[str, str] = (E2E_FILES, E2E_PROJECT),
     caller: str = LOCAL_PROJECT,
+    extra: Mapping[str, str] = MappingProxyType({}),
 ) -> tuple[int, str, list[str]]:
     """One run of `script` in `root`, each kind of call in `codes` answering with its code, 0 otherwise.
 
@@ -107,6 +108,7 @@ def stack(
         "FL_STACK_DIR": engine.as_posix(),
         "COMPOSE_FILE": "docker-compose.yml;docker-compose.local.yml",
         "COMPOSE_PROJECT_NAME": caller,
+        **extra,
     }
     done = run_shell(BASH, root / script, *args, env=environment, cwd=root)
     calls = (engine / "calls").read_bytes().decode().splitlines() if (engine / "calls").exists() else []
@@ -187,6 +189,26 @@ def test_local_sh_keeps_the_stack_s_verdict(codes: dict[str, int], expected: int
     assert code == expected, said
     assert kinds[:3] == ["down", "build", "start"], kinds
     assert "rest" not in kinds, kinds
+
+
+@pytest.mark.parametrize(
+    ("script", "args", "codes", "expected"),
+    [
+        ("scripts/ops/e2e_stack.sh", ("serve",), {"seed": 1}, 1),
+        ("scripts/ops/e2e_stack.sh", ("serve",), {"readback": 2}, 2),
+        ("scripts/ops/e2e_stack.sh", ("serve",), {"seed": 137}, 137),
+        ("scripts/ops/local.sh", ("--e2e",), {"seed": 1}, 1),
+    ],
+    ids=["seed-fails", "read-back-refuses", "seed-crashes", "local-e2e-seed-fails"],
+)
+def test_an_ending_the_seed_annotated_raises_one_annotation_under_actions(
+    script: str, args: tuple[str, ...], codes: dict[str, int], expected: int
+) -> None:
+    """The seed script annotates its own ending, so each script restating it raises none, as the gate's own `check` does."""
+    code, said, _ = stack(checkout(), *args, codes=codes, script=script, extra={"GITHUB_ACTIONS": "true"})
+    annotations = [line for line in said.splitlines() if line.lstrip().startswith("::error::")]
+    assert code == expected, said
+    assert len(annotations) == 1, annotations
 
 
 @pytest.mark.parametrize(
