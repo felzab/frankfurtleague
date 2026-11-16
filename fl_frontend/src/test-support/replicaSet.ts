@@ -42,25 +42,25 @@ export type ReplicaSet = { mongod: StartedMongoDBContainer; closing: (close: () 
 const HEALTHY_WITHIN_MS = 60_000;
 
 /**
- * The whole start's, the image pull and the container's creation among it: every db file awaits the start at module
- * level, where neither of Vitest's bounds reaches, so without this a stalled Docker call would hang the run.
+ * The whole start's, the image pull and the container's creation ahead of the health check: every db file awaits the
+ * start at module level, where neither of Vitest's bounds reaches, so without this a stalled Docker call would hang the
+ * run. Built on the health check's, so a stalled check ends on testcontainers' own error, inside this one.
  */
-const STARTED_WITHIN_MS = 100_000;
+const STARTED_WITHIN_MS = HEALTHY_WITHIN_MS + 40_000;
 
-/** `started` as it settles, or a failure naming the start once `STARTED_WITHIN_MS` has passed. */
-async function startedInTime<T>(started: Promise<T>): Promise<T> {
+/**
+ * `work` as it settles, or a failure saying `overdue` once `withinMs` has passed, for a wait that would otherwise end on
+ * no bound at all or on Vitest's, which names the hook it stands in rather than the step.
+ */
+export async function settledWithin<T>(work: Promise<T>, withinMs: number, overdue: string): Promise<T> {
   let timer: NodeJS.Timeout | undefined;
-  const overdue = new Promise<never>((_, reject) => {
+  const late = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
-      reject(
-        new Error(
-          `this file's replica set did not start within ${String(STARTED_WITHIN_MS / 1000)} s: read Docker's state, then the image pull`,
-        ),
-      );
-    }, STARTED_WITHIN_MS);
+      reject(new Error(overdue));
+    }, withinMs);
   });
   try {
-    return await Promise.race([started, overdue]);
+    return await Promise.race([work, late]);
   } finally {
     clearTimeout(timer);
   }
@@ -106,7 +106,11 @@ export async function startReplicaSet(): Promise<ReplicaSet> {
   const closes: (() => Promise<unknown>)[] = [];
   // A race beside the library's bound rather than instead of it: `withStartupTimeout` waits on the
   // health check alone, and the Docker calls before it (the pull, the create, the start) carry none.
-  const mongod = await startedInTime(new MongoDBContainer(localStackMongo()).withStartupTimeout(HEALTHY_WITHIN_MS).start());
+  const mongod = await settledWithin(
+    new MongoDBContainer(localStackMongo()).withStartupTimeout(HEALTHY_WITHIN_MS).start(),
+    STARTED_WITHIN_MS,
+    `this file's replica set did not start within ${String(STARTED_WITHIN_MS / 1000)} s: read Docker's state, then the image pull`,
+  );
 
   // A client of its own: the suites' clients run the strict Stable API, which refuses `$currentOp`.
   const judge = new MongoClient(replicaSetUrl(mongod));

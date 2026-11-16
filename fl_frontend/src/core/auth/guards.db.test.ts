@@ -2,8 +2,9 @@ import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, overriding, registerAu
 import { beginRenderPass, serveServerReact } from "@/test-support/cacheScope";
 import { emptyStore } from "@/test-support/emptyStore";
 import { replicaSetUrl, startReplicaSet } from "@/test-support/replicaSet";
+import { signInIndexesForTheFile } from "@/test-support/signInIndexes";
 import { captureLog } from "@/test-support/stdoutCapture";
-import { assert, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { assert, beforeEach, describe, expect, it } from "vitest";
 
 import type { MongoClient } from "mongodb";
 
@@ -47,19 +48,7 @@ const { getSubjectSession } = await import("@/core/subject");
 const { devicesOf } = await import("@/features/account/security");
 const { heldPasskeysOf } = await import("@/features/passkeys/held");
 
-// Production's indexes under every case, so the library is driven over what it meets there: built once for the
-// file, as a boot builds them once.
-beforeAll(async () => {
-  const from = log.lines().length;
-  await buildAuthIndexes();
-  expect(
-    log
-      .lines()
-      .slice(from)
-      .flatMap(({ level, message }) => (level === "ERROR" ? [message] : [])),
-    "an index of the sign-in store was left unbuilt",
-  ).toStrictEqual([]);
-});
+signInIndexesForTheFile(buildAuthIndexes, log);
 
 // Each case signs the administrator in afresh.
 beforeEach(() => emptyStore(client.db(MONGO_DB_NAME)));

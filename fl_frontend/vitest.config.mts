@@ -1,5 +1,6 @@
 import { defineConfig } from "vitest/config";
 
+import { DB_TIER } from "./src/test-support/dbTier.mts";
 import { TEST_ENVIRONMENT } from "./src/test-support/testEnvironment.mts";
 
 /**
@@ -8,19 +9,6 @@ import { TEST_ENVIRONMENT } from "./src/test-support/testEnvironment.mts";
  * the shell sets none. A file's `.production.test.ts` infix selects this project.
  */
 const PRODUCTION_BUILD = ["src/**/*.production.test.ts"];
-
-/**
- * A case here waits on a replica set in a container and on bounds of its own past Vitest's five seconds. A transaction
- * a case leaves open fails that case from `src/test-support/replicaSet.ts`'s `afterEach`, which ends it, so no later
- * case waits behind one. Each bound, a hook's included, stays under half of MongoDB's one-minute transaction lifetime:
- * a write or an index build behind a transaction still open waits until it ends
- * (https://www.mongodb.com/docs/manual/core/transactions-production-consideration/), so a step waiting on one in its
- * own case fails on Vitest's bound before the server's expiry frees it. A `beforeAll` builds the sign-in store's
- * indexes, asking again for any build the store answers past the client's three-second socket bound. The replica set's
- * start is bounded apart: each file awaits it at module level, where neither bound reaches
- * (`src/test-support/replicaSet.ts :: STARTED_WITHIN_MS`).
- */
-const DB_TIER = { testTimeout: 30_000, hookTimeout: 30_000 };
 
 export default defineConfig({
   // Vite 8 reads tsconfig's `@/*` paths itself, and its `"jsx": "react-jsx"` too, so neither
