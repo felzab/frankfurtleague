@@ -8,7 +8,7 @@ import {
   formatInstant,
   formatInstantShort,
   formatTime,
-} from "./format.ts";
+} from "./format";
 
 describe("formatDate", () => {
   // Late evening UTC is already the next day in Berlin; the runtime's own zone would print the 24th.

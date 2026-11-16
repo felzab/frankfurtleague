@@ -1,9 +1,9 @@
-import { faultingAdapter, insertOrderedAdapter, memoryStore, registerAuthDoubles } from "@/test-support/authDoubles.ts";
-import { networkFailure, refusal, serveBackend } from "@/test-support/backend.ts";
-import { captureLog } from "@/test-support/stdoutCapture.ts";
+import { faultingAdapter, insertOrderedAdapter, memoryStore, registerAuthDoubles } from "@/test-support/authDoubles";
+import { networkFailure, refusal, serveBackend } from "@/test-support/backend";
+import { captureLog } from "@/test-support/stdoutCapture";
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
-import type { FLReferencesPayload, FLReferencesResponse } from "@/core/generated/client/types.ts";
+import type { FLReferencesPayload, FLReferencesResponse } from "@/core/generated/client/types";
 import type { MemoryDB } from "better-auth/adapters/memory";
 
 /* Run under a production build's `NODE_ENV`, whose JSON line carries `trace_id` and every `error` handed the logger:
@@ -38,8 +38,8 @@ const backend = serveBackend(({ method, path, body }) => {
 const { owed } = registerAuthDoubles({ specifiers: { "@better-auth/mongo-adapter": ADAPTER } });
 const log = captureLog();
 
-const { auth } = await import("@/core/auth/library.ts");
-const { REFERENCES_ADDRESSES_MAX, runAccountSweep } = await import("./sweep.ts");
+const { auth } = await import("@/core/auth/library");
+const { REFERENCES_ADDRESSES_MAX, runAccountSweep } = await import("./sweep");
 
 /** Opens an account at each address, as a sign-in leaves one. */
 async function seed(addresses: readonly string[]): Promise<void> {

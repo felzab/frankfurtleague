@@ -10,11 +10,11 @@ import {
   overriding,
   registerAuthDoubles,
   signInByCode,
-} from "@/test-support/authDoubles.ts";
-import { emptyStore } from "@/test-support/emptyStore.ts";
-import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
-import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/test-support/nextRequest.ts";
-import { captureLog } from "@/test-support/stdoutCapture.ts";
+} from "@/test-support/authDoubles";
+import { emptyStore } from "@/test-support/emptyStore";
+import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions";
+import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/test-support/nextRequest";
+import { captureLog } from "@/test-support/stdoutCapture";
 import { assert, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 // A replica set: the property under test is a transaction's.
@@ -25,7 +25,7 @@ const MONGO_URL = replicaSetUrl(mongod);
 
 // The real `fl_frontend/src/core/db.ts`, which the auth doubles replace by default: the client
 // under test is the one it builds.
-const PRODUCTION_DB = "@/core/db.ts";
+const PRODUCTION_DB = "@/core/db";
 
 type Method = (...args: unknown[]) => unknown;
 
@@ -183,7 +183,7 @@ let signingOut: () => Promise<unknown> = async () => undefined;
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { auth } = await import("@/core/auth/library");
 const { buildAuthIndexes } = await import("@/core/authIndexes");
-const { removePasskeyAction } = await import("./actions.ts");
+const { removePasskeyAction } = await import("./actions");
 
 type Collection = {
   find: (filter: object) => { toArray: () => Promise<Record<string, unknown>[]> };
@@ -287,7 +287,7 @@ async function removeAtOnce(cookie: string, ids: readonly string[]) {
   };
 }
 
-const { COPY } = await import("@/core/copy.ts");
+const { COPY } = await import("@/core/copy");
 
 const LAST_PASSKEY = COPY.account.passkeys.lastKept;
 

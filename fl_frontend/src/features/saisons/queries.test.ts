@@ -1,5 +1,5 @@
-import { serveBackend } from "@/test-support/backend.ts";
-import { signedInRequest } from "@/test-support/session.ts";
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
 import { describe, expect, it, vi } from "vitest";
 
 /** Every request the backend was sent, with the key it carried, cumulative across this file. */
@@ -17,8 +17,8 @@ const declared: string[] = [];
 // Registered after the request's doubles, so its `next/cache` answers before theirs.
 vi.doMock("next/cache", () => ({ cacheTag: () => void declared.push("cacheTag"), cacheLife: () => void declared.push("cacheLife") }));
 
-const { getAdminSaison, getAdminSaisons } = await import("./queries.ts");
-const { internalApiKeyAdmin } = await import("@/core/config.ts");
+const { getAdminSaison, getAdminSaisons } = await import("./queries");
+const { internalApiKeyAdmin } = await import("@/core/config");
 
 /** The key tier a request went out on, read off its key: the run's secret files give each tier a key of its own. */
 const tierOf = (authorization: string | null): string =>

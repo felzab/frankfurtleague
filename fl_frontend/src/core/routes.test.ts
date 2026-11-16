@@ -1,12 +1,12 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { filesUnder } from "@/test-support/treeWalk.ts";
+import { filesUnder } from "@/test-support/treeWalk";
 import { describe, expect, it } from "vitest";
 
-import { ADDRESS_WORDS, ROUTES } from "./routes.ts";
+import { ADDRESS_WORDS, ROUTES } from "./routes";
 
-import type { RouteEntry } from "./routes.ts";
+import type { RouteEntry } from "./routes";
 
 const APP = path.resolve(import.meta.dirname, "..", "app");
 const GLOSSARY = path.resolve(import.meta.dirname, "..", "..", "..", "docs", "glossary.md");

@@ -1,12 +1,12 @@
-import { ADMIN_EMAIL, memoryAdapterDouble, memoryStore, ORIGIN, overriding, registerAuthDoubles } from "@/test-support/authDoubles.ts";
-import { serveBackend, serveHost } from "@/test-support/backend.ts";
-import { answerAt, NO_RECORDS } from "@/test-support/subjectFixtures.ts";
+import { ADMIN_EMAIL, memoryAdapterDouble, memoryStore, ORIGIN, overriding, registerAuthDoubles } from "@/test-support/authDoubles";
+import { serveBackend, serveHost } from "@/test-support/backend";
+import { answerAt, NO_RECORDS } from "@/test-support/subjectFixtures";
 import { assert, describe, expect, it } from "vitest";
 
-import { TURNSTILE_FIELD } from "@/core/turnstileToken.ts";
+import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 
-import type { ActionAnswer } from "@/core/action.ts";
-import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
+import type { ActionAnswer } from "@/core/action";
+import type { LookupFixture } from "@/test-support/subjectFixtures";
 
 const STORE = "__flSignInStore";
 
@@ -81,8 +81,8 @@ const store = memoryStore(STORE);
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { toNextJsHandler } = await import("better-auth/next-js");
-const { auth } = await import("@/core/auth/library.ts");
-const { handleSignIn } = await import("./actions.ts");
+const { auth } = await import("@/core/auth/library");
+const { handleSignIn } = await import("./actions");
 const handler = toNextJsHandler(auth);
 
 interface Attempt {

@@ -6,18 +6,18 @@ import {
   ORIGIN,
   registerAuthDoubles,
   sessionByCode,
-} from "@/test-support/authDoubles.ts";
-import { serveBackend } from "@/test-support/backend.ts";
-import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/test-support/nextRequest.ts";
-import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures.ts";
-import { thrownRedirect } from "@/test-support/thrownRedirect.ts";
+} from "@/test-support/authDoubles";
+import { serveBackend } from "@/test-support/backend";
+import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/test-support/nextRequest";
+import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures";
+import { thrownRedirect } from "@/test-support/thrownRedirect";
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
-import { ROUTES } from "@/core/routes.ts";
-import { SITE_CACHE_TAG } from "@/core/siteCache.ts";
+import { ROUTES } from "@/core/routes";
+import { SITE_CACHE_TAG } from "@/core/siteCache";
 
-import type { SessionRow } from "@/test-support/authDoubles.ts";
-import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
+import type { SessionRow } from "@/test-support/authDoubles";
+import type { LookupFixture } from "@/test-support/subjectFixtures";
 import type { MemoryDB } from "better-auth/adapters/memory";
 
 /** What the request a case arrives as carries, which `arriveAs` sets. */
@@ -104,10 +104,10 @@ const {
   saveSpielerConsent,
   signOutOthers,
   withdrawAddressChange,
-} = await import("./personActions.ts");
-const { COPY } = await import("@/core/copy.ts");
-const { SERVER_COPY } = await import("@/core/serverCopy.ts");
-const { auth } = await import("@/core/auth/library.ts");
+} = await import("./personActions");
+const { COPY } = await import("@/core/copy");
+const { SERVER_COPY } = await import("@/core/serverCopy");
+const { auth } = await import("@/core/auth/library");
 
 beforeEach(() => {
   store.passkey.length = 0;

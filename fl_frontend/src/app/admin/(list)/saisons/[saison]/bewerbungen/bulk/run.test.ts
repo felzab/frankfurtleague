@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { gruppenFor, openRows, takenFor } from "./run.ts";
+import { gruppenFor, openRows, takenFor } from "./run";
 
-import type { FLBewerbungListRow } from "@/core/generated/client/types.ts";
-import type { Draft, Run } from "./run.ts";
+import type { FLBewerbungListRow } from "@/core/generated/client/types";
+import type { Draft, Run } from "./run";
 
 const row = (id: string) => ({ id }) as FLBewerbungListRow;
 const ROWS = [row("a"), row("b"), row("c")];

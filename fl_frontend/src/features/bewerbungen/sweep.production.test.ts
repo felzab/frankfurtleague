@@ -1,5 +1,5 @@
-import { networkFailure, serveBackend } from "@/test-support/backend.ts";
-import { captureLog } from "@/test-support/stdoutCapture.ts";
+import { networkFailure, serveBackend } from "@/test-support/backend";
+import { captureLog } from "@/test-support/stdoutCapture";
 import { expect, it } from "vitest";
 
 /* Run under a production build's `NODE_ENV`, whose JSON line carries `trace_id`: the plain line every other project
@@ -36,7 +36,7 @@ const backend = serveBackend(({ method, path }) => {
 });
 const log = captureLog();
 
-const { runBewerbungSweep } = await import("./sweep.ts");
+const { runBewerbungSweep } = await import("./sweep");
 
 /** The trace a request was sent under, off the `traceparent` the backend read: `00-<trace>-<span>-<flags>`. */
 const traceOf = (call: string): string | undefined =>

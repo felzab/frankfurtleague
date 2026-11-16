@@ -1,8 +1,8 @@
 // The sign-in doubles' default lookup, which every suite registering them without an answer of its own relies on:
 // it answers the administrator alone, and a read for anyone else fails the case unless the case answered it.
-import { ADMIN_EMAIL, answerTheLookup, memoryAdapterDouble, memoryStore, ORIGIN, registerAuthDoubles } from "@/test-support/authDoubles.ts";
-import { serveBackend } from "@/test-support/backend.ts";
-import { caseFailures } from "@/test-support/caseFailures.ts";
+import { ADMIN_EMAIL, answerTheLookup, memoryAdapterDouble, memoryStore, ORIGIN, registerAuthDoubles } from "@/test-support/authDoubles";
+import { serveBackend } from "@/test-support/backend";
+import { caseFailures } from "@/test-support/caseFailures";
 import { describe, expect, it } from "vitest";
 
 /** An address no answer of this file names. */
@@ -15,7 +15,7 @@ const outbox = registerAuthDoubles({ specifiers: { "@better-auth/mongo-adapter":
 memoryStore(STORE);
 
 // Imported after the doubles, as a suite's subject is.
-const { auth } = await import("@/core/auth/library.ts");
+const { auth } = await import("@/core/auth/library");
 
 /** Asks the sign-in library to mail `email` a code, as the sign-in page's send does. */
 const sendCode = (email: string) => auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers: new Headers(ORIGIN) });

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 import { describe, expect, it } from "vitest";
 
-import { CONSENT_WORDINGS } from "./consentWordings.ts";
+import { CONSENT_WORDINGS } from "./consentWordings";
 
 /** Each label's words as they were when its label was minted. A changed wording is a new label with a digest of its own. */
 const DIGESTS: Readonly<Record<string, string>> = {

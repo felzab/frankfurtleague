@@ -1,8 +1,8 @@
-import { ADMIN_EMAIL, answerTheLookup, cookieHeader, ORIGIN, sessionByCode, signInByCode } from "@/test-support/authDoubles.ts";
-import { serveBackend } from "@/test-support/backend.ts";
-import { signedInRequest } from "@/test-support/session.ts";
-import { captureLog } from "@/test-support/stdoutCapture.ts";
-import { assertionFor, CREDENTIAL_ID } from "@/test-support/testAuthenticator.ts";
+import { ADMIN_EMAIL, answerTheLookup, cookieHeader, ORIGIN, sessionByCode, signInByCode } from "@/test-support/authDoubles";
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
+import { captureLog } from "@/test-support/stdoutCapture";
+import { assertionFor, CREDENTIAL_ID } from "@/test-support/testAuthenticator";
 import { assert, describe, expect, it } from "vitest";
 
 // Under the production build's `NODE_ENV` (`fl_frontend/vitest.config.mts :: PRODUCTION_BUILD`): only its format writes
@@ -15,7 +15,7 @@ const { store, outbox } = signedInRequest();
 const log = captureLog();
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
-const { auth } = await import("./auth/library.ts");
+const { auth } = await import("./auth/library");
 const { toNextJsHandler } = await import("better-auth/next-js");
 
 const handler = toNextJsHandler(auth);

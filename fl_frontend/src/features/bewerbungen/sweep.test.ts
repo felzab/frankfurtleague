@@ -1,9 +1,9 @@
-import { networkFailure, refusal, serveBackend } from "@/test-support/backend.ts";
+import { networkFailure, refusal, serveBackend } from "@/test-support/backend";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { APIBadStatusError, APINetworkError } from "@/core/errors.ts";
+import { APIBadStatusError, APINetworkError } from "@/core/errors";
 
-import type { FLAddressChangeSweepResponse } from "@/core/generated/client/types.ts";
+import type { FLAddressChangeSweepResponse } from "@/core/generated/client/types";
 
 /** One season half's answer, the rows it passed over counted. */
 const bewerbungPass = (saisonId: string, failed = 0) => ({
@@ -63,7 +63,7 @@ function seasons(
 
 const backend = serveBackend(({ method, path }) => answers.get(`${method} ${path}`)?.());
 
-const { runBewerbungSweep } = await import("./sweep.ts");
+const { runBewerbungSweep } = await import("./sweep");
 
 /** Every request in the order sent. */
 const order = (): string[] => backend.sent.map(({ method, path }) => `${method} ${path}`);

@@ -1,12 +1,12 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { person, seat, SEAT } from "@/test-support/subjectFixtures.ts";
+import { person, seat, SEAT } from "@/test-support/subjectFixtures";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { FLSaisonStatus } from "./generated/client/types.ts";
-import { grantsAPanel, rolesOf } from "./roles.ts";
+import { FLSaisonStatus } from "./generated/client/types";
+import { grantsAPanel, rolesOf } from "./roles";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..");
 

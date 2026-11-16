@@ -18,7 +18,7 @@ vi.mock("next/font/google", () => faces);
 const SHARE_IMAGE = { src: "/_next/static/media/share-image.0a1b2c3d.png", width: 1200, height: 630 };
 vi.mock("./share-image.png", () => ({ default: SHARE_IMAGE }));
 
-const { default: RootLayout, metadata } = await import("./layout.tsx");
+const { default: RootLayout, metadata } = await import("./layout");
 
 /** How the layout asked each face to show. */
 const DISPLAYS = Object.fromEntries(Object.entries(faces).map(([name, face]) => [name, face.mock.calls.map(([options]) => options.display)]));

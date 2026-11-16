@@ -1,10 +1,10 @@
 import { once } from "node:events";
 import { setTimeout as pause } from "node:timers/promises";
 
-import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, overriding, registerAuthDoubles, signInByCode } from "@/test-support/authDoubles.ts";
-import { startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
-import { captureLog } from "@/test-support/stdoutCapture.ts";
-import { StoreRelay } from "@/test-support/storeRelay.ts";
+import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, overriding, registerAuthDoubles, signInByCode } from "@/test-support/authDoubles";
+import { startJudgedReplicaSet } from "@/test-support/expiredTransactions";
+import { captureLog } from "@/test-support/stdoutCapture";
+import { StoreRelay } from "@/test-support/storeRelay";
 import { isAPIError } from "better-auth/api";
 import { MongoError } from "mongodb";
 import { assert, describe, expect, it } from "vitest";
@@ -26,7 +26,7 @@ const errorLines = (): Record<string, unknown>[] =>
 
 // The real `fl_frontend/src/core/db.ts`, which the auth doubles replace by default: the client
 // under test is the one it builds.
-const PRODUCTION_DB = "@/core/db.ts";
+const PRODUCTION_DB = "@/core/db";
 
 registerAuthDoubles({
   core: {
@@ -47,8 +47,8 @@ async function storeOf(url: string): Promise<{ client: MongoClient; connectSignI
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { client } = await storeOf(PRODUCTION_DB);
-const { auth } = await import("./auth/library.ts");
-const { readServedSession } = await import("./auth/session.ts");
+const { auth } = await import("./auth/library");
+const { readServedSession } = await import("./auth/session");
 // The same module evaluated again, so the boot's connect starts on a client no other case has opened.
 const boot = await storeOf(`${import.meta.resolve("./db.ts")}?boot`);
 
@@ -144,7 +144,7 @@ describe("the sign-in store's indexes recover with the store", () => {
   /* The client opened before the outage, so its topology is the one recovering, and the driver marks
      that recovery with no `open`: only a new topology emits one. */
   it("builds an index again once a store that stopped answering after the first open answers again", async () => {
-    const { MONGO_DB_NAME, buildAuthIndexes } = await import("./authIndexes.ts");
+    const { MONGO_DB_NAME, buildAuthIndexes } = await import("./authIndexes");
     const sessions = client.db(MONGO_DB_NAME).collection("session");
     await buildAuthIndexes();
     await sessions.dropIndex("session_userId_idx");

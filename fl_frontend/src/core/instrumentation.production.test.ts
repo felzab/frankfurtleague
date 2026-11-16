@@ -1,9 +1,9 @@
-import { documentsWrittenByAsync } from "@/test-support/stdoutCapture.ts";
+import { documentsWrittenByAsync } from "@/test-support/stdoutCapture";
 import { describe, expect, it } from "vitest";
 
-import { APIBadStatusError, APINetworkError, MailSendError } from "./errors.ts";
-import { onRequestError } from "./instrumentation.ts";
-import { formatTraceparent } from "./trace.ts";
+import { APIBadStatusError, APINetworkError, MailSendError } from "./errors";
+import { onRequestError } from "./instrumentation";
+import { formatTraceparent } from "./trace";
 
 import type { Instrumentation } from "next";
 

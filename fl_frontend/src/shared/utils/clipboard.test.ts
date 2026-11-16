@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { copyTextToClipboard } from "./clipboard.ts";
+import { copyTextToClipboard } from "./clipboard";
 
 /** Node's own, put back after every case so nothing below leaks into a suite sharing this process. */
 const NAVIGATOR = Object.getOwnPropertyDescriptor(globalThis, "navigator");

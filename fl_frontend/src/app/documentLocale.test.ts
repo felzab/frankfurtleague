@@ -9,11 +9,11 @@ vi.mock("next/font/google", () => {
   const face = () => ({ className: "", variable: "", style: { fontFamily: "" } });
   return { Anton: face, Inter: face, Raleway: face };
 });
-const { default: RootLayout } = await import("./layout.tsx");
-const { DateField } = await import("@/kit/DateField.tsx");
-const { COPY } = await import("@/core/copy.ts");
-const { dayOf } = await import("@/core/format.ts");
-const { underNext } = await import("@/test-support/nextContexts.ts");
+const { default: RootLayout } = await import("./layout");
+const { DateField } = await import("@/kit/DateField");
+const { COPY } = await import("@/core/copy");
+const { dayOf } = await import("@/core/format");
+const { underNext } = await import("@/test-support/nextContexts");
 
 /** A day whose two numbers differ, so a field ordering them by another calendar reads otherwise. */
 const DAY = "2016-09-04";

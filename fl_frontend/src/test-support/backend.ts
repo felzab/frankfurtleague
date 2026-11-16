@@ -30,7 +30,7 @@ import { setImmediate as nextTurn, setTimeout as wallClock } from "node:timers/p
 import { TEST_ENVIRONMENT } from "@/test-support/testEnvironment.mts";
 import { afterAll, afterEach, assert, beforeEach } from "vitest";
 
-import type { Code, FLRefusedField } from "@/core/generated/client/types.ts";
+import type { Code, FLRefusedField } from "@/core/generated/client/types";
 
 /**
  * Where the backend is served: the address the runner's environment hands the real config, so a request the code

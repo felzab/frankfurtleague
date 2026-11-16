@@ -1,10 +1,10 @@
 import { assert, describe, it } from "vitest";
 
-import { COPY } from "./copy.ts";
-import { renderMail } from "./emailShell.ts";
-import { SERVER_COPY } from "./serverCopy.ts";
+import { COPY } from "./copy";
+import { renderMail } from "./emailShell";
+import { SERVER_COPY } from "./serverCopy";
 
-import type { Mail } from "./emailShell.ts";
+import type { Mail } from "./emailShell";
 
 const ORIGIN = "https://example.com";
 

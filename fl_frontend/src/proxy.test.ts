@@ -1,9 +1,9 @@
 // First, as Next's server loads it: its request stores take this global at their own load, and the
 // adapter `visit` runs needs real ones.
-import { thrownRedirect } from "@/test-support/thrownRedirect.ts";
+import { thrownRedirect } from "@/test-support/thrownRedirect";
 import { assert, describe, expect, it, vi } from "vitest";
 
-import type { ThrownRedirect } from "@/test-support/thrownRedirect.ts";
+import type { ThrownRedirect } from "@/test-support/thrownRedirect";
 
 import "next/dist/server/node-environment-baseline.js";
 
@@ -19,9 +19,9 @@ import {
   registerAuthDoubles,
   seatEveryAddress,
   sessionByCode,
-} from "@/test-support/authDoubles.ts";
+} from "@/test-support/authDoubles";
 
-import type { SessionRow } from "@/test-support/authDoubles.ts";
+import type { SessionRow } from "@/test-support/authDoubles";
 
 const STORE = "__flProxyStore";
 /** What the request a case arrives as carries, which `arriveAs` sets. */
@@ -49,17 +49,17 @@ const store = memoryStore(STORE);
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { NextRequest } = await import("next/server");
-const { auth } = await import("./core/auth/library.ts");
-const { getAdminSession } = await import("./core/auth/guards.ts");
-const { getPasskeyStep, getSignInLanding } = await import("./core/auth/landing.ts");
-const { getSubjectSession } = await import("./core/subject.ts");
+const { auth } = await import("./core/auth/library");
+const { getAdminSession } = await import("./core/auth/guards");
+const { getPasskeyStep, getSignInLanding } = await import("./core/auth/landing");
+const { getSubjectSession } = await import("./core/subject");
 const { unstable_doesMiddlewareMatch } = await import("next/experimental/testing/server.js");
 const { adapter } = await import("next/dist/server/web/adapter.js");
-const { config, proxy } = await import("./proxy.ts");
-const { MAILED_LINK_PAGES } = await import("./core/mailedLink.ts");
-const { ROUTES } = await import("./core/routes.ts");
-const { requireAdminRequest } = await import("./shared/utils/adminRead.ts");
-const { GET: continueTo } = await import("./app/(classic)/signin/continue/route.ts");
+const { config, proxy } = await import("./proxy");
+const { MAILED_LINK_PAGES } = await import("./core/mailedLink");
+const { ROUTES } = await import("./core/routes");
+const { requireAdminRequest } = await import("./shared/utils/adminRead");
+const { GET: continueTo } = await import("./app/(classic)/signin/continue/route");
 
 /** What the landing reads, for the cases that put its answer and this proxy's side by side. */
 function arriveAs(cookie: string | null): void {
@@ -260,8 +260,8 @@ describe("where the proxy sends a request for an area's page", () => {
   });
 });
 
-const EXPIRES_IN_MS = (auth.options.session?.expiresIn ?? Number.NaN) * 1000;
-const UPDATE_AGE_MS = (auth.options.session?.updateAge ?? Number.NaN) * 1000;
+const EXPIRES_IN_MS = auth.options.session.expiresIn * 1000;
+const UPDATE_AGE_MS = auth.options.session.updateAge * 1000;
 const MINUTE_MS = 60 * 1000;
 
 const PERSON_URL = "http://localhost:3000/account";

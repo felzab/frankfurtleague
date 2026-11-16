@@ -1,10 +1,10 @@
-import { thrownRedirect } from "@/test-support/thrownRedirect.ts";
+import { thrownRedirect } from "@/test-support/thrownRedirect";
 import { describe, expect, it } from "vitest";
 
-import { APIBadStatusError } from "@/core/errors.ts";
-import { ROUTES } from "@/core/routes.ts";
+import { APIBadStatusError } from "@/core/errors";
+import { ROUTES } from "@/core/routes";
 
-import { readAsRoleHolder } from "./resolvers.ts";
+import { readAsRoleHolder } from "./resolvers";
 
 // The harm: a pupil or a referee whose Funktion went between the page's check and the backend's meets the error card,
 // which says something broke, where every other place of theirs sends them on to the landing.

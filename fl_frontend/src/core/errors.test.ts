@@ -1,7 +1,7 @@
 import { assert, describe, expect, it } from "vitest";
 
-import { APIBadStatusError, APINetworkError, isRefusalCode, isRuleRefusal, requestOf } from "./errors.ts";
-import { Code } from "./generated/client/types.ts";
+import { APIBadStatusError, APINetworkError, isRefusalCode, isRuleRefusal, requestOf } from "./errors";
+import { Code } from "./generated/client/types";
 
 describe("a refusal read by its code, whatever its status", () => {
   /* Only a rule's code or the unique index's is ever a refusal a mapper words: a credential, a request the API
