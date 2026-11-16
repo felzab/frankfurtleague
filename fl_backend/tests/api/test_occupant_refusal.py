@@ -63,7 +63,7 @@ from app.core import clock
 from app.core.codes import Code
 from app.core.exceptions import APIError, WriteRefusal
 from tests import documents
-from tests.payloads import spiel_patch_body
+from tests.payloads import PayloadFactory, sieger, spiel_patch_body
 
 MATCH_ID = "6890a1b2c3d4e5f60720{:04d}"
 SPIELTAG_ONE = "6890a1b2c3d4e5f607210001"
@@ -100,8 +100,6 @@ RULES = FLSaisonRules(
     allowed_stufen=["E1"],
 )
 
-PayloadFactory = Callable[..., dict[str, Any]]
-
 
 def team(team_id: str, name: str, tore: int | None = None) -> dict[str, Any]:
     """A side, the name and shorthand a read joins beside it; the payload and the stored model keep the team and its goals."""
@@ -119,10 +117,6 @@ def references(**overrides: Any) -> ResolvedReferences:
     """Every row a save judges its references by: the whole season entered, and no booking moved."""
 
     return ResolvedReferences(teams={ObjectId(team_id): membership_of(team_id) for team_id in TEAMS}, **overrides)
-
-
-def sieger(spiel_nr: int) -> dict[str, Any]:
-    return {"type": "spiel", "spiel_nr": spiel_nr, "ausgang": "sieger"}
 
 
 @pytest.fixture

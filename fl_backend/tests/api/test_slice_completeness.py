@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
 from typing import Any, cast
 
 from bson import ObjectId
@@ -11,11 +10,10 @@ from app.api.spiele.crud import bracket_faults_of
 from app.api.spiele.schemas import FLBracketFault, FLSpielJoinedInternalListAdapter
 from app.core.readonly import ReadCollection
 from tests.documents import rules_document
+from tests.payloads import PayloadFactory
 
 MATCH_ID = "6890a1b2c3d4e5f60720{:04d}"
 SAISON_ID = "2026"
-
-PayloadFactory = Callable[..., dict[str, Any]]
 
 
 class _Rows:

@@ -20,6 +20,7 @@ from app.api.teams.services import (
     build_tabelle,
 )
 from app.shared.schemas.literals import FLSpielerStufe
+from tests.payloads import PayloadFactory
 
 TEAM_ID = "6890a1b2c3d4e5f60719{:04d}"
 MATCH_ID = "6890a1b2c3d4e5f60718{:04d}"
@@ -50,7 +51,6 @@ CALLED_OFF, *_ = SONDEREREIGNIS_WITHOUT_A_RESULT
 # Every state one pair can be found in, which is what a group's fixture list is made of.
 SPIEL_STATES: tuple[tuple[int, int] | str | None, ...] = (None, CALLED_OFF, (1, 0), (0, 1), (1, 1))
 
-PayloadFactory = Callable[..., dict[str, Any]]
 TeamFactory = Callable[..., FLTeam]
 MatchFactory = Callable[..., dict[str, Any]]
 
