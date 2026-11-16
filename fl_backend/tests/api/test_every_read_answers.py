@@ -7,8 +7,7 @@ its start with its opening match's sides set, running with its semi-finals drawn
 later is asked without a case of its own, and a path or a query parameter no seed value names fails here until one does.
 """
 
-import asyncio
-from collections.abc import Iterator, Mapping
+from collections.abc import AsyncIterator, Iterator, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -19,7 +18,7 @@ from bson import ObjectId
 from fastapi.dependencies.models import Dependant
 from fastapi.routing import APIRoute
 from pydantic import BaseModel
-from pymongo import MongoClient
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
@@ -30,7 +29,7 @@ from tests import documents
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_AUTH, ADMIN_KEY, BASE_AUTH, SYSTEM_AUTH, build_test_config, grants_for_the_suite
 from tests.core.app_source import api_routes, application, dependency_calls
-from tests.database import a_clean_database_sync
+from tests.database import a_clean_database, bounded
 from tests.session_headers import StampedHeaders
 
 from .conftest import unwritten
@@ -179,20 +178,20 @@ def _decided() -> Phase:
 PHASES = {phase.name: phase for phase in (_before_start(), _running(), _decided())}
 
 
-def _seed(database: Any, phase: Phase) -> None:
+async def _seed(database: AsyncDatabase, phase: Phase) -> None:
     (own_club, _, _), (squad_club, _, _), *_ = CLUBS
     featured = phase.featured
 
-    database[Collection.GRANTS].insert_many(grants_for_the_suite())
-    database[Collection.SAISONS].insert_many(
+    await database[Collection.GRANTS].insert_many(grants_for_the_suite())
+    await database[Collection.SAISONS].insert_many(
         [
             documents.saison_document(SAISON, "active", rules=documents.rules_document(**RULES), start_date=phase.start_date),
             documents.saison_document(NEXT_SAISON, "future"),
         ]
     )
-    database[Collection.TEAMS].insert_many([documents.team_document(team_id, name, shorthand) for team_id, name, shorthand in CLUBS])
+    await database[Collection.TEAMS].insert_many([documents.team_document(team_id, name, shorthand) for team_id, name, shorthand in CLUBS])
     trainer = documents.kontaktperson_document("Pia", confirmed_at="2126-01-12", email=PERSON)
-    database[Collection.SAISON_TEAMS].insert_many(
+    await database[Collection.SAISON_TEAMS].insert_many(
         [
             documents.saison_team_document(
                 SAISON,
@@ -205,10 +204,12 @@ def _seed(database: Any, phase: Phase) -> None:
             for index, (team_id, name, shorthand) in enumerate(CLUBS)
         ]
     )
-    database[Collection.SPIELTAGE].insert_many(phase.spieltage)
-    database[Collection.SPIELE].insert_many([documents.spiel_document(spiel_id=spiel.pop("_id"), **spiel) for spiel in map(dict, phase.spiele)])
-    database[Collection.SPIELORTE].insert_one(documents.spielort_document(SPIELORT, "Halle Ost", default_mietpreis=40))
-    database[Collection.SCHIEDSRICHTER].insert_many(
+    await database[Collection.SPIELTAGE].insert_many(phase.spieltage)
+    await database[Collection.SPIELE].insert_many(
+        [documents.spiel_document(spiel_id=spiel.pop("_id"), **spiel) for spiel in map(dict, phase.spiele)]
+    )
+    await database[Collection.SPIELORTE].insert_one(documents.spielort_document(SPIELORT, "Halle Ost", default_mietpreis=40))
+    await database[Collection.SCHIEDSRICHTER].insert_many(
         [
             documents.schiedsrichter_document(
                 PERSON_SCHIEDSRICHTER, email=PERSON, name="Pia Person", default_payment=20, einwilligung=CONSENTED_SCHIEDSRICHTER
@@ -218,28 +219,28 @@ def _seed(database: Any, phase: Phase) -> None:
             ),
         ]
     )
-    database[Collection.SPIELER].insert_many(
+    await database[Collection.SPIELER].insert_many(
         [
             documents.spieler_document(PERSON_SPIELER, "Pia", "Person", email=PERSON, birth_date="2008-05-04", einwilligung=CONSENTED_SPIELER),
             documents.spieler_document(OTHER_SPIELER, "Lina", "Krause"),
         ]
     )
-    database[Collection.SAISON_SPIELER].insert_many(
+    await database[Collection.SAISON_SPIELER].insert_many(
         [
             documents.saison_spieler_document(PERSON_SPIELER, SAISON, squad_club, nummer="7"),
             documents.saison_spieler_document(OTHER_SPIELER, SAISON, own_club, nummer="9"),
         ]
     )
-    database[Collection.AUFSTELLUNGEN].insert_one(documents.aufstellung_document(featured, own_club, starters=[OTHER_SPIELER]))
-    database[Collection.SPIELBESTAETIGUNGEN].insert_many(
+    await database[Collection.AUFSTELLUNGEN].insert_one(documents.aufstellung_document(featured, own_club, starters=[OTHER_SPIELER]))
+    await database[Collection.SPIELBESTAETIGUNGEN].insert_many(
         [
             documents.spielbestaetigung_document(featured, party={"kind": "team", "team_id": featured["team1"]["team_id"]}),
             documents.spielbestaetigung_document(featured, party={"kind": "schiedsrichter", "schiedsrichter_id": PERSON_SCHIEDSRICHTER}),
         ]
     )
     if phase.reported:
-        database[Collection.SPIELBERICHTE].insert_many([documents.spielbericht_document(spiel) for spiel in phase.reported])
-    database[Collection.REGISTRIERUNGEN].insert_one(
+        await database[Collection.SPIELBERICHTE].insert_many([documents.spielbericht_document(spiel) for spiel in phase.reported])
+    await database[Collection.REGISTRIERUNGEN].insert_one(
         documents.registrierung_document(
             REGISTRIERUNG,
             "jonas.neu@example.com",
@@ -252,7 +253,7 @@ def _seed(database: Any, phase: Phase) -> None:
             deadline="2126-02-27",
         )
     )
-    database[Collection.BEWERBUNGEN].insert_one(
+    await database[Collection.BEWERBUNGEN].insert_one(
         documents.bewerbung_document(
             BEWERBUNG,
             NEXT_SAISON,
@@ -262,10 +263,10 @@ def _seed(database: Any, phase: Phase) -> None:
             schule=documents.new_schule_document("Neue"),
         )
     )
-    database[Collection.ADDRESS_CHANGES].insert_one(
+    await database[Collection.ADDRESS_CHANGES].insert_one(
         documents.address_change_document(address=PERSON, email="pia.neu@example.com", token_hash=None, day="2126-02-20")
     )
-    database[Collection.BAN_LIST].insert_one(documents.ban_document("gesperrt@example.com", until=NEXT_SAISON))
+    await database[Collection.BAN_LIST].insert_one(documents.ban_document("gesperrt@example.com", until=NEXT_SAISON))
 
 
 def _path_values(phase: Phase) -> dict[str, str]:
@@ -327,36 +328,34 @@ def _path(route: APIRoute, values: Mapping[str, str]) -> str:
 
 
 @pytest.fixture(scope="module", params=list(PHASES), ids=list(PHASES))
-def league(request: pytest.FixtureRequest, mongo_replica_set_url: str) -> Iterator[Phase]:
+async def league(request: pytest.FixtureRequest, mongo_replica_set_url: str) -> AsyncIterator[Phase]:
     phase = PHASES[request.param]
     database_name = build_test_config().db_base_name
-    client = MongoClient(mongo_replica_set_url)
-    try:
-        with a_clean_database_sync(client, mongo_replica_set_url, database_name) as database:
-            _seed(database, phase)
-            with unwritten(mongo_replica_set_url, database_name):
-                yield phase
-    finally:
-        client.close()
+
+    async def _seeded() -> None:
+        async with a_clean_database(mongo_replica_set_url, database_name) as (_, database):
+            await _seed(database, phase)
+
+    await bounded(_seeded())
+
+    with unwritten(mongo_replica_set_url, database_name):
+        yield phase
 
 
-def _get(league: Phase, url: str, path: str, *, headers: Mapping[str, str], params: Mapping[str, str] | None = None) -> Any:
-    async def asked() -> Any:
-        async with app_client(url, app=app_under_test(), now=league.now) as http:
-            return await http.get(path, params=dict(params or {}), headers=dict(headers))
-
-    return asyncio.run(asked())
+async def _get(league: Phase, url: str, path: str, *, headers: Mapping[str, str], params: Mapping[str, str] | None = None) -> Any:
+    async with app_client(url, app=app_under_test(), now=league.now) as http:
+        return await http.get(path, params=dict(params or {}), headers=dict(headers))
 
 
-def test_the_league_stands_in_the_phase_each_seed_names(league: Phase, mongo_replica_set_url: str):
+async def test_the_league_stands_in_the_phase_each_seed_names(league: Phase, mongo_replica_set_url: str):
     """The premise of every case below: a seed drifting out of its phase would leave the shape it stands for unread.
 
     The landing answers the phase's state, an opening match with both sides before the start; the editor of the
     featured fixture offers the clubs a knockout fixture's sides are picked from once the group is played.
     """
 
-    landing = _get(league, mongo_replica_set_url, f"/api/v{API_VERSION}/saisons/landing", headers=BASE_AUTH).json()["saison"]
-    editor = _get(league, mongo_replica_set_url, f"/api/v{API_VERSION}/spiele/{league.featured['_id']}/admin", headers=ADMIN_AUTH)
+    landing = (await _get(league, mongo_replica_set_url, f"/api/v{API_VERSION}/saisons/landing", headers=BASE_AUTH)).json()["saison"]
+    editor = await _get(league, mongo_replica_set_url, f"/api/v{API_VERSION}/spiele/{league.featured['_id']}/admin", headers=ADMIN_AUTH)
 
     assert landing["state"] == league.name
     if league.name == "before_start":
@@ -367,9 +366,9 @@ def test_the_league_stands_in_the_phase_each_seed_names(league: Phase, mongo_rep
 
 
 @pytest.mark.parametrize("route", GET_ROUTES, ids=lambda route: route.path)
-def test_every_read_answers_the_league_in_this_phase(league: Phase, route: APIRoute, mongo_replica_set_url: str):
+async def test_every_read_answers_the_league_in_this_phase(league: Phase, route: APIRoute, mongo_replica_set_url: str):
     values = _path_values(league)
 
-    response = _get(league, mongo_replica_set_url, _path(route, values), headers=_headers(route), params=_query(route, values))
+    response = await _get(league, mongo_replica_set_url, _path(route, values), headers=_headers(route), params=_query(route, values))
 
     assert response.is_success, f"GET {route.path} in the {league.name} phase answered {response.status_code}: {response.text}"

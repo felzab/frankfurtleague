@@ -8,7 +8,6 @@ closures are judged by no type (`tests/core/test_safe_operations.py`). This hold
 every collection compared before and after the request, rather than the fields another test happens to read back.
 """
 
-import asyncio
 from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -16,7 +15,6 @@ from zoneinfo import ZoneInfo
 import pytest
 from bson import ObjectId
 from httpx2 import Response
-from pymongo import MongoClient
 
 from app.api.spiele.schemas import FLPatchSpielDataPayload
 from app.core.collections import Collection
@@ -24,7 +22,7 @@ from app.core.config import API_VERSION
 from tests import documents
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_AUTH, grants_for_the_suite
-from tests.database import a_clean_database_sync
+from tests.database import a_clean_database, bounded
 from tests.payloads import spiel_patch_body
 from tests.worker import worker_database
 
@@ -94,21 +92,20 @@ def bracket() -> list[dict[str, Any]]:
 
 
 @pytest.fixture
-def seeded_url(mongo_replica_set_url: str) -> str:
+async def seeded_url(mongo_replica_set_url: str) -> str:
     """The season the save judges, the ground and the referee its names are composed from, and the report it stamps."""
 
-    client = MongoClient(mongo_replica_set_url)
-    try:
-        with a_clean_database_sync(client, mongo_replica_set_url, DATABASE_NAME) as database:
-            database[Collection.GRANTS].insert_many(grants_for_the_suite())
+    async def _seed() -> None:
+        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
+            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
             rules = documents.rules_document(win_points=3, draw_points=1, qualifiers_per_gruppe=2, tiebreak_order="tordifferenz")
-            database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active", rules=rules))
-            database[Collection.TEAMS].insert_many([documents.team_document(team_id, *names) for team_id, names in NAMES.items()])
-            database[Collection.SAISON_TEAMS].insert_many(
+            await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active", rules=rules))
+            await database[Collection.TEAMS].insert_many([documents.team_document(team_id, *names) for team_id, names in NAMES.items()])
+            await database[Collection.SAISON_TEAMS].insert_many(
                 [documents.saison_team_document(SAISON_ID, team_id, *names, gruppe="A") for team_id, names in NAMES.items()]
             )
             # Position 1 in each: the two sit in different phases, where the positions restart.
-            database[Collection.SPIELTAGE].insert_many(
+            await database[Collection.SPIELTAGE].insert_many(
                 [
                     {
                         "_id": spieltag_id,
@@ -125,8 +122,8 @@ def seeded_url(mongo_replica_set_url: str) -> str:
                     )
                 ]
             )
-            database[Collection.SPIELORTE].insert_one(documents.spielort_document(SPIELORT, "Sportplatz Ost", default_mietpreis=65))
-            database[Collection.SCHIEDSRICHTER].insert_one(
+            await database[Collection.SPIELORTE].insert_one(documents.spielort_document(SPIELORT, "Sportplatz Ost", default_mietpreis=65))
+            await database[Collection.SCHIEDSRICHTER].insert_one(
                 documents.schiedsrichter_document(
                     SCHIEDSRICHTER,
                     email="ada.kern@example.com",
@@ -138,38 +135,35 @@ def seeded_url(mongo_replica_set_url: str) -> str:
                 )
             )
             spiele = bracket()
-            database[Collection.SPIELE].insert_many(spiele)
-            database[Collection.SPIELBERICHTE].insert_one(
+            await database[Collection.SPIELE].insert_many(spiele)
+            await database[Collection.SPIELBERICHTE].insert_one(
                 documents.spielbericht_document(
                     spiele[0], bericht=documents.bericht_document(sides=documents.spielbericht_sides(spiele[0])), version=BERICHT_VERSION
                 )
             )
 
-            return mongo_replica_set_url
-    finally:
-        client.close()
+    await bounded(_seed())
+
+    return mongo_replica_set_url
 
 
-def previewed(url: str, body: dict[str, Any]) -> Response:
+async def previewed(url: str, body: dict[str, Any]) -> Response:
     """The dry run as a real request, guards and middleware included, which a write could hide in as well.
 
-    A write the preview defers past its response, in a task it starts and leaves running, escapes this: `asyncio.run`
-    cancels the task once the response is in, where the server's loop would let it land.
+    A write the preview defers past its response, in a task it starts and leaves running, escapes this: the comparison
+    after the response awaits nothing, so the loop gives that task no turn before it.
     """
 
-    async def _answered() -> Response:
-        async with app_client(url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
-            return await http.patch(
-                f"/api/v{API_VERSION}/spiele/{VIERTELFINALE}",
-                params={"dry_run": "true", "adopts_bericht": BERICHT_VERSION},
-                json=body,
-                headers=ADMIN_AUTH,
-            )
-
-    return asyncio.run(_answered())
+    async with app_client(url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
+        return await http.patch(
+            f"/api/v{API_VERSION}/spiele/{VIERTELFINALE}",
+            params={"dry_run": "true", "adopts_bericht": BERICHT_VERSION},
+            json=body,
+            headers=ADMIN_AUTH,
+        )
 
 
-def test_a_dry_run_moving_the_bracket_leaves_every_collection_as_it_was(seeded_url: str):
+async def test_a_dry_run_moving_the_bracket_leaves_every_collection_as_it_was(seeded_url: str):
     """Alpha now winning the quarter-final.
 
     The same request without `dry_run` rewrites both fixtures, stamps the report adopted and logs the save, so each of
@@ -180,7 +174,7 @@ def test_a_dry_run_moving_the_bracket_leaves_every_collection_as_it_was(seeded_u
     payload = FLPatchSpielDataPayload.model_validate(spiel_patch_body(stored, team1=side(ALPHA, 3), team2=side(BETA, 1)))
 
     with unwritten(seeded_url, DATABASE_NAME):
-        response = previewed(seeded_url, payload.model_dump(mode="json"))
+        response = await previewed(seeded_url, payload.model_dump(mode="json"))
 
         # The premise: the preview judged a save that would move another fixture, so it had something to write.
         assert response.status_code == 200, response.text
