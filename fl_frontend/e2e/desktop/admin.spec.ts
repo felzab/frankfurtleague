@@ -20,14 +20,14 @@ const LONG_NAME = PEOPLE.venues.longest;
 const NEW_VENUE = "Sportplatz Ulmenring";
 
 /**
- * The running season's match 6, today at 16:00 between Kastanie and Eiche, the only match today at its
- * venue and with its referee, so a later kick-off meets no clash. It stands on
- * the group stage's second matchday, which the Spiele list is opened on by its address, so the journey edits
- * that match whatever matchday the list would open on by itself.
+ * The running season's match 6, today at 16:00, the only match today at its venue and with its referee, so a
+ * later kick-off meets no clash. It stands on the group stage's second matchday, which the Spiele list is opened on
+ * by its address, so the journey edits that match whatever matchday the list would open on by itself.
  */
+const RESCHEDULED = PEOPLE.matchEditor.rescheduled;
 const MATCHDAY = "gruppenphase-2";
 // The match card's link is named by all its words, the date and the plaques among them, as the Spielplan's is.
-const PAIRING = /Kastanie.*Eiche/;
+const PAIRING = new RegExp(RESCHEDULED.replace(" vs. ", ".*"));
 
 /** The match's id, read off its card on its matchday's tab of the season's Spiele list, whose link opens its editor. */
 async function spielId(page: Page): Promise<string> {
@@ -74,7 +74,7 @@ test("an administrator creates a venue over the Spielorte list, moves a match's 
 
   const editor = `/admin/saisons/${RUNNING}/spiele/${await spielId(page)}`;
   await page.goto(editor);
-  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Kastanie vs. Eiche" })).toBeVisible();
+  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: RESCHEDULED })).toBeVisible();
 
   // The kick-off's hour, then its minutes: the segmented field moves on by itself after two digits.
   const time = page.getByRole("group", { name: /^Uhrzeit/ });

@@ -667,6 +667,14 @@ class MadeUpLeague:
             departing = self.running.number_of(project["departing"]["fixture"])
             if departing is None or self.running.spiel(departing)["ergebnis"] is not None:
                 raise ValueError(f"the journeys' departing fixture {project['departing']['fixture']} is no open fixture of the running season")
+        # The Spielplan's journey opens the first matchday's first match and reads its result, the match editor moves the
+        # kick-off of today's match alone at its venue and with its referee, and the first pass lifts the booking of the
+        # disqualified club's fixture still to play.
+        self.expect_fixture(PEOPLE["spielplan"]["opened"], 1)
+        if self.running.spiel(1)["ergebnis"] != PEOPLE["spielplan"]["ergebnis"]:
+            raise ValueError(f"the Spielplan's journey reads {PEOPLE['spielplan']['ergebnis']}, where the seed's match 1 ends otherwise")
+        self.expect_fixture(PEOPLE["matchEditor"]["rescheduled"], 6)
+        self.expect_fixture(PEOPLE["firstPass"]["lifted"], 12)
 
     def expect_fixture(self, fixture: str, nr: int) -> None:
         found = self.running.number_of(fixture)
