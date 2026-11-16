@@ -164,11 +164,7 @@ class TestAMidFlightFailureTakesTheDemotionBack:
 
 
 class TestTheRolloverRefusesAnUndatedMatchday:
-    """`activate_spieltage_undated` through the route, the only thing proving the matchdays are counted.
-
-    The demotion shares the promotion's transaction, so a refusal ordered after it would leave the
-    league with no active season.
-    """
+    """`activate_spieltage_undated` through the route, the only thing proving the matchdays are counted."""
 
     async def test_the_last_undated_matchday_refuses_the_rollover(self, mongo_replica_set_url: str):
         """One dated matchday beside it, so the count is what refuses rather than the collection being empty."""
