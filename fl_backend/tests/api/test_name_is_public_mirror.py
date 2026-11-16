@@ -12,7 +12,6 @@ from typing import Any, Final, NamedTuple
 
 import pytest
 from bson import ObjectId
-from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.spiele.services import build_spiele_pipeline
 from app.api.spieler.services import build_spieler_pipeline, name_is_public
@@ -102,13 +101,10 @@ class TestTheSquadPipelineAnswersTheSameTable:
     """`build_spieler_pipeline`'s `$cond`, against a real mongod: a `$cond` is only a `$cond` where Mongo evaluates it."""
 
     async def _rows(self, url: str) -> list[Mapping[str, Any]]:
-        async def body(database: AsyncDatabase) -> Any:
-            return await aggregate_many_from_db(
-                collection=database.saison_spieler,
-                pipeline=build_spieler_pipeline(team_id=TEAM_OID, saison_id=SAISON),
-            )
-
-        return await body(shared_client(url)[DATABASE_NAME])
+        return await aggregate_many_from_db(
+            collection=shared_client(url)[DATABASE_NAME].saison_spieler,
+            pipeline=build_spieler_pipeline(team_id=TEAM_OID, saison_id=SAISON),
+        )
 
     @pytest.mark.parametrize("case", NAME_IS_PUBLIC, ids=CASE_IDS)
     async def test_the_projection_answers_the_table(self, seeded_url: str, case: EinwilligungCase):
@@ -127,12 +123,11 @@ class TestTheRefereeJoinAnswersTheSameTable:
     """`build_spiele_pipeline`'s referee join imports the expression, and Mongo evaluates it over a referee's record."""
 
     async def _verdicts(self, url: str) -> dict[ObjectId, Any]:
-        async def body(database: AsyncDatabase) -> Any:
-            spiele = await aggregate_many_from_db(collection=database.spiele, pipeline=build_spiele_pipeline(db_filter={"saison_id": SAISON}))
+        spiele = await aggregate_many_from_db(
+            collection=shared_client(url)[DATABASE_NAME].spiele, pipeline=build_spiele_pipeline(db_filter={"saison_id": SAISON})
+        )
 
-            return {spiel["schiedsrichter"]["schiedsrichter_id"]: spiel["schiedsrichter"]["name_is_public"] for spiel in spiele}
-
-        return await body(shared_client(url)[DATABASE_NAME])
+        return {spiel["schiedsrichter"]["schiedsrichter_id"]: spiel["schiedsrichter"]["name_is_public"] for spiel in spiele}
 
     @pytest.mark.parametrize("case", NAME_IS_PUBLIC, ids=CASE_IDS)
     async def test_the_join_answers_the_table(self, seeded_url: str, case: EinwilligungCase):

@@ -39,39 +39,38 @@ async def test_each_side_counts_the_line_up_of_the_club_it_fields_now(mongo_repl
         team2={"team_id": AWAY, "tore": None},
     )
 
-    async def body() -> FLSpielEditorAufstellungen:
-        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
-            await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
-            await database[Collection.SPIELE].insert_one(spiel)
-            await database[Collection.SAISON_TEAMS].insert_many(
-                [
-                    documents.saison_team_document(SAISON_ID, HOME, "Alpha", "ALP"),
-                    documents.saison_team_document(SAISON_ID, AWAY, "Beta", "BET"),
-                ]
-            )
-            await database[Collection.AUFSTELLUNGEN].insert_many(
-                [
-                    documents.aufstellung_document(spiel, HOME, starters=[LINA, OLE], bench=[MIA]),
-                    documents.aufstellung_document(spiel, REPLACED, starters=[TOM]),
-                ]
-            )
-            answer = await read_spiel_editor(
-                spiel_id=spiel["_id"],
-                spiele_collection=database[Collection.SPIELE],
-                saisons_collection=database[Collection.SAISONS],
-                spielorte_collection=database[Collection.SPIELORTE],
-                schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                saison_spieler_collection=database[Collection.SAISON_SPIELER],
-                spieler_collection=database[Collection.SPIELER],
-                spielberichte_collection=database[Collection.SPIELBERICHTE],
-                spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-                saison_teams_collection=database[Collection.SAISON_TEAMS],
-                aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
-                now=clock.now(),
-            )
-            return answer.aufstellungen
+    async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
+        await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
+        await database[Collection.SPIELE].insert_one(spiel)
+        await database[Collection.SAISON_TEAMS].insert_many(
+            [
+                documents.saison_team_document(SAISON_ID, HOME, "Alpha", "ALP"),
+                documents.saison_team_document(SAISON_ID, AWAY, "Beta", "BET"),
+            ]
+        )
+        await database[Collection.AUFSTELLUNGEN].insert_many(
+            [
+                documents.aufstellung_document(spiel, HOME, starters=[LINA, OLE], bench=[MIA]),
+                documents.aufstellung_document(spiel, REPLACED, starters=[TOM]),
+            ]
+        )
+        answer = await read_spiel_editor(
+            spiel_id=spiel["_id"],
+            spiele_collection=database[Collection.SPIELE],
+            saisons_collection=database[Collection.SAISONS],
+            spielorte_collection=database[Collection.SPIELORTE],
+            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+            saison_spieler_collection=database[Collection.SAISON_SPIELER],
+            spieler_collection=database[Collection.SPIELER],
+            spielberichte_collection=database[Collection.SPIELBERICHTE],
+            spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+            saison_teams_collection=database[Collection.SAISON_TEAMS],
+            aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
+            now=clock.now(),
+        )
+        aufstellungen = answer.aufstellungen
 
-    assert await body() == FLSpielEditorAufstellungen(team1=FLAufstellungSummary(count=3, starters=2), team2=None)
+    assert aufstellungen == FLSpielEditorAufstellungen(team1=FLAufstellungSummary(count=3, starters=2), team2=None)
 
 
 async def test_each_side_counts_this_fixtures_line_up_alone_and_an_open_slot_counts_nothing(mongo_replica_set_url: str):
@@ -89,47 +88,44 @@ async def test_each_side_counts_this_fixtures_line_up_alone_and_an_open_slot_cou
 
     both, elsewhere, open_slot = fixture(1, AWAY), fixture(2, REPLACED), fixture(3, None)
 
-    async def body() -> tuple[FLSpielEditorAufstellungen, FLSpielEditorAufstellungen]:
-        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
-            await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
-            await database[Collection.SPIELE].insert_many([both, elsewhere, open_slot])
-            await database[Collection.SAISON_TEAMS].insert_many(
-                [
-                    documents.saison_team_document(SAISON_ID, HOME, "Alpha", "ALP"),
-                    documents.saison_team_document(SAISON_ID, AWAY, "Beta", "BET"),
-                    documents.saison_team_document(SAISON_ID, REPLACED, "Gamma", "GAM"),
-                ]
+    async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
+        await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
+        await database[Collection.SPIELE].insert_many([both, elsewhere, open_slot])
+        await database[Collection.SAISON_TEAMS].insert_many(
+            [
+                documents.saison_team_document(SAISON_ID, HOME, "Alpha", "ALP"),
+                documents.saison_team_document(SAISON_ID, AWAY, "Beta", "BET"),
+                documents.saison_team_document(SAISON_ID, REPLACED, "Gamma", "GAM"),
+            ]
+        )
+        await database[Collection.AUFSTELLUNGEN].insert_many(
+            [
+                documents.aufstellung_document(both, HOME, starters=[LINA, OLE], bench=[MIA]),
+                documents.aufstellung_document(both, AWAY, starters=[TOM], bench=[OLE]),
+                documents.aufstellung_document(open_slot, HOME, starters=[LINA]),
+                # Stored last, so a read not keyed by the fixture keeps it for the home club.
+                documents.aufstellung_document(elsewhere, HOME, bench=[MIA, TOM]),
+            ]
+        )
+
+        async def aufstellungen_of(spiel: dict[str, Any]) -> FLSpielEditorAufstellungen:
+            answer = await read_spiel_editor(
+                spiel_id=spiel["_id"],
+                spiele_collection=database[Collection.SPIELE],
+                saisons_collection=database[Collection.SAISONS],
+                spielorte_collection=database[Collection.SPIELORTE],
+                schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+                saison_spieler_collection=database[Collection.SAISON_SPIELER],
+                spieler_collection=database[Collection.SPIELER],
+                spielberichte_collection=database[Collection.SPIELBERICHTE],
+                spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+                saison_teams_collection=database[Collection.SAISON_TEAMS],
+                aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
+                now=clock.now(),
             )
-            await database[Collection.AUFSTELLUNGEN].insert_many(
-                [
-                    documents.aufstellung_document(both, HOME, starters=[LINA, OLE], bench=[MIA]),
-                    documents.aufstellung_document(both, AWAY, starters=[TOM], bench=[OLE]),
-                    documents.aufstellung_document(open_slot, HOME, starters=[LINA]),
-                    # Stored last, so a read not keyed by the fixture keeps it for the home club.
-                    documents.aufstellung_document(elsewhere, HOME, bench=[MIA, TOM]),
-                ]
-            )
+            return answer.aufstellungen
 
-            async def aufstellungen_of(spiel: dict[str, Any]) -> FLSpielEditorAufstellungen:
-                answer = await read_spiel_editor(
-                    spiel_id=spiel["_id"],
-                    spiele_collection=database[Collection.SPIELE],
-                    saisons_collection=database[Collection.SAISONS],
-                    spielorte_collection=database[Collection.SPIELORTE],
-                    schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                    saison_spieler_collection=database[Collection.SAISON_SPIELER],
-                    spieler_collection=database[Collection.SPIELER],
-                    spielberichte_collection=database[Collection.SPIELBERICHTE],
-                    spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-                    saison_teams_collection=database[Collection.SAISON_TEAMS],
-                    aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
-                    now=clock.now(),
-                )
-                return answer.aufstellungen
-
-            return await aufstellungen_of(both), await aufstellungen_of(open_slot)
-
-    fielded, open_answer = await body()
+        fielded, open_answer = await aufstellungen_of(both), await aufstellungen_of(open_slot)
 
     assert fielded == FLSpielEditorAufstellungen(
         team1=FLAufstellungSummary(count=3, starters=2), team2=FLAufstellungSummary(count=2, starters=1)
