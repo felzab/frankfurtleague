@@ -9,7 +9,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from tests import documents
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -42,20 +42,17 @@ async def _seasons(database: AsyncDatabase) -> list[tuple[str, str]]:
     return [(row["_id"], row["status"]) async for row in database[Collection.SAISONS].find({}, {"status": 1}).sort("_id", 1)]
 
 
-def _on(url: str, stored: list[tuple[str, str]], body: Any, **fields: Any) -> Any:
-    async def _run() -> Any:
-        # A row whose id is longer than a year is a hand edit the read-back refuses, stored so the create is seen to step past it.
-        refused = None if all(len(saison_id) == 4 for saison_id, _ in stored) else "a season row whose id is longer than a year"
-        async with a_clean_database(url, DATABASE_NAME, stores_a_refused_shape=refused) as (_, database):
-            for saison_id, status in stored:
-                # A row whose id is no year is a hand edit no record model reads, laid over a season's own: it still carries
-                # real days, so the list reads it as it reads any season.
-                season = documents.saison_document(saison_id if saison_id.isdigit() else "2025", status, **fields)
-                await database[Collection.SAISONS].insert_one({**season, "_id": saison_id})
+async def _on(url: str, stored: list[tuple[str, str]], body: Any, **fields: Any) -> Any:
+    # A row whose id is longer than a year is a hand edit the read-back refuses, stored so the create is seen to step past it.
+    refused = None if all(len(saison_id) == 4 for saison_id, _ in stored) else "a season row whose id is longer than a year"
+    async with a_clean_database(url, DATABASE_NAME, stores_a_refused_shape=refused) as (_, database):
+        for saison_id, status in stored:
+            # A row whose id is no year is a hand edit no record model reads, laid over a season's own: it still carries
+            # real days, so the list reads it as it reads any season.
+            season = documents.saison_document(saison_id if saison_id.isdigit() else "2025", status, **fields)
+            await database[Collection.SAISONS].insert_one({**season, "_id": saison_id})
 
-            return await body(database)
-
-    return on_the_seed_loop(_run())
+        return await body(database)
 
 
 class TestTheCreateMakesTheNextSeason:
@@ -70,7 +67,7 @@ class TestTheCreateMakesTheNextSeason:
             pytest.param([("2027", "active"), ("2027-alt", "past")], "2028", id="the-year-after-the-newest-past-a-longer-row"),
         ],
     )
-    def test_the_list_serves_the_id_the_create_mints(self, mongo_replica_set_url: str, stored: list[tuple[str, str]], minted: str):
+    async def test_the_list_serves_the_id_the_create_mints(self, mongo_replica_set_url: str, stored: list[tuple[str, str]], minted: str):
         """The page names the season its press makes from the list; a list and a create counting apart name a season never made."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -79,7 +76,7 @@ class TestTheCreateMakesTheNextSeason:
 
             return listed.next_saison_id, listed.refusals.create, created.created_id, await _seasons(database)
 
-        listed_id, refusal, created_id, seasons = _on(mongo_replica_set_url, stored, body)
+        listed_id, refusal, created_id, seasons = await _on(mongo_replica_set_url, stored, body)
 
         assert (listed_id, refusal, created_id) == (minted, None, minted)
         assert seasons == sorted([*stored, (minted, "future")])
@@ -91,7 +88,7 @@ class TestTheCreateMakesTheNextSeason:
             pytest.param([("2026", "past"), ("2027", "active")], {**documents.rules_document(), "win_points": 4}, id="the-newest's-rules"),
         ],
     )
-    def test_the_new_season_carries_on_the_newest_seasons_rules(
+    async def test_the_new_season_carries_on_the_newest_seasons_rules(
         self, mongo_replica_set_url: str, stored: list[tuple[str, str]], carried: dict[str, Any]
     ):
         """An older season's rules handed on, or a first season's starting rules lost, would stand on the new season unremarked."""
@@ -103,11 +100,11 @@ class TestTheCreateMakesTheNextSeason:
 
             return await database[Collection.SAISONS].find_one({"_id": created.created_id})
 
-        new = _on(mongo_replica_set_url, stored, body)
+        new = await _on(mongo_replica_set_url, stored, body)
 
         assert (new["rules"], new["bewerbung"], new["registrierung"]) == (carried, None, None)
 
-    def test_a_planned_season_standing_refuses_the_create_and_the_list_says_so(self, mongo_replica_set_url: str):
+    async def test_a_planned_season_standing_refuses_the_create_and_the_list_says_so(self, mongo_replica_set_url: str):
         """A second planned season would be one created out of turn; the list naming no refusal offers a press the write refuses."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -117,7 +114,7 @@ class TestTheCreateMakesTheNextSeason:
 
             return listed.refusals.create, refused.value, await _seasons(database)
 
-        listed_refusal, refusal, seasons = _on(mongo_replica_set_url, [("2026", "active"), ("2027", "future")], body)
+        listed_refusal, refusal, seasons = await _on(mongo_replica_set_url, [("2026", "active"), ("2027", "future")], body)
 
         assert listed_refusal == Code.CREATE_SAISON_FUTURE_STANDS
         assert (refusal.status_code, refusal.error_code, refusal.fields) == (409, Code.CREATE_SAISON_FUTURE_STANDS, ())
@@ -125,11 +122,11 @@ class TestTheCreateMakesTheNextSeason:
 
 
 class TestTheListOrder:
-    def test_every_season_is_listed_oldest_first_by_id(self, mongo_replica_set_url: str):
+    async def test_every_season_is_listed_oldest_first_by_id(self, mongo_replica_set_url: str):
         """Its readers take the newest season off the list's end: served in another order, the next season takes an older one's days."""
 
         async def body(database: AsyncDatabase) -> Any:
             return [saison.id for saison in (await _listed(database)).saisons]
 
         # Stored out of order, so a list served in the order it was written fails here too.
-        assert _on(mongo_replica_set_url, [("2027", "future"), ("2025", "past"), ("2026", "active")], body) == ["2025", "2026", "2027"]
+        assert await _on(mongo_replica_set_url, [("2027", "future"), ("2025", "past"), ("2026", "active")], body) == ["2025", "2026", "2027"]

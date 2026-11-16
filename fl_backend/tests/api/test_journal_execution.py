@@ -27,7 +27,7 @@ from app.shared.einwilligung_evidence import TextVersions, evidence_state_of
 from app.shared.tokens import hash_token
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, BASE_AUTH
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.documents import (
     SCHIEDSRICHTER_TEXT_VERSIONS,
     SEAT_TEXT_VERSIONS,
@@ -306,19 +306,18 @@ PRESSES: dict[str, tuple[Press, str, Collection, ObjectId, list[str]]] = {
 
 
 @pytest.mark.parametrize("press", PRESSES, ids=PRESSES)
-def test_each_press_writes_one_line_naming_its_record_and_no_address(mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture, press: str):
+async def test_each_press_writes_one_line_naming_its_record_and_no_address(
+    mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture, press: str
+):
     """No address: the line outlives the erasure it may later have to sit beside. Its slots: a replay sets one person's block of three."""
 
     act, kind, collection, record_id, slots = PRESSES[press]
 
-    async def run() -> int:
-        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True) as (_client, database):
-            await seeded(database)
-            async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
-                with caplog.at_level(logging.INFO):
-                    return (await act(http, database)).status_code
-
-    status = on_the_seed_loop(run())
+    async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True) as (_client, database):
+        await seeded(database)
+        async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
+            with caplog.at_level(logging.INFO):
+                status = (await act(http, database)).status_code
     [record] = journal_records(caplog)
     line = {key: vars(record)[key] for key in ("act", "records", "choices", "seats")}
 

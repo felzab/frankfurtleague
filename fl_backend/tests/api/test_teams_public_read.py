@@ -1,4 +1,4 @@
-from collections.abc import Awaitable, Callable, Iterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any
 
 import pytest
@@ -13,7 +13,7 @@ from app.api.teams.schemas import FLTeamSingleFilterParams
 from app.api.teams.services import build_team_pipeline
 from app.core.collections import Collection
 from tests import documents
-from tests.database import a_clean_database, on_the_seed_loop, shared_client
+from tests.database import a_clean_database, bounded, shared_client
 from tests.documents import confirmed_kenntnisnahme
 from tests.worker import worker_database
 
@@ -90,7 +90,7 @@ def junction_row(key: str, shorthand: str, saison_id: str = SAISON) -> dict[str,
 # Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
 # from being left as a claim.
 @pytest.fixture(scope="module")
-def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
+async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
     """A running season and a live club, its junction row carrying three people's contact records."""
 
     async def _seed() -> None:
@@ -99,17 +99,14 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
             await database[Collection.TEAMS].insert_one(team_document("Helmholtz", "HGX", inactive_since=None))
             await database[Collection.SAISON_TEAMS].insert_one(junction_row("Helmholtz", "HGX"))
 
-    on_the_seed_loop(_seed())
+    await bounded(_seed())
 
     with unwritten(mongo_replica_set_url, DATABASE_NAME):
         yield mongo_replica_set_url
 
 
-def on_a_league(url: str, body: Body) -> Any:
-    async def _run() -> Any:
-        return await body(shared_client(url)[DATABASE_NAME])
-
-    return on_the_seed_loop(_run())
+async def on_a_league(url: str, body: Body) -> Any:
+    return await body(shared_client(url)[DATABASE_NAME])
 
 
 async def read_saison_teams(database: AsyncDatabase, saison_id: str = SAISON) -> Any:
@@ -180,7 +177,7 @@ class TestTheBracketPlacesTheClubsTheTableRanks:
             pytest.param(SAISON, "active", ("Helmholtz", "Goethe"), id="a running season seeds the clubs below the retired one"),
         ],
     )
-    def test_the_finale_is_seeded_from_the_placings_the_table_ranks(
+    async def test_the_finale_is_seeded_from_the_placings_the_table_ranks(
         self, mongo_replica_set_url: str, saison_id: str, status: str, seeded: tuple[str, str]
     ):
         async def body() -> tuple[str | None, str | None]:
@@ -217,12 +214,12 @@ class TestTheBracketPlacesTheClubsTheTableRanks:
                 keys: dict[Any, str] = {team_id: key for key, team_id in TEAM_OIDS.items()}
                 return keys.get((finale.get("team1") or {}).get("team_id")), keys.get((finale.get("team2") or {}).get("team_id"))
 
-        assert on_the_seed_loop(body()) == seeded
+        assert await body() == seeded
 
 
 @pytest.mark.db
 class TestTheTeamReadCountsTheLeagueAlone:
-    def test_a_read_naming_no_scope_answers_the_group_phase_figures(self, mongo_replica_set_url: str):
+    async def test_a_read_naming_no_scope_answers_the_group_phase_figures(self, mongo_replica_set_url: str):
         """The site sends no scope, so a default counting the knockout would put a cup result into the club's league figures."""
 
         async def body() -> dict[str, Any]:
@@ -253,7 +250,7 @@ class TestTheTeamReadCountsTheLeagueAlone:
                     "total": await figures(statistik_scope="total"),
                 }
 
-        figures = on_the_seed_loop(body())
+        figures = await body()
 
         # The premise: the Finale counts in the total, or the default could not be told from it.
         assert figures["total"] != figures["gruppenphase"]
@@ -264,7 +261,7 @@ class TestTheTeamReadCountsTheLeagueAlone:
 class TestTheBaseTierReadsWithholdTheJunctionsContactRecords:
     """Three people's email, phone number and date of birth sit on the junction row, and both base-tier team reads join it."""
 
-    def test_the_aggregation_carries_none_of_it_back(self, seeded_url: str):
+    async def test_the_aggregation_carries_none_of_it_back(self, seeded_url: str):
         """The RAW documents, before any model sees them: what the driver returned is what a leak would have to travel in."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -274,7 +271,7 @@ class TestTheBaseTierReadsWithholdTheJunctionsContactRecords:
 
             return stored, await (await database[Collection.TEAMS].aggregate(pipeline)).to_list(length=None)
 
-        stored, rows = on_a_league(seeded_url, body)
+        stored, rows = await on_a_league(seeded_url, body)
 
         # Every case of this class would pass as well over a season whose rows carried no contacts at all.
         assert stored["kontakte"]["trainer"]["email"] == KONTAKT_EMAIL
@@ -284,13 +281,13 @@ class TestTheBaseTierReadsWithholdTheJunctionsContactRecords:
             assert "kontakte" not in row
             assert KONTAKT_PHONE not in repr(row)
 
-    def test_the_season_s_club_list_serves_none_of_it(self, seeded_url: str):
-        response = on_a_league(seeded_url, read_saison_teams)
+    async def test_the_season_s_club_list_serves_none_of_it(self, seeded_url: str):
+        response = await on_a_league(seeded_url, read_saison_teams)
 
         assert response.teams
         assert KONTAKT_EMAIL not in response.model_dump_json()
 
-    def test_the_single_team_endpoint_serves_none_of_it_either(self, seeded_url: str):
+    async def test_the_single_team_endpoint_serves_none_of_it_either(self, seeded_url: str):
         """The other public caller of the same pipeline, and the one an anonymous visitor reaches with an id in hand."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -301,7 +298,7 @@ class TestTheBaseTierReadsWithholdTheJunctionsContactRecords:
                 filters=FLTeamSingleFilterParams(saison_id=SAISON),
             )
 
-        response = on_a_league(seeded_url, body)
+        response = await on_a_league(seeded_url, body)
 
         assert response.team.name == "Helmholtz"
         assert KONTAKT_EMAIL not in response.model_dump_json()

@@ -14,7 +14,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from app.shared.tokens import hash_token
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.documents import SEAT_TEXT_VERSIONS, kontaktperson_document, saison_document, saison_team_document
 from tests.outbox import MAIL_NOW, drained
 from tests.worker import worker_database
@@ -75,17 +75,14 @@ def link_entry() -> dict[str, Any]:
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
-def on_a_row(url: str, body: Body, *, kontakte: dict[str, Any] | None, confirmations: dict[str, Any] | None = None) -> Any:
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
-            await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active"))
-            await database[Collection.SAISON_TEAMS].insert_one(
-                saison_team_document(SAISON_ID, TEAM_OID, "Adler", "ADX", kontakte=kontakte, confirmations=confirmations)
-            )
+async def on_a_row(url: str, body: Body, *, kontakte: dict[str, Any] | None, confirmations: dict[str, Any] | None = None) -> Any:
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
+        await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active"))
+        await database[Collection.SAISON_TEAMS].insert_one(
+            saison_team_document(SAISON_ID, TEAM_OID, "Adler", "ADX", kontakte=kontakte, confirmations=confirmations)
+        )
 
-            return await body(database)
-
-    return on_the_seed_loop(_run())
+        return await body(database)
 
 
 async def write_seat(database: AsyncDatabase, seat: str, sent: dict[str, Any], *, version: int = 0) -> FLKontaktSeatResponse:
@@ -110,7 +107,7 @@ async def row_and_mails(database: AsyncDatabase) -> tuple[dict[str, Any], list[A
     return row, await drained(database, database.client)
 
 
-def refused(
+async def refused(
     url: str, seat: str, sent: dict[str, Any], *, kontakte: dict[str, Any] | None, version: int = 0
 ) -> tuple[Code, Any, dict[str, Any]]:
     """The refusal and the row it left, which must be the row as seeded."""
@@ -123,13 +120,13 @@ def refused(
 
         return refusal.value.error_code, refusal.value.fields, row
 
-    return on_a_row(url, body, kontakte=kontakte)
+    return await on_a_row(url, body, kontakte=kontakte)
 
 
 class TestTheSeatsStateDecidesTheWrite:
     """One write for every state of a seat, each state owing what its person is told."""
 
-    def test_a_confirmed_person_gives_way_and_the_next_is_seated_unconfirmed_with_a_link(self, mongo_replica_set_url: str):
+    async def test_a_confirmed_person_gives_way_and_the_next_is_seated_unconfirmed_with_a_link(self, mongo_replica_set_url: str):
         """A stamp left on the seat would say the new person answered, and no link would ever ask them."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -137,7 +134,7 @@ class TestTheSeatsStateDecidesTheWrite:
 
             return (answer, *await row_and_mails(database))
 
-        answer, row, mails = on_a_row(
+        answer, row, mails = await on_a_row(
             mongo_replica_set_url,
             body,
             kontakte=block(trainer=stored_person("Ida", confirmed_at=CONFIRMED_ON)),
@@ -153,7 +150,7 @@ class TestTheSeatsStateDecidesTheWrite:
         # The seat beside it keeps its person, and with them the link they already hold.
         assert row["confirmations"]["ansprechperson"] == link_entry()
 
-    def test_a_corrected_number_keeps_the_person_their_record_and_their_link(self, mongo_replica_set_url: str):
+    async def test_a_corrected_number_keeps_the_person_their_record_and_their_link(self, mongo_replica_set_url: str):
         """A fresh link here would void the one the person is about to answer."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -163,7 +160,7 @@ class TestTheSeatsStateDecidesTheWrite:
             return (answer, *await row_and_mails(database), [(act["record_id"], act["label"]) async for act in acts])
 
         seated = stored_person("Ida", confirmed_at=CONFIRMED_ON)
-        answer, row, mails, acts = on_a_row(
+        answer, row, mails, acts = await on_a_row(
             mongo_replica_set_url,
             body,
             kontakte=block(trainer=seated),
@@ -177,13 +174,13 @@ class TestTheSeatsStateDecidesTheWrite:
         assert row["confirmations"]["trainer"] == link_entry()
 
     @pytest.mark.parametrize("kontakte", [block()], ids=["an emptied seat"])
-    def test_an_empty_seat_is_filled_and_its_person_owed_a_link(self, mongo_replica_set_url: str, kontakte: dict[str, Any]):
+    async def test_an_empty_seat_is_filled_and_its_person_owed_a_link(self, mongo_replica_set_url: str, kontakte: dict[str, Any]):
         async def body(database: AsyncDatabase) -> Any:
             answer = await write_seat(database, "stellvertretung", sent_person("Lea"))
 
             return (answer, *await row_and_mails(database))
 
-        answer, row, mails = on_a_row(mongo_replica_set_url, body, kontakte=kontakte)
+        answer, row, mails = await on_a_row(mongo_replica_set_url, body, kontakte=kontakte)
 
         assert answer.email == "lea@example.com"
         assert row["kontakte"]["stellvertretung"]["first_name"] == "Lea"
@@ -191,7 +188,7 @@ class TestTheSeatsStateDecidesTheWrite:
 
 
 class TestTheSeasonsOwnRowIsWritten:
-    def test_a_write_reads_and_writes_the_block_of_the_season_it_names(self, mongo_replica_set_url: str):
+    async def test_a_write_reads_and_writes_the_block_of_the_season_it_names(self, mongo_replica_set_url: str):
         """The club's row of a season before, stored first, holds other people: read in its place, they would be seated here."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -211,7 +208,7 @@ class TestTheSeasonsOwnRowIsWritten:
                 async for stored in database[Collection.SAISON_TEAMS].find({"team_id": TEAM_OID})
             }
 
-        seated = on_a_row(mongo_replica_set_url, body, kontakte=block())
+        seated = await on_a_row(mongo_replica_set_url, body, kontakte=block())
 
         assert seated == {
             SAISON_ID: {"trainer": "Ida", "ansprechperson": "Jonas", "stellvertretung": "Klara"},
@@ -230,7 +227,7 @@ class TestTheTrainersSecondSeat:
             pytest.param({}, "ansprechperson", "Lea", id="left out, the claim stands"),
         ],
     )
-    def test_the_trainers_write_moves_the_claim_only_where_it_names_one(
+    async def test_the_trainers_write_moves_the_claim_only_where_it_names_one(
         self, mongo_replica_set_url: str, sent: dict[str, Any], claim: str | None, ansprechperson: str
     ):
         async def body(database: AsyncDatabase) -> Any:
@@ -238,7 +235,7 @@ class TestTheTrainersSecondSeat:
 
             return await row_and_mails(database)
 
-        row, _ = on_a_row(mongo_replica_set_url, body, kontakte=self.PAIRED)
+        row, _ = await on_a_row(mongo_replica_set_url, body, kontakte=self.PAIRED)
 
         assert row["kontakte"]["trainer_is_also"] == claim
         assert row["kontakte"]["ansprechperson"]["first_name"] == ansprechperson
@@ -285,24 +282,24 @@ class TestAConfirmationLandingBeforeTheSave:
         "stellvertretung": None,
     }
 
-    def pressed_then_written(self, url: str, sent: dict[str, Any]) -> tuple[dict[str, Any], list[Any]]:
+    async def pressed_then_written(self, url: str, sent: dict[str, Any]) -> tuple[dict[str, Any], list[Any]]:
         async def body(database: AsyncDatabase) -> tuple[dict[str, Any], list[Any]]:
             await confirm_by_link(database)
             await write_seat(database, "trainer", sent, version=0)
 
             return await row_and_mails(database)
 
-        return on_a_row(url, body, kontakte=self.UNCONFIRMED, confirmations=self.LINKED)
+        return await on_a_row(url, body, kontakte=self.UNCONFIRMED, confirmations=self.LINKED)
 
-    def test_the_same_person_keeps_the_fresh_confirmation(self, mongo_replica_set_url: str):
-        row, mails = self.pressed_then_written(mongo_replica_set_url, {**sent_person("Ida"), "phone": "+4915110000009"})
+    async def test_the_same_person_keeps_the_fresh_confirmation(self, mongo_replica_set_url: str):
+        row, mails = await self.pressed_then_written(mongo_replica_set_url, {**sent_person("Ida"), "phone": "+4915110000009"})
 
         seat = row["kontakte"]["trainer"]
         assert (seat["phone"], seat["birth_date"], seat["einwilligung"]["confirmed_at"]) == ("+4915110000009", BIRTH_DATE, TODAY)
         assert mails == []
 
-    def test_another_address_takes_the_seat_unconfirmed_with_a_new_link(self, mongo_replica_set_url: str):
-        row, mails = self.pressed_then_written(mongo_replica_set_url, sent_person("Lea"))
+    async def test_another_address_takes_the_seat_unconfirmed_with_a_new_link(self, mongo_replica_set_url: str):
+        row, mails = await self.pressed_then_written(mongo_replica_set_url, sent_person("Lea"))
 
         seat = row["kontakte"]["trainer"]
         assert (seat["first_name"], seat["birth_date"], seat["einwilligung"]["confirmed_at"]) == ("Lea", None, None)
@@ -316,22 +313,22 @@ class TestTheRefusals:
             pytest.param({"email": "JONAS@example.com"}, Code.KONTAKT_EMAIL_TAKEN, "email", id="an address on the sign-in fold"),
         ],
     )
-    def test_what_another_seats_person_holds_is_refused_on_its_box(
+    async def test_what_another_seats_person_holds_is_refused_on_its_box(
         self, mongo_replica_set_url: str, sent: dict[str, Any], code: Code, field: str
     ):
         """The block's rule, which no payload can judge here: the other seats are stored, not sent."""
 
         seated = block()
-        answer, fields, row = refused(mongo_replica_set_url, "trainer", {**sent_person("Lea"), **sent}, kontakte=seated)
+        answer, fields, row = await refused(mongo_replica_set_url, "trainer", {**sent_person("Lea"), **sent}, kontakte=seated)
 
         assert (answer, fields) == (code, ((field,),))
         assert row["kontakte"] == seated
 
-    def test_a_write_composed_before_the_row_moved_is_refused(self, mongo_replica_set_url: str):
+    async def test_a_write_composed_before_the_row_moved_is_refused(self, mongo_replica_set_url: str):
         """An erasure raises the count: written over it, the seat it emptied would come back."""
 
         seated = block()
-        answer, _, row = refused(mongo_replica_set_url, "trainer", sent_person("Lea"), kontakte=seated, version=7)
+        answer, _, row = await refused(mongo_replica_set_url, "trainer", sent_person("Lea"), kontakte=seated, version=7)
 
         assert answer == Code.VERSION_STALE
         assert row["kontakte"] == seated

@@ -1,5 +1,5 @@
 import asyncio
-from collections.abc import Iterator
+from collections.abc import AsyncIterator
 from typing import Any, cast
 
 import pytest
@@ -11,7 +11,7 @@ from app.api.identity.crud import roles_of
 from app.api.identity.schemas import FLSubject
 from app.core.collections import Collection
 from app.shared.schemas.literals import KONTAKT_ROLLEN
-from tests.database import a_clean_database, on_the_seed_loop, shared_client
+from tests.database import a_clean_database, bounded, shared_client
 from tests.documents import (
     EINWILLIGUNG,
     SCHIEDSRICHTER_TEXT_VERSIONS,
@@ -231,7 +231,7 @@ async def _seed(database: AsyncDatabase) -> None:
 # Module-scoped: every case below reads this corpus, and the one opening a transaction aborts it,
 # which `unwritten` keeps from being left as a claim.
 @pytest.fixture(scope="module")
-def seeded_league(mongo_replica_set_url: str) -> Iterator[str]:
+async def seeded_league(mongo_replica_set_url: str) -> AsyncIterator[str]:
     async def _run() -> None:
         async with a_clean_database(
             mongo_replica_set_url,
@@ -240,7 +240,7 @@ def seeded_league(mongo_replica_set_url: str) -> Iterator[str]:
         ) as (_, database):
             await _seed(database)
 
-    on_the_seed_loop(_run())
+    await bounded(_run())
 
     with unwritten(mongo_replica_set_url, DATABASE_NAME):
         yield mongo_replica_set_url
@@ -250,12 +250,9 @@ async def _ask(database: AsyncDatabase, email: str, session: AsyncClientSession)
     return await roles_of(email, record_collections(database), session=session)
 
 
-def answered(url: str, email: str) -> FLSubject:
-    async def _run() -> FLSubject:
-        async with shared_client(url).start_session() as session:
-            return await _ask(shared_client(url)[DATABASE_NAME], email, session)
-
-    return on_the_seed_loop(_run())
+async def answered(url: str, email: str) -> FLSubject:
+    async with shared_client(url).start_session() as session:
+        return await _ask(shared_client(url)[DATABASE_NAME], email, session)
 
 
 def seats(answer: FLSubject) -> list[tuple[str, ObjectId, str, str, str]]:
@@ -268,85 +265,82 @@ def is_empty(answer: FLSubject) -> bool:
 
 @pytest.mark.db
 class TestTheSeasonNarrowing:
-    def test_a_past_seat_is_answered_nothing_while_the_future_one_is_answered(self, seeded_league: str):
+    async def test_a_past_seat_is_answered_nothing_while_the_future_one_is_answered(self, seeded_league: str):
         """One mailbox holding both, so a narrowing dropped answers the past seat beside the future one rather than passing."""
 
-        assert seats(answered(seeded_league, TIMES)) == [(FUTURE_SAISON, TEAM_A_OID, "trainer", ROW_NAME_A, "future")]
+        assert seats(await answered(seeded_league, TIMES)) == [(FUTURE_SAISON, TEAM_A_OID, "trainer", ROW_NAME_A, "future")]
 
 
 @pytest.mark.db
 class TestTheConfirmationNarrowing:
-    def test_a_seat_with_a_null_stamp_grants_nothing(self, seeded_league: str):
+    async def test_a_seat_with_a_null_stamp_grants_nothing(self, seeded_league: str):
         """The seat is the mailbox's only record, so the flag's seat arm is what raises it."""
 
-        answer = answered(seeded_league, WITHOUT_STAMP)
+        answer = await answered(seeded_league, WITHOUT_STAMP)
 
         assert answer.seats == []
         assert answer.unconfirmed is True
 
-    def test_a_confirmed_past_seat_beside_an_unconfirmed_active_one_is_flagged(self, seeded_league: str):
+    async def test_a_confirmed_past_seat_beside_an_unconfirmed_active_one_is_flagged(self, seeded_league: str):
         """Kills a flag judged before the season narrowing: the past seat's stamp would hold it down while nothing is granted."""
 
-        answer = answered(seeded_league, PAST_AND_OPEN)
+        answer = await answered(seeded_league, PAST_AND_OPEN)
 
         assert answer.seats == []
         assert answer.unconfirmed is True
 
-    def test_one_address_in_two_slots_is_answered_only_the_slot_it_confirmed(self, seeded_league: str):
+    async def test_one_address_in_two_slots_is_answered_only_the_slot_it_confirmed(self, seeded_league: str):
         """Kills a confirmation judged per row: `trainer_is_also` seats this person twice, and only the Trainer seat is stamped."""
 
-        assert [seat.rolle for seat in answered(seeded_league, ALSO).seats] == ["trainer"]
+        assert [seat.rolle for seat in (await answered(seeded_league, ALSO)).seats] == ["trainer"]
 
     @pytest.mark.parametrize("email", [SCHIEDSRICHTER_WITHOUT_RECORD, SCHIEDSRICHTER_NULL_RECORD], ids=["no record", "null record"])
-    def test_an_unconfirmed_referee_grants_nothing(self, seeded_league: str, email: str):
+    async def test_an_unconfirmed_referee_grants_nothing(self, seeded_league: str, email: str):
         """The shapes a referee row holds before its person answers, each read as unconfirmed rather than raising."""
 
-        answer = answered(seeded_league, email)
+        answer = await answered(seeded_league, email)
 
         assert (answer.schiedsrichter, answer.unconfirmed) == ([], True)
 
-    def test_a_mailbox_holding_only_unconfirmed_records_is_answered_nothing_and_flagged(self, seeded_league: str):
+    async def test_a_mailbox_holding_only_unconfirmed_records_is_answered_nothing_and_flagged(self, seeded_league: str):
         """A seat, a pupil and a referee awaiting confirmation: an empty answer that is NOT the answer for holding nothing."""
 
-        answer = answered(seeded_league, ONLY_OPEN)
+        answer = await answered(seeded_league, ONLY_OPEN)
 
         assert is_empty(answer)
         assert answer.unconfirmed is True
 
-    def test_every_read_sees_what_the_caller_s_transaction_wrote(self, seeded_league: str):
+    async def test_every_read_sees_what_the_caller_s_transaction_wrote(self, seeded_league: str):
         """Kills any of the four reads made outside the caller's session: each has its own change to miss.
 
         The seat, the pupil and the referee are stamped and the past season made `future`, in a transaction aborted after.
         """
 
-        async def _run() -> tuple[FLSubject, FLSubject, FLSubject, FLSubject]:
-            client = shared_client(seeded_league)
-            database = client[DATABASE_NAME]
+        client = shared_client(seeded_league)
+        database = client[DATABASE_NAME]
 
-            async with client.start_session() as writer, client.start_session() as bystander:
-                await writer.start_transaction()
-                try:
-                    await database[Collection.SAISON_TEAMS].update_one(
-                        {"_id": ROW_ACTIVE_C_OID}, {"$set": {"kontakte.stellvertretung.einwilligung.confirmed_at": STAMP}}, session=writer
-                    )
-                    await database[Collection.SPIELER].update_one(
-                        {"_id": SPIELER_UNCONFIRMED_OID}, {"$set": {"einwilligung.confirmed_at": STAMP}}, session=writer
-                    )
-                    await database[Collection.SCHIEDSRICHTER].update_one(
-                        {"_id": SCHIEDSRICHTER_UNCONFIRMED_OID}, {"$set": {"einwilligung": CONFIRMED}}, session=writer
-                    )
-                    await database[Collection.SAISONS].update_one({"_id": PAST_SAISON}, {"$set": {"status": "future"}}, session=writer)
+        async with client.start_session() as writer, client.start_session() as bystander:
+            await writer.start_transaction()
+            try:
+                await database[Collection.SAISON_TEAMS].update_one(
+                    {"_id": ROW_ACTIVE_C_OID}, {"$set": {"kontakte.stellvertretung.einwilligung.confirmed_at": STAMP}}, session=writer
+                )
+                await database[Collection.SPIELER].update_one(
+                    {"_id": SPIELER_UNCONFIRMED_OID}, {"$set": {"einwilligung.confirmed_at": STAMP}}, session=writer
+                )
+                await database[Collection.SCHIEDSRICHTER].update_one(
+                    {"_id": SCHIEDSRICHTER_UNCONFIRMED_OID}, {"$set": {"einwilligung": CONFIRMED}}, session=writer
+                )
+                await database[Collection.SAISONS].update_one({"_id": PAST_SAISON}, {"$set": {"status": "future"}}, session=writer)
 
-                    return (
-                        await _ask(database, ONLY_OPEN, writer),
-                        await _ask(database, TIMES, writer),
-                        await _ask(database, ONLY_OPEN, bystander),
-                        await _ask(database, TIMES, bystander),
-                    )
-                finally:
-                    await writer.abort_transaction()
-
-        open_inside, times_inside, open_outside, times_outside = on_the_seed_loop(_run())
+                open_inside, times_inside, open_outside, times_outside = (
+                    await _ask(database, ONLY_OPEN, writer),
+                    await _ask(database, TIMES, writer),
+                    await _ask(database, ONLY_OPEN, bystander),
+                    await _ask(database, TIMES, bystander),
+                )
+            finally:
+                await writer.abort_transaction()
 
         assert seats(open_inside) == [(ACTIVE_SAISON, TEAM_C_OID, "stellvertretung", ROW_NAME_C, "active")]
         assert [row.spieler_id for row in open_inside.spieler] == [SPIELER_UNCONFIRMED_OID]
@@ -358,18 +352,18 @@ class TestTheConfirmationNarrowing:
 
 @pytest.mark.db
 class TestTheWithdrawalNarrowing:
-    def test_a_seat_on_the_season_its_team_withdrew_from_grants_nothing_while_the_next_season_s_does(self, seeded_league: str):
+    async def test_a_seat_on_the_season_its_team_withdrew_from_grants_nothing_while_the_next_season_s_does(self, seeded_league: str):
         """Both seats confirmed, so the withdrawal alone parts them; the future row is the same team's, which a per-team test would drop too."""
 
-        assert seats(answered(seeded_league, EXITED)) == [(FUTURE_SAISON, TEAM_E_OID, "trainer", ROW_NAME_E, "future")]
+        assert seats(await answered(seeded_league, EXITED)) == [(FUTURE_SAISON, TEAM_E_OID, "trainer", ROW_NAME_E, "future")]
 
 
 @pytest.mark.db
 class TestTheRetirementNarrowing:
-    def test_a_retired_referee_grants_nothing(self, seeded_league: str):
+    async def test_a_retired_referee_grants_nothing(self, seeded_league: str):
         """Confirmed, so only the retirement keeps it out."""
 
-        answer = answered(seeded_league, RETIREMENT_SCHIEDSRICHTER)
+        answer = await answered(seeded_league, RETIREMENT_SCHIEDSRICHTER)
 
         assert is_empty(answer)
         assert answer.unconfirmed is False

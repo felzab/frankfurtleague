@@ -37,7 +37,7 @@ from app.main import create_app
 from app.shared.einwilligung_evidence import evidence_state_of
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.documents import SPIELER_TEXT_VERSIONS, own_einwilligung_document, saison_document, spieler_document
 from tests.records import record_collections
 from tests.session_headers import StampedHeaders
@@ -152,7 +152,7 @@ async def _first_reads(url: str, database: AsyncDatabase, call: Callable[[AsyncM
 
 @pytest.mark.db
 class TestALookupInsideATransaction:
-    def test_inside_a_transaction_the_subjects_reads_run_one_at_a_time(self, mongo_replica_set_url: str):
+    async def test_inside_a_transaction_the_subjects_reads_run_one_at_a_time(self, mongo_replica_set_url: str):
         """PyMongo documents that one session runs one operation at a time and refuses nothing, so gathered here they would race unseen."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -165,7 +165,7 @@ class TestALookupInsideATransaction:
 
             return await _first_reads(mongo_replica_set_url, database, lookup)
 
-        answer, sent = on_the_subjects_league(mongo_replica_set_url, body)
+        answer, sent = await on_the_subjects_league(mongo_replica_set_url, body)
 
         assert answer.seats, "the lookup found no seat, so a single read sent proves nothing of the others"
         assert len(sent) == 1, f"the lookup sent {sent} before the first answered"
@@ -173,7 +173,7 @@ class TestALookupInsideATransaction:
 
 @pytest.mark.db
 class TestThePersonsOwnErasure:
-    def test_a_commit_whose_answer_is_lost_is_journalled_all_the_same(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    async def test_a_commit_whose_answer_is_lost_is_journalled_all_the_same(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """Catches the journal left to a commit that answered: this one landed and answered only that its time ran out."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -190,13 +190,13 @@ class TestThePersonsOwnErasure:
             return commits.answered, lost.value.has_error_label(UNKNOWN_COMMIT_RESULT), await where_held(database, IDENTIFIER)
 
         with caplog.at_level(logging.INFO):
-            commits, labelled, after = on_their_league(mongo_replica_set_url, body)
+            commits, labelled, after = await on_their_league(mongo_replica_set_url, body)
 
         # The premise first, so a failure names its cause: one commit ran, its answer was lost, and the erasure landed.
         assert (commits, labelled, after) == ([MAX_TIME_EXPIRED], True, {IDENTIFIER: []})
         assert len(journal_records(caplog)) == 1
 
-    def test_an_attempt_rolled_back_at_its_commit_writes_no_line(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    async def test_an_attempt_rolled_back_at_its_commit_writes_no_line(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """Catches the journal written inside the callback, ahead of a commit that can still fail.
 
         The refusal is transient, so the driver reruns the erasure and the rerun commits: one line, none of the
@@ -225,13 +225,13 @@ class TestThePersonsOwnErasure:
             return commits.answered, await database[Collection.GRANTS].count_documents({"_id": THEIR_GRANT_OID})
 
         with caplog.at_level(logging.INFO):
-            refused, left = on_their_league(mongo_replica_set_url, body)
+            refused, left = await on_their_league(mongo_replica_set_url, body)
 
         assert len(journal_records(caplog)) == 1
         # The premise last: one commit refused, so the line counted above is the second attempt's alone.
         assert (refused, left) == ([WRITE_CONFLICT, None], 0)
 
-    def test_an_attempt_refused_at_its_commit_leaves_every_document_as_it_stood(
+    async def test_an_attempt_refused_at_its_commit_leaves_every_document_as_it_stood(
         self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
     ):
         """Catches any step writing off the erasure's session: that write would stand while the commit taking the rest failed.
@@ -270,7 +270,7 @@ class TestThePersonsOwnErasure:
             return commits.answered, before, await _every_document(database)
 
         with caplog.at_level(logging.INFO):
-            commits, before, after = on_their_league(mongo_replica_set_url, body)
+            commits, before, after = await on_their_league(mongo_replica_set_url, body)
 
         # The premise first: one commit, refused, so what follows is the rollback's state.
         assert commits == [NO_SUCH_TRANSACTION]
@@ -286,7 +286,9 @@ async def _every_document(database: AsyncDatabase) -> dict[str, list[Any]]:
 
 @pytest.mark.db
 class TestAnErasureOnRequest:
-    def test_one_line_follows_the_commit_and_none_the_attempt_rolled_back(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    async def test_one_line_follows_the_commit_and_none_the_attempt_rolled_back(
+        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
+    ):
         """The first commit is refused under the transient label, so the driver reruns the erasure: one line, the rerun's."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -310,13 +312,13 @@ class TestAnErasureOnRequest:
             return commits.answered, await database[Collection.SPIELER].count_documents({"_id": THEIR_PUPIL_OID})
 
         with caplog.at_level(logging.INFO):
-            refused, left = on_the_administrators_league(mongo_replica_set_url, body)
+            refused, left = await on_the_administrators_league(mongo_replica_set_url, body)
 
         assert len(journal_records(caplog)) == 1
         # The premise last: one commit refused, so the line above is the rerun's alone.
         assert (refused, left) == ([WRITE_CONFLICT, None], 0)
 
-    def test_a_commit_whose_answer_is_lost_is_journalled_all_the_same(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    async def test_a_commit_whose_answer_is_lost_is_journalled_all_the_same(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """Catches a route journalling once its commit answers: this one landed and answered only that its time ran out."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -333,7 +335,7 @@ class TestAnErasureOnRequest:
             return commits.answered, lost.value.has_error_label(UNKNOWN_COMMIT_RESULT), await where_held(database, IDENTIFIER)
 
         with caplog.at_level(logging.INFO):
-            commits, labelled, after = on_the_administrators_league(mongo_replica_set_url, body)
+            commits, labelled, after = await on_the_administrators_league(mongo_replica_set_url, body)
 
         # The premise first, so a failure names its cause: one commit ran, its answer was lost, and the erasure landed.
         assert (commits, labelled, after) == ([MAX_TIME_EXPIRED], True, {IDENTIFIER: []})
@@ -363,17 +365,14 @@ def _withdrawal(**choices: Any) -> dict[str, Any]:
     return {"text_versions": dict(SPIELER_TEXT_VERSIONS), "evidence_state": evidence_state_of(blocks=[THEIR_CONSENT]), **choices}
 
 
-def served(url: str, steps: Callable[[AsyncClient, AsyncDatabase, AsyncMongoClient], Awaitable[Any]]) -> Any:
-    async def _run() -> Any:
-        async with a_clean_database(url, PRESS_DATABASE, constraints=True) as (client, database):
-            await database[Collection.SAISONS].insert_one(saison_document("2026", "active"))
-            await database[Collection.SPIELER].insert_one(
-                spieler_document(PUPIL_OID, "Ortrud", "Zwiebelmayer", email=PERSON, birth_date="1990-05-09", einwilligung=THEIR_CONSENT)
-            )
-            async with app_client(url, app=_app(), now=PRESS_NOW) as http:
-                return await steps(http, database, client)
-
-    return on_the_seed_loop(_run())
+async def served(url: str, steps: Callable[[AsyncClient, AsyncDatabase, AsyncMongoClient], Awaitable[Any]]) -> Any:
+    async with a_clean_database(url, PRESS_DATABASE, constraints=True) as (client, database):
+        await database[Collection.SAISONS].insert_one(saison_document("2026", "active"))
+        await database[Collection.SPIELER].insert_one(
+            spieler_document(PUPIL_OID, "Ortrud", "Zwiebelmayer", email=PERSON, birth_date="1990-05-09", einwilligung=THEIR_CONSENT)
+        )
+        async with app_client(url, app=_app(), now=PRESS_NOW) as http:
+            return await steps(http, database, client)
 
 
 def _as_app(url: str, app_name: str) -> str:
@@ -394,7 +393,9 @@ def built_before_any_case() -> None:
 class TestAPersonsOwnPress:
     """A pupil withdrawing on their own page, through the routes: the journal follows the press's commit."""
 
-    def test_a_press_whose_commit_answer_is_lost_is_journalled_all_the_same(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    async def test_a_press_whose_commit_answer_is_lost_is_journalled_all_the_same(
+        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
+    ):
         """Catches the journal left to a commit that answered: this one landed and answered only that its time ran out."""
 
         withdrawn = {"scope": "internal", "media": False}
@@ -416,7 +417,7 @@ class TestAPersonsOwnPress:
 
             return before, await chosen(database), response.status_code, response.json()
 
-        before, after, status, body = served(_as_app(mongo_replica_set_url, LOST_COMMIT_APP), steps)
+        before, after, status, body = await served(_as_app(mongo_replica_set_url, LOST_COMMIT_APP), steps)
 
         # The premise first: the commit landed, its answer lost.
         assert (before != withdrawn, after) == (True, withdrawn)
@@ -425,42 +426,39 @@ class TestAPersonsOwnPress:
 
 @pytest.mark.db
 class TestARecordedActWhoseCommitIsRefused:
-    def test_a_retried_transaction_leaves_one_row_of_the_stored_shape(self, mongo_replica_set_url: str):
+    async def test_a_retried_transaction_leaves_one_row_of_the_stored_shape(self, mongo_replica_set_url: str):
         """The driver reruns an act whose commit is refused as transient, and an insert outside the transaction would stand once per attempt.
 
         The record model reads the row, as a drift between it and `record_act` is a page that cannot read its log.
         """
 
-        async def _run() -> tuple[int, list[dict[str, Any]]]:
-            async with a_clean_database(mongo_replica_set_url, PRESS_DATABASE, constraints=True) as (client, database):
-                refusing = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=REFUSED_COMMIT_APP)
-                refusal = {
-                    "failCommands": ["commitTransaction"],
-                    "appName": REFUSED_COMMIT_APP,
-                    "errorCode": WRITE_CONFLICT,
-                    "errorLabels": ["TransientTransactionError"],
-                }
-                attempts = 0
+        async with a_clean_database(mongo_replica_set_url, PRESS_DATABASE, constraints=True) as (client, database):
+            refusing = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=REFUSED_COMMIT_APP)
+            refusal = {
+                "failCommands": ["commitTransaction"],
+                "appName": REFUSED_COMMIT_APP,
+                "errorCode": WRITE_CONFLICT,
+                "errorLabels": ["TransientTransactionError"],
+            }
+            attempts = 0
 
-                async def act(session: AsyncClientSession) -> None:
-                    nonlocal attempts
-                    attempts += 1
-                    teams = refusing[database.name][Collection.TEAMS]
-                    await record_act(
-                        collection=teams, action="spieler.changed", by=ACT_BY_KONTAKT, team=RECORDED_TEAM, record_id=PUPIL_OID, session=session
-                    )
+            async def act(session: AsyncClientSession) -> None:
+                nonlocal attempts
+                attempts += 1
+                teams = refusing[database.name][Collection.TEAMS]
+                await record_act(
+                    collection=teams, action="spieler.changed", by=ACT_BY_KONTAKT, team=RECORDED_TEAM, record_id=PUPIL_OID, session=session
+                )
 
-                await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=refusal)
-                try:
-                    async with refusing.start_session() as session:
-                        await session.with_transaction(act)
-                finally:
-                    await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
-                    await refusing.close()
+            await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=refusal)
+            try:
+                async with refusing.start_session() as session:
+                    await session.with_transaction(act)
+            finally:
+                await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
+                await refusing.close()
 
-                return attempts, [row async for row in database[Collection.ACTION_LOG].find()]
-
-        attempts, rows = on_the_seed_loop(_run())
+            attempts, rows = attempts, [row async for row in database[Collection.ACTION_LOG].find()]
 
         assert len(rows) == 1
         FLActionLogRecord.model_validate(rows[0], extra="forbid")
@@ -473,7 +471,7 @@ class TestARecordedActWhoseCommitIsRefused:
 class TestAConfirmationMintWhoseCommitAnswerIsLost:
     """The driver's own lost answer, a `WTimeoutError` whose label the driver adds and the server's reply never carries."""
 
-    def test_the_pass_raises_and_the_mints_rows_stand_with_the_mails_they_owe(self, mongo_replica_set_url: str):
+    async def test_the_pass_raises_and_the_mints_rows_stand_with_the_mails_they_owe(self, mongo_replica_set_url: str):
         """The rows and their mails commit in one transaction, so none stands unmailed and the next pass owes them nothing more.
 
         Raised rather than answered: the job rejects, and the heartbeat reports the pass a failure.
@@ -497,7 +495,7 @@ class TestAConfirmationMintWhoseCommitAnswerIsLost:
 
             return commits.answered, lost.value, standing, owed, await confirmations.a_pass(database, client)
 
-        commits, lost, standing, owed, nxt = confirmations.on_a_league(
+        commits, lost, standing, owed, nxt = await confirmations.on_a_league(
             mongo_replica_set_url, body, spiele=[confirmations.a_spiel(confirmations.SPIEL, 1, confirmations.NEXT_WEEK)]
         )
 
@@ -520,7 +518,7 @@ NO_SUCH_TRANSACTION = 251
 
 @pytest.mark.db
 class TestASpielSaveRefusedAtItsCommit:
-    def test_takes_the_adoption_stamp_back_with_the_spiel(self, mongo_replica_set_url: str):
+    async def test_takes_the_adoption_stamp_back_with_the_spiel(self, mongo_replica_set_url: str):
         """Catches a stamp written off the save's session: every rule passes, so only the commit can refuse this save."""
 
         spiele, reports = spiel_saves.a_bracket_with_reports(quarter_final_at=spiel_saves.SEEDED_VERSION)
@@ -559,7 +557,7 @@ class TestASpielSaveRefusedAtItsCommit:
 
             return commits.answered, await spiel_saves.spiele_now(database), before, await spiel_saves.reports_now(database)
 
-        commits, spiele, before, after = spiel_saves.on_a_seeded_season(mongo_replica_set_url, body, spiele=spiele)
+        commits, spiele, before, after = await spiel_saves.on_a_seeded_season(mongo_replica_set_url, body, spiele=spiele)
 
         # The premise first: one commit, refused, and the fixture it carried not written.
         assert (commits, spiele[spiel_saves.VIERTELFINALE_NR]["ergebnis"]) == ([NO_SUCH_TRANSACTION], "1:3")
@@ -568,7 +566,7 @@ class TestASpielSaveRefusedAtItsCommit:
 
 @pytest.mark.db
 class TestAPupilsErasureRefusedAtItsCommit:
-    def test_takes_the_emptied_report_entries_back_with_the_pupil(self, mongo_replica_set_url: str):
+    async def test_takes_the_emptied_report_entries_back_with_the_pupil(self, mongo_replica_set_url: str):
         """Catches an entry emptied off the erasure's session: the report would name nobody for a pupil who stands.
 
         Refused without the transient label, so nothing reruns the erasure and the state read after it is the rollback's.
@@ -600,7 +598,7 @@ class TestAPupilsErasureRefusedAtItsCommit:
 
             return commits.answered, (answer.spieler, answer.failed), report, standing
 
-        commits, counted, report, standing = on_the_pupils_league(mongo_replica_set_url, body)
+        commits, counted, report, standing = await on_the_pupils_league(mongo_replica_set_url, body)
 
         # The premise first: one commit, refused, and the erasure it carried counted as failed.
         assert (commits, counted) == ([NO_SUCH_TRANSACTION], (0, 1))

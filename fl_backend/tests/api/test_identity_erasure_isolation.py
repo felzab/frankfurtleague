@@ -19,7 +19,7 @@ from app.api.bewerbungen.services import compose_decline_update
 from app.core.collections import Collection
 from app.shared.folding import sign_in_identifier
 from app.shared.tokens import hash_token
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.documents import (
     bewerbung_document,
     kontakte_document,
@@ -139,14 +139,11 @@ async def a_league(database: AsyncDatabase) -> None:
     )
 
 
-def on_a_league(url: str, body: Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]) -> Any:
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            await a_league(database)
+async def on_a_league(url: str, body: Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]) -> Any:
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+        await a_league(database)
 
-            return await body(database, client)
-
-    return on_the_seed_loop(_run())
+        return await body(database, client)
 
 
 # The erased person in the club's trainer seat, and somebody a save seats beside them, each as the editor sends a seat.
@@ -220,7 +217,7 @@ class TestAWriteKeepingTheirSeatInsideTheErasureLeavesNothing:
     """
 
     @pytest.mark.parametrize("write", list(KEEPING_WRITES))
-    def test_nothing_holds_the_address(self, mongo_replica_set_url: str, write: str):
+    async def test_nothing_holds_the_address(self, mongo_replica_set_url: str, write: str):
         prepare = KEEPING_WRITES[write]
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -238,7 +235,7 @@ class TestAWriteKeepingTheirSeatInsideTheErasureLeavesNothing:
 
             return outcome, written, (await club_row(database))["kontakte"]["trainer"], await where_folded_to(database, IDENTIFIER)
 
-        outcome, written, trainer, held = on_a_league(mongo_replica_set_url, body)
+        outcome, written, trainer, held = await on_a_league(mongo_replica_set_url, body)
 
         assert (outcome, written) == (COMMITTED, [COMMITTED]), "the write or the erasure never committed, so this case proves nothing"
         assert trainer is None, "the erased person's seat stands"
