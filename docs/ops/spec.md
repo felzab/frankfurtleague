@@ -491,10 +491,8 @@ created the stack's containers, which Compose records on each as
 recreates takes the keys, the mail folder and the compose files of the checkout it runs in.
 
 **The checkers are Python, and one kernel makes their answers comparable**,
-`scripts/lib/checker_kernel.py` (§1.7). **The interpreter floor is bash's**
-(`scripts/lib/_lib.sh :: PYTHON_FLOOR`), asked at every entry point before a checker is handed a
-file: below it a checker dies compiling and Python exits 1, which this scale reads as a finding
-about the change.
+`scripts/lib/checker_kernel.py` (§1.7). Each runs in the backend's virtualenv, the gate's and the edge
+test's alike, whose interpreter `uv` holds to `fl_backend/pyproject.toml`'s `requires-python`.
 
 **Registry pruning stays manual and optional**, a botched delete destroying the builds a hand
 rollback pulls ([`runbooks.md`](runbooks.md) §1). When pruning, keep roughly the last five `sha-`
@@ -509,17 +507,17 @@ side by side and replays each one's output in the order below. `--quick` runs th
 and frontend scopes alone, which need Docker only where shellcheck or actionlint is not on PATH at
 its pinned release.
 
-| Scope              | Runs                                                                                                                                                                                                               | Needs                                                                                                                                          |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--scripts`        | `selfcheck.sh`, `ruff` and `pyright` over the Python in `scripts/`, and the pytest suite in `scripts/tests/`                                                                                                       | the backend venv, `pytest` included; shellcheck and actionlint at their pinned releases from PATH, else Docker                                 |
-| `--docs`           | no conflict marker, whitespace error or invisible character in any tracked file; and lychee, offline, over every link and fragment inside the repository                                                           | Docker for lychee                                                                                                                              |
-| `--backend`        | `uv lock --check` alone and first, then `ruff`, `pyright`, `pytest` (default tier) and `deptry` over `app/`                                                                                                        | the backend venv, and for the lockfile check a uv inside `fl_backend/pyproject.toml`'s `required-version` range; any other refuses at start-up |
-| `--format`         | Prettier in check mode over the whole repository, then markdownlint over every Markdown file                                                                                                                       | pnpm install                                                                                                                                   |
-| `--frontend-units` | the unit tests `fl_frontend/package.json`'s `test` script finds under `fl_frontend/`                                                                                                                               | pnpm install                                                                                                                                   |
-| `--frontend`       | the frozen lockfile, peer and dedupe checks, `next typegen`, tsc, eslint, both knip runs and `next build`, then the dependency audit, an advisory that never fails the scope                                       | pnpm install                                                                                                                                   |
-| `--ops`            | zizmor audits `.github/`; both stacks parse; `check_compose_model.py` judges both models; `check_public_routes.py` accounts for every route; nginx accepts `prod.conf`; `nginx/edge_test.sh` drives a running edge | Docker, `uv` for zizmor at `scripts/gate/zizmor/requirements.txt`'s pin, and the backend virtualenv                                            |
-| `--db`             | the contract and its client generated into an ignored scratch folder and compared with the committed ones, then `pytest -m db` over the backend and `pnpm run test:db` over `*.db.test.ts`                         | venv + pnpm install + Docker                                                                                                                   |
-| `--images`         | both `docker build`s, then what a build does not prove: `instrumentation.js` present, neither image running as uid 0, neither holding a file its dockerignore excludes                                             | Docker                                                                                                                                         |
+| Scope              | Runs                                                                                                                                                                                                | Needs                                                                                                                                          |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--scripts`        | `selfcheck.sh`, `ruff` and `pyright` over the Python in `scripts/`, and the pytest suite in `scripts/tests/`                                                                                        | the backend venv, `pytest` included; shellcheck and actionlint at their pinned releases from PATH, else Docker                                 |
+| `--docs`           | no conflict marker, whitespace error or invisible character in any tracked file; and lychee, offline, over every link and fragment inside the repository                                            | Docker for lychee                                                                                                                              |
+| `--backend`        | `uv lock --check` alone and first, then `ruff`, `pyright`, `pytest` (default tier) and `deptry` over `app/`                                                                                         | the backend venv, and for the lockfile check a uv inside `fl_backend/pyproject.toml`'s `required-version` range; any other refuses at start-up |
+| `--format`         | Prettier in check mode over the whole repository, then markdownlint over every Markdown file                                                                                                        | pnpm install                                                                                                                                   |
+| `--frontend-units` | the unit tests `fl_frontend/package.json`'s `test` script finds under `fl_frontend/`                                                                                                                | pnpm install                                                                                                                                   |
+| `--frontend`       | the frozen lockfile, peer and dedupe checks, `next typegen`, tsc, eslint, both knip runs and `next build`, then the dependency audit, an advisory that never fails the scope                        | pnpm install                                                                                                                                   |
+| `--ops`            | zizmor audits `.github/`; both stacks parse; `check_compose_model.py` judges both models; `check_public_routes.py` accounts for every route; `nginx/edge_test.sh` starts both edges and drives them | Docker, `uv` for zizmor at `scripts/gate/zizmor/requirements.txt`'s pin, and the backend virtualenv                                            |
+| `--db`             | the contract and its client generated into an ignored scratch folder and compared with the committed ones, then `pytest -m db` over the backend and `pnpm run test:db` over `*.db.test.ts`          | venv + pnpm install + Docker                                                                                                                   |
+| `--images`         | both `docker build`s, then what a build does not prove: `instrumentation.js` present, neither image running as uid 0, neither holding a file its dockerignore excludes                              | Docker                                                                                                                                         |
 
 **CI runs every scope on every event**, one job per scope in `.github/workflows/verify.yml`, each
 running `./scripts/gate/verify.sh` with that scope's flag. Beside them:
@@ -576,8 +574,9 @@ each entry point inserting it at its own top, and `pyrightconfig.json`'s `extraP
 listing of that fact.
 
 **The ops scope exists because the compose files and the nginx configuration have no compiler.**
-`nginx -t` parses and sees no response, so `nginx/edge_test.sh` starts the checkout's own edge as
-`docker-compose.yml` starts it and grades what it wrote, sent and answered:
+A parse sees no response, so `nginx/edge_test.sh` starts the checkout's own edges as
+`docker-compose.yml` starts nginx, fails a configuration either refuses to start on with nginx's own
+log, and grades what each wrote, sent and answered:
 
 - no mailed link's query in an access line;
 - a visitor's `traceparent` replaced;

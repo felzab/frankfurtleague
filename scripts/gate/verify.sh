@@ -520,28 +520,8 @@ findings above name the service and the rule." \
     "$PY" scripts/checks/check_public_routes.py \
     && ok "every route handler is accounted for at the edge"
 
-  step "ops · nginx accepts prod.conf"
-  # The image production's model names, so the nginx accepting prod.conf is the one that serves it.
-  # `write`, not `print`: a Windows stdout would end the name in a carriage return.
-  local nginx_image
-  nginx_image="$("$PY" -c 'import json, sys; sys.stdout.write(json.loads(open(sys.argv[1], "rb").read())["services"]["nginx"]["image"])' \
-    "${OPS_SCRATCH}/production.json")" \
-    || refuse "production's model names no image for nginx, so there is no release to parse prod.conf with."
-  if ! docker image inspect "$nginx_image" >/dev/null 2>&1; then
-    quietly docker pull "$nginx_image" \
-      || refuse "${nginx_image} could not be fetched, so prod.conf was not parsed. Docker's own reason is above."
-  fi
-  # No `--add-host`: nginx resolves a literal upstream as it loads, so this parse refuses one naming
-  # `frontend` or `backend`.
-  MSYS_NO_PATHCONV=1 check "nginx refuses prod.conf — its own explanation is above." \
-    docker run --rm --pull never \
-    -v "/${REPO_ROOT}/nginx/prod:/etc/nginx/conf.d:ro" \
-    -v "/${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
-    "$nginx_image" nginx -t \
-    && ok "${nginx_image} accepts prod.conf"
-
-  # A parse sees neither a log line nor a response.
-  step "ops · the edge logs no credential and sends every security header once"
+  # A parse sees neither a log line nor a response, and both edges starting is the parse.
+  step "ops · the edge starts, logs no credential and sends every security header once"
   check --checker "The running edge failed a case. Each failing case above is what nginx WROTE or SENT, and the
 files under nginx/shared/ decide it." bash nginx/edge_test.sh \
     && ok "the edge logged and sent every case as written"

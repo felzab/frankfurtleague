@@ -551,33 +551,6 @@ venv_python() {
   fi
 }
 
-# Wider than `venv_python`, for a caller needing an interpreter at the floor and no package.
-any_python() {
-  if venv_python; then return 0
-  elif command -v python3 >/dev/null 2>&1; then printf 'python3'
-  elif command -v python  >/dev/null 2>&1; then printf 'python'
-  else return 1
-  fi
-}
-
-# In bash and nowhere else: a checker cannot report on the version that refuses to compile it.
-PYTHON_FLOOR="3.14"
-
-# Called bare in a condition, where a false answer is no status `set -e` acts on. `--version` rather
-# than a `-c` snippet, whose own syntax an interpreter this refuses would have to be trusted to parse.
-python_at_floor() { # $1 an interpreter
-  local said major minor
-  # A python 2 writes its version to stderr and a Windows Store stub prints nothing at all, so an
-  # answer no version reads out of counts as below the floor rather than passing unread.
-  said="$("$1" --version 2>/dev/null)" || return 1
-  [[ "$said" =~ ^Python[[:space:]]+([0-9]+)\.([0-9]+) ]] || return 1
-  major="${BASH_REMATCH[1]}"; minor="${BASH_REMATCH[2]}"
-  # `10#`, or a component arriving with a leading zero is read as octal.
-  local -i found=$(( (10#$major * 1000) + 10#$minor ))
-  local -i floor=$(( (10#${PYTHON_FLOOR%%.*} * 1000) + 10#${PYTHON_FLOOR##*.} ))
-  (( found >= floor ))
-}
-
 require_dir()  { [[ -d "$1" ]] || refuse "Missing required directory: $1${2:+
 $2}"; }
 

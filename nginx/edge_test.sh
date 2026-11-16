@@ -8,6 +8,7 @@
 # `docker-compose.yml` grants nginx. It answers nothing about which locations the edge makes reachable.
 #
 # Invariants:
+# - Both edges start over the checkout's configuration, and one nginx refuses is a finding with its log.
 # - A mailed link's query never reaches an access line, and every line holds the request's trace id.
 # - A visitor's `traceparent` is replaced on every location proxying to the frontend, and the protocol
 #   Next is handed is the edge's own word: `https` from production's blocks, `http` from the local ones.
@@ -70,12 +71,11 @@ rm -rf "$SCRATCH"
 mkdir -p "$SCRATCH"
 
 # The configuration is read through the checkers' own parser, which refuses a spelling it cannot read,
-# in the interpreter the checkers run in. Its paths are relative to the repository root, where the library
-# leaves the working directory, and no argument is rewritten: MSYS would read `/` as a Windows path.
-EDGE_PY="$(any_python || true)"
-if [[ -z "$EDGE_PY" ]] || ! python_at_floor "$EDGE_PY"; then
-  refuse "no python at the checkers' floor, so the edge's configuration could not be read."
-fi
+# in the backend's virtualenv, where the gate runs them. Its paths are relative to the repository root,
+# where the library leaves the working directory, and no argument is rewritten: MSYS would read `/` as a
+# Windows path.
+EDGE_PY="$(venv_python)" \
+  || refuse "No fl_backend virtualenv found, so the edge's configuration could not be read. Create it with:  uv sync --project fl_backend --dev"
 conf_query() { # the query and its arguments, as scripts/lib/nginx_conf.py --help lists them
   MSYS_NO_PATHCONV=1 "$EDGE_PY" scripts/lib/nginx_conf.py "$@"
 }
@@ -202,6 +202,16 @@ MSYS_NO_PATHCONV=1 docker run -d --name "$CONTAINER" \
   "$EDGE_IMAGE" >/dev/null \
   || refuse "could not start the pinned nginx for the edge test."
 
+# A container stopped as it started is nginx refusing the configuration it was handed, in its own words
+# in the container's log: a finding about the change, never a run that judged nothing.
+judge_start() { # $1 the container, $2 the directory it serves; returns where the container still runs
+  local running
+  running="$(docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null || true)"
+  [[ "${running%$'\r'}" == false ]] || return 0
+  docker logs "$1" 2>&1 | detail
+  die "nginx refused to start over ${2}: its own words are above."
+}
+
 # Each edge's two streams as Docker holds them, read whole into the scratch directory: nginx's
 # access lines on stdout, its error lines on stderr. The production edge's once it is started.
 ACCESS_LOG="${SCRATCH}/stdout"
@@ -218,7 +228,7 @@ read_streams() {
 # `docker port`, never a fixed number: a developer's own stack shares this host, and a collision
 # would read as a redaction failure rather than as a port already taken.
 ADDR="$(docker port "$CONTAINER" 80/tcp | head -n 1)" \
-  || refuse "the edge test's nginx published no port."
+  || { judge_start "$CONTAINER" nginx/local/; refuse "the edge test's nginx published no port."; }
 [[ -n "$ADDR" ]] || refuse "the edge test's nginx published no port."
 BASE="http://${ADDR%$'\r'}"
 
@@ -233,7 +243,7 @@ for _ in $(seq 1 50); do
   if [[ -n "$_status" && "$_status" != 000 ]]; then _up=1; break; fi
   sleep 0.2
 done
-(( _up )) || refuse "the edge test's nginx never answered on ${BASE}."
+(( _up )) || { judge_start "$CONTAINER" nginx/local/; refuse "the edge test's nginx never answered on ${BASE}."; }
 
 # `nginx/prod/` mounted as production mounts it, on the plain port the connector dials, proxying to the
 # stub above. The form, sign-in and link zones and the connection ceiling are driven here, on keys
@@ -247,7 +257,7 @@ MSYS_NO_PATHCONV=1 docker run -d --name "$PROD_CONTAINER" \
   "$EDGE_IMAGE" >/dev/null \
   || refuse "could not start the pinned nginx over nginx/prod/."
 PROD_ADDR="$(docker port "$PROD_CONTAINER" 80/tcp | head -n 1)" \
-  || refuse "the nginx/prod/ edge published no port."
+  || { judge_start "$PROD_CONTAINER" nginx/prod/; refuse "the nginx/prod/ edge published no port."; }
 PROD_ADDR="${PROD_ADDR%$'\r'}"
 [[ -n "$PROD_ADDR" ]] || refuse "the nginx/prod/ edge published no port."
 PROD_BASE="http://${PROD_ADDR}"
@@ -256,7 +266,7 @@ for _ in $(seq 1 50); do
   if curl -s -o /dev/null --max-time 2 -H "Host: www.frankfurtleague.de" "${PROD_BASE}/probe" 2>/dev/null; then _up=1; break; fi
   sleep 0.2
 done
-(( _up )) || refuse "the nginx/prod/ edge never answered on ${PROD_ADDR}."
+(( _up )) || { judge_start "$PROD_CONTAINER" nginx/prod/; refuse "the nginx/prod/ edge never answered on ${PROD_ADDR}."; }
 
 # --- a mailed link's access line ------------------------------------------------------------------
 
