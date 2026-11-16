@@ -1679,9 +1679,11 @@ LOCAL_SERVER: Final = [("mongo", 27017)]
 
 
 def is_local_server(uri: str) -> bool:
-    """Whether `uri` is a login-free `mongodb://` URI naming `LOCAL_SERVER` alone, by pymongo's own parser.
+    """Whether `uri` is a login-free `mongodb://` URI naming `LOCAL_SERVER` alone and connecting to it directly, by pymongo's own parser.
 
     A match on that one server rather than a list of others: whatever else a URI names, the seed empties nothing there.
+    Without `directConnection=true` the driver joins the whole replica set its one host belongs to, and writes to
+    whichever member that set names its primary, so the host alone would bound only the first server it asks.
     """
     # The plain scheme before the parse: `mongodb+srv://` asks DNS for its hosts during it, and names no local service.
     if not uri.startswith("mongodb://"):
@@ -1691,7 +1693,12 @@ def is_local_server(uri: str) -> bool:
     # Judged, never printed: the parser's message can quote what it read.
     except PyMongoError, ValueError, TypeError:
         return False
-    return parsed["nodelist"] == LOCAL_SERVER and parsed["username"] is None and parsed["password"] is None
+    return (
+        parsed["nodelist"] == LOCAL_SERVER
+        and parsed["options"].get("directConnection") is True
+        and parsed["username"] is None
+        and parsed["password"] is None
+    )
 
 
 async def _main() -> int:
@@ -1705,7 +1712,10 @@ async def _main() -> int:
     uri = config.mongodb_uri.get_secret_value()
     if not is_local_server(uri):
         # A refusal, 2, before any client exists. It names what the seed requires alone: the settings are a secret.
-        print("The made-up seed writes only to the local or the end-to-end stack's own mongo service, at port 27017.", file=sys.stderr)
+        print(
+            "The made-up seed writes only to the local or the end-to-end stack's own mongo service, at port 27017 with directConnection=true.",
+            file=sys.stderr,
+        )
         return 2
     league = LANDING_STATES[landing](clock.now())
 

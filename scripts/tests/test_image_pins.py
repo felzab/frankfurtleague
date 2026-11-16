@@ -1,8 +1,8 @@
 """Every image this repository does not build is pinned by tag and digest, and the versions no tool compares agree.
 
 What it compares: every image the three Dockerfiles, both compose files and the listed scripts name, against the pin
-form; both database test tiers against a mongo image of their own, and the gate's scripts against a linter image of
-their own; and each image's toolchain against the one the checkout and CI run,
+form; both database test tiers against a mongo image of their own, and the backend tier's containers against the
+local stack's pin; the gate's scripts against a linter image of their own; and each image's toolchain against the one the checkout and CI run,
 the frontend's Node against `devEngines` and the lockfile, the backend's Python against `.python-version`'s series and
 its uv against CI's, and the journeys' Playwright image against the lockfile's Playwright. Each pair drifts in silence:
 a tag alone is a pointer its publisher can move, a hand edit can drop a digest, and Dependabot moves each file's pin on
@@ -11,6 +11,7 @@ its own, so one side ships a version the other never ran.
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 import re
@@ -129,17 +130,11 @@ FRONTEND: Final = REPO_ROOT / "fl_frontend"
 BACKEND: Final = REPO_ROOT / "fl_backend"
 UNREAD_DIRS: Final = frozenset({"node_modules", ".next", ".venv", "__pycache__", ".pytest_cache", ".ruff_cache"})
 FRONTEND_SUFFIXES: Final = frozenset({".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"})
-# The image's name, a registry path allowed ahead of it. Bare, it is also the local stack's database
-# service, which a host names, so a bare name counts only where an image is taken.
-_MONGO: Final = r"(?:[\w.-]+/)*mongo"
-# What makes a string an image reference, in any file and any call: a tag or a digest after the name.
-MONGO_TAGGED_RE: Final = re.compile(rf"""(["'`])({_MONGO}[:@][^"'`\s]+)\1""")
-# The bare name where an image is taken: a container class's first argument, or an `image` argument
-# or key.
-MONGO_TAKEN_RE: Final = re.compile(rf"""(?:\w*Container\(\s*|\bimage\s*[=:]\s*)(["'`])({_MONGO})\1""")
-# A mongo container class given no image: testcontainers' Python `MongoDbContainer` then runs its own
-# default, `mongo:latest`, with no string naming it.
-MONGO_DEFAULTED_RE: Final = re.compile(r"\bMongo\w*Container\(\s*(?:\)|(?!image\b)\w+\s*=)")
+# The image's name, a registry path allowed ahead of it, and the tag or digest after it that makes a string an image
+# reference rather than the local stack's database service, which a host names bare.
+MONGO_TAGGED_RE: Final = re.compile(r"""(["'`])((?:[\w.-]+/)*mongo[:@][^"'`\s]+)\1""")
+# The backend tier's copy of the local stack's server, read off its one `image:` line.
+BACKEND_PIN: Final = "MONGO_IMAGE"
 
 
 def sources_under(root: Path, suffixes: frozenset[str] | None = None) -> list[Path]:
@@ -151,18 +146,13 @@ def sources_under(root: Path, suffixes: frozenset[str] | None = None) -> list[Pa
     return sorted(found)
 
 
-def mongo_images_in(text: str) -> list[str]:
-    """Every mongo image one source names or leaves to a library's default, in the order the readers find them."""
-    return [
-        *(match[2] for match in MONGO_TAGGED_RE.finditer(text)),
-        *(match[2] for match in MONGO_TAKEN_RE.finditer(text)),
-        *(match[0] for match in MONGO_DEFAULTED_RE.finditer(text)),
-    ]
-
-
 def mongo_images(sources: list[Path]) -> list[tuple[str, str]]:
-    """Every mongo image `mongo_images_in` finds in `sources`, each beside its file."""
-    return [(path.relative_to(REPO_ROOT).as_posix(), image) for path in sources for image in mongo_images_in(path.read_text(encoding="utf-8"))]
+    """Every mongo image a string of `sources` names, each beside its file."""
+    return [
+        (path.relative_to(REPO_ROOT).as_posix(), match[2])
+        for path in sources
+        for match in MONGO_TAGGED_RE.finditer(path.read_text(encoding="utf-8"))
+    ]
 
 
 def test_neither_db_tier_names_a_mongo_image_of_its_own() -> None:
@@ -173,6 +163,38 @@ def test_neither_db_tier_names_a_mongo_image_of_its_own() -> None:
     sources = sources_under(FRONTEND, FRONTEND_SUFFIXES) + sources_under(BACKEND, frozenset({".py"}))
 
     assert mongo_images(sources) == [], "a mongo image typed outside docker-compose.local.yml"
+
+
+def _callee(call: ast.Call) -> str:
+    """The name a call is made by, a bare one or an attribute's."""
+    return call.func.id if isinstance(call.func, ast.Name) else call.func.attr if isinstance(call.func, ast.Attribute) else ""
+
+
+def _image(call: ast.Call) -> ast.expr | None:
+    """The image a container class is handed: testcontainers takes it first, or as `image`."""
+    return call.args[0] if call.args else next((keyword.value for keyword in call.keywords if keyword.arg == "image"), None)
+
+
+def test_every_backend_container_starts_from_the_local_stack_s_pin() -> None:
+    """A container class handed any image but the tier's copy of the pin, or none, runs a server no bump proposed.
+
+    Judged at each construction, by the parser: a name held in a variable reaches a container as surely as a string, and
+    testcontainers' `MongoDbContainer()` runs `mongo:latest` with no string naming it. The frontend tier's constructions
+    are its lint's, which holds each to `localStackMongo()`.
+    """
+    constructions = [
+        (path.relative_to(REPO_ROOT).as_posix(), node)
+        for path in sources_under(BACKEND, frozenset({".py"}))
+        for node in ast.walk(ast.parse(path.read_bytes(), filename=str(path)))
+        if isinstance(node, ast.Call) and _callee(node).endswith("Container")
+    ]
+    assert constructions, "no container construction was read out of fl_backend: the reader went inert"
+    unpinned = [
+        f"{path}:{call.lineno}: {ast.unparse(call)}"
+        for path, call in constructions
+        if not (isinstance(image := _image(call), ast.Name) and image.id == BACKEND_PIN)
+    ]
+    assert unpinned == [], f"a container started from anything but {BACKEND_PIN}:\n" + "\n".join(unpinned)
 
 
 # The gate's linters, each pinned in the tools file alone: its stage name is what a caller reads.

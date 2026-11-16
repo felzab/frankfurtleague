@@ -460,10 +460,10 @@ deletes the volume, and the database with it.
 **A seed is in place before anything renders a page**, so no empty read is cached. The made-up seed
 runs inside the backend container, copied there with the tests' builders. **It writes only to the
 database service the local and the end-to-end stacks each start and production lacks**:
-`scripts/ops/made_up_seed.sh` refuses any stack whose Compose files declare no such service, and the
+`scripts/ops/made_up_seed.sh` refuses any stack not running that service, and the
 seed refuses any server its settings name but that one, before it connects. **It writes a database
 nothing else writes**: the frontend is the one other writer, the backend running no pass of its
-own, so the script refuses a stack whose frontend is running, and `local.sh` stops the frontend
+own, so the script refuses a stack whose frontend is not stopped, and `local.sh` stops the frontend
 before each seed it loads. It loads once the backend's boot has built every index, and
 `python -m app.readback` then reads every document it wrote back through its record model; only
 then do the frontend and nginx start.

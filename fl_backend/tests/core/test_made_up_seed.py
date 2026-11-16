@@ -44,24 +44,21 @@ ELSEWHERE: Final = {
     "with-a-login": "mongodb://seed-user:not-a-password@mongo:27017/",
     "another-port": "mongodb://mongo:27018/",
     "beside-another-host": "mongodb://mongo:27017,db.seed-guard.invalid:27017/?replicaSet=rs0",
+    # The local host, from which the driver would follow its replica set's own list of members.
+    "joining-its-set": "mongodb://mongo:27017",
 }
 
 # What each of `ELSEWHERE`'s URIs carries that no other text of a run would.
 QUOTED: Final = ("seed-guard", "seed-user", "not-a-password", "27018")
 
-REFUSAL: Final = "The made-up seed writes only to the local or the end-to-end stack's own mongo service, at port 27017."
-
-
-@pytest.mark.parametrize(
-    "uri",
-    [
-        # As `docker-compose.local.yml :: local_mongodb_uri` names it to the backend.
-        "mongodb://mongo:27017/?directConnection=true",
-        "mongodb://mongo:27017",
-    ],
+REFUSAL: Final = (
+    "The made-up seed writes only to the local or the end-to-end stack's own mongo service, at port 27017 with directConnection=true."
 )
-def test_the_local_stack_s_server_is_the_seed_s(uri: str) -> None:
-    assert is_local_server(uri)
+
+
+def test_the_local_stack_s_server_is_the_seed_s() -> None:
+    # As `docker-compose.local.yml :: local_mongodb_uri` names it to the backend.
+    assert is_local_server("mongodb://mongo:27017/?directConnection=true")
 
 
 @pytest.mark.parametrize("uri", ELSEWHERE.values(), ids=ELSEWHERE.keys())
