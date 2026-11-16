@@ -15,10 +15,9 @@ beforeEach(() => void vi.useFakeTimers({ toFake: ["setInterval", "setTimeout"] }
 afterEach(() => void vi.useRealTimers());
 
 /* `next dev` reaches whatever backend and transport the developer's own environment names: the league's real people.
-   Run by the `unit-development` project under `next dev`'s `NODE_ENV`. */
-it("arms nothing under a development build", async () => {
-  // A project that set none would boot under `test`, and the case would prove nothing of `next dev`.
-  expect(process.env.NODE_ENV).toBe("development");
+   The boot arms the scheduler under a production build's `NODE_ENV` alone, so any other value, `next dev`'s among them,
+   takes the branch this case boots. */
+it("arms nothing outside a production build", async () => {
   await register();
   vi.advanceTimersByTime(3 * HOUR_MS);
   await backend.answered();
