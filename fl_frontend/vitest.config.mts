@@ -50,10 +50,9 @@ export default defineConfig({
           name: "unit",
           include: ["src/**/*.test.{ts,tsx}", "eslint-rules/**/*.test.mjs"],
           exclude: ["src/**/*.db.test.ts", ...PRODUCTION_BUILD, ...DEVELOPMENT_BUILD],
-          // Past Vitest's five seconds: the slowest case, `src/kit/Lineup.test.tsx`'s line-up of eleven,
-          // took 6.5 s in a whole run on a loaded 16-core machine (2026-11). Four times that, rounded
-          // up to the next ten seconds, as the workflow sets each job's `timeout-minutes`; hooks keep
-          // Vitest's ten.
+          // Past Vitest's five seconds: a file's first case pays the cold import of every module it
+          // loads, and in a whole run on a machine loaded by other work the slowest such case took
+          // 11 s (2026-11-16). Hooks keep Vitest's ten.
           testTimeout: 30_000,
           // Off both clocks a formatter pins, Berlin's and UTC's: one that drops its `timeZone` prints the runtime's, so
           // `src/core/format.test.ts` can fail only under a third zone, on every machine. Forks take this, the pool Vitest
