@@ -1,6 +1,5 @@
 import {
   configDouble,
-  GATE_BACKEND_CONFIG,
   insertOrderedAdapter,
   madeByPasskey,
   memoryStore,
@@ -42,7 +41,7 @@ const ADAPTER_DOUBLE = {
 const mail = registerAuthDoubles({
   // The admin key the person lane's erasure is sent under, beside the system key the gate reads with.
   core: {
-    config: configDouble(GATE_BACKEND_CONFIG, { internalApiKeyAdmin: () => "fabricated-admin-not-a-credential" }),
+    config: configDouble({}, { internalApiKeyAdmin: () => "fabricated-admin-not-a-credential" }),
   },
   specifiers: {
     "next/headers": HEADERS_DOUBLE,

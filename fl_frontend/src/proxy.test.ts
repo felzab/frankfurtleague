@@ -11,7 +11,6 @@ import {
   ADMIN_EMAIL,
   configDouble,
   cookiePair,
-  GATE_BACKEND_CONFIG,
   madeByPasskey,
   memoryAdapterDouble,
   memoryStore,
@@ -37,7 +36,7 @@ const REMOVED_EMAIL = "ehemalig@example.org";
 seatEveryAddress();
 
 registerAuthDoubles({
-  core: { config: configDouble(GATE_BACKEND_CONFIG) },
+  core: { config: configDouble() },
   specifiers: {
     // This file's subject is the SHAPE of a turn-away rather than the store behind it.
     "@better-auth/mongo-adapter": memoryAdapterDouble(STORE),

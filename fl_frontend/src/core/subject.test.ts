@@ -1,7 +1,6 @@
 import {
   ADMIN_EMAIL,
   configDouble,
-  HOLDS_NOTHING,
   madeByPasskey,
   memoryAdapterDouble,
   memoryStore,
@@ -11,7 +10,7 @@ import {
 } from "@/test-support/authDoubles.ts";
 import { serveBackend } from "@/test-support/backend.ts";
 import { beginRenderPass, leaveRenderPass, serveServerReact } from "@/test-support/cacheScope.ts";
-import { answerAt, SEAT } from "@/test-support/subjectFixtures.ts";
+import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures.ts";
 import { timeoutSignalsOnFakeTimers } from "@/test-support/timeoutSignals.ts";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -59,9 +58,9 @@ const SPIELER = { spieler_id: "b".repeat(24) };
 /* Keyed by the FOLDED identifier, as the endpoint's own join is: a guard sending the address as the
    session holds it then asks about a mailbox this holds nothing for. */
 const RECORDS = new Map<string, Subject>([
-  [ADMIN_EMAIL, { ...HOLDS_NOTHING, seats: [SEAT], admin_tier: "administration", granted_since: "2026-01-01T00:00:00Z", account: true }],
-  [PERSON_EMAIL, { ...HOLDS_NOTHING, spieler: [SPIELER], account: true }],
-  [FOLDED_EMAIL, { ...HOLDS_NOTHING, spieler: [SPIELER], account: true }],
+  [ADMIN_EMAIL, { ...NO_RECORDS, seats: [SEAT], admin_tier: "administration", granted_since: "2026-01-01T00:00:00Z", account: true }],
+  [PERSON_EMAIL, { ...NO_RECORDS, spieler: [SPIELER], account: true }],
+  [FOLDED_EMAIL, { ...NO_RECORDS, spieler: [SPIELER], account: true }],
 ]);
 
 /** The two reads the lookup answers, as the generated calls spell them below the base path. */
@@ -72,7 +71,7 @@ const LOOKUP_PATHS = ["/identity/subject", "/identity/sign_in"];
 function answerAtRecords({ method, path, body }: { method: string; path: string; body: unknown }): unknown {
   if (method !== "POST" || !LOOKUP_PATHS.includes(path)) return undefined;
   const asked = (body as { email?: string }).email ?? "";
-  return answerAt(path, RECORDS.get(asked) ?? { ...HOLDS_NOTHING, account: false });
+  return answerAt(path, RECORDS.get(asked) ?? { ...NO_RECORDS, account: false });
 }
 
 const backend = serveBackend(answerAtRecords);
@@ -219,7 +218,7 @@ describe("who the seam answers for", () => {
     onTestFinished(
       () =>
         void RECORDS.set(ADMIN_EMAIL, {
-          ...HOLDS_NOTHING,
+          ...NO_RECORDS,
           seats: [SEAT],
           admin_tier: "administration",
           granted_since: "2026-01-01T00:00:00Z",
@@ -233,7 +232,7 @@ describe("who the seam answers for", () => {
     const marks = [];
     for (const grantedAfterMs of [60 * 1000, -60 * 1000]) {
       RECORDS.set(ADMIN_EMAIL, {
-        ...HOLDS_NOTHING,
+        ...NO_RECORDS,
         seats: [SEAT],
         admin_tier: "administration",
         granted_since: new Date(row.createdAt.getTime() + grantedAfterMs).toISOString(),
@@ -293,7 +292,7 @@ describe("who the seam answers for", () => {
 
     for (const unconfirmed of [true, false]) {
       beginRenderPass();
-      answerTheLookupOnce({ ...HOLDS_NOTHING, unconfirmed });
+      answerTheLookupOnce({ ...NO_RECORDS, unconfirmed });
 
       expect((await getSubjectSession())?.records.unconfirmed).toBe(unconfirmed);
     }

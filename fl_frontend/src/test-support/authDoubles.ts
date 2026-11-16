@@ -333,16 +333,13 @@ export async function sessionByCode(
 }
 
 /** Where the sign-in gate's one backend read goes, in every config double this file builds. */
-export const GATE_BACKEND_CONFIG = {
+const GATE_BACKEND_CONFIG = {
   API_URL: BACKEND_ORIGIN,
 } as const;
 
-/** What the lookup answers an address holding nothing, which every answer below builds on. */
-export const HOLDS_NOTHING = NO_RECORDS;
-
 /** `ADMIN_EMAIL`'s answer: a grant and no league record, which is what makes it an administrator, dated before any session a case makes. */
 export const GRANTED = deepFrozen({
-  ...HOLDS_NOTHING,
+  ...NO_RECORDS,
   admin_tier: "administration" as const,
   granted_since: "2026-01-01T00:00:00Z",
   account: false,
@@ -410,7 +407,7 @@ const DEFAULT_LOOKUP: LookupAnswer = (email) => (email === ADMIN_EMAIL ? GRANTED
  * address `granted` names, so a suite minting a person's session gets past the gate at session creation.
  */
 export function seatEveryAddress(granted: readonly string[] = [ADMIN_EMAIL]): void {
-  answerTheLookup((email) => ({ ...(granted.includes(email) ? GRANTED : HOLDS_NOTHING), seats: [SEAT], account: true }));
+  answerTheLookup((email) => ({ ...(granted.includes(email) ? GRANTED : NO_RECORDS), seats: [SEAT], account: true }));
 }
 
 /**
