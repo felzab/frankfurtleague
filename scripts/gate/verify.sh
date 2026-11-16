@@ -257,11 +257,13 @@ PY=""
 case "$SCOPE" in
   scripts|backend|ops|db)
     PY="$(venv_python)" || refuse "No fl_backend virtualenv found. Create it with:  uv sync --project fl_backend --dev"
-    # On a runner the job's own `uv sync --locked` has just run.
+    # On a runner the job's own `uv sync --locked` has just run. `--frozen`, so the virtualenv is held to
+    # the lockfile alone: whether the lockfile answers pyproject.toml is the change's, which the backend
+    # scope's `uv lock --check` reports as a finding.
     if [[ -z "${GITHUB_ACTIONS:-}" ]]; then
-      quietly uv sync --project fl_backend --dev --check \
+      quietly uv sync --project fl_backend --dev --check --frozen \
         || refuse "fl_backend/.venv does not match fl_backend/uv.lock, so a finding here would be about this
-machine rather than the change. Sync it with:  uv sync --project fl_backend --dev"
+machine rather than the change. Sync it with:  uv sync --project fl_backend --dev --frozen"
     fi ;;
 esac
 
