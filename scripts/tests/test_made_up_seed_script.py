@@ -1,8 +1,8 @@
 """The made-up seed's verdict, driven through `scripts/ops/made_up_seed.sh` itself behind a stand-in engine
 
 Every caller fails on any code but 0, so only this suite tells a refusal from a failure: no engine, a stack without the
-local database service or without a running backend, a state the seed does not hold, or a read-back that could not
-judge, is 2, and a seed or a document to correct is 1. Each case copies the script with `_lib.sh` into a fixture
+local database service, without a running backend or with a running frontend, a state the seed does not hold, or a
+read-back that could not judge, is 2, and a seed or a document to correct is 1. Each case copies the script with `_lib.sh` into a fixture
 tree of its own and puts a stand-in `docker` first on PATH, which lists the services of the files `COMPOSE_FILE` names
 and answers every other call with the code the case gives. The seed's own decisions are judged by the backend's suite,
 `fl_backend/tests/core/test_made_up_seed.py`.
@@ -120,10 +120,11 @@ def test_a_refusal_stays_apart_from_a_failure(args: tuple[str, ...], codes: dict
         (LOCAL_STACK, "mongo\nbackend\n", {"version": 1}),
         (LOCAL_STACK, "mongo\nbackend\n", {"config": 15}),
         (LOCAL_STACK, "mongo\n", {}),
+        (LOCAL_STACK, "mongo\nbackend\nfrontend\n", {}),
     ],
-    ids=["production-stack", "no-engine", "unresolved-stack", "no-backend-running"],
+    ids=["production-stack", "no-engine", "unresolved-stack", "no-backend-running", "frontend-running"],
 )
-def test_nothing_reaches_a_container_but_in_a_local_stack_with_its_backend_running(
+def test_nothing_reaches_a_container_but_in_a_local_stack_with_its_backend_running_and_its_frontend_not(
     stack: Mapping[str, str], running: str, codes: dict[str, int]
 ) -> None:
     code, said, calls, handed = seed(stack=stack, running=running, codes=codes)

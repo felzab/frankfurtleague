@@ -10,8 +10,8 @@
 # Compose reaches the stack through the caller's COMPOSE_FILE and TAG, and only the local and the end-to-end stacks are
 # seeded: the script refuses any stack Compose resolves without the mongo service, and the seed any server but that
 # one. Exit 0 seeded, and every document reads back through its record model; 1 a seed or a document to correct; 2
-# refused, Docker not responding, another stack, no backend running, another server, a state the seed does not hold or a
-# read-back that could not judge.
+# refused, Docker not responding, another stack, no backend running, a frontend running, another server, a state the
+# seed does not hold or a read-back that could not judge.
 
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
 
@@ -48,7 +48,12 @@ running="$(docker compose ps --status running --services)" \
   || refuse "Compose could not list the stack's running services; its own account is above."
 grep -qxF backend <<<"$running" \
   || refuse "the stack's backend is not running, so there is nothing to seed. Start the stack first."
-ok "the local or the end-to-end stack, its backend running"
+# The seed empties and refills one collection after another, and the frontend is the database's one other writer, its
+# scheduler's passes and the requests it serves alike: beside the seed, it would write from a league half loaded.
+if grep -qxF frontend <<<"$running"; then
+  refuse "the stack's frontend is running, and the seed writes only a database nothing else writes. Stop it first."
+fi
+ok "the local or the end-to-end stack, its backend running and its frontend not"
 
 step "The made-up league${LANDING:+, the landing ${LANDING}}"
 # Through stdin and into the container's own /tmp, written as the container's user: a bind mount would differ between
