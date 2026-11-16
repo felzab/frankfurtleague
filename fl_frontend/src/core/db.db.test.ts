@@ -192,6 +192,9 @@ describe("the sign-in store's indexes recover with the store", () => {
       while (!(await indexed()) && Date.now() < deadline) await pause(200);
 
       expect(await indexed(), "the index was not built again once the store answered").toBe(true);
+      // The rebuild's other indexes may still be on the wire: a run queues behind the one in flight, so the file's
+      // close meets no build to cut.
+      await buildAuthIndexes();
       expect(opens, "the client emitted `open`, so this drove a new topology rather than a recovered one").toBe(0);
     } finally {
       client.off("open", counted);
