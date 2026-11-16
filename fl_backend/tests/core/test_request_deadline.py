@@ -221,10 +221,13 @@ async def _transacted(url: str, cut: _Cut) -> _Transacted:
             async with transaction_session(client) as session:
                 await session.with_transaction(write_then_wait)
 
-        _TRANSACTION.set(transacting)
-        transport = ASGITransport(app=_served(), raise_app_exceptions=False)
-        async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-            response = await http.post("/transacting")
+        token = _TRANSACTION.set(transacting)
+        try:
+            transport = ASGITransport(app=_served(), raise_app_exceptions=False)
+            async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
+                response = await http.post("/transacting")
+        finally:
+            _TRANSACTION.reset(token)
 
         held = await _transactions_held(url, sessions)
         error_code = None if response.status_code == 200 else response.json()["error_code"]

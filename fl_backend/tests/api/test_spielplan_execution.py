@@ -170,21 +170,23 @@ def on_a_seeded_saison(
         async with a_clean_database(
             url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema, stores_a_refused_shape=stores_a_refused_shape
         ) as (client, database):
-            # `on_the_seed_loop` runs this in a task of its own, which copies the context, so nothing set here reaches another test.
-            trace_id_var.set(TRACE_ID)
+            # Reset on the way out, so the trace bound here reaches no other case.
+            token = trace_id_var.set(TRACE_ID)
+            try:
+                await database[Collection.SAISONS].insert_one(seeded.saison)
+                await database[Collection.SAISON_TEAMS].insert_many(seeded.entered)
+                if seeded.spieltage:
+                    await database[Collection.SPIELTAGE].insert_many(seeded.spieltage)
+                if seeded.spiele:
+                    await database[Collection.SPIELE].insert_many(seeded.spiele)
 
-            await database[Collection.SAISONS].insert_one(seeded.saison)
-            await database[Collection.SAISON_TEAMS].insert_many(seeded.entered)
-            if seeded.spieltage:
-                await database[Collection.SPIELTAGE].insert_many(seeded.spieltage)
-            if seeded.spiele:
-                await database[Collection.SPIELE].insert_many(seeded.spiele)
+                if seeded.neighbour is not None:
+                    await database[Collection.SAISONS].insert_one(seeded.neighbour)
+                    await database[Collection.SAISON_TEAMS].insert_many(seeded.neighbour_entered)
 
-            if seeded.neighbour is not None:
-                await database[Collection.SAISONS].insert_one(seeded.neighbour)
-                await database[Collection.SAISON_TEAMS].insert_many(seeded.neighbour_entered)
-
-            return await body(database, client)
+                return await body(database, client)
+            finally:
+                trace_id_var.reset(token)
 
     return on_the_seed_loop(_run())
 

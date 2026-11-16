@@ -56,8 +56,10 @@ def an_administrator_bound() -> Iterator[None]:
     """
 
     token = actor_var.set("admin@frankfurtleague.de")
-    yield
-    actor_var.reset(token)
+    try:
+        yield
+    finally:
+        actor_var.reset(token)
 
 
 RejectsAssertion = Callable[[type[BaseModel], dict[str, Any], str], ValidationError]

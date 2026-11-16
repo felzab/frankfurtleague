@@ -121,17 +121,19 @@ def on_a_seeded_saison(url: str, body: Body, *, seed: Seed | None = None, mutate
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
-            # `on_the_seed_loop` runs this in a task of its own, which copies the context, so nothing set here reaches another test.
-            trace_id_var.set(TRACE_ID)
+            # Reset on the way out, so the trace bound here reaches no other case.
+            token = trace_id_var.set(TRACE_ID)
+            try:
+                await database[Collection.SAISONS].insert_one(seeded.saison)
+                await database[Collection.SAISON_TEAMS].insert_many(seeded.entered)
 
-            await database[Collection.SAISONS].insert_one(seeded.saison)
-            await database[Collection.SAISON_TEAMS].insert_many(seeded.entered)
+                if seeded.neighbour is not None:
+                    await database[Collection.SAISONS].insert_one(seeded.neighbour)
+                    await database[Collection.SAISON_TEAMS].insert_many(seeded.neighbour_entered)
 
-            if seeded.neighbour is not None:
-                await database[Collection.SAISONS].insert_one(seeded.neighbour)
-                await database[Collection.SAISON_TEAMS].insert_many(seeded.neighbour_entered)
-
-            return await body(database, client)
+                return await body(database, client)
+            finally:
+                trace_id_var.reset(token)
 
     return on_the_seed_loop(_run())
 
