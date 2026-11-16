@@ -95,6 +95,10 @@ _UNHELD = (
 # Set while a case runs (`tests/conftest.py :: pytest_collection_modifyitems`): the deadline it runs under.
 _CASE: ContextVar[asyncio.Timeout | None] = ContextVar("_CASE", default=None)
 
+# Set while any scope runs, to its bound: asyncio copies the current context into every task it creates, so each task the
+# scope's code starts, and each task those start, carries it, and a task begun anywhere else does not.
+_SCOPE: ContextVar[asyncio.Timeout | None] = ContextVar("_SCOPE", default=None)
+
 
 def case_deadline() -> float | None:
     """The loop time the running case is cancelled at, or `None` outside a case."""
@@ -103,22 +107,35 @@ def case_deadline() -> float | None:
     return None if bound is None else bound.when()
 
 
-def _pymongos_own(task: asyncio.Task[Any]) -> bool:
-    """A monitor of the driver's, which outlives the case that opened its client by design.
+def _a_monitor(graph: asyncio.FutureCallGraph) -> bool:
+    """Whether the future is a monitor's task, or one a monitor's task awaits, however far down."""
 
-    pymongo starts each as `asyncio.create_task(self._run(), ...)` in `AsyncPeriodicExecutor.open`
-    (`pymongo/periodic_executor.py`), its one long-lived task; matched by that coroutine's code, so a task the code under
-    test starts over a driver call is not one.
+    future = graph.future
+    if isinstance(future, asyncio.Task) and getattr(future.get_coro(), "cr_code", None) is AsyncPeriodicExecutor._run.__code__:
+        return True
+
+    return any(_a_monitor(awaiter) for awaiter in graph.awaited_by)
+
+
+def _pymongos_own(task: asyncio.Task[Any]) -> bool:
+    """A monitor of the driver's, or a read one sends, which outlive the case that opened its client by design.
+
+    pymongo starts each monitor as `asyncio.create_task(self._run(), ...)` in `AsyncPeriodicExecutor.open`
+    (`pymongo/periodic_executor.py`), its one long-lived task, and runs each read in two tasks it awaits through
+    `asyncio.wait` (`pymongo/network_layer.py :: async_receive_message`), which records the monitor as their awaiter. A
+    monitor is matched by that coroutine's code and a read by the call graph, so a read the code under test starts is not
+    one: its awaiter is the case's task.
     """
 
-    return getattr(task.get_coro(), "cr_code", None) is AsyncPeriodicExecutor._run.__code__
+    graph = asyncio.capture_call_graph(task)
+    return graph is not None and _a_monitor(graph)
 
 
-async def _cancelled(before: set[asyncio.Task[Any]]) -> list[str]:
-    """Every task started since `before` and still running, cancelled and drained, by its coroutine's name."""
+async def _cancelled(bound: asyncio.Timeout) -> list[str]:
+    """Every task the scope bounded by `bound` started and left running, cancelled and drained, by its coroutine's name."""
 
     current = asyncio.current_task()
-    left = [task for task in asyncio.all_tasks() - before if task is not current and not _pymongos_own(task)]
+    left = [task for task in asyncio.all_tasks() if task is not current and task.get_context().get(_SCOPE) is bound and not _pymongos_own(task)]
     for task in left:
         task.cancel()
     if left:
@@ -145,15 +162,16 @@ async def _scoped[T](work: Awaitable[T], what: str, *, a_case: bool) -> T:
     """
 
     bound = asyncio.timeout(CASE_BOUND_S)
-    before = asyncio.all_tasks()
+    scope = _SCOPE.set(bound)
     token = _CASE.set(bound) if a_case else None
     try:
         return await _within(bound, work, what)
     finally:
         if token is not None:
             _CASE.reset(token)
+        _SCOPE.reset(scope)
         # On every path, the failing one included: what a failing case left would otherwise fail the next case.
-        if left := await _cancelled(before):
+        if left := await _cancelled(bound):
             raise AssertionError(_LEFT_BEHIND.format(what=what, count=len(left), tasks=", ".join(left)))
 
 
