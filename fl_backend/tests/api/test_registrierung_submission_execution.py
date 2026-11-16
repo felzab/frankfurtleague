@@ -18,7 +18,6 @@ from app.api.registrierungen.services import compose_confirmation_update
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.exceptions import APIError
 from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
 from tests import documents
@@ -26,6 +25,7 @@ from tests.app_client import app_client, app_under_test
 from tests.config import BASE_AUTH
 from tests.database import a_clean_database
 from tests.holds import HoldsAfterItsLookup
+from tests.isolation import refused_code
 from tests.outbox import MAIL_NOW, drained
 from tests.worker import worker_database
 
@@ -508,19 +508,16 @@ class TestWhatASubmissionIsRefused:
 
     async def test_a_revoked_link_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
-            with pytest.raises(APIError) as refused:
-                await register(database, client, token=REVOKED_TOKEN)
-
-            return refused.value.error_code, await database[Collection.REGISTRIERUNGEN].count_documents({})
+            return (
+                await refused_code(register(database, client, token=REVOKED_TOKEN)),
+                await database[Collection.REGISTRIERUNGEN].count_documents({}),
+            )
 
         assert await on_a_league(mongo_replica_set_url, body) == (Code.DOCUMENT_NOT_FOUND, 0)
 
     async def test_a_shut_window_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
-            with pytest.raises(APIError) as refused:
-                await register(database, client)
-
-            return refused.value.error_code, await database[Collection.REGISTRIERUNGEN].count_documents({})
+            return await refused_code(register(database, client)), await database[Collection.REGISTRIERUNGEN].count_documents({})
 
         outcome = await on_a_league(mongo_replica_set_url, body, registrierung={**OPEN_WINDOW, "open": False})
 
@@ -530,10 +527,7 @@ class TestWhatASubmissionIsRefused:
         """The window's end is still ahead and its link is not paused: only the season's status closes it, as minting the link already does."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
-            with pytest.raises(APIError) as refused:
-                await register(database, client)
-
-            return refused.value.error_code, await database[Collection.REGISTRIERUNGEN].count_documents({})
+            return await refused_code(register(database, client)), await database[Collection.REGISTRIERUNGEN].count_documents({})
 
         assert await on_a_league(mongo_replica_set_url, body, saison_status="past") == (Code.REGISTRIERUNG_CLOSED, 0)
 
@@ -541,19 +535,16 @@ class TestWhatASubmissionIsRefused:
         """The second club's own live link, for a club with no junction row: the invite opens and the write refuses."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
-            with pytest.raises(APIError) as refused:
-                await register(database, client, token=OTHER_TOKEN)
-
-            return refused.value.error_code, await database[Collection.REGISTRIERUNGEN].count_documents({})
+            return (
+                await refused_code(register(database, client, token=OTHER_TOKEN)),
+                await database[Collection.REGISTRIERUNGEN].count_documents({}),
+            )
 
         assert await on_a_league(mongo_replica_set_url, body) == (Code.REGISTRIERUNG_CLOSED, 0)
 
     async def test_a_stufe_the_season_does_not_offer_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
-            with pytest.raises(APIError) as refused:
-                await register(database, client, stufe="E1")
-
-            return refused.value.error_code, await database[Collection.REGISTRIERUNGEN].count_documents({})
+            return await refused_code(register(database, client, stufe="E1")), await database[Collection.REGISTRIERUNGEN].count_documents({})
 
         assert await on_a_league(mongo_replica_set_url, body) == (Code.REGISTRIERUNG_STUFE_NOT_ALLOWED, 0)
 
@@ -562,10 +553,7 @@ class TestWhatASubmissionIsRefused:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
             await leave(database)
-            with pytest.raises(APIError) as refused:
-                await register(database, client)
-
-            return refused.value.error_code, await database[Collection.REGISTRIERUNGEN].count_documents({})
+            return await refused_code(register(database, client)), await database[Collection.REGISTRIERUNGEN].count_documents({})
 
         assert await on_a_league(mongo_replica_set_url, body, registrierung={**OPEN_WINDOW, "open": False}) == (Code.DOCUMENT_NOT_FOUND, 0)
 
@@ -593,10 +581,7 @@ class TestWhatASubmissionIsRefused:
 
     async def test_a_full_squad_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
-            with pytest.raises(APIError) as refused:
-                await register(database, client)
-
-            return refused.value.error_code, await database[Collection.REGISTRIERUNGEN].count_documents({})
+            return await refused_code(register(database, client)), await database[Collection.REGISTRIERUNGEN].count_documents({})
 
         assert await on_a_league(mongo_replica_set_url, body, squad=RULES["max_kader_size"]) == (Code.REGISTRIERUNG_KADER_FULL, 0)
 
@@ -655,10 +640,7 @@ class TestWhatTheInvitesOwnReadAnswers:
 
         async def run(database: AsyncDatabase, client: AsyncMongoClient) -> str:
             await leave(database)
-            with pytest.raises(APIError) as refused:
-                await view(database)
-
-            return refused.value.error_code
+            return await refused_code(view(database))
 
         assert await on_a_league(mongo_replica_set_url, run) == Code.DOCUMENT_NOT_FOUND
 

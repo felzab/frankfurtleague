@@ -180,9 +180,7 @@ class TestThePersonsStart:
 
     async def test_the_address_signed_in_on_is_refused_in_any_spelling(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(APIError) as refused:
-                await start(database, client, email=TYPED.upper())
-            return refused.value.error_code
+            return await refused_code(start(database, client, email=TYPED.upper()))
 
         assert await on_a_person(mongo_replica_set_url, body) == Code.ADDRESS_CHANGE_UNCHANGED
 

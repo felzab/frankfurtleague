@@ -13,11 +13,11 @@ from app.api.registrierungen.schemas import FLRegistrierungConfirmationPayload
 from app.api.registrierungen.services import compose_confirmation
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.database import a_clean_database
+from tests.isolation import refused_code
 from tests.stored import the_row
 from tests.worker import worker_database
 
@@ -201,10 +201,11 @@ class TestTheLinkIsSpentByTheStamp:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await answer(database, client, RAW, birth_date=AT_THE_MEDIA_AGE, media=True)
 
-            with pytest.raises(APIError) as conflict:
-                await answer(database, client, RAW, scope="internal", media=False)
-
-            return conflict.value.error_code, await stored(database), await read_view(database, RAW)
+            return (
+                await refused_code(answer(database, client, RAW, scope="internal", media=False)),
+                await stored(database),
+                await read_view(database, RAW),
+            )
 
         code, document, view = await on_a_league(mongo_replica_set_url, body)
 
@@ -216,10 +217,11 @@ class TestTheLinkIsSpentByTheStamp:
         """A mistyped year is the commonest error on a date field, and a link voided by one has no remedy but registering again."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(APIError) as conflict:
-                await answer(database, client, RAW, birth_date=A_DAY_SHORT)
-
-            return conflict.value.error_code, await read_view(database, RAW), await stored(database)
+            return (
+                await refused_code(answer(database, client, RAW, birth_date=A_DAY_SHORT)),
+                await read_view(database, RAW),
+                await stored(database),
+            )
 
         code, view, document = await on_a_league(mongo_replica_set_url, body)
 
@@ -233,10 +235,7 @@ class TestTheLinkIsSpentByTheStamp:
         )
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(APIError) as conflict:
-                await answer(database, client, RAW)
-
-            return conflict.value.error_code, await stored(database)
+            return await refused_code(answer(database, client, RAW)), await stored(database)
 
         code, document = await on_a_league(mongo_replica_set_url, body, registrierungen=[expired])
 
@@ -250,10 +249,7 @@ class TestTheLinkIsSpentByTheStamp:
         declined = registrierung_document(status="declined", decision=decision)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            with pytest.raises(APIError) as conflict:
-                await answer(database, client, RAW)
-
-            return conflict.value.error_code
+            return await refused_code(answer(database, client, RAW))
 
         assert await on_a_league(mongo_replica_set_url, body, registrierungen=[declined]) == Code.LINK_EXPIRED
 
@@ -272,10 +268,7 @@ class TestTheLinkIsSpentByTheStamp:
             else:
                 await database[Collection.SAISON_TEAMS].delete_one(club_row)
             view = await read_view(database, RAW)
-            with pytest.raises(APIError) as conflict:
-                await answer(database, client, RAW)
-
-            return view.state, conflict.value.error_code, await stored(database)
+            return view.state, await refused_code(answer(database, client, RAW)), await stored(database)
 
         state, code, document = await on_a_league(mongo_replica_set_url, body)
 
@@ -293,10 +286,10 @@ class TestTheMediaAge:
 
     async def test_a_yes_a_day_short_of_the_media_age_is_refused_and_spends_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(APIError) as conflict:
-                await answer(database, client, RAW, birth_date=A_DAY_SHORT_OF_THE_MEDIA_AGE, media=True)
-
-            return conflict.value.error_code, await stored(database)
+            return (
+                await refused_code(answer(database, client, RAW, birth_date=A_DAY_SHORT_OF_THE_MEDIA_AGE, media=True)),
+                await stored(database),
+            )
 
         code, document = await on_a_league(mongo_replica_set_url, body)
 

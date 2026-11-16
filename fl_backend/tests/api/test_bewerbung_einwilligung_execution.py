@@ -21,6 +21,7 @@ from tests import documents
 from tests.bewerbung_routes import answered, resent, viewed
 from tests.database import a_clean_database
 from tests.documents import kontaktperson_document, team_document
+from tests.isolation import refused_code
 from tests.outbox import MAIL_NOW, drained
 from tests.stored import the_row
 from tests.worker import worker_database
@@ -293,11 +294,8 @@ class TestTheLinkIsSpentByTheStamp:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await answer(database, client, RAW["trainer"])
 
-            with pytest.raises(APIError) as conflict:
-                await answer(database, client, RAW["trainer"], birth_date="1990-01-01")
-
             return (
-                conflict.value.error_code,
+                await refused_code(answer(database, client, RAW["trainer"], birth_date="1990-01-01")),
                 (await stored(database))["kontakte"]["trainer"]["birth_date"],
                 await read_view(database, RAW["trainer"]),
             )
@@ -312,10 +310,11 @@ class TestTheLinkIsSpentByTheStamp:
         """A mistyped year is the commonest error on a date field; a link voided by one has no remedy but a re-send."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(APIError) as conflict:
-                await answer(database, client, RAW["trainer"], birth_date=A_CHILDS_BIRTHDATE)
-
-            return conflict.value.error_code, await read_view(database, RAW["trainer"]), await stored(database)
+            return (
+                await refused_code(answer(database, client, RAW["trainer"], birth_date=A_CHILDS_BIRTHDATE)),
+                await read_view(database, RAW["trainer"]),
+                await stored(database),
+            )
 
         code, view, document = await on_a_league(mongo_replica_set_url, body)
 
@@ -327,10 +326,7 @@ class TestTheLinkIsSpentByTheStamp:
         expired = bewerbung_document(confirmation_deadline=YESTERDAY)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            with pytest.raises(APIError) as conflict:
-                await answer(database, client, RAW["trainer"])
-
-            return conflict.value.error_code
+            return await refused_code(answer(database, client, RAW["trainer"]))
 
         assert await on_a_league(mongo_replica_set_url, body, documents=[expired]) == Code.LINK_EXPIRED
 
@@ -340,10 +336,7 @@ class TestTheLinkIsSpentByTheStamp:
         decided = bewerbung_document(status="declined")
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            with pytest.raises(APIError) as refused:
-                await answer(database, client, RAW["trainer"])
-
-            return refused.value.error_code
+            return await refused_code(answer(database, client, RAW["trainer"]))
 
         assert await on_a_league(mongo_replica_set_url, body, documents=[decided]) == Code.LINK_EXPIRED
 
@@ -370,10 +363,7 @@ class TestADecline:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
             await answer(database, client, RAW["stellvertretung"], answer="declined", now=MAIL_NOW)
 
-            with pytest.raises(APIError) as conflict:
-                await answer(database, client, RAW["stellvertretung"])
-
-            return conflict.value.error_code
+            return await refused_code(answer(database, client, RAW["stellvertretung"]))
 
         assert await on_a_league(mongo_replica_set_url, body) == Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
 
@@ -523,11 +513,10 @@ class TestAResend:
             response = await resend(database, "trainer")
             [mail] = await drained(database, client)
 
-            with pytest.raises(APIError) as conflict:
-                await read_view(database, RAW["trainer"])
+            code = await refused_code(read_view(database, RAW["trainer"]))
 
             assert mail.token is not None
-            return response, mail, conflict.value.error_code, await read_view(database, mail.token), await stored(database)
+            return response, mail, code, await read_view(database, mail.token), await stored(database)
 
         response, mail, old_code, view, document = await on_a_league(mongo_replica_set_url, body)
 
@@ -584,10 +573,7 @@ class TestAResend:
         decided = bewerbung_document(status="declined", decision={"made_at": YESTERDAY, "reason": "kein Platz"})
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
-            with pytest.raises(APIError) as conflict:
-                await resend(database, "trainer")
-
-            return conflict.value.error_code
+            return await refused_code(resend(database, "trainer"))
 
         assert await on_a_league(mongo_replica_set_url, body, documents=[decided]) == Code.BEWERBUNG_ALREADY_DECIDED
 

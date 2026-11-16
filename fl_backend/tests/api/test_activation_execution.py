@@ -10,9 +10,9 @@ from pymongo.errors import OperationFailure
 from app.api.saisons.admin_router import activate_saison
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database
 from tests.documents import saison_document, spiel_document
+from tests.isolation import refused_code
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -175,10 +175,7 @@ class TestTheRolloverRefusesAnUndatedMatchday:
         """One dated matchday beside it, so the count is what refuses rather than the collection being empty."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(APIError) as refusal:
-                await call_activate(database, client, TARGET)
-
-            return refusal.value.error_code, await statuses_now(database)
+            return await refused_code(call_activate(database, client, TARGET)), await statuses_now(database)
 
         code, statuses = await on_a_league(
             mongo_replica_set_url,

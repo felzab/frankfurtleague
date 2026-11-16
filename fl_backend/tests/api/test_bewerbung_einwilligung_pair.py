@@ -10,13 +10,13 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.bewerbung_routes import answered
 from tests.database import a_clean_database
 from tests.documents import SEAT_TEXT_VERSIONS, kontaktperson_document, minted_confirmations
+from tests.isolation import refused_code
 from tests.stored import the_row
 from tests.worker import worker_database
 
@@ -155,10 +155,10 @@ class TestTheFloorIsThePersons:
         paired = bewerbung_document(kontakte=paired_kontakte(**held_by_the_trainer, **{other: kontaktperson_document("Bramblewick")}))
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(APIError) as conflict:
-                await answer(database, client, RAW["trainer"], birth_date=A_SEVENTEEN_YEAR_OLDS_BIRTHDATE)
-
-            return conflict.value.error_code, await stored(database)
+            return (
+                await refused_code(answer(database, client, RAW["trainer"], birth_date=A_SEVENTEEN_YEAR_OLDS_BIRTHDATE)),
+                await stored(database),
+            )
 
         code, document = await on_a_league(mongo_replica_set_url, body, documents=[paired])
 

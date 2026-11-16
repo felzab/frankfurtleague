@@ -27,7 +27,7 @@ from app.api.saisons.admin_router import activate_saison
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import patch_one_in_db
-from app.core.exceptions import APIError, DocumentNotFoundError
+from app.core.exceptions import DocumentNotFoundError
 from app.core.logging import FL_LOGGER_NAME
 from app.core.transactions import SWEEP_PAGE
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle
@@ -46,7 +46,7 @@ from tests.documents import (
     spiel_document,
     team_document,
 )
-from tests.isolation import COMMITTED, InterleavedCollection, Rival, outcome_of
+from tests.isolation import COMMITTED, InterleavedCollection, Rival, outcome_of, refused_code
 from tests.outbox import MAIL_NOW, drained
 from tests.wire import commands_by_name
 from tests.worker import worker_database
@@ -368,9 +368,7 @@ class TestTheReminderClock:
             # re-send writing a single entry leaves open.
             dead = []
             for gone in (reminders["wraxlington@example.com"] or "", f"{REMIND_OID}-trainer", f"{REMIND_OID}-ansprechperson"):
-                with pytest.raises(APIError) as conflict:
-                    await view(database, gone)
-                dead.append(conflict.value.error_code)
+                dead.append(await refused_code(view(database, gone)))
 
             return (
                 dead,
@@ -1441,8 +1439,7 @@ class TestTheSeasonRowSeatClock:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await self.two_lapsed_seats(database)
             response = await sweep(database, client)
-            with pytest.raises(APIError) as refused:
-                await view(database, "row-stellvertretung")
+            code = await refused_code(view(database, "row-stellvertretung"))
             confirmation = await database[Collection.SPIELBESTAETIGUNGEN].find_one({})
             assert confirmation is not None
 
@@ -1450,7 +1447,7 @@ class TestTheSeasonRowSeatClock:
                 response,
                 await database[Collection.SAISON_TEAMS].find_one({"_id": JUNCTION_OID}),
                 confirmation,
-                refused.value.error_code,
+                code,
                 await deletions_of(database, "retention.kontakte"),
             )
 
