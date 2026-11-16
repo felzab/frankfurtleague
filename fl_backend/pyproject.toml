@@ -78,12 +78,11 @@ zizmor = ["zizmor>=1.32.0"]
 DEP002 = ["tzdata", "uvicorn"]
 
 [tool.uv]
-# The floor stays at or below the uv Dependabot relocks with (0.12.18, read 2026-10-15), which fails
-# outside this range; the ceiling stops before the next minor release, the only kind that may change
-# the lockfile's schema.
+# The floor stays at or below the uv Dependabot relocks with, which fails outside this range; the
+# ceiling stops before the next minor release, the only kind that may change the lockfile's schema.
 required-version = ">=0.12.18,<0.14"
-# A release younger than a day is left out of every resolution, the day `.github/dependabot.yml`'s
-# cooldown waits. Relative, so it moves with the clock rather than freezing the graph at a date.
+# A release younger than a day is left out of every resolution, the day Dependabot's cooldown waits.
+# Relative, so it moves with the clock rather than freezing the graph at a date.
 exclude-newer = "1 day"
 # zizmor from a wheel alone: its sdist builds with a Rust toolchain and a build backend no hash in
 # the lockfile covers.
@@ -93,7 +92,7 @@ no-build-package = ["zizmor"]
 line-length = 144
 # The packages below `app`, the test tree and the gate's three script folders carry no `__init__.py`
 # (pytest's importlib mode needs none), and ruff judges a module's name (N999) only inside a package it
-# can see. Paths resolve from this file, which `scripts/ruff.toml` extends.
+# can see. Paths resolve from this file, the scripts' configuration extending it included.
 namespace-packages = ["app", "tests", "../scripts/checks", "../scripts/lib", "../scripts/tests"]
 
 [tool.ruff.lint]
@@ -103,9 +102,8 @@ select = [
     "F",  # pyflakes
     "I",  # isort
     "B",  # flake8-bugbear
-    # Fixes with no judgment in them -- `re.I` spelled `re.IGNORECASE` is the motivating case.
-    # Stable subset only: ruff holds part of FURB behind `preview`, and turning that on moves every
-    # other family too.
+    # Fixes with no judgment in them. Stable subset only: ruff holds part of FURB behind `preview`,
+    # and turning that on moves every other family too.
     "FURB",  # refurb — mechanical modernisations
     # One pass over the whole package rather than per module: a tree half on `collections.abc` and
     # half on `typing` reads as an unfinished rename, and the next writer copies whichever module
@@ -127,14 +125,14 @@ select = [
     # a value formatted into the message.
     "G",  # flake8-logging-format
     # Characters a reviewer cannot see in a diff: a bidirectional control reorders the line around
-    # it (PEP 672), and a raw control or zero-width space in a string changes its value unseen.
+    # it, and a raw control or zero-width space in a string changes its value unseen.
     "PLE2502",  # bidirectional-unicode
     "PLE2510",  # invalid-character-backspace
     "PLE2512",  # invalid-character-sub
     "PLE2513",  # invalid-character-esc
     "PLE2514",  # invalid-character-nul
     "PLE2515",  # invalid-character-zero-width-space
-    # A module or package name is snake_case (PEP 8), the one case a Python file's name takes here.
+    # A module or package name is snake_case, the one case a Python file's name takes here.
     "N999",  # invalid-module-name
 ]
 # The `G` rules read only a call on a receiver they know to be a logger, and `fl_logger.info(f"…")`
@@ -142,7 +140,7 @@ select = [
 logger-objects = ["app.core.logging.fl_logger"]
 
 [tool.ruff.lint.per-file-ignores]
-# `scripts/ruff.toml` extends this file, and the gate's tooling there reads its own environment by
+# The scripts' configuration extends this file, and the gate's tooling reads its own environment by
 # design: every entry in the banned list guards the backend alone.
 "../scripts/**" = ["TID251"]
 # Every entry guards the application, and a test reads both freely: it stages stored instants against
