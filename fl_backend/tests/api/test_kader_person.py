@@ -29,7 +29,7 @@ from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests.acts import acts_of
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.documents import (
     kontaktperson_document,
     rules_document,
@@ -160,14 +160,11 @@ async def _seed(database: AsyncDatabase) -> None:
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Body) -> Any:
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            await _seed(database)
+async def on_a_league(url: str, body: Body) -> Any:
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+        await _seed(database)
 
-            return await body(database, client)
-
-    return on_the_seed_loop(_run())
+        return await body(database, client)
 
 
 @functools.cache
@@ -207,7 +204,7 @@ def answered(response: Response) -> tuple[int, str | None]:
     return response.status_code, response.json().get("error_code")
 
 
-def refused_and_untouched(
+async def refused_and_untouched(
     url: str, method: str, path: str, email: str, body: Mapping[str, Any] | None = None
 ) -> tuple[tuple[int, str | None], bool]:
     async def run(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[tuple[int, str | None], bool]:
@@ -216,17 +213,17 @@ def refused_and_untouched(
 
         return answered(response), before == await stored(database)
 
-    return on_a_league(url, run)
+    return await on_a_league(url, run)
 
 
 class TestTheSquadRead:
     """What a seat holder is served: whole surnames, the shirt marker, the season's Stufen, and nobody's address."""
 
-    def _read(self, url: str, email: str) -> Response:
-        return on_a_league(url, lambda database, client: send(url, "GET", squad_url(), email))
+    async def _read(self, url: str, email: str) -> Response:
+        return await on_a_league(url, lambda database, client: send(url, "GET", squad_url(), email))
 
-    def test_a_seat_holder_reads_every_row_of_the_squad_with_whole_surnames(self, mongo_replica_set_url: str):
-        response = self._read(mongo_replica_set_url, ANSPRECH)
+    async def test_a_seat_holder_reads_every_row_of_the_squad_with_whole_surnames(self, mongo_replica_set_url: str):
+        response = await self._read(mongo_replica_set_url, ANSPRECH)
 
         assert response.status_code == 200, response.text
         body = response.json()
@@ -239,10 +236,10 @@ class TestTheSquadRead:
         assert body["allowed_stufen"] == ALLOWED_STUFEN
         assert (body["team_id"], body["saison_id"]) == (str(TEAM_A), ACTIVE_SAISON)
 
-    def test_the_shirt_marker_compares_live_rows_by_the_stored_string(self, mongo_replica_set_url: str):
+    async def test_the_shirt_marker_compares_live_rows_by_the_stored_string(self, mongo_replica_set_url: str):
         """`7` twice live is marked; `07` is another shirt; the ausgetragen `7` wears nothing and marks nothing."""
 
-        response = self._read(mongo_replica_set_url, ANSPRECH)
+        response = await self._read(mongo_replica_set_url, ANSPRECH)
         marked = {row["spieler_id"]: row["nummer_double"] for row in response.json()["kader"]}
 
         assert marked == {
@@ -253,10 +250,10 @@ class TestTheSquadRead:
             str(OLD_STUFE): False,
         }
 
-    def test_no_address_and_no_telephone_reaches_the_body_at_any_depth(self, mongo_replica_set_url: str):
+    async def test_no_address_and_no_telephone_reaches_the_body_at_any_depth(self, mongo_replica_set_url: str):
         """The serialised body scanned whole, so a nested carrier no model field names is caught too."""
 
-        text = self._read(mongo_replica_set_url, ANSPRECH).text
+        text = (await self._read(mongo_replica_set_url, ANSPRECH)).text
 
         assert "@" not in text
         assert PUPIL_EMAIL_DOMAIN not in text
@@ -299,7 +296,7 @@ class TestASeatNotHeld:
     """`role_not_held`, judged by each handler itself: drop the check from one and its case goes red."""
 
     @pytest.mark.parametrize(("email", "team_id", "saison_id", "method", "path", "body"), NOT_HELD)
-    def test_each_operation_is_refused_and_writes_nothing(
+    async def test_each_operation_is_refused_and_writes_nothing(
         self,
         mongo_replica_set_url: str,
         method: str,
@@ -309,7 +306,7 @@ class TestASeatNotHeld:
         team_id: ObjectId,
         saison_id: str,
     ):
-        answer, untouched = refused_and_untouched(mongo_replica_set_url, method, path(team_id, saison_id), email, body)
+        answer, untouched = await refused_and_untouched(mongo_replica_set_url, method, path(team_id, saison_id), email, body)
 
         assert answer == (403, Code.ROLE_NOT_HELD)
         assert untouched
@@ -319,19 +316,19 @@ class TestAnotherTeamsPupil:
     """Team A's seat holder naming team B's pupil under team A's path: the row filter carries the team, so nothing matches."""
 
     @pytest.mark.parametrize(("method", "body"), [("DELETE", None)], ids=["DELETE"])
-    def test_a_write_answers_not_found_and_writes_nothing(self, mongo_replica_set_url: str, method: str, body: Mapping[str, Any] | None):
-        answer, untouched = refused_and_untouched(mongo_replica_set_url, method, row_url(B_PUPIL), ANSPRECH, body)
+    async def test_a_write_answers_not_found_and_writes_nothing(self, mongo_replica_set_url: str, method: str, body: Mapping[str, Any] | None):
+        answer, untouched = await refused_and_untouched(mongo_replica_set_url, method, row_url(B_PUPIL), ANSPRECH, body)
 
         assert answer == (404, Code.DOCUMENT_NOT_FOUND)
         assert untouched
 
-    def test_a_patch_is_not_found_before_any_rule_judges_the_other_team_s_row(self, mongo_replica_set_url: str):
+    async def test_a_patch_is_not_found_before_any_rule_judges_the_other_team_s_row(self, mongo_replica_set_url: str):
         """A Stufe the season refuses, so a filter without the team finds team B's row and answers 409 rather than 404.
 
         A patch the rules pass cannot tell: its read-back after the write answers 404 whatever the filter matched.
         """
 
-        answer, untouched = refused_and_untouched(mongo_replica_set_url, "PATCH", row_url(B_PUPIL), ANSPRECH, {**PAYLOAD, "stufe": "E1"})
+        answer, untouched = await refused_and_untouched(mongo_replica_set_url, "PATCH", row_url(B_PUPIL), ANSPRECH, {**PAYLOAD, "stufe": "E1"})
 
         assert answer == (404, Code.DOCUMENT_NOT_FOUND)
         assert untouched
@@ -341,8 +338,8 @@ class TestARetiredRow:
     """Read-only to a representative: only the administrator's reactivate brings it back."""
 
     @pytest.mark.parametrize(("method", "body"), [("PATCH", PAYLOAD), ("DELETE", None)], ids=["PATCH", "DELETE"])
-    def test_a_write_answers_not_found_and_writes_nothing(self, mongo_replica_set_url: str, method: str, body: Mapping[str, Any] | None):
-        answer, untouched = refused_and_untouched(mongo_replica_set_url, method, row_url(RETIRED), ANSPRECH, body)
+    async def test_a_write_answers_not_found_and_writes_nothing(self, mongo_replica_set_url: str, method: str, body: Mapping[str, Any] | None):
+        answer, untouched = await refused_and_untouched(mongo_replica_set_url, method, row_url(RETIRED), ANSPRECH, body)
 
         assert answer == (404, Code.DOCUMENT_NOT_FOUND)
         assert untouched
@@ -351,7 +348,7 @@ class TestARetiredRow:
 class TestATrainerOnlySeat:
     """Every operation open to the Trainer's seat exactly as to the Ansprechperson's: the case that goes red if a check narrows by slot."""
 
-    def test_it_reads_edits_all_four_fields_and_retires(self, mongo_replica_set_url: str):
+    async def test_it_reads_edits_all_four_fields_and_retires(self, mongo_replica_set_url: str):
         async def run(database: AsyncDatabase, _: AsyncMongoClient) -> list[tuple[int, Any]]:
             read = await send(mongo_replica_set_url, "GET", squad_url(), TRAINER_ALONE)
             edit = await send(
@@ -365,7 +362,7 @@ class TestATrainerOnlySeat:
 
             return [(response.status_code, response.json()) for response in (read, edit, out)]
 
-        (read_status, _), (edit_status, edited), (out_status, out) = on_a_league(mongo_replica_set_url, run)
+        (read_status, _), (edit_status, edited), (out_status, out) = await on_a_league(mongo_replica_set_url, run)
 
         assert (read_status, edit_status, out_status) == (200, 200, 200)
         assert {key: edited[key] for key in ("nummer", "position", "stufe", "rolle")} == {
@@ -378,7 +375,7 @@ class TestATrainerOnlySeat:
 
 
 class TestAnEdit:
-    def test_the_four_fields_are_written_and_the_rest_of_the_row_stays(self, mongo_replica_set_url: str):
+    async def test_the_four_fields_are_written_and_the_rest_of_the_row_stays(self, mongo_replica_set_url: str):
         async def run(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Response, Any, Any, Any]:
             response = await send(mongo_replica_set_url, "PATCH", row_url(SHARES_THE_SEVEN), ANSPRECH, {**PAYLOAD, "nummer": "07"})
             seasons = await database[Collection.ACTION_LOG].distinct("label", {"action": "spieler.changed"})
@@ -390,7 +387,7 @@ class TestAnEdit:
                 seasons,
             )
 
-        response, row, acts, seasons = on_a_league(mongo_replica_set_url, run)
+        response, row, acts, seasons = await on_a_league(mongo_replica_set_url, run)
 
         assert response.status_code == 200, response.text
         assert acts == [("spieler.changed", "kontakt", "Adler", SHARES_THE_SEVEN)]
@@ -401,7 +398,7 @@ class TestAnEdit:
         # Now wearing `07` beside `ZERO_SEVEN`, judged against the squad after the write.
         assert response.json()["nummer_double"] is True
 
-    def test_a_save_on_the_version_another_save_moved_is_refused_and_the_first_stands(self, mongo_replica_set_url: str):
+    async def test_a_save_on_the_version_another_save_moved_is_refused_and_the_first_stands(self, mongo_replica_set_url: str):
         """Two seat holders open the row on one version and both save: unchecked, the second overwrites the first unseen."""
 
         async def run(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, tuple[int, str | None], Any]:
@@ -410,7 +407,7 @@ class TestAnEdit:
 
             return first.status_code, answered(second), await database[Collection.SAISON_SPIELER].find_one({"spieler_id": SHARES_THE_SEVEN})
 
-        first, second, row = on_a_league(mongo_replica_set_url, run)
+        first, second, row = await on_a_league(mongo_replica_set_url, run)
 
         assert first == 200
         assert second == (409, Code.VERSION_STALE)
@@ -420,8 +417,8 @@ class TestAnEdit:
 class TestAStufeTheSeasonDoesNotOffer:
     """`kader_stufe_not_allowed`: a server refusal, the form's offer being no rule."""
 
-    def test_a_stufe_outside_the_season_s_list_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str):
-        answer, untouched = refused_and_untouched(
+    async def test_a_stufe_outside_the_season_s_list_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str):
+        answer, untouched = await refused_and_untouched(
             mongo_replica_set_url, "PATCH", row_url(SHARES_THE_SEVEN), ANSPRECH, {**PAYLOAD, "stufe": "E1"}
         )
 
@@ -429,24 +426,24 @@ class TestAStufeTheSeasonDoesNotOffer:
         assert untouched
 
     @pytest.mark.parametrize("stufe", ["Q4"], ids=["the stored one"])
-    def test_the_stufe_the_row_already_holds_passes(self, mongo_replica_set_url: str, stufe: str):
+    async def test_the_stufe_the_row_already_holds_passes(self, mongo_replica_set_url: str, stufe: str):
         """A season narrowed after the row was written leaves the row editable, its own Stufe included."""
 
-        answer, _ = refused_and_untouched(mongo_replica_set_url, "PATCH", row_url(OLD_STUFE), ANSPRECH, {**PAYLOAD, "stufe": stufe})
+        answer, _ = await refused_and_untouched(mongo_replica_set_url, "PATCH", row_url(OLD_STUFE), ANSPRECH, {**PAYLOAD, "stufe": stufe})
 
         assert answer[0] == 200
 
 
 class TestTheCaptaincy:
-    def test_a_rolle_another_live_row_holds_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str):
-        answer, untouched = refused_and_untouched(
+    async def test_a_rolle_another_live_row_holds_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str):
+        answer, untouched = await refused_and_untouched(
             mongo_replica_set_url, "PATCH", row_url(SHARES_THE_SEVEN), ANSPRECH, {**PAYLOAD, "rolle": "kapitaen"}
         )
 
         assert answer == (409, Code.KADER_ROLLE_TAKEN)
         assert untouched
 
-    def test_two_edits_naming_one_rolle_leave_one_holder(self, mongo_replica_set_url: str):
+    async def test_two_edits_naming_one_rolle_leave_one_holder(self, mongo_replica_set_url: str):
         """A rival edit commits inside this one, before its anchor or, where it takes none, before its count.
 
         Without the captaincy's own anchor, this route taking no cap's, both commit.
@@ -480,7 +477,7 @@ class TestTheCaptaincy:
 
             return outcome, holders, seasons.passes
 
-        outcome, holders, passes = on_a_league(mongo_replica_set_url, run)
+        outcome, holders, passes = await on_a_league(mongo_replica_set_url, run)
 
         assert passes >= 1, "the rival never ran, so the edit was raced by nobody"
         assert (outcome, holders) == (Code.KADER_ROLLE_TAKEN, 1), (
@@ -508,13 +505,13 @@ class SquadRowsRunningTheSameRival:
 
 
 class TestRetire:
-    def test_it_stamps_the_row_and_leaves_the_person(self, mongo_replica_set_url: str):
+    async def test_it_stamps_the_row_and_leaves_the_person(self, mongo_replica_set_url: str):
         async def run(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Response, Any, Any]:
             response = await send(mongo_replica_set_url, "DELETE", row_url(SHARES_THE_SEVEN), ANSPRECH)
 
             return response, await database[Collection.SAISON_SPIELER].find_one({"spieler_id": SHARES_THE_SEVEN}), await acts_of(database)
 
-        response, row, acts = on_a_league(mongo_replica_set_url, run)
+        response, row, acts = await on_a_league(mongo_replica_set_url, run)
 
         assert response.status_code == 200, response.text
         assert acts == [("spieler.deregistered", "kontakt", "Adler", SHARES_THE_SEVEN)]

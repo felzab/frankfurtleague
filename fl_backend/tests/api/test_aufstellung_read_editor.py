@@ -15,7 +15,7 @@ from app.api.spiele.editor import FLSpielEditorAufstellungen, read_spiel_editor
 from app.core import clock
 from app.core.collections import Collection
 from tests import documents
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -27,7 +27,7 @@ HOME, AWAY, REPLACED = (ObjectId(f"6890a1b2c3d4e5f6074500{n:02d}") for n in (1, 
 LINA, OLE, MIA, TOM = (ObjectId(f"6890a1b2c3d4e5f6074500{n:02d}") for n in (11, 12, 13, 14))
 
 
-def test_each_side_counts_the_line_up_of_the_club_it_fields_now(mongo_replica_set_url: str):
+async def test_each_side_counts_the_line_up_of_the_club_it_fields_now(mongo_replica_set_url: str):
     """The home club's three named, two starting; the away side's club has stored none, and the club it replaced has."""
 
     spiel = documents.spiel_document(
@@ -71,10 +71,10 @@ def test_each_side_counts_the_line_up_of_the_club_it_fields_now(mongo_replica_se
             )
             return answer.aufstellungen
 
-    assert on_the_seed_loop(body()) == FLSpielEditorAufstellungen(team1=FLAufstellungSummary(count=3, starters=2), team2=None)
+    assert await body() == FLSpielEditorAufstellungen(team1=FLAufstellungSummary(count=3, starters=2), team2=None)
 
 
-def test_each_side_counts_this_fixtures_line_up_alone_and_an_open_slot_counts_nothing(mongo_replica_set_url: str):
+async def test_each_side_counts_this_fixtures_line_up_alone_and_an_open_slot_counts_nothing(mongo_replica_set_url: str):
     """Both sides fielded and stored, the home club's line-up of another fixture stored last; then a fixture whose away slot is open."""
 
     def fixture(spiel_nr: int, team2: ObjectId | None) -> dict[str, Any]:
@@ -129,7 +129,7 @@ def test_each_side_counts_this_fixtures_line_up_alone_and_an_open_slot_counts_no
 
             return await aufstellungen_of(both), await aufstellungen_of(open_slot)
 
-    fielded, open_answer = on_the_seed_loop(body())
+    fielded, open_answer = await body()
 
     assert fielded == FLSpielEditorAufstellungen(
         team1=FLAufstellungSummary(count=3, starters=2), team2=FLAufstellungSummary(count=2, starters=1)

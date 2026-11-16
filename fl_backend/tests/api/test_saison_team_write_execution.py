@@ -10,7 +10,7 @@ from app.api.teams.schemas import FLAustrittPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.documents import confirmed_kenntnisnahme, rules_document, saison_document, saison_team_document, spiel_document, team_document
 from tests.outbox import MAIL_NOW
 from tests.team_writes import save_the_team
@@ -66,7 +66,7 @@ def team_spiel_document(team_id: ObjectId, side: str) -> dict[str, Any]:
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
-def on_a_season(
+async def on_a_season(
     url: str,
     body: Body,
     *,
@@ -80,19 +80,16 @@ def on_a_season(
     So a refusal a test reaches is the gate it names rather than the season's standing.
     """
 
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME) as (_, database):
-            await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, saison_status, rules=dict(RULES)))
-            await database[Collection.TEAMS].insert_one(team_document(ADLER, "Adler", "ADL"))
-            await database[Collection.SAISON_TEAMS].insert_many(
-                [junction_document(ADLER, "A", kontakte=seeded_kontakte), junction_document(BIEBER, "B"), *junctions]
-            )
-            if spiele:
-                await database[Collection.SPIELE].insert_many(list(spiele))
+    async with a_clean_database(url, DATABASE_NAME) as (_, database):
+        await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, saison_status, rules=dict(RULES)))
+        await database[Collection.TEAMS].insert_one(team_document(ADLER, "Adler", "ADL"))
+        await database[Collection.SAISON_TEAMS].insert_many(
+            [junction_document(ADLER, "A", kontakte=seeded_kontakte), junction_document(BIEBER, "B"), *junctions]
+        )
+        if spiele:
+            await database[Collection.SPIELE].insert_many(list(spiele))
 
-            return await body(database)
-
-    return on_the_seed_loop(_run())
+        return await body(database)
 
 
 async def call_put(database: AsyncDatabase, austritt: dict[str, Any], *, today: str = TODAY) -> None:
@@ -127,7 +124,9 @@ class TestRecordingAnExitFromTheSeason:
             pytest.param({"type": "disqualifikation", "reason": "Nicht angetreten", "date": "2026-05-01"}, id="another exit"),
         ],
     )
-    def test_a_write_on_a_row_whose_exit_stands_is_a_stale_page_and_changes_nothing(self, mongo_replica_set_url: str, second: dict[str, Any]):
+    async def test_a_write_on_a_row_whose_exit_stands_is_a_stale_page_and_changes_nothing(
+        self, mongo_replica_set_url: str, second: dict[str, Any]
+    ):
         """Told opponents and closed confirmations stay told and closed, so no later press may rewrite the record they answered."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -138,12 +137,12 @@ class TestRecordingAnExitFromTheSeason:
 
             return refused.value.error_code, before, await stored_row(database)
 
-        code, before, after = on_a_season(mongo_replica_set_url, body)
+        code, before, after = await on_a_season(mongo_replica_set_url, body)
 
         assert code == Code.VERSION_STALE
         assert after == before, "a refused write changed the row"
 
-    def test_a_finished_season_refuses_it_and_writes_nothing(self, mongo_replica_set_url: str):
+    async def test_a_finished_season_refuses_it_and_writes_nothing(self, mongo_replica_set_url: str):
         """`saison_past`: an exit recorded on a finished season would move its table and podium after the fact."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -153,12 +152,12 @@ class TestRecordingAnExitFromTheSeason:
 
             return refused.value.error_code, before, await stored_row(database)
 
-        code, before, after = on_a_season(mongo_replica_set_url, body, saison_status="past")
+        code, before, after = await on_a_season(mongo_replica_set_url, body, saison_status="past")
 
         assert code == Code.SAISON_PAST
         assert after == before, "a refused write changed the row"
 
-    def test_an_exit_recorded_before_the_season_starts_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
+    async def test_an_exit_recorded_before_the_season_starts_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         """Before the start a departed club is replaced: an exit standing then would leave it on fixtures the open group swap rewrites.
 
         Refused whatever day the exit is dated, its start date the first day one may be recorded.
@@ -171,7 +170,7 @@ class TestRecordingAnExitFromTheSeason:
 
             return refused.value, before, await stored_row(database)
 
-        refusal, before, after = on_a_season(mongo_replica_set_url, body)
+        refusal, before, after = await on_a_season(mongo_replica_set_url, body)
 
         assert (refusal.error_code, refusal.fields, refusal.bounds) == (
             Code.AUSTRITT_BEFORE_SAISON_START,
@@ -183,7 +182,7 @@ class TestRecordingAnExitFromTheSeason:
 
 class TestMovingAClubBetweenGroups:
     @pytest.mark.parametrize("side", ["team1", "team2"])
-    def test_a_started_season_with_a_spiel_drawn_refuses_it_and_writes_nothing(self, mongo_replica_set_url: str, side: str):
+    async def test_a_started_season_with_a_spiel_drawn_refuses_it_and_writes_nothing(self, mongo_replica_set_url: str, side: str):
         """`entry_gruppe_locked`'s move lock through the route: the group phase is a round robin, so a move after the draw strands it."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -192,12 +191,12 @@ class TestMovingAClubBetweenGroups:
 
             return conflict.value.error_code, await stored_row(database)
 
-        code, row = on_a_season(mongo_replica_set_url, body, saison_status="active", spiele=[team_spiel_document(ADLER, side)])
+        code, row = await on_a_season(mongo_replica_set_url, body, saison_status="active", spiele=[team_spiel_document(ADLER, side)])
 
         assert code == Code.ENTRY_GRUPPE_LOCKED
         assert row["gruppe"] == "A"
 
-    def test_a_full_destination_refuses_it(self, mongo_replica_set_url: str):
+    async def test_a_full_destination_refuses_it(self, mongo_replica_set_url: str):
         """The entry gate reached through the move: a group at its cap cannot take one more however the club arrives."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -206,7 +205,7 @@ class TestMovingAClubBetweenGroups:
 
             return conflict.value.error_code, await stored_row(database)
 
-        code, row = on_a_season(mongo_replica_set_url, body, junctions=[junction_document(CRONBERG, "B")])
+        code, row = await on_a_season(mongo_replica_set_url, body, junctions=[junction_document(CRONBERG, "B")])
 
         assert code == Code.ENTRY_GRUPPE_FULL
         assert row["gruppe"] == "A"
@@ -234,23 +233,23 @@ KONTAKTE = {
 class TestTheContactBlockTheseWritesDoNotOwn:
     """A seat's write stores it. No `$set` here names a `kontakte` key, so the stored block stands."""
 
-    def test_a_stored_block_survives_a_group_move(self, mongo_replica_set_url: str):
+    async def test_a_stored_block_survives_a_group_move(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
             await save_the_team(database, team_id=ADLER, saison_id=SAISON_ID, gruppe="B")
 
             return await stored_row(database)
 
-        row = on_a_season(mongo_replica_set_url, body, seeded_kontakte=dict(KONTAKTE))
+        row = await on_a_season(mongo_replica_set_url, body, seeded_kontakte=dict(KONTAKTE))
 
         assert row["gruppe"] == "B"
         assert row["kontakte"] == KONTAKTE
 
-    def test_a_stored_block_survives_an_exit(self, mongo_replica_set_url: str):
+    async def test_a_stored_block_survives_an_exit(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
             await call_put(database, dict(EXIT))
 
             return await stored_row(database)
 
-        row = on_a_season(mongo_replica_set_url, body, seeded_kontakte=dict(KONTAKTE))
+        row = await on_a_season(mongo_replica_set_url, body, seeded_kontakte=dict(KONTAKTE))
 
         assert row["kontakte"] == KONTAKTE

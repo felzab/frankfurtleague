@@ -54,7 +54,7 @@ class HeldCollection:
 
     @staticmethod
     async def abandon(task: asyncio.Task[Any]) -> None:
-        """Cancelled and drained: left parked on the shared seed loop, it holds its transaction open into the next test."""
+        """Cancelled and drained: left parked on the session's loop, it holds its transaction open into the next test."""
 
         task.cancel()
         await asyncio.gather(task, return_exceptions=True)

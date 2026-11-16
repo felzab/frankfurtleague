@@ -15,7 +15,7 @@ from app.api.teams.schemas import FLAustrittPayload
 from app.core.collections import Collection
 from app.core.transactions import transaction_session
 from tests import documents
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.documents import kontaktperson_document
 from tests.outbox import MAIL_NOW, drained
 from tests.worker import worker_database
@@ -106,16 +106,13 @@ def spiel(
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Body, *, spiele: list[dict[str, Any]]) -> Any:
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
-            await database[Collection.SAISON_TEAMS].insert_many(clubs())
-            await database[Collection.SPIELE].insert_many(spiele)
+async def on_a_league(url: str, body: Body, *, spiele: list[dict[str, Any]]) -> Any:
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+        await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
+        await database[Collection.SAISON_TEAMS].insert_many(clubs())
+        await database[Collection.SPIELE].insert_many(spiele)
 
-            return await body(database, client)
-
-    return on_the_seed_loop(_run())
+        return await body(database, client)
 
 
 async def save_the_exit(database: AsyncDatabase, client: AsyncMongoClient) -> None:
@@ -153,7 +150,7 @@ class TestAnOpponentHearsOfAnExitAtTheExitsOwnWrite:
     The close's list reaching only rows already asked, an opponent of those fixtures would go to the ground unaware.
     """
 
-    def test_each_opponent_is_owed_one_notice_over_its_open_spiele_and_the_departed_club_nothing(self, mongo_replica_set_url: str):
+    async def test_each_opponent_is_owed_one_notice_over_its_open_spiele_and_the_departed_club_nothing(self, mongo_replica_set_url: str):
         spiele = [
             spiel(1, DEPARTED, OPPONENT, LATER),
             # On the exit's own day, and the departed club on the other side: `decision_of` counts the day as out.
@@ -174,7 +171,7 @@ class TestAnOpponentHearsOfAnExitAtTheExitsOwnWrite:
 
             return await database[Collection.OUTBOX].find().to_list(), await told(database, client)
 
-        rows, notices = on_a_league(mongo_replica_set_url, body, spiele=spiele)
+        rows, notices = await on_a_league(mongo_replica_set_url, body, spiele=spiele)
 
         assert sorted(notices) == addresses(OPPONENT)
         for notice in notices.values():
@@ -189,7 +186,7 @@ class TestAnOpponentHearsOfAnExitAtTheExitsOwnWrite:
         assert {(row["reference"]["id"], row["reference"]["seat"]) for row in rows} == {(DEPARTED_ROW, None)}
 
     @pytest.mark.parametrize("refusal", EXIT_REFUSALS)
-    def test_the_exit_s_write_owes_the_notices_in_its_own_transaction(self, mongo_replica_set_url: str, refusal: dict[str, Any]):
+    async def test_the_exit_s_write_owes_the_notices_in_its_own_transaction(self, mongo_replica_set_url: str, refusal: dict[str, Any]):
         """Nothing above reaches the route, so an exit recorded with its call gone would tell nobody, and nothing would say so.
 
         Owed outside the exit's transaction, a refused exit would tell every opponent of an exit that never stood.
@@ -225,7 +222,7 @@ class TestAnOpponentHearsOfAnExitAtTheExitsOwnWrite:
 
             return refused, await told(database, client)
 
-        refused, notices = on_a_league(mongo_replica_set_url, body, spiele=[spiel(1, DEPARTED, OPPONENT, LATER)])
+        refused, notices = await on_a_league(mongo_replica_set_url, body, spiele=[spiel(1, DEPARTED, OPPONENT, LATER)])
 
         assert refused == {}
         assert sorted(notices) == addresses(OPPONENT)

@@ -1,4 +1,3 @@
-import asyncio
 import functools
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
@@ -21,7 +20,7 @@ from app.main import create_app
 from app.shared.folding import sign_in_identifier
 from tests.app_client import app_client
 from tests.config import SYSTEM_AUTH
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.documents import (
     SCHIEDSRICHTER_TEXT_VERSIONS,
     SPIELER_TEXT_VERSIONS,
@@ -220,16 +219,13 @@ async def _seed(database: AsyncDatabase) -> None:
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Body) -> Any:
+async def on_a_league(url: str, body: Body) -> Any:
     """The shipped indexes, so every seeded row meets the constraints a real one meets."""
 
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
-            await _seed(database)
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
+        await _seed(database)
 
-            return await body(database)
-
-    return on_the_seed_loop(_run())
+        return await body(database)
 
 
 async def call_sign_in(database: AsyncDatabase, email: str) -> FLSignInResponse:
@@ -244,17 +240,17 @@ async def call_sign_in(database: AsyncDatabase, email: str) -> FLSignInResponse:
         )
 
 
-def answered(url: str, email: str) -> FLSignInResponse:
-    return on_a_league(url, lambda database: call_sign_in(database, email))
+async def answered(url: str, email: str) -> FLSignInResponse:
+    return await on_a_league(url, lambda database: call_sign_in(database, email))
 
 
-def own_records(url: str, email: str) -> frozenset[tuple[str, Any]]:
+async def own_records(url: str, email: str) -> frozenset[tuple[str, Any]]:
     async def body(database: AsyncDatabase) -> frozenset[tuple[str, Any]]:
         _, entries = await identity_crud.find_own_entries(sign_in_identifier(email), record_collections(database))
 
         return entries
 
-    return on_a_league(url, body)
+    return await on_a_league(url, body)
 
 
 @pytest.mark.db
@@ -274,11 +270,11 @@ class TestWhatCountsAsAnOwnRecord:
             pytest.param(REGISTERED, ("registrierungen", REGISTRIERUNG_OID), id="a confirmed registration"),
         ],
     )
-    def test_a_confirmed_record_is_the_mailbox_s_own_and_admits_it(self, mongo_replica_set_url: str, email: str, entry: tuple[str, Any]):
+    async def test_a_confirmed_record_is_the_mailbox_s_own_and_admits_it(self, mongo_replica_set_url: str, email: str, entry: tuple[str, Any]):
         """The whole set, so a case naming the right record beside a wrong one fails too."""
 
-        assert own_records(mongo_replica_set_url, email) == {entry}
-        assert answered(mongo_replica_set_url, email).account is True
+        assert await own_records(mongo_replica_set_url, email) == {entry}
+        assert (await answered(mongo_replica_set_url, email)).account is True
 
     @pytest.mark.parametrize(
         "email",
@@ -295,30 +291,30 @@ class TestWhatCountsAsAnOwnRecord:
             pytest.param(NOBODY, id="nothing at all"),
         ],
     )
-    def test_a_record_holding_no_consent_of_its_own_person_admits_nothing(self, mongo_replica_set_url: str, email: str):
-        assert own_records(mongo_replica_set_url, email) == frozenset()
-        assert answered(mongo_replica_set_url, email).account is False
+    async def test_a_record_holding_no_consent_of_its_own_person_admits_nothing(self, mongo_replica_set_url: str, email: str):
+        assert await own_records(mongo_replica_set_url, email) == frozenset()
+        assert (await answered(mongo_replica_set_url, email)).account is False
 
 
 @pytest.mark.db
 class TestTheFlagsBesideIt:
-    def test_records_awaiting_confirmation_raise_the_subject_s_flag_and_admit_nothing_else(self, mongo_replica_set_url: str):
+    async def test_records_awaiting_confirmation_raise_the_subject_s_flag_and_admit_nothing_else(self, mongo_replica_set_url: str):
         """The flag is `POST /identity/subject`'s own; only the records granting a panel raise it."""
 
-        assert [(answered(mongo_replica_set_url, email).unconfirmed) for email in (SEAT_OPEN, BEWERBUNG_UNCONFIRMED)] == [
+        assert [((await answered(mongo_replica_set_url, email)).unconfirmed) for email in (SEAT_OPEN, BEWERBUNG_UNCONFIRMED)] == [
             True,
             False,
         ]
 
-    def test_a_barred_address_is_flagged_and_still_counted(self, mongo_replica_set_url: str):
+    async def test_a_barred_address_is_flagged_and_still_counted(self, mongo_replica_set_url: str):
         """The ban narrows nothing beside it: refusing the barred holder is the gate's own decision."""
 
-        answer = answered(mongo_replica_set_url, BARRED)
+        answer = await answered(mongo_replica_set_url, BARRED)
 
         assert (answer.barred, answer.account) == (True, True)
 
-    def test_a_grant_is_answered_beside_records_it_does_not_need(self, mongo_replica_set_url: str):
-        answer = answered(mongo_replica_set_url, ADMIN)
+    async def test_a_grant_is_answered_beside_records_it_does_not_need(self, mongo_replica_set_url: str):
+        answer = await answered(mongo_replica_set_url, ADMIN)
 
         assert (answer.admin_tier, answer.account, answer.barred) == ("administration", False, False)
 
@@ -367,19 +363,19 @@ def _served() -> FastAPI:
 
 
 @pytest.mark.db
-def test_the_mounted_route_answers_the_four_flags_and_nothing_else(mongo_replica_set_url: str):
+async def test_the_mounted_route_answers_the_four_flags_and_nothing_else(mongo_replica_set_url: str):
     """The whole body through the mounted route: a lookup bound to the wrong handle answers a flag false, which no keyword call can tell."""
 
     async def _no_body(_: AsyncDatabase) -> None:
         return None
 
-    on_a_league(mongo_replica_set_url, _no_body)
+    await on_a_league(mongo_replica_set_url, _no_body)
 
     async def _answered() -> Response:
         async with app_client(mongo_replica_set_url, app=_served()) as http:
             return await http.post(PATH, headers=SYSTEM_AUTH, json={"email": REGISTERED_STORED.upper()})
 
-    response = asyncio.run(_answered())
+    response = await _answered()
 
     assert response.status_code == 200
     assert response.json() == {"unconfirmed": False, "account": True, "barred": False, "admin_tier": None}

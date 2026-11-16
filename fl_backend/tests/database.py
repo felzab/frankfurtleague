@@ -1,7 +1,6 @@
 import asyncio
-import atexit
 import io
-from collections.abc import AsyncGenerator, Awaitable, Coroutine, Generator, Iterable, Mapping, Sequence
+from collections.abc import AsyncGenerator, Awaitable, Generator, Iterable, Mapping, Sequence
 from contextlib import asynccontextmanager, contextmanager, redirect_stdout
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -35,32 +34,14 @@ _Key = tuple[tuple[tuple[str, int], ...], str]
 # defines, and the tier -- one worker of it, under `-n` -- runs in one process.
 _BUILT: dict[_Key, tuple[bool, Schema]] = {}
 
-# Module globals for `_BUILT`'s reason. A client belongs to the loop that opened it, so each loop keeps its own: the seed
-# loop's are torn down by `_release`, the anyio runner's by `close_the_shared_clients`.
-_LOOP: asyncio.AbstractEventLoop | None = None
+# A module global for `_BUILT`'s reason. A client belongs to the loop that opened it, so each loop keeps its own: the
+# session's, which every async case and fixture runs on, and the one `a_clean_database_sync` holds for its readers.
 _CLIENTS: dict[tuple[asyncio.AbstractEventLoop, str], AsyncMongoClient] = {}
 
-# Bounds each close in `_release`. A serial `pytest -m db` has stopped the containers by the time
-# that runs, so an unbounded close waits pymongo's 30 s selection default per client, after the
-# reporter has already printed.
+# Bounds each close. A serial `pytest -m db` may have stopped the containers by the time the session's
+# loop closes its clients, so an unbounded close waits pymongo's 30 s selection default per client, after
+# the reporter has already printed.
 _CLOSE_TIMEOUT_S = 2.0
-
-
-def _release() -> None:
-    """At interpreter exit, nothing else outliving the tier to close what its seeds share."""
-
-    if _LOOP is None:
-        return
-
-    # Run on the tier's loop while it is still open: `close` is a coroutine, so a bare call
-    # would close nothing and leave a warning where the connections should have gone.
-    _LOOP.run_until_complete(_close(_LOOP))
-
-    # What a per-call `asyncio.run` does at its own end: an async generator left open is finalised
-    # while the loop it belongs to still runs, rather than at collection with no loop to run on.
-    _LOOP.run_until_complete(_LOOP.shutdown_asyncgens())
-    _LOOP.close()
-
 
 # MongoDB's default `transactionLifetimeLimitSeconds`: the server aborts a transaction open longer than this.
 TRANSACTION_LIFETIME_S = 60.0
@@ -69,9 +50,9 @@ TRANSACTION_LIFETIME_S = 60.0
 # and its case accepts an answer up to 10 s past it.
 SLOWEST_SEED_S = REQUEST_DEADLINE_S + 10
 
-# Each seed's bound. A rival a case runs inside a write that then waits on that write's own transaction deadlocks until
-# MongoDB aborts the transaction at its lifetime limit, and the retry that follows passes the case. Under that limit,
-# the case fails under its own name; above the slowest seed, no seed that would finish is cut.
+# Each case's bound, and each module seed's. A rival a case runs inside a write that then waits on that write's own
+# transaction deadlocks until MongoDB aborts the transaction at its lifetime limit, and the retry that follows passes the
+# case. Under that limit, the case fails under its own name; above the slowest seed, no seed that would finish is cut.
 SEED_BOUND_S = 30.0
 
 assert SLOWEST_SEED_S < SEED_BOUND_S < TRANSACTION_LIFETIME_S, (
@@ -79,43 +60,25 @@ assert SLOWEST_SEED_S < SEED_BOUND_S < TRANSACTION_LIFETIME_S, (
 )
 
 _UNFINISHED = (
-    "this seed ran past {bound:.0f} s and was cancelled. A rival run inside a write that waits on that write's own transaction"
+    "this ran past {bound:.0f} s and was cancelled. A rival run inside a write that waits on that write's own transaction"
     " deadlocks until MongoDB aborts it at its lifetime limit: run the rival before the write it contends with."
 )
 
 
-def on_the_seed_loop(seed: Coroutine[Any, Any, Any]) -> Any:
-    """A client's connections belong to the loop that opened them, so ONE lasting loop is what lets every seed share one client.
+async def close_the_shared_clients() -> None:
+    """Every client `shared_client` opened on the running loop, closed on it before it stops.
 
-    `run_until_complete` copies the context into a task the same way, so a `ContextVar` a body sets still reaches no other test.
+    On the loop, not after it: `close` is a coroutine, so a bare call would close nothing and leave a warning where the
+    connections should have gone.
     """
 
-    return _seed_loop().run_until_complete(bounded(seed))
-
-
-def _seed_loop() -> asyncio.AbstractEventLoop:
-    global _LOOP
-
-    if _LOOP is None:
-        _LOOP = asyncio.new_event_loop()
-        atexit.register(_release)
-
-    return _LOOP
-
-
-async def _close(loop: asyncio.AbstractEventLoop) -> None:
+    loop = asyncio.get_running_loop()
     for key in [key for key in _CLIENTS if key[0] is loop]:
         # `close` selects a server to end the client's sessions, so a deadline is the only thing
         # bounding it. The error one raises is swallowed inside `close`: an `endSessions` failure
         # is one a driver must ignore.
         with pymongo.timeout(_CLOSE_TIMEOUT_S):
             await _CLIENTS.pop(key).close()
-
-
-async def close_the_shared_clients() -> None:
-    """Every client `shared_client` opened on the running loop, closed on it before it stops."""
-
-    await _close(asyncio.get_running_loop())
 
 
 async def bounded(seed: Awaitable[Any]) -> Any:
@@ -133,17 +96,13 @@ async def bounded(seed: Awaitable[Any]) -> Any:
 
 
 def shared_client(url: str) -> AsyncMongoClient:
-    """One client per url for the whole tier: a topology handshake costs a client to open, not a seed to run.
+    """One client per url and loop: a topology handshake costs a client to open, not a case to run.
 
-    Public because a module reading a seeded corpus needs that client without `a_clean_database`'s clearing.
+    Public because a module reading a seeded corpus needs that client without `a_clean_database`'s clearing. Called on a
+    running loop, which is the one the client belongs to.
     """
 
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        # A synchronous case names its client before `on_the_seed_loop` runs the seed it hands it.
-        loop = _seed_loop()
-    key = (loop, url)
+    key = (asyncio.get_running_loop(), url)
     client = _CLIENTS.get(key)
     if client is None:
         # `poll`, the mode the driver picks for a process frozen between calls: the loop stands still
@@ -341,8 +300,8 @@ async def a_clean_database(
     schema, a body leaving a row its TTL index has already expired is refused (`_expired_rows`).
     """
 
-    # Shared, and bound to `on_the_seed_loop`'s loop, which every seed runs on; closing it belongs to
-    # `_release` at exit, so a body that raises leaves the next test a client rather than none.
+    # Shared, and bound to the running loop; closing it belongs to `close_the_shared_clients` as that loop
+    # ends, so a body that raises leaves the next test a client rather than none.
     client = shared_client(url)
     key = _key(url, name)
     database = client[name]
@@ -382,15 +341,20 @@ def a_clean_database_sync(
     """`a_clean_database` for a fixture holding a pymongo client: the database emptied on entry, its checks run on exit.
 
     A module fixture holds it open while its cases read, so what the module seeded and wrote is judged once they are done.
-    Entered and left on the seed loop, a step at a time, so both share one judgement of a clean database.
+    Entered and left on a loop of its own, a step at a time, so both share one judgement of a clean database; a
+    synchronous fixture runs while no loop does.
     """
 
-    entered = a_clean_database(url, name, constraints=constraints, stores_a_refused_shape=stores_a_refused_shape)
-    on_the_seed_loop(entered.__aenter__())
-    try:
-        yield client[name]
-    except BaseException as failure:
-        # The failure the body raised, handed in as `async with` would, so the checks are skipped and it surfaces as itself.
-        on_the_seed_loop(entered.__aexit__(type(failure), failure, failure.__traceback__))
-        raise
-    on_the_seed_loop(entered.__aexit__(None, None, None))
+    with asyncio.Runner() as runner:
+        entered = a_clean_database(url, name, constraints=constraints, stores_a_refused_shape=stores_a_refused_shape)
+        try:
+            runner.run(bounded(entered.__aenter__()))
+            try:
+                yield client[name]
+            except BaseException as failure:
+                # The failure the body raised, handed in as `async with` would, so the checks are skipped and it surfaces as itself.
+                runner.run(bounded(entered.__aexit__(type(failure), failure, failure.__traceback__)))
+                raise
+            runner.run(bounded(entered.__aexit__(None, None, None)))
+        finally:
+            runner.run(close_the_shared_clients())

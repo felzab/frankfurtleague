@@ -19,7 +19,7 @@ from app.core.collections import Collection
 from app.shared.einwilligung_evidence import evidence_state_of
 from app.shared.schemas.einwilligung import FLSeatEinwilligungPayload
 from tests import documents
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.records import record_collections
 from tests.team_writes import write_the_block
 from tests.worker import worker_database
@@ -43,18 +43,15 @@ def person(seat: dict[str, Any]) -> dict[str, Any]:
     return {field: seat[field] for field in ("first_name", "last_name", "email", "phone")}
 
 
-def on_a_row(url: str) -> Any:
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
-            await database[Collection.TEAMS].insert_one(documents.team_document(TEAM, "Zorbanax", "ZOX"))
-            await database[Collection.SAISON_TEAMS].insert_one(
-                documents.saison_team_document(SAISON_ID, TEAM, "Zorbanax", "ZOX", kontakte=documents.kontakte_document(trainer=THEO))
-            )
+async def on_a_row(url: str) -> Any:
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+        await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
+        await database[Collection.TEAMS].insert_one(documents.team_document(TEAM, "Zorbanax", "ZOX"))
+        await database[Collection.SAISON_TEAMS].insert_one(
+            documents.saison_team_document(SAISON_ID, TEAM, "Zorbanax", "ZOX", kontakte=documents.kontakte_document(trainer=THEO))
+        )
 
-            return await body(database, client)
-
-    return on_the_seed_loop(_run())
+        return await body(database, client)
 
 
 async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -100,8 +97,8 @@ async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
 
 
 class TestASeatHoldersConsentPressAndTheTeamEditor:
-    def test_an_editor_opened_before_the_press_saves_and_the_press_stands(self, mongo_replica_set_url: str):
-        opened_on, pressed, saved = on_a_row(mongo_replica_set_url)
+    async def test_an_editor_opened_before_the_press_saves_and_the_press_stands(self, mongo_replica_set_url: str):
+        opened_on, pressed, saved = await on_a_row(mongo_replica_set_url)
 
         # The premise: the press moved both choices and left the count where the editor read it.
         assert (pressed["kontakte"]["trainer"]["einwilligung"]["scope"], pressed["kontakte"]["trainer"]["einwilligung"]["media"]) == (

@@ -24,7 +24,7 @@ from app.api.spieltage.services import (
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.documents import schiedsrichter_document, spiel_document, spielort_document
 from tests.worker import worker_database
 
@@ -242,7 +242,7 @@ class TestRetiringAVenueOrAReferee:
             assert (refusal.location, refusal.fields, refusal.bounds) == ("path", ((field,),), {"spiel_nrs": [3, 8], "count": 2})
 
     @pytest.mark.db
-    def test_a_booking_still_to_play_refuses_the_route_naming_it_in_order_and_writes_nothing(self, mongo_replica_set_url: str):
+    async def test_a_booking_still_to_play_refuses_the_route_naming_it_in_order_and_writes_nothing(self, mongo_replica_set_url: str):
         """Through each route's own read: retired anyway, the venue and the referee drop out of every picker while matches stand on them.
 
         Stored out of number order, an abandonment still owing its result among them, beside a played and a called-off
@@ -287,7 +287,7 @@ class TestRetiringAVenueOrAReferee:
             async with a_clean_database(mongo_replica_set_url, RETIRE_DATABASE) as (client, database):
                 return await body(database, client)
 
-        refusals, before, after = on_the_seed_loop(seeded())
+        refusals, before, after = await seeded()
 
         assert refusals == [
             (Code.SPIELORT_STILL_BOOKED, {"spiel_nrs": [3, 8], "count": 2}),

@@ -1,6 +1,6 @@
 import asyncio
 import functools
-from collections.abc import Iterator, Mapping
+from collections.abc import AsyncIterator, Mapping
 from typing import Any
 
 import pytest
@@ -15,7 +15,7 @@ from tests import documents
 from tests.app_client import app_client
 from tests.config import BASE_AUTH
 from tests.core.app_source import application
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database, bounded
 from tests.worker import worker_database
 
 from .conftest import config_for, unwritten
@@ -114,7 +114,7 @@ def spieltag_document(saison_id: str) -> dict[str, Any]:
 # Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
 # from being left as a claim.
 @pytest.fixture(scope="module")
-def seeded_league(mongo_replica_set_url: str) -> Iterator[str]:
+async def seeded_league(mongo_replica_set_url: str) -> AsyncIterator[str]:
     """Three seasons, one club entered in each, and a fixture, a matchday and squad rows per season."""
 
     async def _seed() -> None:
@@ -127,7 +127,7 @@ def seeded_league(mongo_replica_set_url: str) -> Iterator[str]:
             await database[Collection.SPIELER].insert_one(spieler_document(SPIELER_OID, "Maxim"))
             await database[Collection.SAISON_SPIELER].insert_many([squad_row(saison_id) for saison_id in STATUS_OF])
 
-    on_the_seed_loop(_seed())
+    await bounded(_seed())
 
     with unwritten(mongo_replica_set_url, DATABASE_NAME):
         yield mongo_replica_set_url

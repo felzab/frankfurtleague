@@ -65,8 +65,8 @@ async def the_shared_clients() -> AsyncIterator[None]:
 def an_administrator_bound() -> Iterator[None]:
     """What `bind_actor` binds on a request, for the suite's direct calls of an admin handler, which `record_act` reads.
 
-    Set in the test's own context, which pytest-asyncio copies for an async case and `tests/database.py ::
-    on_the_seed_loop` for a seed, and bound to nobody again for what `tests/app_client.py :: app_client` serves.
+    Set in the test's own context, which pytest-asyncio copies for each async case, and bound to nobody again for what
+    `tests/app_client.py :: app_client` serves.
     """
 
     token = actor_var.set("admin@frankfurtleague.de")

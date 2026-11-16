@@ -17,7 +17,7 @@ from app.core.exceptions import APIError
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
 from tests import documents
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.documents import SEAT_TEXT_VERSIONS, kontaktperson_document, minted_confirmations
 from tests.worker import worker_database
 
@@ -73,16 +73,13 @@ def bewerbung_document(**overrides: Any) -> dict[str, Any]:
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Body, *, documents: list[dict[str, Any]]) -> Any:
+async def on_a_league(url: str, body: Body, *, documents: list[dict[str, Any]]) -> Any:
     """A clean database carrying the shipped indexes."""
 
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            await database[Collection.BEWERBUNGEN].insert_many(documents)
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+        await database[Collection.BEWERBUNGEN].insert_many(documents)
 
-            return await body(database, client)
-
-    return on_the_seed_loop(_run())
+        return await body(database, client)
 
 
 async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, **overrides: Any) -> Any:
@@ -120,7 +117,7 @@ async def stored(database: AsyncDatabase) -> Mapping[str, Any]:
 
 
 class TestAPairedDecline:
-    def test_both_slots_are_emptied_and_both_days_recorded(self, mongo_replica_set_url: str):
+    async def test_both_slots_are_emptied_and_both_days_recorded(self, mongo_replica_set_url: str):
         """One person, two seats, one refusal: a decline reaching one slot would leave the other holding the person who refused."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -128,7 +125,7 @@ class TestAPairedDecline:
 
             return response, await stored(database)
 
-        response, document = on_a_league(mongo_replica_set_url, body, documents=[bewerbung_document()])
+        response, document = await on_a_league(mongo_replica_set_url, body, documents=[bewerbung_document()])
 
         assert (document["kontakte"]["trainer"], document["kontakte"]["ansprechperson"]) == (None, None)
         assert document["confirmations"]["trainer"]["declined_at"] == TODAY
@@ -137,7 +134,7 @@ class TestAPairedDecline:
         assert document["kontakte"]["stellvertretung"] is not None
         assert response.outcome == "declined"
 
-    def test_a_partner_whose_bookkeeping_is_gone_is_left_alone(self, mongo_replica_set_url: str):
+    async def test_a_partner_whose_bookkeeping_is_gone_is_left_alone(self, mongo_replica_set_url: str):
         """A dotted `$set` under a null parent aborts the transaction, so the person's own seat would be refused a 500 rather than declined."""
 
         emptied = bewerbung_document(
@@ -149,7 +146,7 @@ class TestAPairedDecline:
 
             return response, await stored(database)
 
-        response, document = on_a_league(mongo_replica_set_url, body, documents=[emptied])
+        response, document = await on_a_league(mongo_replica_set_url, body, documents=[emptied])
 
         assert response.outcome == "declined"
         assert document["kontakte"]["ansprechperson"] is None
@@ -162,7 +159,7 @@ class TestTheFloorIsThePersons:
     """One person, two seats, one floor: the higher of the two, whichever of their links they press."""
 
     @pytest.mark.parametrize("second_seat", ["ansprechperson", "stellvertretung"])
-    def test_a_double_seated_trainer_a_day_short_of_eighteen_is_refused_on_the_trainers_own_link(
+    async def test_a_double_seated_trainer_a_day_short_of_eighteen_is_refused_on_the_trainers_own_link(
         self, mongo_replica_set_url: str, second_seat: str
     ):
         """The Trainer's link alone would take this date, and the press writes the seat that may not have it."""
@@ -177,7 +174,7 @@ class TestTheFloorIsThePersons:
 
             return conflict.value.error_code, await stored(database)
 
-        code, document = on_a_league(mongo_replica_set_url, body, documents=[paired])
+        code, document = await on_a_league(mongo_replica_set_url, body, documents=[paired])
 
         assert code == Code.CONFIRMATION_AGE
         assert document == paired

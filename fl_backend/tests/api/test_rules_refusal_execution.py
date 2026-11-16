@@ -11,7 +11,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from tests import documents
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -97,23 +97,20 @@ def drawn_spiele() -> list[dict[str, Any]]:
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
-def on_a_database(
+async def on_a_database(
     url: str,
     body: Body,
     *,
     spiele: list[dict[str, Any]] | None = None,
 ) -> Any:
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME) as (_, database):
-            await database[Collection.SAISONS].insert_one(saison_document())
-            await database[Collection.SAISON_SPIELER].insert_many(squad_rows())
-            await database[Collection.SPIELTAGE].insert_one(spieltag_document())
-            if spiele:
-                await database[Collection.SPIELE].insert_many(spiele)
+    async with a_clean_database(url, DATABASE_NAME) as (_, database):
+        await database[Collection.SAISONS].insert_one(saison_document())
+        await database[Collection.SAISON_SPIELER].insert_many(squad_rows())
+        await database[Collection.SPIELTAGE].insert_one(spieltag_document())
+        if spiele:
+            await database[Collection.SPIELE].insert_many(spiele)
 
-            return await body(database)
-
-    return on_the_seed_loop(_run())
+        return await body(database)
 
 
 async def date_the_matchday(database: AsyncDatabase, day: str) -> None:
@@ -159,7 +156,7 @@ async def patch_the_rules(database: AsyncDatabase, *, today: str = THE_DAY_BEFOR
 class TestTheSquadCapIsJudgedAgainstTheSeasonsOwnLiveRows:
     """`rules_kader_below_use` over the aggregation that produces its figure, which every other case hands in already counted."""
 
-    def test_a_cap_below_the_live_squad_is_refused(self, mongo_replica_set_url: str):
+    async def test_a_cap_below_the_live_squad_is_refused(self, mongo_replica_set_url: str):
         """An aggregation answering nothing takes a cap under a live squad, leaving the team over a bound no entry was measured by."""
 
         async def body(database: AsyncDatabase) -> APIError:
@@ -168,7 +165,7 @@ class TestTheSquadCapIsJudgedAgainstTheSeasonsOwnLiveRows:
 
             return refusal.value
 
-        refusal = on_a_database(mongo_replica_set_url, body)
+        refusal = await on_a_database(mongo_replica_set_url, body)
 
         assert refusal.error_code == Code.RULES_KADER_BELOW_USE
 
@@ -176,7 +173,7 @@ class TestTheSquadCapIsJudgedAgainstTheSeasonsOwnLiveRows:
 class TestTheDrawItselfIsWhatFreezesTheShape:
     """`rules_shape_after_spielplan` through the endpoint, whose count of the season's fixtures is the whole of what the rule turns on."""
 
-    def test_widening_a_group_after_the_draw_is_refused(self, mongo_replica_set_url: str):
+    async def test_widening_a_group_after_the_draw_is_refused(self, mongo_replica_set_url: str):
         """A widening crosses no other bound: `rules_capacity_below_use` reads the narrowing direction, and the matchday stays under it."""
 
         async def body(database: AsyncDatabase) -> APIError:
@@ -185,7 +182,7 @@ class TestTheDrawItselfIsWhatFreezesTheShape:
 
             return refusal.value
 
-        refusal = on_a_database(mongo_replica_set_url, body, spiele=drawn_spiele())
+        refusal = await on_a_database(mongo_replica_set_url, body, spiele=drawn_spiele())
 
         assert refusal.error_code == Code.RULES_SHAPE_AFTER_SPIELPLAN
 
@@ -193,7 +190,7 @@ class TestTheDrawItselfIsWhatFreezesTheShape:
 class TestTheStartIsWhatFreezesTheScoring:
     """`rules_saison_started` through the endpoint, whose read of the season's STORED start is what the rule turns on."""
 
-    def test_a_save_moving_the_start_cannot_lift_its_own_freeze(self, mongo_replica_set_url: str):
+    async def test_a_save_moving_the_start_cannot_lift_its_own_freeze(self, mongo_replica_set_url: str):
         """The freeze reads the stored start: a payload carrying a later start and new points in one is still refused."""
 
         async def body(database: AsyncDatabase) -> tuple[Code, Mapping[str, Any]]:
@@ -202,14 +199,14 @@ class TestTheStartIsWhatFreezesTheScoring:
 
             return refusal.value.error_code, await stored_season(database)
 
-        code, stored = on_a_database(mongo_replica_set_url, body, spiele=drawn_spiele())
+        code, stored = await on_a_database(mongo_replica_set_url, body, spiele=drawn_spiele())
 
         assert code == Code.RULES_SAISON_STARTED
         assert (stored["start_date"], stored["rules"]["win_points"]) == (SAISON_START, 3), "a refused save wrote something"
 
 
 class TestTheStartMovesNoLaterPastAStoredExit:
-    def test_a_later_start_is_refused_and_an_earlier_one_saved(self, mongo_replica_set_url: str):
+    async def test_a_later_start_is_refused_and_an_earlier_one_saved(self, mongo_replica_set_url: str):
         """An exit is recorded only from the start date, so a start moved past one reopens what the exit was kept from.
 
         Moved later, the season reads as unstarted again, and the group swap it reopens fields a club that has left,
@@ -230,7 +227,7 @@ class TestTheStartMovesNoLaterPastAStoredExit:
 
             return refusal.value, refused_left, (await stored_season(database))["start_date"]
 
-        refusal, refused_left, saved = on_a_database(mongo_replica_set_url, body)
+        refusal, refused_left, saved = await on_a_database(mongo_replica_set_url, body)
 
         assert (refusal.error_code, refusal.fields, refusal.bounds) == (
             Code.SAISON_START_AUSTRITT_STORED,
@@ -244,7 +241,7 @@ class TestTheStartMovesNoLaterPastAStoredExit:
 class TestTheStartIsFixedOnceASpielHasTakenPlace:
     """`saison_start_taken_place` through the endpoint, over the in-session read of every fixture of the season."""
 
-    def test_a_moved_start_on_a_played_season_is_refused(self, mongo_replica_set_url: str):
+    async def test_a_moved_start_on_a_played_season_is_refused(self, mongo_replica_set_url: str):
         """One fixture holding a result fixes the start, and the refusal writes nothing."""
 
         played = [*drawn_spiele()[1:], spiel_document(spiel_nr=1, date=FIRST_SPIEL_DAY, ergebnis="1:0")]
@@ -256,7 +253,7 @@ class TestTheStartIsFixedOnceASpielHasTakenPlace:
 
             return refusal.value.error_code, await stored_season(database)
 
-        code, stored = on_a_database(mongo_replica_set_url, body, spiele=played)
+        code, stored = await on_a_database(mongo_replica_set_url, body, spiele=played)
 
         assert code == Code.SAISON_START_TAKEN_PLACE
         assert stored["start_date"] == SAISON_START, "a refused save moved the start"

@@ -28,7 +28,7 @@ from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
 from tests.app_client import app_client
 from tests.config import BASE_AUTH, build_test_config
-from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
+from tests.database import a_clean_database, a_clean_database_sync
 from tests.documents import ADDRESS, minted_confirmations, rules_document, saison_document, saison_team_document, team_document
 from tests.holds import HoldsAfterItsLookup
 from tests.outbox import MAIL_NOW, drained
@@ -114,30 +114,27 @@ def payload(**overrides: Any) -> dict[str, Any]:
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Body, *, bewerbung: Any = OPEN_WINDOW, saison_status: str = "future") -> Any:
+async def on_a_league(url: str, body: Body, *, bewerbung: Any = OPEN_WINDOW, saison_status: str = "future") -> Any:
     """A clean database carrying the shipped indexes, so a duplicate production would refuse fails here too."""
 
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
-            saison = saison_document(
-                SAISON_ID,
-                saison_status,
-                rules=rules_document(number_of_gruppen=2, teams_per_gruppe=2),
-                bewerbung=None if bewerbung is None else dict(bewerbung),
-            )
-            await database[Collection.SAISONS].insert_one(saison)
-            await database[Collection.TEAMS].insert_many(
-                [
-                    club_document(EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND),
-                    club_document(RETIRED_OID, RETIRED_NAME, RETIRED_SHORTHAND, inactive_since="2126-03-01"),
-                    club_document(ENTERED_OID, ENTERED_NAME, ENTERED_SHORTHAND),
-                ]
-            )
-            await database[Collection.SAISON_TEAMS].insert_one(saison_team_document(SAISON_ID, ENTERED_OID, ENTERED_NAME, ENTERED_SHORTHAND))
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
+        saison = saison_document(
+            SAISON_ID,
+            saison_status,
+            rules=rules_document(number_of_gruppen=2, teams_per_gruppe=2),
+            bewerbung=None if bewerbung is None else dict(bewerbung),
+        )
+        await database[Collection.SAISONS].insert_one(saison)
+        await database[Collection.TEAMS].insert_many(
+            [
+                club_document(EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND),
+                club_document(RETIRED_OID, RETIRED_NAME, RETIRED_SHORTHAND, inactive_since="2126-03-01"),
+                club_document(ENTERED_OID, ENTERED_NAME, ENTERED_SHORTHAND),
+            ]
+        )
+        await database[Collection.SAISON_TEAMS].insert_one(saison_team_document(SAISON_ID, ENTERED_OID, ENTERED_NAME, ENTERED_SHORTHAND))
 
-            return await body(database)
-
-    return on_the_seed_loop(_run())
+        return await body(database)
 
 
 # A version-4 key, as `crypto.randomUUID()` mints one, fixed so a failure names the same press.
@@ -178,7 +175,7 @@ async def view(database: AsyncDatabase, token: str) -> Any:
 class TestWhatASubmissionStores:
     """The document the record model reads back, which is the only shape the triage can then read."""
 
-    def test_a_picked_club_is_stored_as_an_undecided_application(self, mongo_replica_set_url: str):
+    async def test_a_picked_club_is_stored_as_an_undecided_application(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Mapping[str, Any]:
             response = await submit(database)
             stored = await database[Collection.BEWERBUNGEN].find_one({"_id": response.created_id})
@@ -186,7 +183,7 @@ class TestWhatASubmissionStores:
             assert stored is not None
             return stored
 
-        stored = on_a_league(mongo_replica_set_url, body)
+        stored = await on_a_league(mongo_replica_set_url, body)
 
         assert stored["status"] == "submitted"
         assert stored["submitted_at"] == TODAY
@@ -196,7 +193,7 @@ class TestWhatASubmissionStores:
         # read-back refuses.
         assert "decision" in stored and stored["decision"] is None
 
-    def test_each_consent_is_the_one_the_server_composed(self, mongo_replica_set_url: str):
+    async def test_each_consent_is_the_one_the_server_composed(self, mongo_replica_set_url: str):
         """The applicant supplied a wording version and a tick; the scope, the source, the day and the empty stamp are the league's.
 
         `administrativ` on every seat: nobody has confirmed yet.
@@ -209,7 +206,7 @@ class TestWhatASubmissionStores:
             assert stored is not None
             return stored
 
-        stored = on_a_league(mongo_replica_set_url, body)
+        stored = await on_a_league(mongo_replica_set_url, body)
 
         for seat in ("trainer", "ansprechperson", "stellvertretung"):
             # Born with the applicant's acknowledgement and no evidence: no person has set a choice
@@ -223,7 +220,7 @@ class TestWhatASubmissionStores:
             # The key is present and null, as `wunschgegner`'s is: the confirmation fills it.
             assert "birth_date" in stored["kontakte"][seat] and stored["kontakte"][seat]["birth_date"] is None
 
-    def test_every_answer_is_stored_as_the_school_wrote_it(self, mongo_replica_set_url: str):
+    async def test_every_answer_is_stored_as_the_school_wrote_it(self, mongo_replica_set_url: str):
         """The document is spelled field by field, so an answer lost here is lost in silence."""
 
         answers = {
@@ -242,7 +239,7 @@ class TestWhatASubmissionStores:
             assert stored is not None
             return stored
 
-        stored = on_a_league(mongo_replica_set_url, body)
+        stored = await on_a_league(mongo_replica_set_url, body)
 
         assert {field: stored[field] for field in answers} == answers
 
@@ -262,7 +259,7 @@ def deadline_from_today() -> str:
 class TestWhatTheCreateOwes:
     """One mail a person in the create's own transaction, and no link before its hand-out: the inbox is the one place a raw token exists."""
 
-    def test_each_person_is_owed_one_mail_and_no_seat_holds_a_link_yet(self, mongo_replica_set_url: str):
+    async def test_each_person_is_owed_one_mail_and_no_seat_holds_a_link_yet(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
             response = await submit(database)
             document = await database[Collection.BEWERBUNGEN].find_one({"_id": response.created_id})
@@ -270,7 +267,7 @@ class TestWhatTheCreateOwes:
             assert document is not None
             return response.created_id, document, await owed(database)
 
-        created_id, document, mails = on_a_league(mongo_replica_set_url, body)
+        created_id, document, mails = await on_a_league(mongo_replica_set_url, body)
 
         deadline = deadline_from_today()
         stem = f"{Collection.BEWERBUNGEN}/{created_id}"
@@ -319,7 +316,7 @@ class TestWhatTheCreateOwes:
                 deadline,
             )
 
-    def test_each_handed_out_link_opens_its_seat_through_the_hashes_its_hand_out_minted(self, mongo_replica_set_url: str):
+    async def test_each_handed_out_link_opens_its_seat_through_the_hashes_its_hand_out_minted(self, mongo_replica_set_url: str):
         """The link the drain sends is the one the confirmation page answers: the hand-out writes its hash where the lookup reads."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -331,7 +328,7 @@ class TestWhatTheCreateOwes:
             assert document is not None
             return mails, views, document
 
-        mails, views, document = on_a_league(mongo_replica_set_url, body)
+        mails, views, document = await on_a_league(mongo_replica_set_url, body)
 
         assert len({mail.token for mail in mails}) == 3
         for seat in ("trainer", "ansprechperson", "stellvertretung"):
@@ -344,18 +341,18 @@ class TestWhatTheCreateOwes:
 class TestTheSubmissionKey:
     """Over the shipped unique index."""
 
-    def test_a_second_press_stores_no_second_application_and_answers_as_the_first(self, mongo_replica_set_url: str):
+    async def test_a_second_press_stores_no_second_application_and_answers_as_the_first(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
             first = await submit(database, key=KEY)
             second = await submit(database, key=KEY)
 
             return first, second, await database[Collection.BEWERBUNGEN].count_documents({})
 
-        first, second, stored = on_a_league(mongo_replica_set_url, body)
+        first, second, stored = await on_a_league(mongo_replica_set_url, body)
 
         assert (stored, second.created_id) == (1, first.created_id)
 
-    def test_a_replay_owes_no_mail_the_first_press_owed(self, mongo_replica_set_url: str):
+    async def test_a_replay_owes_no_mail_the_first_press_owed(self, mongo_replica_set_url: str):
         """Each mail is keyed by the application and its person, so a press the route lost answers and owes nothing twice."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -365,12 +362,12 @@ class TestTheSubmissionKey:
 
             return first, await owed(database)
 
-        first, after_the_replay = on_a_league(mongo_replica_set_url, body)
+        first, after_the_replay = await on_a_league(mongo_replica_set_url, body)
 
         assert len(first) == 3
         assert after_the_replay == first
 
-    def test_a_replay_answers_after_the_window_has_closed(self, mongo_replica_set_url: str):
+    async def test_a_replay_answers_after_the_window_has_closed(self, mongo_replica_set_url: str):
         """Looked up before every judgement: the first press arrived in time, and its answer does not expire with the window."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -380,11 +377,11 @@ class TestTheSubmissionKey:
 
             return first.created_id, second.created_id
 
-        first, second = on_a_league(mongo_replica_set_url, body)
+        first, second = await on_a_league(mongo_replica_set_url, body)
 
         assert first == second
 
-    def test_applications_stored_without_a_key_neither_collide_nor_move(self, mongo_replica_set_url: str):
+    async def test_applications_stored_without_a_key_neither_collide_nor_move(self, mongo_replica_set_url: str):
         """The partial filter: two keyless presses' rows would otherwise both index as null and collide."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -395,11 +392,11 @@ class TestTheSubmissionKey:
 
             return before, after, await database[Collection.BEWERBUNGEN].count_documents({})
 
-        before, after, stored = on_a_league(mongo_replica_set_url, body)
+        before, after, stored = await on_a_league(mongo_replica_set_url, body)
 
         assert (after, stored) == (before, 3)
 
-    def test_a_press_whose_lookup_ran_before_the_first_commit_is_answered_by_the_retry(self, mongo_replica_set_url: str):
+    async def test_a_press_whose_lookup_ran_before_the_first_commit_is_answered_by_the_retry(self, mongo_replica_set_url: str):
         """Why no duplicate-key arm exists: the lookup opens the snapshot, and a later commit meets the anchors as a write conflict."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -424,14 +421,14 @@ class TestTheSubmissionKey:
                 await database[Collection.BEWERBUNGEN].count_documents({}),
             )
 
-        first, second, lookups, failures, stored = on_a_league(mongo_replica_set_url, body)
+        first, second, lookups, failures, stored = await on_a_league(mongo_replica_set_url, body)
 
         assert (second, stored) == (first, 1)
         # `with_transaction` retries the anchors' `WriteConflict`, ahead of any insert: the second run's lookup finds the row.
         assert (lookups, failures) == (2, [])
 
 
-def refused(url: str, *, bewerbung: Any = OPEN_WINDOW, saison_status: str = "future", **overrides: Any) -> APIError:
+async def refused(url: str, *, bewerbung: Any = OPEN_WINDOW, saison_status: str = "future", **overrides: Any) -> APIError:
     """One submission expected to be refused, with the exception it raised."""
 
     async def body(database: AsyncDatabase) -> APIError:
@@ -444,7 +441,7 @@ def refused(url: str, *, bewerbung: Any = OPEN_WINDOW, saison_status: str = "fut
 
         return failure.value
 
-    return on_a_league(url, body, bewerbung=bewerbung, saison_status=saison_status)
+    return await on_a_league(url, body, bewerbung=bewerbung, saison_status=saison_status)
 
 
 class TestTheRefusalsTheWritePathAnswers:
@@ -454,29 +451,29 @@ class TestTheRefusalsTheWritePathAnswers:
         "bewerbung",
         [pytest.param({"open": True, "start": "2126-05-01", "end": "2126-05-31"}, id="a span this day is outside")],
     )
-    def test_a_season_taking_no_applications_refuses(self, mongo_replica_set_url: str, bewerbung: Any):
-        assert refused(mongo_replica_set_url, bewerbung=bewerbung).error_code == Code.BEWERBUNG_WINDOW_CLOSED
+    async def test_a_season_taking_no_applications_refuses(self, mongo_replica_set_url: str, bewerbung: Any):
+        assert (await refused(mongo_replica_set_url, bewerbung=bewerbung)).error_code == Code.BEWERBUNG_WINDOW_CLOSED
 
-    def test_a_season_that_has_ended_refuses_while_its_window_still_runs(self, mongo_replica_set_url: str):
+    async def test_a_season_that_has_ended_refuses_while_its_window_still_runs(self, mongo_replica_set_url: str):
         """The payload names the season, so a `past` one whose stored window still runs is reachable by the form's own request."""
 
-        assert refused(mongo_replica_set_url, saison_status="past").error_code == Code.BEWERBUNG_WINDOW_CLOSED
+        assert (await refused(mongo_replica_set_url, saison_status="past")).error_code == Code.BEWERBUNG_WINDOW_CLOSED
 
-    def test_a_season_no_document_names_is_a_404(self, mongo_replica_set_url: str):
+    async def test_a_season_no_document_names_is_a_404(self, mongo_replica_set_url: str):
         """A 404 rather than `bewerbung_window_closed`: nothing was refused, the season the body names does not exist."""
 
         async def body(database: AsyncDatabase) -> None:
             with pytest.raises(DocumentNotFoundError):
                 await submit(database, saison_id="1999")
 
-        on_a_league(mongo_replica_set_url, body)
+        await on_a_league(mongo_replica_set_url, body)
 
     @pytest.mark.parametrize(
         ("team_id", "schule"),
         [pytest.param(str(EXISTING_OID), schule_block(), id="both")],
     )
-    def test_a_submission_naming_no_single_applicant_refuses(self, mongo_replica_set_url: str, team_id: Any, schule: Any):
-        failure = refused(mongo_replica_set_url, team_id=team_id, schule=schule)
+    async def test_a_submission_naming_no_single_applicant_refuses(self, mongo_replica_set_url: str, team_id: Any, schule: Any):
+        failure = await refused(mongo_replica_set_url, team_id=team_id, schule=schule)
 
         assert failure.error_code == Code.BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED
 
@@ -487,13 +484,13 @@ class TestTheRefusalsTheWritePathAnswers:
             pytest.param(str(UNKNOWN_OID), id="an id no club holds"),
         ],
     )
-    def test_a_club_the_list_does_not_offer_refuses(self, mongo_replica_set_url: str, team_id: str):
+    async def test_a_club_the_list_does_not_offer_refuses(self, mongo_replica_set_url: str, team_id: str):
         """The same code for both, so a client sending an id it was never given learns nothing about which."""
 
-        assert refused(mongo_replica_set_url, team_id=team_id).error_code == Code.BEWERBUNG_PICKED_TEAM_UNUSABLE
+        assert (await refused(mongo_replica_set_url, team_id=team_id)).error_code == Code.BEWERBUNG_PICKED_TEAM_UNUSABLE
 
-    def test_a_club_already_playing_the_season_refuses(self, mongo_replica_set_url: str):
-        assert refused(mongo_replica_set_url, team_id=str(ENTERED_OID)).error_code == Code.BEWERBUNG_PICKED_TEAM_ALREADY_ENTERED
+    async def test_a_club_already_playing_the_season_refuses(self, mongo_replica_set_url: str):
+        assert (await refused(mongo_replica_set_url, team_id=str(ENTERED_OID))).error_code == Code.BEWERBUNG_PICKED_TEAM_ALREADY_ENTERED
 
 
 # The HTTP surface, on a SECOND database: `build_test_config`'s, the one an app under test resolves
@@ -622,7 +619,7 @@ async def sent_days(database: AsyncDatabase, press: Any) -> dict[str, Any]:
 class TestAMailboxPastTheBound:
     """One mailbox named on press after press: nothing refuses the press, and past the bound nothing more is owed that mailbox."""
 
-    def test_the_press_past_the_bound_is_stored_and_owes_that_mailbox_nothing(self, mongo_replica_set_url: str):
+    async def test_the_press_past_the_bound_is_stored_and_owes_that_mailbox_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> tuple[int, int, dict[str, Any]]:
             for _ in range(OPEN_LINKS_PER_MAILBOX):
                 await submit(database)
@@ -635,12 +632,12 @@ class TestAMailboxPastTheBound:
                 await sent_days(database, press),
             )
 
-        stored, more, days = on_a_league(mongo_replica_set_url, body)
+        stored, more, days = await on_a_league(mongo_replica_set_url, body)
 
         assert (stored, more) == (OPEN_LINKS_PER_MAILBOX + 1, 0)
         assert days == dict.fromkeys(KONTAKT_ROLLEN)
 
-    def test_a_seat_past_the_bound_leaves_the_applications_other_people_mailed(self, mongo_replica_set_url: str):
+    async def test_a_seat_past_the_bound_leaves_the_applications_other_people_mailed(self, mongo_replica_set_url: str):
         """The school's other two are reached: only the crowded mailbox stands unmailed."""
 
         async def body(database: AsyncDatabase) -> tuple[list[str], dict[str, Any]]:
@@ -651,21 +648,21 @@ class TestAMailboxPastTheBound:
 
             return [row["to"] for row in await owed(database) if row["key"] not in mailed], await sent_days(database, press)
 
-        addresses, days = on_a_league(mongo_replica_set_url, body)
+        addresses, days = await on_a_league(mongo_replica_set_url, body)
 
         assert sorted(addresses) == [KONTAKTE["stellvertretung"]["email"], KONTAKTE["ansprechperson"]["email"]]
         assert days == {"trainer": None, "ansprechperson": TODAY, "stellvertretung": TODAY}
 
-    def test_a_plus_tag_is_the_same_mailbox(self, mongo_replica_set_url: str):
+    async def test_a_plus_tag_is_the_same_mailbox(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> dict[str, Any]:
             for tag in range(OPEN_LINKS_PER_MAILBOX):
                 await submit(database, kontakte=naming(trainer=f"victim+{tag}@example.com"))
 
             return await sent_days(database, await submit(database, kontakte=naming(trainer="victim@example.com")))
 
-        assert on_a_league(mongo_replica_set_url, body)["trainer"] is None
+        assert (await on_a_league(mongo_replica_set_url, body))["trainer"] is None
 
-    def test_one_application_s_plus_tags_are_a_link_each(self, mongo_replica_set_url: str):
+    async def test_one_application_s_plus_tags_are_a_link_each(self, mongo_replica_set_url: str):
         """One press can owe one mailbox three mails, so a count of applications would let each press through on two or three."""
 
         async def body(database: AsyncDatabase) -> tuple[list[str], dict[str, Any]]:
@@ -677,12 +674,12 @@ class TestAMailboxPastTheBound:
 
             return [row["to"] for row in await owed(database) if str(row["to"]).startswith("victim")], await sent_days(database, press)
 
-        addresses, days = on_a_league(mongo_replica_set_url, body)
+        addresses, days = await on_a_league(mongo_replica_set_url, body)
 
         assert len(addresses) == OPEN_LINKS_PER_MAILBOX
         assert days == {"trainer": TODAY, "ansprechperson": None, "stellvertretung": None}
 
-    def test_a_pattern_s_character_in_an_address_is_that_character(self, mongo_replica_set_url: str):
+    async def test_a_pattern_s_character_in_an_address_is_that_character(self, mongo_replica_set_url: str):
         """An unescaped dot would fill the bounded read with its neighbours' rows, and `vic.tim@` would be mailed past its bound."""
 
         async def body(database: AsyncDatabase) -> dict[str, Any]:
@@ -693,9 +690,9 @@ class TestAMailboxPastTheBound:
 
             return await sent_days(database, await submit(database, kontakte=naming(trainer="vic.tim@example.com")))
 
-        assert on_a_league(mongo_replica_set_url, body)["trainer"] is None
+        assert (await on_a_league(mongo_replica_set_url, body))["trainer"] is None
 
-    def test_an_answered_link_frees_its_place(self, mongo_replica_set_url: str):
+    async def test_an_answered_link_frees_its_place(self, mongo_replica_set_url: str):
         """A mailbox that answers is nobody's target, however many schools it serves."""
 
         async def body(database: AsyncDatabase) -> dict[str, Any]:
@@ -705,9 +702,9 @@ class TestAMailboxPastTheBound:
 
             return await sent_days(database, await submit(database))
 
-        assert on_a_league(mongo_replica_set_url, body) == {"trainer": TODAY, "ansprechperson": None, "stellvertretung": None}
+        assert await on_a_league(mongo_replica_set_url, body) == {"trainer": TODAY, "ansprechperson": None, "stellvertretung": None}
 
-    def test_two_presses_at_once_stop_at_the_bound(self, mongo_replica_set_url: str):
+    async def test_two_presses_at_once_stop_at_the_bound(self, mongo_replica_set_url: str):
         """The second read its count before the first committed, so only a conflict sends it back to the first's row.
 
         Tags of one mailbox, its documents gone as a mailbox's are after an hour, so the two meet on the insert and on one key.
@@ -735,12 +732,12 @@ class TestAMailboxPastTheBound:
 
             return await sent_days(database, first), await sent_days(database, await second)
 
-        first, second = on_a_league(mongo_replica_set_url, body)
+        first, second = await on_a_league(mongo_replica_set_url, body)
 
         assert first == dict.fromkeys(KONTAKT_ROLLEN, TODAY)
         assert second == {"trainer": None, "ansprechperson": TODAY, "stellvertretung": TODAY}
 
-    def test_a_press_finding_the_mailbox_full_writes_no_document(self, mongo_replica_set_url: str):
+    async def test_a_press_finding_the_mailbox_full_writes_no_document(self, mongo_replica_set_url: str):
         """A write would conflict with every rival, at one press a second a mailbox, and a flood's presses would fail a real school's."""
 
         async def body(database: AsyncDatabase) -> tuple[list[Mapping[str, Any]], list[Mapping[str, Any]]]:
@@ -751,13 +748,13 @@ class TestAMailboxPastTheBound:
 
             return before, await database[Collection.MAILBOX_ANCHORS].find().sort("_id", 1).to_list(length=None)
 
-        before, after = on_a_league(mongo_replica_set_url, body)
+        before, after = await on_a_league(mongo_replica_set_url, body)
 
         assert after == before
         assert before and not any("@" in row["_id"] for row in before)
 
     @pytest.mark.parametrize("answered_first", [True, False], ids=["the older rows answered", "the newer rows answered"])
-    def test_answered_rows_hide_no_open_link(self, mongo_replica_set_url: str, answered_first: bool):
+    async def test_answered_rows_hide_no_open_link(self, mongo_replica_set_url: str, answered_first: bool):
         """The read is bounded by what stands open, so answered rows cannot fill it and leave the press counting nothing."""
 
         async def body(database: AsyncDatabase) -> dict[str, Any]:
@@ -772,10 +769,10 @@ class TestAMailboxPastTheBound:
 
             return await sent_days(database, await submit(database))
 
-        assert on_a_league(mongo_replica_set_url, body)["trainer"] is None
+        assert (await on_a_league(mongo_replica_set_url, body))["trainer"] is None
 
     @pytest.mark.parametrize("mailed_first", [True, False], ids=["the older rows mailed", "the newer rows mailed"])
-    def test_rows_left_unmailed_hide_no_mailed_link(self, mongo_replica_set_url: str, mailed_first: bool):
+    async def test_rows_left_unmailed_hide_no_mailed_link(self, mongo_replica_set_url: str, mailed_first: bool):
         """The read is bounded by what was mailed, so a flood's stored rows cannot fill it ahead of the links that count."""
 
         async def body(database: AsyncDatabase) -> dict[str, Any]:
@@ -793,13 +790,13 @@ class TestAMailboxPastTheBound:
 
             return await sent_days(database, await submit(database))
 
-        assert on_a_league(mongo_replica_set_url, body)["trainer"] is None
+        assert (await on_a_league(mongo_replica_set_url, body))["trainer"] is None
 
     @pytest.mark.parametrize(
         "moved",
         [pytest.param({"status": "declined"}, id="an application decided"), pytest.param({"saison_id": "2025"}, id="another season's")],
     )
-    def test_only_the_seasons_open_applications_count(self, mongo_replica_set_url: str, moved: dict[str, str]):
+    async def test_only_the_seasons_open_applications_count(self, mongo_replica_set_url: str, moved: dict[str, str]):
         """A school turned down applies again, and a person keeps their address from one season to the next."""
 
         async def body(database: AsyncDatabase) -> str:
@@ -809,4 +806,4 @@ class TestAMailboxPastTheBound:
 
             return (await sent_days(database, await submit(database)))["trainer"]
 
-        assert on_a_league(mongo_replica_set_url, body) == TODAY
+        assert await on_a_league(mongo_replica_set_url, body) == TODAY

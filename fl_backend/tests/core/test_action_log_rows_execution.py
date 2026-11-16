@@ -20,7 +20,7 @@ from app.core.collections import Collection
 from app.core.recording import ACT_BY_SYSTEM, ERASED_ACTOR_MARKER, FLAction, record_act
 from app.shared.schemas.bounds import ACTION_LOG_PAGE_SIZE
 from tests.acts import acting_as
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.documents import (
     saison_document,
     saison_spieler_document,
@@ -57,17 +57,14 @@ OTHER_ADDRESS = "other@example.invalid"
 ClientBody = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def on_a_replica_set(url: str, body: ClientBody) -> Any:
+async def on_a_replica_set(url: str, body: ClientBody) -> Any:
     """The client goes to the body too, a transaction needing a session only it can open; a standalone `mongod` refuses one."""
 
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            return await body(database, client)
-
-    return on_the_seed_loop(_run())
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+        return await body(database, client)
 
 
-def test_an_erased_address_leaves_the_log_as_who_acted_and_as_a_grantee(mongo_replica_set_url: str):
+async def test_an_erased_address_leaves_the_log_as_who_acted_and_as_a_grantee(mongo_replica_set_url: str):
     """The log outlives the person for twelve months, so a grant act's label left standing would name them for that long."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[str, str | None]]:
@@ -89,14 +86,14 @@ def test_an_erased_address_leaves_the_log_as_who_acted_and_as_a_grantee(mongo_re
 
         return [(row["by"], row["label"]) async for row in database[Collection.ACTION_LOG].find().sort("_id", 1)]
 
-    assert on_a_replica_set(mongo_replica_set_url, body) == [
+    assert await on_a_replica_set(mongo_replica_set_url, body) == [
         (ERASED_ACTOR_MARKER, SEEDED_NAME),
         (OTHER_ADDRESS, ERASED_ACTOR_MARKER),
         (OTHER_ADDRESS, OTHER_ADDRESS),
     ]
 
 
-def test_the_pages_neither_repeat_nor_drop_a_row_across_a_cursor(mongo_replica_set_url: str):
+async def test_the_pages_neither_repeat_nor_drop_a_row_across_a_cursor(mongo_replica_set_url: str):
     """Nothing else holds a seam: a bound off by one repeats a row or loses it, and every page still reads as a page."""
 
     async def body(database: AsyncDatabase, _client: AsyncMongoClient) -> tuple[list[ObjectId], list[list[ObjectId]]]:
@@ -128,7 +125,7 @@ def test_the_pages_neither_repeat_nor_drop_a_row_across_a_cursor(mongo_replica_s
 
         return sorted((row["_id"] for row in rows), reverse=True), pages
 
-    newest_first, pages = on_a_replica_set(mongo_replica_set_url, body)
+    newest_first, pages = await on_a_replica_set(mongo_replica_set_url, body)
 
     assert [len(page) for page in pages] == [ACTION_LOG_PAGE_SIZE, ACTION_LOG_PAGE_SIZE, 1]
     assert [row for page in pages for row in page] == newest_first
@@ -253,7 +250,7 @@ RETIRE_AND_REVIVE = {
 
 
 @pytest.mark.parametrize("kind", RETIRE_AND_REVIVE)
-def test_a_press_that_changes_nothing_writes_no_row(mongo_replica_set_url: str, kind: str):
+async def test_a_press_that_changes_nothing_writes_no_row(mongo_replica_set_url: str, kind: str):
     """A second open tab's press would read as a later act that never happened: each route, as each decides whether to record."""
 
     case = RETIRE_AND_REVIVE[kind]
@@ -270,4 +267,4 @@ def test_a_press_that_changes_nothing_writes_no_row(mongo_replica_set_url: str, 
 
         return [row["action"] async for row in database[Collection.ACTION_LOG].find().sort("_id")]
 
-    assert on_a_replica_set(mongo_replica_set_url, body) == list(case.acts)
+    assert await on_a_replica_set(mongo_replica_set_url, body) == list(case.acts)

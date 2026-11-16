@@ -9,7 +9,7 @@ from app.api.registrierungen.admin_router import get_registrierungen_admin
 from app.api.registrierungen.schemas import FLRegistrierungenAdminFilterParams
 from app.core.collections import Collection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.documents import SPIELER_TEXT_VERSIONS, own_einwilligung_document, rules_document, saison_document, saison_team_document
 from tests.worker import worker_database
 
@@ -75,29 +75,26 @@ def registrierung_document(
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Body) -> Any:
+async def on_a_league(url: str, body: Body) -> Any:
     """A clean database carrying the shipped indexes.
 
     Four rows: one awaiting its pupil's answer, one they confirmed, one of another season, which is what makes a read
     narrowing nothing fail, and one declined, which waits out its days asking nothing of an administrator.
     """
 
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
-            await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active", rules=rules_document()))
-            await database[Collection.SAISON_TEAMS].insert_one(saison_team_document(SAISON_ID, TEAM_OID, "Adler", "ADX"))
-            await database[Collection.REGISTRIERUNGEN].insert_many(
-                [
-                    registrierung_document(OPEN_OID, first_name="Thessaly"),
-                    registrierung_document(CONFIRMED_OID, first_name="Quillhilde", einwilligung=dict(CONSENT), submitted_at="2026-04-02"),
-                    registrierung_document(ELSEWHERE_OID, first_name="Wraxlington", team_id=OTHER_TEAM_OID, saison_id=OTHER_SAISON_ID),
-                    registrierung_document(DECLINED_OID, first_name="Ottokar", status="declined"),
-                ]
-            )
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
+        await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active", rules=rules_document()))
+        await database[Collection.SAISON_TEAMS].insert_one(saison_team_document(SAISON_ID, TEAM_OID, "Adler", "ADX"))
+        await database[Collection.REGISTRIERUNGEN].insert_many(
+            [
+                registrierung_document(OPEN_OID, first_name="Thessaly"),
+                registrierung_document(CONFIRMED_OID, first_name="Quillhilde", einwilligung=dict(CONSENT), submitted_at="2026-04-02"),
+                registrierung_document(ELSEWHERE_OID, first_name="Wraxlington", team_id=OTHER_TEAM_OID, saison_id=OTHER_SAISON_ID),
+                registrierung_document(DECLINED_OID, first_name="Ottokar", status="declined"),
+            ]
+        )
 
-            return await body(database)
-
-    return on_the_seed_loop(_run())
+        return await body(database)
 
 
 async def read(database: AsyncDatabase, saison_id: str = SAISON_ID) -> Any:
@@ -112,30 +109,30 @@ async def read(database: AsyncDatabase, saison_id: str = SAISON_ID) -> Any:
 class TestWhetherThePupilConfirmed:
     """The chip a row carries, over the same two documents."""
 
-    def test_the_verdict_is_read_off_the_consent_and_not_off_the_link(self, mongo_replica_set_url: str):
+    async def test_the_verdict_is_read_off_the_consent_and_not_off_the_link(self, mongo_replica_set_url: str):
         """Both rows carry a `confirmation` block, so a verdict taken from it would read true for both."""
 
         async def body(database: AsyncDatabase) -> Any:
             return await read(database)
 
-        by_id = {row.id: row for row in on_a_league(mongo_replica_set_url, body).registrierungen}
+        by_id = {row.id: row for row in (await on_a_league(mongo_replica_set_url, body)).registrierungen}
 
         assert (by_id[OPEN_OID].confirmed, by_id[CONFIRMED_OID].confirmed) == (False, True)
 
-    def test_a_row_owed_no_mail_says_so(self, mongo_replica_set_url: str):
+    async def test_a_row_owed_no_mail_says_so(self, mongo_replica_set_url: str):
         """An administrator cannot otherwise tell a pupil who has not answered from one who was never asked."""
 
         async def body(database: AsyncDatabase) -> Any:
             await database[Collection.REGISTRIERUNGEN].update_one({"_id": OPEN_OID}, {"$set": {"confirmation.sent_at": None}})
             return await read(database)
 
-        by_id = {row.id: row for row in on_a_league(mongo_replica_set_url, body).registrierungen}
+        by_id = {row.id: row for row in (await on_a_league(mongo_replica_set_url, body)).registrierungen}
 
         assert (by_id[OPEN_OID].unmailed, by_id[CONFIRMED_OID].unmailed) == (True, False)
 
 
 class TestWhatTheReadServes:
-    def test_a_list_past_the_cap_says_it_is_cut(self, mongo_replica_set_url: str):
+    async def test_a_list_past_the_cap_says_it_is_cut(self, mongo_replica_set_url: str):
         """Rows a passed-on link can write: served short rather than a 500, and saying so."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -148,11 +145,11 @@ class TestWhatTheReadServes:
             )
             return await read(database)
 
-        answered = on_a_league(mongo_replica_set_url, body)
+        answered = await on_a_league(mongo_replica_set_url, body)
 
         assert (len(answered.registrierungen), answered.complete) == (LIST_LIMIT_DEFAULT, False)
 
-    def test_the_season_s_pending_rows_alone_lead_with_the_newest(self, mongo_replica_set_url: str):
+    async def test_the_season_s_pending_rows_alone_lead_with_the_newest(self, mongo_replica_set_url: str):
         """A declined row and another season's stay out, each of which a read narrowing nothing would serve.
 
         The day leads and the id breaks a tie: a row of an earlier day holding the newest id stands last, and the second row
@@ -168,6 +165,6 @@ class TestWhatTheReadServes:
             )
             return await read(database)
 
-        answer = on_a_league(mongo_replica_set_url, body)
+        answer = await on_a_league(mongo_replica_set_url, body)
 
         assert [row.id for row in answer.registrierungen] == [SAME_DAY_OID, CONFIRMED_OID, OPEN_OID, EARLIER_DAY_OID]

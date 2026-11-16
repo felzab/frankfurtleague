@@ -18,7 +18,7 @@ from app.core import clock
 from app.core.codes import Code
 from app.core.collections import Collection
 from tests import documents
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.isolation import outcome_of
 from tests.records import record_collections
 from tests.worker import worker_database
@@ -144,13 +144,10 @@ async def seed(database: AsyncDatabase, *, saison_status: str) -> None:
     await database[Collection.SPIELBERICHTE].insert_one(documents.spielbericht_document(SPIELE[2]))
 
 
-def on_the_league(url: str, body: Any, *, saison_status: str = "active") -> Any:
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME) as (client, database):
-            await seed(database, saison_status=saison_status)
-            return await body(database, client)
-
-    return on_the_seed_loop(_run())
+async def on_the_league(url: str, body: Any, *, saison_status: str = "active") -> Any:
+    async with a_clean_database(url, DATABASE_NAME) as (client, database):
+        await seed(database, saison_status=saison_status)
+        return await body(database, client)
 
 
 def own_spiele(identifier: str = OTTO) -> Any:
@@ -178,25 +175,25 @@ def own_saisons(identifier: str) -> Any:
     return call
 
 
-def answered(url: str, call: Any, **seeding: Any) -> Any:
+async def answered(url: str, call: Any, **seeding: Any) -> Any:
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         return await call(database, client)
 
-    return on_the_league(url, body, **seeding)
+    return await on_the_league(url, body, **seeding)
 
 
-def refused(url: str, call: Any) -> str:
+async def refused(url: str, call: Any) -> str:
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
         return await outcome_of(call(database, client))
 
-    return on_the_league(url, body)
+    return await on_the_league(url, body)
 
 
 class TestTheSeasonsFixtures:
-    def test_open_work_comes_first_then_the_days_to_come_then_the_days_gone_by(self, mongo_replica_set_url: str):
+    async def test_open_work_comes_first_then_the_days_to_come_then_the_days_gone_by(self, mongo_replica_set_url: str):
         """The report owed and the booking to answer ahead; Ute's fixture and last season's are not on the list."""
 
-        answer = answered(mongo_replica_set_url, own_spiele())
+        answer = await answered(mongo_replica_set_url, own_spiele())
 
         assert [
             (entry.spiel_id, entry.state, entry.submitted_at is not None, entry.bericht_owed, entry.sonderereignis) for entry in answer.spiele
@@ -222,16 +219,16 @@ class TestTheSeasonsFixtures:
         [to_come] = [entry for entry in answer.spiele if entry.spiel_id == TO_COME]
         assert (to_come.entered, to_come.reason) == (True, None)
 
-    def test_once_the_season_has_ended_no_report_is_owed(self, mongo_replica_set_url: str):
-        answer = answered(mongo_replica_set_url, own_spiele(), saison_status="past")
+    async def test_once_the_season_has_ended_no_report_is_owed(self, mongo_replica_set_url: str):
+        answer = await answered(mongo_replica_set_url, own_spiele(), saison_status="past")
 
         assert [entry.spiel_id for entry in answer.spiele if entry.bericht_owed] == []
         assert answer.spiele[0].spiel_id == TO_ANSWER
 
-    def test_an_address_holding_no_live_confirmed_record_is_refused(self, mongo_replica_set_url: str):
-        assert refused(mongo_replica_set_url, own_spiele("niemand@example.com")) == Code.ROLE_NOT_HELD
+    async def test_an_address_holding_no_live_confirmed_record_is_refused(self, mongo_replica_set_url: str):
+        assert await refused(mongo_replica_set_url, own_spiele("niemand@example.com")) == Code.ROLE_NOT_HELD
 
-    def test_each_entry_reads_its_clubs_rows_of_its_season_its_own_decline_its_day_and_an_open_slot(self, mongo_replica_set_url: str):
+    async def test_each_entry_reads_its_clubs_rows_of_its_season_its_own_decline_its_day_and_an_open_slot(self, mongo_replica_set_url: str):
         """A request whose away or home club has left the season has ended; Adler's exit from the season before ends none.
 
         His own decline shows its reason, a fixture today is not past, an open away slot is named by nobody, and every entry
@@ -270,7 +267,7 @@ class TestTheSeasonsFixtures:
             )
             return await own_spiele()(database, client)
 
-        by_id = {entry.spiel_id: entry for entry in answered(mongo_replica_set_url, body).spiele}
+        by_id = {entry.spiel_id: entry for entry in (await answered(mongo_replica_set_url, body)).spiele}
 
         assert {spiel_id: by_id[spiel_id].state for spiel_id in (LEFT_AWAY, LEFT_HOME, TO_ANSWER)} == {
             LEFT_AWAY: "expired",
@@ -288,7 +285,7 @@ class TestTheSeasonsFixtures:
         assert (by_id[OPEN_SLOT].team1_name, by_id[OPEN_SLOT].team2_name) == ("Adler", None)
         assert {entry.time for entry in by_id.values()} == {"18:30:00"}
 
-    def test_a_closed_row_reads_by_the_reason_it_was_closed_for(self, mongo_replica_set_url: str):
+    async def test_a_closed_row_reads_by_the_reason_it_was_closed_for(self, mongo_replica_set_url: str):
         """Its fixture moved back to the slot the row asked about, it still offers no answer: the press would meet `ansetzung_closed`."""
 
         moved_back = spiel(MOVED_BACK, 15, "2027-05-29")
@@ -304,17 +301,17 @@ class TestTheSeasonsFixtures:
             )
             return await own_spiele()(database, client)
 
-        [entry] = [entry for entry in answered(mongo_replica_set_url, body).spiele if entry.spiel_id == MOVED_BACK]
+        [entry] = [entry for entry in (await answered(mongo_replica_set_url, body)).spiele if entry.spiel_id == MOVED_BACK]
 
         assert entry.state == "invalid"
 
 
 class TestTheSeasonsOffered:
-    def test_each_season_booking_them_the_newest_first(self, mongo_replica_set_url: str):
-        assert [saison.id for saison in answered(mongo_replica_set_url, own_saisons(OTTO)).saisons] == [SAISON_ID, EARLIER_SAISON]
+    async def test_each_season_booking_them_the_newest_first(self, mongo_replica_set_url: str):
+        assert [saison.id for saison in (await answered(mongo_replica_set_url, own_saisons(OTTO))).saisons] == [SAISON_ID, EARLIER_SAISON]
 
-    def test_a_referee_booked_nowhere_is_answered_none(self, mongo_replica_set_url: str):
-        assert answered(mongo_replica_set_url, own_saisons(KARL)).saisons == []
+    async def test_a_referee_booked_nowhere_is_answered_none(self, mongo_replica_set_url: str):
+        assert (await answered(mongo_replica_set_url, own_saisons(KARL))).saisons == []
 
-    def test_an_address_holding_no_live_confirmed_record_is_refused(self, mongo_replica_set_url: str):
-        assert refused(mongo_replica_set_url, own_saisons("niemand@example.com")) == Code.ROLE_NOT_HELD
+    async def test_an_address_holding_no_live_confirmed_record_is_refused(self, mongo_replica_set_url: str):
+        assert await refused(mongo_replica_set_url, own_saisons("niemand@example.com")) == Code.ROLE_NOT_HELD

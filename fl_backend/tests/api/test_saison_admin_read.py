@@ -11,7 +11,7 @@ from app.api.saisons.schemas import FLGenerateSpielplanPayload, FLSaisonAdminRes
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.documents import saison_document, saison_team_document, spiel_document, spielbericht_document
 from tests.worker import worker_database
 
@@ -152,7 +152,9 @@ class TestTheEditorSaysAFixtureHasTakenPlace:
             pytest.param((1, None), True, id="one side's goals"),
         ],
     )
-    def test_the_flag_reads_the_seasons_fixtures(self, mongo_replica_set_url: str, sides: tuple[int | None, int | None], taken_place: bool):
+    async def test_the_flag_reads_the_seasons_fixtures(
+        self, mongo_replica_set_url: str, sides: tuple[int | None, int | None], taken_place: bool
+    ):
         """Read wrong, the start date's box stands open to a save `saison_start_taken_place` refuses, or locked for nothing."""
 
         async def _run() -> bool:
@@ -171,7 +173,7 @@ class TestTheEditorSaysAFixtureHasTakenPlace:
 
                 return (await read(database)).saison.taken_place
 
-        assert on_the_seed_loop(_run()) is taken_place
+        assert await _run() is taken_place
 
 
 class TestTheEditorsActsAreRefusedAsTheirWritesRefuse:
@@ -200,26 +202,23 @@ class TestTheEditorsActsAreRefusedAsTheirWritesRefuse:
             pytest.param("activate", True, the_season_past, Code.SAISON_PAST, id="activating a finished season"),
         ],
     )
-    def test_each_act_is_served_the_refusal_its_write_answers(
+    async def test_each_act_is_served_the_refusal_its_write_answers(
         self, mongo_replica_set_url: str, act: Act, draw: bool, state: State, refused: Code | None
     ):
-        async def _run() -> tuple[Code | None, Code | None]:
-            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (client, database):
-                await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "future", start_date=START))
-                await database[Collection.SAISON_TEAMS].insert_many(
-                    [
-                        saison_team_document(SAISON_ID, team_id, f"Schule {index}", f"S{chr(65 + index)}X", gruppe=gruppe)
-                        for index, (team_id, gruppe) in enumerate(CLUBS.items())
-                    ]
-                )
-                if draw:
-                    await drawn(database, client, replace=False)
-                await state(database)
+        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (client, database):
+            await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "future", start_date=START))
+            await database[Collection.SAISON_TEAMS].insert_many(
+                [
+                    saison_team_document(SAISON_ID, team_id, f"Schule {index}", f"S{chr(65 + index)}X", gruppe=gruppe)
+                    for index, (team_id, gruppe) in enumerate(CLUBS.items())
+                ]
+            )
+            if draw:
+                await drawn(database, client, replace=False)
+            await state(database)
 
-                served = getattr((await read(database)).refusals, act)
+            served = getattr((await read(database)).refusals, act)
 
-                return served, await pressed(act, database, client)
-
-        served, answered = on_the_seed_loop(_run())
+            served, answered = served, await pressed(act, database, client)
 
         assert (served, answered) == (refused, refused)

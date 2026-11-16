@@ -12,7 +12,7 @@ from app.api.spieltage.schemas import FLPatchSpieltagPayload
 from app.core.codes import Code
 from app.core.exceptions import APIError
 from tests import documents
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -90,14 +90,11 @@ def spiel_document(*, spiel_nr: int, **overrides: Any) -> dict[str, Any]:
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
-def on_a_database(url: str, body: Body) -> Any:
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME) as (_, database):
-            await database.saisons.insert_one(saison_document())
-            await database.spieltage.insert_one(spieltag_document())
-            return await body(database)
-
-    return on_the_seed_loop(_run())
+async def on_a_database(url: str, body: Body) -> Any:
+    async with a_clean_database(url, DATABASE_NAME) as (_, database):
+        await database.saisons.insert_one(saison_document())
+        await database.spieltage.insert_one(spieltag_document())
+        return await body(database)
 
 
 async def move_the_seasons_end(database: AsyncDatabase, end_date: str) -> None:
@@ -149,7 +146,7 @@ async def re_date(database: AsyncDatabase, spieltag_id: ObjectId, *, start: str,
 class TestASeasonKeepsCoveringTheMatchdaysItStores:
     """`saison_span_below_spieltage` through the endpoint: only a database proves the spans it judges are read from `spieltage` at all."""
 
-    def test_a_shrink_past_a_stored_matchday_is_refused(self, mongo_replica_set_url: str):
+    async def test_a_shrink_past_a_stored_matchday_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> APIError:
             # Ends before the seeded matchday begins, so the matchday would be left outside.
             with pytest.raises(APIError) as excinfo:
@@ -157,7 +154,7 @@ class TestASeasonKeepsCoveringTheMatchdaysItStores:
 
             return excinfo.value
 
-        refusal = on_a_database(mongo_replica_set_url, body)
+        refusal = await on_a_database(mongo_replica_set_url, body)
 
         assert refusal.error_code == Code.SAISON_SPAN_BELOW_SPIELTAGE
 
@@ -165,7 +162,7 @@ class TestASeasonKeepsCoveringTheMatchdaysItStores:
 class TestAMatchdayKeepsCoveringItsSpiele:
     """`spieltag_span_below_spiele` through the endpoint: only a database proves the dates it judges are read out of `spiele` at all."""
 
-    def test_a_shrink_past_a_dated_spiel_is_refused(self, mongo_replica_set_url: str):
+    async def test_a_shrink_past_a_dated_spiel_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> APIError:
             # On the matchday's last day, so pulling `end` back to its first leaves the fixture outside.
             await database.spiele.insert_one(spiel_document(spiel_nr=1, date=SPIELTAG_END))
@@ -175,7 +172,7 @@ class TestAMatchdayKeepsCoveringItsSpiele:
 
             return excinfo.value
 
-        refusal = on_a_database(mongo_replica_set_url, body)
+        refusal = await on_a_database(mongo_replica_set_url, body)
 
         assert refusal.error_code == Code.SPIELTAG_SPAN_BELOW_SPIELE
 
@@ -205,7 +202,7 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
             )
         )
 
-    def test_a_move_past_the_next_position_is_refused(self, mongo_replica_set_url: str):
+    async def test_a_move_past_the_next_position_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> tuple[APIError, Any]:
             await self._with_a_matchday(database, oid=SECOND_OID, position=2, start=NEIGHBOUR_START)
 
@@ -216,13 +213,13 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
 
             return excinfo.value, stored and stored["start"]
 
-        refusal, stored_start = on_a_database(mongo_replica_set_url, body)
+        refusal, stored_start = await on_a_database(mongo_replica_set_url, body)
 
         assert refusal.error_code == Code.SPIELTAG_START_OUT_OF_ORDER
         # The refusal runs ahead of the write, so the matchday still holds the span it was seeded with.
         assert stored_start == SPIELTAG_START
 
-    def test_a_move_before_the_previous_position_is_refused(self, mongo_replica_set_url: str):
+    async def test_a_move_before_the_previous_position_is_refused(self, mongo_replica_set_url: str):
         """The other neighbour, and the other direction: a rule reading one side would let this one through."""
 
         async def body(database: AsyncDatabase) -> APIError:
@@ -233,11 +230,11 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
 
             return excinfo.value
 
-        refusal = on_a_database(mongo_replica_set_url, body)
+        refusal = await on_a_database(mongo_replica_set_url, body)
 
         assert refusal.error_code == Code.SPIELTAG_START_OUT_OF_ORDER
 
-    def test_another_phases_matchday_is_no_neighbour(self, mongo_replica_set_url: str):
+    async def test_another_phases_matchday_is_no_neighbour(self, mongo_replica_set_url: str):
         """Positions restart in every phase, so only a query keyed on the phase keeps a Finale out of the Gruppenphase's order.
 
         The key gone, a knockout row tying on position can stand in for the real neighbour and let a matchday out of order through.
@@ -248,11 +245,11 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
 
             return await re_date(database, SPIELTAG_OID, start=AFTER_THE_NEIGHBOUR, end=PAST_THE_NEIGHBOUR)
 
-        response = on_a_database(mongo_replica_set_url, body)
+        response = await on_a_database(mongo_replica_set_url, body)
 
         assert response["start"] == AFTER_THE_NEIGHBOUR
 
-    def test_an_undated_neighbour_is_stepped_over_for_the_next_dated_one(self, mongo_replica_set_url: str):
+    async def test_an_undated_neighbour_is_stepped_over_for_the_next_dated_one(self, mongo_replica_set_url: str):
         """A drawn matchday is undated, so stopping at the adjacent position would go blind for most of a phase being dated."""
 
         async def body(database: AsyncDatabase) -> APIError:
@@ -264,11 +261,11 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
 
             return excinfo.value
 
-        refusal = on_a_database(mongo_replica_set_url, body)
+        refusal = await on_a_database(mongo_replica_set_url, body)
 
         assert refusal.error_code == Code.SPIELTAG_START_OUT_OF_ORDER
 
-    def test_an_undated_position_below_is_stepped_over_too(self, mongo_replica_set_url: str):
+    async def test_an_undated_position_below_is_stepped_over_too(self, mongo_replica_set_url: str):
         """The other side of the same gap: a phase is dated in whatever order somebody works it, so undated rows sit on both sides."""
 
         async def body(database: AsyncDatabase) -> APIError:
@@ -280,11 +277,11 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
 
             return excinfo.value
 
-        refusal = on_a_database(mongo_replica_set_url, body)
+        refusal = await on_a_database(mongo_replica_set_url, body)
 
         assert refusal.error_code == Code.SPIELTAG_START_OUT_OF_ORDER
 
-    def test_the_nearest_dated_position_below_is_what_judges_the_move(self, mongo_replica_set_url: str):
+    async def test_the_nearest_dated_position_below_is_what_judges_the_move(self, mongo_replica_set_url: str):
         """Two dated rows below the subject at different days: the phase's earliest one would let this step through."""
 
         async def body(database: AsyncDatabase) -> APIError:
@@ -296,11 +293,11 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
 
             return excinfo.value
 
-        refusal = on_a_database(mongo_replica_set_url, body)
+        refusal = await on_a_database(mongo_replica_set_url, body)
 
         assert refusal.error_code == Code.SPIELTAG_START_OUT_OF_ORDER
 
-    def test_the_nearest_dated_position_above_is_what_judges_the_move(self, mongo_replica_set_url: str):
+    async def test_the_nearest_dated_position_above_is_what_judges_the_move(self, mongo_replica_set_url: str):
         """Two dated rows above the subject at different days: the phase's latest one would let this step through."""
 
         async def body(database: AsyncDatabase) -> APIError:
@@ -313,11 +310,11 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
 
             return excinfo.value
 
-        refusal = on_a_database(mongo_replica_set_url, body)
+        refusal = await on_a_database(mongo_replica_set_url, body)
 
         assert refusal.error_code == Code.SPIELTAG_START_OUT_OF_ORDER
 
-    def test_another_seasons_matchday_is_no_neighbour(self, mongo_replica_set_url: str):
+    async def test_another_seasons_matchday_is_no_neighbour(self, mongo_replica_set_url: str):
         """Every season numbers its own phases from 1, so a query missing the season key reads a stranger's dates as this phase's order."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -332,7 +329,7 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
 
             return await re_date(database, SPIELTAG_OID, start=AFTER_THE_NEIGHBOUR, end=PAST_THE_NEIGHBOUR)
 
-        response = on_a_database(mongo_replica_set_url, body)
+        response = await on_a_database(mongo_replica_set_url, body)
 
         assert response["start"] == AFTER_THE_NEIGHBOUR
 
@@ -340,7 +337,7 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
 class TestAFinishedSeasonsMatchdayIsClosed:
     """`saison_past` through the endpoint, as a finished season's fixtures refuse their saves."""
 
-    def test_a_re_dating_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
+    async def test_a_re_dating_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         """The harm: a finished season's record re-dated from an editor its match editor's twin would have closed."""
 
         async def body(database: AsyncDatabase) -> tuple[APIError, Any, Any]:
@@ -352,7 +349,7 @@ class TestAFinishedSeasonsMatchdayIsClosed:
 
             return excinfo.value, before, await database.spieltage.find_one({"_id": SPIELTAG_OID})
 
-        refusal, before, after = on_a_database(mongo_replica_set_url, body)
+        refusal, before, after = await on_a_database(mongo_replica_set_url, body)
 
         assert refusal.error_code == Code.SAISON_PAST
         assert after == before, "a refused re-dating wrote something"

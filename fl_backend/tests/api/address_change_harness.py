@@ -42,7 +42,7 @@ from app.shared.schemas.confirmation import FLTokenPayload
 from tests import documents
 from tests.acts import acting_as
 from tests.config import ADMINISTRATORS, build_test_config, grants_for_the_suite
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.outbox import claimable
 from tests.records import record_collections
 from tests.session_headers import verified_actor
@@ -209,15 +209,12 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def on_a_person(
+async def on_a_person(
     url: str, database_name: str, body: Body, *, pupil: bool = True, records: bool = True, stores_a_refused_shape: str | None = None
 ) -> Any:
-    async def _run() -> Any:
-        async with a_clean_database(url, database_name, constraints=True, stores_a_refused_shape=stores_a_refused_shape) as (client, database):
-            await _seed(database, pupil=pupil, records=records)
-            return await body(database, client)
-
-    return on_the_seed_loop(_run())
+    async with a_clean_database(url, database_name, constraints=True, stores_a_refused_shape=stores_a_refused_shape) as (client, database):
+        await _seed(database, pupil=pupil, records=records)
+        return await body(database, client)
 
 
 async def granted(database: AsyncDatabase, address: str = EMAIL, *, admin_tier: str = "administration") -> ObjectId:

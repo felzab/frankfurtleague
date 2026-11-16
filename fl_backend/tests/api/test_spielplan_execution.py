@@ -32,7 +32,7 @@ from app.core.collections import Collection
 from app.core.exceptions import APIError
 from tests import documents
 from tests.bracket_reference import BRACKET_SEEDING
-from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
+from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.records import record_collections
 from tests.worker import worker_database
@@ -151,7 +151,7 @@ class Seed:
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def on_a_seeded_saison(
+async def on_a_seeded_saison(
     url: str, body: Body, *, seed: Seed | None = None, mutates_schema: bool = False, stores_a_refused_shape: str | None = None
 ) -> Any:
     """The shipped unique indexes, so a document MongoDB would refuse in production fails here.
@@ -161,24 +161,21 @@ def on_a_seeded_saison(
 
     seeded = seed or Seed()
 
-    async def _run() -> Any:
-        async with a_clean_database(
-            url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema, stores_a_refused_shape=stores_a_refused_shape
-        ) as (client, database):
-            await database[Collection.SAISONS].insert_one(seeded.saison)
-            await database[Collection.SAISON_TEAMS].insert_many(seeded.entered)
-            if seeded.spieltage:
-                await database[Collection.SPIELTAGE].insert_many(seeded.spieltage)
-            if seeded.spiele:
-                await database[Collection.SPIELE].insert_many(seeded.spiele)
+    async with a_clean_database(
+        url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema, stores_a_refused_shape=stores_a_refused_shape
+    ) as (client, database):
+        await database[Collection.SAISONS].insert_one(seeded.saison)
+        await database[Collection.SAISON_TEAMS].insert_many(seeded.entered)
+        if seeded.spieltage:
+            await database[Collection.SPIELTAGE].insert_many(seeded.spieltage)
+        if seeded.spiele:
+            await database[Collection.SPIELE].insert_many(seeded.spiele)
 
-            if seeded.neighbour is not None:
-                await database[Collection.SAISONS].insert_one(seeded.neighbour)
-                await database[Collection.SAISON_TEAMS].insert_many(seeded.neighbour_entered)
+        if seeded.neighbour is not None:
+            await database[Collection.SAISONS].insert_one(seeded.neighbour)
+            await database[Collection.SAISON_TEAMS].insert_many(seeded.neighbour_entered)
 
-            return await body(database, client)
-
-    return on_the_seed_loop(_run())
+        return await body(database, client)
 
 
 async def call_draw(
@@ -332,7 +329,7 @@ class DrawnSeason:
     spiele: list[dict[str, Any]]
 
 
-def a_drawn_season(url: str, *, groups: int = GROUPS, teams: int = TEAMS_PER_GROUP, qualifiers: int = QUALIFIERS) -> DrawnSeason:
+async def a_drawn_season(url: str, *, groups: int = GROUPS, teams: int = TEAMS_PER_GROUP, qualifiers: int = QUALIFIERS) -> DrawnSeason:
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> DrawnSeason:
         response = await call_draw(database, client)
 
@@ -355,7 +352,7 @@ def a_drawn_season(url: str, *, groups: int = GROUPS, teams: int = TEAMS_PER_GRO
         entered=entry_rows(groups=groups, teams=teams),
     )
 
-    drawn = on_a_seeded_saison(url, body, seed=seed)
+    drawn = await on_a_seeded_saison(url, body, seed=seed)
 
     # Every case below FILTERS these lists, and a filter over an empty one holds trivially. What the
     # counts should be is `expected_counts`' judgement, not this one's.
@@ -407,10 +404,10 @@ class TestACleanDrawWritesTheWholeSeason:
         SHAPES,
         ids=SHAPE_IDS,
     )
-    def test_the_stored_counts_are_the_ones_the_rules_imply(self, mongo_replica_set_url: str, groups: int, teams: int, qualifiers: int):
+    async def test_the_stored_counts_are_the_ones_the_rules_imply(self, mongo_replica_set_url: str, groups: int, teams: int, qualifiers: int):
         """Both numbers read off the database rather than off the response, which would otherwise report what the draw MEANT to write."""
 
-        drawn = a_drawn_season(mongo_replica_set_url, groups=groups, teams=teams, qualifiers=qualifiers)
+        drawn = await a_drawn_season(mongo_replica_set_url, groups=groups, teams=teams, qualifiers=qualifiers)
         expected = expected_counts(FLSaisonRules.model_validate(drawn.saison["rules"]))
 
         assert (len(drawn.spieltage), len(drawn.spiele)) == expected
@@ -419,14 +416,14 @@ class TestACleanDrawWritesTheWholeSeason:
 
 
 class TestTheDrawnDocumentsSurviveMongoDB:
-    def test_the_numbers_are_stored_as_ints_and_the_ids_as_objectids(self, mongo_replica_set_url: str):
+    async def test_the_numbers_are_stored_as_ints_and_the_ids_as_objectids(self, mongo_replica_set_url: str):
         """Read off the RAW documents, which the models would coerce.
 
         An id stored as its string matches no fixture, and a text `spiel_nr` sorts 10 before 2.
         `type`, not `isinstance`: `bson.Int64` passes an int check while `{"bsonType": "int"}` refuses it.
         """
 
-        drawn = a_drawn_season(mongo_replica_set_url)
+        drawn = await a_drawn_season(mongo_replica_set_url)
 
         assert [row["position"] for row in drawn.spieltage if type(row["position"]) is not int] == []
         assert [row["spiel_nr"] for row in drawn.spiele if type(row["spiel_nr"]) is not int] == []
@@ -437,13 +434,13 @@ class TestTheDrawnDocumentsSurviveMongoDB:
 class TestNothingTheDrawWritesIsDated:
     """The draw settles who plays whom and in what order; a date, a ground and a referee are each set afterwards, one row at a time."""
 
-    def test_no_matchday_carries_a_span(self, mongo_replica_set_url: str):
-        drawn = a_drawn_season(mongo_replica_set_url)
+    async def test_no_matchday_carries_a_span(self, mongo_replica_set_url: str):
+        drawn = await a_drawn_season(mongo_replica_set_url)
 
         assert [row["position"] for row in drawn.spieltage if row["start"] is not None or row["end"] is not None] == []
 
-    def test_no_spiel_carries_a_date_a_ground_or_a_referee(self, mongo_replica_set_url: str):
-        drawn = a_drawn_season(mongo_replica_set_url)
+    async def test_no_spiel_carries_a_date_a_ground_or_a_referee(self, mongo_replica_set_url: str):
+        drawn = await a_drawn_season(mongo_replica_set_url)
 
         assert [row["spiel_nr"] for row in drawn.spiele if any(row[key] is not None for key in UNDATED_SPIEL_FIELDS)] == []
 
@@ -455,13 +452,13 @@ class TestTheGroupPhaseIsEachGroupsOwnRoundRobin:
     that read the difference.
     """
 
-    def test_each_group_plays_every_pair_of_its_own_clubs_once(self, mongo_replica_set_url: str):
+    async def test_each_group_plays_every_pair_of_its_own_clubs_once(self, mongo_replica_set_url: str):
         """The whole round robin, not merely a legal-looking one.
 
         A repeated pair leaves two clubs that never meet, and a table neither of them was ranked by.
         """
 
-        drawn = a_drawn_season(mongo_replica_set_url)
+        drawn = await a_drawn_season(mongo_replica_set_url)
         junction = junction_by_team(drawn)
 
         played: dict[Any, list[frozenset[Any]]] = {}
@@ -478,10 +475,10 @@ class TestTheGroupPhaseIsEachGroupsOwnRoundRobin:
             assert len(pairs) == len(set(pairs)), f"gruppe {gruppe} draws a pair more than once"
             assert set(pairs) == {frozenset(pair) for pair in combinations(ids, 2)}
 
-    def test_each_side_is_stored_as_the_club_the_junction_holds(self, mongo_replica_set_url: str):
+    async def test_each_side_is_stored_as_the_club_the_junction_holds(self, mongo_replica_set_url: str):
         """The club and no goals, a drawn fixture having not happened, and no name, which every read joins off the row."""
 
-        drawn = a_drawn_season(mongo_replica_set_url)
+        drawn = await a_drawn_season(mongo_replica_set_url)
         junction = junction_by_team(drawn)
 
         assert [
@@ -493,10 +490,10 @@ class TestTheGroupPhaseIsEachGroupsOwnRoundRobin:
 
 
 class TestTheBracketIsWiredToWhatFeedsIt:
-    def test_every_knockout_spiel_is_two_unfilled_slots_each_with_a_source(self, mongo_replica_set_url: str):
+    async def test_every_knockout_spiel_is_two_unfilled_slots_each_with_a_source(self, mongo_replica_set_url: str):
         """Nobody has qualified when a season is drawn, so a side filled here would name a club the group phase has not chosen yet."""
 
-        drawn = a_drawn_season(mongo_replica_set_url)
+        drawn = await a_drawn_season(mongo_replica_set_url)
         spiele = [row for round_spiele in knockout_rounds(drawn) for row in round_spiele]
 
         assert len(spiele) == sum(bracket_rounds(FLSaisonRules.model_validate(drawn.saison["rules"])))
@@ -540,7 +537,7 @@ class TestEachRefusalIsReachedThroughTheRoute:
             ),
         ],
     )
-    def test_a_season_that_cannot_be_drawn_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str, code: str, seed: Seed):
+    async def test_a_season_that_cannot_be_drawn_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str, code: str, seed: Seed):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> RefusedDraw:
             with pytest.raises(APIError) as refused:
                 await call_draw(database, client)
@@ -549,7 +546,7 @@ class TestEachRefusalIsReachedThroughTheRoute:
 
             return RefusedDraw(error_code=refused.value.error_code, spieltage=spieltage, spiele=spiele, watermark=await watermark_now(database))
 
-        refused = on_a_seeded_saison(mongo_replica_set_url, body, seed=seed)
+        refused = await on_a_seeded_saison(mongo_replica_set_url, body, seed=seed)
 
         assert refused.error_code == code
         # Exactly what the seed put there: a refusal reached after a write would read higher.
@@ -600,7 +597,7 @@ class TestAFailedDrawLeavesNothingBehind:
             pytest.param(Collection.SAISONS, "spielplan", id="the watermark, once both collections are written"),
         ],
     )
-    def test_neither_collection_keeps_a_document_nor_the_season_a_watermark(
+    async def test_neither_collection_keeps_a_document_nor_the_season_a_watermark(
         self, mongo_replica_set_url: str, narrowed: Collection, refused_field: str
     ):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> AbortedDraw:
@@ -620,7 +617,7 @@ class TestAFailedDrawLeavesNothingBehind:
                 watermark=await watermark_now(database),
             )
 
-        aborted = on_a_seeded_saison(mongo_replica_set_url, body, mutates_schema=True)
+        aborted = await on_a_seeded_saison(mongo_replica_set_url, body, mutates_schema=True)
 
         # Asserted on the code, so this cannot pass because something failed before the first write.
         assert aborted.write_error == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the write, got code {aborted.write_error}"
@@ -676,7 +673,7 @@ class ReplacedSeason:
     spiele: list[dict[str, Any]]
 
 
-def a_replaced_season(url: str) -> ReplacedSeason:
+async def a_replaced_season(url: str) -> ReplacedSeason:
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> ReplacedSeason:
         first = await call_draw(database, client)
         # Read between the two calls: afterwards nothing tells a surviving row from a fresh one
@@ -693,7 +690,7 @@ def a_replaced_season(url: str) -> ReplacedSeason:
             spiele=await database[Collection.SPIELE].find({}).sort("spiel_nr", 1).to_list(length=None),
         )
 
-    replaced = on_a_seeded_saison(url, body)
+    replaced = await on_a_seeded_saison(url, body)
 
     assert replaced.first_ids, "the first draw wrote nothing, so the replace had nothing to remove"
 
@@ -733,7 +730,7 @@ async def report_a_drawn_spiel(database: AsyncDatabase) -> None:
 
 
 class TestAReplaceTakesTheSeasonsReports:
-    def test_the_seasons_reports_go_and_the_neighbours_stay(self, mongo_replica_set_url: str):
+    async def test_the_seasons_reports_go_and_the_neighbours_stay(self, mongo_replica_set_url: str):
         """Drop the replace's report delete and this fails: a report document would name a fixture the replace removed.
 
         The season's names no fixture the draw holds, so it refuses nothing; the neighbour's stands.
@@ -750,13 +747,13 @@ class TestAReplaceTakesTheSeasonsReports:
                 await berichte.count_documents({"saison_id": NEIGHBOUR_SAISON_ID}),
             )
 
-        assert on_a_seeded_saison(mongo_replica_set_url, body) == (0, 1)
+        assert await on_a_seeded_saison(mongo_replica_set_url, body) == (0, 1)
 
 
 class TestASubmittedReportKeepsTheSpielplanFromAReplace:
     """`spielplan_berichte_submitted` wired: the replace counts the season's submitted reports in its transaction and again outside it."""
 
-    def test_the_replace_is_refused_and_removes_nothing(self, mongo_replica_set_url: str):
+    async def test_the_replace_is_refused_and_removes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             drawn = await call_draw(database, client)
             await report_a_drawn_spiel(database)
@@ -764,12 +761,12 @@ class TestASubmittedReportKeepsTheSpielplanFromAReplace:
 
             return drawn, outcome, await watermark_now(database)
 
-        drawn, outcome, watermark = on_a_seeded_saison(mongo_replica_set_url, body)
+        drawn, outcome, watermark = await on_a_seeded_saison(mongo_replica_set_url, body)
 
         assert outcome == Code.SPIELPLAN_BERICHTE_SUBMITTED
         assert watermark is not None and watermark["generated_at"] == drawn.generated_at
 
-    def test_a_report_submitted_mid_replace_is_counted_again_outside_it(self, mongo_replica_set_url: str):
+    async def test_a_report_submitted_mid_replace_is_counted_again_outside_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             drawn = await call_draw(database, client)
             berichte = InterleavedCollection(database[Collection.SPIELBERICHTE], lambda: report_a_drawn_spiel(database), before="delete_many")
@@ -778,7 +775,7 @@ class TestASubmittedReportKeepsTheSpielplanFromAReplace:
 
             return drawn, outcome, await watermark_now(database), berichte.passes
 
-        drawn, outcome, watermark, passes = on_a_seeded_saison(mongo_replica_set_url, body)
+        drawn, outcome, watermark, passes = await on_a_seeded_saison(mongo_replica_set_url, body)
 
         assert outcome == Code.SPIELPLAN_BERICHTE_SUBMITTED
         assert watermark is not None and watermark["generated_at"] == drawn.generated_at
@@ -959,7 +956,7 @@ async def a_report_crossed_by(database: AsyncDatabase, client: AsyncMongoClient,
 class TestAFirstReportCrossingADrawsRemovalMeetsItOnTheSeason:
     """The removal lands inside the report's tail, every judgement past, before the report's commit."""
 
-    def test_a_same_day_redraw_landing_inside_a_report_never_leaves_it_orphaned(self, mongo_replica_set_url: str):
+    async def test_a_same_day_redraw_landing_inside_a_report_never_leaves_it_orphaned(self, mongo_replica_set_url: str):
         """The redraw's watermark write changes nothing, so only its own anchor writes the season the report anchors."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -968,13 +965,15 @@ class TestAFirstReportCrossingADrawsRemovalMeetsItOnTheSeason:
                 database, client, lambda saisons: call_draw(database, client, replace=True, saisons_collection=saisons)
             )
 
-        (report, replace), orphans, conflicts = on_a_seeded_saison(mongo_replica_set_url, body)
+        (report, replace), orphans, conflicts = await on_a_seeded_saison(mongo_replica_set_url, body)
 
         assert conflicts > 0, "the replace's anchor never met the report inside it, so nothing below is the crossing"
         assert orphans == [], f"a report outlives the replace: the report {report!r}, the replace {replace!r}"
         assert COMMITTED in (report, replace), "neither side landed"
 
-    def test_an_undraw_of_a_season_holding_no_watermark_landing_inside_a_report_never_leaves_it_orphaned(self, mongo_replica_set_url: str):
+    async def test_an_undraw_of_a_season_holding_no_watermark_landing_inside_a_report_never_leaves_it_orphaned(
+        self, mongo_replica_set_url: str
+    ):
         """A season drawn outside this API holds no watermark, so the undraw's `$unset` changes nothing and only its anchor meets the report."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -982,7 +981,7 @@ class TestAFirstReportCrossingADrawsRemovalMeetsItOnTheSeason:
             await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$unset": {"spielplan": ""}})
             return await a_report_crossed_by(database, client, lambda saisons: call_undraw(database, client, saisons_collection=saisons))
 
-        (report, undraw), orphans, conflicts = on_a_seeded_saison(mongo_replica_set_url, body)
+        (report, undraw), orphans, conflicts = await on_a_seeded_saison(mongo_replica_set_url, body)
 
         assert conflicts > 0, "the undraw's anchor never met the report inside it, so nothing below is the crossing"
         assert orphans == [], f"a report outlives the undraw: the report {report!r}, the undraw {undraw!r}"
@@ -990,7 +989,7 @@ class TestAFirstReportCrossingADrawsRemovalMeetsItOnTheSeason:
 
 
 class TestAReplaceTakesTheSeasonsConfirmations:
-    def test_the_seasons_rows_go_and_the_neighbours_stay(self, mongo_replica_set_url: str):
+    async def test_the_seasons_rows_go_and_the_neighbours_stay(self, mongo_replica_set_url: str):
         """Drop the replace's confirmation delete and this fails: a row would name a fixture the replace removed."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int]:
@@ -1004,9 +1003,9 @@ class TestAReplaceTakesTheSeasonsConfirmations:
                 await confirmations.count_documents({"saison_id": NEIGHBOUR_SAISON_ID}),
             )
 
-        assert on_a_seeded_saison(mongo_replica_set_url, body) == (0, 1)
+        assert await on_a_seeded_saison(mongo_replica_set_url, body) == (0, 1)
 
-    def test_the_seasons_line_ups_go_and_the_neighbours_stay(self, mongo_replica_set_url: str):
+    async def test_the_seasons_line_ups_go_and_the_neighbours_stay(self, mongo_replica_set_url: str):
         """Drop the line-ups' removal and this fails: one would name pupils for a fixture the replace removed."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[str]:
@@ -1021,16 +1020,16 @@ class TestAReplaceTakesTheSeasonsConfirmations:
 
             return [row["saison_id"] async for row in database[Collection.AUFSTELLUNGEN].find()]
 
-        assert on_a_seeded_saison(mongo_replica_set_url, body) == [NEIGHBOUR_SAISON_ID]
+        assert await on_a_seeded_saison(mongo_replica_set_url, body) == [NEIGHBOUR_SAISON_ID]
 
 
 class TestAConfirmedReplaceRedrawsTheWholeSeason:
     """`spielplan_replace_outside_its_window`'s write half: the season's two lists are removed and drawn again inside one transaction."""
 
-    def test_no_document_of_the_first_draw_survives(self, mongo_replica_set_url: str):
+    async def test_no_document_of_the_first_draw_survives(self, mongo_replica_set_url: str):
         """Drop either delete and this fails: a replace is these rows being GONE, never as many fresh ones standing beside them."""
 
-        replaced = a_replaced_season(mongo_replica_set_url)
+        replaced = await a_replaced_season(mongo_replica_set_url)
         surviving = {row["_id"] for row in (*replaced.spieltage, *replaced.spiele)}
 
         assert surviving & replaced.first_ids == set()
@@ -1059,7 +1058,7 @@ class NeighbouringSeasons:
     neighbour_spiele: int
 
 
-def a_season_replaced_beside_another(url: str) -> NeighbouringSeasons:
+async def a_season_replaced_beside_another(url: str) -> NeighbouringSeasons:
     """Draw both seasons, close the neighbour, then replace the subject's draw alone."""
 
     seed = Seed(
@@ -1089,7 +1088,7 @@ def a_season_replaced_beside_another(url: str) -> NeighbouringSeasons:
             neighbour_spiele=neighbour_spiele,
         )
 
-    neighbours = on_a_seeded_saison(url, body, seed=seed)
+    neighbours = await on_a_seeded_saison(url, body, seed=seed)
 
     assert neighbours.neighbour_drawn.spiele > 0, "the neighbour was drawn nothing, so its survival proves nothing"
 
@@ -1099,14 +1098,14 @@ def a_season_replaced_beside_another(url: str) -> NeighbouringSeasons:
 class TestAConfirmedReplaceReachesNoOtherSeason:
     """That the replace's two deletes are bounded by their `saison_id`, proved against a season standing beside the one redrawn."""
 
-    def test_the_neighbours_spiele_and_matchdays_all_survive(self, mongo_replica_set_url: str):
+    async def test_the_neighbours_spiele_and_matchdays_all_survive(self, mongo_replica_set_url: str):
         """Empty either delete's `db_filter` in `post_spielplan` and this fails; with one season seeded, nothing does.
 
         Each collection its own assertion, never a pair compared as one: a comparison of the two together passes while half
         the neighbour is gone.
         """
 
-        neighbours = a_season_replaced_beside_another(mongo_replica_set_url)
+        neighbours = await a_season_replaced_beside_another(mongo_replica_set_url)
 
         assert neighbours.neighbour_spiele == neighbours.neighbour_drawn.spiele
         assert neighbours.neighbour_spieltage == neighbours.neighbour_drawn.spieltage
@@ -1115,7 +1114,7 @@ class TestAConfirmedReplaceReachesNoOtherSeason:
 class TestAnAbortedReplaceLeavesTheSeasonStanding:
     """The deletes and the redraw are one transaction, so a fixture insert that falls takes the removal back with it."""
 
-    def test_both_collections_keep_every_document_the_replace_would_have_removed(self, mongo_replica_set_url: str):
+    async def test_both_collections_keep_every_document_the_replace_would_have_removed(self, mongo_replica_set_url: str):
         """Move either delete outside the callback and this fails: the season would be left holding no schedule at all."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> AbortedDraw:
@@ -1144,7 +1143,7 @@ class TestAnAbortedReplaceLeavesTheSeasonStanding:
                 watermark=await watermark_now(database),
             )
 
-        aborted = on_a_seeded_saison(mongo_replica_set_url, body, mutates_schema=True)
+        aborted = await on_a_seeded_saison(mongo_replica_set_url, body, mutates_schema=True)
 
         # On the code, so this cannot pass because the replace fell before it deleted anything.
         assert aborted.write_error == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the write, got {aborted.write_error}"
@@ -1155,7 +1154,7 @@ class TestAnAbortedReplaceLeavesTheSeasonStanding:
 class TestTheReplaceWindowIsReachedThroughTheRoute:
     """`spielplan_replace_outside_its_window` WIRED: the endpoint reads the season's status and its own fixtures inside the transaction."""
 
-    def test_a_running_season_is_refused_the_replace_and_keeps_its_draw(self, mongo_replica_set_url: str):
+    async def test_a_running_season_is_refused_the_replace_and_keeps_its_draw(self, mongo_replica_set_url: str):
         """Wire `replace` past the window and this fails: an active league would lose the schedule it is playing."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1168,14 +1167,14 @@ class TestTheReplaceWindowIsReachedThroughTheRoute:
 
             return drawn, standing, refused.value, await document_ids(database), await watermark_now(database)
 
-        drawn, standing, refused, surviving, watermark = on_a_seeded_saison(mongo_replica_set_url, body)
+        drawn, standing, refused, surviving, watermark = await on_a_seeded_saison(mongo_replica_set_url, body)
 
         assert refused.error_code == Code.SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW
         assert surviving == standing
         assert watermark == {"generated_at": TODAY}
 
     @pytest.mark.parametrize("record", RECORDS_CLOSING_THE_WINDOW)
-    def test_a_single_recorded_spiel_is_refused_the_replace(self, mongo_replica_set_url: str, record: dict[str, Any]):
+    async def test_a_single_recorded_spiel_is_refused_the_replace(self, mongo_replica_set_url: str, record: dict[str, Any]):
         """Count these off anything but the stored rows and both fail."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1188,7 +1187,7 @@ class TestTheReplaceWindowIsReachedThroughTheRoute:
 
             return refused.value, standing, await document_ids(database)
 
-        refused, standing, surviving = on_a_seeded_saison(mongo_replica_set_url, body)
+        refused, standing, surviving = await on_a_seeded_saison(mongo_replica_set_url, body)
 
         assert refused.error_code == Code.SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW
         assert surviving == standing
@@ -1201,7 +1200,7 @@ class TestTheDrawIsTheOnlyThingThatMovesTheShape:
     longer drawn from it. The draw is where the three move instead.
     """
 
-    def test_a_drawn_future_season_with_nothing_recorded_is_refused_too(self, mongo_replica_set_url: str):
+    async def test_a_drawn_future_season_with_nothing_recorded_is_refused_too(self, mongo_replica_set_url: str):
         """The state a carve-out for repairs would sit in: nothing recorded, nothing played, and the fixtures still standing."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1212,7 +1211,7 @@ class TestTheDrawIsTheOnlyThingThatMovesTheShape:
 
             return refused.value, await stored_rules(database)
 
-        refused, rules = on_a_seeded_saison(mongo_replica_set_url, body)
+        refused, rules = await on_a_seeded_saison(mongo_replica_set_url, body)
 
         assert refused.error_code == Code.RULES_SHAPE_AFTER_SPIELPLAN
         # Read back, not inferred from the refusal: a rule raised after the write would refuse and store.
@@ -1242,7 +1241,7 @@ class ReshapedSeason:
     watermark: Any
 
 
-def a_season_drawn_from(
+async def a_season_drawn_from(
     url: str, *, seed: Seed, shape: FLSpielplanShape | None, replace: bool = False, stores_a_refused_shape: str | None = None
 ) -> ReshapedSeason:
     """Draw `seed` from `shape`, twice where `replace` is set -- the first time off the seed's own rules."""
@@ -1261,7 +1260,7 @@ def a_season_drawn_from(
             watermark=await watermark_now(database),
         )
 
-    return on_a_seeded_saison(url, body, seed=seed, stores_a_refused_shape=stores_a_refused_shape)
+    return await on_a_seeded_saison(url, body, seed=seed, stores_a_refused_shape=stores_a_refused_shape)
 
 
 # A `rules` sub-key no model declares, which `FLSaisonRules` ignores on a read -- so only a write
@@ -1291,10 +1290,10 @@ class TestADrawStoresTheShapeItRanFrom:
     list are one fact, and a draw leaving either behind splits them.
     """
 
-    def test_a_first_draw_narrows_the_placeholder_shape_the_season_was_created_with(self, mongo_replica_set_url: str):
+    async def test_a_first_draw_narrows_the_placeholder_shape_the_season_was_created_with(self, mongo_replica_set_url: str):
         """Judge `spielplan_gruppen_off_rules` off the stored rules and this fails: six clubs across two groups fill no group of four."""
 
-        drawn = a_season_drawn_from(mongo_replica_set_url, seed=a_short_seed(), shape=the_short_shape())
+        drawn = await a_season_drawn_from(mongo_replica_set_url, seed=a_short_seed(), shape=the_short_shape())
         expected = expected_counts(
             FLSaisonRules.model_validate(rules_document(groups=SHORT_GROUPS, teams=SHORT_PER_GROUP, qualifiers=SHORT_QUALIFIERS))
         )
@@ -1304,18 +1303,18 @@ class TestADrawStoresTheShapeItRanFrom:
         assert (len(drawn.spieltage), len(drawn.spiele)) == expected
         assert (drawn.response.spieltage, drawn.response.spiele) == expected
 
-    def test_the_rules_the_draw_is_no_function_of_are_left_where_they_stand(self, mongo_replica_set_url: str):
+    async def test_the_rules_the_draw_is_no_function_of_are_left_where_they_stand(self, mongo_replica_set_url: str):
         """`$set` the shape as a whole `rules` object and this fails: the six rules it does not carry would be gone from the season."""
 
-        drawn = a_season_drawn_from(mongo_replica_set_url, seed=a_short_seed(), shape=the_short_shape())
+        drawn = await a_season_drawn_from(mongo_replica_set_url, seed=a_short_seed(), shape=the_short_shape())
         untouched = {rule: value for rule, value in rules_document().items() if rule not in the_short_shape().model_dump()}
 
         assert {rule: drawn.rules[rule] for rule in untouched} == untouched
 
-    def test_a_rules_sub_key_no_model_declares_survives_the_draw(self, mongo_replica_set_url: str):
+    async def test_a_rules_sub_key_no_model_declares_survives_the_draw(self, mongo_replica_set_url: str):
         """`$set` the MERGED `rules` object and this fails: it holds what `FLSaisonRules` declares, so a hand-added key is silently dropped."""
 
-        drawn = a_season_drawn_from(
+        drawn = await a_season_drawn_from(
             mongo_replica_set_url,
             seed=a_short_seed(extra_rules=UNDECLARED_RULE),
             shape=the_short_shape(),
@@ -1330,10 +1329,10 @@ class TestADrawStoresTheShapeItRanFrom:
 class TestAReplaceRedrawsTheSeasonFromTheShapeItCarries:
     """The operation `rules_shape_after_spielplan` names as the repair: the numbers and the fixtures move together, or neither moves."""
 
-    def test_a_narrower_qualifier_count_is_stored_and_drawn(self, mongo_replica_set_url: str):
+    async def test_a_narrower_qualifier_count_is_stored_and_drawn(self, mongo_replica_set_url: str):
         """No patch of a drawn season permits this step: `rules_qualifiers_below_wiring` and `rules_spieltag_over_its_phase` each refuse it."""
 
-        replaced = a_season_drawn_from(mongo_replica_set_url, seed=Seed(), shape=a_shape(qualifiers=NARROWED_QUALIFIERS), replace=True)
+        replaced = await a_season_drawn_from(mongo_replica_set_url, seed=Seed(), shape=a_shape(qualifiers=NARROWED_QUALIFIERS), replace=True)
         expected = expected_counts(FLSaisonRules.model_validate(rules_document(qualifiers=NARROWED_QUALIFIERS)))
         first_round = [row for row in replaced.spiele if row["saison_phase"] == KNOCKOUT_PHASES[-2]]
 
@@ -1369,7 +1368,7 @@ class TestAShapeTheSeasonCannotBeDrawnFromIsRefused:
             ),
         ],
     )
-    def test_the_season_keeps_both_its_rules_and_its_draw(self, mongo_replica_set_url: str, code: str, shape: FLSpielplanShape, why: str):
+    async def test_the_season_keeps_both_its_rules_and_its_draw(self, mongo_replica_set_url: str, code: str, shape: FLSpielplanShape, why: str):
         """Store the shape before these refusals and this fails: the season would hold numbers its standing fixtures contradict."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> RefusedReshape:
@@ -1386,7 +1385,7 @@ class TestAShapeTheSeasonCannotBeDrawnFromIsRefused:
                 watermark=await watermark_now(database),
             )
 
-        refused = on_a_seeded_saison(mongo_replica_set_url, body)
+        refused = await on_a_seeded_saison(mongo_replica_set_url, body)
 
         assert refused.error_code == code, why
         assert refused.rules == rules_document()
@@ -1430,7 +1429,7 @@ class TestASeasonIsNeverDrawnMoreMatchdaysThanItHasDays:
     created with, and the draw replaces three of them.
     """
 
-    def test_a_shape_implying_more_matchdays_than_the_season_has_days_is_refused(self, mongo_replica_set_url: str):
+    async def test_a_shape_implying_more_matchdays_than_the_season_has_days_is_refused(self, mongo_replica_set_url: str):
         """Drop the span call and this fails: six matchdays land in a five-day season, and no two may share a day."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1439,7 +1438,7 @@ class TestASeasonIsNeverDrawnMoreMatchdaysThanItHasDays:
 
             return refused.value, await stored_rules(database), await counts_now(database), await watermark_now(database)
 
-        refused, rules, counts, watermark = on_a_seeded_saison(mongo_replica_set_url, body, seed=a_tight_seed())
+        refused, rules, counts, watermark = await on_a_seeded_saison(mongo_replica_set_url, body, seed=a_tight_seed())
 
         # The draw twin: the span weighed is the stored one, which a season patch can widen.
         assert refused.error_code == Code.SAISON_SPAN_BELOW_SPIELPLAN_AS_STORED
@@ -1453,7 +1452,7 @@ class TestASeasonIsNeverDrawnMoreMatchdaysThanItHasDays:
 class TestAnAbortedRedrawLeavesTheOldRulesWithTheOldDraw:
     """Why the shape is written inside the callback: one transaction holds the numbers and the fixtures they produced."""
 
-    def test_the_season_keeps_the_shape_its_standing_spiele_were_drawn_from(self, mongo_replica_set_url: str):
+    async def test_the_season_keeps_the_shape_its_standing_spiele_were_drawn_from(self, mongo_replica_set_url: str):
         """Write the shape outside the session, or before `with_transaction`, and this fails: the rules would move and the draw would not."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1473,7 +1472,7 @@ class TestAnAbortedRedrawLeavesTheOldRulesWithTheOldDraw:
 
             return drawn, code, await stored_rules(database), await document_ids(database) == standing, await watermark_now(database)
 
-        drawn, code, rules, kept_its_draw, watermark = on_a_seeded_saison(mongo_replica_set_url, body, mutates_schema=True)
+        drawn, code, rules, kept_its_draw, watermark = await on_a_seeded_saison(mongo_replica_set_url, body, mutates_schema=True)
 
         # On the code, so this cannot pass because the redraw fell before it had decided anything.
         assert code == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the write, got {code}"

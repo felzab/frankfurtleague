@@ -1,4 +1,3 @@
-import asyncio
 import functools
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime, timedelta
@@ -18,7 +17,7 @@ from app.main import create_app
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests.app_client import app_client
 from tests.config import SYSTEM_AUTH
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.documents import (
     SCHIEDSRICHTER_TEXT_VERSIONS,
     kontaktperson_document,
@@ -228,16 +227,13 @@ def _grant(grant_id: ObjectId, address: str, admin_tier: str) -> dict[str, Any]:
     return {"_id": grant_id, "address": address, "admin_tier": admin_tier, "effective_from": GRANT_TYPED}
 
 
-def on_a_league(url: str, body: Body) -> Any:
+async def on_a_league(url: str, body: Body) -> Any:
     """The shipped indexes, so a seeded row this read has to answer meets the constraints a real one meets."""
 
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
-            await _seed(database)
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
+        await _seed(database)
 
-            return await body(database)
-
-    return on_the_seed_loop(_run())
+        return await body(database)
 
 
 async def _no_body(_: AsyncDatabase) -> None:
@@ -269,24 +265,24 @@ async def call_sign_in(database: AsyncDatabase, email: str) -> FLSignInResponse:
         )
 
 
-def answered(url: str, email: str = IDENTIFIER) -> FLSubjectResponse:
-    return on_a_league(url, lambda database: call_subject(database, email))
+async def answered(url: str, email: str = IDENTIFIER) -> FLSubjectResponse:
+    return await on_a_league(url, lambda database: call_subject(database, email))
 
 
 @pytest.mark.db
-def test_an_address_sharing_only_a_local_part_with_unconfirmed_records_awaits_no_confirmation(mongo_replica_set_url: str):
+async def test_an_address_sharing_only_a_local_part_with_unconfirmed_records_awaits_no_confirmation(mongo_replica_set_url: str):
     """The flag raised, the sign-in gate admits a mailbox the league holds nothing for."""
 
-    answer = answered(mongo_replica_set_url, UNCONFIRMED_ELSEWHERE)
+    answer = await answered(mongo_replica_set_url, UNCONFIRMED_ELSEWHERE)
 
     assert (answer.unconfirmed, answer.seats, answer.spieler, answer.schiedsrichter) == (False, [], [], [])
 
 
 @pytest.mark.db
-def test_a_seat_carries_its_own_season_s_status(mongo_replica_set_url: str):
+async def test_a_seat_carries_its_own_season_s_status(mongo_replica_set_url: str):
     """The one read of `saisons` a seat costs. Two seasons of differing status, so a status taken from whichever sorted first is wrong here."""
 
-    assert [seat.saison_status for seat in answered(mongo_replica_set_url).seats] == ["past", "active", "active"]
+    assert [seat.saison_status for seat in (await answered(mongo_replica_set_url)).seats] == ["past", "active", "active"]
 
 
 @functools.cache
@@ -299,23 +295,23 @@ def _served() -> FastAPI:
     return create_app(config_for(DATABASE_NAME))
 
 
-def served_over_http(url: str, email: str = IDENTIFIER) -> Response:
+async def served_over_http(url: str, email: str = IDENTIFIER) -> Response:
     """The corpus seeded, then one request through the MOUNTED route."""
 
-    on_a_league(url, _no_body)
+    await on_a_league(url, _no_body)
 
     async def _answered() -> Response:
         async with app_client(url, app=_served()) as http:
             return await http.post(PATH, headers=SYSTEM_AUTH, json={"email": email})
 
-    return asyncio.run(_answered())
+    return await _answered()
 
 
 @pytest.mark.db
-def test_the_mounted_route_answers_a_retired_person_as_it_answers_nobody(mongo_replica_set_url: str):
+async def test_the_mounted_route_answers_a_retired_person_as_it_answers_nobody(mongo_replica_set_url: str):
     """A confirmed referee row, retired: empty lists and the flag down, as for a mailbox holding nothing."""
 
-    response = served_over_http(mongo_replica_set_url, RETIRED)
+    response = await served_over_http(mongo_replica_set_url, RETIRED)
 
     assert response.status_code == 200
     assert response.json() == {
@@ -348,7 +344,7 @@ class TestTheGateWalksAnIndex:
     only the plan shows it.
     """
 
-    def test_every_address_read_of_the_gate_plans_an_index_scan(self, mongo_replica_set_url: str):
+    async def test_every_address_read_of_the_gate_plans_an_index_scan(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> list[tuple[str, str]]:
             _, plans = await plans_of_sent_reads(
                 mongo_replica_set_url, database, lambda watched, _client: call_sign_in(watched, IDENTIFIER), _selects_by_address
@@ -356,7 +352,7 @@ class TestTheGateWalksAnIndex:
 
             return plans
 
-        plans = on_a_league(mongo_replica_set_url, body)
+        plans = await on_a_league(mongo_replica_set_url, body)
 
         # The premise: a read the handler never sent would pass the next line vacuously.
         assert {collection for collection, _ in plans} == GATE_READS, plans
@@ -367,7 +363,7 @@ class TestTheGateWalksAnIndex:
 class TestTheGrant:
     """`admin_tier`: the one stored answer, read off `grants` on the folded identifier."""
 
-    def test_a_waiting_row_answers_no_tier_on_either_route(self, mongo_replica_set_url: str):
+    async def test_a_waiting_row_answers_no_tier_on_either_route(self, mongo_replica_set_url: str):
         """A named person is no administrator until the wait ends, which the owner may yet stop: a tier here admits them early."""
 
         async def body(database: AsyncDatabase) -> tuple[Any, ...]:
@@ -377,12 +373,12 @@ class TestTheGrant:
 
             return subject.admin_tier, subject.granted_since, sign_in.admin_tier
 
-        assert on_a_league(mongo_replica_set_url, body) == (None, None, None)
+        assert await on_a_league(mongo_replica_set_url, body) == (None, None, None)
 
-    def test_the_instant_is_served_with_its_offset(self, mongo_replica_set_url: str):
+    async def test_the_instant_is_served_with_its_offset(self, mongo_replica_set_url: str):
         """The driver reads a stored instant back with no offset, which the frontend would compare as its own local time."""
 
-        response = served_over_http(mongo_replica_set_url, ADMIN_STORED)
+        response = await served_over_http(mongo_replica_set_url, ADMIN_STORED)
 
         assert response.json()["granted_since"] == "2026-01-01T00:00:00Z"
         assert response.json()["admin_tier"] == "administration"
