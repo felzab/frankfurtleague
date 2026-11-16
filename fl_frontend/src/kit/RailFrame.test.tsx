@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { underNext } from "@/test-support/nextContexts";
-import { act, render, screen } from "@testing-library/react";
+import { renderUnderNext } from "@/test-support/nextContexts";
+import { act, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -8,11 +8,12 @@ import { COPY } from "@/core/copy";
 
 import { RailFrame } from "./RailFrame";
 
-import type { ComponentProps, ReactNode } from "react";
+import type { NextContexts } from "@/test-support/nextContexts";
+import type { ComponentProps } from "react";
 import type { Account } from "./FrameNav";
 
 /** Next's navigation at the Spielorte, a page whose address names no season. */
-const AtSpielorte = ({ children }: { children: ReactNode }) => underNext(children, { pathname: "/admin/spielorte", params: {} });
+const AT_ADDRESS: NextContexts = { pathname: "/admin/spielorte", params: {} };
 
 vi.mock("next-themes", () => ({ useTheme: () => ({ theme: "system", setTheme: () => undefined }) }));
 
@@ -50,14 +51,14 @@ const ACCOUNT: Account = { role: COPY.admin.role, address: { record: "verwaltung
 /** The frame of a one-page area around a page, its account read as given. */
 async function renderFrame(account: Promise<Account | null>) {
   await act(async () =>
-    render(
+    renderUnderNext(
       <RailFrame
         groups={[{ entries: [{ id: "spielorte", label: COPY.page.adminSpielorte, href: "/admin/spielorte", icon: "search" }] }]}
         bar={["spielorte"]}
         foot={{ kind: "account", account }}>
         <p>Seite</p>
       </RailFrame>,
-      { wrapper: AtSpielorte },
+      AT_ADDRESS,
     ),
   );
 }
@@ -86,7 +87,7 @@ afterEach(() => {
 describe("the menu's prefetch", () => {
   it("asks every entry of the rail and of the phone bar for its page whole where the frame says so, and nothing else", async () => {
     await act(async () =>
-      render(
+      renderUnderNext(
         <RailFrame
           groups={[{ entries: [{ id: "tabelle", label: COPY.page.tabelle, href: "/saisons/2027/tabelle", icon: "tabelle" }] }]}
           bar={["tabelle"]}
@@ -94,7 +95,7 @@ describe("the menu's prefetch", () => {
           prefetch>
           <p>Seite</p>
         </RailFrame>,
-        { wrapper: AtSpielorte },
+        AT_ADDRESS,
       ),
     );
 

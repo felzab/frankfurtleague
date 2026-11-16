@@ -83,6 +83,7 @@ const EVERY = () => true;
 /** Production source and the tests' support folder. */
 const SOURCE = (zone) => zone.kind !== "test";
 const PRODUCTION = (zone) => zone.kind !== "test" && zone.kind !== "support";
+const TESTS = (zone) => zone.kind === "test";
 const OUTSIDE_KIT = (zone) => PRODUCTION(zone) && zone.kind !== "kit";
 const KIT = (zone) => zone.kind === "kit";
 const PAGE_CODE = (zone) => zone.kind === "page";
@@ -489,6 +490,18 @@ const SOURCE_BANS = [
   syntaxBan(ACTION_STATE_BAN, SOURCE, { allow: ["src/kit/useFormAction.ts"] }),
   // Tests included: a test's helper narrowing a value away misleads its case as surely.
   syntaxBan(TYPE_PREDICATE_BAN, EVERY),
+  syntaxBan(
+    // A tree handed to Testing Library already wrapped draws a `rerender`'s tree outside the contexts; a wrapper of a
+    // file's own is the copy the helpers replace. A tree rendered by React's own server renderers keeps `underNext`.
+    syntax(
+      [
+        ':matches(CallExpression[callee.name="render"], CallExpression[callee.name="rerender"]) > CallExpression.arguments[callee.name="underNext"]',
+        'CallExpression[callee.name="underNext"][arguments.0.type="Identifier"][arguments.0.name="children"]',
+      ].join(", "),
+      "Render under Next's contexts through `renderUnderNext` or `renderHookUnderNext` in fl_frontend/src/test-support/nextContexts.ts, Testing Library's custom render, whose wrapper keeps a `rerender` under them.",
+    ),
+    TESTS,
+  ),
   syntaxBan(
     // At the construction rather than on a string: an image held in a variable starts a container as surely as one
     // typed there.
