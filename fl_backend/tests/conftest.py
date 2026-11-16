@@ -16,7 +16,7 @@ from pydantic import BaseModel, ValidationError
 from pymongo import MongoClient
 
 from app.core.recording import actor_var
-from tests.database import bounded_case, close_the_shared_clients
+from tests.database import bounded_case, close_the_shared_clients, restart_background_tasks_where_they_first_started
 from tests.documents import EINWILLIGUNG, rules_document
 from tests.payloads import PayloadFactory
 from tests.tier import is_db_marked, refuse_server_fixtures
@@ -52,11 +52,14 @@ def _factory(base: dict[str, Any]) -> PayloadFactory:
 
 @pytest.fixture(scope="session", autouse=True)
 async def the_shared_clients() -> AsyncIterator[None]:
-    """Closes every client `tests/database.py :: shared_client` opened on the session's loop, on that loop, before it stops.
+    """The session's loop, keeping a shared client's background tasks outside every scope, and every client closed on it.
 
-    Opens nothing itself: a client is opened by the first case asking for it.
+    `tests/database.py :: restart_background_tasks_where_they_first_started` is installed before any client opens, and
+    `close_the_shared_clients` closes on the loop, before it stops, every client `shared_client` opened there. Opens no
+    client itself: one is opened by the first case asking for it.
     """
 
+    restart_background_tasks_where_they_first_started()
     yield
     await close_the_shared_clients()
 

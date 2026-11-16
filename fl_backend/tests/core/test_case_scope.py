@@ -9,7 +9,8 @@ Invariants:
 - A task the work starts and leaves running fails the scope that left it, and is cancelled there rather than running
   into the next case, as is a task one of those starts as it unwinds. A task still running once cancelled refuses every
   later scope until it ends. A task started outside the scope is not the scope's, nor is a shared client's monitor,
-  wherever that client was first asked for; a client the scope opens and leaves open fails it.
+  wherever that client was first asked for and whichever scope pymongo restarts it from; a client the scope opens and
+  leaves open fails it.
 - A clean database is entered in a case's body alone, and a module's corpus is judged after the module's cases: it is
   refused when released in the task that seeded it, and nothing clears it while it is held.
 - A variable a corpus's seed binds stays out of the fixture's context, which pytest-asyncio carries into every case of
@@ -20,11 +21,13 @@ import asyncio
 import contextlib
 import contextvars
 from collections.abc import AsyncIterator
+from typing import Any
 
 import pymongo
 import pytest
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
+from pymongo.periodic_executor import AsyncPeriodicExecutor
 
 from app.core.collections import Collection
 from app.core.logging import NO_REQUEST_SENTINEL, trace_id_var
@@ -222,6 +225,39 @@ async def test_a_shared_client_s_monitor_mid_check_is_not_the_scope_s():
             # Its own: no other case asks for this url, and `close_the_shared_clients` closing it again is a no-op.
             for client in opened:
                 await client.close()
+
+
+async def test_a_background_task_first_started_outside_every_scope_is_restarted_outside_them():
+    """pymongo's own executor, as it restarts a shared client's monitor from a later case's server selection."""
+
+    started: list[asyncio.Task[Any]] = []
+    restarted = asyncio.Event()
+
+    async def target() -> bool:
+        running = asyncio.current_task()
+        assert running is not None
+        started.append(running)
+        restarted.set()
+        # The first run stops the executor, its task ending uncancelled as a monitor's does when its check raises.
+        return len(started) > 1
+
+    executor = AsyncPeriodicExecutor(interval=60, min_interval=0.01, target=target, name="the_shared_monitor")
+    contextvars.Context().run(executor.open)
+    await restarted.wait()
+    await asyncio.wait(started)
+    restarted.clear()
+
+    async def restarts_it() -> None:
+        executor.open()
+        await restarted.wait()
+
+    try:
+        await bounded(restarts_it())
+
+        assert [task.done() for task in started] == [True, False], "the restarted task was cancelled as the scope's own"
+    finally:
+        executor.close()
+        await asyncio.wait(started)
 
 
 async def test_a_clean_database_entered_outside_a_case_is_refused():

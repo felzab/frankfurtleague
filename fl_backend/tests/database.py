@@ -1,14 +1,17 @@
 import asyncio
 import io
+import weakref
 from collections.abc import AsyncGenerator, Awaitable, Callable, Coroutine, Iterable, Mapping, Sequence
 from contextlib import AsyncExitStack, asynccontextmanager, redirect_stdout
-from contextvars import Context, ContextVar
+from contextvars import Context, ContextVar, copy_context
 from datetime import UTC, datetime, timedelta
+from types import CoroutineType
 from typing import Any
 
 import pymongo
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
+from pymongo.periodic_executor import AsyncPeriodicExecutor
 from pymongo.uri_parser import parse_uri
 
 from app.core.concurrency import concurrently
@@ -114,6 +117,39 @@ _CASE: ContextVar[asyncio.Timeout | None] = ContextVar("_CASE", default=None)
 # Set while any scope runs, to its bound: asyncio copies the current context into every task it creates, so each task the
 # scope's code starts, and each task those start, carries it, and a task begun anywhere else does not.
 _SCOPE: ContextVar[asyncio.Timeout | None] = ContextVar("_SCOPE", default=None)
+
+
+# pymongo starts each of its background tasks from the context of whatever calls the executor's `open`, and restarts a
+# task that ended uncancelled from an operation's server selection. A shared topology's monitor restarted inside a case
+# would carry that case's mark, be cancelled at its end, and, cancelled, never be reopened.
+_EXECUTOR_RUN = AsyncPeriodicExecutor._run.__code__
+
+# Every executor whose first task started outside every scope, as a shared client's start in a context of its own.
+_UNSCOPED_EXECUTORS: weakref.WeakSet[AsyncPeriodicExecutor] = weakref.WeakSet()
+
+
+def _restarted_where_it_first_started(loop: asyncio.AbstractEventLoop, coro: Coroutine[Any, Any, Any], **options: Any) -> asyncio.Task[Any]:
+    """The loop's task factory: an executor first started outside every scope starts every later task outside them too."""
+
+    if isinstance(coro, CoroutineType) and coro.cr_code is _EXECUTOR_RUN:
+        # An unstarted coroutine's frame holds its arguments, `self` among them.
+        assert coro.cr_frame is not None, "the executor's task was handed a coroutine already run"
+        executor = coro.cr_frame.f_locals["self"]
+        context = options.get("context") or copy_context()
+        if context.get(_SCOPE) is None:
+            _UNSCOPED_EXECUTORS.add(executor)
+        elif executor in _UNSCOPED_EXECUTORS:
+            options["context"] = Context()
+
+    return asyncio.Task(coro, loop=loop, **options)
+
+
+def restart_background_tasks_where_they_first_started() -> None:
+    """Installs the running loop's task factory, before any client opens on it: the session's loop, once."""
+
+    loop = asyncio.get_running_loop()
+    assert loop.get_task_factory() is None, f"the loop already runs a task factory, {loop.get_task_factory()!r}"
+    loop.set_task_factory(_restarted_where_it_first_started)
 
 
 def case_deadline() -> float | None:
@@ -245,8 +281,9 @@ async def shared_client(url: str) -> AsyncMongoClient:
 
     Public because a module reading a seeded corpus needs that client without `a_clean_database`'s clearing. Called on a
     running loop, which is the one the client belongs to. Its topology opens in a task with a context of its own, so the
-    background tasks pymongo starts as it opens carry no scope's mark, as a server's own work would not: a client a case
-    opens itself is that case's to close, and fails its scope while open.
+    background tasks pymongo starts as it opens, and those it restarts later (`_restarted_where_it_first_started`), carry
+    no scope's mark, as a server's own work would not: a client a case opens itself is that case's to close, and fails
+    its scope while open.
     """
 
     key = (asyncio.get_running_loop(), url)
