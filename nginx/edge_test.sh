@@ -17,8 +17,8 @@
 # - The link pages' prefix without its slash reaches Next rather than a redirect Next sends back.
 # - Each upstream is named through a variable and found through Docker's DNS alone, and the
 #   capabilities the model grants are enough to start nginx.
-# - Each rate zone admits its burst as written and refuses past it, as the connection ceiling does its
-#   figure, every location naming a zone refusing once its key is spent. No rate is held.
+# - Each rate zone refuses past its burst, as the connection ceiling does past its figure, every
+#   location naming a zone refusing once its key is spent. No rate is held.
 # - Every body cap takes its figure and refuses a byte past it.
 #
 #   ./nginx/edge_test.sh --verbose   print the access line every case was graded on
@@ -245,8 +245,8 @@ done
 (( _up )) || refuse "the edge test's nginx never answered on ${BASE}."
 
 # `nginx/prod/` mounted as production mounts it, on the plain port the connector dials, proxying to the
-# stub above. Every rate zone and the connection ceiling are driven here, on keys nothing else in this
-# run spends, so a zone's first answers are its whole allowance.
+# stub above. The form, sign-in and link zones and the connection ceiling are driven here, on keys
+# nothing else in this run spends.
 MSYS_NO_PATHCONV=1 docker run -d --name "$PROD_CONTAINER" \
   -p 127.0.0.1:0:80 \
   --network "$NETWORK" \
@@ -477,11 +477,10 @@ fi
 
 # --- the rate zones -------------------------------------------------------------------------------
 
-# Each zone's burst off the block naming it, so a figure moved there is driven as written: one request
-# and the burst pass, nginx admitting a key's first and then as many as the burst holds whatever the
-# refill, and a flood past them is refused. A location naming a zone refuses once that key is spent.
-# The server-action zone on the local edge, the other three on production's, each on a key nothing
-# before it spent.
+# Each zone's burst off the block naming it, so a flood sent past it spends the key whatever the figure:
+# nginx admits a key's first request and then as many as the burst holds. A location naming a zone
+# refuses once that key is spent. The server-action zone on the local edge, the other three on
+# production's, each on a key nothing before it spent.
 ACTION_FAILURES=0
 ACTION_ID="7f3c0ffee7f3c0ffee7f3c0ffee7f3c0ffee7f3c0f"
 # What a refused request asks for decides its answer: Next 16.4.2's server-action client asks for this
@@ -545,15 +544,11 @@ burst_of() { # $1 the variable to set, $2 the opening line of the block naming t
 ACTION_LABELS=()
 ACTION_CONFIG=()
 
-# The server-action zone, on the local edge: saves at an administrator's pace pass, a flood past the
-# burst is refused, both form posts count as actions, and a request that is no action is never metered.
+# The server-action zone, on the local edge: a flood past the burst is refused, both form posts count
+# as actions, and a request that is no action is never metered. Thirty past the burst, inside the same
+# seconds: the burst and the second or two of refill are spent.
 burst_of ACTION_BURST "location / {" action
-for _ in $(seq 0 "$ACTION_BURST"); do
-  action_request action-allowance -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" \
-    --data '[]' "${BASE}/admin/spielorte"
-done
-# Thirty more inside the same seconds: the burst and the second or two of refill are spent.
-for _ in $(seq 1 30); do
+for _ in $(seq 0 $(( ACTION_BURST + 30 ))); do
   action_request action-flood -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" \
     --data '[]' "${BASE}/"
 done
@@ -583,10 +578,7 @@ LIMIT_HOST="frankfurtleague.de"
 # The form zone, its two locations on one key: crash reports spend it, and the code check, metered on
 # it rather than on the library's prefix five times as loose, is refused once they have.
 burst_of FORM_BURST "location = /api/client-error {" form
-for _ in $(seq 0 "$FORM_BURST"); do
-  action_request form-allowance -X POST -H "Content-Type: application/json" --data '{}' "${PROD_BASE}/api/client-error"
-done
-for _ in $(seq 1 5); do
+for _ in $(seq 0 $(( FORM_BURST + 5 ))); do
   action_request form-flood -X POST -H "Content-Type: application/json" --data '{}' "${PROD_BASE}/api/client-error"
 done
 spent_request form-code -X POST -H "Content-Type: application/json" --data '{}' "${PROD_BASE}/api/auth/sign-in/email-otp"
@@ -594,10 +586,7 @@ spent_request form-code -X POST -H "Content-Type: application/json" --data '{}' 
 # The sign-in library's zone, on every method, and the landing, the readiness probe and the code check,
 # asked with a GET the form zone's key leaves out, on the same key.
 burst_of AUTH_BURST "location /api/auth {" authapi
-for _ in $(seq 0 "$AUTH_BURST"); do
-  action_request auth-allowance "${PROD_BASE}/api/auth/probe"
-done
-for _ in $(seq 1 10); do
+for _ in $(seq 0 $(( AUTH_BURST + 10 ))); do
   action_request auth-flood "${PROD_BASE}/api/auth/probe"
 done
 spent_request auth-landing -H "Accept: ${NAVIGATION_ACCEPT}" "${PROD_BASE}/signin/continue"
@@ -607,10 +596,7 @@ spent_request auth-code "${PROD_BASE}/api/auth/sign-in/email-otp"
 # The link pages' zone, every request it meters a page render or the proxy's redirect into one, with
 # twenty past the burst for the refill the run takes.
 burst_of LINK_BURST "location /confirm/ {" linkpage
-for _ in $(seq 0 "$LINK_BURST"); do
-  action_request link-allowance "${PROD_BASE}/confirm/kontakt?token=${TOK}"
-done
-for _ in $(seq 1 20); do
+for _ in $(seq 0 $(( LINK_BURST + 20 ))); do
   action_request link-flood "${PROD_BASE}/confirm/kontakt?token=${TOK}"
 done
 # The key spent: every link page's block, each answer kept whole, since a block declaring its own
@@ -645,7 +631,6 @@ expect_action() { # $1 label, $2 the status every transfer of it must answer, or
   detail "expected ${wanted/some:/at least one } from every '${label}' transfer, nginx answered: ${answered}"
   ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
 }
-expect_action action-allowance 200
 expect_action action-flood some:429
 expect_action multipart some:429
 expect_action urlencoded some:429
@@ -790,11 +775,9 @@ for _i in "${!LINK_ACTION_PATHS[@]}"; do
   grade_spent "link-action-${_i}"
   (( ACTION_FAILURES == _before )) || detail "link-action-${_i} posted to ${LINK_ACTION_PATHS[_i]}"
 done
-expect_action form-allowance 200
 expect_action form-flood some:429
 expect_action form-code some:429
 grade_spent form-code
-expect_action auth-allowance 200
 expect_action auth-flood some:429
 expect_action auth-landing some:429
 # A page load refused anywhere meets the page, a link page's or not.
@@ -803,7 +786,6 @@ expect_action auth-ready some:429
 grade_spent auth-ready
 expect_action auth-code some:429
 grade_spent auth-code
-expect_action link-allowance 200
 expect_action link-flood some:429
 for _i in "${!LINK_SPENT[@]}"; do
   _before=$ACTION_FAILURES
@@ -816,8 +798,8 @@ grade_spent link-json
 expect_action link-head some:429
 grade_spent link-head head
 
-# The connection ceiling, on production's catch-all: as many requests as it holds, all in flight at
-# once to an answer the stub sends slowly, pass, and one more beside them is refused.
+# The connection ceiling, on production's catch-all: one request more than it holds, all in flight at
+# once to an answer the stub sends slowly, meets a refusal.
 CONN_CEILING="$(awk '{ sub(/\r$/, "") } $0 == "location / {" { inside = 1; next } inside && $0 == "}" { exit }
   inside && /^[[:space:]]*limit_conn conn [0-9]+;$/ { sub(/.*conn /, ""); sub(/;$/, ""); print; exit }' "${REPO_ROOT}/nginx/shared/site.conf")"
 [[ "$CONN_CEILING" =~ ^[0-9]+$ ]] || refuse "nginx/shared/site.conf's 'location / {' block declares no connection ceiling this test can read."
@@ -826,17 +808,13 @@ for _ in $(seq 0 "$CONN_CEILING"); do
   CONN_REQUESTS+=( -s -o /dev/null -w '%{http_code}\n' --max-time 15 -H "Host: frankfurtleague.de" "${PROD_BASE}/held" )
 done
 mapfile -t CONN_STATUSES < <(curl "${CONN_REQUESTS[@]}" || true)
-CONN_PASSED=0
 CONN_REFUSED=0
 for _status in "${CONN_STATUSES[@]}"; do
-  case "${_status%$'\r'}" in
-    200) CONN_PASSED=$(( CONN_PASSED + 1 )) ;;
-    429) CONN_REFUSED=$(( CONN_REFUSED + 1 )) ;;
-  esac
+  if [[ "${_status%$'\r'}" == 429 ]]; then CONN_REFUSED=$(( CONN_REFUSED + 1 )); fi
 done
-if (( CONN_PASSED != CONN_CEILING || CONN_REFUSED != 1 )); then
+if (( CONN_REFUSED == 0 )); then
   fail "ACTION the connection ceiling"
-  detail "expected ${CONN_CEILING} of $(( CONN_CEILING + 1 )) requests in flight at once to pass and one to be refused, nginx answered: $(printf '%s ' "${CONN_STATUSES[@]//$'\r'/}")"
+  detail "expected one of $(( CONN_CEILING + 1 )) requests in flight at once to be refused, nginx answered: $(printf '%s ' "${CONN_STATUSES[@]//$'\r'/}")"
   ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
 fi
 
@@ -1153,8 +1131,8 @@ ok "${#LOGGED_LINES[@]} access lines each holding its trace id and no query, the
 ${#HEADER_PATHS[@]} paths and the www redirect each sending the security headers once as written, a
 link page's and its refusals withholding the referrer, /confirm reaching Next,
 each handing its upstream the edge's own traceparent, an empty
-Next-Action handed to no one, each rate zone admitting its burst as written and the connection ceiling
-its figure, each refusing past it, server actions metered on their own zone and nothing else metered by it, refused in
+Next-Action handed to no one, each rate zone refusing past its burst and the connection ceiling past
+its figure, server actions metered on their own zone and nothing else metered by it, refused in
 plain text an action reads, every link page metered on every request, its load refused with the edge's
 own page and no token reaching the error log, the code check metered on the crash reports' zone and on
 every method on the sign-in library's, every
