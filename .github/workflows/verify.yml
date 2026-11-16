@@ -269,7 +269,9 @@ jobs:
   # The Playwright journeys against the end-to-end stack, raised from the images the images job built
   # from this commit, with the made-up seed.
   journeys:
-    # Its images, built once by buildx: compose's own builder refuses the frontend Dockerfile's `COPY --exclude`.
+    # Its images, built once by buildx: a compose build here runs on the runner's Docker Engine, whose
+    # own Dockerfile frontend refuses the frontend Dockerfile's `COPY --exclude`, a Dockerfile 1.19
+    # option that the images job's pinned BuildKit takes.
     needs: images
     runs-on: ubuntu-latest
     timeout-minutes: 14
