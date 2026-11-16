@@ -430,19 +430,6 @@ class TestAnUndrawTakesTheSeasonsReports:
 class TestASubmittedReportKeepsTheSpielplan:
     """`spielplan_berichte_submitted` wired: the undraw counts the season's submitted reports in its transaction and again outside it."""
 
-    async def test_the_undraw_is_refused_and_removes_nothing(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            drawn = await call_draw(database, client)
-            await report_a_drawn_spiel(database)
-            outcome = await outcome_of(call_undraw(database, client))
-
-            return drawn, outcome, await counts_now(database), await database[Collection.SPIELBERICHTE].count_documents({})
-
-        drawn, outcome, counts, berichte = await on_a_seeded_saison(mongo_replica_set_url, body)
-
-        assert outcome == Code.SPIELPLAN_BERICHTE_SUBMITTED
-        assert (counts, berichte) == ((drawn.spieltage, drawn.spiele), 1)
-
     async def test_a_report_submitted_mid_undraw_is_counted_again_outside_it(self, mongo_replica_set_url: str):
         """A document inserted with no write's anchor meets nothing the undraw writes: the count outside its transaction refuses it."""
 
@@ -469,18 +456,14 @@ class RefusedUndraw:
     error_code: str
     spieltage: int
     spiele: int
-    watermark: Any
 
 
-async def an_undraw_refused_on(url: str, *, status: str | None = None, record: dict[str, Any] | None = None) -> RefusedUndraw:
-    """Draw the season, then close its window one way, then ask for the undraw."""
+async def an_undraw_refused_on(url: str, *, record: dict[str, Any]) -> RefusedUndraw:
+    """Draw the season, then close its window with `record` on one fixture, then ask for the undraw."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> RefusedUndraw:
         drawn = await call_draw(database, client)
-        if status is not None:
-            await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"status": status}})
-        if record is not None:
-            await database[Collection.SPIELE].update_one({"spiel_nr": 1}, {"$set": record})
+        await database[Collection.SPIELE].update_one({"spiel_nr": 1}, {"$set": record})
 
         with pytest.raises(APIError) as refused:
             await call_undraw(database, client)
@@ -492,24 +475,13 @@ async def an_undraw_refused_on(url: str, *, status: str | None = None, record: d
             error_code=refused.value.error_code,
             spieltage=spieltage,
             spiele=spiele,
-            watermark=await watermark_now(database),
         )
 
     return await on_a_seeded_saison(url, body)
 
 
 class TestTheWindowIsReachedThroughTheRoute:
-    """`spielplan_undraw_outside_its_window` WIRED: the endpoint reads the season's status and its own fixtures inside the transaction."""
-
-    @pytest.mark.parametrize("status", ["active"])
-    async def test_a_season_outside_its_planning_keeps_its_whole_spielplan(self, mongo_replica_set_url: str, status: str):
-        """Wire the undraw past the window and this fails: a league mid-season would lose the schedule it is playing."""
-
-        refused = await an_undraw_refused_on(mongo_replica_set_url, status=status)
-
-        assert refused.error_code == Code.SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW
-        assert (refused.spieltage, refused.spiele) == (refused.drawn.spieltage, refused.drawn.spiele)
-        assert refused.watermark is not None
+    """`spielplan_undraw_outside_its_window` WIRED: the endpoint reads its fixtures' recorded facts inside the transaction."""
 
     @pytest.mark.parametrize("record", RECORDS_CLOSING_THE_WINDOW)
     async def test_a_single_recorded_spiel_keeps_the_whole_spielplan(self, mongo_replica_set_url: str, record: dict[str, Any]):

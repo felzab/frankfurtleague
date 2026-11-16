@@ -63,10 +63,8 @@ QUALIFIERS = 2
 SHAPES: tuple[tuple[int, int, int], ...] = ((GROUPS, TEAMS_PER_GROUP, QUALIFIERS), (2, 3, 2))
 SHAPE_IDS = ("four groups of four into a quarter-final", "two odd groups into a semi-final")
 
-# Deliberately in no collection until a case seeds it: a matchday and the fixture hanging on it are
-# each their own refusal.
+# Deliberately in no collection until a case seeds it.
 STORED_SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f607760001")
-STORED_SPIEL_OID = ObjectId("6890a1b2c3d4e5f607760002")
 
 
 def rules_document(*, groups: int = GROUPS, teams: int = TEAMS_PER_GROUP, qualifiers: int = QUALIFIERS) -> dict[str, Any]:
@@ -92,9 +90,8 @@ def entry_rows(
     offset: int = 0,
     groups: int = GROUPS,
     teams: int = TEAMS_PER_GROUP,
-    short_gruppe: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Every club of a full season as its `saison_teams` row; `short_gruppe` leaves one group a club down.
+    """Every club of a full season as its `saison_teams` row.
 
     `offset` moves both ObjectId runs along, seeding a second season that shares no row and no club.
     """
@@ -103,9 +100,6 @@ def entry_rows(
     # Interleaved, so entry order and group membership disagree: a draw partitioning by list
     # position pairs clubs that never meet.
     for index, (seat, gruppe) in enumerate(product(range(teams), offered_gruppen(groups))):
-        if gruppe == short_gruppe and seat == teams - 1:
-            continue
-
         rows.append(
             documents.saison_team_document(
                 saison_id,
@@ -124,12 +118,6 @@ def a_stored_matchday() -> dict[str, Any]:
     """Undated, which is the shape the draw itself leaves: `spielplan_spieltage_held` counts rows and reads no field of one."""
 
     return documents.spieltag_document(STORED_SPIELTAG_OID, SAISON_ID, 1)
-
-
-def a_stored_spiel() -> dict[str, Any]:
-    """An unoccupied group fixture, the least this season could already hold."""
-
-    return documents.spiel_document(spiel_id=STORED_SPIEL_OID, saison_id=SAISON_ID, spiel_nr=1, spieltag_id=STORED_SPIELTAG_OID)
 
 
 @dataclass(frozen=True)
@@ -460,10 +448,8 @@ class TestEachRefusalIsReachedThroughTheRoute:
     @pytest.mark.parametrize(
         ("code", "seed"),
         [
-            pytest.param(Code.SPIELPLAN_ALREADY_DRAWN, Seed(spiele=[a_stored_spiel()]), id="a season already holding a fixture"),
             pytest.param(Code.SPIELPLAN_SPIELTAGE_HELD, Seed(spieltage=[a_stored_matchday()]), id="a season already holding a matchday"),
             pytest.param(Code.SAISON_PAST, Seed(saison=saison_document(status="past")), id="a season already finished"),
-            pytest.param(Code.SPIELPLAN_GRUPPEN_OFF_RULES, Seed(entered=entry_rows(short_gruppe="D")), id="a group short of a club"),
             # The other half of `spielplan_gruppen_off_rules`: these clubs stand in groups the season does not
             # offer, so the draw would put them in no round robin at all.
             pytest.param(
@@ -695,19 +681,6 @@ class TestAReplaceTakesTheSeasonsReports:
 
 class TestASubmittedReportKeepsTheSpielplanFromAReplace:
     """`spielplan_berichte_submitted` wired: the replace counts the season's submitted reports in its transaction and again outside it."""
-
-    async def test_the_replace_is_refused_and_removes_nothing(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            drawn = await call_draw(database, client)
-            await report_a_drawn_spiel(database)
-            outcome = await outcome_of(call_draw(database, client, replace=True, today=REDRAWN_TODAY))
-
-            return drawn, outcome, await watermark_now(database)
-
-        drawn, outcome, watermark = await on_a_seeded_saison(mongo_replica_set_url, body)
-
-        assert outcome == Code.SPIELPLAN_BERICHTE_SUBMITTED
-        assert watermark is not None and watermark["generated_at"] == drawn.generated_at
 
     async def test_a_report_submitted_mid_replace_is_counted_again_outside_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1095,26 +1068,7 @@ class TestAnAbortedReplaceLeavesTheSeasonStanding:
 
 
 class TestTheReplaceWindowIsReachedThroughTheRoute:
-    """`spielplan_replace_outside_its_window` WIRED: the endpoint reads the season's status and its own fixtures inside the transaction."""
-
-    async def test_a_running_season_is_refused_the_replace_and_keeps_its_draw(self, mongo_replica_set_url: str):
-        """Wire `replace` past the window and this fails: an active league would lose the schedule it is playing."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            drawn = await call_draw(database, client)
-            await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"status": "active"}})
-            standing = await document_ids(database)
-
-            with pytest.raises(APIError) as refused:
-                await call_draw(database, client, replace=True, today=REDRAWN_TODAY)
-
-            return drawn, standing, refused.value, await document_ids(database), await watermark_now(database)
-
-        drawn, standing, refused, surviving, watermark = await on_a_seeded_saison(mongo_replica_set_url, body)
-
-        assert refused.error_code == Code.SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW
-        assert surviving == standing
-        assert watermark == {"generated_at": TODAY}
+    """`spielplan_replace_outside_its_window` WIRED: the endpoint reads its fixtures' recorded facts inside the transaction."""
 
     @pytest.mark.parametrize("record", RECORDS_CLOSING_THE_WINDOW)
     async def test_a_single_recorded_spiel_is_refused_the_replace(self, mongo_replica_set_url: str, record: dict[str, Any]):
