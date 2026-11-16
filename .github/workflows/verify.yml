@@ -368,11 +368,7 @@ jobs:
       - name: Wait for the database and the backend
         run: docker compose up -d --no-build --wait --wait-timeout 180 mongo backend
       - name: Load the made-up seed and judge it
-        run: |
-          base="$(docker compose exec -T backend sh -c 'printf %s "$DB_BASE_NAME"')"
-          docker compose exec -T mongo sh -c 'cat > /tmp/made-up-seed.js' < scripts/ops/seed/seed.js
-          docker compose exec -T mongo mongosh --quiet "mongodb://127.0.0.1:27017/${base}?directConnection=true" --file /tmp/made-up-seed.js
-          docker compose exec -T backend python -m app.readback
+        run: ./scripts/ops/made_up_seed.sh
       # The database and the backend stay as started above, the seed in them, and only the services not
       # yet running are created: without `--force-recreate`, `up` recreates a container only for a
       # changed configuration or image (https://docs.docker.com/reference/cli/docker/compose/up/).
