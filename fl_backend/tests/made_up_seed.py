@@ -80,7 +80,7 @@ from app.api.schiedsrichter.services import compose_confirmation_update as compo
 from app.api.schiedsrichter.services import compose_mint_update
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment
 from app.api.spielbestaetigungen.services import compose_answer_update, compose_schiedsrichter_answer_update, compose_spielbestaetigung
-from app.api.spielorte.admin_router import _maps_link
+from app.api.spielorte.services import compose_maps_link
 from app.api.teams.services import compose_kontakt_confirmation
 from app.core import clock
 from app.core.collections import Collection
@@ -353,7 +353,12 @@ class MadeUpLeague:
     def _venues_and_referees(self) -> None:
         def venue(name: str, rent: int, at: dict[str, str], inactive_since: str | None) -> dict[str, Any]:
             return spielort_document(
-                ObjectId(), name, default_mietpreis=rent, address=at, maps_link=_maps_link(name, FLAddress(**at)), inactive_since=inactive_since
+                ObjectId(),
+                name,
+                default_mietpreis=rent,
+                address=at,
+                maps_link=compose_maps_link(name, FLAddress(**at)),
+                inactive_since=inactive_since,
             )
 
         self.venues = [
