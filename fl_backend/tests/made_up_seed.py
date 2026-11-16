@@ -1,0 +1,1600 @@
+"""
+TESTS · the made-up league: a league nobody plays in, for daily work and the end-to-end journeys
+
+Three seasons, ten clubs, five venues, the referees the fixtures book and the journeys' own people, an owner and the
+administrators, every one of them invented, so no machine needs production's personal data to show a page in each of its
+states. The states are the ones the Spielplan, the sign-in, the match editor, the Spielorte table, the applications, teams
+and players pages and the access pages draw:
+
+- a finished season: every fixture played, the match for third place among them, the final decided on penalties;
+- the running season: a played matchday holding a forfeit, today's matchday holding a played, an open and a cancelled
+  fixture, next week's matchday holding a stored line-up and owed ones, and a knockout round drawn, undated and not yet
+  decided; its registration links open past the window's end, two squads at their cap, one beside a nominee and a retired
+  nominee, and a departed club with an open fixture and a live link;
+- a planned season: its application window open today, one group full and the others with room, and applications whose
+  seats stand in every state;
+- venues with and without rent, one retired and one with a name long enough to test a row's width; referees, every one
+  with the address both referee payloads require, one retired and one unanswered;
+- one club's confirmed Trainer, whose decline proposes another day for next week's fixture, standing on the Übersicht for
+  „Übernehmen“ and „Verwerfen“;
+- the signed-in areas: a seat whose club holds a stored line-up, a locked one, an agreed date and several registrations,
+  and Birke's Trainer holding a declined date and, until today's match 7 kicks off, an expired one beside a club with no
+  registration; referees with a booking to answer, one agreed until its kick-off today, a report owed and one adopted; a
+  captain and a Co-Kapitän; a pupil with a finished season beside the running one; and a person granted no page, one
+  unconfirmed and one waiting on the club;
+- an owner and administrators in effect, an addition and a handover waiting, since a wait cannot be slept through;
+- a ban, a running change of a person's address and of a holder's, and a log row of each who;
+- a retired club, and clubs still in the league the planned season has not entered.
+
+Every journey that writes signs in as a person no other journey signs in as, since one journey's writes would change what
+another reads (https://playwright.dev/docs/auth). Every person, club, fixture and link a journey types stands in
+`made_up_people.json` beside this file: the seed writes each person from it, and writes nothing where a fixture, a club
+or a link it names is not the one the scenario sets up for that journey.
+
+`SEED_LANDING` in the environment sets the landing's state, the seed as written by default (`LANDING_STATES`); any other
+name is refused, exit 2, before the database is reached.
+
+Run by `./scripts/ops/local.sh --e2e`, `--e2e --landing=<state>` and `--seed-made-up`, and by the journeys' CI job, as
+`python -m tests.made_up_seed` inside the stack's backend container, copied there beside the tests' builders: it reads the
+settings the read-back reads, so it reaches only the database of the stack it runs in, and no image holds it, the tests
+being kept out of every build. The backend has booted first, so every index is in place, and `python -m app.readback`
+judges every document afterwards; the frontend starts, or with `--landing` restarts, only once it has passed.
+
+Invariants:
+- Every date is relative to today in Germany, so "today's matchday" is today whenever it runs.
+- Every document is composed by the backend's own composers and the tests' builders, and read through its record model
+  before anything is written.
+- It empties every collection of the application database first and never touches `auth`, the sign-in store the frontend
+  keeps beside it.
+- Every link a seat, a registration or an invitation holds opens at `?token=made-up-<label>`, `link_hash`'s label, so a
+  drive reads each state of a link page. The token is no secret: its hash stands in this made-up stack alone.
+"""
+
+import asyncio
+import copy
+import json
+import os
+import sys
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, field
+from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
+from typing import Any, Final
+
+from bson import ObjectId
+from pymongo import AsyncMongoClient
+from pymongo.errors import BulkWriteError, PyMongoError
+
+from app.api.address_change.services import compose_record
+from app.api.bewerbungen.services import compose_confirmation as compose_bewerbung_confirmation
+from app.api.bewerbungen.services import compose_confirmation_update as compose_seat_confirmation_update
+from app.api.bewerbungen.services import compose_einwilligung as compose_seat_einwilligung
+from app.api.outbox.schemas import FLBewerbungReceivedData, FLOutboxReference
+from app.api.outbox.services import final_update
+from app.api.saisons.schemas import FLSaisonRules
+from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
+from app.api.schiedsrichter.services import compose_confirmation as compose_schiedsrichter_confirmation
+from app.api.schiedsrichter.services import compose_confirmation_update as compose_schiedsrichter_confirmation_update
+from app.api.schiedsrichter.services import compose_mint_update
+from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment
+from app.api.spielbestaetigungen.services import compose_answer_update, compose_schiedsrichter_answer_update, compose_spielbestaetigung
+from app.api.spielorte.admin_router import _maps_link
+from app.api.teams.services import compose_kontakt_confirmation
+from app.core import clock
+from app.core.collections import Collection
+from app.core.config import get_config
+from app.core.crud import ANCHOR_FIELD
+from app.core.db import SERVER_SELECTION_TIMEOUT_MS
+from app.shared.einwilligung_evidence import compose_initial
+from app.shared.schemas.addresses import FLAddress
+from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS
+from app.shared.schemas.literals import FLAddressChangeWay
+from app.shared.tokens import hash_token
+from tests.documents import (
+    SCHIEDSRICHTER_TEXT_VERSIONS,
+    SEAT_TEXT_VERSIONS,
+    SPIELER_TEXT_VERSIONS,
+    action_log_document,
+    aufstellung_document,
+    ban_document,
+    bericht_document,
+    bewerbung_document,
+    grant_document,
+    invitation_document,
+    mailbox_anchor_document,
+    outbox_document,
+    read_back_document,
+    registrierung_confirmed,
+    registrierung_document,
+    rules_document,
+    saison_document,
+    saison_spieler_document,
+    saison_team_document,
+    schiedsrichter_document,
+    spiel_document,
+    spielbericht_document,
+    spielbericht_sides,
+    spieler_document,
+    spielort_document,
+    spieltag_document,
+    team_document,
+)
+
+# The people, clubs, fixtures and links the journeys type, read by them too.
+PEOPLE: Final[Mapping[str, Any]] = json.loads(Path(__file__).with_name("made_up_people.json").read_text(encoding="utf-8"))
+PROJECTS: Final[Sequence[Mapping[str, Any]]] = (PEOPLE["projects"]["desktop"], PEOPLE["projects"]["phone"])
+
+# The collections `anchor_in_db` writes, each first document carrying the count an anchor advances, as a document of the
+# league's soon does, so the read-back judges that its record model declares it. Kept by hand from the backend's callers
+# until a check holds the same from the backend's side; `mailbox_anchors` carries it by construction.
+ANCHORED: Final[frozenset[Collection]] = frozenset(
+    {
+        Collection.TEAMS,
+        Collection.SPIELORTE,
+        Collection.SCHIEDSRICHTER,
+        Collection.GRANTS,
+        Collection.SAISONS,
+        Collection.SAISON_TEAMS,
+        Collection.SPIELER,
+        Collection.SPIELE,
+        Collection.AUFSTELLUNGEN,
+        Collection.SPIELBESTAETIGUNGEN,
+    }
+)
+
+# The landing's state the seed as written stands in.
+AS_WRITTEN: Final = "running"
+
+
+def link_hash(label: str) -> str:
+    """The hash of the link `?token=made-up-<label>` opens."""
+
+    return hash_token(f"made-up-{label}")
+
+
+def full_name(person: Mapping[str, str]) -> str:
+    return f"{person['first_name']} {person['last_name']}"
+
+
+def address(street: str, house_number: str, postcode: str, district: str) -> dict[str, str]:
+    return {"street": street, "house_number": house_number, "postcode": postcode, "district": district, "city": "Frankfurt am Main"}
+
+
+def school(name: str, index: int) -> dict[str, Any]:
+    """A school's own fields, a club's or one an application names, by its place in the scenario."""
+
+    return {
+        "full_name": f"{name}-Gymnasium",
+        "website_url": None,
+        "address": address("Schulweg", str(index + 1), f"6031{index}", "Nordend"),
+        "schulform": "gymnasium_g9" if index % 2 == 0 else "gesamtschule",
+    }
+
+
+def applied(document: Mapping[str, Any], update: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
+    """`document` once the composed `update` has run on it, along dotted paths as the server applies them.
+
+    In memory rather than on the server, so a document is read through its model before it is written; only the
+    operators the composers replayed here emit.
+    """
+
+    result = copy.deepcopy(dict(document))
+    for operator, fields in update.items():
+        for path, value in fields.items():
+            *parents, key = path.split(".")
+            node = result
+            for parent in parents:
+                node = node.setdefault(parent, {})
+            if operator == "$set":
+                node[key] = value
+            elif operator == "$unset":
+                node.pop(key, None)
+            elif operator == "$min":
+                node[key] = value if key not in node else min(node[key], value)
+            else:
+                raise ValueError(f"{operator} is no operator this seed applies")
+
+    return result
+
+
+# One per row of a season, a colour being one team's.
+SEASON_COLOURS: Final = ("blau", "gruen", "rot", "gelb", "orange", "weiss", "schwarz", "grau")
+
+# Pappel joined through its application for the planned season. Buche left the league and stands in no season, the
+# retired filter being the one way back to it.
+CLUB_NAMES: Final = ("Ahorn", "Birke", "Eiche", "Linde", "Ulme", "Esche", "Kastanie", "Weide", "Pappel", "Buche")
+
+# The finished season. Both groups play one pattern of scores, each fixture's taken by its place in its group's round:
+# group A ends Ahorn 7, Birke 6, Eiche 4, Linde 0 points and group B Ulme, Esche, Kastanie, Weide alike, which is who the
+# knockout holds. The match for third place was won outright and the final went to penalties.
+FINISHED_MATCHDAYS: Final = (-280, -266, -252, -210, -196)
+GROUP_SCORES: Final = ((3, 0), (2, 1), (1, 1), (0, 2), (2, 1), (1, 0))
+KNOCKOUT_SCORES: Final[Mapping[int, Mapping[str, Any]]] = {
+    13: {"tore": (2, 0)},
+    14: {"tore": (1, 2)},
+    15: {"tore": (3, 1)},
+    16: {"tore": (1, 1), "elfmeterschiessen": {"team1": 4, "team2": 3}},
+}
+
+POSITIONS: Final = ("Tor", "Abwehr", "Mittelfeld", "Angriff")
+
+# With Mia and Jonas, Ahorn's squad fills the rules' `max_kader_size`, so a full squad and a nominee outside its count
+# stand together (`CAPPED_SQUAD_ROW`), and the retired nominee's reactivation passes the cap.
+AHORN_SQUAD: Final = (
+    ("Noah", "Adler"),
+    ("Lea", "Bauer"),
+    ("Finn", "Claus"),
+    ("Emma", "Dietz"),
+    ("Paul", "Ebert"),
+    ("Lina", "Fuchs"),
+    ("Luca", "Graf"),
+    ("Nora", "Hein"),
+    ("Tom", "Igel"),
+    ("Ida", "Jung"),
+    ("Max", "Kern"),
+    ("Ella", "Lang"),
+    ("Leo", "Merz"),
+    ("Zoe", "Nagel"),
+    ("Jan", "Ott"),
+    ("Amy", "Peters"),
+)
+
+# Ulme's squad, the phone's contact seat's line-up to enter, at the cap as Ahorn's is; and Kastanie's beside Lena, the
+# club's line-up for match 10. No name holds either `squadded` pupil's, whom the administration's journey opens by a link
+# whose name holds theirs.
+ULME_SQUAD: Final = (
+    ("Anton", "Umbach"),
+    ("Clara", "Unger"),
+    ("David", "Uhl"),
+    ("Emilia", "Urban"),
+    ("Fabian", "Ufer"),
+    ("Greta", "Ulmer"),
+    ("Henri", "Utz"),
+    ("Ines", "Unruh"),
+    ("Jakob", "Ullmann"),
+    ("Klara", "Uhland"),
+    ("Lukas", "Urbach"),
+    ("Marie", "Usler"),
+    ("Niklas", "Uhde"),
+    ("Olivia", "Ursin"),
+    ("Romy", "Uebel"),
+    ("Simon", "Utzmann"),
+    ("Tilda", "Umlauf"),
+    ("Vincent", "Unland"),
+)
+KASTANIE_SQUAD: Final = (
+    ("Mila", "Kolbe"),
+    ("Jonte", "Kramer"),
+    ("Smilla", "Kurz"),
+    ("Theo", "Kessel"),
+    ("Frida", "Kiefer"),
+    ("Mats", "Kordes"),
+)
+
+
+@dataclass
+class Season:
+    """One season's documents, numbered as the draw numbers them."""
+
+    saison: dict[str, Any]
+    rows: list[dict[str, Any]]
+    spieltage: list[dict[str, Any]]
+    spiele: list[dict[str, Any]]
+
+    def spiel(self, nr: int) -> dict[str, Any]:
+        return next(row for row in self.spiele if row["spiel_nr"] == nr)
+
+    def row(self, name: str) -> dict[str, Any]:
+        return next(row for row in self.rows if row["name"] == name)
+
+    def number_of(self, fixture: str) -> int | None:
+        """The number of the fixture a journey names as „<team1> vs. <team2>“, `None` where the season draws none."""
+
+        team1, _, team2 = fixture.partition(" vs. ")
+        ids = {row["name"]: row["team_id"] for row in self.rows}
+        found = [
+            row["spiel_nr"]
+            for row in self.spiele
+            if row["team1"] is not None
+            and row["team2"] is not None
+            and (row["team1"]["team_id"], row["team2"]["team_id"]) == (ids.get(team1), ids.get(team2))
+        ]
+        return found[0] if len(found) == 1 else None
+
+
+@dataclass
+class Mail:
+    """The links one record's seats were mailed: their labels' head, the day, and whether a reminder may follow."""
+
+    owner: str
+    sent_on: int
+    reminded: bool
+    label: str = ""
+
+
+# A seat's state: the pair of its slot and its entry, built from the mail the seat was sent.
+type SeatState = Callable[[Mail], tuple[dict[str, Any] | None, dict[str, Any] | None]]
+
+
+@dataclass
+class MadeUpLeague:
+    """Every document of the league, built in the scenario's order from the German day `now` falls on."""
+
+    now: datetime
+    today: str = field(init=False)
+    seated_people: int = field(default=0, init=False)
+
+    def __post_init__(self) -> None:
+        self.today = clock.german_day(self.now)
+        self._clubs()
+        self._venues_and_referees()
+        self._grants()
+        self._seasons()
+        self._seats()
+        self._requests()
+        self._squads()
+        self._registrations()
+        self._planned_season()
+        self._access()
+
+    def day(self, offset: int) -> str:
+        """The German calendar day `offset` days from today, as every stored date spells one."""
+
+        return (date.fromisoformat(self.today) + timedelta(days=offset)).isoformat()
+
+    def stamp(self, offset: int) -> str:
+        """The instant a person's evidence is stamped with, on the day `offset` days from today."""
+
+        return clock.utc_stamp(datetime.fromisoformat(f"{self.day(offset)}T10:00:00").replace(tzinfo=UTC))
+
+    # --- The clubs ------------------------------------------------------------------------------------------------
+
+    def _clubs(self) -> None:
+        self.teams = [
+            team_document(ObjectId(), name, name[:3].upper(), description="", **school(name, index)) for index, name in enumerate(CLUB_NAMES)
+        ]
+        self.club = {row["name"]: row for row in self.teams}
+        self.club["Buche"]["inactive_since"] = self.day(-400)
+
+    # --- Venues and referees --------------------------------------------------------------------------------------
+
+    def _venues_and_referees(self) -> None:
+        def venue(name: str, rent: int, at: dict[str, str], inactive_since: str | None) -> dict[str, Any]:
+            return spielort_document(
+                ObjectId(), name, default_mietpreis=rent, address=at, maps_link=_maps_link(name, FLAddress(**at)), inactive_since=inactive_since
+            )
+
+        self.venues = [
+            venue("Sportplatz Ahornweg", 0, address("Ahornweg", "2", "60316", "Nordend"), None),
+            venue("Sporthalle Birkenallee", 40, address("Birkenallee", "14a", "60489", "Rödelheim"), None),
+            venue("Kunstrasen Eichenhain", 25, address("Eichenhain", "7", "60599", "Sachsenhausen"), None),
+            venue("Bolzplatz Lindenstraße", 0, address("Lindenstraße", "30", "60325", "Westend"), self.day(-120)),
+            # Last, so no fixture's booking (`booked`, by index) changes: a name as long as a real ground's can be.
+            venue(
+                "Bezirkssportanlage Frankfurt-Nieder-Eschbach Nord",
+                30,
+                address("Deuil-la-Barre-Straße", "100", "60437", "Nieder-Eschbach"),
+                None,
+            ),
+        ]
+
+        # Every person's consent as their own confirmation wrote it, on one day, each choice evidenced under its kind's
+        # wording.
+        self.consented = -60
+
+        def confirmed(name: str, schule: str | None, payment: int, email: str, inactive_since: str | None = None) -> dict[str, Any]:
+            """A referee as their own confirmation leaves the row, in its one write: the birthdate and the consent.
+
+            The name kept off the public pages and no media, and no deletion date. Every referee a fixture books is one, as
+            the booking refuses any other (`booking_unconfirmed_schiedsrichter`).
+            """
+
+            answer = compose_schiedsrichter_confirmation_update(
+                birth_date=self.day(-20 * 365),
+                scope="internal",
+                media=False,
+                text_versions=SCHIEDSRICHTER_TEXT_VERSIONS,
+                today=self.day(self.consented),
+                at=self.stamp(self.consented),
+            )
+            return schiedsrichter_document(
+                ObjectId(),
+                email=email,
+                name=name,
+                default_payment=payment,
+                schule=schule,
+                kontakt={"phone": None, "email": email},
+                inactive_since=inactive_since,
+                confirmation=compose_schiedsrichter_confirmation(today=self.day(-62)),
+                **answer["$set"],
+            )
+
+        def unanswered(name: str, schule: str, payment: int, email: str) -> dict[str, Any]:
+            """A referee entered three days ago who has not answered: the create's link and the deletion date it sets."""
+
+            row = schiedsrichter_document(
+                ObjectId(),
+                email=email,
+                name=name,
+                default_payment=payment,
+                schule=schule,
+                kontakt={"phone": None, "email": email},
+                einwilligung=None,
+                **compose_mint_update(today=self.day(-3)),
+            )
+            # The create writes neither until the person's own confirmation does.
+            del row["birth_date"], row["einwilligung"]
+            return row
+
+        def person(entry: Mapping[str, str], payment: int = 20) -> dict[str, Any]:
+            """A journey's person: a confirmed referee no fixture books.
+
+            A referee row is its person's own only once confirmed (`is_own_schiedsrichter`), so an address change or an
+            erasure moves nothing of a row without one.
+            """
+
+            return confirmed(full_name(entry), None, payment, entry["address"])
+
+        layout, first_pass = PEOPLE["layout"], PEOPLE["firstPass"]
+        # The booked referees' journey (each project's `booked`): a confirmed referee whose played fixture owes its report
+        # and whose coming one asks an answer.
+        self.booked_referees = [person(project["booked"]["referee"]) for project in PROJECTS]
+        self.referees = [
+            confirmed(full_name(layout["referee"]), "Ahorn-Gymnasium", 20, layout["referee"]["address"]),
+            confirmed(full_name(first_pass["referee"]), None, 25, first_pass["referee"]["address"]),
+            confirmed(full_name(layout["newcomer"]), "Ulme-Gymnasium", 20, layout["newcomer"]["address"]),
+            confirmed("Dieter Dorn", None, 15, "dieter.dorn@example.com", self.day(-90)),
+            # After the four the seasons book by a fixture's number (`booked`), so none of those bookings changes.
+            unanswered("Elif Engin", "Weide-Gymnasium", 20, "elif.engin@example.com"),
+            *self.booked_referees,
+            # The journeys' own: each project's account acts, in their order (the person signed in on a second device, the
+            # one whose address changes, the one who deletes the account), then the desktop passkey journeys' and the
+            # access journeys' (the person banned, the one whose address the administrator's change starts on, the one
+            # erased, and the one whose change stands on the list).
+            *(person(project[role]) for project in PROJECTS for role in ("twoDevices", "mover", "leaver")),
+            *(person(entry) for entry in PEOPLE["passkeys"].values()),
+            *(person(PEOPLE["access"][role]) for role in ("banned", "mover", "erased", "changing")),
+        ]
+
+    # --- Grants ---------------------------------------------------------------------------------------------------
+
+    def _grants(self) -> None:
+        # Each row as `grant_in_session` leaves it, the one owner and the administrators in effect a day ago, so every
+        # session signed in since holds its grant, and one addition still waiting. The handover's wait outlasts any run, or
+        # the scheduler's first pass would take the owner's role from under the owner's journey.
+        self.in_effect = self.now - timedelta(hours=24)
+        self.waiting = self.now + timedelta(hours=12)
+        handover_waiting = self.now + timedelta(days=6)
+        administrators = PEOPLE["administrators"]
+        self.grants = [
+            grant_document(PEOPLE["owner"], "owner", effective_from=self.in_effect),
+            *(grant_document(project["administrator"], "administration", effective_from=self.in_effect) for project in PROJECTS),
+            grant_document(administrators["editor"], "administration", effective_from=self.in_effect),
+            grant_document(administrators["setup"], "administration", effective_from=self.in_effect),
+            grant_document(administrators["waiting"], "administration", effective_from=self.waiting),
+            grant_document(administrators["successor"], "administration", effective_from=self.in_effect, owner_from=handover_waiting),
+            # The holder whose own address change waits (`holder_change`).
+            grant_document(administrators["moving"], "administration", effective_from=self.in_effect),
+            grant_document(administrators["banning"], "administration", effective_from=self.in_effect),
+            grant_document(administrators["access"], "administration", effective_from=self.in_effect),
+        ]
+
+    # --- Seasons --------------------------------------------------------------------------------------------------
+
+    def booked(self, venue_index: int, schiedsrichter: Mapping[str, Any]) -> dict[str, Any]:
+        spielort = self.venues[venue_index]
+        return {
+            "spielort": {"spielort_id": spielort["_id"], "mietpreis": spielort["default_mietpreis"]},
+            "schiedsrichter": {"schiedsrichter_id": schiedsrichter["_id"], "payment": schiedsrichter["default_payment"]},
+        }
+
+    def season(
+        self,
+        *,
+        saison_id: str,
+        status: str,
+        start: str,
+        end: str,
+        drawn: str,
+        groups: Mapping[str, Sequence[str]],
+        dates: Sequence[tuple[str | None, str | None]],
+        play: Callable[[int], Mapping[str, Any]],
+        knockout: Mapping[int, tuple[str, str]] | None = None,
+    ) -> Season:
+        """One season drawn by the backend's draw over `groups`, each club in draw order.
+
+        `dates` names each matchday's span, `play` what happened in the fixture of a number, and `knockout` who stands in
+        each knockout fixture, where anybody does yet.
+        """
+
+        rules = rules_document(number_of_gruppen=len(groups))
+        entries = [(gruppe, name) for gruppe, names in groups.items() for name in names]
+        rows = [
+            saison_team_document(
+                saison_id,
+                self.club[name]["_id"],
+                name,
+                self.club[name]["shorthand"],
+                _id=ObjectId(),
+                gruppe=gruppe,
+                trikot_farbe=SEASON_COLOURS[index],
+            )
+            for index, (gruppe, name) in enumerate(entries)
+        ]
+        spielplan = draw_spielplan(
+            saison_id=saison_id,
+            rules=FLSaisonRules.model_validate(rules),
+            entered=[
+                EnteredTeam(row_id=row["_id"], team_id=row["team_id"], gruppe=row["gruppe"], name=row["name"], shorthand=row["shorthand"])
+                for row in rows
+            ],
+        )
+        spieltage = [
+            spieltag_document(
+                drawn_day["_id"], saison_id, drawn_day["position"], saison_phase=drawn_day["saison_phase"], start=span[0], end=span[1]
+            )
+            for drawn_day, span in zip(spielplan.spieltage, dates, strict=True)
+        ]
+
+        def side(name: str, tore: int | None) -> dict[str, Any]:
+            return {"team_id": self.club[name]["_id"], "tore": tore}
+
+        spiele = []
+        for drawn_spiel in spielplan.spiele:
+            nr = drawn_spiel["spiel_nr"]
+            happened = play(nr)
+            tore1, tore2 = happened.get("tore") or (None, None)
+            sides = {"team1": drawn_spiel["team1"], "team2": drawn_spiel["team2"]}
+            if knockout is not None and nr in knockout:
+                sides = {"team1": side(knockout[nr][0], None), "team2": side(knockout[nr][1], None)}
+            for key, tore in (("team1", tore1), ("team2", tore2)):
+                if sides[key] is not None:
+                    sides[key] = {**sides[key], "tore": tore}
+            spiele.append(
+                spiel_document(
+                    spiel_id=drawn_spiel["_id"],
+                    saison_id=saison_id,
+                    spiel_nr=nr,
+                    spieltag_id=drawn_spiel["spieltag_id"],
+                    saison_phase=drawn_spiel["saison_phase"],
+                    team1_quelle=drawn_spiel["team1_quelle"],
+                    team2_quelle=drawn_spiel["team2_quelle"],
+                    **sides,
+                    date=happened.get("date"),
+                    time=happened.get("time"),
+                    **happened.get("booking", {"spielort": None, "schiedsrichter": None}),
+                    ergebnis=None if tore1 is None else f"{tore1}:{tore2}",
+                    elfmeterschiessen=happened.get("elfmeterschiessen"),
+                    sonderereignis=happened.get("sonderereignis"),
+                )
+            )
+
+        saison = saison_document(saison_id, status, start_date=start, end_date=end, rules=rules, spielplan={"generated_at": drawn})
+        return Season(saison=saison, rows=rows, spieltage=spieltage, spiele=spiele)
+
+    def _seasons(self) -> None:
+        def finished_play(nr: int) -> Mapping[str, Any]:
+            # Four fixtures a group matchday, two a semi-final day, two the Finale's.
+            matchday = (nr + 3) // 4 if nr <= 12 else 4 if nr <= 14 else 5
+            # Every venue and referee, the two retired since among them: a retired row still stands on the fixtures it
+            # served. The match for third place, 15, kicks off ahead of the final.
+            played = {
+                "date": self.day(FINISHED_MATCHDAYS[matchday - 1]),
+                "time": "13:00:00" if nr == 15 else "15:00:00",
+                "booking": self.booked(nr % 4, self.referees[nr % 4]),
+            }
+            # Within a group matchday group A's two pairs come first, then group B's in the same order.
+            if nr <= 12:
+                return {**played, "tore": GROUP_SCORES[(matchday - 1) * 2 + (nr - 1) % 2]}
+            return {**played, **KNOCKOUT_SCORES[nr]}
+
+        self.finished = self.season(
+            saison_id="2026",
+            status="past",
+            start=self.day(-300),
+            end=self.day(-150),
+            drawn=self.day(-310),
+            groups={"A": ("Ahorn", "Birke", "Eiche", "Linde"), "B": ("Ulme", "Esche", "Kastanie", "Weide")},
+            dates=[(self.day(offset), self.day(offset + 4 if index < 3 else offset)) for index, offset in enumerate(FINISHED_MATCHDAYS)],
+            play=finished_play,
+            knockout={13: ("Ahorn", "Esche"), 14: ("Ulme", "Birke"), 15: ("Esche", "Ulme"), 16: ("Ahorn", "Birke")},
+        )
+
+        desktop, phone = self.booked_referees
+
+        def running_play(nr: int) -> Mapping[str, Any]:
+            booking = self.booked(nr % 3, self.referees[nr % 3])
+            match nr:
+                # Matchday 1, two weeks ago.
+                case 1:
+                    return {"date": self.day(-14), "time": "15:00:00", "booking": booking, "tore": (2, 1)}
+                case 2:
+                    # The desktop's booked referee's report to write, as match 5 is the phone's.
+                    return {"date": self.day(-14), "time": "15:00:00", "booking": self.booked(2, desktop), "tore": (0, 0)}
+                case 3:
+                    # The away side never turned up: the season's award, as the editor composes it.
+                    return {
+                        "date": self.day(-13),
+                        "time": "16:30:00",
+                        "booking": booking,
+                        "tore": (3, 0),
+                        "sonderereignis": "nichtantreten_team2",
+                    }
+                case 4:
+                    return {"date": self.day(-13), "time": "16:30:00", "booking": booking, "tore": (1, 3)}
+                # Matchday 2, running across today: played yesterday, still to come today, and called off. A match takes its
+                # report from its kick-off (`is_played`), so the played one kicks off on a day already gone, and the phone's
+                # booked referee owes its report whatever hour the seed is loaded at.
+                case 5:
+                    return {"date": self.day(-1), "time": "09:30:00", "booking": self.booked(2, phone), "tore": (1, 2)}
+                case 6:
+                    return {"date": self.day(0), "time": "16:00:00", "booking": booking}
+                case 7:
+                    return {"date": self.day(0), "time": "17:30:00", "booking": booking}
+                case 8:
+                    return {"date": self.day(0), "time": "11:00:00", "booking": booking, "sonderereignis": "ausgefallen"}
+                # Matchday 3, next week. Group A's two are the coming fixtures the journeys' contact seats and booked
+                # referees answer, the desktop's and the phone's, the latest days of the matchday, so each one's request is
+                # still open tomorrow.
+                case 9:
+                    return {"date": self.day(8), "time": "17:00:00", "booking": self.booked(0, desktop)}
+                case 10:
+                    return {"date": self.day(9), "time": "17:00:00", "booking": self.booked(1, phone)}
+                case 11:
+                    return {"date": self.day(7), "time": "17:00:00", "booking": booking}
+                case 12:
+                    # Ben Brandt's, whom the first pass tells of the booking's lifting (`asked_referee`), on a ground no other
+                    # fixture that day holds.
+                    return {"date": self.day(7), "time": "18:30:00", "booking": self.booked(1, self.referees[1])}
+                # The knockout: drawn, undated, nobody in it.
+                case _:
+                    return {}
+
+        # The running season, new groups. Matchday 1 is played and holds a forfeit, matchday 2 is today, matchday 3 is next
+        # week, and the knockout is drawn with nobody in it yet.
+        self.running = self.season(
+            saison_id="2027",
+            status="active",
+            start=self.day(-35),
+            end=self.day(120),
+            drawn=self.day(-40),
+            groups={"A": ("Ahorn", "Eiche", "Ulme", "Kastanie"), "B": ("Birke", "Linde", "Esche", "Weide")},
+            dates=[(self.day(-14), self.day(-10)), (self.day(-2), self.day(2)), (self.day(5), self.day(9)), (None, None), (None, None)],
+            play=running_play,
+        )
+        # The registration window ended the day before the season began, and its link stays open: an entry now is a
+        # nominee (`entry_is_a_nominee`).
+        self.running.saison["registrierung"] = {"open": True, "end": self.day(-36)}
+
+        # Each journey's fixtures are the ones set up for it above, its contact's and its booked referee's coming one the
+        # same, its departing club's fixture still to play.
+        for project, played, coming in zip(PROJECTS, (2, 5), (9, 10), strict=True):
+            self.expect_fixture(project["booked"]["played"], played)
+            self.expect_fixture(project["booked"]["coming"], coming)
+            self.expect_fixture(project["contact"]["fixture"], coming)
+            departing = self.running.number_of(project["departing"]["fixture"])
+            if departing is None or self.running.spiel(departing)["ergebnis"] is not None:
+                raise ValueError(f"the journeys' departing fixture {project['departing']['fixture']} is no open fixture of the running season")
+
+    def expect_fixture(self, fixture: str, nr: int) -> None:
+        found = self.running.number_of(fixture)
+        if found != nr:
+            raise ValueError(f"the journeys name {fixture}, which is match {found} of the running season, where the seed sets up match {nr}")
+
+    # --- A seat's person and link ---------------------------------------------------------------------------------
+
+    def seated(self, first_name: str, last_name: str, entered_on: int, email: str | None = None) -> dict[str, Any]:
+        """A person as the form or the league seats them, nobody having answered.
+
+        Every phone its own: the form refuses two people one number (`find_repeated_contact_refusal`).
+        """
+
+        self.seated_people += 1
+        return {
+            "first_name": first_name,
+            "last_name": last_name,
+            "email": email or f"{first_name}.{last_name}@example.com".lower(),
+            "phone": f"+49 170 {2000000 + self.seated_people}",
+            "birth_date": None,
+            "einwilligung": compose_seat_einwilligung(today=self.day(entered_on)),
+        }
+
+    def confirmed_person(self, person: Mapping[str, Any], answered_on: int) -> dict[str, Any]:
+        """The same person after their own link: no WhatsApp and no media, each choice evidenced under a seat's wordings."""
+
+        answer = compose_seat_confirmation_update(
+            kontakte={"trainer": person},
+            seats=["trainer"],
+            birth_date=self.day(-40 * 365),
+            today=self.day(answered_on),
+            text_versions=SEAT_TEXT_VERSIONS,
+            whatsapp=False,
+            media=False,
+            at=self.stamp(answered_on),
+            takes_the_notice_back=False,
+        )
+        return applied({"kontakte": {"trainer": person}}, answer)["kontakte"]["trainer"]
+
+    def seat_link(self, mail: Mail, *, reminded_on: int | None = None, declined_on: int | None = None) -> dict[str, Any]:
+        """A seat's bookkeeping beside its slot: an application's link takes one reminder, a season row's none."""
+
+        sent_at = self.day(mail.sent_on)
+        entry = compose_bewerbung_confirmation(today=sent_at) if mail.reminded else compose_kontakt_confirmation(today=sent_at)
+        return {
+            **entry,
+            "token_hashes": [link_hash(mail.label)],
+            **({"reminded_at": None if reminded_on is None else self.day(reminded_on)} if mail.reminded else {}),
+            "declined_at": None if declined_on is None else self.day(declined_on),
+        }
+
+    def open_seat(self, first_name: str, last_name: str, *, reminded_on: int | None = None, email: str | None = None) -> SeatState:
+        return lambda mail: (self.seated(first_name, last_name, mail.sent_on, email), self.seat_link(mail, reminded_on=reminded_on))
+
+    def confirmed_seat(self, first_name: str, last_name: str, email: str | None = None) -> SeatState:
+        return lambda mail: (
+            self.confirmed_person(self.seated(first_name, last_name, mail.sent_on, email), mail.sent_on + 1),
+            self.seat_link(mail),
+        )
+
+    def objected_seat(self, declined_on: int) -> SeatState:
+        """A Widerspruch empties the slot and keeps its day beside it."""
+
+        return lambda mail: (None, self.seat_link(mail, declined_on=declined_on))
+
+    @staticmethod
+    def erased_seat() -> SeatState:
+        """An erasure takes the slot and the entry with it, and a seat nobody was ever seated in holds neither."""
+
+        return lambda mail: (None, None)
+
+    vacant_seat = erased_seat
+
+    def seats(self, mail: Mail, states: Mapping[str, SeatState], trainer_is_also: str | None = None) -> dict[str, Any]:
+        """The two blocks a record's seats fill. A Trainer's second seat is that person's, one link answering both."""
+
+        filled = {seat: state(Mail(mail.owner, mail.sent_on, mail.reminded, f"{mail.owner}-{seat}")) for seat, state in states.items()}
+        every = filled if trainer_is_also is None else {**filled, trainer_is_also: copy.deepcopy(filled["trainer"])}
+        return {
+            "kontakte": {**{seat: pair[0] for seat, pair in every.items()}, "trainer_is_also": trainer_is_also},
+            "confirmations": {seat: pair[1] for seat, pair in every.items()},
+        }
+
+    def row_seats(self, owner: str, sent_on: int, states: Mapping[str, SeatState]) -> dict[str, Any]:
+        return self.seats(Mail(owner, sent_on, False), states)
+
+    def journey_seat(self, club_name: str, trainer: Mapping[str, str], ansprechperson: SeatState | None = None) -> None:
+        """One Trainer the league seated a month ago on `club_name`'s running season, confirmed through their own link.
+
+        Confirmed the next day, the club's other seats empty, and never a departing club's, which an Austritt journey's
+        notice reaches.
+        """
+
+        if club_name in {project["departing"]["club"] for project in PROJECTS}:
+            raise ValueError(f"{club_name} holds a journey's seat and departs in another journey")
+        self.running.row(club_name).update(
+            self.row_seats(
+                f"{club_name.lower()}-2027",
+                -30,
+                {
+                    "trainer": self.confirmed_seat(trainer["first_name"], trainer["last_name"], trainer["address"]),
+                    "ansprechperson": ansprechperson or self.vacant_seat(),
+                    "stellvertretung": self.vacant_seat(),
+                },
+            )
+        )
+
+    def _seats(self) -> None:
+        # Weide stayed away from match 3 and is disqualified since: it keeps its group place and its drawn fixtures, match 12
+        # still to play, as a departed club does. Its open seat's link takes a Widerspruch alone (`saison_state_of`).
+        self.running.row("Weide").update(
+            {
+                "austritt": {"type": "disqualifikation", "reason": "Nicht zum Spiel angetreten", "date": self.day(-12)},
+                **self.row_seats(
+                    "weide",
+                    -5,
+                    {
+                        "trainer": self.confirmed_seat("Wiebke", "Wagner"),
+                        "ansprechperson": self.open_seat("Willi", "Wendt"),
+                        "stellvertretung": self.objected_seat(-2),
+                    },
+                ),
+            }
+        )
+
+        # Birke's Trainer, seated by the league and confirmed through her own link: the Austritt journeys' opponent.
+        trainerin = PEOPLE["austritt"]["opponent"]
+        self.running.row("Birke")["kontakte"] = {
+            "trainer": self.confirmed_person(self.seated(trainerin["first_name"], trainerin["last_name"], -62, trainerin["address"]), -60),
+            "ansprechperson": None,
+            "stellvertretung": None,
+            "trainer_is_also": None,
+        }
+
+        # The contact's journeys' seats, whose fixture next week asks its answer and owes its line-up, and whose club holds
+        # one confirmed registration waiting on it; then the registration journeys', the seat that admits the pupil
+        # registering through the club's link. Kastanie's Ansprechperson is no journey's: the person a drive of the team's
+        # pages signs in as, the club holding a stored line-up, a locked one, an agreed date and several registrations.
+        for project in PROJECTS:
+            self.journey_seat(project["contact"]["club"], project["contact"]["trainer"])
+        contact = PEOPLE["layout"]["contact"]
+        desktop_registering, phone_registering = (project["registering"] for project in PROJECTS)
+        if desktop_registering["club"] != "Kastanie":
+            raise ValueError(
+                f"the desktop's registration journey names {desktop_registering['club']}, where the seed seats its Ansprechperson at Kastanie"
+            )
+        self.journey_seat(
+            "Kastanie", desktop_registering["admitter"], self.confirmed_seat(contact["first_name"], contact["last_name"], contact["address"])
+        )
+        self.journey_seat(phone_registering["club"], phone_registering["admitter"])
+
+    # --- The confirmations a fixture's parties owe ----------------------------------------------------------------
+
+    def request(self, spiel: Mapping[str, Any], party: Mapping[str, Any], asked_on: int, **fields: Any) -> dict[str, Any]:
+        """A row about `spiel` for `party`, minted and asked by the pass `asked_on` days from today, laid under `fields`."""
+
+        minted = compose_spielbestaetigung(
+            row_id=ObjectId(), saison_id=spiel["saison_id"], spiel=spiel, party=party, today=self.day(asked_on), asked=True
+        )
+        return read_back_document(Collection.SPIELBESTAETIGUNGEN, {**minted, **fields})
+
+    def team_party(self, club_name: str) -> dict[str, Any]:
+        return {"kind": "team", "team_id": self.club[club_name]["_id"]}
+
+    @staticmethod
+    def schiedsrichter_of(spiel: Mapping[str, Any]) -> dict[str, Any]:
+        return {"kind": "schiedsrichter", "schiedsrichter_id": spiel["schiedsrichter"]["schiedsrichter_id"]}
+
+    def _requests(self) -> None:
+        running = self.running
+        # Match 11, Birke against Linde next week, asked about two weeks ago, as the pass asks a fixture three weeks out
+        # (`:: last_request_day`) and dates its deadline a week ahead of it (`:: deadline_of`), and declined by Birke's
+        # Trainer three days ago for the next day at the same hour, which clashes with no other fixture's ground or referee.
+        proposed = running.spiel(11)
+        decline = compose_answer_update(
+            answer="declined",
+            seat="trainer",
+            vorschlag=FLSpielbestaetigungAppointment(date=self.day(8), time=proposed["time"]),
+            reason="Am Spieltag ist unsere Halle belegt.",
+            today=self.day(-3),
+        )
+        proposals = [self.request(proposed, self.team_party("Birke"), -14, **decline["$set"])]
+
+        # Match 12, Esche against Weide next week, asked of its referee like match 11 and unanswered: the first pass closes
+        # the row for Weide's exit and owes him the Einteilung's lifting (`notice_owed`), the one mail of the kind a journey
+        # can read.
+        lifted = running.spiel(12)
+        asked_referee = self.request(lifted, self.schiedsrichter_of(lifted), -14)
+
+        # Next week's group A fixtures, asked of the journeys' seat and referee twelve days ago, inside the three weeks the
+        # pass asks ahead (`:: last_request_day`), so the seat's link answers until tomorrow at least: match 9 the
+        # desktop's, match 10 the phone's. The stack's first pass asks the other club of each.
+        journey_requests = [
+            request
+            for project, nr in zip(PROJECTS, (9, 10), strict=True)
+            for request in (
+                self.request(running.spiel(nr), self.team_party(project["contact"]["club"]), -12),
+                self.request(running.spiel(nr), self.schiedsrichter_of(running.spiel(nr)), -12),
+            )
+        ]
+
+        # Each a state a person's own page shows, no journey's: Kastanie's agreement on match 10, which is why the first pass
+        # asks it nothing; Birke's request about today's match 7, unanswered past its deadline a week ago, which the first
+        # pass after its 17:30 kick-off closes, taking it off Birke's Übersicht; and two referees' bookings, Carla Conrad's
+        # on match 11 still to answer and Anna Ahrens's on today's match 6 agreed, which her list shows until the 16:00
+        # kick-off and as the report owed from then.
+        kastanie_agreed = compose_answer_update(answer="agreed", seat="ansprechperson", vorschlag=None, reason=None, today=self.day(-5))
+        referee_agreed = compose_schiedsrichter_answer_update(answer="agreed", reason=None, today=self.day(-15))
+        stated_requests = [
+            self.request(running.spiel(10), self.team_party("Kastanie"), -12, **kastanie_agreed["$set"]),
+            self.request(running.spiel(7), self.team_party("Birke"), -20),
+            self.request(proposed, self.schiedsrichter_of(proposed), -14),
+            self.request(running.spiel(6), self.schiedsrichter_of(running.spiel(6)), -20, **referee_agreed["$set"]),
+        ]
+        self.spielbestaetigungen = [*proposals, asked_referee, *journey_requests, *stated_requests]
+
+    # --- The squads -----------------------------------------------------------------------------------------------
+
+    def pupil(self, first_name: str, last_name: str, consented_on: int | None = None, email: str | None = None) -> dict[str, Any]:
+        """A pupil, publishing the name and no media under a pupil's wordings.
+
+        Sixteen and a half, so sixteen on the day of a confirmation two months back too, which refuses a younger pupil
+        (`REGISTRIERUNG_MIN_AGE_YEARS`), and under the media's eighteen.
+        """
+
+        on = self.consented if consented_on is None else consented_on
+        consent = compose_initial(
+            block={"scope": "kader_public", "date": self.day(on), "confirmed_at": self.day(on), "media": False},
+            at=self.stamp(on),
+            text_versions=SPIELER_TEXT_VERSIONS,
+        )
+        return spieler_document(
+            ObjectId(),
+            first_name,
+            last_name,
+            email=email or f"{first_name}.{last_name}@schule.example".lower(),
+            birth_date=self.day(-(16 * 365 + 183)),
+            einwilligung=consent,
+        )
+
+    def squad_row(
+        self,
+        person: Mapping[str, Any],
+        club_name: str,
+        nummer: str,
+        *,
+        saison: str = "2027",
+        position: str = "Angriff",
+        nominee: bool = False,
+        retired_on: int | None = None,
+        rolle: str | None = None,
+    ) -> dict[str, Any]:
+        return saison_spieler_document(
+            person["_id"],
+            saison,
+            self.club[club_name]["_id"],
+            _id=ObjectId(),
+            is_nachnominiert=nominee,
+            rolle=rolle,
+            position=position,
+            nummer=nummer,
+            inactive_since=None if retired_on is None else self.day(retired_on),
+        )
+
+    def _squads(self) -> None:
+        mia, desktop, phone = PEOPLE["layout"]["pupil"], *(project["squadded"] for project in PROJECTS)
+        self.mia = self.pupil(mia["first_name"], mia["last_name"], email=mia["address"])
+        self.jonas = self.pupil(desktop, "Ahornberg")
+        self.lena = self.pupil(phone, "Kastner")
+        self.ahorn = [self.pupil(*name) for name in AHORN_SQUAD]
+        nominee = self.pupil("Karl", "Quast")
+        retired_nominee = self.pupil("Rosa", "Reiter")
+        # In no squad of the finished season or a later one: the scheduler's first pass erases them, the deletion a season
+        # after.
+        season_after = self.pupil("Till", "Thalberg")
+        self.kastanie = [self.pupil(*name) for name in KASTANIE_SQUAD]
+        ulme = [self.pupil(*name) for name in ULME_SQUAD]
+        for squad in (AHORN_SQUAD, KASTANIE_SQUAD, ULME_SQUAD):
+            if any(pupil in f"{first} {last}" for first, last in squad for pupil in (desktop, phone)):
+                raise ValueError(f"a squad name holds {desktop} or {phone}, whom the administration's journey opens by a name holding theirs")
+        self.spieler = [self.mia, self.jonas, self.lena, *self.ahorn, nominee, retired_nominee, season_after, *self.kastanie, *ulme]
+
+        def positioned(people: Sequence[Mapping[str, Any]], club_name: str, first: int) -> list[dict[str, Any]]:
+            return [
+                self.squad_row(person, club_name, str(first + index), position=POSITIONS[index % len(POSITIONS)])
+                for index, person in enumerate(people)
+            ]
+
+        # Mia captains Ahorn and Jonas is its Co-Kapitän, each mark standing on the squad and on match 1's line-up; Mia
+        # played for Ahorn in the finished season too, a pupil's own page holding a past season beside the running one.
+        self.squads = [
+            self.squad_row(self.mia, "Ahorn", "9", saison="2026"),
+            self.squad_row(self.mia, "Ahorn", "9", rolle="kapitaen"),
+            self.squad_row(self.jonas, "Ahorn", "4", rolle="co_kapitaen"),
+            *positioned(self.ahorn, "Ahorn", 10),
+            self.squad_row(nominee, "Ahorn", "30", nominee=True),
+            self.squad_row(retired_nominee, "Ahorn", "31", nominee=True, retired_on=-5),
+            self.squad_row(self.lena, "Kastanie", "7"),
+            *positioned(self.kastanie, "Kastanie", 8),
+            *positioned(ulme, "Ulme", 1),
+        ]
+
+    # --- The registration links and what came through them --------------------------------------------------------
+
+    def _registrations(self) -> None:
+        # Each minted for copying. Group A's stay open past the window's end, the registration journeys' among them, and
+        # Weide's opens as the link no longer valid (`find_team_departed_refusal`).
+        self.invitations = {
+            club_name: invitation_document(
+                ObjectId(), saison_id="2027", team_id=self.club[club_name]["_id"], token=f"made-up-{club_name.lower()}-invitation"
+            )
+            for club_name in ("Ahorn", "Eiche", "Ulme", "Kastanie", "Weide")
+        }
+        for project in PROJECTS:
+            registering = project["registering"]
+            invitation = self.invitations.get(registering["club"])
+            if invitation is None or invitation["token_hashes"] != [hash_token(registering["token"])]:
+                raise ValueError(
+                    f"the registration journey opens {registering['token']}, which is no link the seed mints for {registering['club']}"
+                )
+
+        def registration(
+            person: Mapping[str, Any],
+            submitted_on: int,
+            *,
+            club_name: str = "Kastanie",
+            confirmed: bool = False,
+            decision: Mapping[str, Any] | None = None,
+        ) -> dict[str, Any]:
+            """One pupil's row through a club's link, past the window's end, so its admission makes a nominee."""
+
+            consent = person["einwilligung"]
+            return registrierung_document(
+                ObjectId(),
+                person["email"],
+                saison_id="2027",
+                team_id=self.club[club_name]["_id"],
+                first_name=person["first_name"],
+                last_name=person["last_name"],
+                token=f"made-up-{person['first_name'].lower()}-registration",
+                submitted_at=self.day(submitted_on),
+                deadline=self.day(submitted_on + REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS),
+                position="Abwehr",
+                stufe="Q2",
+                confirmed=registrierung_confirmed(
+                    birth_date=person["birth_date"],
+                    today=consent["confirmed_at"],
+                    at=consent["evidence"]["scope"]["at"],
+                    scope=consent["scope"],
+                    media=consent["media"],
+                )
+                if confirmed
+                else None,
+                invitation_id=self.invitations[club_name]["_id"],
+                keyed=False,
+                **({} if decision is None else {"status": "declined", "decision": dict(decision)}),
+            )
+
+        ole = PEOPLE["administration"]["registration"]
+        self.registrierungen = [
+            registration(self.pupil(ole["first_name"], ole["last_name"]), -1),
+            registration(self.pupil("Pia", "Sander", -2), -3, confirmed=True),
+            registration(self.pupil("Ben", "Stark"), -4, decision={"made_at": self.day(-2), "reason": "Nicht an dieser Schule"}),
+            # The one waiting on each contact's journey's seat (`contact`'s `pupil`), confirmed yesterday.
+            *(
+                registration(
+                    self.pupil(project["contact"]["pupil"]["first_name"], project["contact"]["pupil"]["last_name"], -1),
+                    -2,
+                    club_name=project["contact"]["club"],
+                    confirmed=True,
+                )
+                for project in PROJECTS
+            ),
+        ]
+
+        # Match 1, Ahorn 2:1 Kastanie two weeks ago, reported by its referee and adopted since: a named scorer, a scorer
+        # nobody named, an erased pupil's goal, naming nobody as well, a caution and a red card.
+        reported = self.running.spiel(1)
+        self.spielberichte = [
+            spielbericht_document(
+                reported,
+                bericht=bericht_document(
+                    ergebnis_vorschlag={"team1_tore": 2, "team2_tore": 1, "elfmeterschiessen": None, "sonderereignis": None},
+                    scorers=[
+                        {"side": "team1", "spieler_id": self.mia["_id"], "minute": "12", "eigentor": False},
+                        {"side": "team2", "spieler_id": None, "minute": "40", "eigentor": False},
+                        {"side": "team1", "spieler_id": None, "minute": "45+2", "eigentor": False},
+                    ],
+                    cards=[
+                        {"side": "team2", "spieler_id": self.lena["_id"], "minute": "33", "colour": "gelb"},
+                        {"side": "team1", "spieler_id": self.jonas["_id"], "minute": "78", "colour": "rot"},
+                    ],
+                    sides=spielbericht_sides(reported),
+                    submitted_at=datetime.fromisoformat(f"{self.day(-14)}T17:00:00").replace(tzinfo=UTC),
+                    adopted=True,
+                ),
+            )
+        ]
+
+        # Both clubs' for match 1; Kastanie's alone, four starters short of a side, for match 10 next week, whose other club,
+        # the phone's contact seat's, has entered none, as Ahorn, the desktop's, has entered none for match 9; and none for
+        # today's matches still to come, each past the hour its line-up was due.
+        eleven = [self.mia, self.jonas, *self.ahorn[:9]]
+
+        def ids(people: Sequence[Mapping[str, Any]]) -> list[Any]:
+            return [person["_id"] for person in people]
+
+        self.aufstellungen = [
+            aufstellung_document(reported, self.club["Ahorn"]["_id"], starters=ids(eleven), bench=ids(self.ahorn[9:12])),
+            aufstellung_document(reported, self.club["Kastanie"]["_id"], starters=ids([self.lena])),
+            aufstellung_document(self.running.spiel(10), self.club["Kastanie"]["_id"], starters=ids([self.lena, *self.kastanie])),
+        ]
+
+    # --- The planned season ---------------------------------------------------------------------------------------
+
+    def application(
+        self,
+        *,
+        submitted_on: int,
+        wunschfarbe: str,
+        states: Mapping[str, SeatState],
+        picked: str | None = None,
+        new_school: tuple[str, int] | None = None,
+        owner: str | None = None,
+        trainer_is_also: str | None = None,
+        wunschgegner: str | None = None,
+        **outcome: Any,
+    ) -> dict[str, Any]:
+        """One application as the form stored it, for the club `picked` or the new school `new_school` names.
+
+        `new_school` by its name and its place in the scenario, each seat in the state `states` names, its link mailed on
+        the day of the submission; `outcome` is what the triage moved, `owner` the link labels' head where a club applied
+        twice.
+        """
+
+        name = picked if picked is not None else new_school[0] if new_school is not None else ""
+        blocks = self.seats(Mail(owner or name.lower(), submitted_on, True), states, trainer_is_also)
+        schule = None if new_school is None else {"team_name": new_school[0], **school(*new_school)}
+        return bewerbung_document(
+            ObjectId(),
+            "2028",
+            outcome.pop("status", "submitted"),
+            kontakte=blocks["kontakte"],
+            confirmations=blocks["confirmations"],
+            submitted_at=self.day(submitted_on),
+            # The club an acceptance of a new school made, or the one the form picked.
+            team_id=outcome.pop("team_id", None if picked is None else self.club[picked]["_id"]),
+            schule=schule,
+            trikot={"existing_set": "", "wunschfarbe": wunschfarbe},
+            wunschgegner=wunschgegner,
+            **outcome,
+        )
+
+    def _planned_season(self) -> None:
+        # The window opened a month ago and runs a month on, and the registration window ends before the season's first day,
+        # as its write holds it (`registrierung_window_reaches_saison_start`). Undrawn: the create writes no `spielplan` key.
+        # Four groups, so a full one stands beside room for every club the journeys enter (`planned_rows`).
+        self.planned = saison_document(
+            "2028",
+            "future",
+            start_date=self.day(150),
+            end_date=self.day(300),
+            rules=rules_document(number_of_gruppen=4),
+            bewerbung={"open": True, "start": self.day(-30), "end": self.day(30)},
+            registrierung={"open": True, "end": self.day(140)},
+        )
+
+        def decision_on(made_on: int, reason: str | None = None) -> dict[str, Any]:
+            return {"made_at": self.day(made_on), "reason": reason}
+
+        accepted_new_school = self.application(
+            new_school=("Pappel", CLUB_NAMES.index("Pappel")),
+            submitted_on=-20,
+            wunschfarbe="gelb",
+            states={
+                "trainer": self.confirmed_seat("Paula", "Pohl"),
+                "ansprechperson": self.confirmed_seat("Peter", "Pohl"),
+                "stellvertretung": self.confirmed_seat("Petra", "Pohl"),
+            },
+            status="accepted",
+            team_id=self.club["Pappel"]["_id"],
+            decision=decision_on(-4),
+        )
+        accepted_club = self.application(
+            picked="Ulme",
+            submitted_on=-18,
+            wunschfarbe="blau",
+            states={
+                "trainer": self.confirmed_seat("Ute", "Ullrich"),
+                "ansprechperson": self.confirmed_seat("Udo", "Ullrich"),
+                "stellvertretung": self.confirmed_seat("Uwe", "Ullrich"),
+            },
+            status="accepted",
+            decision=decision_on(-4),
+        )
+        # Its Ansprechperson's mail bounced, which the seat's row says, for an administrator to correct the address.
+        self.bounced = self.application(
+            new_school=("Espe", 4),
+            submitted_on=-2,
+            wunschfarbe="orange",
+            states={
+                "trainer": self.confirmed_seat("Egon", "Ehlers"),
+                "ansprechperson": self.open_seat("Edda", "Ehlers"),
+                "stellvertretung": self.open_seat("Emil", "Ehlers"),
+            },
+        )
+        erased = PEOPLE["firstPass"]["erased"]
+        self.bewerbungen = [
+            # Nobody has answered.
+            self.application(
+                new_school=("Akazie", 0),
+                submitted_on=-1,
+                wunschfarbe="rot",
+                wunschgegner="Ahorn-Gymnasium",
+                states={
+                    "trainer": self.open_seat("Anton", "Albers"),
+                    "ansprechperson": self.open_seat("Anke", "Albers"),
+                    "stellvertretung": self.open_seat("Ali", "Albers"),
+                },
+            ),
+            # Every seat confirmed: a new school ready for the acceptance, wishing for a colour the season has taken.
+            self.application(
+                new_school=("Erle", 1),
+                submitted_on=-10,
+                wunschfarbe="blau",
+                states={
+                    "trainer": self.confirmed_seat("Erik", "Engel"),
+                    "ansprechperson": self.confirmed_seat("Erna", "Engel"),
+                    "stellvertretung": self.confirmed_seat("Enno", "Engel"),
+                },
+            ),
+            # A picked club ready for the acceptance, its Trainer holding the Ansprechperson's seat too, and the same club's
+            # second application beside it, the Dublette.
+            self.application(
+                picked="Kastanie",
+                submitted_on=-9,
+                wunschfarbe="gruen",
+                trainer_is_also="ansprechperson",
+                states={"trainer": self.confirmed_seat("Kira", "Kolb"), "stellvertretung": self.confirmed_seat("Kurt", "Kolb")},
+            ),
+            self.application(
+                picked="Kastanie",
+                owner="kastanie-second",
+                submitted_on=-2,
+                wunschfarbe="hellgruen",
+                states={
+                    "trainer": self.open_seat("Kai", "Kunze"),
+                    "ansprechperson": self.open_seat("Karla", "Kunze"),
+                    "stellvertretung": self.open_seat("Kim", "Kunze"),
+                },
+            ),
+            # A confirmed seat, a reminded one and a Widerspruch, whose notice to the Ansprechperson named the deletion day.
+            self.application(
+                new_school=("Holunder", 2),
+                submitted_on=-6,
+                wunschfarbe="violett",
+                states={
+                    "trainer": self.confirmed_seat("Hilke", "Hoff"),
+                    "ansprechperson": self.open_seat("Hauke", "Hoff", reminded_on=-3),
+                    "stellvertretung": self.objected_seat(-2),
+                },
+                erasure_announced_at=self.day(-2),
+            ),
+            # A seat emptied by an erasure, the others' links still running.
+            self.application(
+                new_school=("Hasel", 3),
+                submitted_on=-2,
+                wunschfarbe="tuerkis",
+                states={
+                    "trainer": self.erased_seat(),
+                    "ansprechperson": self.confirmed_seat("Heike", "Hahnemann"),
+                    "stellvertretung": self.open_seat("Horst", "Hahnemann"),
+                },
+            ),
+            self.bounced,
+            # Past its deadline: the first pass, a minute after the frontend starts, erases it and tells the Trainerin, the
+            # one seat that confirmed, the one deletion a journey can read.
+            self.application(
+                new_school=("Lärche", 6),
+                owner="laerche",
+                submitted_on=-16,
+                wunschfarbe="braun",
+                states={
+                    "trainer": self.confirmed_seat(erased["first_name"], erased["last_name"], erased["address"]),
+                    "ansprechperson": self.open_seat("Lutz", "Lehmann", reminded_on=-13),
+                    "stellvertretung": self.open_seat("Lisa", "Lehmann", reminded_on=-13),
+                },
+            ),
+            # Declined with a seat still open, whose link the decision ended.
+            self.application(
+                new_school=("Flieder", 5),
+                submitted_on=-12,
+                wunschfarbe="flieder",
+                states={
+                    "trainer": self.confirmed_seat("Frank", "Fink"),
+                    "ansprechperson": self.confirmed_seat("Fenja", "Fink"),
+                    "stellvertretung": self.open_seat("Fritz", "Fink"),
+                },
+                status="declined",
+                decision=decision_on(-3, "Die Gruppen sind voll"),
+            ),
+            accepted_new_school,
+            accepted_club,
+        ]
+
+        def planned_row(club_name: str, gruppe: str, trikot_farbe: str, people: Mapping[str, Any] | None = None) -> dict[str, Any]:
+            club = self.club[club_name]
+            return saison_team_document(
+                "2028", club["_id"], club["name"], club["shorthand"], _id=ObjectId(), gruppe=gruppe, trikot_farbe=trikot_farbe, **(people or {})
+            )
+
+        # Group B is full, group A has room for the acceptance's journeys and group C for the administration's. The two
+        # accepted applications' clubs carry their people as the acceptance copies them, and Esche stands entered with
+        # nobody yet; the clubs the journeys' rejected applications pick and the clubs the administration's journeys enter
+        # are left to enter, so none holds a row.
+        self.planned_rows = [
+            planned_row("Ulme", "B", "blau", {"kontakte": accepted_club["kontakte"]}),
+            planned_row("Pappel", "B", "gelb", {"kontakte": accepted_new_school["kontakte"]}),
+            planned_row("Esche", "B", "gold"),
+            planned_row(
+                "Eiche",
+                "B",
+                "rosa",
+                self.row_seats(
+                    "eiche",
+                    -8,
+                    {
+                        "trainer": self.confirmed_seat("Eva", "Ebner"),
+                        "ansprechperson": self.objected_seat(-6),
+                        "stellvertretung": self.erased_seat(),
+                    },
+                ),
+            ),
+            planned_row(
+                "Linde",
+                "A",
+                "schwarz",
+                self.row_seats(
+                    "linde",
+                    -2,
+                    {
+                        "trainer": self.open_seat("Lars", "Lorenz"),
+                        "ansprechperson": self.open_seat("Lotte", "Lorenz"),
+                        "stellvertretung": self.confirmed_seat("Lukas", "Lorenz"),
+                    },
+                ),
+            ),
+        ]
+        entered = {row["name"] for row in self.planned_rows}
+        for project in PROJECTS:
+            for club_name in (project["applicants"]["declined"], project["entered"]["club"]):
+                if club_name in entered:
+                    raise ValueError(f"a journey enters {club_name} into the planned season, which the seed has entered already")
+
+    # --- Mail, bans, address changes and the log ------------------------------------------------------------------
+
+    def _access(self) -> None:
+        # The last mail owed `bounced`'s Ansprechperson, as its final state leaves the row (`final_update`): it owes nothing
+        # and only says what became of the mail.
+        recorded = datetime.fromisoformat(f"{self.day(-2)}T09:00:00").replace(tzinfo=UTC)
+        receipt = outbox_document(
+            "made-up/bounced",
+            to=self.bounced["kontakte"]["ansprechperson"]["email"],
+            now=recorded,
+            data=FLBewerbungReceivedData(
+                kind="bewerbung_received",
+                saison_id="2028",
+                rollen=["ansprechperson"],
+                pending=["ansprechperson", "stellvertretung"],
+                deadline=self.bounced["confirmations"]["ansprechperson"]["deadline"],
+            ),
+            reference=FLOutboxReference(collection=Collection.BEWERBUNGEN, id=self.bounced["_id"], seat="ansprechperson"),
+        )
+        self.outbox = [
+            read_back_document(
+                Collection.OUTBOX,
+                {
+                    **applied(receipt, final_update("sent", now=recorded + timedelta(minutes=1), message_id="made-up-message")),
+                    "attempts": 1,
+                    "delivery": {"state": "undeliverable", "reason": "bounced", "at": recorded + timedelta(minutes=5)},
+                },
+            )
+        ]
+
+        access = PEOPLE["access"]
+        # Long enough for a phone's row to have to wrap it.
+        self.ban_list = [ban_document(access["ban"], until="2031", ban_reason="Beleidigungen am Spielfeldrand", created_at=self.day(-30))]
+
+        def address_change(holder: str, way: FLAddressChangeWay, label: str, **step: Any) -> dict[str, Any]:
+            """A running change as its start writes it, its links minted at their hand-outs, `step` the presses since."""
+
+            started = datetime.fromisoformat(f"{self.day(-1)}T12:00:00").replace(tzinfo=clock.GERMANY)
+            return read_back_document(
+                Collection.ADDRESS_CHANGES,
+                {
+                    "_id": ObjectId(),
+                    **compose_record(address=holder, email=holder.replace("@", ".neu@"), way=way, now=started),
+                    "token_hashes": [link_hash(f"{label}-new")],
+                    "stop": {"token_hashes": [link_hash(f"{label}-stop")]},
+                    **step,
+                },
+            )
+
+        self.address_changes = [
+            address_change(access["changing"]["address"], "waiting_period", "noll", valid_until=self.waiting),
+            # Its wait outlasts any run, as a handover's does: the hourly pass switches an address whose date has passed.
+            address_change(
+                PEOPLE["administrators"]["moving"],
+                "account",
+                "move",
+                valid_until=None,
+                released_at=self.in_effect,
+                confirmed_at=self.in_effect,
+                effective_from=self.waiting,
+            ),
+        ]
+
+        def logged(hours_ago: int, by: str, action: str, **fields: Any) -> dict[str, Any]:
+            return action_log_document(action, by=by, at=self.now - timedelta(hours=hours_ago), **fields)
+
+        # One row of each who: an administrator's folded address, a team's representative, a referee, a pass, a person.
+        self.action_log = [
+            logged(50, "person", "erasure.own"),
+            logged(40, "system", "retention.kontakte", label="2026", count=2),
+            logged(30, "schiedsrichter", "spielbericht.saved", label="2026 / 1"),
+            logged(20, "kontakt", "spielbestaetigung.answered", team="Birke", label="2026"),
+            logged(10, PEOPLE["owner"], "grant.added", label=PEOPLE["administrators"]["waiting"]),
+        ]
+
+        # The mailbox of the latest registration's pupil, whose press anchored it: as the seed runs, since an anchor lapses
+        # an hour after its last press and the read-back reads it after the seed.
+        self.mailbox_anchors = [mailbox_anchor_document(self.registrierungen[0]["email"], anchored_at=self.now)]
+
+    # --- Writing it -----------------------------------------------------------------------------------------------
+
+    def documents(self) -> dict[Collection, list[dict[str, Any]]]:
+        """Every collection's documents in their order, each read through its record model.
+
+        Each anchored collection's first carries its anchor's count.
+        """
+
+        written = {
+            Collection.TEAMS: self.teams,
+            Collection.SPIELORTE: self.venues,
+            Collection.SCHIEDSRICHTER: self.referees,
+            Collection.GRANTS: self.grants,
+            Collection.SAISONS: [self.finished.saison, self.running.saison, self.planned],
+            Collection.SAISON_TEAMS: [*self.finished.rows, *self.running.rows, *self.planned_rows],
+            Collection.SPIELTAGE: [*self.finished.spieltage, *self.running.spieltage],
+            Collection.SPIELE: [*self.finished.spiele, *self.running.spiele],
+            Collection.SPIELER: self.spieler,
+            Collection.SAISON_SPIELER: self.squads,
+            Collection.SPIELBERICHTE: self.spielberichte,
+            Collection.AUFSTELLUNGEN: self.aufstellungen,
+            Collection.BEWERBUNGEN: self.bewerbungen,
+            Collection.INVITATIONS: list(self.invitations.values()),
+            Collection.REGISTRIERUNGEN: self.registrierungen,
+            Collection.OUTBOX: self.outbox,
+            Collection.BAN_LIST: self.ban_list,
+            Collection.ADDRESS_CHANGES: self.address_changes,
+            Collection.ACTION_LOG: self.action_log,
+            Collection.SPIELBESTAETIGUNGEN: self.spielbestaetigungen,
+            Collection.MAILBOX_ANCHORS: self.mailbox_anchors,
+        }
+        return {
+            collection: [
+                read_back_document(collection, {**document, **({ANCHOR_FIELD: 1} if collection in ANCHORED and index == 0 else {})})
+                for index, document in enumerate(documents)
+            ]
+            for collection, documents in written.items()
+        }
+
+
+# --- The landing's state --------------------------------------------------------------------------------------------
+
+
+def moved(iso: str | None, days: int) -> str | None:
+    """`iso` moved by `days`, a stored day or `None` as it stands."""
+
+    return None if iso is None else (date.fromisoformat(iso) + timedelta(days=days)).isoformat()
+
+
+def move_running(league: MadeUpLeague, days: int) -> None:
+    """The running season's start, its matchdays and its fixtures moved by `days`, its end as it stands."""
+
+    running = league.running
+    running.saison["start_date"] = moved(running.saison["start_date"], days)
+    for row in running.spieltage:
+        row.update(start=moved(row["start"], days), end=moved(row["end"], days))
+    for row in running.spiele:
+        row["date"] = moved(row["date"], days)
+
+
+def unplayed(row: dict[str, Any], *, undated: bool = False) -> None:
+    """A fixture as the draw leaves it: no goals, no shoot-out and no event, and undated where `undated`."""
+
+    for side in ("team1", "team2"):
+        if row[side] is not None:
+            row[side]["tore"] = None
+    row.update(ergebnis=None, elfmeterschiessen=None, sonderereignis=None)
+    if undated:
+        row.update(date=None, time=None)
+
+
+def played(
+    league: MadeUpLeague, row: dict[str, Any], tore: tuple[int, int], *, sides: tuple[str, str] | None = None, elfmeterschiessen: Any = None
+) -> None:
+    """`row` played as `tore` says, its sides named where the knockout has none yet."""
+
+    for key, name, goals in zip(("team1", "team2"), sides or (None, None), tore, strict=True):
+        row[key] = {"team_id": league.club[name]["_id"], "tore": goals} if name is not None else {**row[key], "tore": goals}
+    row.update(ergebnis=f"{tore[0]}:{tore[1]}", elfmeterschiessen=elfmeterschiessen)
+
+
+def countdown(league: MadeUpLeague, *, undated: bool) -> None:
+    move_running(league, 49)
+    for row in league.running.spiele:
+        unplayed(row, undated=undated)
+
+
+def decided(league: MadeUpLeague) -> None:
+    running = league.running
+    move_running(league, -30)
+    # The group fixtures not yet played, but the one called off, and both knockout days, all before today.
+    for nr in (6, 7, 9, 10, 11, 12):
+        played(league, running.spiel(nr), (1, 0))
+    for phase, offset in (("halbfinale", -7), ("finale", -3)):
+        next(row for row in running.spieltage if row["saison_phase"] == phase).update(start=league.day(offset), end=league.day(offset))
+    for nr in (13, 14):
+        running.spiel(nr).update(date=league.day(-7), time="15:00:00")
+    running.spiel(15).update(date=league.day(-3), time="13:00:00")
+    running.spiel(16).update(date=league.day(-3), time="15:00:00")
+    # Fielded as the knockout's sources name them from the tables these results give: A Ahorn 9, Ulme 4, Kastanie 3,
+    # Eiche 1; B Esche 9, Birke 6, Linde and Weide 0.
+    played(league, running.spiel(13), (2, 0), sides=("Ahorn", "Birke"))
+    played(league, running.spiel(14), (1, 2), sides=("Esche", "Ulme"))
+    played(league, running.spiel(15), (3, 1), sides=("Birke", "Esche"))
+    played(league, running.spiel(16), (1, 1), sides=("Ahorn", "Ulme"), elfmeterschiessen={"team1": 4, "team2": 3})
+
+
+def no_season_running(league: MadeUpLeague) -> None:
+    league.running.saison["status"] = "past"
+
+
+def no_window_open(league: MadeUpLeague) -> None:
+    no_season_running(league)
+    league.planned["bewerbung"]["open"] = False
+
+
+# The state of the season card and the join band on the landing, by `SEED_LANDING`, which the guard against layout shift
+# (`fl_frontend/e2e/layout/shift.spec.ts`) loads `/` under one by one: each changes the running season's dates and results,
+# and its status where the site is on no season, and the planned season's window where none is open. Applied once every
+# request has copied the fixture it is about, so a request about a moved fixture is one about a slot the fixture left,
+# which neither act takes.
+# - `running`, the seed as written: a last result and a next match.
+# - `running-two-one-side`: every fixture dated in the past, so the card shows two last results and no next match.
+# - `countdown`: the season starts in two weeks, no fixture dated or played.
+# - `countdown-with-opening`: the same, its fixtures dated, the first of them the opening match.
+# - `decided`: every group fixture and the knockout played three weeks back, the final on penalties.
+# - `window`: no season running, the planned one's application window open, so the card is the window's.
+# - `none`: no season running and no window open, so the card is the empty box.
+LANDING_STATES: Final[Mapping[str, Callable[[MadeUpLeague], None]]] = {
+    "running": lambda league: None,
+    "running-two-one-side": lambda league: move_running(league, -10),
+    "countdown": lambda league: countdown(league, undated=True),
+    "countdown-with-opening": lambda league: countdown(league, undated=False),
+    "decided": decided,
+    "window": no_season_running,
+    "none": no_window_open,
+}
+
+
+async def write(client: AsyncMongoClient, database_name: str, league: MadeUpLeague) -> int:
+    """Replace every document of the database with the league's, and answer the exit code."""
+
+    documents = league.documents()
+    database = client[database_name]
+    try:
+        # Emptied rather than dropped: the backend's boot made each collection with its indexes, and a dropped collection
+        # would be re-created by the first insert with none.
+        for name in await database.list_collection_names():
+            if name.startswith("system."):
+                continue
+            removed = (await database[name].delete_many({})).deleted_count
+            if removed:
+                print(f"emptied {name}: {removed} document(s)")
+        # Ordered: an insert a unique index refuses stops the seed with the server's own account of the key.
+        for collection, rows in documents.items():
+            inserted = await database[collection].insert_many(rows, ordered=True)
+            print(f"seeded {collection}: {len(inserted.inserted_ids)} document(s)")
+    except BulkWriteError as refused:
+        print(f"An insert was refused: {refused.details['writeErrors'][0]['errmsg']}", file=sys.stderr)
+        return 1
+    # The type alone: the driver's message names the host it resolved out of the secret.
+    except PyMongoError as failure:
+        print(f"The database could not be written ({type(failure).__name__}).", file=sys.stderr)
+        return 1
+
+    print(f"made-up seed written to '{database_name}', today being {league.today}")
+    return 0
+
+
+async def _main() -> int:
+    # Unset, the seed as written; set, it names a state or is refused, the empty name among them.
+    landing = os.environ.get("SEED_LANDING", AS_WRITTEN)
+    if landing not in LANDING_STATES:
+        # A refusal, 2, before the settings are read: nothing was built or written.
+        print(f"SEED_LANDING names no state of the landing: {landing}. One of: {', '.join(LANDING_STATES)}.", file=sys.stderr)
+        return 2
+    league = MadeUpLeague(now=clock.now())
+    LANDING_STATES[landing](league)
+
+    config = get_config()
+    client = AsyncMongoClient(host=config.mongodb_uri.get_secret_value(), serverSelectionTimeoutMS=SERVER_SELECTION_TIMEOUT_MS)
+    try:
+        return await write(client, config.db_base_name, league)
+    finally:
+        await client.close()
+
+
+if __name__ == "__main__":
+    raise SystemExit(asyncio.run(_main()))
