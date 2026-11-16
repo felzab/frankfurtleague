@@ -57,6 +57,9 @@ dev = [
     # another's requirements, or a package there nothing imports, fails the backend scope. This group
     # is outside the unused-package rule (DEP002), which deptry applies to `dependencies` alone.
     "deptry>=0.25.1",
+    # Runs the `async def` cases, each as a task of its own in a copy of pytest's context, on one
+    # loop the session shares (`asyncio_default_test_loop_scope` below).
+    "pytest-asyncio>=1.5.0",
 ]
 
 [tool.deptry.per_rule_ignores]
@@ -179,6 +182,11 @@ markers = [
 # pytest's default is `skip`, so a parametrize list whose discovery found nothing passes as one
 # silent skip and takes its whole guarantee with it.
 empty_parameter_set_mark = "fail_at_collect"
+# pytest-asyncio runs every `async def` case and fixture without a mark on each. Both on the session's
+# loop, since a client of `tests/database.py :: shared_client` belongs to the loop that opened it.
+asyncio_mode = "auto"
+asyncio_default_test_loop_scope = "session"
+asyncio_default_fixture_loop_scope = "session"
 
 [tool.pyright]
 # The type checker the EDITOR already runs. ruff lints and pytest executes and neither checks a

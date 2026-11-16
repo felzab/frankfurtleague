@@ -1,10 +1,12 @@
 import copy
+import functools
+import inspect
 import io
 import logging
 import re
 import sys
 import time
-from collections.abc import Callable, Generator, Iterator
+from collections.abc import AsyncIterator, Callable, Coroutine, Generator, Iterator
 from contextlib import ExitStack, contextmanager
 from typing import TYPE_CHECKING, Any
 
@@ -13,6 +15,7 @@ from pydantic import BaseModel, ValidationError
 from pymongo import MongoClient
 
 from app.core.recording import actor_var
+from tests.database import bounded, close_the_shared_clients
 from tests.documents import EINWILLIGUNG, rules_document
 from tests.tier import is_db_marked, refuse_server_fixtures
 from tests.worker import guard_every_database, release_every_database
@@ -47,12 +50,23 @@ def _factory(base: dict[str, Any]) -> PayloadFactory:
     return make
 
 
+@pytest.fixture(scope="session", autouse=True)
+async def the_shared_clients() -> AsyncIterator[None]:
+    """Closes every client `tests/database.py :: shared_client` opened on the session's loop, on that loop, before it stops.
+
+    Opens nothing itself: a client is opened by the first case asking for it.
+    """
+
+    yield
+    await close_the_shared_clients()
+
+
 @pytest.fixture(autouse=True)
 def an_administrator_bound() -> Iterator[None]:
     """What `bind_actor` binds on a request, for the suite's direct calls of an admin handler, which `record_act` reads.
 
-    Set in the test's own context, which `tests/database.py :: on_the_seed_loop` copies into a seed's task, and bound to
-    nobody again for what `tests/app_client.py :: app_client` serves.
+    Set in the test's own context, which pytest-asyncio copies for an async case and `tests/database.py ::
+    on_the_seed_loop` for a seed, and bound to nobody again for what `tests/app_client.py :: app_client` serves.
     """
 
     token = actor_var.set("admin@frankfurtleague.de")
@@ -60,6 +74,26 @@ def an_administrator_bound() -> Iterator[None]:
         yield
     finally:
         actor_var.reset(token)
+
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Every async case runs under `tests/database.py :: bounded`, in its own task, where an expiry fails it by name.
+
+    Wrapped at collection, as the case pytest-asyncio's `runtest` takes off `obj`. A deadline around a fixture's `yield`
+    cannot stand in for it: pytest-asyncio runs the setup and the teardown as two tasks.
+    """
+
+    for item in items:
+        if isinstance(item, pytest.Function) and inspect.iscoroutinefunction(item.obj):
+            item.obj = _bounded_case(item.obj)
+
+
+def _bounded_case(case: Callable[..., Coroutine[Any, Any, Any]]) -> Callable[..., Coroutine[Any, Any, Any]]:
+    @functools.wraps(case)
+    async def bounded_case(*args: Any, **kwargs: Any) -> Any:
+        return await bounded(case(*args, **kwargs))
+
+    return bounded_case
 
 
 RejectsAssertion = Callable[[type[BaseModel], dict[str, Any], str], ValidationError]
