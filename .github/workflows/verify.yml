@@ -1,9 +1,5 @@
 name: verify
 
-# The gate that `scripts/gate/verify.sh` is, every scope on every event, one job per scope, and the
-# end-to-end journeys beside it; and, on a push that passed them, the publish of what the images job
-# built and checked: both images on main, the backend alone on follow-up.
-
 on:
   pull_request:
   push:
@@ -24,9 +20,8 @@ defaults:
 
 env:
   # How long a cache restore waits on a stuck download before the job goes on without the cache, in
-  # minutes (actions/cache's README). Its default, 10, outlasts the jobs given 5 or 8, which a stuck
-  # restore would cancel instead; every job's `timeout-minutes` stays above it. A warm restore takes
-  # seconds.
+  # minutes. Its default, 10, outlasts the jobs given 5 or 8, which a stuck restore would cancel
+  # instead; every job's `timeout-minutes` stays above it. A warm restore takes seconds.
   SEGMENT_DOWNLOAD_TIMEOUT_MINS: 2
 
 concurrency:
@@ -157,8 +152,6 @@ jobs:
       - name: Run the frontend-units scope
         run: ./scripts/gate/verify.sh --frontend-units
 
-  # The compose files and the nginx configuration have no compiler; this scope parses and serves
-  # them, and is the only thing standing between a typo in either and a failed deploy.
   ops:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -180,7 +173,7 @@ jobs:
 
   # Both images, built side by side in one bake through Docker's own action, which carries the Actions
   # layer cache. Each is written to a file and loaded, so a push hands the publish job exactly the
-  # bytes checked here (https://docs.docker.com/build/ci/github-actions/share-image-jobs/).
+  # bytes checked here.
   images:
     runs-on: ubuntu-latest
     timeout-minutes: 16
@@ -227,9 +220,8 @@ jobs:
           TARBALL_DIR: ${{ runner.temp }}
           # A push reads no cache, so no planted cache entry reaches an image a push publishes, and a
           # push alone writes one, into its branch's scope. A pull request restores its own merge ref's
-          # caches, its base branch's and the default branch's
-          # (https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching), so
-          # what it wrote would serve its own later runs alone, each paying the export.
+          # caches, its base branch's and the default branch's, so what it wrote would serve its own
+          # later runs alone, each paying the export.
           READ_CACHE: ${{ github.event_name != 'push' }}
           WRITE_CACHE: ${{ github.event_name == 'push' }}
         with:
@@ -274,19 +266,18 @@ jobs:
           # The layers are compressed already.
           compression-level: 0
 
-  # The Playwright journeys (`fl_frontend/playwright.config.ts`) against the end-to-end stack, raised
-  # from the images the images job built from this commit, with the made-up seed.
+  # The Playwright journeys against the end-to-end stack, raised from the images the images job built
+  # from this commit, with the made-up seed.
   journeys:
     # Its images, built once by buildx: compose's own builder refuses the frontend Dockerfile's `COPY --exclude`.
     needs: images
     runs-on: ubuntu-latest
     timeout-minutes: 14
-    # Two legs, each on a runner and a stack of its own, every case on every event
-    # (https://playwright.dev/docs/ci: "consider sharding - distributing tests across multiple CI
-    # jobs"). The journeys split by Playwright project: a project's seeded people are its own, where a
-    # `--shard` would split the cases of one project across two databases. `fail-fast: false`, or a red
-    # leg cancels the other and its verdict is lost. `first-pass` depends on `administrator` alone,
-    # so it rides the desktop leg.
+    # Two legs, each on a runner and a stack of its own, every case on every event. The journeys
+    # split by Playwright project: a project's seeded people are its own, where a `--shard` would
+    # split the cases of one project across two databases. `fail-fast: false`, or a red leg cancels
+    # the other and its verdict is lost. `first-pass` depends on `administrator` alone, so it rides
+    # the desktop leg.
     strategy:
       fail-fast: false
       matrix:
@@ -297,9 +288,9 @@ jobs:
             projects: --project=phone
     name: journeys (${{ matrix.leg }})
     env:
-      # Chromium, WebKit and every library they load (https://playwright.dev/docs/docker), so no run
-      # waits on the runner's apt mirror. Its tag is the lockfile's Playwright, whose browser builds
-      # no other release finds, and no Dependabot ecosystem reads this string, so a bump is by hand.
+      # Chromium, WebKit and every library they load, so no run waits on the runner's apt mirror. Its
+      # tag is the lockfile's Playwright, whose browser builds no other release finds, and no
+      # Dependabot ecosystem reads this string, so a bump is by hand.
       PLAYWRIGHT_IMAGE: mcr.microsoft.com/playwright:v1.65.1-noble@sha256:1507cbfc550a63a6b7396791ca4f00df17beb56342d2447b3f106c306f525579
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -357,9 +348,10 @@ jobs:
       # One step in the image, never a job-level `container:`: that job's steps would hold no docker to
       # raise the stack with, and its `options` refuse `--network`. The runner's network, because the
       # journeys' origin is `localhost`, the passkeys' relying party. The runner's user, so the mail
-      # sink reads as it reads on the runner, and the report steps read what the run writes. The checkout's own path, because the install's links are absolute and the `github`
-      # reporter's annotations name files relative to it. The install's own launcher, because the
-      # image holds no pnpm; it runs under the Node `devEngines` pins rather than the image's.
+      # sink reads as it reads on the runner, and the report steps read what the run writes. The
+      # checkout's own path, because the install's links are absolute and the `github` reporter's
+      # annotations name files relative to it. The install's own launcher, because the image holds no
+      # pnpm; it runs under the Node `devEngines` pins rather than the image's.
       - name: Run the journeys
         env:
           PROJECTS: ${{ matrix.projects }}
