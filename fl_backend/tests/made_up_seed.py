@@ -83,8 +83,9 @@ from app.api.teams.services import compose_kontakt_confirmation
 from app.core import clock
 from app.core.collections import Collection
 from app.core.config import get_config
-from app.core.crud import ANCHOR_FIELD
+from app.core.crud import ANCHOR_FIELD, Anchored
 from app.core.db import SERVER_SELECTION_TIMEOUT_MS
+from app.readback import RECORD_MODELS
 from app.shared.einwilligung_evidence import compose_initial
 from app.shared.schemas.addresses import FLAddress
 from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS
@@ -127,23 +128,9 @@ FINISHED: Final[str] = PEOPLE["seasons"]["finished"]
 RUNNING: Final[str] = PEOPLE["seasons"]["running"]
 PLANNED: Final[str] = PEOPLE["seasons"]["planned"]
 
-# The collections `anchor_in_db` writes, each first document carrying the count an anchor advances, as a document of the
-# league's soon does, so the read-back judges that its record model declares it. Kept by hand from the backend's callers
-# until a check holds the same from the backend's side; `mailbox_anchors` carries it by construction.
-ANCHORED: Final[frozenset[Collection]] = frozenset(
-    {
-        Collection.TEAMS,
-        Collection.SPIELORTE,
-        Collection.SCHIEDSRICHTER,
-        Collection.GRANTS,
-        Collection.SAISONS,
-        Collection.SAISON_TEAMS,
-        Collection.SPIELER,
-        Collection.SPIELE,
-        Collection.AUFSTELLUNGEN,
-        Collection.SPIELBESTAETIGUNGEN,
-    }
-)
+# The collections whose record model declares the count an anchor advances, each first document carrying it, as a
+# document of the league's soon does.
+ANCHORED: Final[frozenset[Collection]] = frozenset(collection for collection, model in RECORD_MODELS.items() if issubclass(model, Anchored))
 
 # The landing's state the seed as written stands in.
 AS_WRITTEN: Final = "running"
