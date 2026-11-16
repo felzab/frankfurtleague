@@ -7,7 +7,9 @@ name: verify
 on:
   pull_request:
   push:
-    branches: [main]
+    # A push run is the one writer of its branch's caches, which every pull request into that branch
+    # restores. `follow-up` stays here as long as the branch does, and goes when it is deleted.
+    branches: [main, follow-up]
 
 # Least privilege, declared here so a permissive repository default cannot silently widen what a
 # compromised dependency reaches. Only the publish job widens it, for its push.
@@ -29,7 +31,8 @@ env:
 
 concurrency:
   group: verify-${{ github.ref }}
-  # Supersede an in-flight run on a PR, but never on main, whose run publishes.
+  # Supersede an in-flight run on a PR, but never on a push: main's run publishes, and every push
+  # run writes the caches its branch's pull requests restore.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Each job's `timeout-minutes` bounds a hang rather than predicting a duration: four times the job's
@@ -121,10 +124,11 @@ jobs:
       # The scope builds the application, so the installed tree is the job.
       - uses: ./.github/actions/frontend-toolchain
         with:
-          # The pnpm store's one writer, and on a push to main alone: every install rewrites the patched
+          # The pnpm store's one writer, and on a push alone: every install rewrites the patched
           # dependency's record in the store, so pnpm/setup's check for an unchanged store never holds
-          # and every save is a new entry of about 225 MB. A pull request restores main's store, which
-          # GitHub lets it read, and fetches what its own lockfile adds on each of its runs.
+          # and every save is a new entry of about 225 MB. A pull request restores a store its base
+          # branch's push or main's wrote, both of which GitHub lets it read, and fetches what its own
+          # lockfile adds on each of its runs.
           save-cache: ${{ github.event_name == 'push' }}
       - name: Run the frontend scope
         run: ./scripts/gate/verify.sh --frontend
@@ -211,10 +215,11 @@ jobs:
       # One cache scope per image, buildx overwriting rather than merging a key, and `version` left to
       # buildx, which picks the live cache service.
 
-      # The push that publishes reads no cache, so no planted cache entry reaches a pushed image. It
-      # still writes one: a pull request restores only its own merge ref's caches and the default
-      # branch's (https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching),
-      # and those builds publish nothing.
+      # A push reads no cache, so no planted cache entry reaches an image a push publishes, and a push
+      # alone writes one, into its branch's scope. A pull request restores its own merge ref's caches,
+      # its base branch's and the default branch's
+      # (https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching), so
+      # what it wrote would serve its own later runs alone, each paying the export.
       - name: Build the frontend
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -227,7 +232,7 @@ jobs:
           build-args: APP_VERSION=${{ steps.meta-frontend.outputs.version }}
           outputs: type=docker,dest=${{ runner.temp }}/frontend.tar
           cache-from: ${{ github.event_name != 'push' && 'type=gha,scope=frontend' || '' }}
-          cache-to: type=gha,scope=frontend,mode=max
+          cache-to: ${{ github.event_name == 'push' && 'type=gha,scope=frontend,mode=max' || '' }}
       - name: Build the backend
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -240,7 +245,7 @@ jobs:
           build-args: APP_VERSION=${{ steps.meta-backend.outputs.version }}
           outputs: type=docker,dest=${{ runner.temp }}/backend.tar
           cache-from: ${{ github.event_name != 'push' && 'type=gha,scope=backend' || '' }}
-          cache-to: type=gha,scope=backend,mode=max
+          cache-to: ${{ github.event_name == 'push' && 'type=gha,scope=backend,mode=max' || '' }}
       # On every event, so a pull request's run proves the outputs a push to main publishes by.
       - name: Record each tarball's digest and each image's one tag
         id: bind
