@@ -11,7 +11,9 @@
 #   ./scripts/ops/deploy.sh --help
 #
 # Exit 0 deployed; 1 failed, and the last line says whether the stack went back; 2 refused, with
-# the stack unchanged; 130 interrupted, the stack as far as compose took it. The last build judged
+# the stack unchanged; 130 interrupted, the stack as far as compose took it; 3 or more a step that
+# crashed, its own status kept where it is 3 or more, a failed pull or a HEAD git could not name
+# among them, which leave the stack unchanged. The last build judged
 # healthy is pinned as TAG= in the .env beside the compose file, which compose reads for every
 # command, so `docker compose ps` and `logs` typed by hand reach the stack, and a later run that
 # fails goes back to it.
@@ -40,8 +42,9 @@ done
 
 # `cut` rather than `git rev-parse --short`, which lengthens a prefix another object shares.
 if [[ -z "$tag" ]]; then
-  head="$(git rev-parse HEAD)" || refuse "git could not name the checkout's HEAD, so there is no tag to deploy.
-Name one:  ./scripts/ops/deploy.sh sha-1a2b3c4"
+  head=""
+  run_tool utility --stdout head --crash "git could not name the checkout's HEAD, so there is no tag to deploy.
+Name one:  ./scripts/ops/deploy.sh sha-1a2b3c4" -- git rev-parse HEAD
   tag="sha-$(printf '%s' "$head" | cut -c1-7)"
 fi
 [[ "$tag" =~ $TAG_RE ]] || refuse "${tag} is not a tag CI publishes, which is sha- and seven hex digits, as sha-1a2b3c4."
@@ -72,9 +75,8 @@ if quietly docker image prune -af; then ok "removed"; else warn "the prune faile
 # `missing`, because every image this stack names is one build for good: a sha- tag is one commit's,
 # and the edge's images are pinned by digest. A build already on this host is taken as it is.
 step "Pulling every image ${tag} runs with"
-quietly docker compose pull --policy missing \
-  || refuse "the pull failed, and compose's own account is above: a tag CI never pushed, the registry, or this
-host's network. The stack has not changed."
+run_tool compose --crash "the pull failed, and compose's own account is above: a tag CI never pushed, the registry, or this
+host's network. The stack has not changed." -- quietly docker compose pull --policy missing
 ok "every image is on this host"
 
 # Through a second file and a rename, so the pin is never half written.
@@ -92,8 +94,10 @@ read_states() {
   local -i services=0
   local -A running=() other=()
   FAILING=()
-  defined="$(docker compose config --services)" || return 2
-  listed="$(docker compose ps --format '{{.Service}} {{.State}} {{.Health}}')" || return 2
+  # Compose's own failure here is any error at all, which leaves the states unread: this function's 2,
+  # so the run goes back rather than ending where the stack stands.
+  answered compose --stdout defined docker compose config --services || return 2
+  answered compose --stdout listed docker compose ps --format '{{.Service}} {{.State}} {{.Health}}' || return 2
   while IFS=' ' read -r service state health; do
     if [[ "$state" == running && ( -z "$health" || "$health" == healthy ) ]]; then
       running[$service]=1
@@ -132,13 +136,17 @@ up() { quietly docker compose up -d --wait --wait-timeout "$WAIT_S" --remove-orp
 # processes` at notice, the image's nginx.conf level. Only the master's lines are read: a worker's
 # request can log an alert of its own, such as its connections running out, which bears no
 # connection number either.
+nginx_said() { # $1 the moment its lines are read from
+  docker compose logs --no-log-prefix --since "$1" nginx 2>&1
+}
 reload_nginx() {
   local since="${EPOCHREALTIME/,/.}" refusal="$failure" said master refused i
-  quietly docker compose exec -T nginx nginx -s reload || return 1
+  # A reload that was never sent is one nginx did not take, so the run goes back.
+  answered compose quietly docker compose exec -T nginx nginx -s reload || return 1
   failure="nginx was sent this checkout's configuration and confirmed neither taking nor refusing it"
   for (( i = 0; i < 15; i++ )); do
     sleep 1
-    said="$(docker compose logs --no-log-prefix --since "$since" nginx 2>&1)" \
+    answered compose --stdout said nginx_said "$since" \
       || { info "compose could not read nginx's output:"; detail <<<"$said"; return 1; }
     master="$(sed -nE 's/^[0-9/]+ [0-9:]+ \[notice\] ([0-9]+)#[0-9]+: reconfiguring$/\1/p' <<<"$said" | tail -n 1)"
     if [[ -z "$master" ]]; then continue; fi

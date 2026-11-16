@@ -2,8 +2,9 @@
 CORE · the read-back's exit contract: 0 clean, 1 a document to correct, 2 could not judge, 3 crashed
 
 The scripts that run `python -m app.readback` after a seed or a migration tell the operator to correct a document on a 1,
-so a read-back that fails in itself answers 3, at its imports as in its run. Each case runs it in a process of its own,
-over an environment holding nothing of this machine's but the one name Windows' sockets need.
+and read a 1 as the read-back's own only beside its closing line: Compose and Python answer their own failures 1 too.
+Each case runs it in a process of its own, over an environment holding nothing of this machine's but the one name
+Windows' sockets need.
 """
 
 import os
@@ -12,9 +13,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-from app.readback import CRASHED
+from app.readback import CLOSING_LINE, UNJUDGED
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
+LIBRARY = BACKEND_ROOT.parent / "scripts" / "lib" / "_lib.sh"
 
 
 def _read_back(environment: dict[str, str]) -> subprocess.CompletedProcess[str]:
@@ -33,21 +35,22 @@ def _read_back(environment: dict[str, str]) -> subprocess.CompletedProcess[str]:
     )
 
 
-def test_an_import_that_fails_answers_crashed(tmp_path: Path):
-    # A package the read-back imports, shadowed by one that cannot be imported: an install broken under it.
-    (tmp_path / "pydantic").mkdir()
-    (tmp_path / "pydantic" / "__init__.py").write_bytes(b'raise ImportError("a broken install")\n')
-
-    ran = _read_back({"PYTHONPATH": str(tmp_path)})
-
-    assert (ran.returncode, ran.stdout.startswith("The read-back crashed (ImportError at ")) == (CRASHED, True), ran.stdout + ran.stderr
-
-
-def test_a_run_that_fails_answers_crashed_and_names_no_value(tmp_path: Path):
-    """Settings that cannot be built fail inside the run, before any database is asked, and their refusal can carry a value."""
+def test_settings_that_cannot_load_are_a_refusal(tmp_path: Path):
+    """Settings that cannot be built are a configuration it could not load: nothing was judged, before any database is asked."""
 
     ran = _read_back({"SECRETS_DIR": str(tmp_path)})
 
-    assert (ran.returncode, ran.stderr) == (CRASHED, ""), ran.stdout + ran.stderr
-    # The whole output, one line naming the type and where it was raised: nothing the refusal said reaches it.
-    assert re.fullmatch(r"The read-back crashed \(EnvironmentValidationError at \S+\.py:\d+\)\.\n", ran.stdout), ran.stdout
+    assert ran.returncode == UNJUDGED, ran.stdout + ran.stderr
+    # One line, the settings' own refusal as the backend's boot logs it, naming the files missing from the empty directory.
+    assert re.fullmatch(r"The settings could not be loaded: [^\n]*Invalid secret files: [^\n]+\n", ran.stdout), ran.stdout
+
+
+def test_the_closing_line_is_the_one_the_scripts_read_a_refusal_by():
+    """A wording the scripts' pattern stops matching turns every document to correct into a crash."""
+
+    rows = re.findall(r"^\s*\[readback\]='([^']*)'$", LIBRARY.read_text(encoding="utf-8"), re.MULTILINE)
+    assert len(rows) == 1, f"scripts/lib/_lib.sh :: EXIT_LINES holds {len(rows)} readback rows"
+    statuses, verdict, pattern = rows[0].split(" ", 2)
+    assert (statuses, verdict) == ("1", "1"), rows[0]
+    assert re.search(pattern, CLOSING_LINE.format(read=12, refused=3)), (pattern, CLOSING_LINE)
+    assert not re.search(pattern, CLOSING_LINE.format(read=12, refused=0)), (pattern, CLOSING_LINE)

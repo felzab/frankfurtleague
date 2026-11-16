@@ -73,7 +73,8 @@ pull is what brings the compose file and `nginx/` up to date. A run does this, i
 1. **It prunes every image no container references**, so the running build stays and the one before
    it goes. The build this run replaces stays on the host until the next deploy.
 2. **It pulls every image the tag runs with**, taking an image already on the host as it is. A pull
-   that fails refuses with the stack unchanged: a tag CI never pushed, the registry or the network.
+   that fails is a crash with the stack unchanged: a tag CI never pushed, the registry or the network,
+   which Compose answers with the same 1 as a flag it does not hold.
 3. **It starts the build and waits up to 180 seconds for every service's healthcheck**
    (`docker compose up --wait`). Compose recreates a service only where its definition or image
    moved, so a deploy moving only the application images recreates those two, and nginx keeps
@@ -125,8 +126,9 @@ about and counts as no pin.
 | Crashed                            | 3 or more | The stack as far as the run got; its last lines name the command that failed                                                         |
 | Interrupted                        | 130       | The stack as far as Compose took it; the pin unmoved, or the new build's under `--no-rollback` once started                          |
 
-**A refusal is a wrong argument, a `HEAD` git cannot read, a machine that is not Linux, a failed
-pull, or a `--no-rollback` run whose pin could not be written.** The run names which.
+**A refusal is a wrong argument, a machine that is not Linux, or a `--no-rollback` run whose pin
+could not be written.** The run names which. A `HEAD` git cannot read and a failed pull are
+crashes, each with the stack unchanged, the run's last lines naming the command.
 
 **Going back moves the images alone.** The compose file and `nginx/` stay as the pull left them,
 and nginx is not reloaded, so it keeps the configuration it had before the run unless the start
@@ -210,9 +212,10 @@ docker compose exec -T backend python -m app.readback
 
 On the server, from the checkout. It reads every document through its record model, writes nothing,
 prints each refused document's collection, id and error location and never a value, and exits 0 when
-every document validates, 1 when any is refused, 2 when the database could not be read, and 3 when it
-crashed, its import included, naming the error's type and the line that raised it and never its
-message. Its last line counts the documents read and refused.
+every document validates, 1 when any is refused, 2 when its settings could not be loaded or the
+database could not be read, and 3 when it crashed, naming the error's type and the line that raised
+it and never its message. Its last line counts the documents read and refused; a 1 without that line
+is Python's own, a module missing from the image, say, and judged no document.
 
 **It reads only the collections `RECORD_MODELS` names**, so a collection left behind under an old
 name is read by nothing, and the new name, never written, reads as an empty collection with nothing

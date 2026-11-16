@@ -31,6 +31,14 @@ from checker_kernel import (
 )
 from nginx_conf import NginxSyntax, parse, walk
 
+
+class NotRendered(Exception):
+    """A model this checker was handed that Compose did not render, so nothing in it was judged.
+
+    Its own type, so a `ValueError` a rule's own code raises stays the kernel's crash rather than reading as this refusal.
+    """
+
+
 # Pinned rather than read off either file: a service joining production is a decision about what
 # the server runs, and the one this pin exists for is a database.
 PRODUCTION_SERVICES: Final = frozenset({"frontend", "backend", "nginx", "cloudflared"})
@@ -115,7 +123,7 @@ REALIP_SETTINGS: Final = {"real_ip_header": "CF-Connecting-IP"}
 def services(model: dict[str, Any], name: str) -> dict[str, Any]:
     found = model.get("services")
     if not isinstance(found, dict):
-        raise ValueError(f"{name}: no `services` mapping, so this is not a model `docker compose config` wrote")
+        raise NotRendered(f"{name}: no `services` mapping, so this is not a model `docker compose config` wrote")
     return found
 
 
@@ -156,7 +164,7 @@ def networks(model: dict[str, Any], name: str) -> list[Finding]:
     for service, definition in sorted(services(model, name).items()):
         joined = definition.get("networks") or {}
         if not isinstance(joined, dict):
-            raise ValueError(f"{name}: {service} has networks Compose did not render as a mapping, so this is not its rendered model")
+            raise NotRendered(f"{name}: {service} has networks Compose did not render as a mapping, so this is not its rendered model")
         expected = SERVICE_NETWORKS.get(service)
         if expected is None:
             findings.append(Finding(f"{name}: {service} is on no list of who joins which network\n{CONTINUATION}add it to SERVICE_NETWORKS"))
@@ -217,7 +225,7 @@ def secrets_directory(model: dict[str, Any], name: str, project: Path) -> list[F
     for service, definition in sorted(services(model, name).items()):
         for volume in definition.get("volumes") or []:
             if not isinstance(volume, dict):
-                raise ValueError(f"{name}: {service} has a volume Compose did not expand, so this is not its rendered model")
+                raise NotRendered(f"{name}: {service} has a volume Compose did not expand, so this is not its rendered model")
             source = Path(str(volume.get("source")))
             if volume.get("type") == "bind" and (source.is_relative_to(directory) or directory.is_relative_to(source)):
                 findings.append(
@@ -268,7 +276,11 @@ def secret_holders(model: dict[str, Any], name: str, project: Path, stack: str) 
 
 def _not_the_local_database(content: object, services_declared: dict[str, Any]) -> str | None:
     """Why `content` is not a login-free `mongodb://` URI naming `LOCAL_DATABASE_SERVICE` alone, or None where it is."""
-    parts = urlsplit(content.strip()) if isinstance(content, str) else None
+    try:
+        parts = urlsplit(content.strip()) if isinstance(content, str) else None
+    # A bracketed host that never closes, which `urlsplit` refuses: no URI at all.
+    except ValueError:
+        parts = None
     if parts is None or parts.scheme != "mongodb":
         return "holds no inline mongodb:// URI"
     login, _, hosts = parts.netloc.rpartition("@")
@@ -294,7 +306,7 @@ def local_logins(model: dict[str, Any], name: str) -> list[Finding]:
     for service, definition in sorted(services_declared.items()):
         for entry in definition.get("configs") or []:
             if not isinstance(entry, dict):
-                raise ValueError(f"{name}: {service} has a config Compose did not expand, so this is not its rendered model")
+                raise NotRendered(f"{name}: {service} has a config Compose did not expand, so this is not its rendered model")
             source = str(entry.get("source"))
             # Compose mounts a config with no target at `/<source>`.
             target = str(entry.get("target") or f"/{source}")
@@ -319,7 +331,7 @@ def moved_names(model: dict[str, Any], name: str) -> list[Finding]:
     for service, definition in sorted(services(model, name).items()):
         environment = definition.get("environment") or {}
         if not isinstance(environment, dict):
-            raise ValueError(f"{name}: {service} has an environment Compose did not render as a mapping, so this is not its rendered model")
+            raise NotRendered(f"{name}: {service} has an environment Compose did not render as a mapping, so this is not its rendered model")
         for variable in sorted(environment):
             if str(variable).upper() in MOVED_ENV_NAMES:
                 findings.append(
@@ -341,7 +353,7 @@ def local(model: dict[str, Any], name: str) -> list[Finding]:
     for service, definition in sorted(services(model, name).items()):
         for port in definition.get("ports") or []:
             if not isinstance(port, dict):
-                raise ValueError(f"{name}: {service} has a port Compose did not expand, so this is not its rendered model")
+                raise NotRendered(f"{name}: {service} has a port Compose did not expand, so this is not its rendered model")
             if port.get("host_ip") not in LOOPBACK:
                 where = port.get("host_ip") or "every interface"
                 findings.append(
@@ -360,12 +372,12 @@ def edge_mounts(model: dict[str, Any], name: str, project: Path, checkout: Path)
     """
     edge = services(model, name).get(EDGE_SERVICE)
     if not isinstance(edge, dict):
-        raise ValueError(f"{name}: no {EDGE_SERVICE} service, so no edge mount was read")
+        raise NotRendered(f"{name}: no {EDGE_SERVICE} service, so no edge mount was read")
     pairs: list[tuple[str, str]] = []
     findings: list[Finding] = []
     for volume in edge.get("volumes") or []:
         if not isinstance(volume, dict):
-            raise ValueError(f"{name}: {EDGE_SERVICE} has a volume Compose did not expand, so this is not its rendered model")
+            raise NotRendered(f"{name}: {EDGE_SERVICE} has a volume Compose did not expand, so this is not its rendered model")
         if volume.get("type") != "bind":
             continue
         source = Path(str(volume.get("source")))
@@ -395,7 +407,7 @@ def connector_address(model: dict[str, Any], name: str) -> str:
     addresses = [n.get("ipv4_address") for n in networks.values() if isinstance(n, dict)] if isinstance(networks, dict) else []
     addresses = [address for address in addresses if address]
     if len(addresses) != 1:
-        raise ValueError(
+        raise NotRendered(
             f"{name}: {CONNECTOR_SERVICE} has {len(addresses)} static addresses, not one, so the edge's trust in it was not compared"
         )
     return str(addresses[0])
@@ -451,7 +463,7 @@ def deployment_name(model: dict[str, Any], name: str, stack: str) -> list[Findin
     """The frontend's `APP_ENV` is the stack's own, written in the compose file above the package's environment file."""
     environment = (services(model, name).get("frontend") or {}).get("environment") or {}
     if not isinstance(environment, dict):
-        raise ValueError(f"{name}: frontend has an environment Compose did not render as a mapping, so this is not its rendered model")
+        raise NotRendered(f"{name}: frontend has an environment Compose did not render as a mapping, so this is not its rendered model")
     expected = DEPLOYMENT_NAMES[stack]
     if environment.get("APP_ENV") == expected:
         return []
@@ -483,7 +495,7 @@ def env_files(model: dict[str, Any], name: str) -> list[Finding]:
         # resolved to reads the same on both.
         environment = (declared.get(service) or {}).get("environment") or {}
         if not isinstance(environment, dict):
-            raise ValueError(f"{name}: {service} has an environment Compose did not render as a mapping, so this is not its rendered model")
+            raise NotRendered(f"{name}: {service} has an environment Compose did not render as a mapping, so this is not its rendered model")
         read = sorted(str(value) for key, value in environment.items() if key.startswith(STAND_IN_READ))
         if read != [expected]:
             findings.append(
@@ -528,7 +540,7 @@ def edge(stack: Stack) -> list[Finding]:
 
 # Every rule `main` runs, each over both stacks: a rule written and left out of this table is one nothing runs,
 # which the table makes a reader's to see rather than a sequence of calls to miss. A rule refuses a model that is
-# not one Compose rendered by raising `ValueError`.
+# not one Compose rendered by raising `NotRendered`.
 RULES: Final[tuple[Callable[[Stack], list[Finding]], ...]] = (
     exposure,
     edge,
@@ -544,7 +556,7 @@ RULES: Final[tuple[Callable[[Stack], list[Finding]], ...]] = (
 
 
 def main() -> int:
-    parser = ArgumentParser(description="Does either stack expose more than its edge, or mount the edge's configuration by file?")
+    parser = ArgumentParser(description="Does any stack expose more than its edge, or mount the edge's configuration by file?")
     parser.add_argument("production", metavar="PROD_JSON", help="docker compose -f docker-compose.yml config --format json")
     parser.add_argument("local", metavar="LOCAL_JSON", help="the same, with docker-compose.local.yml merged over it")
     parser.add_argument("e2e", metavar="E2E_JSON", help="the same, with docker-compose.e2e.yml merged over the local pair")
@@ -562,9 +574,10 @@ def main() -> int:
         # The end-to-end stack is the local one again under its own project, with its own keys, settings
         # and made-up data, so it is held to what it can still loosen there: where it publishes.
         findings += local(e2e_model, "e2e")
-    except (*UNREADABLE, ValueError, NginxSyntax) as error:
+    # `JSONDecodeError` alone of `ValueError`'s kind: a file that is not JSON is no model at all.
+    except (*UNREADABLE, json.JSONDecodeError, NotRendered, NginxSyntax) as error:
         print(f"      {error}", file=sys.stderr)
-        print("      Nothing was judged, so this is a refusal rather than a verdict on either stack.", file=sys.stderr)
+        print("      Nothing was judged, so this is a refusal rather than a verdict on any stack.", file=sys.stderr)
         return EXIT_REFUSED
     code = report_findings(findings)
     if not findings:

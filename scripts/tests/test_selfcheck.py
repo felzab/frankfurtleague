@@ -1,7 +1,8 @@
-"""The self-check's linters: what one found is a finding, and an image that never ran judged nothing.
+"""The self-check's linters: what one found is a finding, and an image that never ran is a crash.
 
-Both linters run only in Docker, so a pull that fails or a daemon error answers `docker run`'s own 125, and read as
-the linter's finding it would end the scripts scope on something to fix with no script linted. Each case copies the
+Both linters run only in Docker, so a pull that fails, a daemon error or a flag Docker does not hold answers `docker
+run`'s own 125, and read as the linter's finding it would end the scripts scope on something to fix with no script
+linted. Docker gives that one status to our invocation going wrong as well, so it is a crash. Each case copies the
 self-check, its library and the tools file into a fixture repository holding one script, behind a stand-in `docker`
 first on PATH whose `run` answers what the case says.
 """
@@ -49,11 +50,12 @@ def _selfcheck(lint_exit: str) -> tuple[int, str]:
     [
         pytest.param("0", 0, "All script self-checks passed.", id="clean"),
         pytest.param("1", 1, "shellcheck reported the findings above (exit 1)", id="a-linter-s-finding-is-a-finding"),
-        pytest.param("125", 2, "shellcheck judged nothing it was handed (exit 125)", id="an-image-that-never-ran-is-a-refusal"),
+        # A crash keeps the status that caused it, the contract's "3 or more".
+        pytest.param("125", 125, "docker run of shellcheck", id="an-image-that-never-ran-is-a-crash"),
     ],
 )
 def test_each_linter_s_status_ends_the_self_check_as_its_table_reads_it(lint_exit: str, code: int, says: str) -> None:
-    """What a linter found is the finding 1; Docker's own 125 judged nothing, the refusal 2."""
+    """What a linter found is the finding 1, and Docker's own 125 a crash."""
     exited, output = _selfcheck(lint_exit)
     wrong: list[str] = []
     if exited != code:

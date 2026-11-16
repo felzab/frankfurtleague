@@ -42,6 +42,7 @@ shift
 unread="$(cat "$d/unread.${TAG-}" 2>/dev/null)"
 case "$1" in
   up) exit "$(cat "$d/up.$TAG" 2>/dev/null || printf 0)" ;;
+  pull) exit "$(cat "$d/pull" 2>/dev/null || printf 0)" ;;
   config)
     if [[ "$unread" == config-fails ]]; then printf '%s\n' 'service "backend" refers to undefined secret' >&2; exit 1; fi
     if [[ "$unread" != config-empty ]]; then printf '%s\n' frontend backend nginx cloudflared; fi ;;
@@ -84,6 +85,8 @@ def deploy(
     nginx_t: int = 0,
     reload_log: str = RECONFIGURING + NEW_WORKERS,
     pin: str | None = PREVIOUS,
+    pull: int = 0,
+    deployed: str | None = NEW,
 ) -> tuple[int, str, str, list[str], str | None]:
     """One run deploying `NEW` over a stack whose `.env` pins `pin`, or with no `.env` for None.
 
@@ -107,14 +110,15 @@ def deploy(
     (engine / f"up.{PREVIOUS}").write_bytes(str(previous_up).encode())
     (engine / "nginx-t").write_bytes(str(nginx_t).encode())
     (engine / "reload-log").write_bytes(reload_log.encode())
+    (engine / "pull").write_bytes(str(pull).encode())
     if one_offs:
         (engine / "one-offs").write_bytes(one_offs.encode())
     for tag, read in (unread or {}).items():
         (engine / f"unread.{tag}").write_bytes(read.encode())
     environment = base_env() | {"PATH": str(stubs) + os.pathsep + os.environ["PATH"], "FL_DEPLOY_DIR": engine.as_posix()}
     environment.pop("TAG", None)
-    done = run_shell(BASH, root / "scripts/ops/deploy.sh", NEW, *args, env=environment, cwd=root)
-    calls = (engine / "calls").read_bytes().decode().splitlines()
+    done = run_shell(BASH, root / "scripts/ops/deploy.sh", *([deployed] if deployed else []), *args, env=environment, cwd=root)
+    calls = (engine / "calls").read_bytes().decode().splitlines() if (engine / "calls").exists() else []
     env = root / ".env"
     return done.returncode, done.stdout, done.stderr, calls, env.read_bytes().decode() if env.exists() else None
 
@@ -286,3 +290,23 @@ def test_a_failed_run_with_no_other_build_pinned_goes_back_to_none(pin: str | No
     starts = [call for call in calls if call.startswith("compose up ")]
     assert len(starts) == 1 and starts[0].endswith(f"TAG={NEW}"), calls
     assert pinned == (None if pin is None else f"TAG={pin}\n")
+
+
+def test_a_pull_that_failed_is_a_crash_with_the_stack_unchanged():
+    """Compose answers any error of a pull with its 1, a wrong flag of ours among them, so nothing was judged."""
+    code, out, err, calls, pinned = deploy(pull=1)
+
+    assert code == 3, out + err
+    assert "The stack has not changed." in err, err
+    assert not any(call.startswith("compose up ") for call in calls), calls
+    assert pinned == f"TAG={PREVIOUS}\n", pinned
+
+
+def test_a_head_git_cannot_name_is_a_crash_before_compose_is_asked():
+    """Outside a checkout git answers 128, which the deploy keeps as its own crash's status."""
+    code, out, err, calls, pinned = deploy(deployed=None)
+
+    assert code == 128, out + err
+    assert "git could not name the checkout's HEAD" in err, err
+    assert not any(call.startswith("compose ") for call in calls), calls
+    assert pinned == f"TAG={PREVIOUS}\n", pinned

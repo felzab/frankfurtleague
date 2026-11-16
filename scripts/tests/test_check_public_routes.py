@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from conftest import REPO_ROOT, import_scripts, new_root
+from conftest import PROCESS_BOUND_S, REPO_ROOT, import_scripts, new_root
 
 [routes, nginx] = import_scripts("check_public_routes", "nginx_conf", directories=("checks", "lib"))
 
@@ -648,6 +648,7 @@ HTTP_CONF = (
 )
 LINK_BURST = 10 * routes.kader_size_max(routes.REPO_ROOT / routes.OPENAPI) - 2 * 30
 CHECKER = REPO_ROOT / "scripts" / "checks" / "check_public_routes.py"
+KERNEL = REPO_ROOT / "scripts" / "lib" / "checker_kernel.py"
 
 
 def clean(*blocks: str) -> str:
@@ -664,7 +665,7 @@ def clean_tree() -> Path:
 
 
 def run_checker(app: Path, text: str | bytes, *, tree: Path | None = None) -> subprocess.CompletedProcess[str]:
-    """The checker run as the gate runs it, as its own process, over `app` and a configuration of `text` beside it.
+    """The checker run as the gate runs it, through the kernel's launcher, over `app` and a configuration of `text` beside it.
 
     The real tables stand: what they record names no URL a fixture tree holds unless its case plants it.
     `tree` hands it another route tree than `app`, the configuration still beside `app`.
@@ -674,7 +675,12 @@ def run_checker(app: Path, text: str | bytes, *, tree: Path | None = None) -> su
     (app.parent / routes.NGINX_HTTP_CONF).write_bytes(HTTP_CONF.encode("utf-8"))
     # Its own encoding, not the machine's: the checker's streams are utf-8 whatever the codepage.
     return subprocess.run(
-        (sys.executable, str(CHECKER), str(tree or app), str(conf)), capture_output=True, encoding="utf-8", errors="replace", check=False
+        (sys.executable, str(KERNEL), str(CHECKER), str(tree or app), str(conf)),
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+        timeout=PROCESS_BOUND_S,
     )
 
 

@@ -88,18 +88,23 @@ def run(entry: Callable[[], int]) -> int:
         return EXIT_CRASH
 
 
-def launch(script: str, arguments: list[str]) -> int:
+def launch(script: str, arguments: list[str], *, module: bool = False) -> int:
     """`script` run as `__main__` with `arguments`, its own exit code answered, inside `run`.
 
     `run` in the script's own `__main__` line cannot reach the script's imports or its compile, which
     Python answers with 1, the code this contract gives findings. Every caller of a checker runs it
-    through this file instead: `python scripts/lib/checker_kernel.py <script> [arguments]`.
+    through this file instead: `python scripts/lib/checker_kernel.py <script> [arguments]`. A tool
+    whose findings exit 1 and whose escaped exception Python answers 1 as well runs as a module the
+    same way, `python scripts/lib/checker_kernel.py -m <module> [arguments]`, as `python -m` would.
     """
 
     def entry() -> int:
         sys.argv = [script, *arguments]
         try:
-            runpy.run_path(script, run_name="__main__")
+            if module:
+                runpy.run_module(script, run_name="__main__", alter_sys=True)
+            else:
+                runpy.run_path(script, run_name="__main__")
         except SystemExit as stop:
             # The script's own `sys.exit(run(main))`, its code an int; None is a script ending bare.
             if stop.code is None or isinstance(stop.code, int):
@@ -113,4 +118,6 @@ def launch(script: str, arguments: list[str]) -> int:
 
 
 if __name__ == "__main__":
+    if sys.argv[1:2] == ["-m"]:
+        sys.exit(launch(sys.argv[2], sys.argv[3:], module=True) if len(sys.argv) > 2 else EXIT_CRASH)
     sys.exit(launch(sys.argv[1], sys.argv[2:]) if len(sys.argv) > 1 else EXIT_CRASH)

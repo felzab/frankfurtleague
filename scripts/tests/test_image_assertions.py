@@ -39,6 +39,13 @@ case_for() { # $1 the image asked about
 case "${1:-}" in
   version) printf 'stub\\n'; exit 0 ;;
   buildx)
+    # The plugin's release, which a CLI without it answers as it does for any command it does not hold.
+    if [[ "${2:-}" == version ]]; then
+      if [[ "${FL_IMAGE_CASE:-clean}" == buildx_missing ]]; then
+        printf '%s\\n' "docker: 'buildx' is not a docker command." >&2; exit 1
+      fi
+      printf 'github.com/docker/buildx stub\\n'; exit 0
+    fi
     # The local build is CI's own definition: any other build, or any call the scope is not to make,
     # is refused, here and below, so it fails every case whose build is to succeed.
     if [[ "${2:-}" != bake || " $* " != *" --file docker-bake.hcl "* ]]; then
@@ -123,19 +130,22 @@ CASES: Final[tuple[Case, ...]] = (
     Case("build_exhausted", 2, "Refused after", "failed to build"),
     Case("build_internal", 100, "Crashed after", "failed to build"),
     Case("build_interrupted", 130, "Interrupted after", "failed to build"),
+    # Without the plugin the bake never ran, so nothing failed to build.
+    Case("buildx_missing", 2, "Docker Buildx did not answer", "failed to build"),
     Case("clean", 0, "Green"),
     Case("clean", 0, "Green", built=True),
     Case("instrumentation_missing", 1, "instrumentation.js is MISSING"),
     Case("instrumentation_missing", 1, "instrumentation.js is MISSING", built=True),
-    # Docker's own 125, the daemon failing, judged nothing; 127, the image without the probe's shell, is a crash.
-    Case("instrumentation_unreadable", 2, "Refused after", "instrumentation.js is MISSING"),
+    # Docker's own 125, which a flag it does not hold answers as well as the daemon failing, and 127, the image
+    # without the probe's shell, are each a crash.
+    Case("instrumentation_unreadable", 3, "Crashed after", "instrumentation.js is MISSING"),
     Case("instrumentation_unrunnable", 3, "Crashed after", "instrumentation.js is MISSING"),
     Case("instrumentation_interrupted", 130, "Interrupted after", "Crashed after"),
     Case("user_root", 1, "An image runs as root"),
-    Case("user_unreadable", 2, "Refused after", "An image runs as root"),
+    Case("user_unreadable", 3, "Crashed after", "An image runs as root"),
     Case("user_interrupted", 130, "Interrupted after", "Crashed after"),
     Case("context_breach", 1, "dockerignore exists to exclude"),
-    Case("context_unreadable", 2, "Refused after", "dockerignore exists to exclude"),
+    Case("context_unreadable", 3, "Crashed after", "dockerignore exists to exclude"),
     Case("context_interrupted", 130, "Interrupted after", "Crashed after"),
 )
 

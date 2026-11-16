@@ -7,7 +7,8 @@ decides is judged here, beside the backend it imports.
 Invariants:
 - The seed writes only to `LOCAL_SERVER`, and refuses any other server, exit 2, before any client exists, quoting nothing
   of the settings it read.
-- The seed fails in itself with 3, at its imports as in its run, never the 1 the script reads as a seed to correct.
+- Settings it cannot load are a refusal, 2, and its own 1 opens the line the script reads that 1 by, which the script
+  holds to: every other 1, Python's own or Compose's, the script reads as a crash.
 - Every state of the landing builds a league whose every document its record model reads, with no database, and that no
   write of the app's refuses: each rule below is the app's own refusal, so a rule the app tightens tightens this one.
 """
@@ -34,7 +35,9 @@ from app.core import clock
 from app.core.config import MONGODB_URI_FILE, SECRET_FILES
 from app.core.exceptions import WriteRefusal
 from tests.boot import BACKEND_ROOT, Withheld
-from tests.made_up_seed import CRASHED, LANDING_STATES, MadeUpLeague, Season, is_local_server
+from tests.made_up_seed import INSERT_REFUSED, LANDING_STATES, UNJUDGED, MadeUpLeague, Season, is_local_server
+
+LIBRARY: Final = BACKEND_ROOT.parent / "scripts" / "lib" / "_lib.sh"
 
 # Each a server, or a way of naming one, that is not the local stack's own; named, never the URI itself, since a case's
 # name is printed by every run.
@@ -110,26 +113,24 @@ def test_the_seed_refuses_any_other_server_before_any_client_exists(uri: str, tm
     assert "emptied" not in said and "seeded" not in said, said
 
 
-def test_an_import_that_fails_answers_crashed(tmp_path: Path) -> None:
-    """The script sends the operator to correct the seed on a 1, so the seed failing in itself answers 3."""
-
-    # A package the seed imports, shadowed by one that cannot be imported: an install broken under it.
-    (tmp_path / "pydantic").mkdir()
-    (tmp_path / "pydantic" / "__init__.py").write_bytes(b'raise ImportError("a broken install")\n')
-
-    done = run_seed(tmp_path, {"PYTHONPATH": os.pathsep.join((str(tmp_path), str(BACKEND_ROOT)))})
-
-    assert (done.returncode, done.stderr.startswith("The made-up seed crashed (ImportError at ")) == (CRASHED, True), done.stdout + done.stderr
-
-
-def test_a_run_that_fails_answers_crashed_and_names_no_value(tmp_path: Path) -> None:
-    """Settings that cannot be built fail inside the run, before any client exists, and their refusal can carry a value."""
+def test_settings_that_cannot_load_are_a_refusal(tmp_path: Path) -> None:
+    """Settings that cannot be built are a configuration it could not load: nothing was judged, before any client exists."""
 
     done = run_seed(tmp_path, {"SECRETS_DIR": str(tmp_path), "PYTHONPATH": str(BACKEND_ROOT)})
 
-    assert (done.returncode, done.stdout) == (CRASHED, ""), done.stdout + done.stderr
-    # The whole output, one line naming the type and where it was raised: nothing the refusal said reaches it.
-    assert re.fullmatch(r"The made-up seed crashed \(EnvironmentValidationError at \S+\.py:\d+\)\.\n", done.stderr), done.stderr
+    assert (done.returncode, done.stdout) == (UNJUDGED, ""), done.stdout + done.stderr
+    # One line, the settings' own refusal as the backend's boot logs it, naming the files missing from the empty directory.
+    assert re.fullmatch(r"The settings could not be loaded: [^\n]*Invalid secret files: [^\n]+\n", done.stderr), done.stderr
+
+
+def test_the_refused_insert_s_line_is_the_one_the_script_reads_a_finding_by() -> None:
+    """A wording the script's pattern stops matching turns every insert to correct into a crash."""
+
+    rows = re.findall(r"^\s*\[made-up-seed\]='([^']*)'$", LIBRARY.read_text(encoding="utf-8"), re.MULTILINE)
+    assert len(rows) == 1, f"scripts/lib/_lib.sh :: EXIT_LINES holds {len(rows)} made-up-seed rows"
+    statuses, verdict, pattern = rows[0].split(" ", 2)
+    assert (statuses, verdict) == ("1", "1"), rows[0]
+    assert re.search(pattern, INSERT_REFUSED.format(reason="E11000 duplicate key error")), (pattern, INSERT_REFUSED)
 
 
 def drawn(spiel: dict[str, Any]) -> FLSpiel:

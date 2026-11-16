@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Final
 
 import pytest
-from conftest import BASH, REPO_ROOT, base_env, import_scripts, new_root, run_shell, write_shell
+from conftest import BASH, PROCESS_BOUND_S, REPO_ROOT, base_env, import_scripts, new_root, run_shell, write_shell
 
 [checker] = import_scripts("check_compose_model")
 
@@ -59,7 +59,7 @@ def test_a_port_compose_did_not_expand_refuses():
     """A short-syntax string means the input is not a rendered model, which is a refusal, not a pass."""
     try:
         checker.local(model(mongo={"ports": ["27017:27017"]}), "l")
-    except ValueError:
+    except checker.NotRendered:
         return
     raise AssertionError("a short-syntax port was judged")
 
@@ -67,7 +67,7 @@ def test_a_port_compose_did_not_expand_refuses():
 def test_a_document_without_services_refuses():
     try:
         checker.production({"name": "x"}, "p")
-    except ValueError:
+    except checker.NotRendered:
         return
     raise AssertionError("a model with no services was judged")
 
@@ -116,7 +116,7 @@ def test_an_edge_mounting_nothing_from_the_checkout_fails():
 def test_a_short_syntax_volume_refuses():
     try:
         checker.edge_mounts(model(nginx={"volumes": ["./nginx/prod:/etc/nginx/conf.d:ro"]}), "p", PROJECT, checkout())
-    except ValueError:
+    except checker.NotRendered:
         return
     raise AssertionError("a short-syntax volume was judged")
 
@@ -273,7 +273,7 @@ def run_main(
         (project / name).write_bytes(json.dumps(rendered).encode())
     command = (sys.executable, str(project / CHECKER_FILES[1]), str(project / CHECKER_FILES[0]), *(str(project / name) for name, _ in models))
     # Its own encoding, not the machine's: the checker's streams are utf-8 whatever the codepage.
-    return subprocess.run(command, capture_output=True, encoding="utf-8", errors="replace", check=False)
+    return subprocess.run(command, capture_output=True, encoding="utf-8", errors="replace", check=False, timeout=PROCESS_BOUND_S)
 
 
 def failures(done: subprocess.CompletedProcess[str]) -> list[str]:
@@ -336,7 +336,7 @@ def test_a_model_compose_did_not_render_exits_two():
 
     assert done.returncode == checker.EXIT_REFUSED, done.stdout + done.stderr
     assert "local: mongo has a port Compose did not expand, so this is not its rendered model" in done.stderr, done.stderr
-    assert "Nothing was judged, so this is a refusal rather than a verdict on either stack." in done.stderr, done.stderr
+    assert "Nothing was judged, so this is a refusal rather than a verdict on any stack." in done.stderr, done.stderr
 
 
 def test_an_edge_configuration_the_parser_cannot_read_exits_two():
@@ -349,7 +349,7 @@ def test_an_edge_configuration_the_parser_cannot_read_exits_two():
     done = run_main(production, local, project)
 
     assert done.returncode == checker.EXIT_REFUSED, done.stdout + done.stderr
-    assert "Nothing was judged, so this is a refusal rather than a verdict on either stack." in done.stderr, done.stderr
+    assert "Nothing was judged, so this is a refusal rather than a verdict on any stack." in done.stderr, done.stderr
 
 
 @pytest.mark.parametrize("stack", ["production", "local"])
@@ -394,7 +394,7 @@ def test_a_model_whose_environment_compose_left_unresolved_fails():
 
 def test_an_environment_that_is_no_mapping_refuses():
     """Compose renders `environment` as a mapping; a list is a model written some other way, whose names this cannot read."""
-    with pytest.raises(ValueError, match="not its rendered model"):
+    with pytest.raises(checker.NotRendered, match="not its rendered model"):
         checker.env_files(model(frontend={"environment": [f"{checker.STAND_IN_READ}1=fl_frontend/.env"]}, backend={}), "p")
 
 
@@ -403,7 +403,7 @@ def test_a_connector_without_one_static_address_refuses():
     for networks in ({"frankfurtleague-net": None}, {}):
         try:
             checker.connector_address(model(cloudflared={"networks": networks}), "p")
-        except ValueError:
+        except checker.NotRendered:
             continue
         raise AssertionError(f"a connector with networks {networks!r} was given an address")
 
@@ -454,7 +454,7 @@ def test_a_service_nobody_placed_on_a_network_fails():
 
 
 def test_networks_that_are_no_mapping_refuse():
-    with pytest.raises(ValueError, match="not its rendered model"):
+    with pytest.raises(checker.NotRendered, match="not its rendered model"):
         checker.networks(model(frontend={"networks": [APP]}), "p")
 
 
@@ -588,6 +588,8 @@ def configured_stack(stack: str, content: object = LOCAL_URI) -> dict[str, Any]:
         pytest.param("mongodb://mongo:27017,cluster0.example.net:27017/", id="a-second-host"),
         pytest.param("mongodb+srv://mongo/", id="a-lookup"),
         pytest.param(None, id="no-inline-content"),
+        # `urlsplit` refuses it with a `ValueError`, which the checker no longer reads as a refusal of the model.
+        pytest.param("mongodb://[mongo:27017/", id="a-host-that-does-not-parse"),
     ],
 )
 def test_a_login_config_naming_anything_but_the_stacks_own_database_fails(content: object):

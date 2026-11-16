@@ -3,26 +3,26 @@
 The scripts that check, run and deploy this project. Each script's header is its usage, and
 `--help` prints it. On Windows, run them from Git Bash.
 
-| Path                                    | Run on        | Purpose                                                                                                 |
-| --------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------- |
-| `scripts/gate/verify.sh`                | any           | The pre-merge gate: every scope, or the scopes a run names                                              |
-| `scripts/gate/selfcheck.sh`             | any           | Every shell script parses, is executable in git and lints clean, and every workflow lints clean         |
-| `scripts/gate/tools.Dockerfile`         | —             | The shellcheck, actionlint and lychee images the gate runs, one pinned `FROM` each; never built         |
-| `scripts/checks/check_compose_model.py` | any           | Each stack's rendered Compose model against what it may publish, mount, trust and hand out              |
-| `scripts/checks/check_public_routes.py` | any           | Every route handler, link page and metadata convention against the edge location metering it            |
-| `scripts/checks/check_invented_data.py` | any           | Every made-up address, site and telephone number of the tests against the reserved ones                 |
-| `scripts/checks/edge_test.sh`           | any           | Both edges started over the checkout's nginx files, and what each logs, sends and refuses               |
-| `scripts/ops/local.sh`                  | dev — Windows | The production images built from this tree, behind nginx, with a database of its own                    |
-| `scripts/ops/made_up_seed.sh`           | local, e2e    | The made-up league loaded into the local or end-to-end stack, then read back; `local.sh` and CI run it  |
-| `scripts/ops/e2e_stack.sh`              | any           | The end-to-end stack raised with keys of its own and the made-up league; `local.sh --e2e` and CI run it |
-| `scripts/ops/deploy.sh`                 | prod — Linux  | Put one published build live by its tag, and go back to the build before it if it fails                 |
-| `scripts/lib/_lib.sh`                   | —             | Strict mode, the traps, the output verbs and the exit contract; sourced, never run                      |
-| `scripts/lib/checker_kernel.py`         | —             | The repository root, the argument parser and the exit contract every checker shares, and its launcher   |
-| `scripts/lib/nginx_conf.py`             | —             | nginx's configuration as a tree, for both checkers; the edge test runs it for each figure               |
-| `scripts/tests/`                        | any           | pytest over the gate's scripts, the checkers and the deploy                                             |
-| `scripts/pytest.ini`                    | —             | pytest's configuration for `scripts/tests/`                                                             |
-| `scripts/ruff.toml`                     | —             | ruff's configuration for the Python below this folder                                                   |
-| `scripts/pyrightconfig.json`            | —             | pyright's configuration for the Python below this folder                                                |
+| Path                                    | Run on        | Purpose                                                                                                    |
+| --------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------- |
+| `scripts/gate/verify.sh`                | any           | The pre-merge gate: every scope, or the scopes a run names                                                 |
+| `scripts/gate/selfcheck.sh`             | any           | Every shell script parses, is executable in git and lints clean, and every workflow lints clean            |
+| `scripts/gate/tools.Dockerfile`         | —             | The shellcheck, actionlint and lychee images the gate runs, one pinned `FROM` each; never built            |
+| `scripts/checks/check_compose_model.py` | any           | Each stack's rendered Compose model against what it may publish, mount, trust and hand out                 |
+| `scripts/checks/check_public_routes.py` | any           | Every route handler, link page and metadata convention against the edge location metering it               |
+| `scripts/checks/check_invented_data.py` | any           | Every address, site and telephone number a test spells out, against the reserved ones                      |
+| `scripts/checks/edge_test.sh`           | any           | Both edges started over the checkout's nginx files, and what each logs, sends and refuses                  |
+| `scripts/ops/local.sh`                  | dev — Windows | The production images built from this tree, behind nginx, with a database of its own                       |
+| `scripts/ops/made_up_seed.sh`           | any           | The made-up league loaded into the local or end-to-end stack, then read back; `local.sh` and CI run it     |
+| `scripts/ops/e2e_stack.sh`              | any           | The end-to-end stack raised with keys of its own and the made-up league; `local.sh --e2e` and CI run it    |
+| `scripts/ops/deploy.sh`                 | prod — Linux  | Put one published build live by its tag, and go back to the build before it if it fails                    |
+| `scripts/lib/_lib.sh`                   | —             | Strict mode, the traps, the output verbs and the exit contract; sourced, never run                         |
+| `scripts/lib/checker_kernel.py`         | —             | The repository root, the argument parser and the exit contract every checker shares, and its launcher      |
+| `scripts/lib/nginx_conf.py`             | —             | nginx's configuration as a tree, for the compose and route checkers; the edge test runs it for each figure |
+| `scripts/tests/`                        | any           | pytest over the gate's scripts, the checkers and the deploy                                                |
+| `scripts/pytest.ini`                    | —             | pytest's configuration for `scripts/tests/`                                                                |
+| `scripts/ruff.toml`                     | —             | ruff's configuration for the Python below this folder                                                      |
+| `scripts/pyrightconfig.json`            | —             | pyright's configuration for the Python below this folder                                                   |
 
 **`deploy.sh` is the one script that reaches production.** Every other script stays on the machine
 it runs on, and `made_up_seed.sh`, which empties the database it seeds, refuses every stack but the
