@@ -1,5 +1,5 @@
 /**
- * E2E · J9, a banned person: an administrator bans a person who holds a passkey, behind the administrator's real touch.
+ * E2E · a banned person: an administrator bans a person who holds a passkey, behind the administrator's real touch.
  * The person is told by mail, their session ends, and their passkey meets the sign-in's one sentence, which an address
  * holding no record meets too, so nobody can probe the list. Desktop alone, both people holding a passkey, for the reason
  * `fl_frontend/playwright.config.ts` gives at its projects.

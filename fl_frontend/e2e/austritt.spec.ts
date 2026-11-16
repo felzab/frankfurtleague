@@ -1,5 +1,5 @@
 /**
- * E2E · J10, a club leaving mid-season, under each project, where no lower tier sees the opponent still to play it left
+ * E2E · a club leaving mid-season, under each project, where no lower tier sees the opponent still to play it left
  * untold at the write. The booked referee, told by the scheduler, is `first-pass/firstPass.spec.ts`'s.
  */
 import { expect } from "@playwright/test";

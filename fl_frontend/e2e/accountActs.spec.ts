@@ -1,5 +1,5 @@
 /**
- * E2E · J8, a person's account acts, under each project: the address change through its two mailed links, the address
+ * E2E · a person's account acts, under each project: the address change through its two mailed links, the address
  * on file asked first, then the new mailbox; then the deletion through its mailed link, opened signed out and carried
  * through the sign-in, its action leading to the page that needs no session. Before them „Alle anderen abmelden“ with a
  * second device, whose cookie no person would see still admitted. Konto's steps are named by the words

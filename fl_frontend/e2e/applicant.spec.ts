@@ -1,5 +1,5 @@
 /**
- * E2E · J2, an application, under each project, where no lower tier sees the form, a seat's mailed link or the acceptance
+ * E2E · an application, under each project, where no lower tier sees the form, a seat's mailed link or the acceptance
  * break at a join between them, the public form's real controls fail on either engine, a rejection's reason miss a seat,
  * or an objection's fresh link fail to seat the new person. Each project's schools are its own (`applicants`).
  */

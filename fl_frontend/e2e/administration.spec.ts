@@ -1,6 +1,6 @@
 /**
- * E2E · J6's editors in the area, under each project, where no lower tier sees a club editor's one save reach only one
- * of its two records, a squad row's save get lost, or the season's Registrierungen fail on the seed's real rows.
+ * E2E · the administration's editors, under each project, where no lower tier sees a club editor's one save reach only
+ * one of its two records, a squad row's save get lost, or the season's Registrierungen fail on the seed's real rows.
  */
 import { expect } from "@playwright/test";
 
