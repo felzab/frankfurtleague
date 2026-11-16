@@ -12,7 +12,7 @@ from app.api.teams.admin_router import replace_saison_team
 from app.api.teams.schemas import FLReplaceSaisonTeamPayload
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError, DocumentNotFoundError
+from app.core.exceptions import DocumentNotFoundError
 from tests.database import a_clean_database
 from tests.documents import (
     aufstellung_document,
@@ -23,7 +23,7 @@ from tests.documents import (
     spiel_document,
     team_document,
 )
-from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
+from tests.isolation import COMMITTED, InterleavedCollection, outcome_of, refused_code
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -328,10 +328,11 @@ async def _squad_after(database: AsyncDatabase, client: AsyncMongoClient) -> Any
 async def _refused(database: AsyncDatabase, client: AsyncMongoClient, incoming: ObjectId = INCOMING) -> Any:
     """The code, plus the two surfaces a refusal has to have left alone."""
 
-    with pytest.raises(APIError) as refusal:
-        await call_replace(database, client, incoming_team_id=incoming)
-
-    return refusal.value.error_code, await row_of(database, WITHDRAWN), await spiele_now(database)
+    return (
+        await refused_code(call_replace(database, client, incoming_team_id=incoming)),
+        await row_of(database, WITHDRAWN),
+        await spiele_now(database),
+    )
 
 
 class TestAllFourLayersMoveTogether:

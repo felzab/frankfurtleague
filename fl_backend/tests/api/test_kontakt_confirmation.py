@@ -28,7 +28,6 @@ from app.api.teams.services import (
 )
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.bans import ban_through_the_route
@@ -372,10 +371,7 @@ class TestTheSaveMintsForEachPersonItNewlySeats:
             handed = await save(database, {**THREE, "ansprechperson": person("Lea")})
             old_token = next(mint.token for mint in first.confirmations if mint.rollen == ["ansprechperson"])
 
-            with pytest.raises(APIError) as refusal:
-                await read_view(database, old_token)
-
-            return handed, refusal.value.error_code, await read_view(database, handed.confirmations[0].token)
+            return handed, await refused_code(read_view(database, old_token)), await read_view(database, handed.confirmations[0].token)
 
         handed, code, view = await on_a_league(mongo_replica_set_url, body)
 

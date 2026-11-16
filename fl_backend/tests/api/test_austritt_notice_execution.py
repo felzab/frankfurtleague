@@ -2,22 +2,30 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 import pytest
-from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
-from pymongo.errors import PyMongoError
 
-from app.api.outbox.schemas import FLAustrittNoticeData
 from app.api.spielbestaetigungen.crud import owe_the_austritt_notices_in_session
-from app.api.teams.admin_router import put_austritt
-from app.api.teams.schemas import FLAustrittPayload
 from app.core.collections import Collection
 from app.core.transactions import transaction_session
-from tests import documents
+from tests.austritt_corpus import (
+    DAY_BEFORE,
+    DEPARTED,
+    DEPARTED_ROW,
+    EARLIER_OPPONENT,
+    EXIT_DAY,
+    GONE_TOO,
+    LATER,
+    OPPONENT,
+    SAISON_ID,
+    addresses,
+    spiel,
+    the_league,
+    told,
+)
 from tests.database import a_clean_database
-from tests.documents import kontaktperson_document
-from tests.outbox import MAIL_NOW, drained
+from tests.outbox import MAIL_NOW
 from tests.worker import worker_database
 
 # Module level, as the other execution suites mark theirs: every test below reaches a real mongod.
@@ -25,92 +33,13 @@ pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_austritt_notice_test")
 
-SAISON_ID = "2026"
-EXIT_DAY = "2026-05-10"
-DAY_BEFORE = "2026-05-09"
-LATER = "2026-09-20"
-
-# Fixed rather than generated, so a failure names the same row every run.
-DEPARTED = ObjectId("6890a1b2c3d4e5f607760001")
-OPPONENT = ObjectId("6890a1b2c3d4e5f607760002")
-EARLIER_OPPONENT = ObjectId("6890a1b2c3d4e5f607760003")
-GONE_TOO = ObjectId("6890a1b2c3d4e5f607760004")
-DEPARTED_ROW = ObjectId("6890a1b2c3d4e5f6077600a1")
-SPIELTAG = ObjectId("6890a1b2c3d4e5f6077600b1")
-
-NAMES = {DEPARTED: "Goethe", OPPONENT: "Schiller", EARLIER_OPPONENT: "Lessing", GONE_TOO: "Kleist"}
-
-# The client whose exit the server refuses, by its name, every other client's commands running as they would; each
-# refusal carries no transient label, on which `with_transaction` never retries.
-REFUSED_EXIT_APP = "austritt-refused"
-# The exit's commit, or the write recording it on the club's row (`findAndModify`, which no notice sends): the one is
-# what notices written off its session outlive, the other what notices committed apart from it outlive.
-EXIT_REFUSALS = [
-    pytest.param({"failCommands": ["commitTransaction"], "errorCode": 251}, id="its commit refused"),
-    pytest.param({"failCommands": ["findAndModify"], "errorCode": 2}, id="its row's write refused"),
-]
-
-
-def club(team_id: ObjectId, **fields: Any) -> dict[str, Any]:
-    name = NAMES[team_id]
-
-    return documents.saison_team_document(
-        SAISON_ID,
-        team_id,
-        name,
-        name[:3].upper(),
-        # Two seats confirmed by their own people, whom the notice reaches, and one nobody confirmed, mailed nothing.
-        kontakte={
-            "trainer": kontaktperson_document(f"{name}trainer", confirmed_at="2026-03-01"),
-            "ansprechperson": kontaktperson_document(f"{name}kontakt", confirmed_at="2026-03-01"),
-            "stellvertretung": kontaktperson_document(f"{name}deputy"),
-            "trainer_is_also": None,
-        },
-        **fields,
-    )
-
-
-def clubs() -> list[dict[str, Any]]:
-    # An exit on the fixture's day takes the fixture from this opponent as much as from the departed club.
-    gone = {"type": "rueckzug", "reason": "Schulwechsel", "date": LATER}
-
-    return [{**club(DEPARTED), "_id": DEPARTED_ROW}, club(OPPONENT), club(EARLIER_OPPONENT), club(GONE_TOO, austritt=gone)]
-
-
-def addresses(team_id: ObjectId) -> list[str]:
-    return sorted(f"{NAMES[team_id].lower()}{role}@example.com" for role in ("trainer", "kontakt"))
-
-
-def side(team_id: ObjectId | None, tore: int | None = None) -> dict[str, Any] | None:
-    return None if team_id is None else {"team_id": team_id, "tore": tore}
-
-
-def spiel(
-    spiel_nr: int, team1: ObjectId, team2: ObjectId | None, date: str | None, *, tore: int | None = None, **fields: Any
-) -> dict[str, Any]:
-    """A fixture no confirmation row names, as one past the asking window."""
-
-    return documents.spiel_document(
-        spiel_id=ObjectId(),
-        saison_id=SAISON_ID,
-        spiel_nr=spiel_nr,
-        spieltag_id=SPIELTAG,
-        team1=side(team1, tore),
-        team2=side(team2),
-        date=date,
-        time="18:00:00",
-        **fields,
-    )
-
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 async def on_a_league(url: str, body: Body, *, spiele: list[dict[str, Any]]) -> Any:
     async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-        await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
-        await database[Collection.SAISON_TEAMS].insert_many(clubs())
-        await database[Collection.SPIELE].insert_many(spiele)
+        await the_league(database, spiele=spiele)
 
         return await body(database, client)
 
@@ -132,16 +61,6 @@ async def save_the_exit(database: AsyncDatabase, client: AsyncMongoClient) -> No
 
     async with transaction_session(client) as session:
         await session.with_transaction(owe)
-
-
-async def told(database: AsyncDatabase, client: AsyncMongoClient) -> dict[str, FLAustrittNoticeData]:
-    """Every notice owed since the last drain, by its address: drained, so each has passed the hand-out's own model."""
-
-    mails = await drained(database, client)
-    notices = {mail.to: mail.data for mail in mails if isinstance(mail.data, FLAustrittNoticeData)}
-    assert len(notices) == len(mails)
-
-    return notices
 
 
 class TestAnOpponentHearsOfAnExitAtTheExitsOwnWrite:
@@ -184,45 +103,3 @@ class TestAnOpponentHearsOfAnExitAtTheExitsOwnWrite:
             ]
         # Never the opponent's seat: the team editor reads a seat's last mail as the delivery of its link.
         assert {(row["reference"]["id"], row["reference"]["seat"]) for row in rows} == {(DEPARTED_ROW, None)}
-
-    @pytest.mark.parametrize("refusal", EXIT_REFUSALS)
-    async def test_the_exit_s_write_owes_the_notices_in_its_own_transaction(self, mongo_replica_set_url: str, refusal: dict[str, Any]):
-        """Nothing above reaches the route, so an exit recorded with its call gone would tell nobody, and nothing would say so.
-
-        Owed outside the exit's transaction, a refused exit would tell every opponent of an exit that never stood.
-        """
-
-        async def exit_through(database: AsyncDatabase, client: AsyncMongoClient) -> None:
-            await put_austritt(
-                team_id=DEPARTED,
-                saison_id=SAISON_ID,
-                austritt_data=FLAustrittPayload.model_validate({"type": "rueckzug", "reason": "Schulwechsel", "date": EXIT_DAY}),
-                saison_teams_collection=database[Collection.SAISON_TEAMS],
-                saisons_collection=database[Collection.SAISONS],
-                spiele_collection=database[Collection.SPIELE],
-                outbox_collection=database[Collection.OUTBOX],
-                db=client,
-                today=DAY_BEFORE,
-                germany_now=MAIL_NOW,
-            )
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            refusing = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=REFUSED_EXIT_APP)
-            await client.admin.command(
-                "configureFailPoint", "failCommand", mode={"times": 1}, data={**refusal, "appName": REFUSED_EXIT_APP, "errorLabels": []}
-            )
-            try:
-                with pytest.raises(PyMongoError):
-                    await exit_through(refusing[database.name], refusing)
-            finally:
-                await client.admin.command("configureFailPoint", "failCommand", mode="off")
-                await refusing.close()
-            refused = await told(database, client)
-            await exit_through(database, client)
-
-            return refused, await told(database, client)
-
-        refused, notices = await on_a_league(mongo_replica_set_url, body, spiele=[spiel(1, DEPARTED, OPPONENT, LATER)])
-
-        assert refused == {}
-        assert sorted(notices) == addresses(OPPONENT)

@@ -89,17 +89,8 @@ def squad_document(index: int, team_index: int, *, inactive_since: str | None = 
     )
 
 
-def spieltag_document(position: int, start: str) -> dict[str, Any]:
-    return {
-        "_id": oid(4000 + position),
-        "start": start,
-        "end": start,
-        "saison_phase": "gruppenphase",
-        "saison_id": SAISON,
-        "position": position,
-        # As the draw's insert writes it: the save is checked against it.
-        "version": 0,
-    }
+def matchday(position: int, start: str) -> dict[str, Any]:
+    return documents.spieltag_document(oid(4000 + position), SAISON, position, start=start, end=start)
 
 
 # The seat as its applicant named the person, and as that person then confirmed it.
@@ -298,7 +289,7 @@ class TestASecondDatingLandingMidDatingIsJudgedAgain:
             body,
             {
                 Collection.SAISONS: [saison_document()],
-                Collection.SPIELTAGE: [spieltag_document(1, STANDING_FIRST), spieltag_document(2, STANDING_SECOND)],
+                Collection.SPIELTAGE: [matchday(1, STANDING_FIRST), matchday(2, STANDING_SECOND)],
             },
         )
 

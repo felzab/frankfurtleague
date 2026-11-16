@@ -12,6 +12,7 @@ from app.core.collections import Collection
 from app.core.exceptions import APIError
 from tests import documents
 from tests.database import a_clean_database
+from tests.isolation import refused_code
 from tests.stored import the_row
 from tests.worker import worker_database
 
@@ -51,18 +52,10 @@ def saison_document() -> dict[str, Any]:
     return documents.saison_document(SAISON_ID, "active", start_date=SAISON_START, end_date=SAISON_END, rules=rules_document())
 
 
-def spieltag_document() -> dict[str, Any]:
+def matchday() -> dict[str, Any]:
     """Inside the season's span, so the matchday the fixtures hang on cannot be what a refusal is about."""
 
-    return {
-        "_id": SPIELTAG_OID,
-        "start": "2026-03-15",
-        "end": "2026-03-15",
-        "position": 1,
-        "saison_phase": "gruppenphase",
-        "saison_id": SAISON_ID,
-        "version": 0,
-    }
+    return documents.spieltag_document(SPIELTAG_OID, SAISON_ID, 1, start="2026-03-15", end="2026-03-15")
 
 
 def squad_rows() -> list[dict[str, Any]]:
@@ -107,7 +100,7 @@ async def on_a_database(
     async with a_clean_database(url, DATABASE_NAME) as (_, database):
         await database[Collection.SAISONS].insert_one(saison_document())
         await database[Collection.SAISON_SPIELER].insert_many(squad_rows())
-        await database[Collection.SPIELTAGE].insert_one(spieltag_document())
+        await database[Collection.SPIELTAGE].insert_one(matchday())
         if spiele:
             await database[Collection.SPIELE].insert_many(spiele)
 
@@ -191,11 +184,11 @@ class TestTheStartIsWhatFreezesTheScoring:
     async def test_a_save_moving_the_start_cannot_lift_its_own_freeze(self, mongo_replica_set_url: str):
         """The freeze reads the stored start: a payload carrying a later start and new points in one is still refused."""
 
-        async def body(database: AsyncDatabase) -> tuple[Code, Mapping[str, Any]]:
-            with pytest.raises(APIError) as refusal:
-                await patch_the_rules(database, today=FIRST_SPIEL_DAY, start_date=A_WEEK_LATER, win_points=2)
-
-            return refusal.value.error_code, await stored_season(database)
+        async def body(database: AsyncDatabase) -> tuple[str, Mapping[str, Any]]:
+            return (
+                await refused_code(patch_the_rules(database, today=FIRST_SPIEL_DAY, start_date=A_WEEK_LATER, win_points=2)),
+                await stored_season(database),
+            )
 
         code, stored = await on_a_database(mongo_replica_set_url, body, spiele=drawn_spiele())
 
@@ -244,12 +237,9 @@ class TestTheStartIsFixedOnceASpielHasTakenPlace:
 
         played = [*drawn_spiele()[1:], spiel_document(spiel_nr=1, date=FIRST_SPIEL_DAY, ergebnis="1:0")]
 
-        async def body(database: AsyncDatabase) -> tuple[Code, Mapping[str, Any]]:
+        async def body(database: AsyncDatabase) -> tuple[str, Mapping[str, Any]]:
             await date_the_matchday(database, A_WEEK_LATER)
-            with pytest.raises(APIError) as refusal:
-                await patch_the_rules(database, today=THE_DAY_BEFORE, start_date=A_WEEK_LATER)
-
-            return refusal.value.error_code, await stored_season(database)
+            return await refused_code(patch_the_rules(database, today=THE_DAY_BEFORE, start_date=A_WEEK_LATER)), await stored_season(database)
 
         code, stored = await on_a_database(mongo_replica_set_url, body, spiele=played)
 

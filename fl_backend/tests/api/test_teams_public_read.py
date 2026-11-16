@@ -13,7 +13,7 @@ from app.api.teams.schemas import FLTeamSingleFilterParams
 from app.api.teams.services import build_team_pipeline
 from app.core.collections import Collection
 from tests import documents
-from tests.database import a_clean_database, bounded, shared_client, unwritten
+from tests.database import a_clean_database, held_corpus, shared_client
 from tests.documents import confirmed_kenntnisnahme
 from tests.worker import worker_database
 
@@ -85,21 +85,18 @@ def junction_row(key: str, shorthand: str, saison_id: str = SAISON) -> dict[str,
     )
 
 
-# Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
+# Module-scoped: every case below reads this corpus and none writes it, which `held_corpus` keeps
 # from being left as a claim.
 @pytest.fixture(scope="module")
 async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
     """A running season and a live club, its junction row carrying three people's contact records."""
 
-    async def _seed() -> None:
-        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
-            await database[Collection.SAISONS].insert_one(saison_document())
-            await database[Collection.TEAMS].insert_one(team_document("Helmholtz", "HGX", inactive_since=None))
-            await database[Collection.SAISON_TEAMS].insert_one(junction_row("Helmholtz", "HGX"))
+    async def seed(database: AsyncDatabase) -> None:
+        await database[Collection.SAISONS].insert_one(saison_document())
+        await database[Collection.TEAMS].insert_one(team_document("Helmholtz", "HGX", inactive_since=None))
+        await database[Collection.SAISON_TEAMS].insert_one(junction_row("Helmholtz", "HGX"))
 
-    await bounded(_seed())
-
-    with unwritten(mongo_replica_set_url, DATABASE_NAME):
+    async with held_corpus(mongo_replica_set_url, DATABASE_NAME, seed):
         yield mongo_replica_set_url
 
 
@@ -178,41 +175,40 @@ class TestTheBracketPlacesTheClubsTheTableRanks:
     async def test_the_finale_is_seeded_from_the_placings_the_table_ranks(
         self, mongo_replica_set_url: str, saison_id: str, status: str, seeded: tuple[str, str]
     ):
-        async def body() -> tuple[str | None, str | None]:
-            async with a_clean_database(mongo_replica_set_url, BRACKET_DATABASE_NAME, constraints=True) as (client, database):
-                await database[Collection.SAISONS].insert_one(saison_document(saison_id, status=status))
-                await database[Collection.TEAMS].insert_many(
-                    [
-                        team_document(key, shorthand, inactive_since=RETIRED_ON if key == "Lessing" else None)
-                        for key, shorthand in SHORTHANDS.items()
-                    ]
-                )
-                await database[Collection.SAISON_TEAMS].insert_many(
-                    [junction_row(key, shorthand, saison_id=saison_id) for key, shorthand in SHORTHANDS.items()]
-                )
-                await database[Collection.SPIELE].insert_many(played_group(saison_id))
+        async with a_clean_database(mongo_replica_set_url, BRACKET_DATABASE_NAME, constraints=True) as (client, database):
+            await database[Collection.SAISONS].insert_one(saison_document(saison_id, status=status))
+            await database[Collection.TEAMS].insert_many(
+                [
+                    team_document(key, shorthand, inactive_since=RETIRED_ON if key == "Lessing" else None)
+                    for key, shorthand in SHORTHANDS.items()
+                ]
+            )
+            await database[Collection.SAISON_TEAMS].insert_many(
+                [junction_row(key, shorthand, saison_id=saison_id) for key, shorthand in SHORTHANDS.items()]
+            )
+            await database[Collection.SPIELE].insert_many(played_group(saison_id))
 
-                rules = FLSaisonRules.model_validate(saison_document(saison_id)["rules"])
-                async with client.start_session() as session:
+            rules = FLSaisonRules.model_validate(saison_document(saison_id)["rules"])
+            async with client.start_session() as session:
 
-                    async def resolve(transaction: Any) -> Any:
-                        return await advance_bracket_winners(
-                            spiele_collection=database[Collection.SPIELE],
-                            teams_collection=database[Collection.TEAMS],
-                            saison_id=saison_id,
-                            rules=rules,
-                            session=transaction,
-                        )
+                async def resolve(transaction: Any) -> Any:
+                    return await advance_bracket_winners(
+                        spiele_collection=database[Collection.SPIELE],
+                        teams_collection=database[Collection.TEAMS],
+                        saison_id=saison_id,
+                        rules=rules,
+                        session=transaction,
+                    )
 
-                    await session.with_transaction(resolve)
+                await session.with_transaction(resolve)
 
-                finale = await database[Collection.SPIELE].find_one({"_id": FINALE}) or {}
+            finale = await database[Collection.SPIELE].find_one({"_id": FINALE}) or {}
 
-                # The stored side names its club by id alone.
-                keys: dict[Any, str] = {team_id: key for key, team_id in TEAM_OIDS.items()}
-                return keys.get((finale.get("team1") or {}).get("team_id")), keys.get((finale.get("team2") or {}).get("team_id"))
+            # The stored side names its club by id alone.
+            keys: dict[Any, str] = {team_id: key for key, team_id in TEAM_OIDS.items()}
+            finalists = keys.get((finale.get("team1") or {}).get("team_id")), keys.get((finale.get("team2") or {}).get("team_id"))
 
-        assert await body() == seeded
+        assert finalists == seeded
 
 
 @pytest.mark.db
@@ -220,35 +216,32 @@ class TestTheTeamReadCountsTheLeagueAlone:
     async def test_a_read_naming_no_scope_answers_the_group_phase_figures(self, mongo_replica_set_url: str):
         """The site sends no scope, so a default counting the knockout would put a cup result into the club's league figures."""
 
-        async def body() -> dict[str, Any]:
-            async with a_clean_database(mongo_replica_set_url, BRACKET_DATABASE_NAME, constraints=True) as (_, database):
-                await database[Collection.SAISONS].insert_one(saison_document())
-                await database[Collection.TEAMS].insert_many(
-                    [team_document(key, shorthand, inactive_since=None) for key, shorthand in SHORTHANDS.items()]
+        async with a_clean_database(mongo_replica_set_url, BRACKET_DATABASE_NAME, constraints=True) as (_, database):
+            await database[Collection.SAISONS].insert_one(saison_document())
+            await database[Collection.TEAMS].insert_many(
+                [team_document(key, shorthand, inactive_since=None) for key, shorthand in SHORTHANDS.items()]
+            )
+            await database[Collection.SAISON_TEAMS].insert_many([junction_row(key, shorthand) for key, shorthand in SHORTHANDS.items()])
+            group, finale = played_group(SAISON)[:3], played_group(SAISON)[3]
+            # Helmholtz wins the Finale, a result the group phase must not count.
+            played_finale = {**finale, "team1": side("Helmholtz", 3), "team2": side("Goethe", 0), "ergebnis": "3:0"}
+            await database[Collection.SPIELE].insert_many([*group, played_finale])
+
+            async def statistik_of(**scope: Any) -> Any:
+                filters = FLTeamSingleFilterParams(saison_id=SAISON, **scope)
+                answered = await get_team(
+                    team_id=TEAM_OIDS["Helmholtz"],
+                    teams_collection=database[Collection.TEAMS],
+                    saisons_collection=database[Collection.SAISONS],
+                    filters=filters,
                 )
-                await database[Collection.SAISON_TEAMS].insert_many([junction_row(key, shorthand) for key, shorthand in SHORTHANDS.items()])
-                group, finale = played_group(SAISON)[:3], played_group(SAISON)[3]
-                # Helmholtz wins the Finale, a result the group phase must not count.
-                played_finale = {**finale, "team1": side("Helmholtz", 3), "team2": side("Goethe", 0), "ergebnis": "3:0"}
-                await database[Collection.SPIELE].insert_many([*group, played_finale])
+                return answered.team.statistik
 
-                async def figures(**scope: Any) -> Any:
-                    filters = FLTeamSingleFilterParams(saison_id=SAISON, **scope)
-                    answered = await get_team(
-                        team_id=TEAM_OIDS["Helmholtz"],
-                        teams_collection=database[Collection.TEAMS],
-                        saisons_collection=database[Collection.SAISONS],
-                        filters=filters,
-                    )
-                    return answered.team.statistik
-
-                return {
-                    "named by no caller": await figures(),
-                    "gruppenphase": await figures(statistik_scope="gruppenphase"),
-                    "total": await figures(statistik_scope="total"),
-                }
-
-        figures = await body()
+            figures = {
+                "named by no caller": await statistik_of(),
+                "gruppenphase": await statistik_of(statistik_scope="gruppenphase"),
+                "total": await statistik_of(statistik_scope="total"),
+            }
 
         # The premise: the Finale counts in the total, or the default could not be told from it.
         assert figures["total"] != figures["gruppenphase"]

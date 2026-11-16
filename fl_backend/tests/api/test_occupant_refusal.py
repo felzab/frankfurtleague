@@ -60,8 +60,9 @@ from app.api.spiele.services import (
 )
 from app.core import clock
 from app.core.codes import Code
-from app.core.exceptions import APIError, WriteRefusal
+from app.core.exceptions import WriteRefusal
 from tests import documents
+from tests.isolation import refused_code
 from tests.payloads import PayloadFactory, sieger, spiel_patch_body
 
 MATCH_ID = "6890a1b2c3d4e5f60720{:04d}"
@@ -1131,16 +1132,18 @@ class TestTheResolutionNeverFieldsAClubTwice:
     async def test_the_save_refuses_a_resolution_that_would_field_a_club_twice(self, a_decided_gruppe_seating_its_winner_twice, gruppe_a):
         """Driven through the write path, because a refusal computed and discarded reads the same at the call site as one raised."""
 
-        with pytest.raises(APIError) as refused:
-            await advance_bracket_winners(
-                spiele_collection=cast(AsyncCollection, _SaisonCollection(a_decided_gruppe_seating_its_winner_twice)),
-                teams_collection=cast(AsyncCollection, _TeamPipelineCollection(gruppe_a)),
-                saison_id=SAISON_ID,
-                rules=RULES,
-                session=cast(AsyncClientSession, object()),
+        assert (
+            await refused_code(
+                advance_bracket_winners(
+                    spiele_collection=cast(AsyncCollection, _SaisonCollection(a_decided_gruppe_seating_its_winner_twice)),
+                    teams_collection=cast(AsyncCollection, _TeamPipelineCollection(gruppe_a)),
+                    saison_id=SAISON_ID,
+                    rules=RULES,
+                    session=cast(AsyncClientSession, object()),
+                )
             )
-
-        assert refused.value.error_code == Code.SPIELTAG_OCCUPIED_BY_THE_RESOLUTION
+            == Code.SPIELTAG_OCCUPIED_BY_THE_RESOLUTION
+        )
 
 
 class TestTheClashComparesRealTime:

@@ -28,7 +28,7 @@ from app.api.registrierungen.services import (
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.exceptions import APIError, DocumentNotFoundError
+from app.core.exceptions import DocumentNotFoundError
 from app.shared.einwilligung_evidence import evidence_state_of
 from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload, FLSpielerTextVersions
 from app.shared.tokens import hash_token
@@ -38,7 +38,7 @@ from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_KEY
 from tests.database import a_clean_database
 from tests.documents import SPIELER_TEXT_VERSIONS
-from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
+from tests.isolation import COMMITTED, InterleavedCollection, outcome_of, refused_code
 from tests.outbox import MAIL_NOW, drained
 from tests.records import record_collections
 from tests.session_headers import StampedHeaders
@@ -268,10 +268,7 @@ async def read(database: AsyncDatabase, client: AsyncMongoClient, *, identifier:
 
 
 async def refused(call: Awaitable[Any]) -> str:
-    with pytest.raises(APIError) as refusal:
-        await call
-
-    return refusal.value.error_code
+    return await refused_code(call)
 
 
 async def snapshot(database: AsyncDatabase) -> dict[str, list[Any]]:

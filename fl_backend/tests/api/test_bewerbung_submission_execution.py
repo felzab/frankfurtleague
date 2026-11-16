@@ -392,16 +392,12 @@ class TestTheSubmissionKey:
         async def body(database: AsyncDatabase) -> Any:
             committed = asyncio.Event()
             held = HoldsAfterItsLookup(database[Collection.BEWERBUNGEN], committed)
-            second = asyncio.create_task(submit(database, key=KEY, bewerbungen=held))
-            await held.until_held(second)
-
-            try:
+            async with asyncio.TaskGroup() as group:
+                second = group.create_task(submit(database, key=KEY, bewerbungen=held))
+                await held.until_held(second)
                 first = await submit(database, key=KEY)
-            except BaseException:
-                await held.abandon(second)
-                raise
-            committed.set()
-            answered = await second
+                committed.set()
+            answered = second.result()
 
             return (
                 first.created_id,
@@ -687,17 +683,13 @@ class TestAMailboxPastTheBound:
             await database[Collection.MAILBOX_ANCHORS].delete_many({})
             committed = asyncio.Event()
             held = HoldsAfterItsLookup(database[Collection.BEWERBUNGEN], committed)
-            second = asyncio.create_task(submit(database, bewerbungen=held, kontakte=tagged("second")))
-            await held.until_held(second)
-
-            try:
+            async with asyncio.TaskGroup() as group:
+                second = group.create_task(submit(database, bewerbungen=held, kontakte=tagged("second")))
+                await held.until_held(second)
                 first = await submit(database, kontakte=tagged("first"))
-            except BaseException:
-                await held.abandon(second)
-                raise
-            committed.set()
+                committed.set()
 
-            return await sent_days(database, first), await sent_days(database, await second)
+            return await sent_days(database, first), await sent_days(database, second.result())
 
         first, second = await on_a_league(mongo_replica_set_url, body)
 

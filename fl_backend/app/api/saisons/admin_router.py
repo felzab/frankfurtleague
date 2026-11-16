@@ -949,6 +949,9 @@ async def post_spielplan(
             )
         )
         if spielplan_data.replace:
+            # An early exit, not the guarantee: refused here, the replace runs no delete and no insert, and the
+            # administrator reads the reports ahead of any rule on the proposed shape. The count after the writes is what
+            # no report escapes, since one this snapshot sees is committed and that count sees it too.
             refuse(
                 find_berichte_refusal(
                     berichte=await count_submitted_berichte(
@@ -1036,7 +1039,7 @@ async def post_spielplan(
         shape_written = {} if shape is None else {f"rules.{rule}": value for rule, value in shape.model_dump().items()}
 
         if spielplan_data.replace:
-            # Counted again outside the transaction: a report's first write conflicts
+            # The count no report escapes, outside the transaction: a report's first write conflicts
             # with this one on the season, and a correction on the report, but a document no write made does not.
             refuse(
                 find_berichte_refusal(
@@ -1113,6 +1116,8 @@ async def delete_spielplan(
         # fixtures are as much a record as one this endpoint wrote.
         stored_spiele = await _pull_recorded_fact_rows(spiele_collection=spiele_collection, saison_id=saison_id, session=session)
 
+        # The report count here is an early exit, refusing before anything is deleted; the count after the writes is
+        # what no report escapes.
         refuse(
             _find_undraw_refusal_of(
                 saison_status=str(saison_raw["status"]),
@@ -1147,8 +1152,8 @@ async def delete_spielplan(
         )
         await record_act(collection=saisons_collection, action="saison.spielplan_deleted", label=saison_id, session=session)
 
-        # Counted again outside the transaction: a report's write conflicts with this one, but a document no write made
-        # does not.
+        # The count no report escapes, outside the transaction: a report's write conflicts with this one, but a document
+        # no write made does not.
         refuse(
             find_berichte_refusal(
                 berichte=await count_submitted_berichte(spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=None)

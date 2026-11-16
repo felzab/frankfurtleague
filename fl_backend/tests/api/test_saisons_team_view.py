@@ -8,7 +8,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.saisons.public_router import get_team, get_teams
 from app.core.collections import Collection
 from tests import documents
-from tests.database import a_clean_database, bounded, shared_client, unwritten
+from tests.database import held_corpus, shared_client
 from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_saisons_team_view_test")
@@ -49,37 +49,32 @@ async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
 
     maxim, nadja = pupil("Maxim"), pupil("Nadja")
 
-    async def _seed() -> None:
-        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
-            await database[Collection.SAISONS].insert_many(
-                [documents.saison_document(SAISON, "active"), documents.saison_document(EARLIER, "past")]
-            )
-            await database[Collection.TEAMS].insert_many([documents.team_document(oid, name, name[:3].upper()) for name, oid in CLUBS.items()])
-            await database[Collection.SAISON_TEAMS].insert_many(
-                [
-                    documents.saison_team_document(SAISON, CLUBS["Alpha"], "Alpha", "ALP"),
-                    documents.saison_team_document(SAISON, CLUBS["Beta"], "Beta", "BET", austritt=dict(DISQUALIFIED)),
-                    documents.saison_team_document(SAISON, CLUBS["Delta"], "Delta", "DEL"),
-                    documents.saison_team_document(EARLIER, CLUBS["Gamma"], "Gamma", "GAM"),
-                ]
-            )
-            await database[Collection.SPIELTAGE].insert_one(
-                {"_id": SPIELTAG, "start": None, "end": None, "position": 2, "saison_phase": "gruppenphase", "saison_id": SAISON, "version": 0}
-            )
-            await database[Collection.SPIELE].insert_many(
-                [spiel(1, "Alpha", "Beta", "2:1"), spiel(2, "Beta", "Delta", "0:1"), spiel(3, "Delta", "Alpha")]
-            )
-            await database[Collection.SPIELER].insert_many([maxim, nadja])
-            await database[Collection.SAISON_SPIELER].insert_many(
-                [
-                    documents.saison_spieler_document(maxim["_id"], SAISON, CLUBS["Alpha"], nummer="7", stufe="Q3"),
-                    documents.saison_spieler_document(nadja["_id"], SAISON, CLUBS["Delta"], nummer="9", stufe="Q3"),
-                ]
-            )
+    async def seed(database: AsyncDatabase) -> None:
+        await database[Collection.SAISONS].insert_many(
+            [documents.saison_document(SAISON, "active"), documents.saison_document(EARLIER, "past")]
+        )
+        await database[Collection.TEAMS].insert_many([documents.team_document(oid, name, name[:3].upper()) for name, oid in CLUBS.items()])
+        await database[Collection.SAISON_TEAMS].insert_many(
+            [
+                documents.saison_team_document(SAISON, CLUBS["Alpha"], "Alpha", "ALP"),
+                documents.saison_team_document(SAISON, CLUBS["Beta"], "Beta", "BET", austritt=dict(DISQUALIFIED)),
+                documents.saison_team_document(SAISON, CLUBS["Delta"], "Delta", "DEL"),
+                documents.saison_team_document(EARLIER, CLUBS["Gamma"], "Gamma", "GAM"),
+            ]
+        )
+        await database[Collection.SPIELTAGE].insert_one(documents.spieltag_document(SPIELTAG, SAISON, 2))
+        await database[Collection.SPIELE].insert_many(
+            [spiel(1, "Alpha", "Beta", "2:1"), spiel(2, "Beta", "Delta", "0:1"), spiel(3, "Delta", "Alpha")]
+        )
+        await database[Collection.SPIELER].insert_many([maxim, nadja])
+        await database[Collection.SAISON_SPIELER].insert_many(
+            [
+                documents.saison_spieler_document(maxim["_id"], SAISON, CLUBS["Alpha"], nummer="7", stufe="Q3"),
+                documents.saison_spieler_document(nadja["_id"], SAISON, CLUBS["Delta"], nummer="9", stufe="Q3"),
+            ]
+        )
 
-    await bounded(_seed())
-
-    with unwritten(mongo_replica_set_url, DATABASE_NAME):
+    async with held_corpus(mongo_replica_set_url, DATABASE_NAME, seed):
         yield mongo_replica_set_url
 
 

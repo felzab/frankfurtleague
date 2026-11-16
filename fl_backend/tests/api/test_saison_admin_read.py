@@ -157,23 +157,22 @@ class TestTheEditorSaysAFixtureHasTakenPlace:
     ):
         """Read wrong, the start date's box stands open to a save `saison_start_taken_place` refuses, or locked for nothing."""
 
-        async def _run() -> bool:
-            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
-                await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "future", start_date=START))
-                await database[Collection.SPIELE].insert_one(
-                    spiel_document(
-                        spiel_id=ObjectId(),
-                        saison_id=SAISON_ID,
-                        spiel_nr=1,
-                        spieltag_id=ObjectId(),
-                        team1={"team_id": ObjectId(), "tore": sides[0]},
-                        team2={"team_id": ObjectId(), "tore": sides[1]},
-                    )
+        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
+            await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "future", start_date=START))
+            await database[Collection.SPIELE].insert_one(
+                spiel_document(
+                    spiel_id=ObjectId(),
+                    saison_id=SAISON_ID,
+                    spiel_nr=1,
+                    spieltag_id=ObjectId(),
+                    team1={"team_id": ObjectId(), "tore": sides[0]},
+                    team2={"team_id": ObjectId(), "tore": sides[1]},
                 )
+            )
 
-                return (await read(database)).saison.taken_place
+            served = (await read(database)).saison.taken_place
 
-        assert await _run() is taken_place
+        assert served is taken_place
 
 
 class TestTheEditorsActsAreRefusedAsTheirWritesRefuse:
@@ -189,10 +188,12 @@ class TestTheEditorsActsAreRefusedAsTheirWritesRefuse:
             pytest.param("recreate", True, a_result_entered, Code.SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW, id="a redraw past a result"),
             pytest.param("recreate", True, a_report_submitted, Code.SPIELPLAN_BERICHTE_SUBMITTED, id="a redraw over a report"),
             pytest.param("recreate", True, the_season_active, Code.SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW, id="a redraw once activated"),
+            pytest.param("recreate", True, the_season_past, Code.SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW, id="a redraw once finished"),
             pytest.param("undraw", True, as_drawn, None, id="an undraw of a season nothing is recorded on"),
             pytest.param("undraw", True, a_result_entered, Code.SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW, id="an undraw past a result"),
             pytest.param("undraw", True, a_report_submitted, Code.SPIELPLAN_BERICHTE_SUBMITTED, id="an undraw over a report"),
             pytest.param("undraw", True, the_season_active, Code.SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW, id="an undraw once activated"),
+            pytest.param("undraw", True, the_season_past, Code.SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW, id="an undraw once finished"),
             pytest.param("activate", False, as_drawn, Code.ACTIVATE_TARGET_UNDRAWN, id="activating an undrawn season"),
             pytest.param("activate", True, as_drawn, Code.ACTIVATE_SPIELTAGE_UNDATED, id="activating a season with undated matchdays"),
             pytest.param("activate", True, matchdays_dated, None, id="activating a dated season in a fresh league"),
@@ -218,7 +219,6 @@ class TestTheEditorsActsAreRefusedAsTheirWritesRefuse:
             await state(database)
 
             served = getattr((await read(database)).refusals, act)
-
-            served, answered = served, await pressed(act, database, client)
+            answered = await pressed(act, database, client)
 
         assert (served, answered) == (refused, refused)

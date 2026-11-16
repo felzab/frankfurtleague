@@ -26,6 +26,7 @@ from tests.documents import (
     saison_team_document,
     spiel_document,
     spieler_document,
+    spieltag_document,
     team_document,
 )
 from tests.session_headers import StampedHeaders
@@ -231,18 +232,7 @@ async def _seed_the_season(database: AsyncDatabase) -> None:
     """The matchdays and the fixtures the one-season read serves, with the line-ups it reads `starts` off."""
 
     await database[Collection.SPIELTAGE].insert_many(
-        [
-            {
-                "_id": oid,
-                "start": None,
-                "end": None,
-                "position": position,
-                "saison_phase": "gruppenphase",
-                "saison_id": ACTIVE_SAISON,
-                "version": 0,
-            }
-            for oid, position in ((SPIELTAG_1_OID, 1), (SPIELTAG_2_OID, 2))
-        ]
+        [spieltag_document(oid, ACTIVE_SAISON, position) for oid, position in ((SPIELTAG_1_OID, 1), (SPIELTAG_2_OID, 2))]
     )
     await database[Collection.SPIELE].insert_many([BENCHED, UNNAMED, NONE_STORED, NOT_THE_CLUBS])
     await database[Collection.AUFSTELLUNGEN].insert_many(

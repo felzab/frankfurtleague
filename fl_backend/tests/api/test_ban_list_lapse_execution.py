@@ -18,11 +18,11 @@ from app.api.saisons.admin_router import activate_saison
 from app.api.saisons.crud import pull_governing_saison_id
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError
 from tests import documents
 from tests.bans import ban_through_the_route
 from tests.config import grants_for_the_suite
 from tests.database import a_clean_database
+from tests.isolation import refused_code
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -138,10 +138,7 @@ class TestALeagueWithNoSeasonRunning:
         """Driven through the endpoint, so the refusal is shown to stand before the insert rather than beside it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
-            with pytest.raises(APIError) as raised:
-                await ban(database, client)
-
-            assert raised.value.error_code == Code.BAN_LIST_NO_SAISON
+            assert await refused_code(ban(database, client)) == Code.BAN_LIST_NO_SAISON
 
             return await database[Collection.BAN_LIST].count_documents({})
 

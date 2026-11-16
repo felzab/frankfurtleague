@@ -36,7 +36,7 @@ from tests.app_client import app_client, app_under_test
 from tests.bans import ban_through_the_route
 from tests.config import ADMIN_KEY
 from tests.database import a_clean_database
-from tests.documents import address_change_document, ban_document, rules_document, saison_document
+from tests.documents import address_change_document, ban_document, grant_document, rules_document, saison_document
 from tests.isolation import COMMITTED, GrantsRunningARivalAfterTheFirstRead, outcome_of, refused_code
 from tests.session_headers import StampedHeaders, session_headers
 from tests.stored import the_row
@@ -80,21 +80,15 @@ def stored(moment: datetime) -> datetime:
     return moment.astimezone(UTC).replace(tzinfo=None)
 
 
-def grant_document(grant_id: ObjectId, address: str, admin_tier: str, *, effective_from: datetime = IN_EFFECT) -> dict[str, Any]:
-    """As the recovery paste writes one."""
-
-    return {"_id": grant_id, "address": address, "admin_tier": admin_tier, "effective_from": effective_from}
-
-
 # Nora's addition still waiting beside the three in effect.
-WAITING = grant_document(NORA_ID, NORA, "administration", effective_from=NOW + timedelta(hours=1))
+WAITING = grant_document(NORA, "administration", effective_from=NOW + timedelta(hours=1), _id=NORA_ID)
 
 
 def the_three_grants() -> list[dict[str, Any]]:
     return [
-        grant_document(OWNER_ID, OWNER, "owner"),
-        grant_document(ANNA_ID, ANNA, "administration"),
-        grant_document(BERND_ID, BERND, "administration"),
+        grant_document(OWNER, "owner", effective_from=IN_EFFECT, _id=OWNER_ID),
+        grant_document(ANNA, "administration", effective_from=IN_EFFECT, _id=ANNA_ID),
+        grant_document(BERND, "administration", effective_from=IN_EFFECT, _id=BERND_ID),
     ]
 
 
@@ -682,7 +676,7 @@ class TestTheMountedRouteReadsTheGrants:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, str | None]:
             await database[Collection.GRANTS].insert_one(
-                grant_document(NORA_ID, NORA, "administration", effective_from=at_most(effective_in_s))
+                grant_document(NORA, "administration", effective_from=at_most(effective_in_s), _id=NORA_ID)
             )
             async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME)) as http:
                 response = await http.get(f"/api/v{API_VERSION}/grants", headers=signed_in_at(NORA, int(time.time()) - 60))
