@@ -525,15 +525,16 @@ declare -grA EXIT_CODES=(
   # say what was asked. A query finds nothing, so it has no 1.
   [query]="0:0 2:2"
   # `docker run`'s own statuses, which come ahead of the container's (its reference, "Exit status"):
-  # 125 the daemon failed, so nothing ran; 126 and 127 the image cannot invoke or find its command.
-  [docker]="125:2 126:3 127:3"
+  # 125 an error of the daemon's, whose own example is a flag it does not hold, so nothing ran; 126 and
+  # 127 the image cannot invoke or find its command. Each a crash, claimed here before the tool's row.
+  [docker]="125:3 126:3 127:3"
   # lychee 0.24.2's README, "Exit codes": 1 missing inputs, a runtime failure or a configuration
-  # error, 2 a link that failed, 3 an error in the config file.
-  [lychee]="0:0 1:2 2:1 3:2"
-  # zizmor 1.32.0's usage page, "Exit codes": 1 an error during the audit, a GitHub API it could not
-  # reach among them, 2 an argument it could not parse, 3 no input collected, 11 to 14 findings by their
-  # highest severity, and no 10.
-  [zizmor]="0:0 1:2 2:3 3:2 11:1 12:1 13:1 14:1"
+  # error, 2 a link that failed, and clap's usage error alike, 3 an error in the config file.
+  [lychee]="0:0 2:1 3:2"
+  # zizmor 1.32.0's usage page, "Exit codes": 1 an error during the audit, whatever it was, 2 an
+  # argument it could not parse, 3 no input collected, 11 to 14 findings by their highest severity,
+  # and no 10.
+  [zizmor]="0:0 2:3 3:2 11:1 12:1 13:1 14:1"
   # The manual of shellcheck 0.11.0, "Return values": 2 a file it could not process, 3 and 4 a flag or
   # an option it was handed wrong.
   [shellcheck]="0:0 1:1 2:2 3:3 4:3"
@@ -757,9 +758,8 @@ render_compose_model() {
 # --- What a successful build does not prove ------------------------------------------------------------
 
 # Asked of the image itself, by the gate's images scope. Each answers 0, 1 for what it found, and
-# for a probe that did not run the class `EXIT_CODES`'s `docker` row reads Docker's status as: 2
-# where the daemon itself failed, 3 where the image could not start the probe or the probe failed,
-# neither saying anything about the image.
+# for a probe that did not run the class `EXIT_CODES`'s `docker` row reads Docker's status as, a
+# crash, which says nothing about the image.
 
 # A probe's `docker run` that did not answer what the probe found, the reason printed. 130 travels:
 # flattened it would read as a crash rather than an interrupt.

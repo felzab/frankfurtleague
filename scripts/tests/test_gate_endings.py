@@ -150,9 +150,11 @@ CRASHED: Final = "exit status "
         pytest.param("--ops", {"FL_COMPOSE": "broken"}, 1, UNPARSED, NO_PLUGIN, id="a-parse-error-is-a-finding"),
         pytest.param("--ops", {"FL_COMPOSE": "interrupted"}, 130, "Interrupted after", UNPARSED, id="a-render-a-cancel-ended-is-an-interrupt"),
         pytest.param("--ops", {"FL_ZIZMOR_EXIT": "13"}, 1, "zizmor found a finding", JUDGED_NOTHING, id="a-zizmor-severity-is-a-finding"),
-        pytest.param("--ops", {"FL_ZIZMOR_EXIT": "1"}, 2, JUDGED_NOTHING, "zizmor found a finding", id="zizmor-s-own-error-is-a-refusal"),
+        # zizmor's 1 is any error during the audit, and lychee's 1 a missing input, a runtime failure or a configuration error.
+        pytest.param("--ops", {"FL_ZIZMOR_EXIT": "1"}, 3, CRASHED, "zizmor found a finding", id="zizmor-s-own-error-is-a-crash"),
         pytest.param("--docs", {"FL_LYCHEE_EXIT": "2"}, 1, BROKEN_LINKS, JUDGED_NOTHING, id="a-failed-link-is-a-finding"),
-        pytest.param("--docs", {"FL_LYCHEE_EXIT": "1"}, 2, JUDGED_NOTHING, BROKEN_LINKS, id="lychee-s-own-failure-is-a-refusal"),
+        pytest.param("--docs", {"FL_LYCHEE_EXIT": "1"}, 3, CRASHED, BROKEN_LINKS, id="lychee-s-own-failure-is-a-crash"),
+        pytest.param("--docs", {"FL_LYCHEE_EXIT": "3"}, 2, JUDGED_NOTHING, BROKEN_LINKS, id="a-config-lychee-cannot-load-is-a-refusal"),
         # pnpm answers 1 for its own failures and for a finding alike, so its code decides.
         pytest.param(
             "--frontend", {"FL_PNPM_dedupe": "1:DEDUPE_CHECK_ISSUES"}, 1, DEDUPE, JUDGED_NOTHING, id="a-dedupe-pnpm-would-make-is-a-finding"
@@ -180,7 +182,7 @@ def test_each_tool_s_status_ends_the_scope_as_its_table_reads_it(scope: str, ans
     [
         pytest.param("0", 0, "pass", id="green"),
         pytest.param("2", 1, "failed", id="a-finding"),
-        pytest.param("1", 2, "refused", id="a-refusal"),
+        pytest.param("3", 2, "refused", id="a-refusal"),
         pytest.param("127", 3, "crashed", id="a-crash"),
         pytest.param("130", 130, "interrupted", id="an-interrupt"),
     ],

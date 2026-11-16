@@ -688,8 +688,8 @@ No row is a default: each call site names its tool's row, and a name no row hold
 the first time it is read. One dispatcher, `settle`, ends the run for a crash or an interrupt in the
 shell that read the status, never inside a substitution, whose exit would end the subshell alone.
 
-`docker run`'s own statuses come ahead of the tool's in its container: 125, the daemon failing,
-is a refusal. **A run of several scopes ends on the class its scopes ended on**, each scope's own
+`docker run`'s own statuses come ahead of the tool's in its container: 125, which Docker gives a
+flag it does not hold as well as the daemon failing, is a crash. **A run of several scopes ends on the class its scopes ended on**, each scope's own
 exit code deciding its row and its count of findings filling the row's column alone: an interrupt
 first, then a finding, a refusal and a crash.
 
