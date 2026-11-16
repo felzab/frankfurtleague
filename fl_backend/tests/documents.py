@@ -715,7 +715,13 @@ def own_einwilligung_document(*, text_versions: TextVersions, confirmed_at: str,
 def schiedsrichter_document(
     schiedsrichter_id: Any, *, email: str, name: str, default_payment: int, einwilligung: Mapping[str, Any] | None, **fields: Any
 ) -> dict[str, Any]:
-    """One referee row, `name` unique across the collection (`app/core/constraints.py :: uniq_schiedsrichter_name`)."""
+    """One referee row, `name` unique across the collection (`app/core/constraints.py :: uniq_schiedsrichter_name`).
+
+    `einwilligung=None` is the row as the create stores it, before the person's confirmation: with no `birth_date` and
+    no `einwilligung` at all, which only that confirmation writes.
+    """
+
+    confirmed = {} if einwilligung is None else {"birth_date": None, "einwilligung": dict(einwilligung)}
 
     return read_back_document(
         Collection.SCHIEDSRICHTER,
@@ -726,8 +732,7 @@ def schiedsrichter_document(
             "default_payment": default_payment,
             "kontakt": {"phone": "+49 69 5550202", "email": email},
             "inactive_since": None,
-            "birth_date": None,
-            "einwilligung": None if einwilligung is None else dict(einwilligung),
+            **confirmed,
             "version": 0,
             **fields,
         },
