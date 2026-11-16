@@ -5,6 +5,9 @@
     // Prettier formats every Markdown file, so the rules that overlap with it are off, as
     // markdownlint's own guide to using it with Prettier recommends.
     "extends": "markdownlint/style/prettier",
+    // lychee resolves every `#fragment`, one on the same page included, so this rule only repeats
+    // its finding.
+    "link-fragments": false,
   },
   "globs": ["**/*.md"],
   // Every file git ignores, installed packages and nested worktrees among them.
