@@ -164,11 +164,16 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # The checkers' interpreter, and the uv that runs zizmor.
+      # The checkers' interpreter, which needs no package, and zizmor beside it.
       - uses: ./.github/actions/backend-toolchain
         with:
           application: false
+          group: zizmor
       - name: Run the ops scope
+        # zizmor runs its online audits here alone, reading GitHub's API with the job's read-only
+        # token.
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: ./scripts/gate/verify.sh --ops
 
   # Both images, built side by side in one bake through Docker's own action, which carries the Actions

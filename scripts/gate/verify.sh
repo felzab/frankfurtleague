@@ -7,7 +7,7 @@
 #
 #   ./scripts/gate/verify.sh                   every scope, side by side — the run a pull request is called ready to merge on
 #   ./scripts/gate/verify.sh --scripts --docs --backend --format --frontend-units --frontend --ops --db --images
-#   ./scripts/gate/verify.sh --quick           the scripts, backend and frontend scopes alone: no Docker, and not docs, format, frontend-units, ops, db or images
+#   ./scripts/gate/verify.sh --quick           the scripts, backend and frontend scopes alone, needing Docker only where shellcheck or actionlint is not on PATH at its pinned release
 #   ./scripts/gate/verify.sh --verbose         stream each tool's own output instead of capturing it
 #   ./scripts/gate/verify.sh --help
 
@@ -39,7 +39,8 @@ done
 # --- several scopes: each its own run of this script, side by side ---------------------------------
 
 # Every scope reads the tree and writes only its own caches, so they run together and the run costs
-# the longest rather than the sum. Each run's output is captured and replayed in the written order.
+# the longest rather than the sum. Each run's row prints as it ends, and its whole output is captured
+# and replayed in the written order once every run has ended.
 RUNS_DIR=""
 # The runs not yet reaped. A reaped run's group id is free for the system to reuse, so it is never
 # signalled again.
@@ -66,6 +67,8 @@ if (( ${#SELECTED[@]} > 1 )); then
     pnpm_config_store_dir="$(cd fl_frontend && pnpm store path)"
   fi
 
+  declare -A SCOPE_OF=() ROW=()
+  started="$(_now_ms)"
   # Job control while the runs start, and only then: each run leads a process group of its own, which
   # `stop_runs` signals whole, and takes SIGINT and SIGQUIT as a lone run does, where bash would start
   # it with both ignored and a non-interactive shell can never trap a signal ignored on entry. A
@@ -74,56 +77,42 @@ if (( ${#SELECTED[@]} > 1 )); then
   # group reading it would stop on.
   set -m
   for scope in "${SELECTED[@]}"; do
-    "$BASH" "$SELF" "--${scope}" < /dev/null > "${RUNS_DIR}/${scope}.log" 2>&1 &
+    # Its count of findings in a file of its own, which the library reads at start-up.
+    FL_GATE_FINDINGS_FILE="${RUNS_DIR}/${scope}.findings" "$BASH" "$SELF" "--${scope}" \
+      < /dev/null > "${RUNS_DIR}/${scope}.log" 2>&1 &
     PID[$scope]=$!
+    SCOPE_OF[$!]=$scope
   done
   set +m
 
   info "running side by side: $(IFS=' '; printf '%s' "${SELECTED[*]}")"
-  declare -A STATUS=()
-  spinner_start "${#SELECTED[@]} scopes running side by side"
   for scope in "${SELECTED[@]}"; do
-    rc=0
-    wait "${PID[$scope]}" || rc=$?
-    STATUS[$scope]=$rc
-    unset 'PID[$scope]'
+    ROW[$scope]=${#ROW[@]}
+    add_row "$scope"
   done
-  spinner_stop
+  # In the order they end: `wait -n -p`, bash 5.1's, names the run it reaped.
+  while (( ${#PID[@]} )); do
+    rc=0
+    wait -n -p reaped || rc=$?
+    scope="${SCOPE_OF[$reaped]}"
+    unset 'PID[$scope]'
+    # A run that ended before its closing statement left no count, and found nothing it could report.
+    count=0
+    if [[ -s "${RUNS_DIR}/${scope}.findings" ]]; then read -r count < "${RUNS_DIR}/${scope}.findings"; fi
+    # The exit contract read back into the rank its row shows.
+    case "$rc" in
+      0)   rank=1 ;;
+      1)   rank=4 ;;
+      2)   rank=3 ;;
+      130) rank=6 ;;
+      *)   rank=5 ;;
+    esac
+    end_row "${ROW[$scope]}" "$rank" "$(( $(_now_ms) - started ))" "$count"
+  done
   for scope in "${SELECTED[@]}"; do cat "${RUNS_DIR}/${scope}.log"; done
 
-  # The exit contract's order, as `finish` reads a single run's sections: findings over a refusal
-  # over a crash.
-  findings=0; refused=0; crashed=0
-  printf '\n      %s%-16s  %s%s\n' "$C_DIM" "scope" "result" "$C_RESET"
-  for scope in "${SELECTED[@]}"; do
-    case "${STATUS[$scope]}" in
-      0)   label=pass;        colour="$C_GREEN" ;;
-      1)   label=findings;    colour="$C_RED"; findings=1 ;;
-      2)   label=refused;     colour="$C_RED"; refused=1 ;;
-      130) label=interrupted; colour="$C_YELLOW"; crashed=1 ;;
-      *)   label="crashed (${STATUS[$scope]})"; colour="$C_RED"; crashed=1 ;;
-    esac
-    printf '      %-16s  %s%s%s\n' "$scope" "$colour" "$label" "$C_RESET"
-  done
-  elapsed="$(fmt_ms $(( $(_now_ms) - _RUN_T0 )))"
-  if (( findings )); then
-    printf '\n%s   ✗%s  A scope above has findings, each named in its own section — exit 1. (%s)\n' "$C_RED" "$C_RESET" "$elapsed" >&2
-    exit 1
-  fi
-  if (( refused )); then
-    printf '\n%s   ✗%s  A scope above refused, so it reached no verdict on the change — exit 2. (%s)\n' "$C_RED" "$C_RESET" "$elapsed" >&2
-    exit 2
-  fi
-  if (( crashed )); then
-    printf '\n%s   ✗%s  A scope above crashed or was stopped, so nothing past that point ran — exit 3. (%s)\n' "$C_RED" "$C_RESET" "$elapsed" >&2
-    exit 3
-  fi
-  if (( ${#SELECTED[@]} == ${#SCOPES[@]} )); then
-    ok "Green — every scope, no findings, ${elapsed}. Safe to merge."
-  else
-    ok "Green — ${#SELECTED[@]} scopes, no findings, ${elapsed}."
-  fi
-  exit 0
+  if (( ${#SELECTED[@]} == ${#SCOPES[@]} )); then finish --what "every scope" "Safe to merge."; fi
+  finish --what "${#SELECTED[@]} scopes"
 fi
 
 # --- one scope ------------------------------------------------------------------------------------
@@ -194,6 +183,36 @@ ruff_both() { # $1 the directory · the paths
   local dir="$1"
   shift
   ( cd "$dir" && "$PY" -m ruff check "$@" && "$PY" -m ruff format --check "$@" )
+}
+
+# A command run beside others, its output kept in `$1.log` and its status, with the milliseconds it
+# took, in `$1.status`. Bash starts an `&` command of a script with SIGINT and SIGQUIT ignored,
+# which would leave a step running past a Ctrl-C: reset, as `build_images` does. Called in a
+# subshell, so the reset never reaches the scope's own shell.
+run_beside() { # $1 where its files go · the command
+  local at="$1" t0 rc=0
+  shift
+  trap - INT QUIT
+  t0="$(_now_ms)"
+  "$@" > "${at}.log" 2>&1 || rc=$?
+  printf '%s %s\n' "$rc" "$(( $(_now_ms) - t0 ))" > "${at}.status"
+}
+
+# A command `run_beside` ran, read under the open step as `check` reads its own: its output where
+# it failed, or under `--verbose` whole, since two steps streaming at once would interleave. The
+# step's time is the command's own rather than the moment its step was printed.
+beside_verdict() { # $1 its files · [--summary | --pytest] $2 what to say on a finding · $3 the command, as a crash names it
+  local at="$1" rc=3 ms=0
+  local -a said=()
+  shift
+  # A command that left no status ended before it could write one, which reads as a crash.
+  # Split on the space `run_beside` writes, which the repository's IFS leaves out.
+  if [[ -f "${at}.status" ]]; then IFS=' ' read -r rc ms < "${at}.status"; fi
+  QUIETLY_OUTPUT=""
+  if [[ -f "${at}.log" ]]; then QUIETLY_OUTPUT="$(<"${at}.log")"; fi
+  _STEP_MS0=$(( $(_now_ms) - ms ))
+  if (( VERBOSE || rc )); then mapfile -t said <<<"$QUIETLY_OUTPUT"; detail "${said[@]}"; fi
+  verdict "${@:1:$#-1}" "$rc" "${BASH_LINENO[0]}" "${!#}"
 }
 
 # By file, so a module's fixtures stay on one worker; a stalled case's stack is dumped inside every CI
@@ -380,63 +399,83 @@ typecheck() {
   esac
 }
 
-# pnpm audit answers 1 for an advisory and for a registry it could not read alike; only a run that read
-# one writes its report, so the report decides: 0 none at the level, 1 one or more, 2 no report.
-audit_prod() {
-  local report rc=0
-  report="$(in_dir fl_frontend pnpm audit:prod --json)" || rc=$?
-  printf '%s\n' "$report"
-  case "$rc" in
-    0|1) if [[ "$report" == *'"metadata"'* ]]; then return "$rc"; fi; return 2 ;;
-    *) return "$rc" ;;
-  esac
-}
+# Global, for the EXIT trap, which runs after the scope has returned.
+FRONTEND_STEPS=""
 
+# Every step before the build but typegen reads the tree and writes nothing another step reads, so
+# those run side by side, each into its own capture, and report in the written order once all have
+# ended.
 scope_frontend() {
   section frontend
-  # `--frozen-lockfile` makes `--lockfile-only`'s write impossible, and the repeat-install shortcut
-  # would answer from mtimes rather than from the manifest.
+  trap 'rm -rf ${FRONTEND_STEPS:+"$FRONTEND_STEPS"}' EXIT
+  FRONTEND_STEPS="$(mktemp -d)"
+  local at="$FRONTEND_STEPS" typegen=3 pid
+  local -a running=()
+  # The lockfile's three checks read the manifest and the lockfile alone, so they run beside every
+  # step before the build. `--frozen-lockfile` makes `--lockfile-only`'s write impossible, and the
+  # repeat-install shortcut would answer from mtimes rather than from the manifest.
+  ( run_beside "${at}/frozen" in_dir fl_frontend pnpm install --frozen-lockfile --lockfile-only --no-optimistic-repeat-install ) &
+  running+=("$!")
+  ( run_beside "${at}/peers" in_dir fl_frontend pnpm peers check ) &
+  running+=("$!")
+  ( run_beside "${at}/dedupe" in_dir fl_frontend pnpm dedupe --check ) &
+  running+=("$!")
+  # The route types tsc checks against; it rewrites tsconfig.json where a key is absent, so it ends
+  # before any reader of that file starts.
+  ( run_beside "${at}/typegen" in_dir fl_frontend pnpm typegen )
+  if [[ -f "${at}/typegen.status" ]]; then IFS=' ' read -r typegen _ < "${at}/typegen.status"; fi
+  if (( typegen == 0 )); then
+    ( run_beside "${at}/tsc" typecheck ) &
+    running+=("$!")
+    ( run_beside "${at}/eslint" in_dir fl_frontend pnpm lint:only ) &
+    running+=("$!")
+    ( run_beside "${at}/knip" in_dir fl_frontend pnpm knip ) &
+    running+=("$!")
+    ( run_beside "${at}/knip-prod" in_dir fl_frontend pnpm knip:prod ) &
+    running+=("$!")
+  fi
+  # Every step ended before the first verdict, since a crash's verdict ends the scope where it stands.
+  for pid in "${running[@]}"; do wait "$pid" || true; done
+
   step "frontend · pnpm  (manifest and lockfile agree)"
-  check "fl_frontend's lockfile no longer answers its manifest or pnpm-workspace.yaml — pnpm names what differs above.
+  beside_verdict "${at}/frozen" "fl_frontend's lockfile no longer answers its manifest or pnpm-workspace.yaml — pnpm names what differs above.
 Fix with:  cd fl_frontend && pnpm install  -- then commit the lockfile." \
-    in_dir fl_frontend pnpm install --frozen-lockfile --lockfile-only --no-optimistic-repeat-install \
+    "pnpm install --frozen-lockfile --lockfile-only --no-optimistic-repeat-install" \
     && ok "manifest and lockfile agree"
 
   # `strictPeerDependencies` refuses an out-of-range peer only while `pnpm install` resolves.
   step "frontend · pnpm  (every peer in range)"
-  check "fl_frontend's lockfile installs a peer outside the range a package asks for — pnpm names it above." \
-    in_dir fl_frontend pnpm peers check \
+  beside_verdict "${at}/peers" "fl_frontend's lockfile installs a peer outside the range a package asks for — pnpm names it above." \
+    "pnpm peers check" \
     && ok "every peer in range"
 
   # `pnpm add` keeps every copy the lockfile already pins, so an added range can leave two copies of
   # one package, and two copies of React Aria split the contexts its components share.
   step "frontend · pnpm  (no copy a dedupe would remove)"
-  check "fl_frontend's lockfile holds a copy a dedupe would remove — pnpm names each change above.
+  beside_verdict "${at}/dedupe" "fl_frontend's lockfile holds a copy a dedupe would remove — pnpm names each change above.
 Fix with:  cd fl_frontend && pnpm dedupe  -- then commit the lockfile." \
-    in_dir fl_frontend pnpm dedupe --check \
+    "pnpm dedupe --check" \
     && ok "no copy a dedupe would remove"
 
-  # The route types tsc checks against; it rewrites tsconfig.json where a key is absent, so it runs
-  # before every reader of that file.
   step "frontend · next typegen"
-  check "next typegen failed — its own output is above." in_dir fl_frontend pnpm typegen || finish
+  beside_verdict "${at}/typegen" "next typegen failed — its own output is above." "pnpm typegen" || finish
   ok "route types generated"
 
   step "frontend · tsc"
-  check "tsc found type errors." typecheck && ok "no type errors"
+  beside_verdict "${at}/tsc" "tsc found type errors." "pnpm typecheck:only" && ok "no type errors"
 
   step "frontend · eslint"
-  check "eslint failed." in_dir fl_frontend pnpm lint && ok "lint clean"
+  beside_verdict "${at}/eslint" "eslint failed." "pnpm lint:only" && ok "lint clean"
 
   step "frontend · knip  (unused files, exports and dependencies)"
-  check "knip found something nothing uses, named above. Delete it, or name the reader knip cannot see in fl_frontend/knip.json." \
-    in_dir fl_frontend pnpm knip \
+  beside_verdict "${at}/knip" "knip found something nothing uses, named above. Delete it, or name the reader knip cannot see in fl_frontend/knip.json." \
+    "pnpm knip" \
     && ok "nothing unused"
 
   step "frontend · knip, production  (what only tests still read)"
-  check "knip's production run found code only tests still read, named above. Delete it with the cases testing it,
+  beside_verdict "${at}/knip-prod" "knip's production run found code only tests still read, named above. Delete it with the cases testing it,
 or name production code knip cannot see in fl_frontend/knip.production.json." \
-    in_dir fl_frontend pnpm knip:prod \
+    "pnpm knip:prod" \
     && ok "nothing only tests read"
 
   # After every reader of tsconfig.json: it writes `.next/`, which that file's `include` covers. No
@@ -445,19 +484,6 @@ or name production code knip cannot see in fl_frontend/knip.production.json." \
   step "frontend · next build"
   check "next build failed." in_dir fl_frontend env SKIP_ENV_VALIDATION=true NEXT_TELEMETRY_DISABLED=1 pnpm build \
     && ok "build succeeds"
-
-  # An advisory, never a finding: one is published upstream while the tree stays as it was.
-  step "frontend · dependency audit  (runtime advisories, high and above)"
-  local rc=0
-  quietly audit_prod || rc=$?
-  case "$rc" in
-    0)   ok "no known runtime vulnerability at high or above" ;;
-    1)   warn "pnpm audit names a runtime advisory at high or above in the report above. Upgrade the package, or
-triage with:  cd fl_frontend && pnpm audit" ;;
-    2)   warn "pnpm audit wrote no report, so no advisory was read. Its own words are above." ;;
-    130) on_interrupt ;;
-    *)   on_error "$rc" "${LINENO}" "pnpm audit:prod --json" ;;
-  esac
   return 0
 }
 
@@ -466,21 +492,19 @@ triage with:  cd fl_frontend && pnpm audit" ;;
 OPS_SCRATCH=""
 cleanup_ops() { if [[ -n "$OPS_SCRATCH" ]]; then rm -rf "$OPS_SCRATCH" || true; fi; }
 
-# zizmor answers 11 to 14 for findings and 1 for its own failure. Installed at the release and the
-# file hashes scripts/gate/zizmor/requirements.txt pins, being no backend dependency; Dependabot moves
-# that file. An environment of the scope's own rather than `uv tool run`, which checks no hash in a
-# constraints or requirements file; `--no-build`, or a wheel refused by its hash falls back to
-# building the sdist, whose Rust toolchain and build backend no hash covers.
+# zizmor answers 11 to 14 for findings and 1 for its own failure, a GitHub API it could not read
+# among them. The release is the backend lockfile's, from the `zizmor` dependency group. Its wheel
+# installs the program alone, with no module `-m` could run, so it runs from beside the interpreter.
 run_zizmor() {
-  local rc=0 env="${OPS_SCRATCH}/zizmor" bin
-  uv venv --quiet --python "$PY" "$env" || return 3
-  uv pip install --quiet --python "$env" --require-hashes --no-build \
-    --requirements scripts/gate/zizmor/requirements.txt || return 3
-  bin="${env}/bin/zizmor"
-  [[ -x "$bin" ]] || bin="${env}/Scripts/zizmor.exe"
-  # `--offline`, or a token in the environment turns on rules that reach the network;
+  local rc=0 bin="${PY%/*}/zizmor"
+  local -a network=(--offline)
+  [[ -x "$bin" ]] || bin="${PY%/*}/zizmor.exe"
+  # Online under Actions alone, with the job's read-only token, where the audits reading GitHub's API
+  # run: an action pinned to a commit gets no Dependabot alert, so `known-vulnerable-actions` is what
+  # names one. Offline everywhere else, or a token in a person's environment turns those audits on.
+  if [[ -n "${GITHUB_ACTIONS:-}" ]]; then network=(); fi
   # `--strict-collection`, or a malformed `.github/dependabot.yml` is a warning it exits 0 on.
-  "$bin" --offline --strict-collection --persona regular . || rc=$?
+  "$bin" "${network[@]}" --strict-collection --persona regular . || rc=$?
   case "$rc" in
     0) return 0 ;;
     11|12|13|14) return 1 ;;
@@ -556,50 +580,18 @@ contract_check() {
 # Global, for the EXIT trap, which runs after the scope has returned.
 DB_TIERS=""
 
-# A command run beside another, its output kept in `$1.log` and its status, with the milliseconds it
-# took, in `$1.status`. Bash starts an `&` command of a script with SIGINT and SIGQUIT ignored,
-# which would leave a tier running past a Ctrl-C: reset, as `build_images` does.
-run_beside() { # $1 where its files go · the command
-  local at="$1" t0 rc=0
-  shift
-  trap - INT QUIT
-  t0="$(_now_ms)"
-  "$@" > "${at}.log" 2>&1 || rc=$?
-  printf '%s %s\n' "$rc" "$(( $(_now_ms) - t0 ))" > "${at}.status"
-}
-
-# A command `run_beside` ran, read under the open step as `check` reads its own: its output where
-# it failed, or under `--verbose` whole, since two tiers streaming at once would interleave. The
-# step's time is the tier's own rather than the moment its step was printed.
-beside_verdict() { # $1 its files · [--summary | --pytest] $2 what to say on a finding · $3 the command, as a crash names it
-  local at="$1" rc=3 ms=0
-  local -a said=()
-  shift
-  # A tier that left no status ended before its command did, which reads as a crash.
-  # Split on the space `run_beside` writes, which the repository's IFS leaves out.
-  if [[ -f "${at}.status" ]]; then IFS=' ' read -r rc ms < "${at}.status"; fi
-  QUIETLY_OUTPUT=""
-  if [[ -f "${at}.log" ]]; then QUIETLY_OUTPUT="$(<"${at}.log")"; fi
-  _STEP_MS0=$(( $(_now_ms) - ms ))
-  if (( VERBOSE || rc )); then mapfile -t said <<<"$QUIETLY_OUTPUT"; detail "${said[@]}"; fi
-  verdict "${@:1:$#-1}" "$rc" "${BASH_LINENO[0]}" "${!#}"
-}
-
 # Split from the default tier because it needs the Docker daemon the quick scope avoids.
 scope_db() {
   section db
   trap 'rm -rf "$CONTRACT_SCRATCH" ${DB_TIERS:+"$DB_TIERS"}' EXIT
-  # This scope because it alone has both the backend's virtualenv and the frontend's install.
-  step "db · the contract and its generated client match the code they are built from"
-  check "The committed contract no longer matches the code it is generated from; the diff above names each file.
-Fix with:  (cd fl_frontend && pnpm run contract)  -- then commit both." \
-    contract_check \
-    && ok "the contract and the client are current"
-
   # Side by side, each into its own capture, as `build_images` runs two builds: the tiers share no
-  # container, each starting its own on ports Docker picks.
+  # container, each starting its own on ports Docker picks, and the contract check writes only its
+  # scratch folder.
   DB_TIERS="$(mktemp -d)"
-  local backend frontend
+  local contract backend frontend
+  # This scope because it alone has both the backend's virtualenv and the frontend's install.
+  ( run_beside "${DB_TIERS}/contract" contract_check ) &
+  contract=$!
   # `loadfile` for isolation too: the commit fail points' cases set the server's one
   # `failCommand`, so they run one after another on one worker.
   ( run_beside "${DB_TIERS}/backend" in_dir fl_backend "$PY" -m pytest -m db "${PYTEST_SPREAD[@]}" --maxprocesses 6 ) &
@@ -607,10 +599,14 @@ Fix with:  (cd fl_frontend && pnpm run contract)  -- then commit both." \
   # Each file starts its own replica set through `@testcontainers/mongodb`.
   ( run_beside "${DB_TIERS}/frontend" in_dir fl_frontend pnpm run test:db ) &
   frontend=$!
-  spinner_start "db · the backend's and the frontend's db tiers, side by side"
+  wait "$contract" || true
   wait "$backend" || true
   wait "$frontend" || true
-  spinner_stop
+
+  step "db · the contract and its generated client match the code they are built from"
+  beside_verdict "${DB_TIERS}/contract" "The committed contract no longer matches the code it is generated from; the diff above names each file.
+Fix with:  (cd fl_frontend && pnpm run contract)  -- then commit both." "contract_check" \
+    && ok "the contract and the client are current"
 
   step "db · pytest -m db, distributed over one shared replica set"
   beside_verdict "${DB_TIERS}/backend" --pytest "fl_backend db-tier tests failed. A failing test and a mongo that never started both end here: each case's
