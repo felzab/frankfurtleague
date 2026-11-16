@@ -6,7 +6,7 @@ import { now } from "./clock";
 import { signInStore } from "./db";
 import { logger } from "./logging";
 
-import type { IndexOptions, IndexSpecification, TopologyDescriptionChangedEvent } from "mongodb";
+import type { IndexOptions, IndexSpecification, ServerHeartbeatSucceededEvent } from "mongodb";
 
 // Named for what the database holds rather than for the library that writes it, so the next swap
 // inherits a name it does not have to migrate.
@@ -100,22 +100,26 @@ async function failureOf(build: () => Promise<unknown>, askUntil: number): Promi
 }
 
 /**
- * The client reconnects on its own once the store answers, and the
- * build runs again on the first topology holding a writable server, rather than waiting for the next boot.
+ * The build runs again on the next heartbeat a writable server answers, rather than waiting for the next boot
+ * (`serverHeartbeatSucceeded`, https://www.mongodb.com/docs/drivers/node/current/monitoring-and-logging/monitoring/).
+ * A store that did not answer fails its heartbeats until it is back, and the client reconnects on its own. A store that
+ * stayed writable but timed out answers its next one, within the client's heartbeat interval: "If there is a network
+ * timeout on the connection after the handshake completes, the client MUST NOT mark the server Unknown"
+ * (https://github.com/mongodb/specifications/blob/master/source/server-discovery-and-monitoring/server-discovery-and-monitoring.md#network-error-when-reading-or-writing),
+ * so its topology never changes. While a store stays that slow, each window ends in its lines and the next heartbeat
+ * starts another, until it answers.
  */
 function rebuildOnRecovery(): void {
   if (rebuildArmed) return;
   rebuildArmed = true;
   const store = signInStore();
-  // Never `open`, which the driver emits for a new topology alone: one recovering after its first open
-  // emits none, and the rebuild would wait for the next boot.
-  const recovered = ({ newDescription }: TopologyDescriptionChangedEvent): void => {
-    if (![...newDescription.servers.values()].some((server) => server.isWritable)) return;
-    store.off("topologyDescriptionChanged", recovered);
+  const recovered = ({ reply }: ServerHeartbeatSucceededEvent): void => {
+    if (reply["isWritablePrimary"] !== true) return;
+    store.off("serverHeartbeatSucceeded", recovered);
     rebuildArmed = false;
     void buildAuthIndexes();
   };
-  store.on("topologyDescriptionChanged", recovered);
+  store.on("serverHeartbeatSucceeded", recovered);
 }
 
 /**

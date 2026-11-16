@@ -10,7 +10,7 @@ import type { IndexOptions } from "mongodb";
 /** One `createIndex` the build issued, by collection and name, with the key and options it was handed. */
 type Build = { collection: string; name: string; key: unknown; options: IndexOptions };
 
-/** The store client's own events, of which the build listens for `topologyDescriptionChanged`. */
+/** The store client's own events, of which the build listens for `serverHeartbeatSucceeded`. */
 const clientEvents = new EventEmitter();
 
 const builds: Build[] = [];
@@ -23,7 +23,7 @@ const log = captureLog("production");
 /** Each error line written, by its event and fields. */
 const errorLines = () => log.lines().flatMap(({ level, message, fields }) => (level === "ERROR" ? [{ event: message, fields }] : []));
 
-/** The builds still running, by collection, which `afterChange` waits out. */
+/** The builds still running, by collection, which `afterHeartbeat` waits out. */
 const running = new Map<string, number>();
 
 /** What each build answers, which a case sets; every build succeeds unless it names one. */
@@ -87,17 +87,22 @@ const TIMED_OUT = new MongoNetworkTimeoutError("connection 1 to store:27017 time
 /** The client's socket bound, which each timed-out call waited out before it failed. */
 const SOCKET_BOUND_MS = 3000;
 
-/** A topology change as the driver emits it, its one server of the type named. */
-const changedTo = (type: string) => ({ newDescription: { servers: new Map([["store:27017", { type, isWritable: type === "RSPrimary" }]]) } });
+/** A build the store answers past the socket's bound, under the faked clock a case sets. */
+async function timingOut(): Promise<never> {
+  // An answer is a later turn of the event loop, as the network's is, and each call waits out the socket's bound.
+  await new Promise((resolve) => setImmediate(resolve));
+  vi.setSystemTime(Date.now() + SOCKET_BOUND_MS);
+  throw TIMED_OUT;
+}
 
-// The driver emits `open` for a new topology alone, so this double emits none.
 /**
- * Emits a topology change and waits out whatever run it starts, a turn at a time: until one has begun
- * and every build of it settled, or a bounded number of turns where none begins.
+ * Emits a heartbeat as the driver does, its reply naming the server writable or not, and waits out whatever run it
+ * starts, a turn at a time: until one has begun and every build of it settled, or a bounded number of turns where none
+ * begins.
  */
-async function afterChange(type = "RSPrimary"): Promise<void> {
+async function afterHeartbeat(isWritablePrimary = true): Promise<void> {
   const before = builds.length;
-  clientEvents.emit("topologyDescriptionChanged", changedTo(type));
+  clientEvents.emit("serverHeartbeatSucceeded", { reply: { isWritablePrimary } });
   for (let turn = 0; turn < 200 && (builds.length === before || [...running.values()].some((open) => open > 0)); turn += 1) {
     await new Promise((resolve) => setImmediate(resolve));
   }
@@ -131,22 +136,32 @@ describe("the sign-in store's index build", () => {
     }
   });
 
-  /* The client reconnects once the store answers, and a restart is
-     what the build waited for otherwise. */
-  it("builds every index again once a store that did not answer is writable, and not before", async () => {
-    answer = () => Promise.reject(UNANSWERED);
-    await buildAuthIndexes();
+  /* A store that did not answer fails its heartbeats until it is back; one that timed out answers its next, the driver
+     marking no server unknown for a timeout after the handshake. Either way a restart is what the build waited for
+     otherwise. */
+  it.for([
+    ["did not answer", () => Promise.reject(UNANSWERED)],
+    ["timed out", timingOut],
+  ] as const)("builds every index again on the next heartbeat of a writable store where one %s, and not before", async ([, failing]) => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      answer = failing;
+      await buildAuthIndexes();
+    } finally {
+      vi.useRealTimers();
+    }
     const first = builds.length;
 
     answer = () => Promise.resolve("built");
     for (let turn = 0; turn < 20; turn += 1) await new Promise((resolve) => setImmediate(resolve));
     expect(builds.length, "the build ran again before the store answered").toBe(first);
-    await afterChange("Unknown");
-    expect(builds.length, "the build ran again on a topology holding no writable server").toBe(first);
+    await afterHeartbeat(false);
+    expect(builds.length, "the build ran again on a heartbeat of no writable server").toBe(first);
 
-    await afterChange();
+    await afterHeartbeat();
 
-    const names = (from: Build[]) => from.map(({ name }) => name).sort();
+    // Each index once, however often the failing run asked for it.
+    const names = (from: Build[]) => [...new Set(from.map(({ collection, name }) => `${collection}.${name}`))].sort();
     expect(names(builds.slice(first))).toStrictEqual(names(builds.slice(0, first)));
   });
 
@@ -155,12 +170,7 @@ describe("the sign-in store's index build", () => {
   it("asks a build that times out again until its window has passed, then logs every index unbuilt", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     try {
-      answer = async () => {
-        // An answer is a later turn of the event loop, as the network's is, and each call waits out the socket's bound.
-        await new Promise((resolve) => setImmediate(resolve));
-        vi.setSystemTime(Date.now() + SOCKET_BOUND_MS);
-        throw TIMED_OUT;
-      };
+      answer = timingOut;
       await buildAuthIndexes();
     } finally {
       vi.useRealTimers();
