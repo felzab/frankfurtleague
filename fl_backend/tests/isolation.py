@@ -33,6 +33,15 @@ async def outcome_of(call: Awaitable[Any]) -> str:
     return COMMITTED
 
 
+async def refused_code(call: Awaitable[Any]) -> str:
+    """The code of the refusal `call` must meet, failing the case where it lands instead."""
+
+    with pytest.raises(APIError) as refused:
+        await call
+
+    return str(refused.value.error_code)
+
+
 class InterleavedCollection:
     """A collection one write reaches through, running a rival write inside it once, at one operation.
 

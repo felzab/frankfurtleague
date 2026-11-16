@@ -13,7 +13,6 @@ from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
-import pytest
 from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
@@ -36,7 +35,6 @@ from app.api.address_change.schemas import (
 from app.api.address_change.system_router import sweep_address_change
 from app.api.outbox.system_router import post_handout
 from app.core.collections import Collection
-from app.core.exceptions import APIError
 from app.shared.schemas.bounds import ADDRESS_CHANGE_WAITING_PERIOD_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
 from tests import documents
@@ -399,13 +397,6 @@ def view(database: AsyncDatabase, client: AsyncMongoClient, token: str | None, *
 
 def sweep(database: AsyncDatabase, client: AsyncMongoClient, *, after: Any = None, **given: Any) -> Awaitable[Any]:
     return call(sweep_address_change, database, client, params=FLAddressChangeSweepParams(after=after), **given)
-
-
-async def refused_code(call: Awaitable[Any]) -> str:
-    with pytest.raises(APIError) as refused:
-        await call
-
-    return refused.value.error_code
 
 
 async def row(database: AsyncDatabase, collection: Collection, row_id: ObjectId) -> Mapping[str, Any]:

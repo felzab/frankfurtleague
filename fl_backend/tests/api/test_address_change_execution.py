@@ -51,7 +51,7 @@ from tests import documents
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMINISTRATORS, SYSTEM_AUTH
 from tests.holds import HeldCollection
-from tests.isolation import COMMITTED, outcome_of
+from tests.isolation import COMMITTED, outcome_of, refused_code
 from tests.records import record_collections
 from tests.whole_database import where_held
 from tests.worker import worker_database
@@ -90,7 +90,6 @@ from .address_change_harness import (
     handed_out,
     owed,
     read,
-    refused_code,
     registration,
     resend,
     row,
@@ -118,17 +117,13 @@ class TestTheAccountPagesRead:
     async def test_a_change_starts_wherever_the_address_holds_anything_a_change_moves(self, mongo_replica_set_url: str):
         """A grant alone is enough: an administrator's address is theirs to change like anyone's."""
 
-        async def refusal(database: AsyncDatabase, client: AsyncMongoClient, address: str) -> str | None:
-            try:
-                await start(database, client, identifier=address, released=False)
-            except APIError as refused:
-                return refused.error_code
-            return None
-
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return [await refusal(database, client, address) for address in (EMAIL, OTHER_EMAIL, ADMIN, "nobody@schule.example")]
+            return [
+                await outcome_of(start(database, client, identifier=address, released=False))
+                for address in (EMAIL, OTHER_EMAIL, ADMIN, "nobody@schule.example")
+            ]
 
-        assert await on_a_person(mongo_replica_set_url, body) == [None, None, None, Code.ADDRESS_CHANGE_NOTHING]
+        assert await on_a_person(mongo_replica_set_url, body) == [COMMITTED, COMMITTED, COMMITTED, Code.ADDRESS_CHANGE_NOTHING]
 
     async def test_an_administrator_s_change_shows_its_address_masked_and_never_whole(self, mongo_replica_set_url: str):
         """It may be a pretext whose target the holder of the address on file must not learn: unmask it and this fails."""
@@ -1436,16 +1431,6 @@ class TestTheMovedAddressLeavesNothingBehind:
         assert held == {EMAIL: []}
 
 
-async def outcome_code(call: Awaitable[Any]) -> str | None:
-    """`None` for a press that landed, its refusal's code otherwise."""
-
-    try:
-        await call
-    except APIError as refused:
-        return refused.error_code
-    return None
-
-
 class TestTwoPressesAtOnce:
     """Each press judges inside its own transaction, so two running at once settle to one outcome, whichever commits first."""
 
@@ -1455,15 +1440,13 @@ class TestTwoPressesAtOnce:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             ours = await start(database, client)
             theirs = await start(database, client, identifier=OTHER_EMAIL)
-            codes = await asyncio.gather(
-                outcome_code(answer(database, client, ours.token)), outcome_code(answer(database, client, theirs.token))
-            )
+            codes = await asyncio.gather(outcome_of(answer(database, client, ours.token)), outcome_of(answer(database, client, theirs.token)))
             holders = [found["_id"] async for found in database[Collection.SPIELER].find({"email": NEW_EMAIL}, {"_id": 1})]
             return codes, holders, {minted.id: await change(database, minted.id) for minted in (ours, theirs)}
 
         codes, holders, changes = await on_a_person(mongo_replica_set_url, body)
 
-        assert sorted(codes, key=str) == [None, Code.ADDRESS_CHANGE_TAKEN]
+        assert sorted(codes) == sorted([COMMITTED, Code.ADDRESS_CHANGE_TAKEN])
         assert len(holders) == 1
         # The loser moved nothing, and its change stands for its person to see.
         assert sorted(record["ended"] is None for record in changes.values()) == [False, True]
@@ -1474,16 +1457,16 @@ class TestTwoPressesAtOnce:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await start(database, client)
             confirmed, discarded = await asyncio.gather(
-                outcome_code(answer(database, client, minted.token)), outcome_code(discard(database, client, minted.id))
+                outcome_of(answer(database, client, minted.token)), outcome_of(discard(database, client, minted.id))
             )
             return confirmed, discarded, (await change(database, minted.id))["ended"]["kind"], (await everything(database))["pupil"]["email"]
 
         confirmed, discarded, kind, address = await on_a_person(mongo_replica_set_url, body)
 
-        if confirmed is None:
+        if confirmed == COMMITTED:
             assert (discarded, kind, address) == (Code.ADDRESS_CHANGE_ENDED, "effective", NEW_EMAIL)
         else:
-            assert (confirmed, discarded, kind, address) == (Code.ADDRESS_CHANGE_ENDED, None, "discarded", EMAIL)
+            assert (confirmed, discarded, kind, address) == (Code.ADDRESS_CHANGE_ENDED, COMMITTED, "discarded", EMAIL)
 
 
 class TestTheWaitingTime:

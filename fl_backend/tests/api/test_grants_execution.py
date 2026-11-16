@@ -36,7 +36,7 @@ from tests.bans import ban_through_the_route
 from tests.config import ADMIN_KEY
 from tests.database import a_clean_database
 from tests.documents import address_change_document, ban_document, rules_document, saison_document
-from tests.isolation import COMMITTED, InterleavedCollection, Rival, outcome_of
+from tests.isolation import COMMITTED, InterleavedCollection, Rival, outcome_of, refused_code
 from tests.session_headers import StampedHeaders, session_headers
 from tests.worker import worker_database
 
@@ -232,13 +232,6 @@ async def acts_on(database: AsyncDatabase, grant_id: ObjectId) -> list[tuple[str
     return [(row["action"], row["by"], row["label"]) async for row in rows]
 
 
-async def refusal_of(call: Awaitable[Any]) -> str:
-    with pytest.raises(APIError) as raised:
-        await call
-
-    return str(raised.value.error_code)
-
-
 class Aborting:
     """A collection whose named method runs, then raises: the transaction around it aborts after that write.
 
@@ -387,7 +380,7 @@ class TestOnlyTheOwnerActs:
     )
     async def test_an_administrator_is_refused_and_nothing_moves(self, mongo_replica_set_url: str, act: Body):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int, list[str]]:
-            return await refusal_of(act(database, client)), await database[Collection.OUTBOX].count_documents({}), await addresses(database)
+            return await refused_code(act(database, client)), await database[Collection.OUTBOX].count_documents({}), await addresses(database)
 
         assert await on_a_league(mongo_replica_set_url, body) == (Code.GRANT_ONLY_OWNER, 0, EVERY_HOLDER)
 
@@ -437,7 +430,7 @@ class TestARemoval:
 
     async def test_the_owners_row_goes_by_no_removal(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            return await refusal_of(remove(database, client, OWNER_ID))
+            return await refused_code(remove(database, client, OWNER_ID))
 
         assert await on_a_league(mongo_replica_set_url, body) == Code.GRANT_OWNER
 
@@ -475,7 +468,7 @@ class TestAHandover:
 
     async def test_a_row_still_waiting_is_refused_so_an_addition_then_a_handover_waits_both(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            return await refusal_of(hand_over(database, client, NORA_ID))
+            return await refused_code(hand_over(database, client, NORA_ID))
 
         assert await on_a_league(mongo_replica_set_url, body, grants=[WAITING]) == Code.GRANT_NOT_IN_EFFECT
 
@@ -483,7 +476,7 @@ class TestAHandover:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[str]:
             await database[Collection.BAN_LIST].insert_one(ban_document(BERND, until="2999"))
 
-            return [await refusal_of(hand_over(database, client, OWNER_ID)), await refusal_of(hand_over(database, client, BERND_ID))]
+            return [await refused_code(hand_over(database, client, OWNER_ID)), await refused_code(hand_over(database, client, BERND_ID))]
 
         assert await on_a_league(mongo_replica_set_url, body) == [Code.GRANT_OWNER, Code.GRANT_BARRED]
 

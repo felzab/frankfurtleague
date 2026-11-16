@@ -21,9 +21,9 @@ from app.api.schiedsrichter.public_router import post_confirmation
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLSchiedsrichterConfirmationPayload
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError
 from tests import documents
 from tests.database import a_clean_database
+from tests.isolation import refused_code
 from tests.outbox import MAIL_NOW, drained
 from tests.worker import worker_database
 
@@ -123,13 +123,6 @@ async def stored(database: AsyncDatabase) -> Mapping[str, Any]:
     assert found is not None, "the referee this case seeded is gone"
 
     return found
-
-
-async def refused_code(call: Awaitable[Any]) -> str:
-    with pytest.raises(APIError) as refused:
-        await call
-
-    return refused.value.error_code
 
 
 class TestTheSaveOnAConfirmedReferee:
