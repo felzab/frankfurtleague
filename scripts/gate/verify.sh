@@ -123,7 +123,7 @@ SCOPE="${SELECTED[0]}"
 # verdict. `--checker` adds the 2 a checker built on the checker kernel answers for an input it
 # could not judge. `--summary` is for a tool raising an annotation per finding itself
 # under Actions, as Vitest and the self-check do: what is said then sums them, `fail --summary`.
-# `--pytest` raises those annotations for pytest, one per case its summary names (`annotate_cases`).
+# `--pytest` raises those annotations for pytest, one per case its summary names.
 check() { # [--checker] [--summary | --pytest] $1 what to say on a finding · the command
   local said rc=0 command
   local -a flags=()
@@ -171,14 +171,12 @@ annotate_cases() {
   return "$found"
 }
 
-# A command run from inside one of the repository's directories.
 in_dir() { # $1 the directory · the command
   local dir="$1"
   shift
   ( cd "$dir" && "$@" )
 }
 
-# ruff's lint, then its formatter in check mode, over the paths named from inside `$1`.
 ruff_both() { # $1 the directory · the paths
   local dir="$1"
   shift
@@ -187,8 +185,8 @@ ruff_both() { # $1 the directory · the paths
 
 # A command run beside others, its output kept in `$1.log` and its status, with the milliseconds it
 # took, in `$1.status`. Bash starts an `&` command of a script with SIGINT and SIGQUIT ignored,
-# which would leave a step running past a Ctrl-C: reset, as `build_images` does. Called in a
-# subshell, so the reset never reaches the scope's own shell.
+# which would leave a step running past a Ctrl-C, so both are reset. Called in a subshell, so the
+# reset never reaches the scope's own shell.
 run_beside() { # $1 where its files go · the command
   local at="$1" t0 rc=0
   shift
@@ -633,8 +631,7 @@ cleanup_images() { docker image rm -f "${IMAGES_TAG}:frontend" "${IMAGES_TAG}:ba
 
 # Both in one bake of the definition CI builds, so each target's context, Dockerfile and arguments are
 # `docker-bake.hcl`'s alone. Only where they land is this run's: loaded into the local image store
-# under this run's tag (`--set`, https://docs.docker.com/build/bake/overrides/), where CI writes the
-# tarballs its publish pushes.
+# under this run's tag through `--set`, where CI writes the tarballs its publish pushes.
 build_images() {
   local log rc=0
   log="$(mktemp)"
