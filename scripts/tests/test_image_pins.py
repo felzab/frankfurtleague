@@ -17,7 +17,8 @@ import re
 from pathlib import Path
 from typing import Final
 
-REPO_ROOT: Final = Path(__file__).resolve().parents[2]
+from conftest import REPO_ROOT
+
 # The third is never built: it is where the gate's linters are pinned, for Dependabot's `docker` ecosystem to move.
 TOOLS_FILE: Final = REPO_ROOT / "scripts" / "gate" / "tools.Dockerfile"
 DOCKERFILES: Final = (REPO_ROOT / "fl_frontend" / "Dockerfile", REPO_ROOT / "fl_backend" / "Dockerfile", TOOLS_FILE)

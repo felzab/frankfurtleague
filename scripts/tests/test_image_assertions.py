@@ -17,10 +17,9 @@ from pathlib import Path
 from typing import Final
 
 import pytest
-from conftest import BASH, base_env, run_shell, write_shell
+from conftest import BASH, REPO_ROOT, base_env, run_shell, write_shell
 
-SCRIPTS: Final = Path(__file__).resolve().parent.parent
-REPO_ROOT: Final = SCRIPTS.parent
+SCRIPTS: Final = REPO_ROOT / "scripts"
 VERIFY: Final = SCRIPTS / "gate" / "verify.sh"
 LIB: Final = SCRIPTS / "lib" / "_lib.sh"
 
