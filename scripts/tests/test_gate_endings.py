@@ -272,6 +272,58 @@ def test_a_tools_file_without_lychee_s_line_is_a_finding_of_its_own() -> None:
     assert not wrong, "\n".join(wrong) + "\n" + output
 
 
+# The one row whose tool answers 0 for what it found and a nonzero status for nothing found, as git-grep(1)'s "EXIT
+# STATUS" documents it.
+INVERTED: Final = {"git-grep": "0:1 1:0"}
+
+
+def _tables() -> dict[str, dict[str, str]]:
+    """`EXIT_CODES`, `EXIT_LINES` and `PNPM_ERRORS` as `_lib.sh` declares them once sourced, each entry's key beside its value."""
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    body = (
+        f'source "{(REPO_ROOT / "scripts" / "lib" / "_lib.sh").as_posix()}"\n'
+        "for table in EXIT_CODES EXIT_LINES PNPM_ERRORS; do\n"
+        '  declare -n rows="$table"\n'
+        '  for key in "${!rows[@]}"; do printf \'%s\\t%s\\t%s\\n\' "$table" "$key" "${rows[$key]}"; done\n'
+        "  unset -n rows\n"
+        "done\n"
+    )
+    done = run_shell(BASH, write_shell(new_root("fl-exit-tables-") / "dump.sh", body), env=base_env())
+    assert done.returncode == 0, done.stdout + done.stderr
+    tables: dict[str, dict[str, str]] = {"EXIT_CODES": {}, "EXIT_LINES": {}, "PNPM_ERRORS": {}}
+    for line in done.stdout.splitlines():
+        table, key, value = line.split("\t")
+        tables[table][key] = value
+    assert all(tables.values()), f"a table read empty, so nothing below is judged: {tables}"
+    return tables
+
+
+def test_no_row_reads_a_tool_s_nonzero_status_as_clean_or_its_zero_as_anything_else() -> None:
+    """A row reading a finding as 0 ends the scope green over it, every line still printed, which no case driving a tool sees.
+
+    Every reading a status takes is held at once: a pair of `EXIT_CODES`, the class an `EXIT_LINES` row gives its
+    statuses, and the class a pnpm code reads as.
+    """
+    tables = _tables()
+    wrong: list[str] = []
+    for table, row in tables["EXIT_CODES"].items():
+        if table in INVERTED:
+            continue
+        pairs = dict(pair.split(":") for pair in row.split(" "))
+        if pairs.get("0") != "0":
+            wrong.append(f"EXIT_CODES[{table}]={row!r} reads 0 as {pairs.get('0')!r}, never as clean")
+        wrong += [f"EXIT_CODES[{table}]={row!r} reads {status} as clean" for status, read in pairs.items() if status != "0" and read == "0"]
+    for table, row in tables["EXIT_LINES"].items():
+        statuses, read, _ = row.split(" ", 2)
+        if read == "0":
+            wrong.append(f"EXIT_LINES[{table}]={row!r} reads {statuses} as clean by the tool's words")
+    wrong += [f"PNPM_ERRORS[{code}]={read} reads a pnpm failure as clean" for code, read in tables["PNPM_ERRORS"].items() if read == "0"]
+    inverted = {table: tables["EXIT_CODES"].get(table) for table in INVERTED}
+    if inverted != INVERTED:
+        wrong.append(f"the inverted rows read {inverted}, where git-grep(1) documents {INVERTED}")
+    assert not wrong, "\n".join(wrong)
+
+
 KEPT: Final = "def test_kept() -> None:\n    pass\n"
 
 
