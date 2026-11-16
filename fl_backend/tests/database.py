@@ -1,15 +1,14 @@
 import asyncio
 import io
-from collections.abc import AsyncGenerator, Awaitable, Callable, Coroutine, Generator, Iterable, Mapping, Sequence
-from contextlib import AsyncExitStack, asynccontextmanager, contextmanager, redirect_stdout
+from collections.abc import AsyncGenerator, Awaitable, Callable, Coroutine, Iterable, Mapping, Sequence
+from contextlib import AsyncExitStack, asynccontextmanager, redirect_stdout
 from contextvars import ContextVar
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pymongo
-from pymongo import AsyncMongoClient, MongoClient
+from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
-from pymongo.database import Database
 from pymongo.periodic_executor import AsyncPeriodicExecutor
 from pymongo.uri_parser import parse_uri
 
@@ -76,6 +75,11 @@ _UNFINISHED = (
 _LEFT_BEHIND = (
     "{what} left {count} task(s) running, cancelled here: {tasks}. A task left on the session's loop runs into the next"
     " case, writing into a database that case has just cleared: await, cancel or drain every task where it is started."
+)
+
+_UNSCOPED = (
+    "a clean database was entered outside a case, where its checks judge what a fixture left rather than what the cases"
+    " did: a module holds its corpus with `held_corpus` across its fixture's `yield`, and a case opens its own in its body."
 )
 
 _CLEARED_UNDER_A_CORPUS = (
@@ -382,8 +386,12 @@ async def a_clean_database(
     `mutates_schema=True` is the opt-out for a body that installs a validator or moves an index: what
     it leaves is recorded nowhere, so the next caller rebuilds. Every document the body leaves is read back through its
     record model (`_refused_records`), unless `stores_a_refused_shape` names why it stores one on purpose. On the shipped
-    schema, a body leaving a row its TTL index has already expired is refused (`_expired_rows`).
+    schema, a body leaving a row its TTL index has already expired is refused (`_expired_rows`). Entered in a case's
+    body alone, so its checks judge what that case did.
     """
+
+    if _CASE.get() is None:
+        raise RuntimeError(_UNSCOPED)
 
     async with _cleaned(
         url, name, constraints=constraints, mutates_schema=mutates_schema, stores_a_refused_shape=stores_a_refused_shape
@@ -508,35 +516,3 @@ async def held_corpus[T](
             raise AssertionError(_WROTE.format(database=name, moved=", ".join(moved)))
 
         await bounded(held.aclose(), what=f"the checks of '{name}'")
-
-
-def _documents(database: Database) -> Corpus:
-    """Views and `system.*` are listed beside real collections and hold nothing a seed put there."""
-
-    return {
-        info["name"]: sorted(repr(document) for document in database[info["name"]].find())
-        for info in database.list_collections()
-        if info.get("type") == "collection" and not str(info["name"]).startswith("system.")
-    }
-
-
-@contextmanager
-def unwritten(url: str, database_name: str) -> Generator[None]:
-    """Fails a module that WROTE to the corpus seeded once for it, naming the collections it moved.
-
-    `_schema` compares the schema instead, which a write never touches.
-    """
-
-    # A client of its own: the seeding one is asynchronous, and this guard's comparison is synchronous.
-    client = MongoClient(url)
-    try:
-        seeded = _documents(client[database_name])
-
-        yield
-
-        present = _documents(client[database_name])
-        moved = sorted(name for name in seeded.keys() | present.keys() if seeded.get(name) != present.get(name))
-
-        assert not moved, _WROTE.format(database=database_name, moved=", ".join(moved))
-    finally:
-        client.close()

@@ -7,11 +7,12 @@ Invariants:
   write's transaction waits out MongoDB's abort and passes on the retry.
 - A task the work starts and leaves running fails the scope that left it, and is cancelled there rather than running
   into the next case; the driver's own monitors, which outlive a case by design, do not.
-- A module's corpus is judged after the module's cases, so it is refused when released in the task that seeded it, and
-  nothing clears it while it is held.
+- A clean database is entered in a case's body alone, and a module's corpus is judged after the module's cases: it is
+  refused when released in the task that seeded it, and nothing clears it while it is held.
 """
 
 import asyncio
+import contextvars
 
 import pytest
 from pymongo import AsyncMongoClient
@@ -55,6 +56,16 @@ async def test_a_driver_s_monitor_is_no_task_left_behind():
         await bounded(client.aconnect())
     finally:
         await client.close()
+
+
+async def test_a_clean_database_entered_outside_a_case_is_refused():
+    async def entered_as_a_fixture_would() -> None:
+        async with a_clean_database(UNANSWERED_URI, DATABASE_NAME):
+            pass
+
+    with pytest.raises(RuntimeError, match="entered outside a case"):
+        # An empty context, as a fixture's setup runs outside any case.
+        await asyncio.create_task(entered_as_a_fixture_would(), context=contextvars.Context())
 
 
 async def _one_season(database: AsyncDatabase) -> None:
