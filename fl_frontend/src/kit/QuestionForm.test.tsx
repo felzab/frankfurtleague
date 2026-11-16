@@ -131,7 +131,13 @@ describe("a form asking its question over what the press read", () => {
     expect(toast.querySelector(".text-danger")).toBeTruthy();
     expect([screen.queryByRole("alertdialog", { name: QUESTION }), box().value]).toStrictEqual([null, ADDRESS]);
 
-    await userEvent.click(screen.getByRole("button", { name: VERB }));
+    // The toast stands as the act answers, ahead of the render ending the press's busy state, which a loaded machine
+    // slices across tasks; React Aria takes no press on a busy button, so the next press waits for the one a person sees.
+    const again = screen.getByRole("button", { name: VERB });
+    await waitFor(() => {
+      expect(again.hasAttribute("data-pending")).toBe(false);
+    });
+    await userEvent.click(again);
     await userEvent.click(within(await screen.findByRole("alertdialog", { name: QUESTION })).getByRole("button", { name: VERB }));
     await waitFor(() => {
       expect(acts.act).toHaveBeenCalledTimes(2);
