@@ -11,11 +11,9 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from tests.app_client import app_client, app_under_test
 from tests.config import BASE_AUTH, build_test_config
-from tests.database import a_clean_database, bounded
+from tests.database import a_clean_database, bounded, unwritten
 from tests.documents import rules_document, saison_document, saison_team_document, team_document
 from tests.worker import worker_database
-
-from .conftest import unwritten
 
 # The database `build_test_config` names -- the one an app built from that config resolves its
 # collections from, and the home of the corpus every case sharing `seeded_url` reads.

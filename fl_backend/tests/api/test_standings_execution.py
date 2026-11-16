@@ -13,9 +13,8 @@ from app.api.teams.services import ZERO_STATISTIK, build_statistik_by_team, buil
 from app.core.collections import Collection
 from app.shared.schemas.literals import FLSonderereignis, FLSpielerStufe
 from tests import documents
+from tests.documents import AUSTRITT
 from tests.worker import worker_database
-
-from .conftest import AUSTRITT
 
 DATABASE_NAME = worker_database("fl_standings_test")
 

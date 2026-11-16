@@ -15,6 +15,7 @@ from app.api.spiele.services import (
 from app.core.collections import Collection
 from tests.database import a_clean_database
 from tests.documents import (
+    AUSTRITT,
     SCHIEDSRICHTER_TEXT_VERSIONS,
     own_einwilligung_document,
     saison_team_document,
@@ -24,8 +25,6 @@ from tests.documents import (
     spielort_document,
 )
 from tests.worker import worker_database
-
-from .conftest import AUSTRITT
 
 pytestmark = pytest.mark.db
 

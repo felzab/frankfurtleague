@@ -25,6 +25,7 @@ from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_KEY, grants_for_the_suite
 from tests.database import a_clean_database
 from tests.documents import (
+    AUSTRITT,
     SCHIEDSRICHTER_TEXT_VERSIONS,
     SEAT_TEXT_VERSIONS,
     SPIELER_TEXT_VERSIONS,
@@ -44,8 +45,6 @@ from tests.documents import (
 )
 from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
-
-from .conftest import AUSTRITT
 
 DATABASE_NAME = worker_database("fl_account_einwilligung_test")
 

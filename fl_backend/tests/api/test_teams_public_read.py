@@ -13,11 +13,9 @@ from app.api.teams.schemas import FLTeamSingleFilterParams
 from app.api.teams.services import build_team_pipeline
 from app.core.collections import Collection
 from tests import documents
-from tests.database import a_clean_database, bounded, shared_client
+from tests.database import a_clean_database, bounded, shared_client, unwritten
 from tests.documents import confirmed_kenntnisnahme
 from tests.worker import worker_database
-
-from .conftest import unwritten
 
 DATABASE_NAME = worker_database("fl_teams_public_read_test")
 BRACKET_DATABASE_NAME = worker_database("fl_teams_bracket_placings_test")

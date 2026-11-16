@@ -22,11 +22,9 @@ from app.core.config import API_VERSION
 from tests import documents
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_AUTH, grants_for_the_suite
-from tests.database import a_clean_database, bounded
+from tests.database import a_clean_database, bounded, unwritten
 from tests.payloads import spiel_patch_body
 from tests.worker import worker_database
-
-from .conftest import unwritten
 
 pytestmark = pytest.mark.db
 

@@ -15,7 +15,7 @@ from app.api.spieler.schemas import (
     FLSpielerPublic,
 )
 from app.api.spieler.services import build_spieler_pipeline, public_initial
-from tests.database import a_clean_database, bounded, shared_client
+from tests.database import a_clean_database, bounded, shared_client, unwritten
 from tests.documents import (
     SPIELER_TEXT_VERSIONS,
     own_einwilligung_document,
@@ -26,8 +26,6 @@ from tests.documents import (
     team_document,
 )
 from tests.worker import worker_database
-
-from .conftest import unwritten
 
 DATABASE_NAME = worker_database("fl_spieler_public_read_test")
 

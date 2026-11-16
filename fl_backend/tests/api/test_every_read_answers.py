@@ -29,10 +29,8 @@ from tests import documents
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_AUTH, ADMIN_KEY, BASE_AUTH, SYSTEM_AUTH, build_test_config, grants_for_the_suite
 from tests.core.app_source import api_routes, application, dependency_calls
-from tests.database import a_clean_database, bounded
+from tests.database import a_clean_database, bounded, unwritten
 from tests.session_headers import StampedHeaders
-
-from .conftest import unwritten
 
 pytestmark = pytest.mark.db
 

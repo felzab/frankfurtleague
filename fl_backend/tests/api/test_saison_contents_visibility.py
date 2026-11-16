@@ -11,10 +11,8 @@ from tests import documents
 from tests.app_client import app_client, app_under_test
 from tests.config import BASE_AUTH
 from tests.core.app_source import application
-from tests.database import a_clean_database, bounded
+from tests.database import a_clean_database, bounded, unwritten
 from tests.worker import worker_database
-
-from .conftest import unwritten
 
 DATABASE_NAME = worker_database("fl_saison_contents_visibility_test")
 

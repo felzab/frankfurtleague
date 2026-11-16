@@ -48,6 +48,10 @@ ADDRESS: Final[Mapping[str, str]] = {
     "city": "Frankfurt am Main",
 }
 
+# A club's exit from a season, as its `saison_teams` row stores it. A dict rather than a model: Pydantic could not
+# express a row its record model rejects.
+AUSTRITT: Final[Mapping[str, Any]] = {"type": "disqualifikation", "reason": "Nicht angetreten zum Spieltag", "date": "2026-03-14"}
+
 _GERMANY: Final = ZoneInfo("Europe/Berlin")
 
 

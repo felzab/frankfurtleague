@@ -12,10 +12,8 @@ from app.api.saisons.public_router import get_spiel
 from app.api.spielberichte.services import PUBLIC_PERSONS_AS, compose_public_bericht
 from app.core.collections import Collection
 from tests import documents
-from tests.database import a_clean_database, bounded, shared_client
+from tests.database import a_clean_database, bounded, shared_client, unwritten
 from tests.worker import worker_database
-
-from .conftest import unwritten
 
 DATABASE_NAME = worker_database("fl_saisons_spiel_view_test")
 

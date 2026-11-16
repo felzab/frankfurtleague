@@ -36,7 +36,7 @@ from tests.bans import ban_through_the_route
 from tests.config import ADMIN_KEY
 from tests.database import a_clean_database
 from tests.documents import address_change_document, ban_document, rules_document, saison_document
-from tests.isolation import COMMITTED, InterleavedCollection, Rival, outcome_of, refused_code
+from tests.isolation import COMMITTED, GrantsRunningARivalAfterTheFirstRead, outcome_of, refused_code
 from tests.session_headers import StampedHeaders, session_headers
 from tests.stored import the_row
 from tests.worker import worker_database
@@ -565,26 +565,6 @@ class TestThePass:
         outcome, held = await on_a_league(mongo_replica_set_url, body)
 
         assert (outcome, held[OWNER]) == (COMMITTED, "owner")
-
-
-class GrantsRunningARivalAfterTheFirstRead(InterleavedCollection):
-    """The grants a judging transaction reads, a rival write run once after that read and before its anchor.
-
-    So only the anchor can make the two conflict.
-    """
-
-    def __init__(self, collection: Any, rival: Rival) -> None:
-        async def reported() -> None:
-            self.rival_outcome = await outcome_of(rival())
-
-        super().__init__(collection, reported)
-        self.rival_outcome: str | None = None
-
-    async def aggregate(self, *args: Any, **kwargs: Any) -> Any:
-        cursor = await self._collection.aggregate(*args, **kwargs)
-        await self.run_the_rival()
-
-        return cursor
 
 
 async def ban(database: AsyncDatabase, client: AsyncMongoClient, email: str = NORA_TYPED, *, grants: Any = None) -> Any:

@@ -11,9 +11,7 @@ from app.core.config import API_VERSION
 from tests import documents
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config, grants_for_the_suite
-from tests.database import a_clean_database, bounded
-
-from .conftest import unwritten
+from tests.database import a_clean_database, bounded, unwritten
 
 SAISON_ID = "2026"
 

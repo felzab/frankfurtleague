@@ -10,8 +10,9 @@ from app.api.identity.crud import roles_of
 from app.api.identity.schemas import FLSubject
 from app.core.collections import Collection
 from app.shared.schemas.literals import KONTAKT_ROLLEN
-from tests.database import a_clean_database, bounded, shared_client
+from tests.database import a_clean_database, bounded, shared_client, unwritten
 from tests.documents import (
+    AUSTRITT,
     EINWILLIGUNG,
     SCHIEDSRICHTER_TEXT_VERSIONS,
     kontaktperson_document,
@@ -22,8 +23,6 @@ from tests.documents import (
 )
 from tests.records import record_collections
 from tests.worker import worker_database
-
-from .conftest import AUSTRITT, unwritten
 
 DATABASE_NAME = worker_database("fl_roles_test")
 

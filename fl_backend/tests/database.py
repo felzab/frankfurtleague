@@ -1,13 +1,14 @@
 import asyncio
 import io
-from collections.abc import AsyncGenerator, Awaitable, Iterable, Mapping, Sequence
-from contextlib import asynccontextmanager, redirect_stdout
+from collections.abc import AsyncGenerator, Awaitable, Generator, Iterable, Mapping, Sequence
+from contextlib import asynccontextmanager, contextmanager, redirect_stdout
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pymongo
-from pymongo import AsyncMongoClient
+from pymongo import AsyncMongoClient, MongoClient
 from pymongo.asynchronous.database import AsyncDatabase
+from pymongo.database import Database
 from pymongo.uri_parser import parse_uri
 
 from app.core.constraints import TTL_INDEXES, apply_constraints
@@ -330,3 +331,45 @@ async def a_clean_database(
     # stands here only until that pass, which is all that made a case written on a past clock flake.
     if constraints and (expired := await _expired_rows(database)):
         raise AssertionError("\n".join(expired))
+
+
+# One module's shared corpus: every collection it holds, each as its documents in an order two
+# reads of an untouched database agree on.
+Corpus = dict[str, list[str]]
+
+_WROTE = (
+    "'{database}' holds documents its seed did not put there ({moved}). A module sharing one corpus across its tests admits reads"
+    " alone: a body that writes hands the next test a corpus nobody seeded, and fails it somewhere else entirely."
+)
+
+
+def _documents(database: Database) -> Corpus:
+    """Views and `system.*` are listed beside real collections and hold nothing a seed put there."""
+
+    return {
+        info["name"]: sorted(repr(document) for document in database[info["name"]].find())
+        for info in database.list_collections()
+        if info.get("type") == "collection" and not str(info["name"]).startswith("system.")
+    }
+
+
+@contextmanager
+def unwritten(url: str, database_name: str) -> Generator[None]:
+    """Fails a module that WROTE to the corpus seeded once for it, naming the collections it moved.
+
+    `_schema` compares the schema instead, which a write never touches.
+    """
+
+    # A client of its own: the seeding one is asynchronous, and this guard's comparison is synchronous.
+    client = MongoClient(url)
+    try:
+        seeded = _documents(client[database_name])
+
+        yield
+
+        present = _documents(client[database_name])
+        moved = sorted(name for name in seeded.keys() | present.keys() if seeded.get(name) != present.get(name))
+
+        assert not moved, _WROTE.format(database=database_name, moved=", ".join(moved))
+    finally:
+        client.close()

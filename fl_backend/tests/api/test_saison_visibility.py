@@ -6,11 +6,9 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.public_router import get_frame
 from app.core.collections import Collection
-from tests.database import a_clean_database, bounded, shared_client
+from tests.database import a_clean_database, bounded, shared_client, unwritten
 from tests.documents import saison_document
 from tests.worker import worker_database
-
-from .conftest import unwritten
 
 DATABASE_NAME = worker_database("fl_saison_visibility_test")
 
