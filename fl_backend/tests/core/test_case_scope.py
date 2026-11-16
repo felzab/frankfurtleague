@@ -4,8 +4,8 @@ TESTS · the scope every async case runs in (`tests/database.py :: bounded_case`
 Invariants:
 - Every async case runs under the case's bound, which `tests/conftest.py :: pytest_collection_modifyitems` applies by
   wrapping what pytest-asyncio runs: a case reaching here unwrapped runs unbounded, and a rival deadlocked on its own
-  write's transaction waits out MongoDB's abort and passes on the retry. Work past its bound is cut; a `TimeoutError`
-  the work raises itself passes as it was.
+  write's transaction waits out MongoDB's abort and passes on the retry. Work past its bound is cut, and fails as cut
+  whatever it raises as it unwinds; a `TimeoutError` the work raises itself passes as it was.
 - A task the work starts and leaves running fails the scope that left it, and is cancelled there rather than running
   into the next case, as is a task one of those starts as it unwinds. A task still running once cancelled refuses every
   later scope until it ends. A task started outside the scope is not the scope's, nor is a shared client's monitor,
@@ -33,6 +33,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.periodic_executor import AsyncPeriodicExecutor
 
 from app.core.collections import Collection
+from app.core.concurrency import concurrently
 from app.core.logging import NO_REQUEST_SENTINEL, trace_id_var
 from tests.config import UNANSWERED_DEADLINE_S, UNANSWERED_URI
 from tests.database import CASE_BOUND_S, a_clean_database, bounded, bounded_case, case_deadline, held_corpus, in_a_scope, shared_client
@@ -54,6 +55,22 @@ async def test_work_running_past_its_bound_is_cut_by_it():
     async with asyncio.timeout(5):
         with pytest.raises(TimeoutError, match=r"this ran past 0.05 s and was cancelled"):
             await bounded(asyncio.Event().wait(), bound_s=0.05)
+
+
+async def test_work_cut_by_its_bound_is_named_cut_whatever_it_raises_as_it_unwinds():
+    crash = KeyError("raised as it unwound")
+
+    async def crashes_once_cancelled() -> None:
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            raise crash from None
+
+    async with asyncio.timeout(5):
+        with pytest.raises(TimeoutError, match=r"this ran past 0.05 s and was cancelled") as caught:
+            await bounded(concurrently(asyncio.Event().wait(), crashes_once_cancelled()), bound_s=0.05)
+
+    assert caught.value.__cause__ is crash
 
 
 async def test_a_timeout_the_work_raises_itself_passes_as_it_was():

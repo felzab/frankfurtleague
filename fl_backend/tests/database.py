@@ -211,10 +211,12 @@ async def _within[T](bound: asyncio.Timeout, bound_s: float | None, work: Awaita
     try:
         async with bound:
             return await work
-    except TimeoutError as timeout:
-        # A `TimeoutError` the work raised itself passes as it was.
+    # Any failure, not the `TimeoutError` alone: work the bound cut can raise something else as it unwinds, a run of
+    # `concurrently` crashing in its cleanup among them, and the cut is still what stopped it.
+    except Exception as raised:
+        # One the work raised itself before the bound passed goes on as it was.
         if bound.expired():
-            raise TimeoutError(_UNFINISHED.format(what=what, bound=bound_s)) from timeout
+            raise TimeoutError(_UNFINISHED.format(what=what, bound=bound_s)) from raised
         raise
 
 
