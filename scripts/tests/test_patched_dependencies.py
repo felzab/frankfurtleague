@@ -12,8 +12,9 @@ from pathlib import Path
 from typing import Final
 
 import pytest
+from conftest import REPO_ROOT
 
-FRONTEND: Final = Path(__file__).resolve().parents[2] / "fl_frontend"
+FRONTEND: Final = REPO_ROOT / "fl_frontend"
 WORKSPACE: Final = FRONTEND / "pnpm-workspace.yaml"
 LOCKFILE: Final = FRONTEND / "pnpm-lock.yaml"
 
