@@ -618,19 +618,21 @@ than run, so the `_` marking a sourced script would say the wrong thing about it
 **The output standard.** One vocabulary, one verb per meaning, and no script writes formatting of its
 own:
 
-| Verb          | Means                                                                                    |
-| ------------- | ---------------------------------------------------------------------------------------- |
-| `section`     | Opens a phase group, closing the one before it, and one fold in the Actions log          |
-| `end_section` | Closes the open group without ending the run, for a line that belongs outside every fold |
-| `step`        | Opens a step and starts its timer                                                        |
-| `ok`          | The step passed, with the time it took                                                   |
-| `info`        | Neutral detail                                                                           |
-| `warn`        | An advisory: a problem the run is meant to survive, on stderr                            |
-| `fail`        | A finding recorded, the run continuing, for a caller collecting several before it ends   |
-| `die`         | A finding that ends the run, on stderr                                                   |
-| `refuse`      | The check ran and its answer cannot stand as a verdict, so the run ends without one      |
-| `detail`      | Supporting output belonging to the line above it, from arguments or from stdin           |
-| `finish`      | Ends a run that reached its end, printing the closing table and statement                |
+| Verb          | Means                                                                                                 |
+| ------------- | ----------------------------------------------------------------------------------------------------- |
+| `section`     | Opens a phase group, closing the one before it, and one fold in the Actions log                       |
+| `end_section` | Closes the open group without ending the run, for a line that belongs outside every fold              |
+| `step`        | Opens a step and starts its timer                                                                     |
+| `ok`          | The step passed, with the time it took, which outside a section shows from three seconds              |
+| `info`        | Neutral detail                                                                                        |
+| `warn`        | An advisory: a problem the run is meant to survive, on stderr                                         |
+| `fail`        | A finding recorded, the run continuing, for a caller collecting several before it ends                |
+| `die`         | A finding that ends the run, on stderr                                                                |
+| `refuse`      | The check ran and its answer cannot stand as a verdict, so the run ends without one                   |
+| `detail`      | Supporting output belonging to the line above it, from arguments or from stdin                        |
+| `finish`      | Ends a run that reached its end: a table of its rows where it has several, then the closing statement |
+| `add_row`     | Adds a row with no verdict to the closing table, for a unit run as a process of its own               |
+| `end_row`     | Gives such a row its verdict, printing it as a line of the table the moment it arrives                |
 
 | Helper    | Answers                                                                                                          |
 | --------- | ---------------------------------------------------------------------------------------------------------------- |

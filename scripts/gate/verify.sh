@@ -7,7 +7,7 @@
 #
 #   ./scripts/gate/verify.sh                   every scope, side by side — the run a pull request is called ready to merge on
 #   ./scripts/gate/verify.sh --scripts --docs --backend --format --frontend-units --frontend --ops --db --images
-#   ./scripts/gate/verify.sh --quick           the scripts, backend and frontend scopes alone: no Docker, and not docs, format, frontend-units, ops, db or images
+#   ./scripts/gate/verify.sh --quick           the scripts, backend and frontend scopes alone, needing Docker only where shellcheck or actionlint is not on PATH at its pinned release
 #   ./scripts/gate/verify.sh --verbose         stream each tool's own output instead of capturing it
 #   ./scripts/gate/verify.sh --help
 
@@ -39,7 +39,8 @@ done
 # --- several scopes: each its own run of this script, side by side ---------------------------------
 
 # Every scope reads the tree and writes only its own caches, so they run together and the run costs
-# the longest rather than the sum. Each run's output is captured and replayed in the written order.
+# the longest rather than the sum. Each run's row prints as it ends, and its whole output is captured
+# and replayed in the written order once every run has ended.
 RUNS_DIR=""
 # The runs not yet reaped. A reaped run's group id is free for the system to reuse, so it is never
 # signalled again.
@@ -66,6 +67,8 @@ if (( ${#SELECTED[@]} > 1 )); then
     pnpm_config_store_dir="$(cd fl_frontend && pnpm store path)"
   fi
 
+  declare -A SCOPE_OF=() ROW=()
+  started="$(_now_ms)"
   # Job control while the runs start, and only then: each run leads a process group of its own, which
   # `stop_runs` signals whole, and takes SIGINT and SIGQUIT as a lone run does, where bash would start
   # it with both ignored and a non-interactive shell can never trap a signal ignored on entry. A
@@ -74,56 +77,42 @@ if (( ${#SELECTED[@]} > 1 )); then
   # group reading it would stop on.
   set -m
   for scope in "${SELECTED[@]}"; do
-    "$BASH" "$SELF" "--${scope}" < /dev/null > "${RUNS_DIR}/${scope}.log" 2>&1 &
+    # Its count of findings in a file of its own, which the library reads at start-up.
+    FL_GATE_FINDINGS_FILE="${RUNS_DIR}/${scope}.findings" "$BASH" "$SELF" "--${scope}" \
+      < /dev/null > "${RUNS_DIR}/${scope}.log" 2>&1 &
     PID[$scope]=$!
+    SCOPE_OF[$!]=$scope
   done
   set +m
 
   info "running side by side: $(IFS=' '; printf '%s' "${SELECTED[*]}")"
-  declare -A STATUS=()
-  spinner_start "${#SELECTED[@]} scopes running side by side"
   for scope in "${SELECTED[@]}"; do
-    rc=0
-    wait "${PID[$scope]}" || rc=$?
-    STATUS[$scope]=$rc
-    unset 'PID[$scope]'
+    ROW[$scope]=${#ROW[@]}
+    add_row "$scope"
   done
-  spinner_stop
+  # In the order they end: `wait -n -p`, bash 5.1's, names the run it reaped.
+  while (( ${#PID[@]} )); do
+    rc=0
+    wait -n -p reaped || rc=$?
+    scope="${SCOPE_OF[$reaped]}"
+    unset 'PID[$scope]'
+    # A run that ended before its closing statement left no count, and found nothing it could report.
+    count=0
+    if [[ -s "${RUNS_DIR}/${scope}.findings" ]]; then read -r count < "${RUNS_DIR}/${scope}.findings"; fi
+    # The exit contract read back into the rank its row shows.
+    case "$rc" in
+      0)   rank=1 ;;
+      1)   rank=4 ;;
+      2)   rank=3 ;;
+      130) rank=6 ;;
+      *)   rank=5 ;;
+    esac
+    end_row "${ROW[$scope]}" "$rank" "$(( $(_now_ms) - started ))" "$count"
+  done
   for scope in "${SELECTED[@]}"; do cat "${RUNS_DIR}/${scope}.log"; done
 
-  # The exit contract's order, as `finish` reads a single run's sections: findings over a refusal
-  # over a crash.
-  findings=0; refused=0; crashed=0
-  printf '\n      %s%-16s  %s%s\n' "$C_DIM" "scope" "result" "$C_RESET"
-  for scope in "${SELECTED[@]}"; do
-    case "${STATUS[$scope]}" in
-      0)   label=pass;        colour="$C_GREEN" ;;
-      1)   label=findings;    colour="$C_RED"; findings=1 ;;
-      2)   label=refused;     colour="$C_RED"; refused=1 ;;
-      130) label=interrupted; colour="$C_YELLOW"; crashed=1 ;;
-      *)   label="crashed (${STATUS[$scope]})"; colour="$C_RED"; crashed=1 ;;
-    esac
-    printf '      %-16s  %s%s%s\n' "$scope" "$colour" "$label" "$C_RESET"
-  done
-  elapsed="$(fmt_ms $(( $(_now_ms) - _RUN_T0 )))"
-  if (( findings )); then
-    printf '\n%s   ✗%s  A scope above has findings, each named in its own section — exit 1. (%s)\n' "$C_RED" "$C_RESET" "$elapsed" >&2
-    exit 1
-  fi
-  if (( refused )); then
-    printf '\n%s   ✗%s  A scope above refused, so it reached no verdict on the change — exit 2. (%s)\n' "$C_RED" "$C_RESET" "$elapsed" >&2
-    exit 2
-  fi
-  if (( crashed )); then
-    printf '\n%s   ✗%s  A scope above crashed or was stopped, so nothing past that point ran — exit 3. (%s)\n' "$C_RED" "$C_RESET" "$elapsed" >&2
-    exit 3
-  fi
-  if (( ${#SELECTED[@]} == ${#SCOPES[@]} )); then
-    ok "Green — every scope, no findings, ${elapsed}. Safe to merge."
-  else
-    ok "Green — ${#SELECTED[@]} scopes, no findings, ${elapsed}."
-  fi
-  exit 0
+  if (( ${#SELECTED[@]} == ${#SCOPES[@]} )); then finish --what "every scope" "Safe to merge."; fi
+  finish --what "${#SELECTED[@]} scopes"
 fi
 
 # --- one scope ------------------------------------------------------------------------------------
@@ -608,10 +597,8 @@ Fix with:  (cd fl_frontend && pnpm run contract)  -- then commit both." \
   # Each file starts its own replica set through `@testcontainers/mongodb`.
   ( run_beside "${DB_TIERS}/frontend" in_dir fl_frontend pnpm run test:db ) &
   frontend=$!
-  spinner_start "db · the backend's and the frontend's db tiers, side by side"
   wait "$backend" || true
   wait "$frontend" || true
-  spinner_stop
 
   step "db · pytest -m db, distributed over one shared replica set"
   beside_verdict "${DB_TIERS}/backend" --pytest "fl_backend db-tier tests failed. A failing test and a mongo that never started both end here: each case's

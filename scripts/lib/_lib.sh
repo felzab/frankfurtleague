@@ -54,6 +54,12 @@ _SECTION_T0=0
 _STEP_MS0=""
 _STEP_LABEL=""
 _ENDED=0
+_ROWS_ENDED=0
+
+# Where a scope the gate runs beside others leaves its count of findings for the runner's table. Read
+# once and unset, so no script this run starts can write over it.
+_FINDINGS_FILE="${FL_GATE_FINDINGS_FILE:-}"
+unset FL_GATE_FINDINGS_FILE
 
 # Run-wide, not per section: a finding before the first `section` has no row, and summing rows
 # alone would close a run green over it. Advisories count apart, never failing a run.
@@ -63,8 +69,8 @@ _RUN_ADVISORIES=0
 VERBOSE="${VERBOSE:-0}"
 
 # A verdict may only make a row worse. `failed` outranks `refused`: where a section produced both,
-# the definite verdict is the actionable one.
-_RANK_LABELS=("no verdict" "pass" "advisory" "refused" "failed")
+# the definite verdict is the actionable one. A crash and an interrupt end the run where they happen.
+_RANK_LABELS=("no verdict" "pass" "advisory" "refused" "failed" "crashed" "interrupted")
 
 # Bash's own clock, not `date`: a process spawn per step is the expensive part on Windows.
 _now_ms() {
@@ -94,67 +100,9 @@ verbose() { (( VERBOSE )); }
 
 _RUN_T0="$(_now_ms)"
 
-# --- Spinner -----------------------------------------------------------------------------------------
-
-# NO_SPINNER is offered because some terminals mangle a carriage return. `GITHUB_ACTIONS` rather
-# than `CI`, which a developer's shell may export.
-if [[ -t 1 && -z "${GITHUB_ACTIONS:-}" && -z "${NO_SPINNER:-}" ]]; then
-  _SPINNER=1
-  # Dupped before any verb redirects: `warn` points stdout at stderr, and the frame has to be
-  # erased from the screen it was drawn on.
-  exec {_SPIN_OUT}>&1
-else
-  _SPINNER=0
-  _SPIN_OUT=1
-fi
-_SPIN_PID=""
-
-# One `sleep` per frame: the alternatives leak a process or need a fifo, and at this rate the
-# spawn is invisible beside the step.
-spinner_start() {
-  if (( ! _SPINNER || VERBOSE )); then return 0; fi
-  # A stop inside a pipeline kills the frames in a subshell the caller never sees, so a recorded
-  # pid is believed only while it answers. Reaping keeps the job table a parallel group can `wait` on.
-  if [[ -n "$_SPIN_PID" ]]; then
-    if kill -0 "$_SPIN_PID" 2>/dev/null; then return 0; fi
-    wait "$_SPIN_PID" 2>/dev/null || true
-    _SPIN_PID=""
-  fi
-  # SIGINT stays ignored in here, as bash starts every `&` command of a script, so the frames go on
-  # through a Ctrl-C while the run's tool winds down. They never draw over the interrupt message:
-  # `on_interrupt` ends them through `spinner_stop` before it prints.
-  (
-    # Detached because `set -E` hands this child the run's ERR trap: a failed frame would run
-    # `on_error` here and print the run's closing table from a process that is not the run.
-    # Nothing reads this loop's status, so it may die quietly instead.
-    trap - ERR
-    # The backslash frame in ANSI-C quotes: inside single quotes shellcheck reads a trailing
-    # backslash as an escape.
-    _f=('|' '/' '-' $'\\'); _i=0
-    while :; do
-      printf '\r%s   %s %s%s' "$C_DIM" "${_f[_i]}" "$1" "$C_RESET"
-      _i=$(( (_i + 1) % ${#_f[@]} ))
-      sleep 0.25
-    done
-  ) 1>&"$_SPIN_OUT" 2>/dev/null &
-  _SPIN_PID=$!
-}
-
-# Called before anything else prints: otherwise a frame is left half-drawn under a real line.
-spinner_stop() {
-  if [[ -z "$_SPIN_PID" ]]; then return 0; fi
-  kill "$_SPIN_PID" 2>/dev/null || true
-  # Reaping stops the shell announcing the killed job later; the status is a signal, so dropped.
-  wait "$_SPIN_PID" 2>/dev/null || true
-  _SPIN_PID=""
-  # Erase rather than overwrite: the frame's width is the step label's, which nothing here tracks.
-  printf '\r\033[2K' 1>&"$_SPIN_OUT"
-}
-
 # Tags arrive pre-padded because printf's %4s pads by BYTES and mis-pads the multibyte tags.
 _emit() {
   local colour="$1" tag="$2" first=1 line
-  spinner_stop
   shift 2
   while IFS= read -r line; do
     if (( first )); then
@@ -201,11 +149,7 @@ die() {
   exit 1
 }
 
-# Starts no spinner: a step cannot know whether its work streams, and a frame ends without a
-# newline, so it and a tool's first line would share one. Only `quietly` may spin.
 step() {
-  spinner_stop
-  _STEP_T0=$SECONDS
   _STEP_MS0="$(_now_ms)"
   _STEP_LABEL="$*"
   printf '\n%s==> %s%s\n' "$C_BOLD" "$*" "$C_RESET"
@@ -215,20 +159,15 @@ step() {
 # nobody can act on. The section's own row is a wall clock, which its steps sum to only while
 # they run in order.
 ok() {
-  local suffix=""
-  if (( _CHROME )); then
-    suffix="$(_step_suffix)"
-    _escalate 1
-  elif [[ -n "${_STEP_T0:-}" ]] && (( SECONDS - _STEP_T0 >= 3 )); then
-    suffix=" ${C_DIM}($(fmt_duration $(( SECONDS - _STEP_T0 ))))${C_RESET}"
-  fi
+  local suffix
+  suffix="$(_step_suffix)"
+  _escalate 1
   _emit "$C_GREEN" "  ok" "$*${suffix}"
   _STEP_MS0=""
 }
 
 # Six spaces, the continuation indent every verb's later lines take.
 detail() {
-  spinner_stop
   if (( $# )); then printf '      %s\n' "$@"
   else sed 's/^/      /'
   fi
@@ -257,23 +196,13 @@ quietly() {
     rm -f -- "$_QUIETLY_CAPTURE"
     _QUIETLY_CAPTURE=""
   else
-    # The one wrapper the spinner needs: a captured command is the stretch where a run looks hung.
-    if (( _CHROME )); then spinner_start "$_STEP_LABEL"; fi
     out="$("$@" 2>&1)" || rc=$?
-    spinner_stop
     # As arguments, one per line: a here-string yields at least one, so `detail` never reads stdin.
     if (( rc )); then mapfile -t said <<<"$out"; detail "${said[@]}"; fi
   fi
   # shellcheck disable=SC2034  # read by the scripts that source this file
   QUIETLY_OUTPUT="$out"
   return "$rc"
-}
-
-fmt_duration() {
-  local s="$1"
-  if (( s < 120 )); then printf '%ss' "$s"
-  else printf '%sm %02ds' $(( s / 60 )) $(( s % 60 ))
-  fi
 }
 
 # The script's own header is its help text, so usage cannot drift from the code.
@@ -309,11 +238,15 @@ _record_advisory() {
   _escalate 2
 }
 
-# Empty outside a section, and once the open step is closed: one verdict per step is what makes
-# the closing table's sums honest.
+# Empty once the open step is closed: one verdict per step is what makes the closing table's sums
+# honest. Outside a section only for a step long enough to notice, where every quick step of a
+# plain script would print a zero.
 _step_suffix() {
-  if (( ! _CHROME )) || [[ -z "$_STEP_MS0" ]]; then return 0; fi
-  printf '   %s%s%s' "$C_DIM" "$(fmt_ms $(( $(_now_ms) - _STEP_MS0 )))" "$C_RESET"
+  local ms
+  if [[ -z "$_STEP_MS0" ]]; then return 0; fi
+  ms=$(( $(_now_ms) - _STEP_MS0 ))
+  if (( ! _CHROME && ms < 3000 )); then return 0; fi
+  printf '   %s%s%s' "$C_DIM" "$(fmt_ms "$ms")" "$C_RESET"
   return 0
 }
 
@@ -335,17 +268,10 @@ section() {
     printf -v pad '%*s' "$(( ${#name} < 66 ? 66 - ${#name} : 3 ))" ''
     printf '\n%s▌ %s %s%s\n' "$C_BOLD" "$name" "${pad// /─}" "$C_RESET"
   fi
-  # A script installing its own INT trap replaces `on_interrupt` and silently loses the statement,
-  # the table and `spinner_stop`. A section is where a rewired script first reaches here.
-  if [[ "$(trap -p INT)" != *on_interrupt* ]]; then
-    warn "this script re-trapped INT, so Ctrl-C no longer reaches ${SELF##*/}'s closing statement.
-Remove it: scripts/lib/_lib.sh traps INT and exits 130, which fires this script's own EXIT trap."
-  fi
 }
 
 # Called directly only to print outside every Actions group; `section` and the endings call it.
 end_section() {
-  spinner_stop
   _STEP_MS0=""
   if (( _SECTION_OPEN < 0 )); then return 0; fi
   _SECTION_MS[_SECTION_OPEN]=$(( $(_now_ms) - _SECTION_T0 ))
@@ -353,66 +279,109 @@ end_section() {
   _SECTION_OPEN=-1
 }
 
+# The name column's width, every row's name known before the first row prints.
+_table_width() {
+  local name w=7
+  for name in "${_SECTION_NAMES[@]}"; do
+    if (( ${#name} > w )); then w=${#name}; fi
+  done
+  printf '%s' "$w"
+}
+
+_table_header() {
+  printf '\n      %s%-*s  %-11s  %9s  %8s%s\n' "$C_DIM" "$(_table_width)" "section" "result" "duration" "findings" "$C_RESET"
+}
+
 # Padded before the colour wraps it: printf counts an escape sequence's bytes as width.
+_table_row() { # $1 the row's index
+  local rank="${_SECTION_RANKS[$1]}" colour
+  case "$rank" in
+    1) colour="$C_GREEN" ;;
+    2|6) colour="$C_YELLOW" ;;
+    3|4|5) colour="$C_RED" ;;
+    *) colour="$C_DIM" ;;
+  esac
+  printf '      %-*s  %s%-11s%s  %9s  %8s\n' \
+    "$(_table_width)" "${_SECTION_NAMES[$1]}" "$colour" "${_RANK_LABELS[rank]}" "$C_RESET" \
+    "$(fmt_ms "${_SECTION_MS[$1]}")" "${_SECTION_FINDINGS[$1]}"
+}
+
+# For a run of more than one row alone: a run of one section has just said all its row would.
 _summary_table() {
-  local count="${#_SECTION_NAMES[@]}" i w=7 rank colour
-  if (( count == 0 )); then return 0; fi
-  for (( i = 0; i < count; i++ )); do
-    if (( ${#_SECTION_NAMES[i]} > w )); then w=${#_SECTION_NAMES[i]}; fi
-  done
-  printf '\n      %s%-*s  %-10s  %9s  %8s%s\n' "$C_DIM" "$w" "section" "result" "duration" "findings" "$C_RESET"
-  for (( i = 0; i < count; i++ )); do
-    rank=${_SECTION_RANKS[i]}
-    case "$rank" in
-      1) colour="$C_GREEN" ;;
-      2) colour="$C_YELLOW" ;;
-      3|4) colour="$C_RED" ;;
-      *) colour="$C_DIM" ;;
-    esac
-    printf '      %-*s  %s%-10s%s  %9s  %8s\n' \
-      "$w" "${_SECTION_NAMES[i]}" "$colour" "${_RANK_LABELS[rank]}" "$C_RESET" \
-      "$(fmt_ms "${_SECTION_MS[i]}")" "${_SECTION_FINDINGS[i]}"
-  done
+  local i count="${#_SECTION_NAMES[@]}"
+  if (( count < 2 )); then return 0; fi
+  _table_header
+  for (( i = 0; i < count; i++ )); do _table_row "$i"; done
+}
+
+# A row of the closing table for a unit run as a process of its own, such as a scope run beside
+# others. It starts with no verdict, so a unit that never reports one closes the run as a finding.
+add_row() {
+  local IFS=' '
+  _SECTION_NAMES+=("$*"); _SECTION_RANKS+=(0); _SECTION_MS+=(0)
+  _SECTION_FINDINGS+=(0); _SECTION_ADVISORIES+=(0)
+}
+
+# A row's verdict, printed as a line of the table the moment it arrives, the header before the first.
+end_row() { # $1 the row's index · $2 its rank · $3 its milliseconds · $4 its findings
+  _SECTION_RANKS[$1]=$2; _SECTION_MS[$1]=$3; _SECTION_FINDINGS[$1]=$4
+  _RUN_FINDINGS=$(( _RUN_FINDINGS + $4 ))
+  if (( ! _ROWS_ENDED )); then _table_header; _ROWS_ENDED=1; fi
+  _table_row "$1"
 }
 
 # One per end state, printed once: a run stopping without one crashed in a way nothing here saw,
 # which is itself what the reader needs to be told.
-_closing() {
-  local state="$1" extra="${2:-}" count elapsed advisories=""
+_closing() { # $1 the ending · $2 a sentence for the green statement · $3 what ran, as it names it
+  local state="$1" extra="${2:-}" what="${3:-}" count elapsed advisories=""
   if (( _ENDED )); then return 0; fi
   _ENDED=1
   end_section
+  if [[ -n "$_FINDINGS_FILE" ]]; then printf '%s\n' "$_RUN_FINDINGS" > "$_FINDINGS_FILE" || true; fi
   _summary_table
   count="${#_SECTION_NAMES[@]}"
+  if [[ -z "$what" ]]; then what="${count} section(s)"; fi
   elapsed="$(fmt_ms $(( $(_now_ms) - _RUN_T0 )))"
   # A count of zero is a non-empty string, so the ${x:+…} form cannot decide this one.
   if (( _RUN_ADVISORIES )); then advisories=" ${_RUN_ADVISORIES} advisory line(s) above."; fi
   case "$state" in
     # Named in the green statement, so a run cannot report "no findings" over a warning on screen.
     green)
-      ok "Green — ${count} section(s), no findings, ${elapsed}.${advisories}${extra:+ ${extra}}" ;;
+      printf '
+'
+      ok "Green — ${what}, no findings, ${elapsed}.${advisories}${extra:+ ${extra}}" ;;
     # "In the section it came from" survives Actions folding, where "the lines above" would not.
     findings)
+      printf '
+' >&2
       _emit "$C_RED" "   ✗" "${_RUN_FINDINGS} finding(s) in this run, ${count} section(s), ${elapsed}. Each is
 named in the section it came from, and each names something to fix in the change — exit 1." >&2 ;;
     refused)
+      printf '
+' >&2
       _emit "$C_RED" "   ✗" "Refused after ${elapsed}, so nothing here stands as a verdict on the change and the
 refusal above names what could not be judged. Not findings, which would name what to
 fix; not a crash, which would mean the check never ran at all — exit 2." >&2 ;;
     crashed)
-      _emit "$C_RED" "   ✗" "Crashed after ${elapsed}. The line above is the script itself failing rather than
-anything about the change, so nothing past it ran — exit 3 or more." >&2 ;;
+      printf '
+' >&2
+      _emit "$C_RED" "   ✗" "Crashed after ${elapsed}. A line above names the script itself failing rather than
+anything about the change, and nothing past that line ran — exit 3 or more." >&2 ;;
     interrupted)
-      _emit "$C_YELLOW" "  !!" "Interrupted after ${elapsed}. ${count} section(s) had opened and the rest never
-ran, so nothing here is a verdict on the change (exit 130)." >&2 ;;
+      printf '
+' >&2
+      _emit "$C_YELLOW" "  !!" "Interrupted after ${elapsed}. The sections that had opened are all there is, and
+none is a verdict on the change (exit 130)." >&2 ;;
   esac
   return 0
 }
 
 # Exits rather than returning: a script free to carry on past its closing statement prints a
-# second one. A sentence passed in is appended to the green statement alone.
-finish() {
-  local i count worst=0
+# second one. A sentence passed in is appended to the green statement alone, and `--what` names what
+# ran there in place of the count of sections.
+finish() { # [--what <what ran>] · a sentence for the green statement
+  local i count what="" failed=0 refused=0 crashed=0
+  if [[ "${1-}" == --what ]]; then what="$2"; shift 2; fi
   end_section
   count="${#_SECTION_NAMES[@]}"
   # A section closing with no verdict is a caller defect: green would print "no findings" beside a
@@ -421,11 +390,17 @@ finish() {
     if (( _SECTION_RANKS[i] == 0 )); then
       fail "section '${_SECTION_NAMES[i]}' closed with no verdict — nothing in it proves anything"
     fi
-    if (( _SECTION_RANKS[i] > worst )); then worst=${_SECTION_RANKS[i]}; fi
+    case "${_SECTION_RANKS[i]}" in
+      3) refused=1 ;;
+      4) failed=1 ;;
+      # Only a row run elsewhere arrives here so: this process's own crash or interrupt has exited.
+      5|6) crashed=1 ;;
+    esac
   done
-  if (( _RUN_FINDINGS > 0 || worst >= 4 )); then _closing findings; exit 1; fi
-  if (( worst == 3 )); then _closing refused; exit 2; fi
-  _closing green "$*"
+  if (( _RUN_FINDINGS > 0 || failed )); then _closing findings; exit 1; fi
+  if (( refused )); then _closing refused; exit 2; fi
+  if (( crashed )); then _closing crashed; exit 3; fi
+  _closing green "$*" "$what"
   exit 0
 }
 
@@ -451,9 +426,9 @@ refuse() {
 on_error() {
   local rc="$1" line="$2" cmd="$3" file="${4:-$SELF}"
   local where="${file##*/}"
-  # The open section failed whatever its steps reached: a row reading `pass` beside a crash
+  # The open section crashed whatever its steps reached: a row reading `pass` beside a crash
   # statement misleads anyone scanning the table rather than the prose.
-  _escalate 4
+  _escalate 5
   # Outside the fold, so a reader told to look above is not sent into something collapsed.
   end_section
   _annotate "${where} failed at line ${line}: ${cmd} (exit status ${rc})"
@@ -503,7 +478,7 @@ trap '_on_err_trap "$?" "$LINENO" "$BASH_COMMAND" "${BASH_SOURCE[0]}"' ERR
 on_interrupt() {
   # Once: a second signal would re-enter here from inside the EXIT trap and exit it half done.
   trap '' INT TERM HUP
-  spinner_stop
+  _escalate 6
   if [[ -n "$_QUIETLY_CAPTURE" ]]; then rm -f -- "$_QUIETLY_CAPTURE" || true; fi
   printf '\n' >&2
   if (( _CHROME )); then
