@@ -1,19 +1,16 @@
-# The production images, built from source, behind nginx, with a database of its own; started by
-# `./scripts/ops/local.sh` and served on http://localhost:3000.
+# The production images, built from source, behind nginx, with a database of its own.
 #
 # Invariants:
-# - An override of docker-compose.yml, never a stack on its own: `local.sh` runs
-#   `docker compose -f docker-compose.yml -f docker-compose.local.yml`, and compose merges this file
-#   over that one by its documented rules (https://docs.docker.com/reference/compose-file/merge/).
-#   Everything this file does not write is production's, so every key below IS a difference.
+# - An override of docker-compose.yml, never a stack on its own: compose merges this file over that
+#   one by its documented rules, and everything this file does not write is production's, so every
+#   key below IS a difference.
 # - Paths resolve against docker-compose.yml's directory, the first file named, not this one's.
 # - Never renamed to docker-compose.override.yml or compose.override.yaml: compose merges a file of
 #   either name unasked, and the server's checkout holds this file.
 
 # Docker's own json-file driver for every service this stack starts, capped at 30 MB a service: Docker
 # Desktop refuses the journald driver production's file names ("journald is not enabled on this
-# host"). A `logging` naming another driver replaces the base's whole, journald's `tag` with it
-# (compose-go's `override/merge.go :: mergeLogging`).
+# host"). A `logging` naming another driver replaces the base's whole, journald's `tag` with it.
 x-logging: &local-logging
   driver: json-file
   options:
@@ -36,13 +33,12 @@ services:
       # reads as well and may declare otherwise. Nothing else stops this stack mailing the league's
       # real contact people.
       - APP_ENV=local
-      # http:// and localhost specifically: `fl_frontend/src/core/config.ts` refuses a non-loopback
-      # http URL, because the sign-in library derives the session cookie's Secure prefix from this
-      # protocol. Loopback is the one exemption.
+      # http:// and localhost specifically: the frontend's settings refuse a non-loopback http URL,
+      # because the sign-in library derives the session cookie's Secure prefix from this protocol.
+      # Loopback is the one exemption.
       - AUTH_URL=http://localhost:3000
       # Cloudflare's published site key that always passes, which the published secret the frontend
-      # reads where no file is handed over verifies; production refuses both at boot
-      # (https://developers.cloudflare.com/turnstile/troubleshooting/testing/).
+      # reads where no file is handed over verifies; production refuses both at boot.
       - TURNSTILE_SITE_KEY=1x00000000000000000000AA
     # Production's list without `auth_resend_key`, `resend_webhook_secret`, `turnstile_secret_key` and
     # `betterstack_heartbeat_url`: this stack mails nothing, is sent no provider event, verifies the bot
@@ -119,13 +115,14 @@ services:
     healthcheck:
       # Initiates the set on the first probe and reports healthy only once the node has elected
       # itself: `replSetInitiate` returns before the election, and the first write then fails with
-      # `NotWritablePrimary` (`mongo_replica_set_url`).
+      # `NotWritablePrimary`.
       test: ["CMD-SHELL", "mongosh --quiet --eval 'try { rs.status() } catch (e) { rs.initiate() } db.hello().isWritablePrimary || quit(1)'"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 20s
-      # The cadence during start_period, as docker-compose.yml's services set for the same reason.
+      # A probe every 3 s during start_period rather than the engine's 5, since the backend and the
+      # frontend start only once this one is healthy.
       start_interval: 3s
 
   nginx:
@@ -133,8 +130,8 @@ services:
     # other interface serves the stack to every machine on the developer's network.
     ports:
       - "127.0.0.1:3000:80"
-    # `!override`, the whole list replaced: nginx/local in nginx/prod's place, a directory for the
-    # base file's reason.
+    # `!override`, the whole list replaced: nginx/local in nginx/prod's place, each a directory, so a
+    # reload reads a file a pull replaced.
     volumes: !override
       - ./nginx/local:/etc/nginx/conf.d:ro
       - ./nginx/shared:/etc/nginx/shared:ro
@@ -150,8 +147,7 @@ services:
     # resolve, and a service that never starts needs none.
     secrets: !reset []
 
-# This machine's own files, and none for the connector, which never
-# starts.
+# This machine's own files, and none for the connector, which never starts.
 secrets: !override
   auth_secret:
     file: ./secrets/auth_secret
