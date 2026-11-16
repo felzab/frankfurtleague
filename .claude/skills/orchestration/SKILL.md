@@ -97,9 +97,8 @@ independent. Stop once the bar is met.
    [modes.md](modes.md) gives. Name what buys this agent: a fresh reader, breadth you cannot cover,
    or tool-hours — never typing. With none, do the work yourself.
 4. Pick the type: `implementer` writes; `driving-reauditor` plants or runs suites; `cold-auditor`
-   judges by reading; `researcher` answers from committed state or the web; `reader` reads one slice
-   of a whole-tree read into a findings file of its own; `general-purpose` only for a question that
-   reads no repository. Pass a `model` only where the register's `Model:` line
+   judges by reading; `researcher` answers from committed state or the web; `general-purpose` only
+   for a question that reads no repository. Pass a `model` only where the register's `Model:` line
    names one for this kind of agent; otherwise `CLAUDE_CODE_SUBAGENT_MODEL` in the owner's user
    settings pins it. A definition added mid-session is dispatchable from the next turn.
 5. Write the brief from [brief-template.md](brief-template.md), its BAR line filled from the bar
