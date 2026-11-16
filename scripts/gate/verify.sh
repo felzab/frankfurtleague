@@ -220,6 +220,13 @@ PYTEST_SPREAD=(-n auto --dist loadfile -o faulthandler_timeout=180)
 case "$SCOPE" in
   docs|ops|db|images) require_docker ;;
 esac
+# Compose is a plugin of the Docker CLI, so an engine that answers is no proof it is installed, and
+# without it every compose file would read as one that does not parse.
+if [[ "$SCOPE" == ops ]]; then
+  docker compose version >/dev/null 2>&1 \
+    || refuse "Docker Compose did not answer 'docker compose version', so no compose file was parsed.
+Install the Compose plugin, or start Docker Desktop, which carries it, then try again."
+fi
 case "$SCOPE" in
   scripts|format|frontend-units|frontend|db)
     require_dir fl_frontend/node_modules "Every frontend tool runs out of it. Install it with:  cd fl_frontend && pnpm install"
