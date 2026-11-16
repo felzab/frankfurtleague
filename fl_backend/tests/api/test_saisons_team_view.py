@@ -63,9 +63,7 @@ async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
                     documents.saison_team_document(EARLIER, CLUBS["Gamma"], "Gamma", "GAM"),
                 ]
             )
-            await database[Collection.SPIELTAGE].insert_one(
-                {"_id": SPIELTAG, "start": None, "end": None, "position": 2, "saison_phase": "gruppenphase", "saison_id": SAISON, "version": 0}
-            )
+            await database[Collection.SPIELTAGE].insert_one(documents.spieltag_document(SPIELTAG, SAISON, 2))
             await database[Collection.SPIELE].insert_many(
                 [spiel(1, "Alpha", "Beta", "2:1"), spiel(2, "Beta", "Delta", "0:1"), spiel(3, "Delta", "Alpha")]
             )

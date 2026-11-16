@@ -52,18 +52,10 @@ def saison_document() -> dict[str, Any]:
     return documents.saison_document(SAISON_ID, "active", start_date=SAISON_START, end_date=SAISON_END, rules=rules_document())
 
 
-def spieltag_document() -> dict[str, Any]:
+def matchday() -> dict[str, Any]:
     """Inside the season's span, so the matchday the fixtures hang on cannot be what a refusal is about."""
 
-    return {
-        "_id": SPIELTAG_OID,
-        "start": "2026-03-15",
-        "end": "2026-03-15",
-        "position": 1,
-        "saison_phase": "gruppenphase",
-        "saison_id": SAISON_ID,
-        "version": 0,
-    }
+    return documents.spieltag_document(SPIELTAG_OID, SAISON_ID, 1, start="2026-03-15", end="2026-03-15")
 
 
 def squad_rows() -> list[dict[str, Any]]:
@@ -108,7 +100,7 @@ async def on_a_database(
     async with a_clean_database(url, DATABASE_NAME) as (_, database):
         await database[Collection.SAISONS].insert_one(saison_document())
         await database[Collection.SAISON_SPIELER].insert_many(squad_rows())
-        await database[Collection.SPIELTAGE].insert_one(spieltag_document())
+        await database[Collection.SPIELTAGE].insert_one(matchday())
         if spiele:
             await database[Collection.SPIELE].insert_many(spiele)
 

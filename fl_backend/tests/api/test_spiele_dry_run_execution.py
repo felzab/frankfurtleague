@@ -105,15 +105,7 @@ async def seeded_url(mongo_replica_set_url: str) -> str:
             # Position 1 in each: the two sit in different phases, where the positions restart.
             await database[Collection.SPIELTAGE].insert_many(
                 [
-                    {
-                        "_id": spieltag_id,
-                        "start": tag,
-                        "end": tag,
-                        "position": 1,
-                        "saison_id": SAISON_ID,
-                        "saison_phase": saison_phase,
-                        "version": 0,
-                    }
+                    documents.spieltag_document(spieltag_id, SAISON_ID, 1, saison_phase=saison_phase, start=tag, end=tag)
                     for spieltag_id, saison_phase, tag in (
                         (SPIELTAG_VIERTELFINALE, "viertelfinale", "2026-05-01"),
                         (SPIELTAG_HALBFINALE, "halbfinale", "2026-05-08"),

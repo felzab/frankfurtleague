@@ -55,18 +55,6 @@ def match(
     )
 
 
-def spieltag(spieltag_id: ObjectId, position: int, saison_phase: str = "gruppenphase") -> dict[str, Any]:
-    return {
-        "_id": spieltag_id,
-        "start": None,
-        "end": None,
-        "position": position,
-        "saison_phase": saison_phase,
-        "saison_id": SAISON,
-        "version": 0,
-    }
-
-
 async def seeded(url: str, database_name: str, collections: dict[str, list[dict[str, Any]]]) -> None:
     """The season the site is on, and these documents."""
 
@@ -111,7 +99,7 @@ async def test_a_place_decided_after_its_club_left_is_served_vacant_and_the_seas
                     SAISON, cara, "Cara", "CAR", austritt={"type": "disqualifikation", "reason": "Ausgeschlossen", "date": "2026-02-28"}
                 ),
             ],
-            Collection.SPIELTAGE: [spieltag(FINALE_DAY, 1, "finale")],
+            Collection.SPIELTAGE: [documents.spieltag_document(FINALE_DAY, SAISON, 1, saison_phase="finale")],
             Collection.SPIELE: [
                 {**match(2, FINALE_DAY, "2026-03-01", (0, 3), names=("Cara", "Dora"), saison_phase="finale"), "team1": side(cara, 0)},
                 match(3, FINALE_DAY, "2026-03-01", (2, 1), saison_phase="finale"),
@@ -170,7 +158,7 @@ async def test_a_running_season_serves_two_matches_the_nearest_first(
             Collection.SAISON_TEAMS: [
                 documents.saison_team_document(SAISON, team_id, name, name[:3].upper()) for team_id, name in ((ALPHA, "Alpha"), (BETA, "Beta"))
             ],
-            Collection.SPIELTAGE: [spieltag(GROUP_DAY, 1)],
+            Collection.SPIELTAGE: [documents.spieltag_document(GROUP_DAY, SAISON, 1)],
             Collection.SPIELE: spiele,
         },
     )

@@ -132,17 +132,7 @@ async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
     async def _seed() -> None:
         async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
             await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON, "active"))
-            await database[Collection.SPIELTAGE].insert_one(
-                {
-                    "_id": spiel["spieltag_id"],
-                    "start": None,
-                    "end": None,
-                    "position": 1,
-                    "saison_phase": "gruppenphase",
-                    "saison_id": SAISON,
-                    "version": 0,
-                }
-            )
+            await database[Collection.SPIELTAGE].insert_one(documents.spieltag_document(spiel["spieltag_id"], SAISON, 1))
             await database[Collection.SAISON_TEAMS].insert_many(
                 [documents.saison_team_document(SAISON, HOME, "Alpha", "ALP"), documents.saison_team_document(SAISON, AWAY, "Beta", "BET")]
             )
