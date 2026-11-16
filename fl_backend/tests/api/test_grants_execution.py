@@ -6,7 +6,6 @@ the actor bound as `bind_actor` binds it; the mounted route is what reads a requ
 class goes through it.
 """
 
-import functools
 import time
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime, timedelta
@@ -15,7 +14,6 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -31,25 +29,21 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.security import PASSKEY_FACTOR
-from app.main import create_app
 from app.shared.schemas.bounds import GRANT_WAIT_HOURS, OWNER_WAIT_DAYS
 from tests import acts
-from tests.app_client import app_client
+from tests.app_client import app_client, app_under_test
 from tests.bans import ban_through_the_route
 from tests.config import ADMIN_KEY
 from tests.database import a_clean_database
 from tests.documents import address_change_document, ban_document, rules_document, saison_document
-from tests.isolation import COMMITTED, InterleavedCollection, Rival, outcome_of
+from tests.isolation import COMMITTED, InterleavedCollection, Rival, outcome_of, refused_code
 from tests.session_headers import StampedHeaders, session_headers
+from tests.stored import the_row
 from tests.worker import worker_database
-
-from .conftest import config_for
 
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_grants_test")
-
-CONFIG = config_for(DATABASE_NAME)
 
 # A century ahead of the real clock: the TTL monitor deletes a row whose delete date has passed, under a case reading it back.
 NOW = datetime(2126, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
@@ -83,16 +77,6 @@ def stored(moment: datetime) -> datetime:
     """An instant as the driver reads it back."""
 
     return moment.astimezone(UTC).replace(tzinfo=None)
-
-
-@functools.cache
-def _served() -> FastAPI:
-    """One app for every case serving through it: building one costs more than the request a case sends through it.
-
-    Built on first use rather than at import, which every xdist worker pays at collection.
-    """
-
-    return create_app(CONFIG)
 
 
 def grant_document(grant_id: ObjectId, address: str, admin_tier: str, *, effective_from: datetime = IN_EFFECT) -> dict[str, Any]:
@@ -223,13 +207,6 @@ async def addresses(database: AsyncDatabase) -> list[str]:
     return sorted([str(row["address"]) async for row in database[Collection.GRANTS].find()])
 
 
-async def row_of(database: AsyncDatabase, grant_id: ObjectId) -> Mapping[str, Any]:
-    row = await database[Collection.GRANTS].find_one({"_id": grant_id})
-    assert row is not None
-
-    return row
-
-
 async def owed(database: AsyncDatabase) -> list[tuple[str, str, str | None, list[str], str | None]]:
     """Each notice owed, in order: its change, stage, address, everybody it is owed to, and the date it promises."""
 
@@ -247,13 +224,6 @@ async def acts_on(database: AsyncDatabase, grant_id: ObjectId) -> list[tuple[str
     rows = database[Collection.ACTION_LOG].find({"record_id": grant_id}, sort=[("_id", 1)])
 
     return [(row["action"], row["by"], row["label"]) async for row in rows]
-
-
-async def refusal_of(call: Awaitable[Any]) -> str:
-    with pytest.raises(APIError) as raised:
-        await call
-
-    return str(raised.value.error_code)
 
 
 class Aborting:
@@ -382,7 +352,9 @@ class TestAWaitCountsHours:
             created = await add(database, client, now=BEFORE_THE_CLOCK_FALLS_BACK)
             await hand_over(database, client, now=BEFORE_THE_CLOCK_FALLS_BACK)
 
-            return (await row_of(database, created))["effective_from"], (await row_of(database, ANNA_ID))["owner_from"]
+            return (await the_row(database, Collection.GRANTS, created))["effective_from"], (
+                await the_row(database, Collection.GRANTS, ANNA_ID)
+            )["owner_from"]
 
         effective_from, owner_from = await on_a_league(mongo_replica_set_url, body)
 
@@ -404,7 +376,7 @@ class TestOnlyTheOwnerActs:
     )
     async def test_an_administrator_is_refused_and_nothing_moves(self, mongo_replica_set_url: str, act: Body):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int, list[str]]:
-            return await refusal_of(act(database, client)), await database[Collection.OUTBOX].count_documents({}), await addresses(database)
+            return await refused_code(act(database, client)), await database[Collection.OUTBOX].count_documents({}), await addresses(database)
 
         assert await on_a_league(mongo_replica_set_url, body) == (Code.GRANT_ONLY_OWNER, 0, EVERY_HOLDER)
 
@@ -454,7 +426,7 @@ class TestARemoval:
 
     async def test_the_owners_row_goes_by_no_removal(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            return await refusal_of(remove(database, client, OWNER_ID))
+            return await refused_code(remove(database, client, OWNER_ID))
 
         assert await on_a_league(mongo_replica_set_url, body) == Code.GRANT_OWNER
 
@@ -476,7 +448,7 @@ class TestAHandover:
             await hand_over(database, client)
 
             return (
-                (await row_of(database, ANNA_ID))["owner_from"],
+                (await the_row(database, Collection.GRANTS, ANNA_ID))["owner_from"],
                 await tiers(database),
                 await owed(database),
                 await acts_on(database, ANNA_ID),
@@ -492,7 +464,7 @@ class TestAHandover:
 
     async def test_a_row_still_waiting_is_refused_so_an_addition_then_a_handover_waits_both(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            return await refusal_of(hand_over(database, client, NORA_ID))
+            return await refused_code(hand_over(database, client, NORA_ID))
 
         assert await on_a_league(mongo_replica_set_url, body, grants=[WAITING]) == Code.GRANT_NOT_IN_EFFECT
 
@@ -500,7 +472,7 @@ class TestAHandover:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[str]:
             await database[Collection.BAN_LIST].insert_one(ban_document(BERND, until="2999"))
 
-            return [await refusal_of(hand_over(database, client, OWNER_ID)), await refusal_of(hand_over(database, client, BERND_ID))]
+            return [await refused_code(hand_over(database, client, OWNER_ID)), await refused_code(hand_over(database, client, BERND_ID))]
 
         assert await on_a_league(mongo_replica_set_url, body) == [Code.GRANT_OWNER, Code.GRANT_BARRED]
 
@@ -509,7 +481,12 @@ class TestAHandover:
             await hand_over(database, client)
             await stop(database, client)
 
-            return await row_of(database, ANNA_ID), await pass_at(database, client), await owed(database), await acts_on(database, ANNA_ID)
+            return (
+                await the_row(database, Collection.GRANTS, ANNA_ID),
+                await pass_at(database, client),
+                await owed(database),
+                await acts_on(database, ANNA_ID),
+            )
 
         row, handed_over, notices, acts = await on_a_league(mongo_replica_set_url, body)
 
@@ -530,10 +507,10 @@ class TestThePass:
     async def test_before_its_date_it_moves_nothing_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, dict[str, str], int]:
             await hand_over(database, client)
-            before = (await row_of(database, ANNA_ID))["bounded_writes"]
+            before = (await the_row(database, Collection.GRANTS, ANNA_ID))["bounded_writes"]
             handed_over = await pass_at(database, client, NOW + timedelta(days=OWNER_WAIT_DAYS) - timedelta(seconds=1))
 
-            return handed_over, await tiers(database), (await row_of(database, ANNA_ID))["bounded_writes"] - before
+            return handed_over, await tiers(database), (await the_row(database, Collection.GRANTS, ANNA_ID))["bounded_writes"] - before
 
         handed_over, held, anchors = await on_a_league(mongo_replica_set_url, body)
 
@@ -549,7 +526,7 @@ class TestThePass:
             handed_over = await pass_at(database, client, moment)
             logged = await database[Collection.ACTION_LOG].find_one({"action": "grant.handover_completed"})
 
-            return handed_over, await tiers(database), await row_of(database, ANNA_ID), (await owed(database))[-1], logged
+            return handed_over, await tiers(database), await the_row(database, Collection.GRANTS, ANNA_ID), (await owed(database))[-1], logged
 
         handed_over, held, row, notice, logged = await on_a_league(mongo_replica_set_url, body)
 
@@ -670,14 +647,14 @@ class TestAMove:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def move(session: AsyncClientSession) -> None:
                 await move_the_grant_in_session(
-                    await row_of(database, NORA_ID),
+                    await the_row(database, Collection.GRANTS, NORA_ID),
                     new_address="nora@neu.de",
                     grants_collection=database[Collection.GRANTS],
                     now=NOW,
                     session=session,
                 )
                 await move_the_grant_in_session(
-                    await row_of(database, ANNA_ID),
+                    await the_row(database, Collection.GRANTS, ANNA_ID),
                     new_address="anna@neu.de",
                     grants_collection=database[Collection.GRANTS],
                     now=NOW,
@@ -687,7 +664,7 @@ class TestAMove:
             async with client.start_session() as session:
                 await session.with_transaction(move)
 
-            return await row_of(database, NORA_ID), await row_of(database, ANNA_ID)
+            return await the_row(database, Collection.GRANTS, NORA_ID), await the_row(database, Collection.GRANTS, ANNA_ID)
 
         nora, anna = await on_a_league(mongo_replica_set_url, body, grants=[WAITING])
 
@@ -726,7 +703,7 @@ class TestTheMountedRouteReadsTheGrants:
             await database[Collection.GRANTS].insert_one(
                 grant_document(NORA_ID, NORA, "administration", effective_from=at_most(effective_in_s))
             )
-            async with app_client(mongo_replica_set_url, app=_served()) as http:
+            async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME)) as http:
                 response = await http.get(f"/api/v{API_VERSION}/grants", headers=signed_in_at(NORA, int(time.time()) - 60))
 
             return response.status_code, response.json().get("error_code")
@@ -739,7 +716,7 @@ class TestTheMountedRouteReadsTheGrants:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[int, str | None]]:
             await database[Collection.GRANTS].update_one({"_id": ANNA_ID}, {"$set": {"owner_from": at_most(-5)}})
             older = int(time.time()) - 60
-            async with app_client(mongo_replica_set_url, app=_served()) as http:
+            async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME)) as http:
 
                 async def removing(address: str, auth_time: int) -> tuple[int, str | None]:
                     response = await http.delete(f"/api/v{API_VERSION}/grants/{BERND_ID}", headers=signed_in_at(address, auth_time))
@@ -762,7 +739,7 @@ class TestTheMountedRouteReadsTheGrants:
 
     async def test_a_removed_administrator_is_refused_on_the_very_next_request(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[int]:
-            async with app_client(mongo_replica_set_url, app=_served()) as http:
+            async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME)) as http:
                 headers = StampedHeaders(BERND, ADMIN_KEY)
                 before = await http.get(f"/api/v{API_VERSION}/grants", headers=headers)
                 removed = await http.delete(f"/api/v{API_VERSION}/grants/{BERND_ID}", headers=StampedHeaders(OWNER, ADMIN_KEY))
@@ -776,7 +753,7 @@ class TestTheMountedRouteReadsTheGrants:
         """The only grant case reaching `get_actor_email`: a mixed-case identity is stored folded in the log."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, ...]:
-            async with app_client(mongo_replica_set_url, app=_served()) as http:
+            async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME)) as http:
                 response = await http.post(
                     f"/api/v{API_VERSION}/grants", headers=StampedHeaders(OWNER.upper(), ADMIN_KEY), json={"email": NORA_TYPED}
                 )

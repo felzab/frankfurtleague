@@ -1,20 +1,18 @@
 """
 API · an administrator's erasure on a mailed request, held against the person's own erasure's whole-database seed
 
-The seed is `tests/api/test_identity_erasure_execution.py`'s, one address holding every kind of record, beside
+The seed is `tests/erasure_corpus.py`'s, one address holding every kind of record, beside
 the suite's grants an administrator signs in through. Every case asks what the database holds after
 the request, so a step, a refusal or a reset missing from the route fails here.
 """
 
 import asyncio
-import functools
 import logging
 from collections.abc import Awaitable, Callable, Iterator, Mapping
 from typing import Any, cast
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from httpx2 import AsyncClient, Response
 from pydantic import ValidationError
 from pymongo import AsyncMongoClient
@@ -29,20 +27,13 @@ from app.core.config import API_VERSION
 from app.core.crud import ANCHOR_FIELD
 from app.core.db import collection_dependency
 from app.core.exceptions import APIError
-from app.core.recording import actor_var
-from app.main import create_app
-from tests.app_client import app_client
+from tests.acts import journal_records
+from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_KEY, ADMINISTRATORS, grants_for_the_suite
 from tests.database import a_clean_database
 from tests.documents import address_change_document, spiel_document, spieler_document
-from tests.erasure import erasure_collections, what_the_erasure_took
-from tests.isolation import InterleavedCollection
-from tests.session_headers import StampedHeaders
-from tests.whole_database import where_held
-from tests.worker import worker_database
-
-from .conftest import config_for
-from .test_identity_erasure_execution import (
+from tests.erasure import erased_on_request, what_the_erasure_took
+from tests.erasure_corpus import (
     FIRST_NAME,
     IDENTIFIER,
     LAST_NAME,
@@ -60,13 +51,14 @@ from .test_identity_erasure_execution import (
     a_person_holding_everything,
     as_person,
     everything_in,
-    journal_records,
 )
-from .test_identity_erasure_execution import PATH as OWN_ERASURE_PATH
+from tests.erasure_corpus import PATH as OWN_ERASURE_PATH
+from tests.isolation import InterleavedCollection
+from tests.session_headers import StampedHeaders
+from tests.whole_database import where_held
+from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_erasure_on_request_test")
-
-CONFIG = config_for(DATABASE_NAME)
 
 PATH = f"/api/v{API_VERSION}/identity/erasure"
 VIEW_PATH = f"{PATH}/view"
@@ -82,18 +74,6 @@ REASON = "Mail vom 30.03.2026, Betreff: Bitte löscht alle meine Daten"
 # Another such row, of an address nobody erases: no request matches it, so it stands.
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
-
-
-@functools.cache
-def _app() -> FastAPI:
-    return create_app(CONFIG)
-
-
-@pytest.fixture(scope="module", autouse=True)
-def _built_before_any_case() -> None:
-    """Never inside a case: a build re-runs the logging `dictConfig`, which strips the handler `caplog` reads that case's records from."""
-
-    _app()
 
 
 async def on_a_league(url: str, body: Body) -> Any:
@@ -116,7 +96,7 @@ async def on_a_league_of_its_own(url: str, body: Body) -> Any:
 
 
 async def posted(url: str, path: str, body: Mapping[str, Any], *, by: str = OPERATOR) -> Response:
-    async with app_client(url, app=_app(), now=NOW) as http:
+    async with app_client(url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
         return await http.post(path, json=dict(body), headers=StampedHeaders(by, ADMIN_KEY))
 
 
@@ -133,17 +113,7 @@ async def erased_by_the_handler(
 ) -> None:
     """The route's own function outside a request, as `OPERATOR`, for a case driving the driver itself."""
 
-    token = actor_var.set(OPERATOR)
-    try:
-        await post_erasure(
-            erasure_data=FLErasurePayload(email=email, reason=reason),
-            **erasure_collections(database, **replaced),
-            db=client,
-            operator=OPERATOR,
-            germany_now=NOW,
-        )
-    finally:
-        actor_var.reset(token)
+    await erased_on_request(database, client, email=email, reason=reason, by=OPERATOR, germany_now=NOW, **replaced)
 
 
 def _object_ids(value: Any) -> Iterator[ObjectId]:
@@ -189,7 +159,7 @@ class TestTheRegistryRunsWhole:
 
         async def after(request: Callable[[AsyncClient], Awaitable[Response]]) -> Any:
             async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-                async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
+                async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
                     status = (await request(http)).status_code
 
                 return status, what_is_left(await everything_in(database))
@@ -307,7 +277,7 @@ class TestAGrantHoldersAddress:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPIELER].insert_one(spieler_document(PUPIL_OID, FIRST_NAME, LAST_NAME, email=IDENTIFIER))
             held = await where_held(database, *THEIR_VALUES)
-            served = _app()
+            served = app_under_test(DATABASE_NAME)
             async with app_client(mongo_replica_set_url, app=served, now=NOW) as http:
 
                 async def grant() -> None:

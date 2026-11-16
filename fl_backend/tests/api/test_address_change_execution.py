@@ -9,6 +9,7 @@ address holds in one write. The pass's share and failures are
 
 import asyncio
 import json
+import logging
 from collections.abc import Awaitable, Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
@@ -27,8 +28,6 @@ from app.api.address_change.services import (
     build_address_filter,
 )
 from app.api.address_change.system_router import get_address_change_address
-from app.api.grants.admin_router import post_grant
-from app.api.grants.schemas import FLPostGrantPayload
 from app.api.identity.admin_router import post_erasure
 from app.api.identity.crud import find_sign_in, find_subject, unreferenced_of
 from app.api.identity.schemas import FLErasurePayload
@@ -41,17 +40,18 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import APIError, DocumentNotFoundError
-from app.core.recording import actor_var
-from app.main import create_app
+from app.core.logging import JSONFormatter
 from app.shared.schemas.bounds import ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAITING_PERIOD_DAYS, GRANT_WAIT_HOURS, OWNER_WAIT_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests import documents
-from tests.app_client import app_client
-from tests.config import ADMINISTRATORS, SYSTEM_AUTH
+from tests.app_client import app_client, app_under_test
+from tests.config import ADMIN_KEY, ADMINISTRATORS, SYSTEM_AUTH
 from tests.holds import HeldCollection
-from tests.isolation import COMMITTED, outcome_of
+from tests.isolation import COMMITTED, outcome_of, refused_code
 from tests.records import record_collections
+from tests.session_headers import StampedHeaders
+from tests.stored import the_row
 from tests.whole_database import where_held
 from tests.worker import worker_database
 
@@ -89,10 +89,8 @@ from .address_change_harness import (
     handed_out,
     owed,
     read,
-    refused_code,
     registration,
     resend,
-    row,
     running,
     start,
     stop_by_link,
@@ -101,7 +99,6 @@ from .address_change_harness import (
     view,
 )
 from .address_change_harness import on_a_person as _on_a_person
-from .conftest import config_for
 from .test_grants_execution import GrantsRunningARivalAfterTheFirstRead
 
 # Module level: every case below reaches a real mongod, each write being one transaction.
@@ -118,17 +115,13 @@ class TestTheAccountPagesRead:
     async def test_a_change_starts_wherever_the_address_holds_anything_a_change_moves(self, mongo_replica_set_url: str):
         """A grant alone is enough: an administrator's address is theirs to change like anyone's."""
 
-        async def refusal(database: AsyncDatabase, client: AsyncMongoClient, address: str) -> str | None:
-            try:
-                await start(database, client, identifier=address, released=False)
-            except APIError as refused:
-                return refused.error_code
-            return None
-
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return [await refusal(database, client, address) for address in (EMAIL, OTHER_EMAIL, ADMIN, "nobody@schule.example")]
+            return [
+                await outcome_of(start(database, client, identifier=address, released=False))
+                for address in (EMAIL, OTHER_EMAIL, ADMIN, "nobody@schule.example")
+            ]
 
-        assert await on_a_person(mongo_replica_set_url, body) == [None, None, None, Code.ADDRESS_CHANGE_NOTHING]
+        assert await on_a_person(mongo_replica_set_url, body) == [COMMITTED, COMMITTED, COMMITTED, Code.ADDRESS_CHANGE_NOTHING]
 
     async def test_an_administrator_s_change_shows_its_address_masked_and_never_whole(self, mongo_replica_set_url: str):
         """It may be a pretext whose target the holder of the address on file must not learn: unmask it and this fails."""
@@ -261,8 +254,8 @@ class TestThePersonsStart:
 
 async def everything_but_the_pupil(database: AsyncDatabase) -> dict[str, Mapping[str, Any]]:
     return {
-        "season row": await row(database, Collection.SAISON_TEAMS, ROW_OID),
-        "pending application": await row(database, Collection.BEWERBUNGEN, PENDING_OID),
+        "season row": await the_row(database, Collection.SAISON_TEAMS, ROW_OID),
+        "pending application": await the_row(database, Collection.BEWERBUNGEN, PENDING_OID),
     }
 
 
@@ -481,26 +474,27 @@ class TestTheSystemsReadOfTheNewAddress:
 
         assert await on_a_person(mongo_replica_set_url, body) == [None] * 5
 
-    async def test_through_the_mounted_route_no_log_line_names_the_address(self, mongo_replica_set_url: str, capfd: pytest.CaptureFixture[str]):
-        """Read off the process's own output, which the app's build points its handlers at, so the request's line itself is held."""
+    async def test_through_the_mounted_route_no_log_line_names_the_address(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """Every record the request logs, written by the service's own formatter, so the request's line itself is held."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await start(database, client)
-            async with app_client(mongo_replica_set_url, app=create_app(config_for(DATABASE_NAME))) as http:
-                capfd.readouterr()
-                response = await http.post(f"/api/v{API_VERSION}/address_change/address", headers=SYSTEM_AUTH, json={"token": minted.token})
-                written = capfd.readouterr()
-            return response.status_code, response.json(), written.out + written.err
+            async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME)) as http:
+                caplog.clear()
+                with caplog.at_level(logging.INFO):
+                    response = await http.post(f"/api/v{API_VERSION}/address_change/address", headers=SYSTEM_AUTH, json={"token": minted.token})
+            return response.status_code, response.json()
 
-        status, answered, written = await on_a_person(mongo_replica_set_url, body)
+        status, answered = await on_a_person(mongo_replica_set_url, body)
+        written = [JSONFormatter().format(record) for record in caplog.records]
 
         assert (status, answered["email"]) == (200, NEW_EMAIL)
-        # Each line the formatter wrote, parsed: a line no JSON reader reads would hide what it holds.
-        documents = [json.loads(line) for line in written.splitlines() if line.startswith("{")]
+        # Each line parsed: a line no JSON reader reads would hide what it holds.
+        documents = [json.loads(line) for line in written]
         assert [(document["path"], document["status"]) for document in documents if "path" in document] == [
             (f"/api/v{API_VERSION}/address_change/address", 200)
         ], "the request's own line was not captured, so the absence below holds of nothing"
-        assert NEW_EMAIL not in written.lower()
+        assert not [line for line in written if NEW_EMAIL in line.lower()]
 
 
 class _Sent(monitoring.CommandListener):
@@ -827,7 +821,7 @@ class TestTheNewAddressesOwnRecords:
             minted = await start(database, client)
             seen = (await view(database, client, minted.token)).view.state
             refused = await refused_code(answer(database, client, minted.token))
-            return seen, refused, (await row(database, Collection.SCHIEDSRICHTER, REFEREE_OID))["kontakt"]["email"]
+            return seen, refused, (await the_row(database, Collection.SCHIEDSRICHTER, REFEREE_OID))["kontakt"]["email"]
 
         assert await on_a_person(mongo_replica_set_url, body, pupil=False) == ("not_confirmable", Code.ADDRESS_CHANGE_OCCUPIED, EMAIL)
 
@@ -894,10 +888,10 @@ class TestAHoldersOwnChange:
             minted = await start(database, client, identifier=holder)
             answered = await answer(database, client, minted.token)
             early = await sweep(database, client, germany_now=NOW + wait - timedelta(minutes=1))
-            waiting = await row(database, Collection.GRANTS, before["_id"])
+            waiting = await the_row(database, Collection.GRANTS, before["_id"])
             due = NOW + wait + timedelta(minutes=1)
             late = await sweep(database, client, germany_now=due)
-            moved = await row(database, Collection.GRANTS, before["_id"])
+            moved = await the_row(database, Collection.GRANTS, before["_id"])
             return answered, early, waiting, late, moved, due, await carries(database), await owed(database)
 
         answered, early, waiting, late, moved, due, owed_carries, notices = await on_a_person(mongo_replica_set_url, body)
@@ -1047,20 +1041,21 @@ class TestAHoldersOwnChange:
         """Unanchored, the two share no row and both commit: a change an administrator may not start stands at a grant."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            async def addition() -> Any:
-                token = actor_var.set(OWNER)
-                try:
-                    return await call(post_grant, database, client, payload=FLPostGrantPayload(email=EMAIL), operator=OWNER)
-                finally:
-                    actor_var.reset(token)
+            added: list[int] = []
+            async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
 
-            racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.GRANTS], addition)
-            outcome = await outcome_of(administrator_starts(database, client, grants_collection=cast(Any, racing)))
+                async def addition() -> None:
+                    # The owner's addition as its page sends it, on a request of its own.
+                    response = await http.post(f"/api/v{API_VERSION}/grants", json={"email": EMAIL}, headers=StampedHeaders(OWNER, ADMIN_KEY))
+                    added.append(response.status_code)
+
+                racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.GRANTS], addition)
+                outcome = await outcome_of(administrator_starts(database, client, grants_collection=cast(Any, racing)))
             racing.assert_landed_inside(serially=1)
 
-            return racing.rival_outcome, outcome, await database[Collection.ADDRESS_CHANGES].count_documents(build_address_filter(EMAIL))
+            return added, outcome, await database[Collection.ADDRESS_CHANGES].count_documents(build_address_filter(EMAIL))
 
-        assert await on_a_person(mongo_replica_set_url, body) == (COMMITTED, Code.ADMIN_ADDRESS, 0)
+        assert await on_a_person(mongo_replica_set_url, body) == ([201], Code.ADMIN_ADDRESS, 0)
 
     @pytest.mark.parametrize(
         ("what", "moves"),
@@ -1091,7 +1086,7 @@ class TestAHoldersOwnChange:
             await answer(database, client, minted.token)
             await held_by_another(database, what)
             passed = await sweep(database, client, germany_now=AFTER_THE_DEADLINE)
-            return passed.effective, passed.discarded, (await row(database, Collection.GRANTS, grant))["address"]
+            return passed.effective, passed.discarded, (await the_row(database, Collection.GRANTS, grant))["address"]
 
         refused = UNCONSENTED_PUPIL if what == "an-unconfirmed-pupil" else None
         assert await on_a_person(mongo_replica_set_url, body, pupil=False, stores_a_refused_shape=refused) == (
@@ -1435,16 +1430,6 @@ class TestTheMovedAddressLeavesNothingBehind:
         assert held == {EMAIL: []}
 
 
-async def outcome_code(call: Awaitable[Any]) -> str | None:
-    """`None` for a press that landed, its refusal's code otherwise."""
-
-    try:
-        await call
-    except APIError as refused:
-        return refused.error_code
-    return None
-
-
 class TestTwoPressesAtOnce:
     """Each press judges inside its own transaction, so two running at once settle to one outcome, whichever commits first."""
 
@@ -1454,15 +1439,13 @@ class TestTwoPressesAtOnce:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             ours = await start(database, client)
             theirs = await start(database, client, identifier=OTHER_EMAIL)
-            codes = await asyncio.gather(
-                outcome_code(answer(database, client, ours.token)), outcome_code(answer(database, client, theirs.token))
-            )
+            codes = await asyncio.gather(outcome_of(answer(database, client, ours.token)), outcome_of(answer(database, client, theirs.token)))
             holders = [found["_id"] async for found in database[Collection.SPIELER].find({"email": NEW_EMAIL}, {"_id": 1})]
             return codes, holders, {minted.id: await change(database, minted.id) for minted in (ours, theirs)}
 
         codes, holders, changes = await on_a_person(mongo_replica_set_url, body)
 
-        assert sorted(codes, key=str) == [None, Code.ADDRESS_CHANGE_TAKEN]
+        assert sorted(codes) == sorted([COMMITTED, Code.ADDRESS_CHANGE_TAKEN])
         assert len(holders) == 1
         # The loser moved nothing, and its change stands for its person to see.
         assert sorted(record["ended"] is None for record in changes.values()) == [False, True]
@@ -1473,16 +1456,16 @@ class TestTwoPressesAtOnce:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await start(database, client)
             confirmed, discarded = await asyncio.gather(
-                outcome_code(answer(database, client, minted.token)), outcome_code(discard(database, client, minted.id))
+                outcome_of(answer(database, client, minted.token)), outcome_of(discard(database, client, minted.id))
             )
             return confirmed, discarded, (await change(database, minted.id))["ended"]["kind"], (await everything(database))["pupil"]["email"]
 
         confirmed, discarded, kind, address = await on_a_person(mongo_replica_set_url, body)
 
-        if confirmed is None:
+        if confirmed == COMMITTED:
             assert (discarded, kind, address) == (Code.ADDRESS_CHANGE_ENDED, "effective", NEW_EMAIL)
         else:
-            assert (confirmed, discarded, kind, address) == (Code.ADDRESS_CHANGE_ENDED, None, "discarded", EMAIL)
+            assert (confirmed, discarded, kind, address) == (Code.ADDRESS_CHANGE_ENDED, COMMITTED, "discarded", EMAIL)
 
 
 class TestTheWaitingTime:
@@ -1628,7 +1611,7 @@ class TestWhatTheEffectLeavesTheErasure:
             )
 
             return (
-                await row(database, Collection.REGISTRIERUNGEN, UNCONFIRMED_REG_OID),
+                await the_row(database, Collection.REGISTRIERUNGEN, UNCONFIRMED_REG_OID),
                 owed,
                 await database[Collection.OUTBOX].find_one({"key": "registrierung/unsent"}),
             )
@@ -1660,7 +1643,7 @@ class TestWhatTheEffectLeavesTheErasure:
             declined.update(compose_decline_update(reason=None, today=TODAY)["$set"])
             await database[Collection.REGISTRIERUNGEN].insert_one(declined)
             await confirmed_and_moved(database, client)
-            return await row(database, Collection.REGISTRIERUNGEN, DECLINED_REG_OID)
+            return await the_row(database, Collection.REGISTRIERUNGEN, DECLINED_REG_OID)
 
         assert (await on_a_person(mongo_replica_set_url, body))["email"] == NEW_EMAIL
 

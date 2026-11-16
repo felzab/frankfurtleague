@@ -3,17 +3,15 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
-from pydantic import TypeAdapter
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.public_router import post_einwilligung
-from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAnswerPayload
 from app.api.teams.admin_router import put_kontakt_seat
 from app.api.teams.schemas import FLKontaktSeatPayload, FLKontaktSeatResponse
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from app.shared.tokens import hash_token
+from tests.bewerbung_routes import answered
 from tests.database import a_clean_database
 from tests.documents import SEAT_TEXT_VERSIONS, kontaktperson_document, saison_document, saison_team_document
 from tests.outbox import MAIL_NOW, drained
@@ -247,23 +245,17 @@ LINK = "seat-write-trainer-link"
 async def confirm_by_link(database: AsyncDatabase) -> None:
     """The trainer's own confirmation through the link their seat holds."""
 
-    await post_einwilligung(
-        answer_data=TypeAdapter(FLBewerbungEinwilligungAnswerPayload).validate_python(
-            {
-                "answer": "given",
-                "token": LINK,
-                "birth_date": BIRTH_DATE,
-                "whatsapp": False,
-                "media": False,
-                "text_versions": dict(SEAT_TEXT_VERSIONS),
-            }
-        ),
-        bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        outbox_collection=database[Collection.OUTBOX],
-        db=database.client,
+    await answered(
+        database,
+        database.client,
+        {
+            "answer": "given",
+            "token": LINK,
+            "birth_date": BIRTH_DATE,
+            "whatsapp": False,
+            "media": False,
+            "text_versions": dict(SEAT_TEXT_VERSIONS),
+        },
         today=TODAY,
         germany_now=MAIL_NOW,
     )

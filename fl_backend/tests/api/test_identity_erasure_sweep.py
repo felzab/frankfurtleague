@@ -8,127 +8,65 @@ The decisions underneath are `tests/api/test_identity_erasure_sweep_refusal.py`'
 """
 
 import asyncio
-import functools
 import logging
 import re
 from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
 from typing import Any, Final
-from zoneinfo import ZoneInfo
 
 import pymongo
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identity.crud import erasure_due_page, saison_statuses
-from app.api.identity.schemas import FLErasureSweepParams
-from app.api.identity.system_router import ERASURES_PER_PASS, sweep_erasure
-from app.api.registrierungen.services import compose_decline_update
+from app.api.identity.system_router import ERASURES_PER_PASS
 from app.api.saisons.admin_router import activate_saison
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.logging import JSONFormatter
-from app.main import create_app
 from tests.acts import deletions_of
-from tests.app_client import app_client
+from tests.app_client import app_client, app_under_test
 from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database
 from tests.documents import (
     aufstellung_document,
     kontakte_document,
     kontaktperson_document,
-    registrierung_document,
-    saison_document,
-    saison_spieler_document,
     saison_team_document,
     schiedsrichter_document,
     spiel_document,
-    spielbericht_document,
-    spieler_document,
-    team_document,
 )
-from tests.erasure import erasure_collections
+from tests.erasure_sweep_corpus import (
+    LEAGUE,
+    NOW,
+    TEAM_OID,
+    a_due_pupil,
+    a_report_naming,
+    address_of,
+    numbered,
+    pupil,
+    registration,
+    run,
+    seeded,
+    squad_row,
+    the_league,
+)
 from tests.whole_database import where_held
 from tests.wire import commands_by_name
 from tests.worker import worker_database
 
-from .conftest import config_for
-
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_erasure_sweep_test")
-CONFIG = config_for(DATABASE_NAME)
-
 PATH = f"/api/v{API_VERSION}/identity/erasure/sweep"
 
-NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 TODAY = "2026-04-01"
 
-# Two ended, one running, one planned: the rule keeps a squad row in 2025, 2026 and 2027.
-LEAGUE = {"2023": "past", "2024": "past", "2025": "past", "2026": "active", "2027": "future"}
 JUST_ENDED = "2025"
-
-TEAM_OID = ObjectId("6890a1b2c3d4e5f607d10001")
-
-
-def numbered(position: int) -> ObjectId:
-    """Ids in seeding order, so the run's `_id` order is the order a case seeds in."""
-
-    return ObjectId(f"6890a1b2c3d4e5f607d2{position:04d}")
-
-
-def address_of(position: int) -> str:
-    return f"schuelerin.{position}@beispielschule.de"
-
-
-def pupil(spieler_id: ObjectId, email: str, *, last_name: str = "Muster", **fields: Any) -> dict[str, Any]:
-    return spieler_document(spieler_id, "Quintessa", last_name, email=email, **fields)
-
-
-def squad_row(spieler_id: ObjectId, saison_id: str, **fields: Any) -> dict[str, Any]:
-    return saison_spieler_document(spieler_id, saison_id, TEAM_OID, **fields)
-
-
-def registration(registrierung_id: ObjectId, email: str, *, declined: bool = False, last_name: str = "Muster") -> dict[str, Any]:
-    document = registrierung_document(
-        registrierung_id,
-        email,
-        saison_id="2026",
-        team_id=TEAM_OID,
-        first_name="Quintessa",
-        last_name=last_name,
-        token=f"token-{registrierung_id}",
-        submitted_at="2026-03-02",
-        deadline="2026-03-09",
-    )
-
-    return {**document, **compose_decline_update(reason=None, today="2026-03-05")["$set"]} if declined else document
-
-
-def a_due_pupil(position: int) -> dict[Collection, list[dict[str, Any]]]:
-    """The run's largest shape: squad rows only in ended seasons the rule does not keep, and a declined registration."""
-
-    spieler_id = numbered(position)
-
-    return {
-        Collection.SPIELER: [pupil(spieler_id, address_of(position))],
-        Collection.SAISON_SPIELER: [squad_row(spieler_id, "2023"), squad_row(spieler_id, "2024")],
-        Collection.REGISTRIERUNGEN: [registration(numbered(5000 + position), address_of(position), declined=True)],
-    }
-
-
-def a_report_naming(position: int) -> dict[Collection, list[dict[str, Any]]]:
-    """A report naming that due pupil among its scorers: what makes a pupil's erasure its costliest."""
-
-    report = spielbericht_document({"_id": numbered(7000 + position), "saison_id": "2024"})
-    report["bericht"]["scorers"][0]["spieler_id"] = numbered(position)
-
-    return {Collection.SPIELBERICHTE: [report]}
 
 
 def a_line_up_naming(position: int) -> dict[Collection, list[dict[str, Any]]]:
@@ -141,12 +79,6 @@ def a_line_up_naming(position: int) -> dict[Collection, list[dict[str, Any]]]:
     return {Collection.SPIELE: [spiel], Collection.AUFSTELLUNGEN: [aufstellung_document(spiel, TEAM_OID, starters=[numbered(position)])]}
 
 
-async def seeded(database: AsyncDatabase, *shapes: Mapping[Collection, list[dict[str, Any]]]) -> None:
-    for shape in shapes:
-        for collection, documents in shape.items():
-            await database[collection].insert_many(documents)
-
-
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
@@ -154,19 +86,9 @@ async def on_a_league(url: str, body: Body, *, saisons: Mapping[str, str] = LEAG
     """The shipped indexes, the seasons and one team."""
 
     async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
-        await database[Collection.SAISONS].insert_many([saison_document(saison_id, status) for saison_id, status in saisons.items()])
-        await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, "Lindenschule", "LSX"))
+        await the_league(database, saisons=saisons)
 
         return await body(database, client)
-
-
-async def run(database: AsyncDatabase, client: AsyncMongoClient, *, after: Any = None, **replaced: Any) -> Any:
-    return await sweep_erasure(
-        params=FLErasureSweepParams(after=after),
-        **erasure_collections(database, **({"saisons_collection": database[Collection.SAISONS]} | replaced)),
-        db=client,
-        germany_now=NOW,
-    )
 
 
 # More calls than any pass a case seeds can take: a pass that never ends stops here, and the case says so.
@@ -512,7 +434,7 @@ class TestOneRecordHoldsBackNobody:
             await seeded(database, a_due_pupil(1), a_due_pupil(2), a_report_naming(1))
             await refuse_writes_breaking(database, Collection.SPIELBERICHTE, NO_REPORT_WRITTEN)
 
-            async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
+            async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
                 response = await http.post(PATH, headers=SYSTEM_AUTH)
 
             return response.status_code, response.json(), await database[Collection.SPIELER].distinct("_id", {"email": {"$type": "string"}})
@@ -626,18 +548,6 @@ class TestTheDeadlineStopsTheCall:
             if getattr(record, "error_code", None) in {Code.DATABASE_FAILED, Code.UNKNOWN_OUTCOME}
         ]
         assert lines == [("WARNING", "identity.erasure_cut", str(numbered(2)), False)]
-
-
-@functools.cache
-def _app() -> FastAPI:
-    return create_app(CONFIG)
-
-
-@pytest.fixture(scope="module", autouse=True)
-def _built_before_any_case() -> None:
-    """Never inside a case: a build re-runs the logging `dictConfig`, which strips the handler `caplog` reads that case's records from."""
-
-    _app()
 
 
 class TestEachCallTakesAShare:

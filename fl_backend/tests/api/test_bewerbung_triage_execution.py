@@ -1,4 +1,3 @@
-import functools
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any, Final, cast
@@ -6,8 +5,6 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId, encode
-from fastapi import FastAPI
-from pydantic import TypeAdapter
 from pymongo import AsyncMongoClient, monitoring
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -18,12 +15,9 @@ from app.api.bewerbungen.admin_router import (
     accept_bewerbung,
     decline_bewerbung,
     post_kontakt_seat,
-    resend_einwilligung,
 )
-from app.api.bewerbungen.public_router import post_einwilligung
 from app.api.bewerbungen.schemas import (
     FLAcceptBewerbungPayload,
-    FLBewerbungEinwilligungAnswerPayload,
     FLBewerbungKontaktSeatPayload,
     FLDeclineBewerbungPayload,
 )
@@ -36,10 +30,10 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.transactions import transaction_session
-from app.main import create_app
 from app.shared.tokens import hash_token
 from tests import documents
-from tests.app_client import app_client
+from tests.app_client import app_client, app_under_test
+from tests.bewerbung_routes import answered, resent
 from tests.config import ADMIN_AUTH, ADMIN_KEY, grants_for_the_suite
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database
 from tests.delivery import a_mail_that_bounced
@@ -58,8 +52,6 @@ from tests.isolation import InterleavedCollection, Rival
 from tests.outbox import MAIL_NOW, drained
 from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
-
-from .conftest import config_for
 
 DATABASE_NAME = worker_database("fl_bewerbung_triage_test")
 
@@ -262,16 +254,6 @@ async def junction_rows(database: AsyncDatabase, **narrow: Any) -> list[Mapping[
 SEEDED_CLUBS = 2
 
 
-@functools.cache
-def _served() -> FastAPI:
-    """One app for every case serving through it: building one costs more than the request a case sends through it.
-
-    Built on first use rather than at import, which every xdist worker pays at collection.
-    """
-
-    return create_app(config_for(DATABASE_NAME))
-
-
 async def through_the_app(
     url: str, bewerbung_id: ObjectId, endpoint: str, payload: Mapping[str, Any], *, actor: str | None = ADMIN_EMAIL
 ) -> Any:
@@ -286,7 +268,7 @@ async def through_the_app(
 
     # A client of its own rather than the seeding one: the seeding client has to outlive the
     # request, every caller reading `database` afterwards to assert what the request wrote.
-    async with app_client(url, app=_served(), now=NOW) as http:
+    async with app_client(url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
         return await http.post(path, json=dict(payload), headers=headers)
 
 
@@ -1389,16 +1371,7 @@ class ApplicationsRunningARivalAfterTheirRead(InterleavedCollection):
 async def resend(database: AsyncDatabase, seat: str, *, bewerbungen: Any = None) -> Any:
     collection = database[Collection.BEWERBUNGEN] if bewerbungen is None else bewerbungen
 
-    return await resend_einwilligung(
-        bewerbung_id=RESEND_BEWERBUNG,
-        seat=seat,
-        bewerbungen_collection=collection,
-        teams_collection=database[Collection.TEAMS],
-        outbox_collection=database[Collection.OUTBOX],
-        germany_now=MAIL_NOW,
-        db=database.client,
-        today=TODAY,
-    )
+    return await resent(database, RESEND_BEWERBUNG, seat, today=TODAY, germany_now=MAIL_NOW, bewerbungen_collection=collection)
 
 
 class MissesTheFirstWrite:
@@ -1618,17 +1591,10 @@ async def answer_for(database: AsyncDatabase, client: AsyncMongoClient, token: s
     (`fl_backend/app/api/bewerbungen/public_router.py :: post_einwilligung`).
     """
 
-    return await post_einwilligung(
-        # A Widerspruch unless the case answers otherwise, and then a consent naming its own date and labels.
-        answer_data=TypeAdapter(FLBewerbungEinwilligungAnswerPayload).validate_python(
-            {"token": token, **({"whatsapp": False, "media": False, **answer} if answer else {"answer": "declined"})}
-        ),
-        bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        outbox_collection=database[Collection.OUTBOX],
-        db=client,
+    return await answered(
+        database,
+        client,
+        {"token": token, **({"whatsapp": False, "media": False, **answer} if answer else {"answer": "declined"})},
         today=TODAY,
         germany_now=NOW,
     )

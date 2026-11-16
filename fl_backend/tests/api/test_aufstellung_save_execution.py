@@ -19,15 +19,19 @@ from app.api.aufstellungen.person_router import get_aufstellung_self, put_aufste
 from app.api.aufstellungen.schemas import FLAufstellungEntry, FLAufstellungPayload, FLAufstellungResponse, FLAufstellungSpieler
 from app.core.codes import Code
 from app.core.collections import Collection
+from app.core.config import API_VERSION
 from app.core.exceptions import APIError
-from app.core.recording import ACT_BY_KONTAKT, actor_var
+from app.core.recording import ACT_BY_KONTAKT
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests import documents
-from tests.acts import acts_of
+from tests.acts import acting_as, acts_of
+from tests.app_client import app_client, app_under_test
+from tests.config import ADMIN_KEY, ADMINISTRATORS, grants_for_the_suite
 from tests.database import a_clean_database
 from tests.erasure import erased
 from tests.isolation import InterleavedCollection, outcome_of
 from tests.records import record_collections
+from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -47,6 +51,8 @@ HOME_SEAT, AWAY_SEAT = "ansprech.heim@schule.de", "ansprech.gast@schule.de"
 # The home club's seat for the next season alone.
 LATER_SAISON_ID, LATER_SEAT = "2027", "ansprech.folge@schule.de"
 ADMIN = "admin@example.org"
+# The administrator a served save is sent by, one the suite's grants hold.
+SERVED_ADMIN = ADMINISTRATORS[0]
 
 # Saturday 14 November 2026, 16:00 in Berlin, 15:00 UTC: locked for the club from 14:00 UTC.
 OPEN = datetime(2026, 11, 10, 12, tzinfo=UTC)
@@ -157,8 +163,7 @@ async def admin_saves(
     """The home club's line-up saved through the administrator's handler, under the actor its request would bind."""
 
     response = Response()
-    token = actor_var.set(ADMIN)
-    try:
+    with acting_as(ADMIN):
         answer = await put_aufstellung(
             spiel_id=spiel_id,
             team_id=HOME,
@@ -172,8 +177,6 @@ async def admin_saves(
             db=client,
             now=now,
         )
-    finally:
-        actor_var.reset(token)
     return answer, response.status_code
 
 
@@ -270,10 +273,17 @@ async def test_the_lock_refuses_the_seat_and_never_the_administrator(mongo_repli
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, ...]:
         refused = await refusal_of(seat_saves(database, client, _payload(LINA), now=LOCKED))
-        _, status = await admin_saves(database, client, _payload(LINA), now=LOCKED)
-        return refused, status, [act[:3] for act in await acts_of(database)]
+        # Through the route, so the act is recorded for the administrator its request binds and no one else.
+        await database[Collection.GRANTS].insert_many(grants_for_the_suite())
+        async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME), now=LOCKED) as http:
+            response = await http.put(
+                f"/api/v{API_VERSION}/aufstellungen/{SPIEL}/{HOME}",
+                json=_payload(LINA).model_dump(mode="json"),
+                headers=StampedHeaders(SERVED_ADMIN, ADMIN_KEY),
+            )
+        return refused, response.status_code, [act[:3] for act in await acts_of(database)]
 
-    assert await on_a_season(mongo_replica_set_url, body) == ((Code.AUFSTELLUNG_LOCKED, []), 201, [("aufstellung.saved", ADMIN, None)])
+    assert await on_a_season(mongo_replica_set_url, body) == ((Code.AUFSTELLUNG_LOCKED, []), 201, [("aufstellung.saved", SERVED_ADMIN, None)])
 
 
 async def test_an_undated_fixture_takes_no_line_up_from_anybody(mongo_replica_set_url: str):

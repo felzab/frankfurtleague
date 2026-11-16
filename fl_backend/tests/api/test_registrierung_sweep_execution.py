@@ -1,5 +1,4 @@
 import asyncio
-import functools
 from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
@@ -8,7 +7,6 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from pymongo import AsyncMongoClient, MongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -16,9 +14,8 @@ from app.api.registrierungen.system_router import sweep_registrierungen
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.transactions import SWEEP_PAGE
-from app.main import create_app
 from app.shared.tokens import hash_token
-from tests.app_client import app_client
+from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync
 from tests.documents import (
@@ -276,16 +273,6 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
         assert sum(names.values()) == COMMANDS, names
 
 
-@functools.cache
-def _served() -> FastAPI:
-    """One app for every case serving through it: building one costs more than the request a case sends through it.
-
-    Built on first use rather than at import, which every xdist worker pays at collection.
-    """
-
-    return create_app(build_test_config())
-
-
 def through_the_app(url: str, path: str, *, auth: Mapping[str, str]) -> tuple[int, list[Mapping[str, Any]]]:
     """One call over the wire, so the guard, the system binder and the route template all run."""
 
@@ -300,7 +287,7 @@ def through_the_app(url: str, path: str, *, auth: Mapping[str, str]) -> tuple[in
             )
 
             async def _called() -> int:
-                async with app_client(url, app=_served(), now=NOW) as http:
+                async with app_client(url, app=app_under_test(), now=NOW) as http:
                     response = await http.post(f"/api/v{API_VERSION}{path}", json=None, headers=dict(auth))
                     return response.status_code
 

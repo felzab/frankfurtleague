@@ -8,14 +8,12 @@ from typing import Any, cast
 
 import pytest
 from bson import ObjectId
-from pydantic import TypeAdapter
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.admin_router import decline_bewerbung, resend_einwilligung
-from app.api.bewerbungen.public_router import get_einwilligung_view, post_einwilligung
-from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAnswerPayload, FLDeclineBewerbungPayload
+from app.api.bewerbungen.admin_router import decline_bewerbung
+from app.api.bewerbungen.schemas import FLDeclineBewerbungPayload
 from app.api.bewerbungen.services import compose_confirmation_update, confirmation_deadline_from
 from app.api.bewerbungen.system_router import (
     BLOCKS_CLEARED_PER_PASS,
@@ -32,11 +30,11 @@ from app.core.crud import patch_one_in_db
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.logging import FL_LOGGER_NAME
 from app.core.transactions import SWEEP_PAGE
-from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.acts import deletions_of
+from tests.bewerbung_routes import answered, resent, viewed
 from tests.database import SEED_BOUND_S, a_clean_database
 from tests.delivery import a_mail_that_bounced, mails_that_bounced
 from tests.documents import (
@@ -210,14 +208,7 @@ async def sweep(
 
 
 async def view(database: AsyncDatabase, token: str) -> Any:
-    return await get_einwilligung_view(
-        view_data=FLTokenPayload(token=token),
-        bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        teams_collection=database[Collection.TEAMS],
-        today=TODAY,
-    )
+    return await viewed(database, token, today=TODAY)
 
 
 async def stored(database: AsyncDatabase, bewerbung_id: ObjectId) -> Mapping[str, Any] | None:
@@ -293,30 +284,11 @@ async def confirm_every_seat(database: AsyncDatabase, bewerbung_id: ObjectId) ->
 
 
 async def resend(database: AsyncDatabase, seat: str) -> Any:
-    return await resend_einwilligung(
-        bewerbung_id=REMIND_OID,
-        seat=seat,
-        bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        teams_collection=database[Collection.TEAMS],
-        outbox_collection=database[Collection.OUTBOX],
-        db=database.client,
-        today=TODAY,
-        germany_now=MAIL_NOW,
-    )
+    return await resent(database, REMIND_OID, seat, today=TODAY, germany_now=MAIL_NOW)
 
 
 async def decline(database: AsyncDatabase, client: AsyncMongoClient, token: str, *, now: datetime) -> Any:
-    return await post_einwilligung(
-        answer_data=TypeAdapter(FLBewerbungEinwilligungAnswerPayload).validate_python({"token": token, "answer": "declined"}),
-        bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        outbox_collection=database[Collection.OUTBOX],
-        db=client,
-        today=TODAY,
-        germany_now=now,
-    )
+    return await answered(database, client, {"token": token, "answer": "declined"}, today=TODAY, germany_now=now)
 
 
 def reminder_mail(to: str, rollen: list[str]) -> dict[str, Any]:

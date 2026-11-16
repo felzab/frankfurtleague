@@ -7,7 +7,6 @@ a row about an Ansetzung its fixture has left, a fixture called off, another sea
 """
 
 import asyncio
-import functools
 from collections.abc import Iterator
 from datetime import datetime
 from typing import Any
@@ -15,7 +14,6 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from httpx2 import Response
 from pymongo import MongoClient
 
@@ -23,9 +21,8 @@ from app.api.saisons.overview import _gaps
 from app.api.spiele.schemas import FLSpielJoinedInternal
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.main import create_app
 from tests import documents
-from tests.app_client import app_client
+from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_AUTH, build_test_config, grants_for_the_suite
 from tests.database import a_clean_database_sync
 
@@ -199,14 +196,9 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
         client.close()
 
 
-@functools.cache
-def _served() -> FastAPI:
-    return create_app(build_test_config())
-
-
 def answered(uri: str, path: str) -> Response:
     async def _answered() -> Response:
-        async with app_client(uri, app=_served(), now=NOW) as http:
+        async with app_client(uri, app=app_under_test(), now=NOW) as http:
             return await http.get(path, headers=dict(ADMIN_AUTH))
 
     return asyncio.run(_answered())

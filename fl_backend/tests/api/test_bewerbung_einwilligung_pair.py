@@ -5,18 +5,16 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from pydantic import TypeAdapter
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.public_router import post_einwilligung
-from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAnswerPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
 from tests import documents
+from tests.bewerbung_routes import answered
 from tests.database import a_clean_database
 from tests.documents import SEAT_TEXT_VERSIONS, kontaktperson_document, minted_confirmations
 from tests.worker import worker_database
@@ -96,17 +94,7 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
     if overrides.get("answer") == "declined":
         body = {"token": token, **overrides}
 
-    return await post_einwilligung(
-        answer_data=TypeAdapter(FLBewerbungEinwilligungAnswerPayload).validate_python(body),
-        bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        outbox_collection=database[Collection.OUTBOX],
-        db=client,
-        today=TODAY,
-        germany_now=NOW,
-    )
+    return await answered(database, client, body, today=TODAY, germany_now=NOW)
 
 
 async def stored(database: AsyncDatabase) -> Mapping[str, Any]:

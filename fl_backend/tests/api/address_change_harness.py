@@ -13,7 +13,6 @@ from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
-import pytest
 from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
@@ -36,7 +35,6 @@ from app.api.address_change.schemas import (
 from app.api.address_change.system_router import sweep_address_change
 from app.api.outbox.system_router import post_handout
 from app.core.collections import Collection
-from app.core.exceptions import APIError
 from app.shared.schemas.bounds import ADDRESS_CHANGE_WAITING_PERIOD_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
 from tests import documents
@@ -46,6 +44,7 @@ from tests.database import a_clean_database
 from tests.outbox import claimable
 from tests.records import record_collections
 from tests.session_headers import verified_actor
+from tests.stored import the_row
 
 SAISON_ID = "2026"
 # A century ahead of the real clock: the TTL monitor deletes an expired tombstone or day's count at its next pass,
@@ -401,22 +400,8 @@ def sweep(database: AsyncDatabase, client: AsyncMongoClient, *, after: Any = Non
     return call(sweep_address_change, database, client, params=FLAddressChangeSweepParams(after=after), **given)
 
 
-async def refused_code(call: Awaitable[Any]) -> str:
-    with pytest.raises(APIError) as refused:
-        await call
-
-    return refused.value.error_code
-
-
-async def row(database: AsyncDatabase, collection: Collection, row_id: ObjectId) -> Mapping[str, Any]:
-    found = await database[collection].find_one({"_id": row_id})
-    assert found is not None, f"the {collection} row this case seeded is gone"
-
-    return found
-
-
 async def change(database: AsyncDatabase, address_change_id: ObjectId) -> Mapping[str, Any]:
-    return await row(database, Collection.ADDRESS_CHANGES, address_change_id)
+    return await the_row(database, Collection.ADDRESS_CHANGES, address_change_id)
 
 
 async def owed(database: AsyncDatabase) -> list[dict[str, Any]]:
@@ -447,13 +432,13 @@ async def everything(database: AsyncDatabase) -> dict[str, Mapping[str, Any]]:
     """Every record the seed wrote for the person, by what it is."""
 
     return {
-        "pupil": await row(database, Collection.SPIELER, SPIELER_OID),
-        "referee": await row(database, Collection.SCHIEDSRICHTER, REFEREE_OID),
-        "unconfirmed referee": await row(database, Collection.SCHIEDSRICHTER, UNCONFIRMED_REFEREE_OID),
-        "season row": await row(database, Collection.SAISON_TEAMS, ROW_OID),
-        "confirmation": await row(database, Collection.SPIELBESTAETIGUNGEN, CONFIRMATION_OID),
-        "pending application": await row(database, Collection.BEWERBUNGEN, PENDING_OID),
-        "accepted application": await row(database, Collection.BEWERBUNGEN, ACCEPTED_OID),
-        "confirmed registration": await row(database, Collection.REGISTRIERUNGEN, CONFIRMED_REG_OID),
-        "unconfirmed registration": await row(database, Collection.REGISTRIERUNGEN, UNCONFIRMED_REG_OID),
+        "pupil": await the_row(database, Collection.SPIELER, SPIELER_OID),
+        "referee": await the_row(database, Collection.SCHIEDSRICHTER, REFEREE_OID),
+        "unconfirmed referee": await the_row(database, Collection.SCHIEDSRICHTER, UNCONFIRMED_REFEREE_OID),
+        "season row": await the_row(database, Collection.SAISON_TEAMS, ROW_OID),
+        "confirmation": await the_row(database, Collection.SPIELBESTAETIGUNGEN, CONFIRMATION_OID),
+        "pending application": await the_row(database, Collection.BEWERBUNGEN, PENDING_OID),
+        "accepted application": await the_row(database, Collection.BEWERBUNGEN, ACCEPTED_OID),
+        "confirmed registration": await the_row(database, Collection.REGISTRIERUNGEN, CONFIRMED_REG_OID),
+        "unconfirmed registration": await the_row(database, Collection.REGISTRIERUNGEN, UNCONFIRMED_REG_OID),
     }

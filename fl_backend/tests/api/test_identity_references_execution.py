@@ -5,34 +5,29 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.main import create_app
-from tests.app_client import app_client
+from tests.app_client import app_client, app_under_test
 from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database
 from tests.documents import (
-    SCHIEDSRICHTER_TEXT_VERSIONS,
-    SPIELER_TEXT_VERSIONS,
     ban_document,
     bewerbung_document,
+    confirmed_referee_document,
     kontakte_document,
     kontaktperson_document,
     new_schule_document,
-    own_einwilligung_document,
-    registrierung_document,
+    pupils_registrierung_document,
     saison_document,
     saison_team_document,
-    schiedsrichter_document,
     spieler_document,
 )
 from tests.worker import worker_database
 
-from .conftest import AUSTRITT, config_for
+from .conftest import AUSTRITT
 
 DATABASE_NAME = worker_database("fl_identity_references_test")
 
@@ -102,43 +97,6 @@ def _row(team_id: ObjectId, saison_id: str, shorthand: str, **fields: Any) -> di
     return saison_team_document(saison_id, team_id, f"Schule {shorthand}", shorthand, **fields)
 
 
-def _referee(oid: Any, email: str, name: str, **fields: Any) -> dict[str, Any]:
-    return schiedsrichter_document(
-        oid,
-        email=email,
-        name=name,
-        default_payment=20,
-        **{"einwilligung": own_einwilligung_document(text_versions=SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at=STAMP), **fields},
-    )
-
-
-def _registrierung(email: str, *, confirmed: bool) -> dict[str, Any]:
-    return registrierung_document(
-        ObjectId(),
-        email,
-        saison_id=ACTIVE_SAISON,
-        team_id=TEAM_OIDS[0],
-        first_name="Rita",
-        last_name="Registriert",
-        token=email,
-        submitted_at="2026-01-02",
-        deadline="2026-01-09",
-        position="Mittelfeld",
-        nummer="17",
-        stufe="Q1",
-        confirmed=None
-        if not confirmed
-        else {
-            "birth_date": "2009-05-04",
-            "scope": "internal",
-            "media": False,
-            "text_versions": SPIELER_TEXT_VERSIONS,
-            "today": "2026-01-03",
-            "at": "2026-01-03T08:00:00+00:00",
-        },
-    )
-
-
 async def _seed(database: AsyncDatabase) -> None:
     await database[Collection.SAISONS].insert_many([saison_document(PAST_SAISON, "past"), saison_document(ACTIVE_SAISON, "active")])
     await database[Collection.SAISON_TEAMS].insert_many(
@@ -167,12 +125,17 @@ async def _seed(database: AsyncDatabase) -> None:
     await database[Collection.SPIELER].insert_one(spieler_document(ObjectId(), "Anna", "Anders", email=SPIELER))
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [
-            _referee(ObjectId(), SCHIEDSRICHTER_RETIRED, "B. Ruhestand", inactive_since="2026-03-01"),
-            _referee(ObjectId(), BARRED_SCHIEDSRICHTER, "G. Pfeife"),
+            confirmed_referee_document(ObjectId(), SCHIEDSRICHTER_RETIRED, "B. Ruhestand", confirmed_at=STAMP, inactive_since="2026-03-01"),
+            confirmed_referee_document(ObjectId(), BARRED_SCHIEDSRICHTER, "G. Pfeife", confirmed_at=STAMP),
         ]
     )
     await database[Collection.REGISTRIERUNGEN].insert_many(
-        [_registrierung(REGISTERED, confirmed=True), _registrierung(REGISTERED_OPEN, confirmed=False)]
+        [
+            pupils_registrierung_document(
+                ObjectId(), address, saison_id=ACTIVE_SAISON, team_id=TEAM_OIDS[0], token=address, confirmed=confirmed
+            )
+            for address, confirmed in ((REGISTERED, True), (REGISTERED_OPEN, False))
+        ]
     )
     await database[Collection.BAN_LIST].insert_many(
         [ban_document(BARRED_SCHIEDSRICHTER, until=ACTIVE_SAISON), ban_document(BARRED, until=ACTIVE_SAISON)]
@@ -186,13 +149,8 @@ async def _seed(database: AsyncDatabase) -> None:
     )
 
 
-@functools.cache
-def _served() -> FastAPI:
-    return create_app(config_for(DATABASE_NAME))
-
-
 async def _ask(url: str, identifiers: list[str]) -> tuple[int, Mapping[str, Any]]:
-    async with app_client(url, app=_served()) as http:
+    async with app_client(url, app=app_under_test(DATABASE_NAME)) as http:
         response = await http.post(PATH, headers=SYSTEM_AUTH, json={"identifiers": identifiers})
 
     return response.status_code, response.json()

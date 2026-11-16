@@ -5,7 +5,6 @@ A restore rolls the record back with the log, so this line is what says the pers
 (`docs/ops/runbooks.md`). A site losing its line goes unnoticed until a restore brings the withdrawn consent back.
 """
 
-import functools
 import logging
 from collections.abc import Awaitable, Callable
 from datetime import datetime
@@ -14,7 +13,6 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from httpx2 import AsyncClient
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -22,10 +20,10 @@ from app.api.schiedsrichter.services import compose_confirmation, confirmation_d
 from app.api.teams.services import compose_kontakt_confirmation
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.main import create_app
 from app.shared.einwilligung_evidence import TextVersions, evidence_state_of
 from app.shared.tokens import hash_token
-from tests.app_client import app_client
+from tests.acts import journal_records
+from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_KEY, BASE_AUTH
 from tests.database import a_clean_database
 from tests.documents import (
@@ -46,9 +44,6 @@ from tests.documents import (
 )
 from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
-
-from .conftest import config_for
-from .test_identity_erasure_execution import journal_records
 
 pytestmark = pytest.mark.db
 
@@ -195,18 +190,6 @@ async def seeded(database: AsyncDatabase) -> None:
     )
 
 
-@functools.cache
-def _app() -> FastAPI:
-    return create_app(config_for(DATABASE_NAME))
-
-
-@pytest.fixture(scope="module", autouse=True)
-def _built_before_any_case() -> None:
-    """Built before `caplog` attaches: the build's logging setup takes every handler off the root, the capture's among them."""
-
-    _app()
-
-
 def as_person(email: str) -> StampedHeaders:
     return StampedHeaders(email, ADMIN_KEY, lane="person")
 
@@ -315,7 +298,7 @@ async def test_each_press_writes_one_line_naming_its_record_and_no_address(
 
     async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True) as (_client, database):
         await seeded(database)
-        async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
+        async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
             with caplog.at_level(logging.INFO):
                 status = (await act(http, database)).status_code
     [record] = journal_records(caplog)

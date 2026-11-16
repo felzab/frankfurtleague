@@ -21,11 +21,10 @@ from app.api.grants.erasure import erase_grants_in_session
 from app.api.grants.services import compose_notice
 from app.api.identity.crud import erase_the_mails_in_session
 from app.api.outbox.schemas import FLGrantData
-from app.api.outbox.services import DELIVERY_DEADLINE, RETENTION
 from app.core.collections import Collection
 from app.readback import RECORD_MODELS
 from tests.database import a_clean_database
-from tests.documents import saison_document
+from tests.documents import outbox_document, saison_document
 from tests.whole_database import where_held
 from tests.worker import worker_database
 
@@ -88,28 +87,12 @@ def grant_row(grant_id: ObjectId, address: str, admin_tier: str) -> dict[str, An
 
 
 def notice(row_id: ObjectId, grant_id: ObjectId, change: Any, address: str | None) -> dict[str, Any]:
-    composed = compose_notice(grant_id=grant_id, change=change, stage="started", address=address)
+    """Dora's copy of a notice about `grant_id`, keyed by her own grant row, as the enqueue keys each recipient's."""
 
-    # Owed to Dora, as `app/api/outbox/services.py :: enqueue_mails` stores a row: her copy of the notice.
-    return {
-        "_id": row_id,
-        "key": f"grant/{grant_id}/{change}/started/{QUEUED.isoformat()}/{DORA_ID}",
-        "kind": "grant",
-        "to": DORA,
-        "data": FLGrantData.model_validate(composed.data).model_dump(mode="json"),
-        "secret": None,
-        "reference": None,
-        "link": None,
-        "state": "open",
-        "recorded_at": QUEUED,
-        "deadline": QUEUED + DELIVERY_DEADLINE,
-        "erase_at": QUEUED + DELIVERY_DEADLINE + RETENTION,
-        "lease": None,
-        "leased_until": None,
-        "attempts": 0,
-        "message_id": None,
-        "delivery": None,
-    }
+    composed = compose_notice(grant_id=grant_id, change=change, stage="started", address=address)
+    key = f"grant/{grant_id}/{change}/started/{QUEUED.isoformat()}/{DORA_ID}"
+
+    return outbox_document(key, to=DORA, now=QUEUED, data=FLGrantData.model_validate(composed.data), _id=row_id)
 
 
 async def a_league_she_administered(database: AsyncDatabase) -> None:

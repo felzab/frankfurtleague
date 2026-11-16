@@ -9,29 +9,26 @@ every collection compared before and after the request, rather than the fields a
 """
 
 import asyncio
-import functools
 from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from httpx2 import Response
 from pymongo import MongoClient
 
 from app.api.spiele.schemas import FLPatchSpielDataPayload
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.main import create_app
 from tests import documents
-from tests.app_client import app_client
+from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_AUTH, grants_for_the_suite
 from tests.database import a_clean_database_sync
 from tests.payloads import spiel_patch_body
 from tests.worker import worker_database
 
-from .conftest import config_for, unwritten
+from .conftest import unwritten
 
 pytestmark = pytest.mark.db
 
@@ -94,13 +91,6 @@ def bracket() -> list[dict[str, Any]]:
     )
 
     return [viertelfinale, halbfinale]
-
-
-@functools.cache
-def _served() -> FastAPI:
-    """Built on first use rather than at import, which every xdist worker pays at collection."""
-
-    return create_app(config_for(DATABASE_NAME))
 
 
 @pytest.fixture
@@ -168,7 +158,7 @@ def previewed(url: str, body: dict[str, Any]) -> Response:
     """
 
     async def _answered() -> Response:
-        async with app_client(url, app=_served(), now=NOW) as http:
+        async with app_client(url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
             return await http.patch(
                 f"/api/v{API_VERSION}/spiele/{VIERTELFINALE}",
                 params={"dry_run": "true", "adopts_bericht": BERICHT_VERSION},

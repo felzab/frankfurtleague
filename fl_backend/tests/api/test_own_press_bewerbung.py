@@ -11,18 +11,17 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
-from pydantic import TypeAdapter
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.admin_router import accept_bewerbung
 from app.api.bewerbungen.person_router import patch_einwilligung
-from app.api.bewerbungen.public_router import post_einwilligung
-from app.api.bewerbungen.schemas import FLAcceptBewerbungPayload, FLBewerbungEinwilligungAnswerPayload
+from app.api.bewerbungen.schemas import FLAcceptBewerbungPayload
 from app.core.collections import Collection
 from app.shared.einwilligung_evidence import evidence_state_of
 from app.shared.schemas.einwilligung import FLSeatEinwilligungPayload
 from tests import documents
+from tests.bewerbung_routes import answered
 from tests.database import a_clean_database
 from tests.outbox import MAIL_NOW
 from tests.worker import worker_database
@@ -80,23 +79,17 @@ async def withdraw_media(database: AsyncDatabase, client: AsyncMongoClient) -> N
 async def confirm_the_last_seat(database: AsyncDatabase, client: AsyncMongoClient) -> None:
     """The Ansprechperson's own confirmation through the link their seat was mailed, `bewerbung_document`'s token."""
 
-    await post_einwilligung(
-        answer_data=TypeAdapter(FLBewerbungEinwilligungAnswerPayload).validate_python(
-            {
-                "answer": "given",
-                "token": f"{BEWERBUNG_OID}-ansprechperson",
-                "birth_date": "1984-05-09",
-                "whatsapp": False,
-                "media": False,
-                "text_versions": dict(documents.SEAT_TEXT_VERSIONS),
-            }
-        ),
-        bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        outbox_collection=database[Collection.OUTBOX],
-        db=client,
+    await answered(
+        database,
+        client,
+        {
+            "answer": "given",
+            "token": f"{BEWERBUNG_OID}-ansprechperson",
+            "birth_date": "1984-05-09",
+            "whatsapp": False,
+            "media": False,
+            "text_versions": dict(documents.SEAT_TEXT_VERSIONS),
+        },
         today=TODAY,
         germany_now=MAIL_NOW,
     )

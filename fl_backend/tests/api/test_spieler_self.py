@@ -1,4 +1,3 @@
-import functools
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
@@ -6,20 +5,17 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from httpx2 import AsyncClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.spieler.admin_router import get_spieler_saison, patch_spieler_saison
+from app.api.spieler.admin_router import get_spieler_saison
 from app.api.spieler.schemas import FLPatchSpielerSaisonPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.recording import actor_var
-from app.main import create_app
 from app.shared.einwilligung_evidence import EVIDENCE, evidence_state_of
-from tests.app_client import app_client
-from tests.config import ADMIN_KEY
+from tests.app_client import app_client, app_under_test
+from tests.config import ADMIN_KEY, grants_for_the_suite
 from tests.database import a_clean_database
 from tests.documents import (
     SPIELER_TEXT_VERSIONS,
@@ -35,11 +31,7 @@ from tests.documents import (
 from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
 
-from .conftest import config_for
-
 DATABASE_NAME = worker_database("fl_spieler_self_test")
-
-CONFIG = config_for(DATABASE_NAME)
 
 PATCH_PATH = f"/api/v{API_VERSION}/spieler/account/einwilligung"
 # The account page's read, which serves the consent and the evidence a press echoes.
@@ -171,26 +163,12 @@ async def _seed(database: AsyncDatabase) -> None:
     )
 
 
-@functools.cache
-def _app() -> FastAPI:
-    """Built once for the module: a build per case would be about half of what a case here costs."""
-
-    return create_app(CONFIG)
-
-
-@pytest.fixture(scope="module", autouse=True)
-def _built_before_any_case() -> None:
-    """Never inside a case: a build re-runs the logging `dictConfig`, which strips the handler `caplog` reads that case's records from."""
-
-    _app()
-
-
 async def served[T](url: str, steps: Callable[[AsyncClient, AsyncDatabase], Awaitable[T]]) -> T:
     """`steps` against a freshly seeded database, served on the clock `NOW` reads."""
 
     async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_client, database):
         await _seed(database)
-        async with app_client(url, app=_app(), now=NOW) as http:
+        async with app_client(url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
             return await steps(http, database)
 
 
@@ -352,34 +330,27 @@ class TestAnEditorReadBeforeThePress:
                 saisons_collection=database[Collection.SAISONS],
             )
             pressed = await http.patch(PATCH_PATH, json=_payload(scope="internal"), headers=_person(IDENTIFIER))
-            # The administrator `bind_actor` would bind, since the editor's save is called here rather than served.
-            token = actor_var.set(EDITOR)
-            try:
-                await patch_spieler_saison(
-                    spieler_id=PUPIL_OID,
-                    saison_id=ACTIVE_SAISON,
-                    spieler_data=FLPatchSpielerSaisonPayload(
-                        first_name="Ortrun",
-                        last_name="Zwiebelmayer",
-                        birth_date=ADULT_BIRTHDATE,
-                        nummer="07",
-                        position=None,
-                        stufe=None,
-                        rolle="kapitaen",
-                        version=read.version,
-                    ),
-                    spieler_collection=database[Collection.SPIELER],
-                    saison_spieler_collection=database[Collection.SAISON_SPIELER],
-                    saisons_collection=database[Collection.SAISONS],
-                    db=database.client,
-                )
-            finally:
-                actor_var.reset(token)
-            return pressed, await database[Collection.SPIELER].find_one({"_id": PUPIL_OID})
+            # The editor's save as its page sends it, by an administrator the suite's grants hold, on the read's version.
+            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
+            saved = await http.patch(
+                f"/api/v{API_VERSION}/spieler/{PUPIL_OID}/saisons/{ACTIVE_SAISON}/admin",
+                json=FLPatchSpielerSaisonPayload(
+                    first_name="Ortrun",
+                    last_name="Zwiebelmayer",
+                    birth_date=ADULT_BIRTHDATE,
+                    nummer="07",
+                    position=None,
+                    stufe=None,
+                    rolle="kapitaen",
+                    version=read.version,
+                ).model_dump(mode="json"),
+                headers=StampedHeaders(EDITOR, ADMIN_KEY),
+            )
+            return pressed, saved, await database[Collection.SPIELER].find_one({"_id": PUPIL_OID})
 
-        pressed, stored = await served(mongo_replica_set_url, steps)
+        pressed, saved, stored = await served(mongo_replica_set_url, steps)
 
-        assert pressed.status_code == 204, pressed.text
+        assert (pressed.status_code, saved.status_code) == (204, 200), (pressed.text, saved.text)
         assert (stored["first_name"], stored["einwilligung"]["scope"]) == ("Ortrun", "internal")
 
 

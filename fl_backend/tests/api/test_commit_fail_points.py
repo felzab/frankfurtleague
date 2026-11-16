@@ -10,16 +10,15 @@ workers, so a second module configuring it on another worker would replace this 
 `off` would clear both. The gate's `--dist loadfile` runs one module on one worker, its cases one after another.
 """
 
-import functools
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
+from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from httpx2 import AsyncClient
 from pymongo import AsyncMongoClient, monitoring
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -33,32 +32,63 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.recording import ACT_BY_KONTAKT, record_act
 from app.core.transactions import UNKNOWN_COMMIT_RESULT
-from app.main import create_app
 from app.shared.einwilligung_evidence import evidence_state_of
-from tests.app_client import app_client
-from tests.config import ADMIN_KEY
+from tests import spiel_saves
+from tests import spielbestaetigung_corpus as confirmations
+from tests.acts import journal_records
+from tests.app_client import app_client, app_under_test
+from tests.config import ADMIN_KEY, ADMINISTRATORS, grants_for_the_suite
 from tests.database import a_clean_database
 from tests.documents import SPIELER_TEXT_VERSIONS, own_einwilligung_document, saison_document, spieler_document
+from tests.erasure import erased_on_request
+from tests.erasure_corpus import (
+    IDENTIFIER,
+    THEIR_GRANT_OID,
+    THEIR_REPORT_OID,
+    TYPED,
+    a_grant,
+    a_person_holding_everything,
+    action_log_row,
+)
+from tests.erasure_corpus import NOW as ERASURE_NOW
+from tests.erasure_corpus import PUPIL_OID as THEIR_PUPIL_OID
+from tests.erasure_corpus import erased_by_the_handler as erased_by_the_person
+from tests.erasure_sweep_corpus import a_due_pupil, a_report_naming, seeded
+from tests.erasure_sweep_corpus import numbered as pupil_numbered
+from tests.erasure_sweep_corpus import run as a_deletion_call
+from tests.erasure_sweep_corpus import the_league as the_pupils_league
 from tests.records import record_collections
 from tests.session_headers import StampedHeaders
+from tests.subject_corpus import IDENTIFIER as SUBJECTS_SEAT_HOLDER
+from tests.subject_corpus import the_subjects_corpus
 from tests.whole_database import where_held
 from tests.worker import worker_database
 
-from . import test_spielbestaetigung_sweep_execution as confirmations
-from . import test_spiele_write_execution as spiel_saves
-from .conftest import config_for
-from .test_identity_erasure_execution import IDENTIFIER, THEIR_GRANT_OID, THEIR_REPORT_OID, a_grant, action_log_row, journal_records
-from .test_identity_erasure_execution import PUPIL_OID as THEIR_PUPIL_OID
-from .test_identity_erasure_execution import erased_by_the_handler as erased_by_the_person
-from .test_identity_erasure_execution import on_a_league as on_their_league
-from .test_identity_erasure_on_request import erased_by_the_handler as erased_on_request
-from .test_identity_erasure_on_request import on_a_league as on_the_administrators_league
-from .test_identity_erasure_sweep import a_due_pupil, a_report_naming, seeded
-from .test_identity_erasure_sweep import numbered as pupil_numbered
-from .test_identity_erasure_sweep import on_a_league as on_the_pupils_league
-from .test_identity_erasure_sweep import run as a_deletion_call
-from .test_identity_subject_execution import IDENTIFIER as SUBJECTS_SEAT_HOLDER
-from .test_identity_subject_execution import on_a_league as on_the_subjects_league
+# The one database every case here seeds, whichever suite's records it borrows.
+PRESS_DATABASE = worker_database("fl_commit_fail_points_test")
+
+# The administrator who enters an erasure on a mailed request, one the suite's grants hold.
+OPERATOR = ADMINISTRATORS[1]
+REQUEST_REASON = "Mail vom 30.03.2126, Betreff: Bitte löscht alle meine Daten"
+
+Seed = Callable[[AsyncDatabase], Awaitable[None]]
+
+
+async def on_a_league(url: str, seed: Seed, body: Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]) -> Any:
+    """`body` on this suite's database, on the shipped indexes, once `seed` has run."""
+
+    async with a_clean_database(url, PRESS_DATABASE, constraints=True) as (client, database):
+        await seed(database)
+
+        return await body(database, client)
+
+
+async def the_administrators_league(database: AsyncDatabase) -> None:
+    """The person holding everything, beside the suite's grants an administrator presses through."""
+
+    await database[Collection.GRANTS].insert_many(grants_for_the_suite())
+    await a_person_holding_everything(database)
+
 
 # The client a configuration hits, chosen by its name: the commits of every other client, each seed's own among them,
 # run as they would.
@@ -76,12 +106,57 @@ UNANSWERED: dict[str, Any] = {
     "writeConcernError": {"code": MAX_TIME_EXPIRED, "errmsg": "operation exceeded time limit"},
 }
 
+# The server's code for a transaction it does not hold, sent without the transient label the server adds, so nothing reruns it.
+NO_SUCH_TRANSACTION = 251
+# A commit refused as a write conflict under the transient label, so the driver reruns the transaction.
+REFUSED_TRANSIENTLY: dict[str, Any] = {
+    "failCommands": ["commitTransaction"],
+    "appName": REFUSED_COMMIT_APP,
+    "errorCode": WRITE_CONFLICT,
+    "errorLabels": ["TransientTransactionError"],
+}
+# A commit refused without it, so nothing reruns the transaction and what a case reads after it is the rollback's.
+REFUSED_FOR_GOOD: dict[str, Any] = {
+    "failCommands": ["commitTransaction"],
+    "appName": REFUSED_COMMIT_APP,
+    "errorCode": NO_SUCH_TRANSACTION,
+    "errorLabels": [],
+}
+
 FAIL_POINT = "failCommand"
 # The client whose reads the server holds, every other client's running as it would.
 HELD_READS_APP = "subject-held-reads"
 # Far longer than opening a connection for each gathered read takes, so every read gathered beside the first is sent
 # before the first is answered, and a read awaited before the next is sent shows as an answer ahead of that send.
 HELD_FOR_MS = 200
+
+
+@asynccontextmanager
+async def fail_point(server: AsyncMongoClient, data: Mapping[str, Any], *, mode: Any) -> AsyncIterator[None]:
+    """`failCommand` configured with `data` under `mode`, and switched off as the block ends, however it ends.
+
+    Left on, the point outlives its case and fails the next one this server runs.
+    """
+
+    await server.admin.command("configureFailPoint", FAIL_POINT, mode=mode, data=data)
+    try:
+        yield
+    finally:
+        await server.admin.command("configureFailPoint", FAIL_POINT, mode="off")
+
+
+@asynccontextmanager
+async def failing_client(
+    server: AsyncMongoClient, url: str, data: Mapping[str, Any], *, mode: Any, listener: monitoring.CommandListener | None = None
+) -> AsyncIterator[AsyncMongoClient]:
+    """A client of its own the point reaches by `data`'s `appName`, `listener` hearing its commands, closed after the point is off."""
+
+    client = AsyncMongoClient(url, serverMonitoringMode="poll", appname=data["appName"], event_listeners=[] if listener is None else [listener])
+    try:
+        async with fail_point(server, data, mode=mode):
+            yield client
+    finally:
+        await client.close()
 
 
 class _Commits(monitoring.CommandListener):
@@ -138,14 +213,9 @@ async def _first_reads(url: str, database: AsyncDatabase, call: Callable[[AsyncM
     """`call`'s answer over a client whose reads the server holds, and every read it sent before the first was answered."""
 
     reads = _InFlight()
-    held = AsyncMongoClient(url, serverMonitoringMode="poll", appname=HELD_READS_APP, event_listeners=[reads])
     holding = {"failCommands": ["find", "aggregate"], "appName": HELD_READS_APP, "blockConnection": True, "blockTimeMS": HELD_FOR_MS}
-    await database.client.admin.command("configureFailPoint", FAIL_POINT, mode="alwaysOn", data=holding)
-    try:
+    async with failing_client(database.client, url, holding, mode="alwaysOn", listener=reads) as held:
         answer = await call(held)
-    finally:
-        await database.client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
-        await held.close()
 
     return answer, reads.sent_before_the_first_answer()
 
@@ -165,7 +235,7 @@ class TestALookupInsideATransaction:
 
             return await _first_reads(mongo_replica_set_url, database, lookup)
 
-        answer, sent = await on_the_subjects_league(mongo_replica_set_url, body)
+        answer, sent = await on_a_league(mongo_replica_set_url, the_subjects_corpus, lambda database, _client: body(database))
 
         assert answer.seats, "the lookup found no seat, so a single read sent proves nothing of the others"
         assert len(sent) == 1, f"the lookup sent {sent} before the first answered"
@@ -178,19 +248,14 @@ class TestThePersonsOwnErasure:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             commits = _Commits()
-            losing = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=LOST_COMMIT_APP, event_listeners=[commits])
-            await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=UNANSWERED)
-            try:
+            async with failing_client(client, mongo_replica_set_url, UNANSWERED, mode={"times": 1}, listener=commits) as losing:
                 with pytest.raises(PyMongoError) as lost:
                     await erased_by_the_person(losing[database.name], losing)
-            finally:
-                await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
-                await losing.close()
 
             return commits.answered, lost.value.has_error_label(UNKNOWN_COMMIT_RESULT), await where_held(database, IDENTIFIER)
 
         with caplog.at_level(logging.INFO):
-            commits, labelled, after = await on_their_league(mongo_replica_set_url, body)
+            commits, labelled, after = await on_a_league(mongo_replica_set_url, a_person_holding_everything, body)
 
         # The premise first, so a failure names its cause: one commit ran, its answer was lost, and the erasure landed.
         assert (commits, labelled, after) == ([MAX_TIME_EXPIRED], True, {IDENTIFIER: []})
@@ -205,27 +270,14 @@ class TestThePersonsOwnErasure:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             commits = _Commits()
-            refusing = AsyncMongoClient(
-                mongo_replica_set_url, serverMonitoringMode="poll", appname=REFUSED_COMMIT_APP, event_listeners=[commits]
-            )
-            refusal = {
-                "failCommands": ["commitTransaction"],
-                "appName": REFUSED_COMMIT_APP,
-                "errorCode": WRITE_CONFLICT,
-                "errorLabels": ["TransientTransactionError"],
-            }
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
-            await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=refusal)
-            try:
+            async with failing_client(client, mongo_replica_set_url, REFUSED_TRANSIENTLY, mode={"times": 1}, listener=commits) as refusing:
                 await erased_by_the_person(refusing[database.name], refusing)
-            finally:
-                await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
-                await refusing.close()
 
             return commits.answered, await database[Collection.GRANTS].count_documents({"_id": THEIR_GRANT_OID})
 
         with caplog.at_level(logging.INFO):
-            refused, left = await on_their_league(mongo_replica_set_url, body)
+            refused, left = await on_a_league(mongo_replica_set_url, a_person_holding_everything, body)
 
         assert len(journal_records(caplog)) == 1
         # The premise last: one commit refused, so the line counted above is the second attempt's alone.
@@ -243,15 +295,6 @@ class TestThePersonsOwnErasure:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             commits = _Commits()
-            refusing = AsyncMongoClient(
-                mongo_replica_set_url, serverMonitoringMode="poll", appname=REFUSED_COMMIT_APP, event_listeners=[commits]
-            )
-            refusal = {
-                "failCommands": ["commitTransaction"],
-                "appName": REFUSED_COMMIT_APP,
-                "errorCode": NO_SUCH_TRANSACTION,
-                "errorLabels": [],
-            }
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
             await database[Collection.SPIELBERICHTE].update_one(
                 {"_id": THEIR_REPORT_OID}, {"$set": {"bericht.scorers.0.spieler_id": THEIR_PUPIL_OID}}
@@ -259,18 +302,14 @@ class TestThePersonsOwnErasure:
             # An act of theirs as an administrator, which the erasure reattributes.
             await database[Collection.ACTION_LOG].insert_one(action_log_row(ObjectId(), by=IDENTIFIER))
             before = await _every_document(database)
-            await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=refusal)
-            try:
+            async with failing_client(client, mongo_replica_set_url, REFUSED_FOR_GOOD, mode={"times": 1}, listener=commits) as refusing:
                 with pytest.raises(PyMongoError):
                     await erased_by_the_person(refusing[database.name], refusing)
-            finally:
-                await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
-                await refusing.close()
 
             return commits.answered, before, await _every_document(database)
 
         with caplog.at_level(logging.INFO):
-            commits, before, after = await on_their_league(mongo_replica_set_url, body)
+            commits, before, after = await on_a_league(mongo_replica_set_url, a_person_holding_everything, body)
 
         # The premise first: one commit, refused, so what follows is the rollback's state.
         assert commits == [NO_SUCH_TRANSACTION]
@@ -293,26 +332,15 @@ class TestAnErasureOnRequest:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             commits = _Commits()
-            refusing = AsyncMongoClient(
-                mongo_replica_set_url, serverMonitoringMode="poll", appname=REFUSED_COMMIT_APP, event_listeners=[commits]
-            )
-            refusal = {
-                "failCommands": ["commitTransaction"],
-                "appName": REFUSED_COMMIT_APP,
-                "errorCode": WRITE_CONFLICT,
-                "errorLabels": ["TransientTransactionError"],
-            }
-            await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=refusal)
-            try:
-                await erased_on_request(refusing[database.name], refusing)
-            finally:
-                await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
-                await refusing.close()
+            async with failing_client(client, mongo_replica_set_url, REFUSED_TRANSIENTLY, mode={"times": 1}, listener=commits) as refusing:
+                await erased_on_request(
+                    refusing[database.name], refusing, email=TYPED, reason=REQUEST_REASON, by=OPERATOR, germany_now=ERASURE_NOW
+                )
 
             return commits.answered, await database[Collection.SPIELER].count_documents({"_id": THEIR_PUPIL_OID})
 
         with caplog.at_level(logging.INFO):
-            refused, left = await on_the_administrators_league(mongo_replica_set_url, body)
+            refused, left = await on_a_league(mongo_replica_set_url, the_administrators_league, body)
 
         assert len(journal_records(caplog)) == 1
         # The premise last: one commit refused, so the line above is the rerun's alone.
@@ -323,19 +351,16 @@ class TestAnErasureOnRequest:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             commits = _Commits()
-            losing = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=LOST_COMMIT_APP, event_listeners=[commits])
-            await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=UNANSWERED)
-            try:
+            async with failing_client(client, mongo_replica_set_url, UNANSWERED, mode={"times": 1}, listener=commits) as losing:
                 with pytest.raises(PyMongoError) as lost:
-                    await erased_on_request(losing[database.name], losing)
-            finally:
-                await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
-                await losing.close()
+                    await erased_on_request(
+                        losing[database.name], losing, email=TYPED, reason=REQUEST_REASON, by=OPERATOR, germany_now=ERASURE_NOW
+                    )
 
             return commits.answered, lost.value.has_error_label(UNKNOWN_COMMIT_RESULT), await where_held(database, IDENTIFIER)
 
         with caplog.at_level(logging.INFO):
-            commits, labelled, after = await on_the_administrators_league(mongo_replica_set_url, body)
+            commits, labelled, after = await on_a_league(mongo_replica_set_url, the_administrators_league, body)
 
         # The premise first, so a failure names its cause: one commit ran, its answer was lost, and the erasure landed.
         assert (commits, labelled, after) == ([MAX_TIME_EXPIRED], True, {IDENTIFIER: []})
@@ -347,14 +372,8 @@ CONSENT_PRESS = f"/api/v{API_VERSION}/spieler/account/einwilligung"
 PERSON = "ortrud.zwiebelmayer@schule.de"
 PUPIL_OID = ObjectId("6890a1b2c3d4e5f607870011")
 PRESS_NOW = datetime(2126, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
-PRESS_DATABASE = worker_database("fl_commit_fail_points_test")
 RECORDED_TEAM = "Lessing"
 THEIR_CONSENT = own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at="2126-09-02", media=True)
-
-
-@functools.cache
-def _app() -> FastAPI:
-    return create_app(config_for(PRESS_DATABASE))
 
 
 def _person(email: str) -> StampedHeaders:
@@ -371,7 +390,7 @@ async def served(url: str, steps: Callable[[AsyncClient, AsyncDatabase, AsyncMon
         await database[Collection.SPIELER].insert_one(
             spieler_document(PUPIL_OID, "Ortrud", "Zwiebelmayer", email=PERSON, birth_date="1990-05-09", einwilligung=THEIR_CONSENT)
         )
-        async with app_client(url, app=_app(), now=PRESS_NOW) as http:
+        async with app_client(url, app=app_under_test(PRESS_DATABASE), now=PRESS_NOW) as http:
             return await steps(http, database, client)
 
 
@@ -381,15 +400,7 @@ def _as_app(url: str, app_name: str) -> str:
     return f"{url}{'&' if '?' in url else '?'}appName={app_name}"
 
 
-@pytest.fixture(scope="class")
-def built_before_any_case() -> None:
-    """Built before `caplog` attaches: the build's logging setup takes every handler off the root, the capture's among them."""
-
-    _app()
-
-
 @pytest.mark.db
-@pytest.mark.usefixtures("built_before_any_case")
 class TestAPersonsOwnPress:
     """A pupil withdrawing on their own page, through the routes: the journal follows the press's commit."""
 
@@ -408,12 +419,9 @@ class TestAPersonsOwnPress:
 
         async def steps(http: AsyncClient, database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await chosen(database)
-            await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=UNANSWERED)
-            try:
+            async with fail_point(client, UNANSWERED, mode={"times": 1}):
                 with caplog.at_level(logging.INFO):
                     response = await http.patch(CONSENT_PRESS, json=_withdrawal(**withdrawn), headers=_person(PERSON))
-            finally:
-                await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
 
             return before, await chosen(database), response.status_code, response.json()
 
@@ -433,13 +441,6 @@ class TestARecordedActWhoseCommitIsRefused:
         """
 
         async with a_clean_database(mongo_replica_set_url, PRESS_DATABASE, constraints=True) as (client, database):
-            refusing = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=REFUSED_COMMIT_APP)
-            refusal = {
-                "failCommands": ["commitTransaction"],
-                "appName": REFUSED_COMMIT_APP,
-                "errorCode": WRITE_CONFLICT,
-                "errorLabels": ["TransientTransactionError"],
-            }
             attempts = 0
 
             async def act(session: AsyncClientSession) -> None:
@@ -450,13 +451,9 @@ class TestARecordedActWhoseCommitIsRefused:
                     collection=teams, action="spieler.changed", by=ACT_BY_KONTAKT, team=RECORDED_TEAM, record_id=PUPIL_OID, session=session
                 )
 
-            await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=refusal)
-            try:
+            async with failing_client(client, mongo_replica_set_url, REFUSED_TRANSIENTLY, mode={"times": 1}) as refusing:
                 async with refusing.start_session() as session:
                     await session.with_transaction(act)
-            finally:
-                await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
-                await refusing.close()
 
             attempts, rows = attempts, [row async for row in database[Collection.ACTION_LOG].find()]
 
@@ -481,22 +478,18 @@ class TestAConfirmationMintWhoseCommitAnswerIsLost:
             await confirmations.sweep(database, client)
             await database[Collection.SPIELE].update_one({"_id": confirmations.SPIEL}, {"$set": {"time": "19:00:00"}})
             commits = _Commits()
-            losing = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=LOST_COMMIT_APP, event_listeners=[commits])
             # The close's commit passes; the mint's, the next one this client sends, lands and loses its answer.
-            await client.admin.command("configureFailPoint", FAIL_POINT, mode={"skip": 1}, data=UNANSWERED)
-            try:
+            async with failing_client(client, mongo_replica_set_url, UNANSWERED, mode={"skip": 1}, listener=commits) as losing:
                 with pytest.raises(PyMongoError) as lost:
                     await confirmations.a_pass(losing[database.name], losing)
-            finally:
-                await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
-                await losing.close()
             standing = await confirmations.rows(database, closed=None)
             owed = await database[Collection.OUTBOX].find({"reference.id": {"$in": [row["_id"] for row in standing]}}, {"kind": 1}).to_list()
 
             return commits.answered, lost.value, standing, owed, await confirmations.a_pass(database, client)
 
-        commits, lost, standing, owed, nxt = await confirmations.on_a_league(
-            mongo_replica_set_url, body, spiele=[confirmations.a_spiel(confirmations.SPIEL, 1, confirmations.NEXT_WEEK)]
+        spiele = [confirmations.a_spiel(confirmations.SPIEL, 1, confirmations.NEXT_WEEK)]
+        commits, lost, standing, owed, nxt = await on_a_league(
+            mongo_replica_set_url, lambda database: confirmations.the_league(database, spiele=spiele), body
         )
 
         # The premise first: the close committed, and the mint's commit landed with its answer lost.
@@ -510,10 +503,6 @@ class TestAConfirmationMintWhoseCommitAnswerIsLost:
         ]
         assert sorted(mail["kind"] for mail in owed) == ["spiel_einteilung"] + ["spiel_request"] * 6
         assert (nxt.asked, nxt.mails) == (0, 0)
-
-
-# The server's code for a transaction it does not hold, sent without the transient label the server adds, so nothing reruns it.
-NO_SUCH_TRANSACTION = 251
 
 
 @pytest.mark.db
@@ -532,17 +521,7 @@ class TestASpielSaveRefusedAtItsCommit:
                 team2=spiel_saves.side(spiel_saves.BETA, 1),
             )
             commits = _Commits()
-            refusing = AsyncMongoClient(
-                mongo_replica_set_url, serverMonitoringMode="poll", appname=REFUSED_COMMIT_APP, event_listeners=[commits]
-            )
-            refusal = {
-                "failCommands": ["commitTransaction"],
-                "appName": REFUSED_COMMIT_APP,
-                "errorCode": NO_SUCH_TRANSACTION,
-                "errorLabels": [],
-            }
-            await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=refusal)
-            try:
+            async with failing_client(client, mongo_replica_set_url, REFUSED_FOR_GOOD, mode={"times": 1}, listener=commits) as refusing:
                 with pytest.raises(PyMongoError):
                     await spiel_saves.call_patch(
                         refusing[database.name],
@@ -551,13 +530,12 @@ class TestASpielSaveRefusedAtItsCommit:
                         spiel_data,
                         adopts_bericht=spiel_saves.SEEDED_VERSION,
                     )
-            finally:
-                await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
-                await refusing.close()
 
             return commits.answered, await spiel_saves.spiele_now(database), before, await spiel_saves.reports_now(database)
 
-        commits, spiele, before, after = await spiel_saves.on_a_seeded_season(mongo_replica_set_url, body, spiele=spiele)
+        commits, spiele, before, after = await on_a_league(
+            mongo_replica_set_url, lambda database: spiel_saves.the_season(database, spiele), body
+        )
 
         # The premise first: one commit, refused, and the fixture it carried not written.
         assert (commits, spiele[spiel_saves.VIERTELFINALE_NR]["ergebnis"]) == ([NO_SUCH_TRANSACTION], "1:3")
@@ -577,28 +555,15 @@ class TestAPupilsErasureRefusedAtItsCommit:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seeded(database, a_due_pupil(1), a_report_naming(1))
             commits = _Commits()
-            refusing = AsyncMongoClient(
-                mongo_replica_set_url, serverMonitoringMode="poll", appname=REFUSED_COMMIT_APP, event_listeners=[commits]
-            )
-            refusal = {
-                "failCommands": ["commitTransaction"],
-                "appName": REFUSED_COMMIT_APP,
-                "errorCode": NO_SUCH_TRANSACTION,
-                "errorLabels": [],
-            }
-            await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=refusal)
-            try:
+            async with failing_client(client, mongo_replica_set_url, REFUSED_FOR_GOOD, mode={"times": 1}, listener=commits) as refusing:
                 answer = await a_deletion_call(refusing[database.name], refusing)
-            finally:
-                await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
-                await refusing.close()
 
             report = await database[Collection.SPIELBERICHTE].find_one({}, {"bericht.scorers.spieler_id": 1})
             standing = await database[Collection.SPIELER].count_documents({"_id": pupil})
 
             return commits.answered, (answer.spieler, answer.failed), report, standing
 
-        commits, counted, report, standing = await on_the_pupils_league(mongo_replica_set_url, body)
+        commits, counted, report, standing = await on_a_league(mongo_replica_set_url, the_pupils_league, body)
 
         # The premise first: one commit, refused, and the erasure it carried counted as failed.
         assert (commits, counted) == ([NO_SUCH_TRANSACTION], (0, 1))
