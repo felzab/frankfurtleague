@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from collections.abc import Callable
 from datetime import datetime
 from typing import Any, NoReturn, cast
@@ -1129,18 +1128,16 @@ class TestTheResolutionNeverFieldsAClubTwice:
         assert refusal is not None
         assert refusal.error_code == Code.SPIELTAG_OCCUPIED_BY_THE_RESOLUTION
 
-    def test_the_save_refuses_a_resolution_that_would_field_a_club_twice(self, a_decided_gruppe_seating_its_winner_twice, gruppe_a):
+    async def test_the_save_refuses_a_resolution_that_would_field_a_club_twice(self, a_decided_gruppe_seating_its_winner_twice, gruppe_a):
         """Driven through the write path, because a refusal computed and discarded reads the same at the call site as one raised."""
 
         with pytest.raises(APIError) as refused:
-            asyncio.run(
-                advance_bracket_winners(
-                    spiele_collection=cast(AsyncCollection, _SaisonCollection(a_decided_gruppe_seating_its_winner_twice)),
-                    teams_collection=cast(AsyncCollection, _TeamPipelineCollection(gruppe_a)),
-                    saison_id=SAISON_ID,
-                    rules=RULES,
-                    session=cast(AsyncClientSession, object()),
-                )
+            await advance_bracket_winners(
+                spiele_collection=cast(AsyncCollection, _SaisonCollection(a_decided_gruppe_seating_its_winner_twice)),
+                teams_collection=cast(AsyncCollection, _TeamPipelineCollection(gruppe_a)),
+                saison_id=SAISON_ID,
+                rules=RULES,
+                session=cast(AsyncClientSession, object()),
             )
 
         assert refused.value.error_code == Code.SPIELTAG_OCCUPIED_BY_THE_RESOLUTION

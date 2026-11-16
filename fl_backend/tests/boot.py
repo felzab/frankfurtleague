@@ -151,19 +151,16 @@ async def _to_its_exit(directory: Path, files: Mapping[str, str], variables: Map
 Booting = tuple[Path, Mapping[str, str], Mapping[str, str]]
 
 
-def booted(boots: Mapping[str, Booting]) -> dict[str, Boot]:
+async def booted(boots: Mapping[str, Booting]) -> dict[str, Boot]:
     """Each boot, from its directory with its secrets and its variables, run to its exit, all at once.
 
     At once, since most of a boot is a wait: an import, or the driver's server selection.
     """
 
-    async def every() -> dict[str, Boot]:
-        names = list(boots)
-        ended = await asyncio.gather(*(_to_its_exit(*boots[name]) for name in names))
+    names = list(boots)
+    ended = await asyncio.gather(*(_to_its_exit(*boots[name]) for name in names))
 
-        return dict(zip(names, ended, strict=True))
-
-    return asyncio.run(every())
+    return dict(zip(names, ended, strict=True))
 
 
 @asynccontextmanager

@@ -7,7 +7,6 @@ starts: here a request clearing every session check meets the missing database a
 those reads.
 """
 
-import asyncio
 import contextlib
 from collections.abc import AsyncIterator, Mapping
 from typing import Any, cast
@@ -117,10 +116,10 @@ def an_administrator_bound() -> None:
     """Overrides the suite's own: these cases read what a binder binds and what it leaves behind, so nothing is bound ahead of it."""
 
 
-def test_the_administrator_is_bound_folded_for_the_request_alone():
+async def test_the_administrator_is_bound_folded_for_the_request_alone():
     """Folded, so one administrator is one spelling in `action_log`; reset, or the address lands on the loop's next request."""
 
-    during, after = asyncio.run(through(bind_actor(verified_actor(ACTOR.upper()))))
+    during, after = await through(bind_actor(verified_actor(ACTOR.upper())))
 
     assert (during, after) == (ACTOR, None)
 
@@ -136,13 +135,13 @@ class _LogDouble:
         self.rows.append(document)
 
 
-def test_an_act_on_a_route_binding_no_administrator_names_who_acted_or_fails():
+async def test_an_act_on_a_route_binding_no_administrator_names_who_acted_or_fails():
     """What a request served over the wire meets on a route that forgot its `by`; a direct call runs with the suite's administrator bound."""
 
     log = _LogDouble()
 
     with pytest.raises(LookupError):
-        asyncio.run(record_act(collection=cast(AsyncCollection, log), action="team.retired", session=cast(AsyncClientSession, None)))
+        await record_act(collection=cast(AsyncCollection, log), action="team.retired", session=cast(AsyncClientSession, None))
     with pytest.raises(LookupError):
         get_actor_email()
 

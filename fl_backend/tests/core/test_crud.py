@@ -1,4 +1,3 @@
-import asyncio
 import re
 from collections.abc import Mapping
 from typing import Any, cast
@@ -86,16 +85,14 @@ class TestPostManyToDb:
     @pytest.mark.parametrize(
         "session", [pytest.param(None, id="no session"), pytest.param(BARE_SESSION, id="a session holding no transaction")]
     )
-    def test_rows_that_stand_keep_the_batchs_own_failure(self, session: AsyncClientSession | None):
+    async def test_rows_that_stand_keep_the_batchs_own_failure(self, session: AsyncClientSession | None):
         """Outside a transaction nothing takes the first two back: a 409 would say nothing was written while they stand."""
 
         failure = refused_batch(DUPLICATE_ERROR, landed=2)
 
         with pytest.raises(BulkWriteError) as raised:
-            asyncio.run(
-                post_many_to_db(
-                    collection=cast(AsyncCollection, _RefusedBatchCollection(failure)), documents=[{"name": "Club 0"}], session=session
-                )
+            await post_many_to_db(
+                collection=cast(AsyncCollection, _RefusedBatchCollection(failure)), documents=[{"name": "Club 0"}], session=session
             )
 
         assert raised.value is failure
@@ -119,16 +116,16 @@ class _Rows:
         return self.documents
 
 
-def pulled_whole(count: int) -> list[Mapping[str, Any]]:
-    return asyncio.run(pull_whole_from_db(collection=cast(ReadCollection, _Rows(count)), db_filter={}, what="season 2026's fixtures"))
+async def pulled_whole(count: int) -> list[Mapping[str, Any]]:
+    return await pull_whole_from_db(collection=cast(ReadCollection, _Rows(count)), db_filter={}, what="season 2026's fixtures")
 
 
 class TestPullWholeFromDb:
     """A judgement over a whole set writes back what it derived, so a set it could not read whole is a wrong result committed."""
 
-    def test_a_set_past_the_cap_is_refused(self):
+    async def test_a_set_past_the_cap_is_refused(self):
         with pytest.raises(ValueError, match=f"season 2026's fixtures number more than {LIST_LIMIT_DEFAULT}"):
-            pulled_whole(LIST_LIMIT_DEFAULT + 1)
+            await pulled_whole(LIST_LIMIT_DEFAULT + 1)
 
-    def test_a_set_filling_the_cap_is_read_whole(self):
-        assert len(pulled_whole(LIST_LIMIT_DEFAULT)) == LIST_LIMIT_DEFAULT
+    async def test_a_set_filling_the_cap_is_read_whole(self):
+        assert len(await pulled_whole(LIST_LIMIT_DEFAULT)) == LIST_LIMIT_DEFAULT

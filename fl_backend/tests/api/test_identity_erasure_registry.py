@@ -5,7 +5,6 @@ Collections standing in for the reads each decision makes: the aggregates `app/a
 sends.
 """
 
-import asyncio
 from dataclasses import fields
 from datetime import UTC, datetime
 from typing import Any, cast
@@ -61,7 +60,7 @@ UNREAD_IN_THE_PUPIL_SCOPE = sorted(
 
 
 @pytest.mark.parametrize("kind", UNREAD_IN_THE_PUPIL_SCOPE)
-def test_the_pupil_scope_reads_no_other_kind_and_a_step_reading_one_raises(kind: str):
+async def test_the_pupil_scope_reads_no_other_kind_and_a_step_reading_one_raises(kind: str):
     """Catches a kind read for no step, and a kind left unread answered as an empty list, on which a step erases nothing."""
 
     collections = {
@@ -69,13 +68,11 @@ def test_the_pupil_scope_reads_no_other_kind_and_a_step_reading_one_raises(kind:
         for name in ("saison_teams", "bewerbungen", "schiedsrichter", "spieler", "registrierungen", "address_changes", "grants")
     }
 
-    subject = asyncio.run(
-        resolve_subject(
-            IDENTIFIER,
-            **{f"{name}_collection": cast(AsyncCollection, collection) for name, collection in collections.items()},
-            session=cast(AsyncClientSession, None),
-            scope=frozenset({"spieler"}),
-        )
+    subject = await resolve_subject(
+        IDENTIFIER,
+        **{f"{name}_collection": cast(AsyncCollection, collection) for name, collection in collections.items()},
+        session=cast(AsyncClientSession, None),
+        scope=frozenset({"spieler"}),
     )
 
     assert {name: collection.reads for name, collection in collections.items()} == {

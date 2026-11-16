@@ -6,7 +6,6 @@ the suite's grants an administrator signs in through. Every case asks what the d
 the request, so a step, a refusal or a reset missing from the route fails here.
 """
 
-import asyncio
 import logging
 from collections.abc import Awaitable, Callable, Iterator, Mapping
 from typing import Any, cast
@@ -226,9 +225,9 @@ class TestTheirOwnAddress:
     """
 
     @pytest.mark.parametrize("handler", [counted_by_the_handler, erased_by_the_handler_alone], ids=["the counts", "the erasure"])
-    def test_it_is_refused_in_other_capitals_and_between_spaces_before_anything_is_read(self, handler: Callable[[str], Awaitable[Any]]):
+    async def test_it_is_refused_in_other_capitals_and_between_spaces_before_anything_is_read(self, handler: Callable[[str], Awaitable[Any]]):
         with pytest.raises(APIError) as refused:
-            asyncio.run(handler(f"  {OPERATOR.upper()} "))
+            await handler(f"  {OPERATOR.upper()} ")
 
         assert (refused.value.status_code, refused.value.error_code) == (403, Code.OWN_ADDRESS)
 

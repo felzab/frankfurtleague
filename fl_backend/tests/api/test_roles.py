@@ -1,4 +1,3 @@
-import asyncio
 from collections.abc import AsyncIterator
 from typing import Any, cast
 
@@ -363,10 +362,10 @@ class TestTheRetirementNarrowing:
 
 
 @pytest.mark.parametrize("identifier", ["", " \u3000\ufeff"], ids=["empty", "blank"])
-def test_an_identifier_folding_to_nothing_is_refused_before_any_read(identifier: str):
+async def test_an_identifier_folding_to_nothing_is_refused_before_any_read(identifier: str):
     """A bare object stands in for every handle, so a lookup that went ahead would raise an attribute error rather than this."""
 
     unreachable = cast(Any, object())
 
     with pytest.raises(ValueError, match="empty identifier"):
-        asyncio.run(roles_of(identifier, unreachable, session=unreachable))
+        await roles_of(identifier, unreachable, session=unreachable)

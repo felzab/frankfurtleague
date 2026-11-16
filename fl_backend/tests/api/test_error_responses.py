@@ -1,4 +1,3 @@
-import asyncio
 import functools
 import logging
 from collections.abc import AsyncIterator
@@ -190,14 +189,14 @@ REFUSED_BULK_INSERT_REPORT: dict[str, Any] = {
 }
 
 
-def database_crash_document(caplog, exc: PyMongoError) -> str:
+async def database_crash_document(caplog, exc: PyMongoError) -> str:
     """The line the database handler writes for one live exception."""
 
     with caplog.at_level(logging.ERROR, logger="frankfurtleague"):
         try:
             raise exc
         except PyMongoError as live:
-            asyncio.run(db_exception_handler(Request({"type": "http", "method": "GET", "headers": []}), live))
+            await db_exception_handler(Request({"type": "http", "method": "GET", "headers": []}), live)
 
     return logged_document(caplog)
 
@@ -209,16 +208,16 @@ class TestAServerFaultsLineWithholdsTheValue:
     LOG, never the wire: the body carries no value, so a wire test passes whatever the handler writes.
     """
 
-    def test_a_refused_stored_document_names_its_field_and_never_its_value(self, caplog):
+    async def test_a_refused_stored_document_names_its_field_and_never_its_value(self, caplog):
         with caplog.at_level(logging.ERROR, logger="frankfurtleague"):
-            asyncio.run(pydantic_validation_exception_handler(Request({"type": "http", "method": "GET", "headers": []}), rejected_name_error()))
+            await pydantic_validation_exception_handler(Request({"type": "http", "method": "GET", "headers": []}), rejected_name_error())
 
         document = logged_document(caplog)
         assert REJECTED_NAME not in document and REJECTED_MARKUP not in document
         assert "first_name" in document and "string_pattern_mismatch" in document and Code.STORED_DATA_INVALID in document
 
-    def test_a_bulk_write_s_refused_document_never_reaches_the_line(self, caplog):
-        document = database_crash_document(caplog, BulkWriteError(REFUSED_BULK_INSERT_REPORT))
+    async def test_a_bulk_write_s_refused_document_never_reaches_the_line(self, caplog):
+        document = await database_crash_document(caplog, BulkWriteError(REFUSED_BULK_INSERT_REPORT))
 
         assert REFUSED_SPIELER_OID not in document and REFUSED_FIRST_NAME not in document
         # Still the handler's own line, so this cannot pass by no line having been written.
@@ -336,19 +335,16 @@ CUTS = [
 
 
 @pytest.mark.parametrize(("method", "path", "code"), CUTS)
-def test_a_deadline_s_cut_is_of_unknown_outcome_only_where_the_request_could_write(method: str, path: str, code: Code):
+async def test_a_deadline_s_cut_is_of_unknown_outcome_only_where_the_request_could_write(method: str, path: str, code: Code):
     """A cut read answered unknown tells the person a view may have saved something.
 
     The frontend reads the same marks for its own lost answers. The driver's own timeout cuts the request, at a server
     that never answers.
     """
 
-    async def _answered() -> Response:
-        async with app_client(UNANSWERED_URI, app=application()) as http:
-            with pymongo.timeout(UNANSWERED_DEADLINE_S):
-                return await http.request(method, path, headers=ADMIN_AUTH)
-
-    response = asyncio.run(_answered())
+    async with app_client(UNANSWERED_URI, app=application()) as http:
+        with pymongo.timeout(UNANSWERED_DEADLINE_S):
+            response = await http.request(method, path, headers=ADMIN_AUTH)
 
     assert (response.status_code, response.json()["error_code"]) == (500, code)
 

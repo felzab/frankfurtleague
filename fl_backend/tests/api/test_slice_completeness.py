@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from typing import Any, cast
 
 from bson import ObjectId
@@ -149,7 +148,7 @@ def faulted_saison(spiel: PayloadFactory) -> list[dict[str, Any]]:
     ]
 
 
-def sweep(spiel: PayloadFactory) -> list[FLBracketFault]:
+async def sweep(spiel: PayloadFactory) -> list[FLBracketFault]:
     """`bracket_faults_of` over the corpus above, in the JOINED shape `build_spiele_pipeline` serves.
 
     What is under test is the wiring above that pipeline rather than the pipeline itself. The double-booking read is
@@ -158,16 +157,14 @@ def sweep(spiel: PayloadFactory) -> list[FLBracketFault]:
 
     spiele = faulted_saison(spiel)
 
-    return asyncio.run(
-        bracket_faults_of(
-            spiele=FLSpielJoinedInternalListAdapter.validate_python(spiele),
-            rules=SWEPT_RULES,
-            saison_id=SAISON_ID,
-            spiele_collection=cast(ReadCollection, _Rows(spiele)),
-            teams_collection=cast(ReadCollection, _Rows([])),
-            spielorte_collection=cast(ReadCollection, _Rows([{"_id": ObjectId(RETIRED_GROUND), "inactive_since": RETIRED_ON}])),
-            schiedsrichter_collection=cast(ReadCollection, _Rows([])),
-        )
+    return await bracket_faults_of(
+        spiele=FLSpielJoinedInternalListAdapter.validate_python(spiele),
+        rules=SWEPT_RULES,
+        saison_id=SAISON_ID,
+        spiele_collection=cast(ReadCollection, _Rows(spiele)),
+        teams_collection=cast(ReadCollection, _Rows([])),
+        spielorte_collection=cast(ReadCollection, _Rows([{"_id": ObjectId(RETIRED_GROUND), "inactive_since": RETIRED_ON}])),
+        schiedsrichter_collection=cast(ReadCollection, _Rows([])),
     )
 
 
@@ -178,10 +175,10 @@ class TestTheFaultSweepReportsWhatItsSweepsFound:
     reaches the return value is a fault the one page built to surface it never shows.
     """
 
-    def test_every_sweep_reaches_the_report(self, spiel):
+    async def test_every_sweep_reaches_the_report(self, spiel):
         """One equality over every fault, so the diff names the sweep whose result went missing."""
 
-        faults = sorted((fault.reason, fault.spiel_nr) for fault in sweep(spiel))
+        faults = sorted((fault.reason, fault.spiel_nr) for fault in await sweep(spiel))
 
         assert faults == [
             ("departed_occupant", WITH_THE_DEPARTED),

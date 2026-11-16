@@ -6,11 +6,10 @@ container would hold and the code it would exit with. Every secret here is made 
 which no name a refusal lists can carry.
 """
 
-import asyncio
 from pathlib import Path
 
 import pytest
-from pymongo import MongoClient
+from pymongo import AsyncMongoClient
 
 from app.core.config import INTERNAL_API_KEY_LENGTH, MONGODB_URI_FILE, SECRET_FILES
 from app.core.constraints import SUPPORT_INDEXES, TTL_INDEXES, UNIQUE_INDEXES
@@ -82,10 +81,10 @@ BOOTS = {
 
 
 @pytest.fixture(scope="module")
-def boots(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Boot]:
+async def boots(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Boot]:
     """Every case's boot at once, each from a folder of its own, so the others end inside the unreachable server's wait."""
 
-    return booted({name: (tmp_path_factory.mktemp(name), files, variables) for name, (files, variables) in BOOTS.items()})
+    return await booted({name: (tmp_path_factory.mktemp(name), files, variables) for name, (files, variables) in BOOTS.items()})
 
 
 class TestARefusal:
@@ -150,29 +149,30 @@ class TestAServerThatCannotBeReached:
 
 @pytest.mark.db
 class TestTheBoot:
-    def test_builds_the_indexes_in_the_database_the_settings_name(self, tmp_path: Path, mongo_replica_set_url: str):
+    async def test_builds_the_indexes_in_the_database_the_settings_name(self, tmp_path: Path, mongo_replica_set_url: str):
         """A unique index is the one guard against two writes racing for a key, and one built elsewhere guards nothing."""
 
         database = worker_database("fl_boot_indexes")
         declared = {(index.collection, index.name) for index in (*UNIQUE_INDEXES, *SUPPORT_INDEXES, *TTL_INDEXES)}
 
-        async def built() -> Boot:
+        client: AsyncMongoClient = AsyncMongoClient(mongo_replica_set_url)
+        try:
+            await client.drop_database(database)
+
             async with serving(
                 tmp_path, Withheld({MONGODB_URI_FILE: mongo_replica_set_url, **KEYS}), {"DB_BASE_NAME": database}, until="system.started"
             ) as boot:
-                return boot
-
-        client: MongoClient = MongoClient(mongo_replica_set_url)
-        try:
-            client.drop_database(database)
-
-            boot = asyncio.run(built())
+                pass
 
             held = client[database]
-            indexes = {(name, spec["name"]) for name in held.list_collection_names() for spec in held[name].list_indexes()}
+            indexes = {
+                (name, spec["name"])
+                for name in await held.list_collection_names()
+                for spec in await (await held[name].list_indexes()).to_list(length=None)
+            }
         finally:
-            client.drop_database(database)
-            client.close()
+            await client.drop_database(database)
+            await client.close()
 
         assert "system.started" in boot.events
         assert declared - indexes == set()
