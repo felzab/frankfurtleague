@@ -1,0 +1,116 @@
+"""The gate's endings: each tool's status read into the exit contract as its own table says, a run alone or beside others.
+
+A tool's status is read through `scripts/lib/_lib.sh :: EXIT_CODES`, so a row read wrongly ends a run on the wrong
+class with every line still printed: a refusal reads as a finding to fix, or a finding as a crash. Nobody reading the
+scope's output alone sees that, and a caller branching on the code acts on the wrong one. Each case copies the gate and
+its library into a fixture tree with both compose files and the tools file, a stand-in virtualenv whose interpreter
+and zizmor answer what the case says, a stand-in edge test answering 0, and a stand-in `docker` and `uv` first on PATH,
+so the docs and ops scopes run with no daemon, no audit and no install.
+"""
+
+from __future__ import annotations
+
+import os
+import shutil
+from typing import Final
+
+import pytest
+from conftest import BASH, REPO_ROOT, base_env, new_root, run_shell, write_shell
+
+# `version` is the engine's, which every case answers. `compose version` is the plugin's, which the
+# missing case answers as the CLI does for a command it does not hold, and every other `compose` call
+# is a render, which the broken case fails with a parse error. `run` is the docs scope's lychee.
+DOCKER: Final = r"""#!/usr/bin/env bash
+case "${1:-}" in
+  version) printf 'stub\n'; exit 0 ;;
+  compose)
+    if [[ "${FL_COMPOSE:-}" == missing ]]; then
+      printf '%s\n' "docker: 'compose' is not a docker command." >&2; exit 1
+    fi
+    if [[ "${2:-}" == version ]]; then printf 'Docker Compose version stub\n'; exit 0; fi
+    if [[ "${FL_COMPOSE:-}" == broken ]]; then
+      printf '%s\n' 'yaml: line 3: mapping values are not allowed in this context' >&2; exit 15
+    fi
+    exit 0 ;;
+  run) printf 'stub: lychee answered %s\n' "${FL_LYCHEE_EXIT:-0}"; exit "${FL_LYCHEE_EXIT:-0}" ;;
+esac
+printf 'stub: no answer for docker %s\n' "$*" >&2
+exit 1
+"""
+
+
+def _answers(variable: str) -> str:
+    """A stand-in answering the status `variable` names, 0 where it names none."""
+    return f'#!/usr/bin/env bash\nexit "${{{variable}:-0}}"\n'
+
+
+TOOLS_FILE: Final = "scripts/gate/tools.Dockerfile"
+COPIED: Final = ("scripts/gate/verify.sh", "scripts/lib/_lib.sh", "docker-compose.yml", "docker-compose.local.yml", TOOLS_FILE)
+
+
+def _gate(*scopes: str, answers: dict[str, str], tools: str | None = None) -> tuple[int, str]:
+    """`verify.sh` run once over `scopes` behind the stand-ins, its exit code and both streams."""
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    root = new_root("fl-gate-endings-")
+    for path in COPIED:
+        (root / path).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(REPO_ROOT / path, root / path)
+    if tools is not None:
+        write_shell(root / TOOLS_FILE, tools)
+    (root / "scripts" / "checks").mkdir()
+    write_shell(root / "scripts" / "checks" / "edge_test.sh", "#!/usr/bin/env bash\nexit 0\n")
+    venv = root / "fl_backend" / ".venv" / "bin"
+    venv.mkdir(parents=True)
+    os.chmod(write_shell(venv / "python", _answers("FL_CHECKER_EXIT")), 0o755)
+    os.chmod(write_shell(venv / "zizmor", _answers("FL_ZIZMOR_EXIT")), 0o755)
+    stubs = new_root("fl-gate-endings-engine-")
+    os.chmod(write_shell(stubs / "docker", DOCKER), 0o755)
+    os.chmod(write_shell(stubs / "uv", _answers("FL_UV_EXIT")), 0o755)
+    environment = base_env() | {"PATH": str(stubs) + os.pathsep + os.environ["PATH"]} | answers
+    done = run_shell(BASH, root / "scripts" / "gate" / "verify.sh", *scopes, env=environment, cwd=root)
+    return done.returncode, done.stdout + done.stderr
+
+
+def _wrong(exited: int, output: str, code: int, says: str, never: str) -> list[str]:
+    wrong: list[str] = []
+    if exited != code:
+        wrong.append(f"exited {exited}, and the exit contract gives it {code}")
+    if says not in output:
+        wrong.append(f"nothing it printed says {says!r}")
+    if never in output:
+        wrong.append(f"it said {never!r}, which names another ending")
+    return wrong
+
+
+JUDGED_NOTHING: Final = "could not judge its input"
+BROKEN_LINKS: Final = "lychee names each broken link"
+NO_PLUGIN: Final = "Docker Compose did not answer"
+UNPARSED: Final = "docker-compose.yml does not parse."
+
+
+@pytest.mark.parametrize(
+    ("scope", "answers", "code", "says", "never"),
+    [
+        pytest.param("--ops", {"FL_COMPOSE": "missing"}, 2, NO_PLUGIN, UNPARSED, id="no-compose-plugin-is-a-refusal"),
+        pytest.param("--ops", {"FL_COMPOSE": "broken"}, 1, UNPARSED, NO_PLUGIN, id="a-parse-error-is-a-finding"),
+        pytest.param("--ops", {"FL_ZIZMOR_EXIT": "13"}, 1, "zizmor found a finding", JUDGED_NOTHING, id="a-zizmor-severity-is-a-finding"),
+        pytest.param("--ops", {"FL_ZIZMOR_EXIT": "1"}, 2, JUDGED_NOTHING, "zizmor found a finding", id="zizmor-s-own-error-is-a-refusal"),
+        pytest.param("--docs", {"FL_LYCHEE_EXIT": "2"}, 1, BROKEN_LINKS, JUDGED_NOTHING, id="a-failed-link-is-a-finding"),
+        pytest.param("--docs", {"FL_LYCHEE_EXIT": "1"}, 2, JUDGED_NOTHING, BROKEN_LINKS, id="lychee-s-own-failure-is-a-refusal"),
+    ],
+)
+def test_each_tool_s_status_ends_the_scope_as_its_table_reads_it(scope: str, answers: dict[str, str], code: int, says: str, never: str) -> None:
+    """What the tool found is the finding 1, what it says it could not judge the refusal 2."""
+    exited, output = _gate(scope, answers=answers)
+    wrong = _wrong(exited, output, code, says, never)
+    assert not wrong, "\n".join(wrong) + "\n" + output
+
+
+def test_a_tools_file_without_lychee_s_line_is_a_finding_of_its_own() -> None:
+    """The tools file is the change's, so its missing stage is a finding, and no link was judged broken."""
+    tools = (REPO_ROOT / TOOLS_FILE).read_text(encoding="utf-8")
+    without = "".join(line for line in tools.splitlines(keepends=True) if not line.rstrip().endswith(" AS lychee"))
+    assert without != tools, f"{TOOLS_FILE} holds no lychee stage for this case to remove"
+    exited, output = _gate("--docs", answers={}, tools=without)
+    wrong = _wrong(exited, output, 1, "names no single FROM line for lychee", BROKEN_LINKS)
+    assert not wrong, "\n".join(wrong) + "\n" + output
