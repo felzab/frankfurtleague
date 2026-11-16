@@ -62,6 +62,21 @@ export function buildAuthIndexes(): Promise<void> {
  */
 const ANSWERED_WITHIN_MS = 180_000;
 
+/**
+ * The codes of a server answering while it changes role, an election's or a shutdown's, which judge no index: the SDAM
+ * specification's "not writable primary" and "node is recovering" errors, matched by code alone, as the specification
+ * requires where the reply carries one
+ * (https://github.com/mongodb/specifications/blob/master/source/server-discovery-and-monitoring/server-discovery-and-monitoring.md#not-writable-primary-and-node-is-recovering).
+ * The driver implements the same set as its `isStateChangeError`, which it does not export.
+ */
+const STATE_CHANGE_CODES: ReadonlySet<number> = new Set([
+  // Not writable primary: NotWritablePrimary, NotPrimaryNoSecondaryOk, LegacyNotPrimary.
+  10107, 13435, 10058,
+  // Node is recovering: InterruptedAtShutdown, InterruptedDueToReplStateChange, NotPrimaryOrSecondary,
+  // PrimarySteppedDown, ShutdownInProgress.
+  11600, 11602, 13436, 189, 91,
+]);
+
 async function buildOnce(): Promise<void> {
   const database = signInStore().db(MONGO_DB_NAME);
   const lanes = Map.groupBy(AUTH_INDEXES, (index) => index.collection);
@@ -75,8 +90,9 @@ async function buildOnce(): Promise<void> {
         if (failed === undefined) continue;
         unbuilt += 1;
         logUnbuilt(options.name, failed);
-        // No server code is a store that did not answer, which a restart would only meet again.
-        if (!(failed instanceof MongoServerError)) rebuildOnRecovery();
+        // Neither a store that did not answer, which carries no server code, nor a server changing role judged the
+        // index, so its recovery asks again; every other code is the store's verdict, which asking again only repeats.
+        if (!(failed instanceof MongoServerError) || STATE_CHANGE_CODES.has(Number(failed.code))) rebuildOnRecovery();
       }
     }),
   );
@@ -110,7 +126,8 @@ async function failureOf(build: () => Promise<unknown>, askUntil: number): Promi
  * timeout on the connection after the handshake completes, the client MUST NOT mark the server Unknown"
  * (https://github.com/mongodb/specifications/blob/master/source/server-discovery-and-monitoring/server-discovery-and-monitoring.md#network-error-when-reading-or-writing),
  * so its topology never changes. While a store stays that slow, each window ends in its lines and the next heartbeat
- * starts another, until it answers.
+ * starts another, until it answers. A server that changed role is one the driver marks unknown and checks at once, and
+ * the first writable heartbeat after it is the new primary's.
  */
 function rebuildOnRecovery(): void {
   if (rebuildArmed) return;

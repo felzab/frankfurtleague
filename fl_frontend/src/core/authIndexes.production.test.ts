@@ -84,6 +84,9 @@ const DUPLICATE_TOKEN = new MongoServerError({
   keyValue: { token: TOKEN },
 });
 
+/** What a primary stepping down answers a build: a server code that judges no index. */
+const STEPPING_DOWN = new MongoServerError({ message: "not primary", code: 10107, codeName: "NotWritablePrimary" });
+
 /** What an unreachable store answers every build: no server code at all. */
 const UNANSWERED = new MongoServerSelectionError("Server selection timed out after 3000 ms", { type: "Unknown" } as never);
 
@@ -114,10 +117,13 @@ async function afterHeartbeat(isWritablePrimary = true): Promise<void> {
   }
 }
 
-beforeEach(() => {
+beforeEach(async () => {
+  answer = () => Promise.resolve("built");
+  // A rebuild an earlier case left armed runs here, so no case's heartbeat starts another case's.
+  await afterHeartbeat();
   builds.length = 0;
   running.clear();
-  answer = () => Promise.resolve("built");
+  log.clear();
 });
 
 describe("the sign-in store's index build", () => {
@@ -171,6 +177,25 @@ describe("the sign-in store's index build", () => {
     const names = (from: Build[]) => [...new Set(from.map(({ collection, name }) => `${collection}.${name}`))].sort();
     expect(names(builds.slice(first))).toStrictEqual(names(builds.slice(0, first)));
   });
+
+  /* A primary stepping down judged no index, and the next primary builds it; a duplicate is the store's verdict, which
+     asking again only repeats. */
+  it.for([
+    ["a role change", STEPPING_DOWN, true],
+    ["a duplicate", DUPLICATE_TOKEN, false],
+  ] as const)(
+    "asks a build refused by %s again on the next writable heartbeat only where the refusal judged no index",
+    async ([, refusal, askedAgain]) => {
+      answer = (build) => (build.name === "session_token_uidx" ? Promise.reject(refusal) : Promise.resolve("built"));
+      await buildAuthIndexes();
+      const first = builds.length;
+      answer = () => Promise.resolve("built");
+
+      await afterHeartbeat();
+
+      expect(builds.length > first, "whether the build ran again on the next writable heartbeat").toBe(askedAgain);
+    },
+  );
 
   /* A timeout is no verdict, so it is asked again; the asking ends, or a build that never answers would hold every
      run queued behind it. */

@@ -1358,8 +1358,9 @@ publication consents withdrawn again above.
 
 **Every production boot of the frontend builds them, and serves the site whether or not each is
 built** (`fl_frontend/src/core/authIndexes.ts :: AUTH_INDEXES`). An index the boot could not build
-is one `auth.index_unbuilt` line naming it. Only a line with no `code` is built again before the
-next boot, on the first heartbeat the store answers as a writable server. Each run ends with one
+is one `auth.index_unbuilt` line naming it. Only a line with no `code`, or a role change's, is
+built again before the next boot, on the first heartbeat the store answers as a writable server.
+Each run ends with one
 `auth.indexes_settled` line counting the indexes `built` and `unbuilt`, written once every index
 is built or logged. So after every deploy ([section 1](#1-deploying-a-build-and-going-back-to-an-earlier-one))
 and every restart, wait for that line, then read the run's lines:
@@ -1377,12 +1378,13 @@ indexes, and each waits at most nine seconds: the client's three bounds of three
 (`fl_frontend/src/core/db.ts`). A wait that ends in exit 124 means the frontend has written no
 verdict since it started: read its whole log.
 
-| The line's `code` | What stands                                                                 | What to do                                                                                                                                                               |
-| ----------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `85`              | An index on the same key under another name, which keeps serving            | Give the list's entry the name the Atlas console shows, in a release                                                                                                     |
-| `11000`           | Rows sharing a value the index keeps unique; no index on that key           | Group the collection on the key in the Atlas console to find them. Which row stays is a judgement about those accounts, and the next boot builds the index once one does |
-| `13`              | Nothing: the sign-in store's database user may not build an index           | Grant that user `readWrite` on `auth` in the Atlas console, which carries `createIndex`, then restart the frontend (below)                                               |
-| none              | Nothing: the store did not answer, or answered slower than the client waits | Nothing: the frontend builds them again on the store's next heartbeat, and logs `auth.index_unbuilt` again for any still refused or still slow                           |
+| The line's `code`                           | What stands                                                                 | What to do                                                                                                                                                               |
+| ------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `85`                                        | An index on the same key under another name, which keeps serving            | Give the list's entry the name the Atlas console shows, in a release                                                                                                     |
+| `11000`                                     | Rows sharing a value the index keeps unique; no index on that key           | Group the collection on the key in the Atlas console to find them. Which row stays is a judgement about those accounts, and the next boot builds the index once one does |
+| `13`                                        | Nothing: the sign-in store's database user may not build an index           | Grant that user `readWrite` on `auth` in the Atlas console, which carries `createIndex`, then restart the frontend (below)                                               |
+| A role change's, such as `10107` or `11602` | Nothing: the store was changing its primary, or shutting one down           | Nothing: the frontend builds them again on the first heartbeat of a writable primary                                                                                     |
+| none                                        | Nothing: the store did not answer, or answered slower than the client waits | Nothing: the frontend builds them again on the store's next heartbeat, and logs `auth.index_unbuilt` again for any still refused or still slow                           |
 
 **A name in the list is the one production's index carries.** Three of them — the `passkey`
 collection's unique `credentialID` and both expiry indexes — were made in the Atlas console before
