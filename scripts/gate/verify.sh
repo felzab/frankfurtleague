@@ -161,7 +161,7 @@ verdict() { # [--exits <tables>] [--summary | --annotated | --pytest] $1 what to
   if [[ "$1" == --summary ]]; then summary=(--summary); shift; fi
   if [[ "$1" == --annotated ]]; then summary=(--summary); annotated=(--summary); shift; fi
   if [[ "$1" == --pytest ]]; then pytest=1; shift; fi
-  exit_class "$exits" "$2" || class=$?
+  settle "${annotated[@]}" "$exits" "$2" "$3" "$4" || class=$?
   case "$class" in
     0) return 0 ;;
     # pnpm answers a script its manifest does not declare with 1 as well, and then no tool ran at all.
@@ -170,8 +170,6 @@ verdict() { # [--exits <tables>] [--summary | --annotated | --pytest] $1 what to
        fail "${summary[@]}" "$1"; return 1 ;;
     2) refuse "${annotated[@]}" "${_STEP_LABEL} could not judge its input, so nothing here stands as a verdict on the
 change. Its own reason is above (exit status $2)." ;;
-    130) on_interrupt ;;
-    *) on_error "${annotated[@]}" "$2" "$3" "$4" ;;
   esac
 }
 

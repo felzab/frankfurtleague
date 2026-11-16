@@ -516,6 +516,9 @@ trap on_interrupt INT TERM HUP
 declare -grA EXIT_CODES=(
   # This repository's scripts, and every checker built on the checker kernel.
   [contract]="0:0 1:1 2:2"
+  # A query of scripts/lib/nginx_conf.py through the kernel's launcher: 0 its answer, 2 a file that does not
+  # say what was asked. A query finds nothing, so it has no 1.
+  [query]="0:0 2:2"
   # A tool documenting 1 for what it found and every other failure as its own, or no other status.
   [tool]="0:0 1:1"
   # `docker run`'s own statuses, which come ahead of the container's: 125 the daemon failed, so
@@ -560,6 +563,21 @@ exit_class() { # $1 the tables · $2 the status
     IFS='+'
   done
   return 3
+}
+
+# A status read through `exit_class` and settled in the shell that read it: an interrupt and a crash end the
+# run here, where a subshell's exit would end the subshell alone, and the class is answered otherwise, 0, 1 or
+# 2, for the caller to word. `--summary` first, as `on_error`'s: the crash is a script's that annotated its own.
+settle() { # [--summary] $1 the tables · $2 the status · $3 the caller's line · $4 the command, as a crash names it
+  local class=0
+  local -a summary=()
+  if [[ "${1-}" == --summary ]]; then summary=(--summary); shift; fi
+  exit_class "$1" "$2" || class=$?
+  case "$class" in
+    0|1|2) return "$class" ;;
+    130) on_interrupt ;;
+    *) on_error "${summary[@]}" "$2" "$3" "$4" ;;
+  esac
 }
 
 # --- Guards ----------------------------------------------------------------------------------------

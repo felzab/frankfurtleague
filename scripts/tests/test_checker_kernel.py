@@ -3,6 +3,8 @@
 Python answers an uncaught exception, one at import or compile included, with 1, the code the exit contract gives
 findings, and `run` in a checker's own `__main__` line reaches neither. So every caller runs a checker through
 `scripts/lib/checker_kernel.py`, and a caller that does not reads a broken checker as a finding about the change.
+The kernel's parser answers an argument our own script got wrong as that crash too, and a caller settles the status
+in its own shell, where a crash can end the run.
 """
 
 from __future__ import annotations
@@ -110,3 +112,53 @@ def test_every_shell_caller_runs_a_checker_through_the_launcher() -> None:
         f"the sweep read callers of {sorted(set(named))} alone"
     )
     assert unlaunched == [], f"a checker run without {LAUNCHER} ahead of it:\n" + "\n".join(unlaunched)
+
+
+FUNCTION_RE: Final = re.compile(r"^(\w+)\(\) \{")
+
+
+def _called(name: str) -> re.Pattern[str]:
+    """`name` where a command starts: a line's first word, or the word after a separator or a keyword opening a list."""
+    return re.compile(rf"(?:^|[;&|({{]|\bthen|\bdo|\belse)\s*{name}(?=\s|$)")
+
+
+def _settlers(scripts: dict[str, list[str]]) -> set[str]:
+    """Every shell function calling `settle`, directly or through another such function."""
+    bodies: dict[str, list[str]] = {}
+    for lines in scripts.values():
+        name = None
+        for line in lines:
+            opened = FUNCTION_RE.match(line)
+            if opened:
+                name = opened[1]
+                bodies[name] = []
+            elif name is not None:
+                if line == "}":
+                    name = None
+                elif not line.lstrip().startswith("#"):
+                    bodies[name].append(line)
+    reached = {"settle"}
+    while grown := {
+        name for name, body in bodies.items() if name not in reached and any(_called(one).search(line) for one in reached for line in body)
+    }:
+        reached |= grown
+    return reached
+
+
+def test_no_status_is_settled_inside_a_substitution() -> None:
+    """`settle` ends the run for a crash, which inside `$(…)` or `<(…)` ends the subshell alone and reads as the caller's refusal."""
+    scripts = {
+        path.relative_to(REPO_ROOT).as_posix(): path.read_text(encoding="utf-8").splitlines()
+        for path in sorted((REPO_ROOT / "scripts").rglob("*.sh"))
+    }
+    settlers = _settlers(scripts) - {"settle"}
+    # Per caller: a sweep reading no settler passes over none at all.
+    assert {"conf_query", "verdict", "check"} <= settlers, f"the sweep found {sorted(settlers)} alone reaching settle"
+    inside = re.compile(r"[$<]\(\s*(?:" + "|".join(sorted(settlers | {"settle"})) + r")(?![\w-])")
+    substituted = [
+        f"{name}:{number}: {line.strip()}"
+        for name, lines in scripts.items()
+        for number, line in enumerate(lines, start=1)
+        if inside.search(line)
+    ]
+    assert substituted == [], "a status settled inside a substitution, where a crash ends the subshell alone:\n" + "\n".join(substituted)
