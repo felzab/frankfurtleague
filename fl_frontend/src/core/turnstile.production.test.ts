@@ -15,7 +15,7 @@ const TEST_SECRET = "1x0000000000000000000000000000000AA";
 // The secret is read off the deployment's `APP_ENV`, which the run sets to the local stack's, never off `NODE_ENV`.
 
 /** Every line the real logger writes, read off standard output. */
-const log = captureLog();
+const log = captureLog("production");
 
 /** Whether a line as the production format wrote it carries the token anywhere, or an `error` at all; no line does too. */
 const carriesTheToken = (line: LoggedLine | undefined): boolean =>

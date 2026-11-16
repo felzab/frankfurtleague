@@ -34,7 +34,7 @@ const backend = serveBackend(({ method, path }) => {
   if (call === "POST /schiedsrichter/sweep") return { erased: 0, failed: 0 };
   return undefined;
 });
-const log = captureLog();
+const log = captureLog("production");
 
 const { runBewerbungSweep } = await import("./sweep");
 

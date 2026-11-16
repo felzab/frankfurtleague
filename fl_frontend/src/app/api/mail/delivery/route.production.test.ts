@@ -13,7 +13,7 @@ import { assert, describe, it, vi } from "vitest";
 const webhookSecret = `whsec_${randomBytes(24).toString("base64")}`;
 
 /** Every line the real logger writes, read off standard output. */
-const log = captureLog();
+const log = captureLog("production");
 
 // The Postausgang's event endpoint alone, never reached: the backend fails every event this file forwards.
 serveBackend(({ method, path }) => (method === "POST" && path === "/outbox/event" ? networkFailure() : undefined));
