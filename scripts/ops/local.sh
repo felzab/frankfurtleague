@@ -12,12 +12,12 @@
 #                                    does not explain
 #   ./scripts/ops/local.sh --seed-made-up
 #                                    ALSO replace the local database's records with the made-up
-#                                    league in scripts/ops/seed/seed.js; the sign-in store stays
+#                                    league in fl_backend/tests/made_up_seed.py; the sign-in store stays
 #   ./scripts/ops/local.sh --e2e         start the end-to-end stack instead (docker-compose.e2e.yml):
 #                                    its own volume, keys and made-up league, new on every start
 #   ./scripts/ops/local.sh --e2e --landing=<state>
 #                                    load the made-up league again into the RUNNING end-to-end stack,
-#                                    the landing in <state> (seed.js's LANDING_STATES), and restart its
+#                                    the landing in <state> (the seed's LANDING_STATES), and restart its
 #                                    frontend; nothing is built, and sessions and passkeys stay.
 #                                    It refuses any checkout but the one whose --e2e started the stack
 #   ./scripts/ops/local.sh --down       stop the stack; with --fresh, also delete the volumes; with
@@ -64,21 +64,9 @@ if (( E2E )) && (( FRESH || MADE_UP )); then
 combines with neither --fresh nor --seed-made-up. Run --e2e alone, or with --down."
 fi
 
-# The states `scripts/ops/seed/seed.js :: LANDING_STATES` seeds, which refuses any other name too, but only once
-# Docker has been asked.
-LANDING_STATES=(running running-two-one-side countdown countdown-with-opening decided window none)
-if (( RESEED )); then
-  if (( ! E2E || DOWN )); then
-    refuse "--landing re-seeds the running end-to-end stack: run it as --e2e --landing=<state>, without --down."
-  fi
-  known=0
-  for state in "${LANDING_STATES[@]}"; do
-    if [[ "$state" == "$LANDING" ]]; then known=1; fi
-  done
-  if (( ! known )); then
-    # A space between the names: `[*]` joins with the first character of IFS, a newline here.
-    refuse "--landing=${LANDING} names no state of the landing. One of: $(IFS=' '; printf '%s' "${LANDING_STATES[*]}")."
-  fi
+# Which states there are is the seed's alone: it refuses any other name, once Docker has been asked.
+if (( RESEED )) && (( ! E2E || DOWN )); then
+  refuse "--landing re-seeds the running end-to-end stack: run it as --e2e --landing=<state>, without --down."
 fi
 
 STOP_COMMAND="./scripts/ops/local.sh --down"
@@ -114,41 +102,36 @@ write_e2e_keys() {
   done
 }
 
-# Read by mongosh inside the database container, where `127.0.0.1:27017` is that container's own
-# server and nothing else's.
-SEED_FILE="scripts/ops/seed/seed.js"
-SEED_TARGET="/tmp/made-up-seed.js"
+# The seed, its people and the builders it composes with, copied into the backend container, whose own settings name
+# the database it writes: no image holds the tests.
+SEED_FILES=(fl_backend/tests/documents.py fl_backend/tests/made_up_seed.py fl_backend/tests/made_up_people.json)
+SEED_ROOT="/tmp/seed"
 
 load_made_up_seed() {
-  local base="" rc=0
-  # The backend's own answer, the database it reads: `fl_backend/.env` names it for the local stack
-  # and docker-compose.e2e.yml for the end-to-end one. Single quotes, so the container expands it.
-  base="$(docker compose exec -T backend sh -c 'printf %s "$DB_BASE_NAME"')" || rc=$?
-  if (( rc )); then
-    die "the backend could not be asked which database it reads (exit ${rc}), so nothing was seeded.
-compose's own account is above."
-  fi
-  # The backend's own pattern for the name.
-  if [[ ! "$base" =~ ^[A-Za-z0-9_-]+$ ]]; then
-    die "the backend reads a database name that is not one, so nothing was seeded."
-  fi
+  local file="" rc=0
   # Through stdin and into the container's own /tmp, written as the container's user: a bind mount
   # would differ between the two stacks.
-  MSYS_NO_PATHCONV=1 docker compose exec -T mongo sh -c "cat > ${SEED_TARGET}" < "$SEED_FILE" \
-    || die "the seed could not be handed to the database container; compose's own account is above."
-  quietly run_made_up_seed "$base" \
-    || die "the made-up seed did not load; mongosh's own account is above. A refused insert names
-the index's key: correct scripts/ops/seed/seed.js."
-  ok "seeded '${base}' with the made-up league"
+  for file in "${SEED_FILES[@]}"; do
+    MSYS_NO_PATHCONV=1 docker compose exec -T backend sh -c "mkdir -p ${SEED_ROOT}/tests && cat > ${SEED_ROOT}/tests/${file##*/}" < "$file" \
+      || die "the seed could not be handed to the backend container; compose's own account is above."
+  done
+  quietly run_made_up_seed || rc=$?
+  case "$rc" in
+    0) ok "seeded the made-up league" ;;
+    # The seed's own refusal of a state it does not hold, whose account above lists the ones it does.
+    2) if (( RESEED )); then refuse "--landing=${LANDING} names no state of the landing."; fi
+       die "the made-up seed exited 2 with no --landing given; its own account is above." ;;
+    *) die "the made-up seed did not load; its own account is above. A refused insert names the
+index's key: correct fl_backend/tests/made_up_seed.py." ;;
+  esac
 }
 
-# Its own function because MSYS rewrites the `/tmp` path. `--landing` hands its state to the seed through mongosh's
-# environment; without it the seed reads none and writes itself as written.
+# Its own function because MSYS rewrites the `/tmp` path. `--landing` hands its state to the seed through the
+# container's environment; without it the seed reads none and writes itself as written.
 run_made_up_seed() {
   local state=()
   if (( RESEED )); then state=(--env "SEED_LANDING=${LANDING}"); fi
-  MSYS_NO_PATHCONV=1 docker compose exec -T "${state[@]}" mongo \
-    mongosh --quiet "mongodb://127.0.0.1:27017/${1}?directConnection=true" --file "$SEED_TARGET"
+  MSYS_NO_PATHCONV=1 docker compose exec -T "${state[@]}" backend env "PYTHONPATH=${SEED_ROOT}" python -m tests.made_up_seed
 }
 
 # The backend's read-back over what the seed wrote: every document through its record model. It
@@ -159,7 +142,7 @@ judge_made_up_seed() {
   case "$rc" in
     0) ok "every document the seed wrote reads back through its model" ;;
     1) die "the made-up seed holds a document its model refuses, and the lines above name it:
-correct scripts/ops/seed/seed.js. The frontend and nginx have not been started or recreated." ;;
+correct fl_backend/tests/made_up_seed.py. The frontend and nginx have not been started or recreated." ;;
     *) refuse "the backend could not judge the seed (exit ${rc}); its own account is above.
 The frontend and nginx have not been started or recreated." ;;
   esac
