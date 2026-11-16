@@ -66,13 +66,6 @@ def _app() -> FastAPI:
     return create_app(CONFIG)
 
 
-@pytest.fixture(scope="module", autouse=True)
-def _built_before_any_case() -> None:
-    """Never inside a case: a build re-runs the logging `dictConfig`, which strips the handler `caplog` reads that case's records from."""
-
-    _app()
-
-
 PAST, ACTIVE = "2025", "2026"
 
 # One address holding every kind, several records of some and every state of each.

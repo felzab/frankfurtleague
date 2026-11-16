@@ -9,6 +9,7 @@ address holds in one write. The pass's share and failures are
 
 import asyncio
 import json
+import logging
 from collections.abc import Awaitable, Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
@@ -41,6 +42,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import APIError, DocumentNotFoundError
+from app.core.logging import JSONFormatter
 from app.core.recording import actor_var
 from app.main import create_app
 from app.shared.schemas.bounds import ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAITING_PERIOD_DAYS, GRANT_WAIT_HOURS, OWNER_WAIT_DAYS
@@ -481,26 +483,27 @@ class TestTheSystemsReadOfTheNewAddress:
 
         assert await on_a_person(mongo_replica_set_url, body) == [None] * 5
 
-    async def test_through_the_mounted_route_no_log_line_names_the_address(self, mongo_replica_set_url: str, capfd: pytest.CaptureFixture[str]):
-        """Read off the process's own output, which the app's build points its handlers at, so the request's line itself is held."""
+    async def test_through_the_mounted_route_no_log_line_names_the_address(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """Every record the request logs, written by the service's own formatter, so the request's line itself is held."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await start(database, client)
             async with app_client(mongo_replica_set_url, app=create_app(config_for(DATABASE_NAME))) as http:
-                capfd.readouterr()
-                response = await http.post(f"/api/v{API_VERSION}/address_change/address", headers=SYSTEM_AUTH, json={"token": minted.token})
-                written = capfd.readouterr()
-            return response.status_code, response.json(), written.out + written.err
+                caplog.clear()
+                with caplog.at_level(logging.INFO):
+                    response = await http.post(f"/api/v{API_VERSION}/address_change/address", headers=SYSTEM_AUTH, json={"token": minted.token})
+            return response.status_code, response.json()
 
-        status, answered, written = await on_a_person(mongo_replica_set_url, body)
+        status, answered = await on_a_person(mongo_replica_set_url, body)
+        written = [JSONFormatter().format(record) for record in caplog.records]
 
         assert (status, answered["email"]) == (200, NEW_EMAIL)
-        # Each line the formatter wrote, parsed: a line no JSON reader reads would hide what it holds.
-        documents = [json.loads(line) for line in written.splitlines() if line.startswith("{")]
+        # Each line parsed: a line no JSON reader reads would hide what it holds.
+        documents = [json.loads(line) for line in written]
         assert [(document["path"], document["status"]) for document in documents if "path" in document] == [
             (f"/api/v{API_VERSION}/address_change/address", 200)
         ], "the request's own line was not captured, so the absence below holds of nothing"
-        assert NEW_EMAIL not in written.lower()
+        assert not [line for line in written if NEW_EMAIL in line.lower()]
 
 
 class _Sent(monitoring.CommandListener):

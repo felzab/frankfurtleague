@@ -24,15 +24,11 @@ from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI
 from tests.core.app_source import application
 
-# Module level: building the app re-runs the logging dictConfig, which inside a test would strip the
-# handler caplog attaches at setup.
-APP = application()
-
 
 def client() -> TestClient:
     # No context manager, so the lifespan must not run: a client that never opens the database makes
     # the first guarded read raise a real `no_database_client` rather than a hand-mocked exception.
-    return TestClient(APP, raise_server_exceptions=False)
+    return TestClient(application(), raise_server_exceptions=False)
 
 
 # A base-tier read that reaches the database, so a request passing the key meets the missing client.
@@ -66,7 +62,7 @@ class NestedPayload(BaseModel):
     names: list[NamePayload]
 
 
-# A second app: `APP`'s routes all 503 on the database dependency before parsing can fail, so a
+# A second app: `client()`'s routes all 503 on the database dependency before parsing can fail, so a
 # payload refusal needs a route that depends on nothing, and so does a success that writes its access line.
 VALIDATION_APP = create_shell()
 ANSWERED_PATH = "/answered"
@@ -348,7 +344,7 @@ def test_a_deadline_s_cut_is_of_unknown_outcome_only_where_the_request_could_wri
     """
 
     async def _answered() -> Response:
-        async with app_client(UNANSWERED_URI, app=APP) as http:
+        async with app_client(UNANSWERED_URI, app=application()) as http:
             with pymongo.timeout(UNANSWERED_DEADLINE_S):
                 return await http.request(method, path, headers=ADMIN_AUTH)
 

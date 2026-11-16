@@ -89,13 +89,6 @@ def _app() -> FastAPI:
     return create_app(CONFIG)
 
 
-@pytest.fixture(scope="module", autouse=True)
-def _built_before_any_case() -> None:
-    """Never inside a case: a build re-runs the logging `dictConfig`, which strips the handler `caplog` reads that case's records from."""
-
-    _app()
-
-
 async def on_a_league(url: str, body: Body) -> Any:
     """The person holding everything, beside the suite's grants, on the shipped indexes."""
 

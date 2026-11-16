@@ -381,15 +381,7 @@ def _as_app(url: str, app_name: str) -> str:
     return f"{url}{'&' if '?' in url else '?'}appName={app_name}"
 
 
-@pytest.fixture(scope="class")
-def built_before_any_case() -> None:
-    """Built before `caplog` attaches: the build's logging setup takes every handler off the root, the capture's among them."""
-
-    _app()
-
-
 @pytest.mark.db
-@pytest.mark.usefixtures("built_before_any_case")
 class TestAPersonsOwnPress:
     """A pupil withdrawing on their own page, through the routes: the journal follows the press's commit."""
 

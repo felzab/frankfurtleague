@@ -59,7 +59,7 @@ from app.core.codes import Rule
 from app.core.config import BackendConfig
 from app.core.db import lifespan
 from app.core.exception_handlers import FAILURE_RESPONSES, FAILURE_STATUSES, register_exception_handlers
-from app.core.logging import fl_logger, setup_logging
+from app.core.logging import fl_logger
 from app.core.middlewares import TracedApp
 from app.shared.schemas.bounds import (
     ADDRESS_CHANGE_BOUNDS,
@@ -234,14 +234,12 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
     """Build the application.
 
     A function, so the composition root is a choice rather than an import side effect. `config` is
-    what every request reads, the environment's and the secret files' where none is passed.
+    what every request reads, the environment's and the secret files' where none is passed. The caller
+    sets up logging first, so a refusal of those settings is logged in the service's format.
     """
     # Here rather than at module scope, so `app.main` holds no `get_config` for a caller to import;
     # the ruff ban names that path too, since ruff matches the path an import spells.
     from app.core.config import EnvironmentValidationError, get_config  # noqa: TID251
-
-    # Before the settings are read, so their refusal is logged in the right format.
-    setup_logging()
 
     try:
         config = config or get_config()

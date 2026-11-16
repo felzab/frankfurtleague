@@ -172,13 +172,6 @@ def _app() -> FastAPI:
     return create_app(CONFIG)
 
 
-@pytest.fixture(scope="module", autouse=True)
-def _built_before_any_case() -> None:
-    """Never inside a case: a build re-runs the logging `dictConfig`, which strips the handler `caplog` reads that case's records from."""
-
-    _app()
-
-
 def their_seat() -> dict[str, Any]:
     return kontaktperson_document(FIRST_NAME, confirmed_at="2126-03-21", last_name=LAST_NAME, email=IDENTIFIER, phone=PHONE)
 

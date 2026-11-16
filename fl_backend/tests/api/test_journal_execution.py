@@ -200,13 +200,6 @@ def _app() -> FastAPI:
     return create_app(config_for(DATABASE_NAME))
 
 
-@pytest.fixture(scope="module", autouse=True)
-def _built_before_any_case() -> None:
-    """Built before `caplog` attaches: the build's logging setup takes every handler off the root, the capture's among them."""
-
-    _app()
-
-
 def as_person(email: str) -> StampedHeaders:
     return StampedHeaders(email, ADMIN_KEY, lane="person")
 

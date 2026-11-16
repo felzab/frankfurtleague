@@ -633,13 +633,6 @@ def _app() -> FastAPI:
     return create_app(CONFIG)
 
 
-@pytest.fixture(scope="module", autouse=True)
-def _built_before_any_case() -> None:
-    """Never inside a case: a build re-runs the logging `dictConfig`, which strips the handler `caplog` reads that case's records from."""
-
-    _app()
-
-
 class TestEachCallTakesAShare:
     async def test_a_share_and_one_more_take_a_pass_of_two_calls_and_a_later_call_finds_nobody(self, mongo_replica_set_url: str):
         """The shipped share, seeded one over: ignore it and the first call takes everybody and ends the pass."""

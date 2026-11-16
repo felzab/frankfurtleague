@@ -284,13 +284,6 @@ def _app() -> FastAPI:
     return create_app(CONFIG)
 
 
-@pytest.fixture(scope="module", autouse=True)
-def _built_before_any_case() -> None:
-    """Never inside a case: a build re-runs the logging `dictConfig`, which strips the handler `caplog` reads that case's records from."""
-
-    _app()
-
-
 async def served[T](url: str, steps: Callable[[AsyncClient, AsyncDatabase], Awaitable[T]], *, now: datetime = NOW) -> T:
     async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_client, database):
         await _seed(database)
