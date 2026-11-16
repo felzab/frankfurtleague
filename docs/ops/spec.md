@@ -441,14 +441,17 @@ frontend no key to the mail provider, so every mail lands in the sink, `.tmp-mai
 start empties of what earlier runs filed.
 
 **The local database starts empty, and `--seed-made-up` fills it with the made-up league**
-(`scripts/ops/seed/seed.js`): three seasons, ten clubs, venues, referees and grants, every one
-invented and every date relative to today, replacing the records of every collection of the
-application database and leaving `auth` as it is. `--fresh` deletes the volume, and the database
-with it.
+(`fl_backend/tests/made_up_seed.py`): three seasons, ten clubs, venues, referees and grants, every
+one invented and every date relative to today, replacing the records of every collection of the
+application database and leaving `auth` as it is. The people, clubs, fixtures and links the journeys
+type stand in `fl_backend/tests/made_up_people.json`, which the seed writes them from. `--fresh`
+deletes the volume, and the database with it.
 
 **A seed is in place before anything renders a page**, so no empty read is cached. The made-up seed
-loads once the backend's boot has built every index, and `python -m app.readback` then reads every
-document it wrote back through its record model; only then do the frontend and nginx start.
+runs inside the backend container, copied there with the tests' builders, and reaches only the
+database that container's settings name; it loads once the backend's boot has built every index, and
+`python -m app.readback` then reads every document it wrote back through its record model; only then
+do the frontend and nginx start.
 
 **The local stack starts with an empty `auth`, and a sign-in builds it.** The grants deciding which
 administrator may sign in arrive with the made-up seed, so a `--fresh` stack admits nobody until
@@ -478,14 +481,14 @@ naming that folder (`fl_frontend/e2e/support/journey.ts :: E2E_DIR`); `E2E_BASE_
 other than `http://localhost:3000` (`fl_frontend/playwright.config.ts`).
 
 **`--e2e --landing=<state>` re-seeds the running end-to-end stack with the landing in that state**,
-one of `scripts/ops/seed/seed.js :: LANDING_STATES`: the seed runs again with `SEED_LANDING` in
-mongosh's environment, the read-back judges it, and the frontend alone is recreated, so no read of
-the earlier state stays cached. It builds nothing and keeps the stack's keys, its sign-in store and
-its images, so sessions and passkeys survive it. It refuses with no end-to-end stack running, and
-then from any checkout but the one whose `--e2e` created the stack's containers, which Compose
-records on each as `com.docker.compose.project.working_dir`. The stack's name is every checkout's,
-and the frontend it recreates takes the keys, the mail folder and the compose files of the checkout
-it runs in.
+one of `fl_backend/tests/made_up_seed.py :: LANDING_STATES`, the seed refusing any other: the seed
+runs again with `SEED_LANDING` in the backend container's environment, the read-back judges it, and
+the frontend alone is recreated, so no read of the earlier state stays cached. It builds nothing and
+keeps the stack's keys, its sign-in store and its images, so sessions and passkeys survive it. It
+refuses with no end-to-end stack running, and then from any checkout but the one whose `--e2e`
+created the stack's containers, which Compose records on each as
+`com.docker.compose.project.working_dir`. The stack's name is every checkout's, and the frontend it
+recreates takes the keys, the mail folder and the compose files of the checkout it runs in.
 
 **The checkers are Python, and one kernel makes their answers comparable**,
 `scripts/lib/checker_kernel.py` (§1.7). **The interpreter floor is bash's**
@@ -524,8 +527,8 @@ running `./scripts/gate/verify.sh` with that scope's flag. Beside them:
 - **`journeys`** runs the Playwright journeys against the end-to-end stack, raised from the images
   the `images` job built, in six legs, each on a runner and a stack of its own: `desktop` with
   `first-pass`, `phone`, and the layout-shift guard's four, `layout-public`, which re-seeds its
-  database under each state of the landing (`scripts/ops/seed/seed.js :: LANDING_STATES`) and runs
-  the landing's cases again, and `layout-signed-in-1` to `-3`, whose cases Playwright's `--shard`
+  database under each state of the landing (`fl_backend/tests/made_up_seed.py :: LANDING_STATES`) and
+  runs the landing's cases again, and `layout-signed-in-1` to `-3`, whose cases Playwright's `--shard`
   splits in three.
 - **`verify`**, the required check, fails on a job that failed, was cancelled or was skipped, and on
   a job missing from its `needs:`.
@@ -758,7 +761,7 @@ be true there, a check the owner makes in its list of monitors:
 | Every gate scope has one CI job, and every job but `journeys`, `verify` and `publish` runs one scope                                       | `scripts/tests/test_gate_jobs.py`; the `verify` job holds every job to its `needs:`                                                                                                    |
 | Scripts carry the git executable bit                                                                                                       | `scripts/gate/selfcheck.sh`, its second step                                                                                                                                           |
 | A deploy pins no build its last read finds with a service not running and healthy, and a stopped one-off container names no service        | `scripts/tests/test_deploy.py`, which runs `scripts/ops/deploy.sh` behind a stand-in engine; no real engine is driven                                                                  |
-| `local.sh` and CI's landing loop name the landing states the seed seeds, the loop all but the seed as written                              | `scripts/tests/test_landing_states.py`                                                                                                                                                 |
+| CI's landing loop names every landing state the seed seeds but the seed as written                                                         | `scripts/tests/test_landing_states.py`                                                                                                                                                 |
 | Production never builds                                                                                                                    | unenforced: `docker-compose.yml` declares no `build:`, and `deploy.sh` only pulls                                                                                                      |
 | The builder stage has no reachable backend and no real environment                                                                         | `fl_frontend/Dockerfile`'s `SKIP_ENV_VALIDATION=true`, with no secrets directory and no `API_URL`                                                                                      |
 | The three API keys are 64 printable ASCII characters without the space, one file each that both sides read                                 | `fl_frontend/src/core/config.ts :: INTERNAL_API_KEY` and `fl_backend/app/core/config.py :: INTERNAL_API_KEY_CHARACTERS`                                                                |

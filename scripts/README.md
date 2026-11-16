@@ -12,7 +12,7 @@ The scripts that check, run and deploy this project. Each script's header is its
 | `scripts/checks/check_public_routes.py` | any           | Every route handler, link page and metadata convention against the edge location metering it    |
 | `scripts/checks/check_retired_stems.py` | any           | Every tracked path and every name in a tracked code file against the retired German stems       |
 | `scripts/ops/local.sh`                  | dev — Windows | The production images built from this tree, behind nginx, with a database of its own            |
-| `scripts/ops/seed/seed.js`              | dev, CI       | The made-up league `local.sh --seed-made-up` and `--e2e` load                                   |
+| `scripts/ops/seed/seed.js`              | CI            | The made-up league CI loads; `local.sh` runs `fl_backend/tests/made_up_seed.py`                 |
 | `scripts/ops/deploy.sh`                 | prod — Linux  | Put one published build live by its tag, and go back to the build before it if it fails         |
 | `scripts/lib/_lib.sh`                   | —             | Strict mode, the traps, the output verbs and the exit contract; sourced, never run              |
 | `scripts/lib/checker_kernel.py`         | —             | The repository root and the exit contract every checker shares; imported, never run             |
