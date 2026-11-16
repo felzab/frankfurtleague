@@ -124,6 +124,8 @@ describe("the person lane", () => {
 
   it("turns away a caller with no session, logging why, before the input is read", async () => {
     await arriveAs(null);
+    // The file's visitor was signed in before the case, on a line of its own.
+    log.clear();
 
     // An input the schema refuses: read first, it would answer with the box's message.
     expect(await register({ team_id: "", saison_id: "2027" })).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
