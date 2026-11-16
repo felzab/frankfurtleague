@@ -16,7 +16,7 @@ import { assertionsSigned, enrolPasskey, signInWithCode } from "../support/signI
 
 import type { Locator, Page } from "@playwright/test";
 
-/** The one owner (`scripts/ops/seed/seed.js`), whom no other journey signs in as. */
+/** The one owner, whom no other journey signs in as. */
 const OWNER = PEOPLE.owner;
 
 /** The administrator the seed's handover names, and the one this journey hands over to again. */

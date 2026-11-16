@@ -1,7 +1,7 @@
 /**
  * E2E · the area on a phone: the four lists read under the session `../support/administrator.setup.ts` saved, an
  * administrator's and no owner's. Reads alone: every act here takes the passkey touch, which WebKit cannot answer, so
- * the acts are `../desktop/`'s. Each reads rows the seed wrote and no journey changes (`scripts/ops/seed/seed.js`).
+ * the acts are `../desktop/`'s. Each reads rows the seed wrote and no journey changes.
  */
 import { expect } from "@playwright/test";
 

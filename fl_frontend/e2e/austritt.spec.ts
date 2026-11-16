@@ -11,7 +11,7 @@ import { filedMessages, mailedMessage } from "./support/mailSink";
 
 test.use({ storageState: ADMINISTRATOR_STATE });
 
-/** The Trainer of the one opponent holding a contact (`scripts/ops/seed/seed.js`). */
+/** The Trainer of the one opponent holding a contact. */
 const OPPONENT = PEOPLE.austritt.opponent.address;
 
 test("a club leaves the season, and its opponent is told at once", async ({ page, departing: { club, fixture } }) => {

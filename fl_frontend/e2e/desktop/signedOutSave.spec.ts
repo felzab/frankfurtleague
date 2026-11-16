@@ -9,7 +9,7 @@ import { test } from "../support/journey";
 import { PEOPLE } from "../support/madeUpLeague";
 import { enrolPasskey, signInWithCode } from "../support/signIn";
 
-/** The administrator this journey alone signs in as (`scripts/ops/seed/seed.js`). */
+/** The administrator this journey alone signs in as. */
 const EDITOR = PEOPLE.administrators.editor;
 
 /** A venue's own editor, by its pathname. */

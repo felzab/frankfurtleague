@@ -14,7 +14,7 @@ import { PEOPLE } from "../support/madeUpLeague";
 import { filedMessages, mailedMessage } from "../support/mailSink";
 import { assertionsSigned, enrolPasskey, signInWithCode } from "../support/signIn";
 
-/** The administrator these acts are done by (`scripts/ops/seed/seed.js`), whom no other journey signs in as. */
+/** The administrator these acts are done by, whom no other journey signs in as. */
 const ADMINISTRATOR = PEOPLE.administrators.access;
 
 /** The person whose address the change starts on. */

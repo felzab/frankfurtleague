@@ -21,7 +21,7 @@ const NEW_VENUE = "Sportplatz Ulmenring";
 
 /**
  * The running season's match 6, today at 16:00 between Kastanie and Eiche, the only match today at its
- * venue and with its referee, so a later kick-off meets no clash (`scripts/ops/seed/seed.js`). It stands on
+ * venue and with its referee, so a later kick-off meets no clash. It stands on
  * the group stage's second matchday, which the Spiele list is opened on by its address, so the journey edits
  * that match whatever matchday the list would open on by itself.
  */

@@ -12,7 +12,7 @@ import { PEOPLE } from "../support/madeUpLeague";
 import { filedMessages, mailedLink } from "../support/mailSink";
 import { assertionsSigned, declinePasskeyOffer, PERSON_LANDING, signInWithCode } from "../support/signIn";
 
-/** The person the removal's journey alone signs in as (`scripts/ops/seed/seed.js`). */
+/** The person the removal's journey alone signs in as. */
 const REMOVER = PEOPLE.passkeys.remover.address;
 
 /** The person the touched acts' journey alone signs in as, and the one its last step erases. */

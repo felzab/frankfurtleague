@@ -1,7 +1,7 @@
 /**
  * E2E · an application as its people make it: the public form's five boxes, a seat's confirmation from its mailed link,
- * and an administrator's way to the application's review page. The planned season of `scripts/ops/seed/seed.js` is the
- * one its window is open for.
+ * and an administrator's way to the application's review page. The made-up seed's planned season is the one its window
+ * is open for.
  */
 import { expect } from "@playwright/test";
 

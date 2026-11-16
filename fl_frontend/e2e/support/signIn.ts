@@ -44,7 +44,7 @@ export async function signInWithCode(page: Page, address: string): Promise<void>
 }
 
 /**
- * Where a person `scripts/ops/seed/seed.js :: journeyPerson` built lands once signed in: a confirmed referee no fixture
+ * Where a journey's own person of the made-up seed lands once signed in: a confirmed referee no fixture
  * books, so their one place is the referee's (`fl_frontend/src/features/roles/utils.ts :: landingTargetOf`), whose
  * address stays put for a referee in no season.
  */

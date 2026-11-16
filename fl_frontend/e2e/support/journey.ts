@@ -3,7 +3,7 @@
  *
  * Options rather than constants per file, so one journey runs under both projects as each project's
  * own people (https://playwright.dev/docs/test-parameterize#parameterized-projects). Each is a
- * record of `scripts/ops/seed/seed.js`, and no two projects share one: a passkey or a code one
+ * record of the made-up seed, and no two projects share one: a passkey or a code one
  * project made is never the other's to find.
  */
 import path from "node:path";
@@ -30,8 +30,8 @@ export type JourneyOptions = {
   departing: { club: string; fixture: string };
   /**
    * The club the administration enters into the planned season, and the kit colour its editor saves. A season's colour
-   * is one team's and both projects enter the one season, so each has its own, and neither is one `PLANNED_ROWS` of
-   * `scripts/ops/seed/seed.js` holds nor the wish `application.ts :: apply` picks, which a colour given away would close.
+   * is one team's and both projects enter the one season, so each has its own, and neither is one the seed's planned
+   * season holds nor the wish the applications pick, which a colour given away would close.
    */
   entered: { club: string; colour: string };
   /** The pupil the administration edits in the running season's squads. */

@@ -12,7 +12,7 @@ import { PEOPLE } from "../support/madeUpLeague";
 import { filedMessages, mailedMessage } from "../support/mailSink";
 import { assertionsSigned, declinePasskeyOffer, enrolPasskey, PERSON_LANDING, signInWithCode } from "../support/signIn";
 
-/** The person this journey bans (`scripts/ops/seed/seed.js`), whom no other journey signs in as. */
+/** The person this journey bans, whom no other journey signs in as. */
 const PERSON = PEOPLE.access.banned.address;
 
 /** The administrator who bans them, on the second device, whom no other journey signs in as. */
