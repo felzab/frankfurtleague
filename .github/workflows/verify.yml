@@ -201,20 +201,13 @@ jobs:
           # The runner is discarded with the job, builder and all, so removing the builder in the
           # post step would buy nothing but the wait for it.
           cleanup: false
-      # `sha-<commit>` beside the scope's own tag, the tag a deploy pins, and the version the build
-      # stamps into each image.
-      - id: meta-frontend
+      # `sha-<commit>` as the version, the tag a deploy pins and the one each image is stamped with,
+      # and the OCI labels both images carry. No `images`, so the version is the one tag it computes,
+      # and each build names its own repository before it.
+      - id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
-          images: ${{ env.FRONTEND_IMAGE }}
           tags: type=sha
-          flavor: latest=false
-      - id: meta-backend
-        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
-        with:
-          images: ${{ env.BACKEND_IMAGE }}
-          tags: type=sha
-          flavor: latest=false
       # One cache scope per image, buildx overwriting rather than merging a key, and `version` left to
       # buildx, which picks the live cache service.
 
@@ -230,9 +223,9 @@ jobs:
           file: fl_frontend/Dockerfile
           tags: |
             ${{ env.VERIFY_TAG }}:frontend
-            ${{ steps.meta-frontend.outputs.tags }}
-          labels: ${{ steps.meta-frontend.outputs.labels }}
-          build-args: APP_VERSION=${{ steps.meta-frontend.outputs.version }}
+            ${{ env.FRONTEND_IMAGE }}:${{ steps.meta.outputs.version }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: APP_VERSION=${{ steps.meta.outputs.version }}
           outputs: type=docker,dest=${{ runner.temp }}/frontend.tar
           cache-from: ${{ github.event_name != 'push' && 'type=gha,scope=frontend' || '' }}
           cache-to: ${{ github.event_name == 'push' && 'type=gha,scope=frontend,mode=max' || '' }}
@@ -243,33 +236,26 @@ jobs:
           file: fl_backend/Dockerfile
           tags: |
             ${{ env.VERIFY_TAG }}:backend
-            ${{ steps.meta-backend.outputs.tags }}
-          labels: ${{ steps.meta-backend.outputs.labels }}
-          build-args: APP_VERSION=${{ steps.meta-backend.outputs.version }}
+            ${{ env.BACKEND_IMAGE }}:${{ steps.meta.outputs.version }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: APP_VERSION=${{ steps.meta.outputs.version }}
           outputs: type=docker,dest=${{ runner.temp }}/backend.tar
           cache-from: ${{ github.event_name != 'push' && 'type=gha,scope=backend' || '' }}
           cache-to: ${{ github.event_name == 'push' && 'type=gha,scope=backend,mode=max' || '' }}
       # On every event, so a pull request's run proves the outputs a push to main publishes by.
-      - name: Record each tarball's digest and each image's one tag
+      - name: Record each tarball's digest and each image's tag
         id: bind
         env:
-          FRONTEND_TAGS: ${{ steps.meta-frontend.outputs.tags }}
-          BACKEND_TAGS: ${{ steps.meta-backend.outputs.tags }}
+          VERSION: ${{ steps.meta.outputs.version }}
         run: |
-          record() { # $1 the output prefix, $2 the repository, $3 the metadata step's tags, $4 the tarball
+          record() { # $1 the output prefix, $2 the image's reference, $3 the tarball
             local digest
-            # Exactly the `sha-` tag: the publish job pushes this one reference, so a second tag the
-            # metadata step gained would otherwise go unpublished without a word.
-            if [[ "$3" == *$'\n'* || "$3" != "$2:sha-"* ]]; then
-              printf '::error::the %s image carries the tags %q, where the publish job pushes exactly one, %s:sha-<commit>.\n' "$1" "$3" "$2"
-              return 1
-            fi
-            digest="$(sha256sum "$4" | cut -d ' ' -f 1)"
-            printf '%s-tag=%s\n%s-sha256=%s\n' "$1" "$3" "$1" "$digest" >> "$GITHUB_OUTPUT"
-            printf '%s: %s, tarball sha256 %s\n' "$1" "$3" "$digest"
+            digest="$(sha256sum "$3" | cut -d ' ' -f 1)"
+            printf '%s-tag=%s\n%s-sha256=%s\n' "$1" "$2" "$1" "$digest" >> "$GITHUB_OUTPUT"
+            printf '%s: %s, tarball sha256 %s\n' "$1" "$2" "$digest"
           }
-          record frontend "$FRONTEND_IMAGE" "$FRONTEND_TAGS" "${RUNNER_TEMP}/frontend.tar"
-          record backend "$BACKEND_IMAGE" "$BACKEND_TAGS" "${RUNNER_TEMP}/backend.tar"
+          record frontend "${FRONTEND_IMAGE}:${VERSION}" "${RUNNER_TEMP}/frontend.tar"
+          record backend "${BACKEND_IMAGE}:${VERSION}" "${RUNNER_TEMP}/backend.tar"
       - name: Load both images
         run: |
           docker load --input "${RUNNER_TEMP}/frontend.tar"
