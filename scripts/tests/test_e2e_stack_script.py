@@ -30,8 +30,8 @@ E2E_FILES: Final = "docker-compose.yml:docker-compose.local.yml:docker-compose.e
 
 # Each call as `<COMPOSE_FILE> | <COMPOSE_PROJECT_NAME> | <arguments>`. The kinds: `down`, `build`, `start` (the `up`
 # without a wait), `wait` (the database and the backend waited for), `rest` (the whole stack waited for), and the seed's
-# five: `services` and `running`, its look at the stack, then `hand`, `seed` and `readback`. An `up` is told by whether it
-# waits and which services it names, never by its timeout, which the script may retune.
+# four: `states`, its look at the stack, then `hand`, `seed` and `readback`. An `up` is told by whether it waits and
+# which services it names, never by its timeout, which the script may retune.
 DOCKER: Final = r"""#!/usr/bin/env bash
 d="$FL_STACK_DIR"
 printf '%s | %s | %s\n' "${COMPOSE_FILE-}" "${COMPOSE_PROJECT_NAME-}" "$*" >> "$d/calls"
@@ -42,9 +42,8 @@ case " $* " in
   *" compose up "*" --wait "*" mongo backend ") exit "$(answer wait)" ;;
   *" compose up "*" --wait "*) exit "$(answer rest)" ;;
   *" compose up "*) exit "$(answer start)" ;;
-  # The services the three files declare, and the two the wait above has running.
-  *" compose config --services "*) printf '%s\n' frontend backend mongo nginx cloudflared; exit 0 ;;
-  *" compose ps --status running --services "*) printf '%s\n' mongo backend; exit 0 ;;
+  # The two containers the wait above has running, the frontend not yet created.
+  *" compose ps --all --format "*) printf '%s\n' "mongo running" "backend running"; exit 0 ;;
   *" sh -c "*) cat > /dev/null; exit "$(answer hand)" ;;
   *" tests.made_up_seed "*) exit "$(answer seed)" ;;
   *" app.readback "*) exit "$(answer readback)" ;;
@@ -64,8 +63,7 @@ def kind(call: str) -> str:
     for needle, name in (
         (" compose down ", "down"),
         (" compose build", "build"),
-        (" compose config --services ", "services"),
-        (" compose ps --status running --services ", "running"),
+        (" compose ps --all --format ", "states"),
         (" sh -c ", "hand"),
         ("tests.made_up_seed", "seed"),
         ("app.readback", "readback"),
@@ -138,7 +136,7 @@ def test_a_start_runs_on_new_keys_over_an_empty_stack_and_mail_sink_and_serves_o
 
     code, said, kinds = stack(root, "serve")
     assert code == 0, said
-    assert kinds == ["wait", "services", "running", "hand", "hand", "hand", "seed", "readback", "rest"], kinds
+    assert kinds == ["wait", "states", "hand", "hand", "hand", "seed", "readback", "rest"], kinds
 
 
 @pytest.mark.parametrize(
