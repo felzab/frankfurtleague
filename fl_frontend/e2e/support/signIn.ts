@@ -112,3 +112,17 @@ export async function enrolPasskey(page: Page, context: BrowserContext): Promise
   // journey's next address interrupts nothing.
   await expect(page).toHaveURL((url) => url.pathname === ADMINISTRATION_LANDING);
 }
+
+/**
+ * A person's passkey, set up on Sicherheit under the code's fresh session: they hold none yet, so nothing is touched.
+ * Returns each row's „Löschen“, in `main`: the confirmation's own „Löschen“ stands outside it, in the dialog, and the open
+ * dialog hides the rows from the accessibility tree, so a count settles only once the dialog has closed.
+ */
+export async function setUpPasskey(page: Page, context: BrowserContext): Promise<Locator> {
+  await context.credentials.install();
+  await page.goto("/account/security");
+  const rows = page.getByRole("main").getByRole("button", { name: "Löschen" });
+  await page.getByRole("button", { name: "Passkey einrichten" }).click();
+  await expect(rows).toHaveCount(1);
+  return rows;
+}

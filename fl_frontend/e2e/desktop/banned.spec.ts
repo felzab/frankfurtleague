@@ -10,7 +10,7 @@ import { typeInto } from "../support/controls";
 import { test } from "../support/journey";
 import { PEOPLE } from "../support/madeUpLeague";
 import { filedMessages, mailedMessage } from "../support/mailSink";
-import { assertionsSigned, declinePasskeyOffer, enrolPasskey, PERSON_LANDING, signInWithCode } from "../support/signIn";
+import { assertionsSigned, declinePasskeyOffer, enrolPasskey, PERSON_LANDING, setUpPasskey, signInWithCode } from "../support/signIn";
 
 /** The person this journey bans, whom no other journey signs in as. */
 const PERSON = PEOPLE.access.banned.address;
@@ -22,10 +22,7 @@ test("a banned person is told, loses their session and cannot sign in, by the se
   // The person: an account, so the ban owes its mail, and a passkey, which outlives the session the ban ends.
   await signInWithCode(page, PERSON);
   await declinePasskeyOffer(page, PERSON_LANDING);
-  await context.credentials.install();
-  await page.goto("/account/security");
-  await page.getByRole("button", { name: "Passkey einrichten" }).click();
-  await expect(page.getByRole("main").getByRole("button", { name: "Löschen" })).toHaveCount(1);
+  await setUpPasskey(page, context);
 
   // The ban, behind the administrator's touch.
   await signInWithCode(desk, ADMINISTRATOR);
