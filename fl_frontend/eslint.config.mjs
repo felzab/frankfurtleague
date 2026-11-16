@@ -594,6 +594,26 @@ const SOURCE_BANS = [
     SOURCE,
     { allow: ["src/features/saisons/queries.ts", "src/app/(classic)/landing.ts", "src/kit/ClassicFrame.tsx"] },
   ),
+  // An address someone types for another person, being erased, banned or seated, would stay in their browser and be
+  // offered to the next form, which nothing shows. The boxes where a person types their own address keep their fill.
+  syntaxBan(
+    syntax(
+      [
+        'JSXOpeningElement:has(> JSXAttribute[name.name="kind"][value.value="email"]):not(:has(> JSXAttribute[name.name="autofill"][value.value="off"]))',
+        'ObjectExpression:has(> Property[key.name="kind"][value.value="email"]):not(:has(> Property[key.name="autofill"][value.value="off"]))',
+      ].join(", "),
+      'An address box takes `autofill="off"`: an address typed for someone else stays in the browser and is offered to the next form. A box where a person types their own address joins this ban\'s `allow` list in eslint.config.mjs.',
+    ),
+    PRODUCTION,
+    {
+      allow: [
+        "src/app/(classic)/bewerbung/[saison]/BewerbungFields.tsx",
+        "src/app/(classic)/registrierung/RegistrierungFields.tsx",
+        "src/app/account/(pages)/signin/SignInBoxes.tsx",
+        "src/kit/SignInPage.tsx",
+      ],
+    },
+  ),
 ];
 
 // ---------------------------------------------------------------------------------------------------
