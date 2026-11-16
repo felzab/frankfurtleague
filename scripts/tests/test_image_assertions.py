@@ -1,6 +1,6 @@
 """The image checks a successful build does not make, and how each answer is graded.
 
-A `docker build` reports success over an image missing `instrumentation.js`, over one that runs as
+A build reports success over an image missing `instrumentation.js`, over one that runs as
 root, and over a context its dockerignore stopped covering, so the three probes in the images scope
 are the only things that read any of it. Each answers three ways, and the third -- an image that
 would not run at all -- is no finding about the image. Every case drives the gate's own `--images`
@@ -38,14 +38,19 @@ case_for() { # $1 the image asked about
 }
 case "${1:-}" in
   version) printf 'stub\\n'; exit 0 ;;
-  build)
+  buildx)
+    # The local build is CI's own definition: any other build, or any call the scope is not to make,
+    # is refused, here and below, so it fails every case whose build is to succeed.
+    if [[ "${2:-}" != bake || " $* " != *" --file docker-bake.hcl "* ]]; then
+      printf 'stub: not a bake of docker-bake.hcl: %s\\n' "$*"; exit 1
+    fi
     case "${FL_IMAGE_CASE:-clean}" in
       build_failed) printf '%s\\n' "ERROR: failed to solve"; exit 1 ;;
     esac
     exit 0 ;;
   image) exit 0 ;;
 esac
-if [[ "${1:-}" != "run" ]]; then exit 0; fi
+if [[ "${1:-}" != "run" ]]; then printf 'stub: no answer for docker %s\\n' "$*"; exit 1; fi
 cmd=""
 image=""
 prev=""
@@ -160,7 +165,7 @@ def test_each_answer_the_image_assertions_can_give_ends_the_run_its_own_way(case
         wrong.append(f"nothing it printed says {case.says!r}")
     if case.never is not None and case.never in output:
         wrong.append(f"it said {case.never!r}, which names a breach nothing observed")
-    if case.built and "docker build" in output:
+    if case.built and "buildx bake" in output:
         wrong.append("it built the images the workflow had built")
     assert not wrong, "\n".join(wrong)
 

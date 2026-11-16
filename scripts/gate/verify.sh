@@ -589,9 +589,8 @@ DB_TIERS=""
 scope_db() {
   section db
   trap 'rm -rf "$CONTRACT_SCRATCH" ${DB_TIERS:+"$DB_TIERS"}' EXIT
-  # Side by side, each into its own capture, as `build_images` runs two builds: the tiers share no
-  # container, each starting its own on ports Docker picks, and the contract check writes only its
-  # scratch folder.
+  # Side by side, each into its own capture: the tiers share no container, each starting its own on
+  # ports Docker picks, and the contract check writes only its scratch folder.
   DB_TIERS="$(mktemp -d)"
   local contract backend frontend
   # This scope because it alone has both the backend's virtualenv and the frontend's install.
@@ -632,25 +631,20 @@ own message above says which." "pnpm run test:db" \
 IMAGES_TAG="${VERIFY_TAG:-frankfurtleague-verify-$$}"
 cleanup_images() { docker image rm -f "${IMAGES_TAG}:frontend" "${IMAGES_TAG}:backend" >/dev/null 2>&1 || true; }
 
-# Both at once, each into its own capture: BuildKit runs the two solves side by side.
+# Both in one bake of the definition CI builds, so each target's context, Dockerfile and arguments are
+# `docker-bake.hcl`'s alone. Only where they land is this run's: loaded into the local image store
+# under this run's tag (`--set`, https://docs.docker.com/build/bake/overrides/), where CI writes the
+# tarballs its publish pushes.
 build_images() {
-  local image rc failed="" logs
-  local -A build_pid=()
-  logs="$(mktemp -d)"
-  for image in frontend backend; do
-    # Bash starts an `&` command of a script with SIGINT and SIGQUIT ignored, which would leave a build
-    # running past a Ctrl-C and tagging an image after `cleanup_images` ran: reset in the subshell.
-    ( trap - INT QUIT; exec docker build -f "fl_${image}/Dockerfile" -t "${IMAGES_TAG}:${image}" "fl_${image}" ) > "${logs}/${image}" 2>&1 &
-    build_pid[$image]=$!
-  done
-  for image in frontend backend; do
-    rc=0
-    wait "${build_pid[$image]}" || rc=$?
-    if (( rc )); then failed+=" ${image}"; detail < "${logs}/${image}"; fi
-  done
-  rm -rf "$logs"
-  if [[ -n "$failed" ]]; then
-    fail "The image(s)${failed} failed to build — the failure the frontend scope cannot see. Docker's own output is above."
+  local log rc=0
+  log="$(mktemp)"
+  docker buildx bake --file docker-bake.hcl --set '*.output=type=docker' \
+    --set "frontend.tags=${IMAGES_TAG}:frontend" --set "backend.tags=${IMAGES_TAG}:backend" \
+    frontend backend > "$log" 2>&1 || rc=$?
+  if (( rc )); then detail < "$log"; fi
+  rm -f "$log"
+  if (( rc )); then
+    fail "The images failed to build — the failure the frontend scope cannot see. Docker's own output above names the target."
     finish
   fi
 }
@@ -661,7 +655,7 @@ scope_images() {
   section images
   if [[ -z "${VERIFY_IMAGES_BUILT:-}" ]]; then
     trap cleanup_images EXIT
-    step "images · docker build frontend and backend"
+    step "images · docker buildx bake frontend backend"
     build_images
     ok "both images build"
   fi

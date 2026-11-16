@@ -1,5 +1,7 @@
 # The two images, built side by side in one bake by the images job of `.github/workflows/verify.yml`,
 # whose environment sets every variable below; docker/metadata-action's bake file adds the labels.
+# The gate's images scope bakes the same targets on a machine of its own, overriding only their tags
+# and output, so a context, a Dockerfile or an argument changes for both builds here alone.
 
 variable "FRONTEND_IMAGE" {}
 variable "BACKEND_IMAGE" {}
