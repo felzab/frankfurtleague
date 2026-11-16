@@ -30,10 +30,8 @@ from tests.erasure import erasure_collections
 
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 
-
 # Two ended, one running, one planned: the rule keeps a squad row in 2025, 2026 and 2027.
 LEAGUE = {"2023": "past", "2024": "past", "2025": "past", "2026": "active", "2027": "future"}
-
 
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607d10001")
 

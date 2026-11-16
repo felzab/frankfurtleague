@@ -34,17 +34,12 @@ BYSTANDER = "baldur.krautzberger@example.com"
 UNCONFIRMED = "ottilie.wartezeit@schule.de"
 RETIRED = "rudolf.ruhestand@schule.de"
 
-
-# A banned address holding a confirmed seat, banned in one spelling and asked in another, the seat
-# stored folded; and an address whose ban ended with the season before the running one.
+# A banned address holding a confirmed seat, the seat stored folded.
 BARRED_STORED = "gerda.gesperrt@schule.de"
 
-
-# The grants, stored folded as every grant is, and one asked in capitals.
+# The grants, stored folded as every grant is.
 ADMIN_OWNER = "inhaberin@frankfurtleague.de"
 ADMIN_STORED = "verena.verwaltung@schule.de"
-
-
 GRANT_OWNER_OID = ObjectId("6890a1b2c3d4e5f607820051")
 GRANT_STORED_OID = ObjectId("6890a1b2c3d4e5f607820052")
 
@@ -78,8 +73,6 @@ BYSTANDER_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607820039")
 # The name the junction row was entered under, and the one the club has taken since. They differ so
 # that serving the club's own would be observable.
 ROW_NAME_A = "Helmholtz"
-
-
 CLUB_NAME_A_NOW = "Helmholtz-Gymnasium"
 ROW_NAME_B = "Lessing"
 

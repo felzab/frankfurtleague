@@ -53,7 +53,6 @@ SPIELTAGE = {
 VIERTELFINALE = ObjectId("6890a1b2c3d4e5f607220011")
 HALBFINALE = ObjectId("6890a1b2c3d4e5f607220012")
 
-
 # Read back off the stored documents, which key by `spiel_nr` rather than by id.
 VIERTELFINALE_NR = 1
 HALBFINALE_NR = 5
@@ -167,7 +166,6 @@ def bracket_season() -> list[dict[str, Any]]:
 
 SPIELORT = ObjectId("6890a1b2c3d4e5f6072200b1")
 SPIELORT_RETIRED = ObjectId("6890a1b2c3d4e5f6072200b2")
-
 
 SCHIEDSRICHTER = ObjectId("6890a1b2c3d4e5f6072200c1")
 SCHIEDSRICHTER_RETIRED = ObjectId("6890a1b2c3d4e5f6072200c2")
