@@ -672,22 +672,32 @@ change needs work" from "the check never ran" acts on the wrong one.
 | `interrupted` | 130       | Ctrl-C or a hangup: the sections that had opened are all there is, none a verdict      |
 
 **Every tool's status reaches an ending through one table**, `scripts/lib/_lib.sh :: EXIT_CODES`,
-a row per tool read from its documentation for the release the repository pins:
+a row per tool read from its documentation for the release the repository pins, or from that
+release's source where the documentation names no status:
 
 - the status by which the tool reports what it found is a finding;
 - one by which it says it could not judge, an input it could not read, a network it could not
   reach or a configuration it could not load, is a refusal;
 - one saying it was invoked wrong or died, one it shares between either and anything else, and
-  one its documentation does not name, is a crash.
+  one its documentation does not name, is a crash;
+- where the tool gives the status for what it found to a failure of its own as well, and documents
+  no way to tell the two apart, that status is a finding, and the row names what else answers it.
+
+No row is a default: each call site names its tool's row, and a name no row holds crashes the run
+the first time it is read. One dispatcher, `settle`, ends the run for a crash or an interrupt in the
+shell that read the status, never inside a substitution, whose exit would end the subshell alone.
 
 `docker run`'s own statuses come ahead of the tool's in its container: 125, the daemon failing,
 is a refusal. **A run of several scopes ends on the class its scopes ended on**, each scope's own
 exit code deciding its row and its count of findings filling the row's column alone: an interrupt
 first, then a finding, a refusal and a crash.
 
-**A `pnpm` script the manifest does not declare ends its step as a crash, never a finding**: pnpm
-answers it 1, as a tool finding something does, but no tool ran (`scripts/gate/verify.sh ::
-verdict`).
+**pnpm's own failures are read by their code, never their status**: pnpm answers 1 for each of
+them and for a finding alike, and [its error reference](https://pnpm.io/errors) gives the code as
+what a script matches on (`scripts/lib/_lib.sh :: PNPM_ERRORS`). A lockfile out of date or a copy a
+dedupe would remove is a finding, a registry it could not reach a refusal, and a script the manifest
+does not declare a crash, since no tool ran. A script pnpm runs answers with its own status, read
+through its tool's row.
 
 The checkers answer on the same scale: `scripts/lib/checker_kernel.py` fixes 0 for a pass, 1 for
 findings, 2 for a check that could not judge its input and 3 or more for a broken environment, in

@@ -117,8 +117,8 @@ fi
 SCOPE="${SELECTED[0]}"
 
 # A command's status read into the exit contract through the `EXIT_CODES` tables `--exits` names
-# (`tool` where none is named, `pytest` under `--pytest`): what it found is a finding, what it could
-# not judge a refusal, anything else a crash. `--summary` is for a tool raising an annotation per
+# (`pytest` under `--pytest`, and none by default): what it found is a finding, what it could not
+# judge a refusal, anything else a crash. `--summary` is for a tool raising an annotation per
 # finding itself under Actions, as Vitest does: what is said then sums them, `fail --summary`.
 # `--annotated` is for a script on this library, which annotates its own findings, refusals and
 # crashes, so none is raised again. `--pytest` raises those annotations for pytest, one per case its
@@ -138,7 +138,7 @@ check() { # [--exits <tables>] [--summary | --annotated | --pytest] $1 what to s
 }
 
 # The tables `check`'s and `beside_verdict`'s flags name: `--exits`'s, else `pytest` under `--pytest`,
-# else `tool`.
+# else none, which `exit_class` answers as a crash.
 exits_of() { # the flags
   local exits="" pytest=0
   while (( $# )); do
@@ -148,7 +148,7 @@ exits_of() { # the flags
     esac
     shift
   done
-  if [[ -z "$exits" ]]; then if (( pytest )); then exits=pytest; else exits=tool; fi; fi
+  if [[ -z "$exits" ]] && (( pytest )); then exits=pytest; fi
   printf '%s' "$exits"
 }
 
@@ -161,12 +161,10 @@ verdict() { # [--exits <tables>] [--summary | --annotated | --pytest] $1 what to
   if [[ "$1" == --summary ]]; then summary=(--summary); shift; fi
   if [[ "$1" == --annotated ]]; then summary=(--summary); annotated=(--summary); shift; fi
   if [[ "$1" == --pytest ]]; then pytest=1; shift; fi
-  settle "${annotated[@]}" "$exits" "$2" "$3" "$4" || class=$?
+  settle "${annotated[@]}" "$exits" "$2" "$3" "$4" "$QUIETLY_OUTPUT" || class=$?
   case "$class" in
     0) return 0 ;;
-    # pnpm answers a script its manifest does not declare with 1 as well, and then no tool ran at all.
-    1) if [[ "$QUIETLY_OUTPUT" == *ERR_PNPM_NO_SCRIPT* ]]; then on_error "$2" "$3" "$4"; fi
-       if (( pytest )) && annotate_cases; then summary=(--summary); fi
+    1) if (( pytest )) && annotate_cases; then summary=(--summary); fi
        fail "${summary[@]}" "$1"; return 1 ;;
     2) refuse "${annotated[@]}" "${_STEP_LABEL} could not judge its input, so nothing here stands as a verdict on the
 change. Its own reason is above (exit status $2)." ;;
@@ -225,7 +223,7 @@ beside_verdict() { # $1 its files · [--exits <tables>] [--summary | --annotated
   QUIETLY_OUTPUT=""
   if [[ -f "${at}.log" ]]; then QUIETLY_OUTPUT="$(<"${at}.log")"; fi
   _STEP_MS0=$(( $(_now_ms) - ms ))
-  exit_class "$(exits_of "$@")" "$rc" || class=$?
+  exit_class "$(exits_of "$@")" "$rc" "$QUIETLY_OUTPUT" || class=$?
   if (( VERBOSE || class )); then mapfile -t said <<<"$QUIETLY_OUTPUT"; detail "${said[@]}"; fi
   verdict "${@:1:$#-1}" "$rc" "${BASH_LINENO[0]}" "${!#}"
 }
@@ -276,7 +274,7 @@ scope_scripts() {
     && ok "the shell scripts parse, are executable in git and lint clean, and the workflows lint clean"
 
   step "scripts · ruff  (lint, and format in check mode)"
-  check "ruff failed in scripts. Fix with:  uv run --project fl_backend ruff format scripts" ruff_both . scripts \
+  check --exits ruff "ruff failed in scripts. Fix with:  uv run --project fl_backend ruff format scripts" ruff_both . scripts \
     && ok "the gate's own python is clean"
 
   # From inside scripts/, where pyright finds its config; no PyPI release lookup, uv.lock pins what runs.
@@ -317,12 +315,12 @@ scope_backend() {
   section backend
   # First and alone: every tool below runs out of the virtualenv this lockfile describes.
   step "backend · uv  (manifest and lockfile agree)"
-  check "fl_backend/uv.lock no longer answers pyproject.toml. Fix with:  cd fl_backend && uv lock  -- then commit the lockfile." \
+  check --exits uv "fl_backend/uv.lock no longer answers pyproject.toml. Fix with:  cd fl_backend && uv lock  -- then commit the lockfile." \
     in_dir fl_backend uv lock --check || finish
   ok "manifest and lockfile agree"
 
   step "backend · ruff  (lint, and format in check mode)"
-  check "ruff failed in fl_backend. Fix with:  cd fl_backend && uv run ruff format app tests" ruff_both fl_backend app tests \
+  check --exits ruff "ruff failed in fl_backend. Fix with:  cd fl_backend && uv run ruff format app tests" ruff_both fl_backend app tests \
     && ok "ruff clean"
 
   step "backend · pyright"
@@ -336,7 +334,7 @@ scope_backend() {
 
   # `app/` alone, deptry's default: `tests/` imports the dev group by design.
   step "backend · deptry  (what app/ imports against what the manifest declares)"
-  check "fl_backend/pyproject.toml and what app/ imports disagree. The finding above names the package and its rule (https://deptry.com/rules-violations/)." \
+  check --exits deptry "fl_backend/pyproject.toml and what app/ imports disagree. The finding above names the package and its rule (https://deptry.com/rules-violations/)." \
     in_dir fl_backend "$PY" -m deptry . \
     && ok "the manifest declares what app/ imports"
   return 0
@@ -348,13 +346,13 @@ scope_backend() {
 scope_format() {
   section format
   step "format · prettier  (check mode — this gate never writes)"
-  check "Prettier names the unformatted files above. Fix with:  cd fl_frontend && pnpm format  -- then commit the result." \
+  check --exits pnpm+prettier "Prettier names the unformatted files above. Fix with:  cd fl_frontend && pnpm format  -- then commit the result." \
     in_dir fl_frontend pnpm format:check \
     && ok "the tree is formatted"
 
   # markdownlint-cli2 is installed beside Prettier, and reads its configuration from the root.
   step "format · markdownlint"
-  check "markdownlint names each finding above with its file, line and rule." in_dir fl_frontend pnpm run lint:md \
+  check --exits pnpm+markdownlint "markdownlint names each finding above with its file, line and rule." in_dir fl_frontend pnpm run lint:md \
     && ok "the Markdown keeps its rules"
 
   # The empty tree against the working tree: every tracked file is read whole, and a shallow clone
@@ -383,7 +381,7 @@ scope_format() {
 scope_frontend_units() {
   section frontend-units
   step "frontend-units · unit tests"
-  check --summary "frontend unit tests failed." in_dir fl_frontend pnpm test \
+  check --exits pnpm+vitest --summary "frontend unit tests failed." in_dir fl_frontend pnpm test \
     && ok "unit tests pass"
   return 0
 }
@@ -449,42 +447,42 @@ scope_frontend() {
   for pid in "${running[@]}"; do wait "$pid" || true; done
 
   step "frontend · pnpm  (manifest and lockfile agree)"
-  beside_verdict "${at}/frozen" "fl_frontend's lockfile no longer answers its manifest or pnpm-workspace.yaml — pnpm names what differs above.
+  beside_verdict "${at}/frozen" --exits pnpm "fl_frontend's lockfile no longer answers its manifest or pnpm-workspace.yaml — pnpm names what differs above.
 Fix with:  cd fl_frontend && pnpm install  -- then commit the lockfile." \
     "pnpm install --frozen-lockfile --lockfile-only --no-optimistic-repeat-install" \
     && ok "manifest and lockfile agree"
 
   # `strictPeerDependencies` refuses an out-of-range peer only while `pnpm install` resolves.
   step "frontend · pnpm  (every peer in range)"
-  beside_verdict "${at}/peers" "fl_frontend's lockfile installs a peer outside the range a package asks for — pnpm names it above." \
+  beside_verdict "${at}/peers" --exits pnpm+pnpm-peers "fl_frontend's lockfile installs a peer outside the range a package asks for — pnpm names it above." \
     "pnpm peers check" \
     && ok "every peer in range"
 
   # `pnpm add` keeps every copy the lockfile already pins, so an added range can leave two copies of
   # one package, and two copies of React Aria split the contexts its components share.
   step "frontend · pnpm  (no copy a dedupe would remove)"
-  beside_verdict "${at}/dedupe" "fl_frontend's lockfile holds a copy a dedupe would remove — pnpm names each change above.
+  beside_verdict "${at}/dedupe" --exits pnpm "fl_frontend's lockfile holds a copy a dedupe would remove — pnpm names each change above.
 Fix with:  cd fl_frontend && pnpm dedupe  -- then commit the lockfile." \
     "pnpm dedupe --check" \
     && ok "no copy a dedupe would remove"
 
   step "frontend · next typegen"
-  beside_verdict "${at}/typegen" "next typegen failed — its own output is above." "pnpm typegen" || finish
+  beside_verdict "${at}/typegen" --exits pnpm+next "next typegen failed — its own output is above." "pnpm typegen" || finish
   ok "route types generated"
 
   step "frontend · tsc"
   beside_verdict "${at}/tsc" --exits contract "tsc found type errors." "pnpm typecheck:only" && ok "no type errors"
 
   step "frontend · eslint"
-  beside_verdict "${at}/eslint" "eslint failed." "pnpm lint:only" && ok "lint clean"
+  beside_verdict "${at}/eslint" --exits pnpm+eslint "eslint failed." "pnpm lint:only" && ok "lint clean"
 
   step "frontend · knip  (unused files, exports and dependencies)"
-  beside_verdict "${at}/knip" "knip found something nothing uses, named above. Delete it, or name the reader knip cannot see in fl_frontend/knip.json." \
+  beside_verdict "${at}/knip" --exits pnpm+knip "knip found something nothing uses, named above. Delete it, or name the reader knip cannot see in fl_frontend/knip.json." \
     "pnpm knip" \
     && ok "nothing unused"
 
   step "frontend · knip, production  (what only tests still read)"
-  beside_verdict "${at}/knip-prod" "knip's production run found code only tests still read, named above. Delete it with the cases testing it,
+  beside_verdict "${at}/knip-prod" --exits pnpm+knip "knip's production run found code only tests still read, named above. Delete it with the cases testing it,
 or name production code knip cannot see in fl_frontend/knip.production.json." \
     "pnpm knip:prod" \
     && ok "nothing only tests read"
@@ -493,7 +491,7 @@ or name production code knip cannot see in fl_frontend/knip.production.json." \
   # environment is set for the build, so the startup gate's validation is skipped, as the image's
   # builder skips it.
   step "frontend · next build"
-  check "next build failed." in_dir fl_frontend env SKIP_ENV_VALIDATION=true NEXT_TELEMETRY_DISABLED=1 pnpm build \
+  check --exits pnpm+next "next build failed." in_dir fl_frontend env SKIP_ENV_VALIDATION=true NEXT_TELEMETRY_DISABLED=1 pnpm build \
     && ok "build succeeds"
   return 0
 }
@@ -624,7 +622,7 @@ own message above says which." "pytest -m db" \
     && ok "db-tier tests pass"
 
   step "db · the frontend's *.db.test.ts files"
-  beside_verdict "${DB_TIERS}/frontend" --summary "fl_frontend db-tier tests failed. A failing test and a mongo that never started both end here: each file's
+  beside_verdict "${DB_TIERS}/frontend" --exits pnpm+vitest --summary "fl_frontend db-tier tests failed. A failing test and a mongo that never started both end here: each file's
 own message above says which." "pnpm run test:db" \
     && ok "frontend db-tier tests pass"
   return 0

@@ -202,7 +202,7 @@ quietly() { # [--exits <tables>] the command
   else
     out="$("$@" 2>&1)" || rc=$?
     class="$rc"
-    if [[ -n "$exits" ]]; then class=0; exit_class "$exits" "$rc" || class=$?; fi
+    if [[ -n "$exits" ]]; then class=0; exit_class "$exits" "$rc" "$out" || class=$?; fi
     # As arguments, one per line: a here-string yields at least one, so `detail` never reads stdin.
     if (( class )); then mapfile -t said <<<"$out"; detail "${said[@]}"; fi
   fi
@@ -505,57 +505,123 @@ trap on_interrupt INT TERM HUP
 # --- The exit contract -------------------------------------------------------------------------------
 
 # Each tool's own exit statuses, read into the contract every script here answers on: 0 clean,
-# 1 findings, 2 refused, 3 crashed. Each row is the tool's documentation for the release this
-# repository pins, and every row reads it by one rule:
+# 1 findings, 2 refused, 3 crashed. Each row names where its tool writes them down for the release
+# this repository pins: its documentation, or the release's own source where that names none. Every
+# row reads them by one rule:
 # - 1 is the status by which the tool reports what it found;
 # - 2 is one by which the tool, having started, says in its own words that it could not judge: an
 #   input it could not read, a network it could not reach, a configuration it could not load;
 # - 3 is one saying our invocation was wrong or the tool itself died, one the tool shares between
-#   either of those and anything else, and any status its documentation does not name.
+#   either of those and anything else, and any status its documentation does not name;
+# - where the tool gives the status for what it found to a failure of its own as well, and documents
+#   no way to tell the two apart, that status is a finding, and the row names what else answers it.
 # A status no row names is 3, and 130, the shell's for a command a SIGINT ended, is 130 in every row.
+# No row is a default: a call site names the row of the tool it runs.
 declare -grA EXIT_CODES=(
   # This repository's scripts, and every checker built on the checker kernel.
   [contract]="0:0 1:1 2:2"
   # A query of scripts/lib/nginx_conf.py through the kernel's launcher: 0 its answer, 2 a file that does not
   # say what was asked. A query finds nothing, so it has no 1.
   [query]="0:0 2:2"
-  # A tool documenting 1 for what it found and every other failure as its own, or no other status.
-  [tool]="0:0 1:1"
-  # `docker run`'s own statuses, which come ahead of the container's: 125 the daemon failed, so
-  # nothing ran; 126 and 127 the image cannot invoke or find its command.
+  # `docker run`'s own statuses, which come ahead of the container's (its reference, "Exit status"):
+  # 125 the daemon failed, so nothing ran; 126 and 127 the image cannot invoke or find its command.
   [docker]="125:2 126:3 127:3"
-  # 1 missing inputs, a runtime failure or a configuration error, 2 a link that failed, 3 an
-  # error in the config file.
+  # lychee 0.24.2's README, "Exit codes": 1 missing inputs, a runtime failure or a configuration
+  # error, 2 a link that failed, 3 an error in the config file.
   [lychee]="0:0 1:2 2:1 3:2"
-  # 1 an error during the audit, a GitHub API it could not reach among them, 2 an argument it
-  # could not parse, 3 no input collected, 11 to 14 findings by their highest severity, and no 10.
+  # zizmor 1.32.0's usage page, "Exit codes": 1 an error during the audit, a GitHub API it could not
+  # reach among them, 2 an argument it could not parse, 3 no input collected, 11 to 14 findings by their
+  # highest severity, and no 10.
   [zizmor]="0:0 1:2 2:3 3:2 11:1 12:1 13:1 14:1"
-  # 2 a file it could not process, 3 and 4 a flag or an option it was handed wrong.
+  # The manual of shellcheck 0.11.0, "Return values": 2 a file it could not process, 3 and 4 a flag or
+  # an option it was handed wrong.
   [shellcheck]="0:0 1:1 2:2 3:3 4:3"
-  # 2 an invalid command-line option, which Go's own panic status shares, 3 a fatal error.
+  # actionlint 1.7.12's usage page, "Exit status": 2 an invalid command-line option, which Go's own
+  # panic status shares, 3 a fatal error.
   [actionlint]="0:0 1:1 2:3 3:2"
-  # 2 an interrupt and a test module that does not collect alike, 3 an internal error, 4 a usage
-  # error or a conftest.py that fails to import, 5 no test collected.
+  # pytest 9.2.0's `ExitCode`: 2 an interrupt and a test module that does not collect alike, 3 an
+  # internal error, 4 a usage error or a conftest.py that fails to import, 5 no test collected.
   [pytest]="0:0 1:1 2:3 3:3 4:3 5:2"
-  # 2 a fatal error with nothing reported, 3 a config file it could not read or parse, 4 an illegal
-  # command-line parameter.
+  # pyright 1.1.414's command-line page, "Exit codes": 2 a fatal error with nothing reported, 3 a
+  # config file it could not read or parse, 4 an illegal command-line parameter.
   [pyright]="0:0 1:1 2:3 3:2 4:3"
-  # git grep answers 0 for a match, which is what it found, and 1 for none.
+  # ruff 0.17.4's linter and formatter pages, "Exit codes": 1 a violation, or a file `format --check`
+  # would change, 2 an invalid configuration, invalid options or an internal error alike.
+  [ruff]="0:0 1:1"
+  # uv 0.12.22's `ExitStatus` (crates/uv/src/commands/mod.rs), which its documentation does not name: 1
+  # a failure its input caused, a lockfile needing an update among them, 2 an unexpected one.
+  [uv]="0:0 1:1"
+  # deptry 0.25.1 names no status. Its source answers 1 for the violations it found, and Python's own 1
+  # answers an exception escaping it; click's 2 is a usage error.
+  [deptry]="0:0 1:1"
+  # ESLint 9.39.5's CLI reference, "Exit codes": 1 an error, or warnings past `--max-warnings`, 2 a
+  # configuration problem or an internal error alike.
+  [eslint]="0:0 1:1"
+  # knip 6.45.1's CLI reference: 1 an issue, a configuration hint among them under
+  # `--treat-config-hints-as-errors`, 2 bad input, a plugin's configuration failing to load or an
+  # internal error alike.
+  [knip]="0:0 1:1"
+  # Prettier 3.10.1's CLI page, "Exit codes": 1 a file not formatted, 2 "something's wrong with Prettier".
+  [prettier]="0:0 1:1"
+  # markdownlint-cli2 0.24.1's README, "Exit Codes": 1 an error found, 2 a problem or failure of its own.
+  [markdownlint]="0:0 1:1"
+  # Vitest 5.1.0 names no status. Its source answers 1 for a failed test or an unhandled error, and for
+  # a start-up error, a configuration that does not load among them; 130 a cancel.
+  [vitest]="0:0 1:1"
+  # Next.js 16.4.6 names no status. `next build` and `next typegen` answer 1 for a build that fails, and
+  # for any error the command meets; 130 a SIGINT, 143 a SIGTERM.
+  [next]="0:0 1:1"
+  # pnpm's own commands answer every failure with a code, which `PNPM_ERRORS` reads, and a script it runs
+  # with that script's own status, for the script's row.
+  [pnpm]="0:0"
+  # `pnpm peers check` answers 1 with no code for the issues it found (pnpm 11.28.9's source).
+  [pnpm-peers]="0:0 1:1"
+  # git-grep(1) answers 0 for a match, which is what it found, and 1 for none.
   [git-grep]="0:1 1:0"
-  # git diff answers 1 for a difference, and with --check 2 for what the check found.
+  # git-diff(1) answers 1 for a difference, and with --check 2 for what the check found.
   [git-diff]="0:0 1:1"
   [git-diff-check]="0:0 2:1"
 )
 
+# pnpm's own failures, by the code each prints as `ERR_PNPM_<code>`: pnpm answers 1 for every one of
+# them and for a finding alike, and its error reference (https://pnpm.io/errors) says the code, never
+# the message, is what a script matches on. A code no row names is 3. The policy codes are pnpm
+# 11.28.9's source's, the rest the reference's.
+declare -grA PNPM_ERRORS=(
+  # A lockfile that no longer answers the manifest or the workspace's settings.
+  [OUTDATED_LOCKFILE]=1 [LOCKFILE_CONFIG_MISMATCH]=1 [FROZEN_LOCKFILE_WITH_OUTDATED_LOCKFILE]=1
+  # A copy a dedupe would remove.
+  [DEDUPE_CHECK_ISSUES]=1
+  # A locked version the workspace's supply-chain policies refuse.
+  [NO_MATURE_MATCHING_VERSION]=1 [TRUST_DOWNGRADE]=1 [TARBALL_URL_MISMATCH]=1
+  [MISSING_TARBALL_INTEGRITY]=1 [MISSING_NAMED_REGISTRY]=1
+  # A registry it could not reach, and an offline run with no metadata cached for a package it needs.
+  [META_FETCH_FAIL]=2 [NO_OFFLINE_META]=2
+  # A script the manifest does not declare, so no tool ran.
+  [NO_SCRIPT]=3
+)
+
 # The class `$2` reads as through the tables `$1` names, joined by `+`, the first naming the status
 # deciding, answered as this function's own status: call it as `exit_class docker+lychee "$rc" ||
-# class=$?`. A table no row names is a defect of the caller, so it crashes rather than reading as 1.
-exit_class() { # $1 the tables · $2 the status
-  local table pair status="$2"
-  if [[ "$status" == 130 ]]; then return 130; fi
+# class=$?`. Where the first table is `pnpm` and the status is not 0, the last code pnpm printed in `$3`,
+# the command's output, decides first. A table list naming no row is a defect of the caller, so it
+# crashes rather than reading as 1, every name checked before any decides: a misspelt one crashes on
+# the first run, not the first failure.
+exit_class() { # $1 the tables · $2 the status · $3 the command's output
+  local table pair status="$2" code
   local IFS='+'
+  [[ -n "$1" ]] || on_error 3 "${BASH_LINENO[0]}" "exit_class: no table named"
   for table in $1; do
     [[ -n "${EXIT_CODES[$table]+set}" ]] || on_error 3 "${BASH_LINENO[0]}" "exit_class: no table named '${table}'"
+  done
+  if [[ "$status" == 130 ]]; then return 130; fi
+  if [[ "${1%%+*}" == pnpm && "$status" != 0 && "${3-}" == *ERR_PNPM_* ]]; then
+    code="${3##*ERR_PNPM_}"
+    code="${code%%[^A-Z0-9_]*}"
+    if [[ -n "$code" && -n "${PNPM_ERRORS[$code]+set}" ]]; then return "${PNPM_ERRORS[$code]}"; fi
+    return 3
+  fi
+  for table in $1; do
     IFS=' '
     for pair in ${EXIT_CODES[$table]}; do
       if [[ "${pair%%:*}" == "$status" ]]; then return "${pair#*:}"; fi
@@ -568,11 +634,11 @@ exit_class() { # $1 the tables · $2 the status
 # A status read through `exit_class` and settled in the shell that read it: an interrupt and a crash end the
 # run here, where a subshell's exit would end the subshell alone, and the class is answered otherwise, 0, 1 or
 # 2, for the caller to word. `--summary` first, as `on_error`'s: the crash is a script's that annotated its own.
-settle() { # [--summary] $1 the tables · $2 the status · $3 the caller's line · $4 the command, as a crash names it
+settle() { # [--summary] $1 the tables · $2 the status · $3 the caller's line · $4 the command, as a crash names it · $5 its output
   local class=0
   local -a summary=()
   if [[ "${1-}" == --summary ]]; then summary=(--summary); shift; fi
-  exit_class "$1" "$2" || class=$?
+  exit_class "$1" "$2" "${5-}" || class=$?
   case "$class" in
     0|1|2) return "$class" ;;
     130) on_interrupt ;;

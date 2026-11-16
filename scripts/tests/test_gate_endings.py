@@ -4,8 +4,8 @@ A tool's status is read through `scripts/lib/_lib.sh :: EXIT_CODES`, so a row re
 class with every line still printed: a refusal reads as a finding to fix, or a finding as a crash. Nobody reading the
 scope's output alone sees that, and a caller branching on the code acts on the wrong one. Each case copies the gate and
 its library into a fixture tree with the three compose files and the tools file, a stand-in virtualenv whose interpreter
-and zizmor answer what the case says, a stand-in edge test answering 0, and a stand-in `docker` and `uv` first on PATH,
-so the docs and ops scopes run with no daemon, no audit and no install.
+and zizmor answer what the case says, a stand-in edge test answering 0, and a stand-in `docker`, `uv` and `pnpm` first
+on PATH, so the docs, ops and frontend scopes run with no daemon, no audit and no install.
 """
 
 from __future__ import annotations
@@ -37,6 +37,18 @@ case "${1:-}" in
 esac
 printf 'stub: no answer for docker %s\n' "$*" >&2
 exit 1
+"""
+
+
+# pnpm answering each command as `FL_PNPM_<command>` says, `<status>` or `<status>:<code>`, the code printed
+# as pnpm prints its own errors; a script it runs is named by the script, `lint:only` as `FL_PNPM_lint_only`.
+PNPM: Final = r"""#!/usr/bin/env bash
+command="$1"
+if [[ "$command" == exec ]]; then exit 0; fi
+variable="FL_PNPM_${command//[^A-Za-z]/_}"
+answer="${!variable:-0}"
+if [[ "$answer" == *:* ]]; then printf '[ERR_PNPM_%s] stub: pnpm %s\n' "${answer#*:}" "$*" >&2; fi
+exit "${answer%%:*}"
 """
 
 
@@ -84,6 +96,8 @@ def _gate(*scopes: str, answers: dict[str, str], tools: str | None = None) -> tu
     stubs = new_root("fl-gate-endings-engine-")
     os.chmod(write_shell(stubs / "docker", DOCKER), 0o755)
     os.chmod(write_shell(stubs / "uv", _answers("FL_UV_EXIT")), 0o755)
+    os.chmod(write_shell(stubs / "pnpm", PNPM), 0o755)
+    (root / "fl_frontend" / "node_modules").mkdir(parents=True)
     environment = base_env() | {"PATH": str(stubs) + os.pathsep + os.environ["PATH"]} | answers
     done = run_shell(BASH, root / "scripts" / "gate" / "verify.sh", *scopes, env=environment, cwd=root)
     return done.returncode, done.stdout + done.stderr
@@ -104,6 +118,11 @@ JUDGED_NOTHING: Final = "could not judge its input"
 BROKEN_LINKS: Final = "lychee names each broken link"
 NO_PLUGIN: Final = "Docker Compose did not answer"
 UNPARSED: Final = "docker-compose.yml does not parse."
+DEDUPE: Final = "holds a copy a dedupe would remove"
+PEERS: Final = "installs a peer outside the range"
+ESLINT: Final = "eslint failed."
+# `on_error`'s own line, which only a crash prints.
+CRASHED: Final = "exit status "
 
 
 @pytest.mark.parametrize(
@@ -115,6 +134,19 @@ UNPARSED: Final = "docker-compose.yml does not parse."
         pytest.param("--ops", {"FL_ZIZMOR_EXIT": "1"}, 2, JUDGED_NOTHING, "zizmor found a finding", id="zizmor-s-own-error-is-a-refusal"),
         pytest.param("--docs", {"FL_LYCHEE_EXIT": "2"}, 1, BROKEN_LINKS, JUDGED_NOTHING, id="a-failed-link-is-a-finding"),
         pytest.param("--docs", {"FL_LYCHEE_EXIT": "1"}, 2, JUDGED_NOTHING, BROKEN_LINKS, id="lychee-s-own-failure-is-a-refusal"),
+        # pnpm answers 1 for its own failures and for a finding alike, so its code decides.
+        pytest.param(
+            "--frontend", {"FL_PNPM_dedupe": "1:DEDUPE_CHECK_ISSUES"}, 1, DEDUPE, JUDGED_NOTHING, id="a-dedupe-pnpm-would-make-is-a-finding"
+        ),
+        pytest.param(
+            "--frontend", {"FL_PNPM_dedupe": "1:META_FETCH_FAIL"}, 2, JUDGED_NOTHING, DEDUPE, id="a-registry-pnpm-cannot-reach-is-a-refusal"
+        ),
+        pytest.param("--frontend", {"FL_PNPM_dedupe": "1:A_CODE_NO_ROW_NAMES"}, 3, CRASHED, DEDUPE, id="a-pnpm-code-no-row-names-is-a-crash"),
+        pytest.param("--frontend", {"FL_PNPM_peers": "1"}, 1, PEERS, JUDGED_NOTHING, id="a-peer-out-of-range-is-a-finding"),
+        pytest.param("--frontend", {"FL_PNPM_lint_only": "1:NO_SCRIPT"}, 3, CRASHED, ESLINT, id="a-script-the-manifest-lacks-is-a-crash"),
+        # A script's own status passes through pnpm, so the tool's own row reads it.
+        pytest.param("--frontend", {"FL_PNPM_lint_only": "1"}, 1, ESLINT, JUDGED_NOTHING, id="an-eslint-error-is-a-finding"),
+        pytest.param("--frontend", {"FL_PNPM_lint_only": "2"}, 3, CRASHED, ESLINT, id="eslint-s-own-failure-is-a-crash"),
     ],
 )
 def test_each_tool_s_status_ends_the_scope_as_its_table_reads_it(scope: str, answers: dict[str, str], code: int, says: str, never: str) -> None:
