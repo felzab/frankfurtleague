@@ -1476,8 +1476,8 @@ def move_running(league: MadeUpLeague, days: int) -> None:
         row["date"] = moved(row["date"], days)
 
 
-def unplayed(row: dict[str, Any], *, undated: bool = False) -> None:
-    """A fixture as the draw leaves it: no goals, no shoot-out and no event, and undated where `undated`."""
+def unplayed(league: MadeUpLeague, row: dict[str, Any], *, undated: bool = False) -> None:
+    """A fixture as the draw leaves it: no goals, no shoot-out, no event, no report and no line-up, undated where asked."""
 
     for side in ("team1", "team2"):
         if row[side] is not None:
@@ -1485,6 +1485,8 @@ def unplayed(row: dict[str, Any], *, undated: bool = False) -> None:
     row.update(ergebnis=None, elfmeterschiessen=None, sonderereignis=None)
     if undated:
         row.update(date=None, time=None)
+    league.spielberichte = [report for report in league.spielberichte if report["spiel_id"] != row["_id"]]
+    league.aufstellungen = [aufstellung for aufstellung in league.aufstellungen if aufstellung["spiel_id"] != row["_id"]]
 
 
 def played(
@@ -1500,7 +1502,10 @@ def played(
 def countdown(league: MadeUpLeague, *, undated: bool) -> None:
     move_running(league, 49)
     for row in league.running.spiele:
-        unplayed(row, undated=undated)
+        unplayed(league, row, undated=undated)
+    # A season not yet started holds no exit, whatever day one is dated: the app records one only once it has started.
+    for row in league.running.rows:
+        row["austritt"] = None
 
 
 def decided(league: MadeUpLeague) -> None:
@@ -1571,6 +1576,9 @@ async def write(client: AsyncMongoClient, database_name: str, league: MadeUpLeag
                 print(f"emptied {name}: {removed} document(s)")
         # Ordered: an insert a unique index refuses stops the seed with the server's own account of the key.
         for collection, rows in documents.items():
+            # A landing state may leave a collection empty, and `insert_many` refuses an empty list.
+            if not rows:
+                continue
             inserted = await database[collection].insert_many(rows, ordered=True)
             print(f"seeded {collection}: {len(inserted.inserted_ids)} document(s)")
     except BulkWriteError as refused:

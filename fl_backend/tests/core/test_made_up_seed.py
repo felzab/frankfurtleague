@@ -7,7 +7,8 @@ decides is judged here, beside the backend it imports.
 Invariants:
 - The seed writes only to `LOCAL_SERVER`, and refuses any other server, exit 2, before any client exists, quoting nothing
   of the settings it read.
-- Every state of the landing builds a league whose every document its record model reads, with no database.
+- Every state of the landing builds a league whose every document its record model reads, with no database, and none
+  holds an exit before its season's start or a report on a fixture without a result.
 """
 
 import os
@@ -100,4 +101,18 @@ def test_every_landing_state_builds_and_reads_back(state: str) -> None:
     # Today, as the seed reads it: every date the league holds is relative to the day it runs.
     league = MadeUpLeague(now=clock.now())
     LANDING_STATES[state](league)
-    assert all(league.documents().values())
+    # Each document is read through its record model as it is gathered, so one the model refuses raises here.
+    league.documents()
+
+
+@pytest.mark.parametrize("state", LANDING_STATES)
+def test_no_landing_state_holds_what_the_app_refuses_to_write(state: str) -> None:
+    league = MadeUpLeague(now=clock.now())
+    LANDING_STATES[state](league)
+    running = league.running
+    # An exit is recorded only once its season has started, whatever day it is dated.
+    if running.saison["start_date"] > league.today:
+        assert not [row["name"] for row in running.rows if row["austritt"] is not None]
+    # A report is adopted from a fixture with a result.
+    reported = {report["spiel_id"] for report in league.spielberichte}
+    assert not [row["spiel_nr"] for row in running.spiele if row["_id"] in reported and row["ergebnis"] is None]
