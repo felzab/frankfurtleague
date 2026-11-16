@@ -13,7 +13,7 @@ import {
 } from "@/test-support/authDoubles";
 import { serveBackend } from "@/test-support/backend";
 import { emptyStore } from "@/test-support/emptyStore";
-import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions";
+import { replicaSetUrl, startReplicaSet } from "@/test-support/replicaSet";
 import { captureLog } from "@/test-support/stdoutCapture";
 import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures";
 import { registrationFor } from "@/test-support/testAuthenticator";
@@ -23,7 +23,7 @@ import { assert, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { LookupFixture } from "@/test-support/subjectFixtures";
 
 // A replica set.
-const { mongod, closing } = await startJudgedReplicaSet();
+const { mongod, closing } = await startReplicaSet();
 
 // The set advertises its container-internal address, which topology discovery would follow and find nothing.
 const MONGO_URL = replicaSetUrl(mongod);
