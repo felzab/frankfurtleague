@@ -20,7 +20,7 @@ WORKFLOW: Final = REPO_ROOT / ".github" / "workflows" / "verify.yml"
 SCOPELESS: Final = {
     "journeys": "the end-to-end journeys, which the gate leaves to CI",
     "verify": "the verdict over every other job",
-    "publish": "the push of the images a run on main checked",
+    "publish": "the push of the images a push's run checked",
 }
 
 SCOPES_RE: Final = re.compile(r"^SCOPES=\(([^)]*)\)$", re.MULTILINE)
