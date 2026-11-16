@@ -334,11 +334,12 @@ diff_check() {
 }
 
 # Every tracked text file, for the zero-width, bidirectional and line-separator characters that hide
-# or reorder what a reviewer reads (CVE-2021-42574); the one deliberate fixture is left out. A UTF-8
-# locale, which `-P` needs to read a code point past U+00FF. git grep answers 0 for a match, 1 for none.
+# or reorder what a reviewer reads (CVE-2021-42574), the Arabic letter mark U+061C the one bidirectional
+# mark outside U+2000's block; the one deliberate fixture is left out. A UTF-8 locale, which `-P` needs
+# to read a code point past U+00FF. git grep answers 0 for a match, 1 for none.
 invisible_check() {
   local rc=0
-  LC_ALL=C.UTF-8 git grep -I -n -P '[\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{2028}\x{2029}]' \
+  LC_ALL=C.UTF-8 git grep -I -n -P '[\x{061C}\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{2028}\x{2029}]' \
     -- . ':!fl_frontend/src/core/emailAddress.test.ts' || rc=$?
   case "$rc" in
     0) return 1 ;;
