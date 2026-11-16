@@ -5,7 +5,7 @@ import json
 import logging
 import re
 import time
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, Final, NamedTuple
@@ -17,6 +17,7 @@ from httpx2 import ASGITransport, AsyncClient
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
+from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import ExecutionTimeout
 
 from app.core import middlewares
@@ -32,7 +33,7 @@ from app.main import create_app, create_shell
 from app.shared.tokens import hash_token
 from tests.boot import image_command
 from tests.config import ADMIN_KEY, TEST_BASE_URL, build_test_config, grants_for_the_suite
-from tests.database import SLOWEST_SEED_S, a_clean_database, bounded
+from tests.database import LONGEST_WAIT_S, a_clean_database, held_corpus
 from tests.documents import kontaktperson_document, rules_document, saison_document, saison_team_document
 from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
@@ -44,11 +45,13 @@ FETCH_TIMEOUT_MS: Final[int] = json.loads((BACKEND_ROOT / "tests" / "shared" / "
 
 # Far under the stall's 60 s, what the case below would wait with no deadline, so an answer in time can
 # only be the deadline's doing.
-ANSWERED_WITHIN_S = SLOWEST_SEED_S
+ANSWERED_WITHIN_S = LONGEST_WAIT_S
 
 ADMIN_HEADERS = StampedHeaders("admin@frankfurtleague.de", ADMIN_KEY)
 
 DATABASE_NAME = worker_database("fl_request_deadline_test")
+# The cuts' own, held for the module that reads what they answered while its other cases clear `DATABASE_NAME`.
+CUTS_DATABASE_NAME = worker_database("fl_request_deadline_cuts_test")
 
 
 class TestTheDeadlinesTheApplicationSets:
@@ -200,7 +203,7 @@ async def _transacted(url: str, cut: _Cut) -> _Transacted:
     """
 
     async with AsyncMongoClient(url) as client:
-        written = client[DATABASE_NAME][Collection.ACTION_LOG]
+        written = client[CUTS_DATABASE_NAME][Collection.ACTION_LOG]
         mark = {"cut": cut.value}
 
         sessions: list[Mapping[str, Any]] = []
@@ -235,17 +238,17 @@ async def _transacted(url: str, cut: _Cut) -> _Transacted:
 
 
 @pytest.fixture(scope="module")
-async def cut_transactions(mongo_replica_set_url: str) -> Mapping[_Cut, _Transacted]:
+async def cut_transactions(mongo_replica_set_url: str) -> AsyncIterator[Mapping[_Cut, _Transacted]]:
     """Every cut at once, each in a request of its own: each waits out the whole deadline, and together they wait it once."""
 
-    async def body() -> dict[_Cut, _Transacted]:
-        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=False):
-            cuts = list(_Cut)
-            transacted = await asyncio.gather(*(_transacted(mongo_replica_set_url, cut) for cut in cuts))
+    async def cut_each(_: AsyncDatabase) -> dict[_Cut, _Transacted]:
+        cuts = list(_Cut)
+        transacted = await asyncio.gather(*(_transacted(mongo_replica_set_url, cut) for cut in cuts))
 
-            return dict(zip(cuts, transacted, strict=True))
+        return dict(zip(cuts, transacted, strict=True))
 
-    return await bounded(body())
+    async with held_corpus(mongo_replica_set_url, CUTS_DATABASE_NAME, cut_each, constraints=False) as transacted:
+        yield transacted
 
 
 @pytest.mark.db
