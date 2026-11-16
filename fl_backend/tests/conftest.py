@@ -374,7 +374,8 @@ def _replica_set_mongod() -> Generator[str]:
     from testcontainers.core.wait_strategies import LogMessageWaitStrategy
 
     # `enableTestCommands` admits `configureFailPoint`, the one way to land a commit inside one server
-    # command. A fail point is one setting every worker shares, so its cases sit in one module, which
+    # command. MongoDB holds one configuration of a fail point for the whole server, which every worker
+    # shares, so every case configuring one sits in `tests/api/test_commit_fail_points.py`, which
     # `--dist loadfile` keeps on one worker.
     container = (
         DockerContainer(MONGO_IMAGE)
