@@ -1508,10 +1508,10 @@ const eslintConfig = defineConfig([
     },
   },
 
-  // A journey reaches a dialog, a question, a menu or a list's options through `e2e/support/controls.ts` alone, whose
-  // helpers press inside one only once it has entered: a press on an overlay still entering is retried behind a scroll,
+  // A journey looks up a dialog, a question, a menu or a list's options through `e2e/support/controls.ts` alone, whose
+  // helpers answer one only once it has entered: a press on an overlay still entering is retried behind a scroll,
   // which closes a rising sheet or a combo box's list. A role a journey computes is looked up there too, where no such
-  // role can hide in it.
+  // role can hide in it. A control looked up by its own role passes, an overlay's among them.
   {
     files: ["e2e/**/*.ts"],
     ignores: ["e2e/support/controls.ts"],
