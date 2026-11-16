@@ -185,6 +185,36 @@ ruff_both() { # $1 the directory · the paths
   ( cd "$dir" && "$PY" -m ruff check "$@" && "$PY" -m ruff format --check "$@" )
 }
 
+# A command run beside others, its output kept in `$1.log` and its status, with the milliseconds it
+# took, in `$1.status`. Bash starts an `&` command of a script with SIGINT and SIGQUIT ignored,
+# which would leave a step running past a Ctrl-C: reset, as `build_images` does. Called in a
+# subshell, so the reset never reaches the scope's own shell.
+run_beside() { # $1 where its files go · the command
+  local at="$1" t0 rc=0
+  shift
+  trap - INT QUIT
+  t0="$(_now_ms)"
+  "$@" > "${at}.log" 2>&1 || rc=$?
+  printf '%s %s\n' "$rc" "$(( $(_now_ms) - t0 ))" > "${at}.status"
+}
+
+# A command `run_beside` ran, read under the open step as `check` reads its own: its output where
+# it failed, or under `--verbose` whole, since two steps streaming at once would interleave. The
+# step's time is the command's own rather than the moment its step was printed.
+beside_verdict() { # $1 its files · [--summary | --pytest] $2 what to say on a finding · $3 the command, as a crash names it
+  local at="$1" rc=3 ms=0
+  local -a said=()
+  shift
+  # A command that left no status ended before it could write one, which reads as a crash.
+  # Split on the space `run_beside` writes, which the repository's IFS leaves out.
+  if [[ -f "${at}.status" ]]; then IFS=' ' read -r rc ms < "${at}.status"; fi
+  QUIETLY_OUTPUT=""
+  if [[ -f "${at}.log" ]]; then QUIETLY_OUTPUT="$(<"${at}.log")"; fi
+  _STEP_MS0=$(( $(_now_ms) - ms ))
+  if (( VERBOSE || rc )); then mapfile -t said <<<"$QUIETLY_OUTPUT"; detail "${said[@]}"; fi
+  verdict "${@:1:$#-1}" "$rc" "${BASH_LINENO[0]}" "${!#}"
+}
+
 # By file, so a module's fixtures stay on one worker; a stalled case's stack is dumped inside every CI
 # job's timeout. Each `--maxprocesses` below is its suite's optimum on 16 cores.
 PYTEST_SPREAD=(-n auto --dist loadfile -o faulthandler_timeout=180)
@@ -369,51 +399,83 @@ typecheck() {
   esac
 }
 
+# Global, for the EXIT trap, which runs after the scope has returned.
+FRONTEND_STEPS=""
+
+# Every step before the build but typegen reads the tree and writes nothing another step reads, so
+# those run side by side, each into its own capture, and report in the written order once all have
+# ended.
 scope_frontend() {
   section frontend
-  # `--frozen-lockfile` makes `--lockfile-only`'s write impossible, and the repeat-install shortcut
-  # would answer from mtimes rather than from the manifest.
+  trap 'rm -rf ${FRONTEND_STEPS:+"$FRONTEND_STEPS"}' EXIT
+  FRONTEND_STEPS="$(mktemp -d)"
+  local at="$FRONTEND_STEPS" typegen=3 pid
+  local -a running=()
+  # The lockfile's three checks read the manifest and the lockfile alone, so they run beside every
+  # step before the build. `--frozen-lockfile` makes `--lockfile-only`'s write impossible, and the
+  # repeat-install shortcut would answer from mtimes rather than from the manifest.
+  ( run_beside "${at}/frozen" in_dir fl_frontend pnpm install --frozen-lockfile --lockfile-only --no-optimistic-repeat-install ) &
+  running+=("$!")
+  ( run_beside "${at}/peers" in_dir fl_frontend pnpm peers check ) &
+  running+=("$!")
+  ( run_beside "${at}/dedupe" in_dir fl_frontend pnpm dedupe --check ) &
+  running+=("$!")
+  # The route types tsc checks against; it rewrites tsconfig.json where a key is absent, so it ends
+  # before any reader of that file starts.
+  ( run_beside "${at}/typegen" in_dir fl_frontend pnpm typegen )
+  if [[ -f "${at}/typegen.status" ]]; then IFS=' ' read -r typegen _ < "${at}/typegen.status"; fi
+  if (( typegen == 0 )); then
+    ( run_beside "${at}/tsc" typecheck ) &
+    running+=("$!")
+    ( run_beside "${at}/eslint" in_dir fl_frontend pnpm lint:only ) &
+    running+=("$!")
+    ( run_beside "${at}/knip" in_dir fl_frontend pnpm knip ) &
+    running+=("$!")
+    ( run_beside "${at}/knip-prod" in_dir fl_frontend pnpm knip:prod ) &
+    running+=("$!")
+  fi
+  # Every step ended before the first verdict, since a crash's verdict ends the scope where it stands.
+  for pid in "${running[@]}"; do wait "$pid" || true; done
+
   step "frontend · pnpm  (manifest and lockfile agree)"
-  check "fl_frontend's lockfile no longer answers its manifest or pnpm-workspace.yaml — pnpm names what differs above.
+  beside_verdict "${at}/frozen" "fl_frontend's lockfile no longer answers its manifest or pnpm-workspace.yaml — pnpm names what differs above.
 Fix with:  cd fl_frontend && pnpm install  -- then commit the lockfile." \
-    in_dir fl_frontend pnpm install --frozen-lockfile --lockfile-only --no-optimistic-repeat-install \
+    "pnpm install --frozen-lockfile --lockfile-only --no-optimistic-repeat-install" \
     && ok "manifest and lockfile agree"
 
   # `strictPeerDependencies` refuses an out-of-range peer only while `pnpm install` resolves.
   step "frontend · pnpm  (every peer in range)"
-  check "fl_frontend's lockfile installs a peer outside the range a package asks for — pnpm names it above." \
-    in_dir fl_frontend pnpm peers check \
+  beside_verdict "${at}/peers" "fl_frontend's lockfile installs a peer outside the range a package asks for — pnpm names it above." \
+    "pnpm peers check" \
     && ok "every peer in range"
 
   # `pnpm add` keeps every copy the lockfile already pins, so an added range can leave two copies of
   # one package, and two copies of React Aria split the contexts its components share.
   step "frontend · pnpm  (no copy a dedupe would remove)"
-  check "fl_frontend's lockfile holds a copy a dedupe would remove — pnpm names each change above.
+  beside_verdict "${at}/dedupe" "fl_frontend's lockfile holds a copy a dedupe would remove — pnpm names each change above.
 Fix with:  cd fl_frontend && pnpm dedupe  -- then commit the lockfile." \
-    in_dir fl_frontend pnpm dedupe --check \
+    "pnpm dedupe --check" \
     && ok "no copy a dedupe would remove"
 
-  # The route types tsc checks against; it rewrites tsconfig.json where a key is absent, so it runs
-  # before every reader of that file.
   step "frontend · next typegen"
-  check "next typegen failed — its own output is above." in_dir fl_frontend pnpm typegen || finish
+  beside_verdict "${at}/typegen" "next typegen failed — its own output is above." "pnpm typegen" || finish
   ok "route types generated"
 
   step "frontend · tsc"
-  check "tsc found type errors." typecheck && ok "no type errors"
+  beside_verdict "${at}/tsc" "tsc found type errors." "pnpm typecheck:only" && ok "no type errors"
 
   step "frontend · eslint"
-  check "eslint failed." in_dir fl_frontend pnpm lint:only && ok "lint clean"
+  beside_verdict "${at}/eslint" "eslint failed." "pnpm lint:only" && ok "lint clean"
 
   step "frontend · knip  (unused files, exports and dependencies)"
-  check "knip found something nothing uses, named above. Delete it, or name the reader knip cannot see in fl_frontend/knip.json." \
-    in_dir fl_frontend pnpm knip \
+  beside_verdict "${at}/knip" "knip found something nothing uses, named above. Delete it, or name the reader knip cannot see in fl_frontend/knip.json." \
+    "pnpm knip" \
     && ok "nothing unused"
 
   step "frontend · knip, production  (what only tests still read)"
-  check "knip's production run found code only tests still read, named above. Delete it with the cases testing it,
+  beside_verdict "${at}/knip-prod" "knip's production run found code only tests still read, named above. Delete it with the cases testing it,
 or name production code knip cannot see in fl_frontend/knip.production.json." \
-    in_dir fl_frontend pnpm knip:prod \
+    "pnpm knip:prod" \
     && ok "nothing only tests read"
 
   # After every reader of tsconfig.json: it writes `.next/`, which that file's `include` covers. No
@@ -544,50 +606,18 @@ contract_check() {
 # Global, for the EXIT trap, which runs after the scope has returned.
 DB_TIERS=""
 
-# A command run beside another, its output kept in `$1.log` and its status, with the milliseconds it
-# took, in `$1.status`. Bash starts an `&` command of a script with SIGINT and SIGQUIT ignored,
-# which would leave a tier running past a Ctrl-C: reset, as `build_images` does.
-run_beside() { # $1 where its files go · the command
-  local at="$1" t0 rc=0
-  shift
-  trap - INT QUIT
-  t0="$(_now_ms)"
-  "$@" > "${at}.log" 2>&1 || rc=$?
-  printf '%s %s\n' "$rc" "$(( $(_now_ms) - t0 ))" > "${at}.status"
-}
-
-# A command `run_beside` ran, read under the open step as `check` reads its own: its output where
-# it failed, or under `--verbose` whole, since two tiers streaming at once would interleave. The
-# step's time is the tier's own rather than the moment its step was printed.
-beside_verdict() { # $1 its files · [--summary | --pytest] $2 what to say on a finding · $3 the command, as a crash names it
-  local at="$1" rc=3 ms=0
-  local -a said=()
-  shift
-  # A tier that left no status ended before its command did, which reads as a crash.
-  # Split on the space `run_beside` writes, which the repository's IFS leaves out.
-  if [[ -f "${at}.status" ]]; then IFS=' ' read -r rc ms < "${at}.status"; fi
-  QUIETLY_OUTPUT=""
-  if [[ -f "${at}.log" ]]; then QUIETLY_OUTPUT="$(<"${at}.log")"; fi
-  _STEP_MS0=$(( $(_now_ms) - ms ))
-  if (( VERBOSE || rc )); then mapfile -t said <<<"$QUIETLY_OUTPUT"; detail "${said[@]}"; fi
-  verdict "${@:1:$#-1}" "$rc" "${BASH_LINENO[0]}" "${!#}"
-}
-
 # Split from the default tier because it needs the Docker daemon the quick scope avoids.
 scope_db() {
   section db
   trap 'rm -rf "$CONTRACT_SCRATCH" ${DB_TIERS:+"$DB_TIERS"}' EXIT
-  # This scope because it alone has both the backend's virtualenv and the frontend's install.
-  step "db · the contract and its generated client match the code they are built from"
-  check "The committed contract no longer matches the code it is generated from; the diff above names each file.
-Fix with:  (cd fl_frontend && pnpm run contract)  -- then commit both." \
-    contract_check \
-    && ok "the contract and the client are current"
-
   # Side by side, each into its own capture, as `build_images` runs two builds: the tiers share no
-  # container, each starting its own on ports Docker picks.
+  # container, each starting its own on ports Docker picks, and the contract check writes only its
+  # scratch folder.
   DB_TIERS="$(mktemp -d)"
-  local backend frontend
+  local contract backend frontend
+  # This scope because it alone has both the backend's virtualenv and the frontend's install.
+  ( run_beside "${DB_TIERS}/contract" contract_check ) &
+  contract=$!
   # `loadfile` for isolation too: the commit fail points' cases set the server's one
   # `failCommand`, so they run one after another on one worker.
   ( run_beside "${DB_TIERS}/backend" in_dir fl_backend "$PY" -m pytest -m db "${PYTEST_SPREAD[@]}" --maxprocesses 6 ) &
@@ -595,8 +625,14 @@ Fix with:  (cd fl_frontend && pnpm run contract)  -- then commit both." \
   # Each file starts its own replica set through `@testcontainers/mongodb`.
   ( run_beside "${DB_TIERS}/frontend" in_dir fl_frontend pnpm run test:db ) &
   frontend=$!
+  wait "$contract" || true
   wait "$backend" || true
   wait "$frontend" || true
+
+  step "db · the contract and its generated client match the code they are built from"
+  beside_verdict "${DB_TIERS}/contract" "The committed contract no longer matches the code it is generated from; the diff above names each file.
+Fix with:  (cd fl_frontend && pnpm run contract)  -- then commit both." "contract_check" \
+    && ok "the contract and the client are current"
 
   step "db · pytest -m db, distributed over one shared replica set"
   beside_verdict "${DB_TIERS}/backend" --pytest "fl_backend db-tier tests failed. A failing test and a mongo that never started both end here: each case's
