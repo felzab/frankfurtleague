@@ -49,15 +49,16 @@ nginx declares none, so Compose counts it healthy while it runs.
 
 **Every image this repository does not build is pinned by tag and digest** (`name:tag@sha256:…`):
 each Dockerfile's `FROM`, each compose file's `image:`, and the images `scripts/gate/selfcheck.sh`,
-`scripts/gate/verify.sh`, `fl_backend/tests/conftest.py` and `.github/workflows/verify.yml` run. A
-pull fetches the digest, so a tag rebuilt upstream changes nothing here until a pull request moves
-it. **Each tag names the exact release its digest is**, since a series tag (`mongo:8`) is a label no
-reader can hold to one release. Dependabot compares the tag to propose the next pair; the pins
-`.github/dependabot.yml` lists move by hand, no ecosystem reading a shell string. Both database test
-tiers run the local stack's own mongo. `scripts/tests/test_image_pins.py` holds every reference to
-that form, and the two tiers to the stack. **That mongo stays in the release series the managed
-cluster runs**, so no test passes on a feature production lacks: `.github/dependabot.yml` proposes
-no later series, and a move of the cluster moves the three pins by hand.
+`scripts/gate/verify.sh` and `.github/workflows/verify.yml` run. A pull fetches the digest, so a tag
+rebuilt upstream changes nothing here until a pull request moves it. **Each tag names the exact
+release its digest is**, since a series tag (`mongo:8`) is a label no reader can hold to one
+release. Dependabot compares the tag to propose the next pair; the pins `.github/dependabot.yml`
+lists move by hand, no ecosystem reading a shell string. Both database test tiers run the local
+stack's own mongo, reading it from `docker-compose.local.yml`'s one `mongo` line.
+`scripts/tests/test_image_pins.py` holds every reference to that form, and refuses a mongo image
+either tier types itself. **That mongo stays in the release series the managed cluster runs**, so
+no test passes on a feature production lacks: `.github/dependabot.yml` proposes no later series,
+and a move of the cluster moves the one pin by hand.
 
 **The toolchain an image bakes in is the one the checkout declares**, so what CI tested is what
 production runs:

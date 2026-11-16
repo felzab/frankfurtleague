@@ -1,7 +1,7 @@
 """Every image this repository does not build is pinned by tag and digest, and the versions no tool compares agree.
 
 What it compares: every image both Dockerfiles, both compose files and the listed scripts name, against the pin form; both
-database test tiers' mongo against the local stack's; and each image's toolchain against the one the checkout and CI run,
+database test tiers against a mongo image of their own; and each image's toolchain against the one the checkout and CI run,
 the frontend's Node against `devEngines` and the lockfile, the backend's Python against `.python-version`'s series and
 its uv against CI's, and the journeys' Playwright image against the lockfile's Playwright. Each pair drifts in silence:
 a tag alone is a pointer its publisher can move, a hand edit can drop a digest, and Dependabot moves each file's pin on
@@ -106,7 +106,6 @@ SCRIPT_IMAGES: Final = {
     "scripts/gate/selfcheck.sh:shellcheck": ("scripts/gate/selfcheck.sh", "koalaman/shellcheck"),
     "scripts/gate/selfcheck.sh:actionlint": ("scripts/gate/selfcheck.sh", "rhysd/actionlint"),
     "scripts/gate/verify.sh:lychee": ("scripts/gate/verify.sh", "lycheeverse/lychee"),
-    "fl_backend/tests/conftest.py:mongo": ("fl_backend/tests/conftest.py", "mongo"),
     ".github/workflows/verify.yml:playwright": (".github/workflows/verify.yml", "mcr.microsoft.com/playwright"),
     ".github/workflows/verify.yml:buildkit": (".github/workflows/verify.yml", "moby/buildkit"),
 }
@@ -128,18 +127,6 @@ def script_references() -> dict[str, tuple[str, str]]:
         assert len(spelled) == 1, f"{relative} spells {name} as {sorted(spelled)}, where the case reads exactly one"
         found[key] = (relative, _filled(spelled.pop(), dict(ASSIGNMENT_RE.findall(text))))
     return found
-
-
-def test_the_backend_db_tier_runs_the_local_stack_s_mongo() -> None:
-    """Dependabot's compose ecosystem moves the stack alone, and no ecosystem reads the conftest's string.
-
-    The frontend's tier follows through its own case, which holds its image to this pin.
-    """
-    stack = [image for path, image in external_references() if path == "docker-compose.local.yml" and image.startswith("mongo:")]
-    _, tier = script_references()["fl_backend/tests/conftest.py:mongo"]
-
-    assert len(stack) == 1, f"docker-compose.local.yml names mongo {stack}, where the case reads exactly one"
-    assert tier == stack[0], f"fl_backend/tests/conftest.py :: MONGO_IMAGE is {tier}, and the local stack runs {stack[0]}"
 
 
 FRONTEND: Final = REPO_ROOT / "fl_frontend"
@@ -170,24 +157,14 @@ def mongo_images(sources: list[Path]) -> list[tuple[str, str]]:
     ]
 
 
-def test_the_frontend_db_tier_names_the_backend_pin() -> None:
-    """Another image under the frontend's tier runs its db tests against a server the backend's never meets.
+def test_neither_db_tier_names_a_mongo_image_of_its_own() -> None:
+    """Both tiers read the local stack's one `image:` line, the one Dependabot moves, so an image typed here runs unheld.
 
-    No ecosystem reads either string, so this case is what holds the two together, digest included.
+    Each tier's reader refuses anything but exactly one such line, so the stack's pin is all that is left to hold.
     """
-    _, backend = script_references()["fl_backend/tests/conftest.py:mongo"]
-    images = mongo_images(sources_under(FRONTEND, FRONTEND_SUFFIXES))
+    sources = sources_under(FRONTEND, FRONTEND_SUFFIXES) + sources_under(BACKEND, frozenset({".py"}))
 
-    # One place, so a second server cannot run another image where no case reads it.
-    assert len(images) == 1, f"the frontend names a mongo image at {images}, where the case reads exactly one"
-    assert images[0][1] == backend, f"{images[0][0]} names {images[0][1]}, where it is to name `{backend}`"
-
-
-def test_the_backend_names_its_mongo_image_only_where_its_pin_is_read() -> None:
-    """The conftest's pin is the one the stack's case holds, so a second image elsewhere runs unheld."""
-    _, pin = script_references()["fl_backend/tests/conftest.py:mongo"]
-
-    assert mongo_images(sources_under(BACKEND, frozenset({".py"}))) == [("fl_backend/tests/conftest.py", pin)]
+    assert mongo_images(sources) == [], "a mongo image typed outside docker-compose.local.yml"
 
 
 # --- one version of each tool across CI and the images ---------------------------------------------

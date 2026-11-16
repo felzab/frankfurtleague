@@ -19,9 +19,9 @@ version: 2
 # - Each ecosystem sets a commit prefix, so messages keep `docs/writing.md`'s shape.
 # - No ecosystem below reads an image a script, a workflow's step or a test names in a string, so
 #   these are kept by hand: shellcheck and actionlint in `scripts/gate/selfcheck.sh`, lychee in
-#   `scripts/gate/verify.sh`, Playwright's and BuildKit's in `.github/workflows/verify.yml`'s
-#   `journeys` and `images` jobs, and mongo in `fl_backend/tests/conftest.py`'s `MONGO_IMAGE` and
-#   `fl_frontend/src/test-support/expiredTransactions.ts`.
+#   `scripts/gate/verify.sh`, and Playwright's and BuildKit's in `.github/workflows/verify.yml`'s
+#   `journeys` and `images` jobs. Both db tiers read mongo from `docker-compose.local.yml`, which
+#   the compose ecosystem below moves.
 
 updates:
   # --- GitHub Actions -------------------------------------------------------------------------

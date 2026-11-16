@@ -88,9 +88,9 @@ services:
 
   # Production declares no database service and must not gain one.
   mongo:
-    # The tag `fl_backend/tests/conftest.py` starts the db tier against, in the release series the
-    # managed cluster runs, so nothing passes here on a feature production lacks. Pinned here by its
-    # digest too.
+    # The one place the mongo pin is typed, in the release series the managed cluster runs, so nothing
+    # passes here on a feature production lacks. Both database test tiers start their server from this
+    # line as it stands, one plain `image:` at this indent, and refuse any other shape.
     image: mongo:8.0.38@sha256:d97fea17ccb8d004cd137be8dab54d70d0df11be69c9f422aefe4484c8414ab7
     # A single-node replica set rather than a standalone: every transactional endpoint runs
     # `session.with_transaction`, and a standalone answers one with `IllegalOperation`.

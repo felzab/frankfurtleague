@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
 import { MongoDBContainer } from "@testcontainers/mongodb";
 import { MongoClient } from "mongodb";
 import { getContainerRuntimeClient } from "testcontainers";
@@ -242,11 +245,26 @@ async function startedNamingItsLog(
   }
 }
 
+const LOCAL_STACK = path.resolve(import.meta.dirname, "..", "..", "..", "docker-compose.local.yml");
+
+/**
+ * The local stack's server, read from the one line of `docker-compose.local.yml` that types it, the line Dependabot moves.
+ * A line read rather than YAML, since no parser is a dependency of ours; a second mongo image or a reshaped line throws
+ * rather than starting a server nothing names.
+ */
+function localStackMongo(): string {
+  const images = [...readFileSync(LOCAL_STACK, "utf8").matchAll(/^ {4}image: (mongo:\S+)$/gm)].map((line) => line[1]);
+  const [image] = images;
+  if (images.length !== 1 || image === undefined) {
+    throw new Error(
+      `${LOCAL_STACK} names the mongo image ${JSON.stringify(images)}, where this reader takes exactly one \`    image: mongo:…\` line`,
+    );
+  }
+  return image;
+}
+
 /** The replica set every db suite runs, unstarted. */
-const replicaSetContainer = (): ReplicaSetContainer =>
-  new ReplicaSetContainer("mongo:8.0.38@sha256:d97fea17ccb8d004cd137be8dab54d70d0df11be69c9f422aefe4484c8414ab7").withStartupTimeout(
-    HEALTHY_WITHIN_MS,
-  );
+const replicaSetContainer = (): ReplicaSetContainer => new ReplicaSetContainer(localStackMongo()).withStartupTimeout(HEALTHY_WITHIN_MS);
 
 /** `container` started and handed the file's judging teardown; db suites take `startJudgedReplicaSet`. */
 async function startJudged(container: ReplicaSetContainer): Promise<JudgedReplicaSet> {
