@@ -58,7 +58,7 @@ async function teamSeatsAt<Segments extends { team: string; saison: string }>(
 ): Promise<TeamSeats | null> {
   const segments = await params;
   const subject = await requireSubjectSession(address(segments));
-  // The predicate a person's write is judged by too: a seat on last season's row opens nothing in this one's.
+  // The test a person's write is judged by too: a seat on last season's row opens nothing in this one's.
   const [first, ...rest] = seatsAt(rolesOf(subject).roles, segments.team, segments.saison);
   return first === undefined ? null : [first, ...rest];
 }
