@@ -1,16 +1,14 @@
 /**
  * E2E · an application as its people make it: the public form's five boxes, a seat's confirmation from its mailed link,
- * and an administrator's way to the application's review page. The planned season of `scripts/ops/seed/seed.js` is the
- * one its window is open for.
+ * and an administrator's way to the application's review page. The made-up seed's planned season is the one its window
+ * is open for.
  */
 import { expect } from "@playwright/test";
 
 import { box, choose, typeInto } from "./controls";
+import { PLANNED } from "./madeUpLeague";
 
 import type { Locator, Page } from "@playwright/test";
-
-/** The planned season the made-up seed holds open. */
-export const SAISON = "2028";
 
 /** Each seat's box on the form, by its title, in the form's order. */
 const SEAT_TITLE = { trainer: "Trainerin oder Trainer", ansprechperson: "Ansprechperson", stellvertretung: "Stellvertretung" };
@@ -25,12 +23,12 @@ type Person = { firstName: string; lastName: string; address: string; phone: str
 
 /** A mail's subject, by its season. */
 export const SUBJECT = {
-  received: `Bewerbung für die Saison ${SAISON} eingegangen`,
-  seat: `Eintrag für die Saison ${SAISON} bestätigen`,
-  accepted: `Zusage für die Saison ${SAISON}`,
-  declined: `Absage für die Saison ${SAISON}`,
-  objected: `Widerspruch zum Eintrag: Saison ${SAISON}`,
-  deleted: `Bewerbung für die Saison ${SAISON} gelöscht`,
+  received: `Bewerbung für die Saison ${PLANNED} eingegangen`,
+  seat: `Eintrag für die Saison ${PLANNED} bestätigen`,
+  accepted: `Zusage für die Saison ${PLANNED}`,
+  declined: `Absage für die Saison ${PLANNED}`,
+  objected: `Widerspruch zum Eintrag: Saison ${PLANNED}`,
+  deleted: `Bewerbung für die Saison ${PLANNED} gelöscht`,
 };
 
 /** The person holding `seat` of `school`, whom no other seat or journey names. */
@@ -113,7 +111,7 @@ export async function confirmSeat(page: Page, link: string): Promise<void> {
 
 /** An administrator's way to one application: its row in the season's list, which opens its review page. */
 export async function openApplication(page: Page, school: string): Promise<void> {
-  await page.goto(`/admin/saisons/${SAISON}/bewerbungen`);
+  await page.goto(`/admin/saisons/${PLANNED}/bewerbungen`);
   await page.getByRole("main").getByRole("link", { name: school, exact: true }).click();
   await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: school })).toBeVisible();
 }

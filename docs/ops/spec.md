@@ -477,8 +477,7 @@ merged over the local stack's two files):
 Both stacks publish ports 3000 and 27017, so one runs at a time. `--e2e --down` deletes the volume
 and `.tmp-e2e/`. The journeys run against it with `pnpm run e2e` in the `fl_frontend` of the checkout
 that started it, which reads that checkout's `.tmp-e2e/`, or from another checkout with `E2E_DIR`
-naming that folder (`fl_frontend/e2e/support/journey.ts :: E2E_DIR`); `E2E_BASE_URL` names an origin
-other than `http://localhost:3000` (`fl_frontend/playwright.config.ts`).
+naming that folder (`fl_frontend/e2e/support/journey.ts :: E2E_DIR`).
 
 **`--e2e --landing=<state>` re-seeds the running end-to-end stack with the landing in that state**,
 one of `fl_backend/tests/made_up_seed.py :: LANDING_STATES`, the seed refusing any other: the seed
@@ -500,7 +499,8 @@ about the change.
 rollback pulls ([`runbooks.md`](runbooks.md) §1). When pruning, keep roughly the last five `sha-`
 tags per package, never the one the server's `.env` pins, and never an **untagged version created
 alongside a tag still in use**: BuildKit provenance attestations the tagged image references by
-digest, so deleting one corrupts the tag it belongs to.
+digest, so deleting one corrupts the tag it belongs to. The backend package's `follow-up-sha-` tags,
+which no deploy pulls, can go once their branch has merged.
 
 ### 1.6 The verification gate
 
@@ -511,7 +511,7 @@ its pinned release.
 
 | Scope              | Runs                                                                                                                                                                                                                                                                                          | Needs                                                                                                                                          |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--scripts`        | `selfcheck.sh`, `ruff` and `pyright` over the Python in `scripts/`, and the pytest suite in `scripts/tests/`                                                                                                                                                                                  | the backend venv, `pytest` included; shellcheck and actionlint at their pinned releases from PATH, else Docker                                 |
+| `--scripts`        | `selfcheck.sh`, `ruff` and `pyright` over the Python in `scripts/`, and the pytest suite in `scripts/tests/`                                                                                                                                                                                  | the backend venv, `pytest` included; pnpm install; shellcheck and actionlint at their pinned releases from PATH, else Docker                   |
 | `--docs`           | no conflict marker, whitespace error or invisible character in any tracked file; and lychee, offline, over every link and fragment inside the repository                                                                                                                                      | Docker for lychee                                                                                                                              |
 | `--backend`        | `uv lock --check` alone and first, then `ruff`, `pyright`, `pytest` (default tier) and `deptry` over `app/`                                                                                                                                                                                   | the backend venv, and for the lockfile check a uv inside `fl_backend/pyproject.toml`'s `required-version` range; any other refuses at start-up |
 | `--format`         | Prettier in check mode over the whole repository, then markdownlint over every Markdown file                                                                                                                                                                                                  | pnpm install                                                                                                                                   |
@@ -525,15 +525,14 @@ its pinned release.
 running `./scripts/gate/verify.sh` with that scope's flag. Beside them:
 
 - **`journeys`** runs the Playwright journeys against the end-to-end stack, raised from the images
-  the `images` job built, in six legs, each on a runner and a stack of its own: `desktop` with
-  `first-pass`, `phone`, and the layout-shift guard's four, `layout-public`, which re-seeds its
-  database under each state of the landing (`fl_backend/tests/made_up_seed.py :: LANDING_STATES`) and
-  runs the landing's cases again, and `layout-signed-in-1` to `-3`, whose cases Playwright's `--shard`
-  splits in three.
+  the `images` job built, in two legs, each on a runner and a stack of its own: `desktop` with
+  `first-pass`, and `phone`.
 - **`verify`**, the required check, fails on a job that failed, was cancelled or was skipped, and on
   a job missing from its `needs:`.
-- **`publish`**, on a push to `main` that `verify` passed, pushes the two images the `images` job
-  built and checked under their `sha-` tags, building nothing again.
+- **`publish`**, on a push that `verify` passed, pushes what the `images` job built and checked,
+  building nothing again: on `main` both images under their `sha-` tags, on `follow-up` the backend
+  image alone under `follow-up-sha-` and the same seven hex digits, a tag `deploy.sh` refuses, so a
+  branch's backend can be run against production's database by hand before the branch merges.
 
 **Every CI job that needs the backend virtualenv creates it through
 `.github/actions/backend-toolchain/action.yml`**, on the uv the backend image copies in (§1.1).
@@ -761,7 +760,7 @@ be true there, a check the owner makes in its list of monitors:
 | Every gate scope has one CI job, and every job but `journeys`, `verify` and `publish` runs one scope                                       | `scripts/tests/test_gate_jobs.py`; the `verify` job holds every job to its `needs:`                                                                                                    |
 | Scripts carry the git executable bit                                                                                                       | `scripts/gate/selfcheck.sh`, its second step                                                                                                                                           |
 | A deploy pins no build its last read finds with a service not running and healthy, and a stopped one-off container names no service        | `scripts/tests/test_deploy.py`, which runs `scripts/ops/deploy.sh` behind a stand-in engine; no real engine is driven                                                                  |
-| CI's landing loop names every landing state the seed seeds but the seed as written                                                         | `scripts/tests/test_landing_states.py`                                                                                                                                                 |
+| The journeys job's legs together run every project `fl_frontend/playwright.config.ts` defines, a setup project included                    | `scripts/tests/test_journeys_projects.py`, which asks Playwright's `--list` for each leg's flags                                                                                       |
 | Production never builds                                                                                                                    | unenforced: `docker-compose.yml` declares no `build:`, and `deploy.sh` only pulls                                                                                                      |
 | The builder stage has no reachable backend and no real environment                                                                         | `fl_frontend/Dockerfile`'s `SKIP_ENV_VALIDATION=true`, with no secrets directory and no `API_URL`                                                                                      |
 | The three API keys are 64 printable ASCII characters without the space, one file each that both sides read                                 | `fl_frontend/src/core/config.ts :: INTERNAL_API_KEY` and `fl_backend/app/core/config.py :: INTERNAL_API_KEY_CHARACTERS`                                                                |

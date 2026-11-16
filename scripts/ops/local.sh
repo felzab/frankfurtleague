@@ -102,48 +102,17 @@ write_e2e_keys() {
   done
 }
 
-# The seed, its people and the builders it composes with, copied into the backend container, whose own settings name
-# the database it writes: no image holds the tests.
-SEED_FILES=(fl_backend/tests/documents.py fl_backend/tests/made_up_seed.py fl_backend/tests/made_up_people.json)
-SEED_ROOT="/tmp/seed"
-
+# The made-up league loaded into the running backend's database and read back, as CI's journeys load it; `--landing`
+# hands its state on. The script's own account is shown only on a failure.
 load_made_up_seed() {
-  local file="" rc=0
-  # Through stdin and into the container's own /tmp, written as the container's user: a bind mount
-  # would differ between the two stacks.
-  for file in "${SEED_FILES[@]}"; do
-    MSYS_NO_PATHCONV=1 docker compose exec -T backend sh -c "mkdir -p ${SEED_ROOT}/tests && cat > ${SEED_ROOT}/tests/${file##*/}" < "$file" \
-      || die "the seed could not be handed to the backend container; compose's own account is above."
-  done
-  quietly run_made_up_seed || rc=$?
+  local rc=0 landing=()
+  if (( RESEED )); then landing=("--landing=${LANDING}"); fi
+  quietly "${REPO_ROOT}/scripts/ops/made_up_seed.sh" "${landing[@]}" || rc=$?
   case "$rc" in
-    0) ok "seeded the made-up league" ;;
-    # The seed's own refusal of a state it does not hold, whose account above lists the ones it does.
-    2) if (( RESEED )); then refuse "--landing=${LANDING} names no state of the landing."; fi
-       die "the made-up seed exited 2 with no --landing given; its own account is above." ;;
-    *) die "the made-up seed did not load; its own account is above. A refused insert names the
-index's key: correct fl_backend/tests/made_up_seed.py." ;;
-  esac
-}
-
-# Its own function because MSYS rewrites the `/tmp` path. `--landing` hands its state to the seed through the
-# container's environment; without it the seed reads none and writes itself as written.
-run_made_up_seed() {
-  local state=()
-  if (( RESEED )); then state=(--env "SEED_LANDING=${LANDING}"); fi
-  MSYS_NO_PATHCONV=1 docker compose exec -T "${state[@]}" backend env "PYTHONPATH=${SEED_ROOT}" python -m tests.made_up_seed
-}
-
-# The backend's read-back over what the seed wrote: every document through its record model. It
-# writes nothing.
-judge_made_up_seed() {
-  local rc=0
-  quietly docker compose exec -T backend python -m app.readback || rc=$?
-  case "$rc" in
-    0) ok "every document the seed wrote reads back through its model" ;;
-    1) die "the made-up seed holds a document its model refuses, and the lines above name it:
-correct fl_backend/tests/made_up_seed.py. The frontend and nginx have not been started or recreated." ;;
-    *) refuse "the backend could not judge the seed (exit ${rc}); its own account is above.
+    0) ok "seeded the made-up league, and every document it wrote reads back through its model" ;;
+    2) refuse "the made-up seed was refused, and the lines above say why.
+The frontend and nginx have not been started or recreated." ;;
+    *) die "the made-up seed failed, and the lines above name what to correct.
 The frontend and nginx have not been started or recreated." ;;
   esac
 }
@@ -218,11 +187,8 @@ Run --e2e --landing=<state> from the checkout whose --e2e started the stack, or 
   fi
   ok "started from this checkout"
 
-  step "The made-up league, the landing ${LANDING}"
+  step "The made-up league, the landing ${LANDING}, and the backend's check of it"
   load_made_up_seed
-
-  step "The backend's own check of what the seed wrote"
-  judge_made_up_seed
 
   step "The frontend, recreated"
   quietly docker compose up -d --no-build --no-deps --force-recreate --wait --wait-timeout 240 frontend \
@@ -282,11 +248,8 @@ if (( E2E || MADE_UP )); then
 Each one's own lines:  ${BY_HAND} logs mongo backend"
   ok "database and backend up"
 
-  step "The made-up league"
+  step "The made-up league, and the backend's check of it"
   load_made_up_seed
-
-  step "The backend's own check of what the seed wrote"
-  judge_made_up_seed
 fi
 
 section "start"

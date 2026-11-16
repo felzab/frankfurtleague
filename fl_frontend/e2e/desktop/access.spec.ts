@@ -1,26 +1,27 @@
 /**
- * E2E · J6's part in the area: an administrator starts a change for a person who lost their mailbox and discards it,
- * erases an address on request, and reads each act back in the Protokoll, every act behind the administrator's real
- * touch. The touch asks the test's own context, so the journey signs in and sets up its passkey there: the session
- * `../support/administrator.setup.ts` saves carries cookies and no authenticator. Desktop alone, for the reason
- * `fl_frontend/playwright.config.ts` gives at its projects; `../phone/access.spec.ts` reads the lists on a phone.
+ * E2E · the administration's access pages: an administrator starts a change for a person who lost their mailbox and
+ * discards it, erases an address on request, and reads each act back in the Protokoll, every act behind the
+ * administrator's real touch. The touch asks the test's own context, so the journey signs in and sets up its passkey
+ * there: the shared administrator's session carries cookies and no authenticator. Desktop alone, since Playwright's
+ * WebKit holds no authenticator; the phone reads the lists in a journey of its own.
  */
 import { expect } from "@playwright/test";
 
 import { chooseWho } from "../support/actionLog";
 import { chip, pressRowAct, typeInto } from "../support/controls";
 import { test } from "../support/journey";
+import { PEOPLE } from "../support/madeUpLeague";
 import { filedMessages, mailedMessage } from "../support/mailSink";
 import { assertionsSigned, enrolPasskey, signInWithCode } from "../support/signIn";
 
-/** The administrator these acts are done by (`scripts/ops/seed/seed.js`), whom no other journey signs in as. */
-const ADMINISTRATOR = "admin.zugang@example.com";
+/** The administrator these acts are done by, whom no other journey signs in as. */
+const ADMINISTRATOR = PEOPLE.administrators.access;
 
 /** The person whose address the change starts on. */
-const MOVER = "marta.moos@example.com";
+const MOVER = PEOPLE.access.mover.address;
 
 /** The person this journey erases. */
-const ERASED = "olga.ott@example.com";
+const ERASED = PEOPLE.access.erased.address;
 
 /** The request's reference, the erasure's one word in the log. */
 const REFERENCE = "Anfrage 17";
