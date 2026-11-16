@@ -1,4 +1,3 @@
-import asyncio
 from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Annotated, Any, Literal, NamedTuple
@@ -89,6 +88,7 @@ from app.api.teams.services import (
     has_taken_place,
 )
 from app.core.codes import Code
+from app.core.concurrency import concurrently
 from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
@@ -198,7 +198,7 @@ async def get_saisons_admin(
     saisons_raw = await pull_many_from_db(collection=saisons_collection, db_filter={}, sort_by=[("_id", 1)])
 
     saison_ids = [str(raw["_id"]) for raw in saisons_raw]
-    taken_place, finale_by_saison, teams_by_saison, spiele_by_saison, create_state = await asyncio.gather(
+    taken_place, finale_by_saison, teams_by_saison, spiele_by_saison, create_state = await concurrently(
         saisons_with_a_spiel_taken_place(spiele_collection=spiele_collection, saison_ids=saison_ids, session=None),
         pull_finale_by_saison(spiele_collection=spiele_collection, saison_ids=saison_ids),
         count_teams_by_saison(saison_teams_collection=saison_teams_collection, saison_ids=saison_ids),
@@ -250,46 +250,41 @@ async def get_saison_admin(
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id})
     saison_status = str(saison_raw["status"])
 
-    # Two groups of reads sent at once, because `asyncio.gather`'s typing stops at six.
-    (rows, count_spieltage, clubs, finale_by_saison), (activation, recorded_rows, berichte, planned) = await asyncio.gather(
-        asyncio.gather(
-            # Whole, as the bracket's advance reads its season: a truncated list offers a club the replacement refuses as
-            # entered.
-            pull_whole_from_db(
-                collection=saison_teams_collection,
-                db_filter={"saison_id": saison_id},
-                what=f"season {saison_id}'s clubs",
-                projection=["team_id", "name", "shorthand", "gruppe", "austritt"],
-                sort_by=[("name", 1)],
-                collation=GERMAN_COLLATION,
-            ),
-            spieltage_collection.count_documents({"saison_id": saison_id}),
-            pull_whole_from_db(
-                collection=teams_collection,
-                db_filter={"inactive_since": None},
-                what="the league's clubs",
-                projection=["name", "shorthand"],
-                sort_by=[("name", 1)],
-                collation=GERMAN_COLLATION,
-            ),
-            pull_finale_by_saison(spiele_collection=spiele_collection, saison_ids=[saison_id]),
+    rows, count_spieltage, clubs, finale_by_saison, activation, recorded_rows, berichte, planned = await concurrently(
+        # Whole, as the bracket's advance reads its season: a truncated list offers a club the replacement refuses as
+        # entered.
+        pull_whole_from_db(
+            collection=saison_teams_collection,
+            db_filter={"saison_id": saison_id},
+            what=f"season {saison_id}'s clubs",
+            projection=["team_id", "name", "shorthand", "gruppe", "austritt"],
+            sort_by=[("name", 1)],
+            collation=GERMAN_COLLATION,
         ),
-        asyncio.gather(
-            _judge_the_activation(
-                saison_id=saison_id,
-                target_status=saison_status,
-                saisons_collection=saisons_collection,
-                spiele_collection=spiele_collection,
-                spieltage_collection=spieltage_collection,
-                session=None,
-            ),
-            _pull_recorded_fact_rows(spiele_collection=spiele_collection, saison_id=saison_id, session=None),
-            count_submitted_berichte(spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=None),
-            _plan_the_dispatch(
-                saison_id=saison_id,
-                saison_teams_collection=saison_teams_collection,
-                invitations_collection=invitations_collection,
-            ),
+        spieltage_collection.count_documents({"saison_id": saison_id}),
+        pull_whole_from_db(
+            collection=teams_collection,
+            db_filter={"inactive_since": None},
+            what="the league's clubs",
+            projection=["name", "shorthand"],
+            sort_by=[("name", 1)],
+            collation=GERMAN_COLLATION,
+        ),
+        pull_finale_by_saison(spiele_collection=spiele_collection, saison_ids=[saison_id]),
+        _judge_the_activation(
+            saison_id=saison_id,
+            target_status=saison_status,
+            saisons_collection=saisons_collection,
+            spiele_collection=spiele_collection,
+            spieltage_collection=spieltage_collection,
+            session=None,
+        ),
+        _pull_recorded_fact_rows(spiele_collection=spiele_collection, saison_id=saison_id, session=None),
+        count_submitted_berichte(spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=None),
+        _plan_the_dispatch(
+            saison_id=saison_id,
+            saison_teams_collection=saison_teams_collection,
+            invitations_collection=invitations_collection,
         ),
     )
     recorded_spiele = sum(1 for spiel in recorded_rows if holds_a_recorded_fact(spiel))

@@ -1,4 +1,3 @@
-import asyncio
 import secrets
 from collections import Counter
 from collections.abc import Mapping
@@ -69,6 +68,7 @@ from app.api.saisons.schemas import FLSaisonRules
 from app.api.teams.crud import pull_a_club_to_enter, pull_team_names_and_codes, refuse_a_full_gruppe, refuse_a_taken_colour
 from app.api.teams.services import find_club_entry_refusal, find_shorthand_refusal, offered_gruppen
 from app.core.collections import Collection
+from app.core.concurrency import concurrently
 from app.core.config import API_VERSION
 from app.core.crud import (
     aggregate_many_from_db,
@@ -181,7 +181,7 @@ async def get_bewerbungen_admin(
             projection=BEWERBUNG_LIST_FIELDS,
         )
 
-    offer, clubs, read, confirmed = await asyncio.gather(
+    offer, clubs, read, confirmed = await concurrently(
         _entry_offer(saison_id=saison_id, saisons_collection=saisons_collection),
         _doubled_clubs(saison_id=saison_id, bewerbungen_collection=bewerbungen_collection),
         newest_of({"saison_id": saison_id}),
@@ -222,7 +222,7 @@ async def get_bewerbung(
 
     team_id = bewerbung_raw.get("team_id")
     saison_id = str(bewerbung_raw["saison_id"])
-    offer, (club_names, club_codes), entry, clubs = await asyncio.gather(
+    offer, (club_names, club_codes), entry, clubs = await concurrently(
         _entry_offer(saison_id=saison_id, saisons_collection=saisons_collection),
         pull_team_names_and_codes(teams_collection=teams_collection, team_ids=[team_id]),
         _entry_of(bewerbung_raw, saison_teams_collection=saison_teams_collection),

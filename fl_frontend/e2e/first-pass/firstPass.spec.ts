@@ -51,7 +51,7 @@ test("an application whose 14 days lapsed is deleted, and the seat that confirme
 test("the referee booked on a departed club's fixture is told", async () => {
   const notice = await mailedMessage(REFEREE, NOTICE, SINCE_THE_START);
 
-  expect(notice.join("\n"), "the fixture the referee no longer whistles").toContain("Esche vs. Weide");
+  expect(notice.join("\n"), "the fixture the referee no longer whistles").toContain(PEOPLE.firstPass.lifted);
 });
 
 test("each deletion the pass made stands in the Protokoll, counted and naming nobody", async ({ page }) => {

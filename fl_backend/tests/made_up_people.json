@@ -86,8 +86,11 @@
   "firstPass": {
     "referee": { "first_name": "Ben", "last_name": "Brandt", "address": "ben.brandt@example.com" },
     "erased": { "first_name": "Lea", "last_name": "Lehmann", "address": "lea.lehmann@example.com" },
-    "applications": { "lapsed": "Lärche", "left": "Espe" }
+    "applications": { "lapsed": "Lärche", "left": "Espe" },
+    "lifted": "Esche vs. Weide"
   },
+  "spielplan": { "opened": "Ahorn vs. Kastanie", "ergebnis": "2:1" },
+  "matchEditor": { "rescheduled": "Kastanie vs. Eiche" },
   "austritt": {
     "opponent": { "first_name": "Berta", "last_name": "Birkner", "address": "berta.birkner@example.com" }
   },

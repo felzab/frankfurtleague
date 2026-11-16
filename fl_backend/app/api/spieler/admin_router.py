@@ -1,4 +1,3 @@
-import asyncio
 from typing import Annotated, Final
 
 from fastapi import APIRouter, Body, Depends, status
@@ -28,6 +27,7 @@ from app.api.spieler.services import (
     mark_shared_nummern,
 )
 from app.api.teams.crud import pull_saison_team_names
+from app.core.concurrency import concurrently
 from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
@@ -86,7 +86,7 @@ async def get_spieler_admin(
 
     # Read whole, as every list but the Protokoll is, the page narrowing what it holds.
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
-    rows, team_names = await asyncio.gather(
+    rows, team_names = await concurrently(
         aggregate_many_from_db(
             collection=saison_spieler_collection, pipeline=build_kader_pipeline(saison_id=saison_id, team_id=None), collation=GERMAN_COLLATION
         ),
@@ -119,13 +119,13 @@ async def get_spieler_saison(
 
     # Outside a transaction: a write landing under this read is judged by its own write. A person out of the season's
     # squad is no row of that season's list, so the missing row is a 404.
-    person_raw, row_raw, saison_raw = await asyncio.gather(
+    person_raw, row_raw, saison_raw = await concurrently(
         pull_one_from_db(collection=spieler_collection, db_filter={"_id": spieler_id}),
         pull_one_from_db(collection=saison_spieler_collection, db_filter={"spieler_id": spieler_id, "saison_id": saison_id}),
         pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules"]),
     )
     team_id = row_raw["team_id"]
-    held, club = await asyncio.gather(
+    held, club = await concurrently(
         pull_many_from_db(
             collection=saison_spieler_collection,
             db_filter=build_held_rollen_filter(saison_id=saison_id, team_id=team_id, excluding_spieler_id=spieler_id),
