@@ -46,5 +46,6 @@ Each fails silently. The ratified decisions for this surface are in `docs/decisi
   the compiler: the matching seats (`fl_frontend/src/core/roles.ts :: seatsAt`), the refusal or
   `null` (`fl_frontend/src/core/errors.ts :: asRefusal`), or a boolean. A predicate TypeScript
   infers from the body is left unannotated, so the compiler checks it; one is written by hand only
-  where it cannot infer it, an own-key lookup through `Object.hasOwn` or an exact property
-  refinement.
+  where it cannot infer it, as an arrow whose body is an own-key lookup through `Object.hasOwn` or
+  an exact refinement, a property or a `typeof` compared with a literal. The lint refuses every
+  other hand-written `x is T`, an `asserts` one and one in a type included.
