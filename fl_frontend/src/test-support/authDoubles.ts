@@ -318,6 +318,18 @@ export function memoryStore(name: string): MemoryStore {
   return store;
 }
 
+/**
+ * Takes the row `id` names out of `store`'s `table` as the table stands now, failing the case where none does. By id,
+ * never by a row held from before: a committed transaction writes each table anew, so a held row is no longer in it,
+ * and its index of -1 would take the table's last row instead.
+ */
+export function deleteRow(store: MemoryStore, table: "session" | "passkey", id: unknown): void {
+  const rows: { id?: unknown }[] = store[table];
+  const at = rows.findIndex((row) => row.id === id);
+  assert(at !== -1, `the store holds no ${table} row ${String(id)}`);
+  rows.splice(at, 1);
+}
+
 /** `signInByCode`'s session, as its cookie and the row `store` holds for it. */
 export async function sessionByCode(
   auth: typeof AuthInstance,
@@ -333,16 +345,13 @@ export async function sessionByCode(
 }
 
 /** Where the sign-in gate's one backend read goes, in every config double this file builds. */
-export const GATE_BACKEND_CONFIG = {
+const GATE_BACKEND_CONFIG = {
   API_URL: BACKEND_ORIGIN,
 } as const;
 
-/** What the lookup answers an address holding nothing, which every answer below builds on. */
-export const HOLDS_NOTHING = NO_RECORDS;
-
 /** `ADMIN_EMAIL`'s answer: a grant and no league record, which is what makes it an administrator, dated before any session a case makes. */
 export const GRANTED = deepFrozen({
-  ...HOLDS_NOTHING,
+  ...NO_RECORDS,
   admin_tier: "administration" as const,
   granted_since: "2026-01-01T00:00:00Z",
   account: false,
@@ -410,7 +419,7 @@ const DEFAULT_LOOKUP: LookupAnswer = (email) => (email === ADMIN_EMAIL ? GRANTED
  * address `granted` names, so a suite minting a person's session gets past the gate at session creation.
  */
 export function seatEveryAddress(granted: readonly string[] = [ADMIN_EMAIL]): void {
-  answerTheLookup((email) => ({ ...(granted.includes(email) ? GRANTED : HOLDS_NOTHING), seats: [SEAT], account: true }));
+  answerTheLookup((email) => ({ ...(granted.includes(email) ? GRANTED : NO_RECORDS), seats: [SEAT], account: true }));
 }
 
 /**

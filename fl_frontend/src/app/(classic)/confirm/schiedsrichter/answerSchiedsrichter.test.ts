@@ -1,5 +1,6 @@
 import { serveBackend } from "@/test-support/backend";
 import { doubleNextRequest } from "@/test-support/nextRequest";
+import { posted } from "@/test-support/posted";
 import { describe, expect, it } from "vitest";
 
 import { SCHIEDSRICHTER_TEXT_VERSIONS } from "@/core/consentWordings";
@@ -22,13 +23,6 @@ doubleNextRequest();
 const { answerSchiedsrichter } = await import("./answerSchiedsrichter");
 
 const TOKEN = "not-a-real-token";
-
-/** The question's form as the browser posts it, the act pressed among its entries. */
-const posted = (entries: Readonly<Record<string, string>>) => {
-  const formData = new FormData();
-  for (const [name, value] of Object.entries(entries)) formData.set(name, value);
-  return formData;
-};
 
 const confirmation = (media?: "on") =>
   posted({ act: "primary", token: TOKEN, birth_date: "2000-01-01", scope: "internal", ...(media === undefined ? {} : { media }) });

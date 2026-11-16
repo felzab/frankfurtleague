@@ -2,7 +2,6 @@ import {
   ADMIN_EMAIL,
   configDouble,
   cookieHeader,
-  GATE_BACKEND_CONFIG,
   ORIGIN,
   overriding,
   registerAuthDoubles,
@@ -50,7 +49,7 @@ seatEveryAddress();
 
 registerAuthDoubles({
   core: {
-    config: configDouble(GATE_BACKEND_CONFIG, { mongodbUri: () => replicaSetUrl(mongod) }),
+    config: configDouble({}, { mongodbUri: () => replicaSetUrl(mongod) }),
     db: DB_DOUBLE,
   },
   specifiers: {

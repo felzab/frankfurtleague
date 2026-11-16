@@ -1,5 +1,6 @@
 import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, overriding, registerAuthDoubles, signInByCode } from "@/test-support/authDoubles.ts";
 import { beginRenderPass, serveServerReact } from "@/test-support/cacheScope.ts";
+import { emptyStore } from "@/test-support/emptyStore.ts";
 import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
 import { captureLog } from "@/test-support/stdoutCapture.ts";
 import { assert, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -60,11 +61,8 @@ beforeAll(async () => {
   ).toStrictEqual([]);
 });
 
-// An empty store, its indexes kept, each case signing the administrator in afresh.
-beforeEach(async () => {
-  const collections = await client.db("auth").listCollections({}, { nameOnly: true }).toArray();
-  await Promise.all(collections.map(({ name }) => client.db("auth").collection(name).deleteMany({})));
-});
+// Each case signs the administrator in afresh.
+beforeEach(() => emptyStore(client.db("auth")));
 
 // Set before the first operation opens a connection, which is when the pool reads it; the option is
 // the client's own, left out of its published type.

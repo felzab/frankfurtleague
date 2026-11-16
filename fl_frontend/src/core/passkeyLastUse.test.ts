@@ -1,7 +1,6 @@
 import {
   configDouble,
   cookieHeader,
-  GATE_BACKEND_CONFIG,
   memoryAdapterDouble,
   memoryStore,
   ORIGIN,
@@ -19,7 +18,7 @@ const HEADERS_DOUBLE = { headers: () => Promise.resolve(new Headers()) };
 seatEveryAddress();
 
 registerAuthDoubles({
-  core: { config: configDouble(GATE_BACKEND_CONFIG) },
+  core: { config: configDouble() },
   specifiers: { "next/headers": HEADERS_DOUBLE, "@better-auth/mongo-adapter": memoryAdapterDouble(STORE) },
 });
 

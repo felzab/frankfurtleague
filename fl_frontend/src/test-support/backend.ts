@@ -371,7 +371,7 @@ export function serveBackend(answer?: BackendAnswer): Backend {
  * The status the backend refuses `code` at, unless a case names another: a missing record at 404, which
  * the client reads as a missing record beside its code, a refused body at 422, and every rule at 409.
  */
-export const refusalStatus = (code: Code | undefined): number =>
+const refusalStatus = (code: Code | undefined): number =>
   code === "document_not_found" ? 404 : code === "payload_refused" || code === "body_unreadable" ? 422 : 409;
 
 /**

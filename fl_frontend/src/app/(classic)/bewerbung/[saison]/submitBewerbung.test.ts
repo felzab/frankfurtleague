@@ -1,5 +1,6 @@
 import { serveBackend, serveHost } from "@/test-support/backend";
 import { doubleNextRequest } from "@/test-support/nextRequest";
+import { posted } from "@/test-support/posted";
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
@@ -77,12 +78,6 @@ const NEW_SCHOOL: Readonly<Record<string, string>> = {
   "schule.address.postcode": "60325",
   "schule.address.city": "Frankfurt am Main",
   "schule.address.district": "Westend",
-};
-
-const posted = (entries: Readonly<Record<string, string>>) => {
-  const formData = new FormData();
-  for (const [name, value] of Object.entries(entries)) formData.set(name, value);
-  return formData;
 };
 
 /** What the one write carried, as the backend read it. */
