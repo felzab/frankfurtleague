@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
-# SCRIPTS · test the scripts themselves: every shell script parses, every runnable one is executable
-# in git, shellcheck finds nothing in them and actionlint nothing in the workflows.
+# SCRIPTS · test the scripts themselves: every runnable shell script is executable in git, and
+# neither shellcheck finds anything in the scripts nor actionlint in the workflows.
 #
 #   ./scripts/gate/selfcheck.sh
 #   ./scripts/gate/selfcheck.sh --help
@@ -39,12 +39,7 @@ if (( ${#SHELL_FILES[@]} == 0 )); then
   refuse "git named no shell script in this repository, so there was nothing to check"
 fi
 
-step "1. Syntax"
-for f in "${SHELL_FILES[@]}"; do
-  bash -n "$f" 2>/dev/null || note_fail "${f} does not parse"
-done
-
-step "2. Executable bit is set in git"
+step "1. Executable bit is set in git"
 # The mode git records, not the filesystem's: on Windows `core.fileMode` is false, so `chmod +x` is
 # cosmetic and the script reaches the Linux server non-executable. `scripts/lib/` is sourced, never run.
 while IFS=$'\t' read -r meta path; do
@@ -63,8 +58,9 @@ ACTIONLINT_IMAGE_DIGEST="sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936
 # Git Bash mounts %TEMP% at /tmp, so a checkout there makes `/$REPO_ROOT` bind an unrelated directory.
 mount_source() { cygpath -w "$REPO_ROOT" 2>/dev/null || printf '/%s' "$REPO_ROOT"; }
 
-step "3. shellcheck"
-# SC1091 throughout: shellcheck cannot follow the sourced library.
+step "2. shellcheck"
+# SC1091 throughout: shellcheck cannot follow the sourced library. A script that does not parse is
+# one of its errors.
 sc_rc=0
 if [[ "$(shellcheck --version 2>/dev/null | awk '$1 == "version:" { print $2 }')" == "$SHELLCHECK_VERSION" ]]; then
   shellcheck -e SC1091 "${SHELL_FILES[@]}" || sc_rc=$?
@@ -77,7 +73,7 @@ else
 fi
 if (( sc_rc )); then note_fail "shellcheck reported the findings above (exit ${sc_rc})"; fi
 
-step "4. actionlint on the workflows"
+step "3. actionlint on the workflows"
 al_rc=0
 if [[ "$(actionlint -version 2>/dev/null | head -n 1)" == "$ACTIONLINT_VERSION" ]]; then
   actionlint || al_rc=$?
