@@ -22,12 +22,10 @@
 #   location naming a zone refusing once its key is spent. No rate is held.
 # - Every body cap takes its figure and refuses a byte past it.
 #
-#   ./nginx/edge_test.sh --verbose   print the access line every case was graded on
-#   ./nginx/edge_test.sh --help
+#   ./scripts/checks/edge_test.sh --verbose   print the access line every case was graded on
+#   ./scripts/checks/edge_test.sh --help
 
-_here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# shellcheck source=scripts/lib/_lib.sh
-source "${_here}/scripts/lib/_lib.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
 
 # Parsed before any environmental check, so a typo fails instantly instead of demanding Docker.
 # shellcheck disable=SC2034  # the --verbose arm assigns VERBOSE for _lib.sh's `verbose`
@@ -500,7 +498,7 @@ config_transfer() { # curl options naming one transfer, its one bare argument th
         # Quoted, as a value holding a space must be, with the two escapes a quoted value reads.
         value="${2//\\/\\\\}"; value="${value//\"/\\\"}"
         ACTION_CONFIG+=( "$1 \"${value}\"" ); shift 2 ;;
-      -*) refuse "nginx/edge_test.sh's config_transfer has no rule for curl's $1, so it cannot write that transfer." ;;
+      -*) refuse "scripts/checks/edge_test.sh's config_transfer has no rule for curl's $1, so it cannot write that transfer." ;;
       *)
         value="${1//\\/\\\\}"; value="${value//\"/\\\"}"
         ACTION_CONFIG+=( "--url \"${value}\"" ); shift ;;

@@ -7,7 +7,7 @@
 #
 #   ./scripts/gate/verify.sh                   every scope, side by side — the run a pull request is called ready to merge on
 #   ./scripts/gate/verify.sh --scripts --docs --backend --format --frontend-units --frontend --ops --db --images
-#   ./scripts/gate/verify.sh --quick           the scripts, backend and frontend scopes alone, needing Docker only where shellcheck or actionlint is not on PATH at its pinned release
+#   ./scripts/gate/verify.sh --quick           the scripts, backend and frontend scopes alone, the scripts scope needing Docker for shellcheck and actionlint
 #   ./scripts/gate/verify.sh --verbose         stream each tool's own output instead of capturing it
 #   ./scripts/gate/verify.sh --help
 
@@ -269,50 +269,24 @@ scope_scripts() {
 
 # --- docs ------------------------------------------------------------------------------------------
 
-# The empty tree against the working tree: every tracked file is read whole, and a shallow clone needs
-# no history for it. git answers 2 for what it found.
-diff_check() {
-  local rc=0
-  git diff --check "$(git hash-object -t tree /dev/null)" || rc=$?
-  if (( rc == 2 )); then return 1; fi
-  return "$rc"
-}
-
-# Every tracked text file, for the zero-width, bidirectional and line-separator characters that hide
-# or reorder what a reviewer reads (CVE-2021-42574); the one deliberate fixture is left out. A UTF-8
-# locale, which `-P` needs to read a code point past U+00FF. git grep answers 0 for a match, 1 for none.
-invisible_check() {
-  local rc=0
-  LC_ALL=C.UTF-8 git grep -I -n -P '[\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{2028}\x{2029}]' \
-    -- . ':!fl_frontend/src/core/emailAddress.test.ts' || rc=$?
-  case "$rc" in
-    0) return 1 ;;
-    1) return 0 ;;
-    *) return "$rc" ;;
-  esac
-}
-
 # Offline, every link and fragment inside the repository, through the pinned image with no network;
-# links leaving it are no part of this gate. lychee answers 2 for a broken one.
+# links leaving it are no part of this gate. lychee answers 2 for a broken one. The image is the one
+# its stage names in the tools file, the one place Dependabot moves it.
 check_links() {
-  local rc=0
+  local rc=0 image
+  image="$(sed -nE 's/^FROM ([^ ]+) AS lychee$/\1/p' scripts/gate/tools.Dockerfile)"
+  if [[ -z "$image" || "$image" == *$'\n'* ]]; then
+    info "scripts/gate/tools.Dockerfile names no single FROM line for lychee, so no link was checked."
+    return 1
+  fi
   MSYS_NO_PATHCONV=1 docker run --rm --network none -v "${REPO_ROOT}:/input:ro" -w /input \
-    lycheeverse/lychee:0.24.2@sha256:e2d19e57cf6ab037026f20b8e449a1f30d9d7f81eef4194763aab2eab20bd28d \
-    --config lychee.toml --no-progress . || rc=$?
+    "$image" --config lychee.toml --no-progress . || rc=$?
   if (( rc == 2 )); then return 1; fi
   return "$rc"
 }
 
 scope_docs() {
   section docs
-  step "docs · no conflict marker or whitespace error in any tracked file"
-  check "A tracked file above carries a conflict marker or a whitespace error, each named by its line." diff_check \
-    && ok "no conflict marker or whitespace error"
-
-  step "docs · no invisible or bidirectional character in any tracked file"
-  check "A tracked file above carries an invisible or bidirectional character, each named by its line." invisible_check \
-    && ok "no invisible or bidirectional character"
-
   step "docs · every link and fragment inside the repository resolves"
   check "lychee names each broken link or fragment above, with the file it stands in." check_links \
     && ok "every link inside the repository resolves"
@@ -352,6 +326,29 @@ scope_backend() {
 
 # --- format ----------------------------------------------------------------------------------------
 
+# The empty tree against the working tree: every tracked file is read whole, and a shallow clone needs
+# no history for it. git answers 2 for what it found.
+diff_check() {
+  local rc=0
+  git diff --check "$(git hash-object -t tree /dev/null)" || rc=$?
+  if (( rc == 2 )); then return 1; fi
+  return "$rc"
+}
+
+# Every tracked text file, for the zero-width, bidirectional and line-separator characters that hide
+# or reorder what a reviewer reads (CVE-2021-42574); the one deliberate fixture is left out. A UTF-8
+# locale, which `-P` needs to read a code point past U+00FF. git grep answers 0 for a match, 1 for none.
+invisible_check() {
+  local rc=0
+  LC_ALL=C.UTF-8 git grep -I -n -P '[\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{2028}\x{2029}]' \
+    -- . ':!fl_frontend/src/core/emailAddress.test.ts' || rc=$?
+  case "$rc" in
+    0) return 1 ;;
+    1) return 0 ;;
+    *) return "$rc" ;;
+  esac
+}
+
 # Its own scope: prettier governs markdown, YAML and the compose files too.
 scope_format() {
   section format
@@ -364,6 +361,14 @@ scope_format() {
   step "format · markdownlint"
   check "markdownlint names each finding above with its file, line and rule." in_dir fl_frontend pnpm run lint:md \
     && ok "the Markdown keeps its rules"
+
+  step "format · no conflict marker or whitespace error in any tracked file"
+  check "A tracked file above carries a conflict marker or a whitespace error, each named by its line." diff_check \
+    && ok "no conflict marker or whitespace error"
+
+  step "format · no invisible or bidirectional character in any tracked file"
+  check "A tracked file above carries an invisible or bidirectional character, each named by its line." invisible_check \
+    && ok "no invisible or bidirectional character"
   return 0
 }
 
@@ -547,7 +552,7 @@ findings above name the service and the rule." \
   # A parse sees neither a log line nor a response, and both edges starting is the parse.
   step "ops · the edge starts, logs no credential and sends every security header once"
   check --checker "The running edge failed a case. Each failing case above is what nginx WROTE or SENT, and the
-files under nginx/shared/ decide it." bash nginx/edge_test.sh \
+files under nginx/shared/ decide it." bash scripts/checks/edge_test.sh \
     && ok "the edge logged and sent every case as written"
   return 0
 }
@@ -584,9 +589,8 @@ DB_TIERS=""
 scope_db() {
   section db
   trap 'rm -rf "$CONTRACT_SCRATCH" ${DB_TIERS:+"$DB_TIERS"}' EXIT
-  # Side by side, each into its own capture, as `build_images` runs two builds: the tiers share no
-  # container, each starting its own on ports Docker picks, and the contract check writes only its
-  # scratch folder.
+  # Side by side, each into its own capture: the tiers share no container, each starting its own on
+  # ports Docker picks, and the contract check writes only its scratch folder.
   DB_TIERS="$(mktemp -d)"
   local contract backend frontend
   # This scope because it alone has both the backend's virtualenv and the frontend's install.
@@ -627,25 +631,20 @@ own message above says which." "pnpm run test:db" \
 IMAGES_TAG="${VERIFY_TAG:-frankfurtleague-verify-$$}"
 cleanup_images() { docker image rm -f "${IMAGES_TAG}:frontend" "${IMAGES_TAG}:backend" >/dev/null 2>&1 || true; }
 
-# Both at once, each into its own capture: BuildKit runs the two solves side by side.
+# Both in one bake of the definition CI builds, so each target's context, Dockerfile and arguments are
+# `docker-bake.hcl`'s alone. Only where they land is this run's: loaded into the local image store
+# under this run's tag (`--set`, https://docs.docker.com/build/bake/overrides/), where CI writes the
+# tarballs its publish pushes.
 build_images() {
-  local image rc failed="" logs
-  local -A build_pid=()
-  logs="$(mktemp -d)"
-  for image in frontend backend; do
-    # Bash starts an `&` command of a script with SIGINT and SIGQUIT ignored, which would leave a build
-    # running past a Ctrl-C and tagging an image after `cleanup_images` ran: reset in the subshell.
-    ( trap - INT QUIT; exec docker build -f "fl_${image}/Dockerfile" -t "${IMAGES_TAG}:${image}" "fl_${image}" ) > "${logs}/${image}" 2>&1 &
-    build_pid[$image]=$!
-  done
-  for image in frontend backend; do
-    rc=0
-    wait "${build_pid[$image]}" || rc=$?
-    if (( rc )); then failed+=" ${image}"; detail < "${logs}/${image}"; fi
-  done
-  rm -rf "$logs"
-  if [[ -n "$failed" ]]; then
-    fail "The image(s)${failed} failed to build — the failure the frontend scope cannot see. Docker's own output is above."
+  local log rc=0
+  log="$(mktemp)"
+  docker buildx bake --file docker-bake.hcl --set '*.output=type=docker' \
+    --set "frontend.tags=${IMAGES_TAG}:frontend" --set "backend.tags=${IMAGES_TAG}:backend" \
+    frontend backend > "$log" 2>&1 || rc=$?
+  if (( rc )); then detail < "$log"; fi
+  rm -f "$log"
+  if (( rc )); then
+    fail "The images failed to build — the failure the frontend scope cannot see. Docker's own output above names the target."
     finish
   fi
 }
@@ -656,7 +655,7 @@ scope_images() {
   section images
   if [[ -z "${VERIFY_IMAGES_BUILT:-}" ]]; then
     trap cleanup_images EXIT
-    step "images · docker build frontend and backend"
+    step "images · docker buildx bake frontend backend"
     build_images
     ok "both images build"
   fi

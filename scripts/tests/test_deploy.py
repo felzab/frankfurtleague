@@ -2,7 +2,7 @@
 
 No case can run the script against a real engine, which is the server's alone. Each copies it with
 `_lib.sh` into a fixture tree of its own, where it `cd`s and writes `.env`, and puts a stand-in
-`docker` and `uname` first on PATH. The stand-in answers `docker compose ps` as Docker documents it
+`docker`, `uname` and `sleep` first on PATH. The stand-in answers `docker compose ps` as Docker documents it
 (https://docs.docker.com/reference/cli/docker/compose/ps/): only running containers by default, and
 with `--all` the stopped ones too, a one-off container `docker compose run` left among them. Its
 nginx answers each case's `nginx -t` and error log after the reload, the same at every read, so it
@@ -61,6 +61,8 @@ exit 0
 """
 
 UNAME: Final = "#!/usr/bin/env bash\nprintf '%s\\n' Linux\n"
+# The clock, faked: each reload read follows a second's wait, and the stand-in's log is the same at every read.
+SLEEP: Final = "#!/usr/bin/env bash\nexit 0\n"
 
 
 def containers(**states: str | None) -> str:
@@ -95,7 +97,7 @@ def deploy(
     engine = new_root("fl-deploy-engine-")
     stubs = engine / "stubs"
     stubs.mkdir()
-    for name, text in (("docker", DOCKER), ("uname", UNAME)):
+    for name, text in (("docker", DOCKER), ("uname", UNAME), ("sleep", SLEEP)):
         os.chmod(write_shell(stubs / name, text), 0o755)
     (engine / f"containers.{NEW}").write_bytes(new.encode())
     (engine / f"containers.{PREVIOUS}").write_bytes(previous.encode())
@@ -242,7 +244,7 @@ def test_a_workers_alert_beside_the_new_workers_is_no_refusal():
 
 
 def test_a_reload_nginx_confirms_neither_way_goes_back_saying_so():
-    """The run waits out its 15 seconds: a worker's alert is not the master refusing."""
+    """The run waits out its 15 reads: a worker's alert is not the master refusing."""
     code, out, err, calls, pinned = deploy(reload_log=RECONFIGURING + WORKER_ALERT)
 
     assert code == 1, out + err

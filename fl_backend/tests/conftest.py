@@ -8,6 +8,7 @@ import sys
 import time
 from collections.abc import AsyncIterator, Callable, Coroutine, Generator, Iterator
 from contextlib import ExitStack, contextmanager
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -241,9 +242,21 @@ def saison() -> PayloadFactory:
     )
 
 
-# The container's image, by tag and digest (`docs/ops/spec.md` §1.1): the local stack's server, with
-# its full version, which `scripts/tests/test_image_pins.py` holds to that form.
-MONGO_IMAGE = "mongo:8.0.38@sha256:d97fea17ccb8d004cd137be8dab54d70d0df11be69c9f422aefe4484c8414ab7"
+def _the_local_stack_s_mongo() -> str:
+    """The local stack's server, read from the one line of `docker-compose.local.yml` that types it.
+
+    That line is the one Dependabot moves, so a copy here would run a server it never proposed. A
+    line read rather than YAML: no parser is a dependency of ours, and a second mongo image or a
+    reshaped line fails here rather than starting a server nothing names.
+    """
+    stack = Path(__file__).resolve().parents[2] / "docker-compose.local.yml"
+    images = re.findall(r"^    image: (mongo:\S+)$", stack.read_text(encoding="utf-8"), re.MULTILINE)
+    if len(images) != 1:
+        raise RuntimeError(f"{stack} names the mongo image {images}, where this reader takes exactly one `    image: mongo:…` line")
+    return images[0]
+
+
+MONGO_IMAGE = _the_local_stack_s_mongo()
 
 # A majority write's acknowledgement waits on the oplog entry reaching the journal, and this
 # container's data is discarded at session end, so the disk buys nothing the tier needs.

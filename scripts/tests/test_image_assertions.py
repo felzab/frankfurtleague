@@ -1,6 +1,6 @@
 """The image checks a successful build does not make, and how each answer is graded.
 
-A `docker build` reports success over an image missing `instrumentation.js`, over one that runs as
+A build reports success over an image missing `instrumentation.js`, over one that runs as
 root, and over a context its dockerignore stopped covering, so the three probes in the images scope
 are the only things that read any of it. Each answers three ways, and the third -- an image that
 would not run at all -- is no finding about the image. Every case drives the gate's own `--images`
@@ -16,10 +16,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-from conftest import BASH, base_env, run_shell, write_shell
+import pytest
+from conftest import BASH, REPO_ROOT, base_env, run_shell, write_shell
 
-SCRIPTS: Final = Path(__file__).resolve().parent.parent
-REPO_ROOT: Final = SCRIPTS.parent
+SCRIPTS: Final = REPO_ROOT / "scripts"
 VERIFY: Final = SCRIPTS / "gate" / "verify.sh"
 LIB: Final = SCRIPTS / "lib" / "_lib.sh"
 
@@ -38,14 +38,19 @@ case_for() { # $1 the image asked about
 }
 case "${1:-}" in
   version) printf 'stub\\n'; exit 0 ;;
-  build)
+  buildx)
+    # The local build is CI's own definition: any other build, or any call the scope is not to make,
+    # is refused, here and below, so it fails every case whose build is to succeed.
+    if [[ "${2:-}" != bake || " $* " != *" --file docker-bake.hcl "* ]]; then
+      printf 'stub: not a bake of docker-bake.hcl: %s\\n' "$*"; exit 1
+    fi
     case "${FL_IMAGE_CASE:-clean}" in
       build_failed) printf '%s\\n' "ERROR: failed to solve"; exit 1 ;;
     esac
     exit 0 ;;
   image) exit 0 ;;
 esac
-if [[ "${1:-}" != "run" ]]; then exit 0; fi
+if [[ "${1:-}" != "run" ]]; then printf 'stub: no answer for docker %s\\n' "$*"; exit 1; fi
 cmd=""
 image=""
 prev=""
@@ -149,19 +154,19 @@ def _run(case: Case) -> tuple[int, str]:
     return done.returncode, done.stdout + done.stderr
 
 
-def test_each_answer_the_image_assertions_can_give_ends_the_run_its_own_way() -> None:
+@pytest.mark.parametrize("case", CASES, ids=[case.label for case in CASES])
+def test_each_answer_the_image_assertions_can_give_ends_the_run_its_own_way(case: Case) -> None:
     """A build proves neither promise, so a wrong grading here ships behind a green gate."""
+    code, output = _run(case)
     wrong: list[str] = []
-    for case in CASES:
-        code, output = _run(case)
-        if code != case.code:
-            wrong.append(f"{case.label}: exited {code}, and the contract gives it {case.code}\n{output}")
-        if case.says not in output:
-            wrong.append(f"{case.label}: nothing it printed says {case.says!r}")
-        if case.never is not None and case.never in output:
-            wrong.append(f"{case.label}: it said {case.never!r}, which names a breach nothing observed")
-        if case.built and "docker build" in output:
-            wrong.append(f"{case.label}: it built the images the workflow had built")
+    if code != case.code:
+        wrong.append(f"exited {code}, and the contract gives it {case.code}\n{output}")
+    if case.says not in output:
+        wrong.append(f"nothing it printed says {case.says!r}")
+    if case.never is not None and case.never in output:
+        wrong.append(f"it said {case.never!r}, which names a breach nothing observed")
+    if case.built and "buildx bake" in output:
+        wrong.append("it built the images the workflow had built")
     assert not wrong, "\n".join(wrong)
 
 

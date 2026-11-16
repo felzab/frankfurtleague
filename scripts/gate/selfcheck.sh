@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
-# SCRIPTS · test the scripts themselves: every shell script parses, every runnable one is executable
-# in git, shellcheck finds nothing in them and actionlint nothing in the workflows.
+# SCRIPTS · test the scripts themselves: every runnable shell script is executable in git, and
+# neither shellcheck finds anything in the scripts nor actionlint in the workflows. Both linters run
+# in Docker, from the images scripts/gate/tools.Dockerfile pins.
 #
 #   ./scripts/gate/selfcheck.sh
 #   ./scripts/gate/selfcheck.sh --help
@@ -39,12 +40,7 @@ if (( ${#SHELL_FILES[@]} == 0 )); then
   refuse "git named no shell script in this repository, so there was nothing to check"
 fi
 
-step "1. Syntax"
-for f in "${SHELL_FILES[@]}"; do
-  bash -n "$f" 2>/dev/null || note_fail "${f} does not parse"
-done
-
-step "2. Executable bit is set in git"
+step "1. Executable bit is set in git"
 # The mode git records, not the filesystem's: on Windows `core.fileMode` is false, so `chmod +x` is
 # cosmetic and the script reaches the Linux server non-executable. `scripts/lib/` is sourced, never run.
 while IFS=$'\t' read -r meta path; do
@@ -53,40 +49,36 @@ while IFS=$'\t' read -r meta path; do
   fi
 done < <(git ls-files -s -- "${SHELL_FILES[@]}")
 
-# Pinned so new checks arrive by a named bump, never as drift; a bump replaces the digest too. A
-# binary on PATH runs only at the pinned version, and otherwise the image runs through Docker.
-SHELLCHECK_VERSION="0.11.0"
-SHELLCHECK_IMAGE_DIGEST="sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d"
-ACTIONLINT_VERSION="1.7.12"
-ACTIONLINT_IMAGE_DIGEST="sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667"
+# Each linter is the image its stage names in the tools file, so a release reaches the gate by a
+# named bump alone and runs the same on every machine.
+TOOLS_FILE="scripts/gate/tools.Dockerfile"
+tool_image() { # $1 the stage naming the tool
+  local image
+  image="$(sed -nE "s/^FROM ([^ ]+) AS ${1}\$/\1/p" "$TOOLS_FILE")"
+  if [[ -z "$image" || "$image" == *$'\n'* ]]; then return 1; fi
+  printf '%s' "$image"
+}
 
 # Git Bash mounts %TEMP% at /tmp, so a checkout there makes `/$REPO_ROOT` bind an unrelated directory.
 mount_source() { cygpath -w "$REPO_ROOT" 2>/dev/null || printf '/%s' "$REPO_ROOT"; }
 
-step "3. shellcheck"
-# SC1091 throughout: shellcheck cannot follow the sourced library.
 sc_rc=0
-if [[ "$(shellcheck --version 2>/dev/null | awk '$1 == "version:" { print $2 }')" == "$SHELLCHECK_VERSION" ]]; then
-  shellcheck -e SC1091 "${SHELL_FILES[@]}" || sc_rc=$?
-elif docker version >/dev/null 2>&1; then
-  # MSYS_NO_PATHCONV stops Git Bash rewriting the container path into a Windows one.
-  MSYS_NO_PATHCONV=1 docker run --rm -v "$(mount_source):/mnt" -w /mnt \
-    "koalaman/shellcheck:v${SHELLCHECK_VERSION}@${SHELLCHECK_IMAGE_DIGEST}" -e SC1091 "${SHELL_FILES[@]}" || sc_rc=$?
+al_rc=0
+if ! docker version >/dev/null 2>&1; then
+  UNRUN+=("Docker is not responding, so no script and no workflow was linted")
+elif ! SHELLCHECK_IMAGE="$(tool_image shellcheck)" || ! ACTIONLINT_IMAGE="$(tool_image actionlint)"; then
+  note_fail "${TOOLS_FILE} names no single FROM line for shellcheck and actionlint each, so neither ran"
 else
-  UNRUN+=("neither shellcheck ${SHELLCHECK_VERSION} on PATH nor Docker, so no script was linted")
+  step "2. shellcheck"
+  # SC1091 throughout: shellcheck cannot follow the sourced library. A script that does not parse is
+  # one of its errors. MSYS_NO_PATHCONV stops Git Bash rewriting the container path into a Windows one.
+  MSYS_NO_PATHCONV=1 docker run --rm -v "$(mount_source):/mnt" -w /mnt \
+    "$SHELLCHECK_IMAGE" -e SC1091 "${SHELL_FILES[@]}" || sc_rc=$?
+
+  step "3. actionlint on the workflows"
+  MSYS_NO_PATHCONV=1 docker run --rm -v "$(mount_source):/repo" -w /repo "$ACTIONLINT_IMAGE" || al_rc=$?
 fi
 if (( sc_rc )); then note_fail "shellcheck reported the findings above (exit ${sc_rc})"; fi
-
-step "4. actionlint on the workflows"
-al_rc=0
-if [[ "$(actionlint -version 2>/dev/null | head -n 1)" == "$ACTIONLINT_VERSION" ]]; then
-  actionlint || al_rc=$?
-elif docker version >/dev/null 2>&1; then
-  MSYS_NO_PATHCONV=1 docker run --rm -v "$(mount_source):/repo" -w /repo \
-    "rhysd/actionlint:${ACTIONLINT_VERSION}@${ACTIONLINT_IMAGE_DIGEST}" || al_rc=$?
-else
-  UNRUN+=("neither actionlint ${ACTIONLINT_VERSION} on PATH nor Docker, so no workflow was linted")
-fi
 if (( al_rc )); then note_fail "actionlint reported the findings above (exit ${al_rc})"; fi
 
 printf '\n'

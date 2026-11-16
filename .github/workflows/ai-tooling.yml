@@ -34,11 +34,13 @@ jobs:
       # Each later step runs only while the tools' tests are in the tree, so a tree without
       # `.claude/` passes this job rather than failing it. `hashFiles` is an empty string where
       # nothing matches, and a step's `if` is the first place it can read the checkout.
-      # pytest, ruff and pyright from the backend's dev group; no step imports the application.
+      # pytest with xdist, ruff and pyright from the backend's `checks` group; no step imports the
+      # application.
       - if: hashFiles('.claude/skills/orchestration/tests/*.py') != ''
         uses: ./.github/actions/backend-toolchain
         with:
           application: false
+          group: checks
       # From the root, the skill's `ruff.toml` extending `scripts/ruff.toml`.
       - name: Lint the orchestration tools
         if: hashFiles('.claude/skills/orchestration/tests/*.py') != ''

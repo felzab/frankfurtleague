@@ -225,7 +225,7 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     - each request's access line: the visitor's address, the time, the method, the path without its
       query, the status, the durations, the size and the browser identifier
       (`nginx/shared/http.conf :: fl_json`). A mailed link carries its token in the query, so no
-      token reaches the line, which `nginx/edge_test.sh` holds;
+      token reaches the line, which `scripts/checks/edge_test.sh` holds;
     - nginx's error lines. A refusal writes none. An upstream failure's line repeats the request
       line whole, its query and referrer with it
       ([`ops/spec.md`](ops/spec.md#13-nginx-routing));
