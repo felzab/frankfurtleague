@@ -1,13 +1,13 @@
 import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, overriding, registerAuthDoubles, signInByCode } from "@/test-support/authDoubles";
 import { beginRenderPass, serveServerReact } from "@/test-support/cacheScope";
 import { emptyStore } from "@/test-support/emptyStore";
-import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions";
+import { replicaSetUrl, startReplicaSet } from "@/test-support/replicaSet";
 import { captureLog } from "@/test-support/stdoutCapture";
 import { assert, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import type { MongoClient } from "mongodb";
 
-const { mongod, closing } = await startJudgedReplicaSet();
+const { mongod, closing } = await startReplicaSet();
 
 /** What the request a case arrives as carries. */
 let requestHeaders: Headers | undefined;

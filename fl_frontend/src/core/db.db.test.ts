@@ -2,7 +2,7 @@ import { once } from "node:events";
 import { setTimeout as pause } from "node:timers/promises";
 
 import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, overriding, registerAuthDoubles, signInByCode } from "@/test-support/authDoubles";
-import { startJudgedReplicaSet } from "@/test-support/expiredTransactions";
+import { startReplicaSet } from "@/test-support/replicaSet";
 import { captureLog } from "@/test-support/stdoutCapture";
 import { StoreRelay } from "@/test-support/storeRelay";
 import { isAPIError } from "better-auth/api";
@@ -11,7 +11,7 @@ import { assert, describe, expect, it } from "vitest";
 
 import type { MongoClient } from "mongodb";
 
-const { mongod, closing } = await startJudgedReplicaSet();
+const { mongod, closing } = await startReplicaSet();
 
 const relay = new StoreRelay(mongod);
 closing(() => relay.close());

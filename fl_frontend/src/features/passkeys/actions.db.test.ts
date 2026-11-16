@@ -12,13 +12,13 @@ import {
   signInByCode,
 } from "@/test-support/authDoubles";
 import { emptyStore } from "@/test-support/emptyStore";
-import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions";
 import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/test-support/nextRequest";
+import { replicaSetUrl, startReplicaSet } from "@/test-support/replicaSet";
 import { captureLog } from "@/test-support/stdoutCapture";
 import { assert, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 // A replica set: the property under test is a transaction's.
-const { mongod, closing } = await startJudgedReplicaSet();
+const { mongod, closing } = await startReplicaSet();
 
 // The set advertises its container-internal address, which topology discovery would follow and find nothing.
 const MONGO_URL = replicaSetUrl(mongod);

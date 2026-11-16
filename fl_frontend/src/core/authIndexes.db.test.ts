@@ -8,8 +8,8 @@ import {
   seatEveryAddress,
   signInByCode,
 } from "@/test-support/authDoubles";
-import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions";
 import { NEXT_CACHE_DOUBLE } from "@/test-support/nextRequest";
+import { replicaSetUrl, startReplicaSet } from "@/test-support/replicaSet";
 import { captureLog } from "@/test-support/stdoutCapture";
 import { ObjectId } from "mongodb";
 import { assert, beforeEach, describe, expect, it } from "vitest";
@@ -17,7 +17,7 @@ import { assert, beforeEach, describe, expect, it } from "vitest";
 import type { MongoClient } from "mongodb";
 
 // A replica set, as the store the library's adapter writes in transactions is.
-const { mongod, closing } = await startJudgedReplicaSet();
+const { mongod, closing } = await startReplicaSet();
 
 /** The client `fl_frontend/src/core/db.ts` builds, once the module has built it. */
 let storeClient: MongoClient | undefined;
