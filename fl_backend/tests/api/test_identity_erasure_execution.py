@@ -63,6 +63,7 @@ from tests.erasure import erased, erasure_collections, what_the_erasure_took
 from tests.isolation import InterleavedCollection, outcome_of
 from tests.records import record_collections
 from tests.session_headers import StampedHeaders, actor_headers
+from tests.stored import the_row
 from tests.whole_database import where_folded_to, where_held, where_referenced
 from tests.worker import worker_database
 
@@ -208,14 +209,6 @@ async def their_reports(database: AsyncDatabase) -> None:
             a_report(OTHER_REPORT_OID, spiel_id=OTHER_SPIEL_OID),
         ]
     )
-
-
-async def the_one(database: AsyncDatabase, collection: Collection, db_filter: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
-    """The one row a case reads, refused where none stands rather than read as a null."""
-
-    found = await database[collection].find_one(db_filter or {})
-    assert found is not None, f"{collection} holds no row matching {db_filter}"
-    return found
 
 
 def a_confirmation(row_id: ObjectId, party: dict[str, Any], *, spiel_id: ObjectId) -> dict[str, Any]:
@@ -727,10 +720,10 @@ class TestOneTransaction:
 
             return (
                 failure.value.code,
-                (await the_one(database, Collection.SPIELE, {"_id": TO_COME_SPIEL_OID}))["schiedsrichter"],
+                (await the_row(database, Collection.SPIELE, {"_id": TO_COME_SPIEL_OID}))["schiedsrichter"],
                 [
                     entry["spieler_id"]
-                    for entry in (await the_one(database, Collection.AUFSTELLUNGEN, {"spiel_id": TO_COME_SPIEL_OID}))["spieler"]
+                    for entry in (await the_row(database, Collection.AUFSTELLUNGEN, {"spiel_id": TO_COME_SPIEL_OID}))["spieler"]
                 ],
             )
 
@@ -766,8 +759,8 @@ class TestTheJournal:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
-            team_row = await the_one(database, Collection.SAISON_TEAMS, {"team_id": HOME_TEAM_OID})
-            mail = await the_one(database, Collection.OUTBOX, {"kind": "spiel_request"})
+            team_row = await the_row(database, Collection.SAISON_TEAMS, {"team_id": HOME_TEAM_OID})
+            mail = await the_row(database, Collection.OUTBOX, {"kind": "spiel_request"})
             await database[Collection.BEWERBUNGEN].update_one(
                 {"_id": BLOCKLESS_BEWERBUNG_OID}, {"$set": {"kontakte.ansprechperson.einwilligung.confirmed_at": None}}
             )
@@ -871,11 +864,11 @@ class TestTheScope:
             return (
                 await database[Collection.SPIELER].count_documents({"_id": PUPIL_OID}),
                 await database[Collection.REGISTRIERUNGEN].count_documents({"_id": {"$in": [PENDING_OID, DECLINED_OID]}}),
-                (await the_one(database, Collection.SAISON_TEAMS))["kontakte"]["ansprechperson"]["email"],
+                (await the_row(database, Collection.SAISON_TEAMS, {}))["kontakte"]["ansprechperson"]["email"],
                 await database[Collection.SCHIEDSRICHTER].count_documents({"_id": REFEREE_OID}),
-                (await the_one(database, Collection.ADDRESS_CHANGES, {"_id": OTHER_REFEREE_CHANGE_OID}))["ended"] is None,
+                (await the_row(database, Collection.ADDRESS_CHANGES, {"_id": OTHER_REFEREE_CHANGE_OID}))["ended"] is None,
                 await database[Collection.GRANTS].count_documents({"address": IDENTIFIER}),
-                (await the_one(database, Collection.ADDRESS_CHANGES, {"_id": MOVING_PUPIL_CHANGE_OID}))["ended"] is None,
+                (await the_row(database, Collection.ADDRESS_CHANGES, {"_id": MOVING_PUPIL_CHANGE_OID}))["ended"] is None,
             )
 
         assert await on_a_league(mongo_replica_set_url, body) == (0, 0, IDENTIFIER, 1, True, 1, True)
@@ -994,7 +987,7 @@ class TestTheChangeOfAPupilsAddress:
             recorded: dict[str, Any] = {name: WritesRecorded(handle, writes) for name, handle in erasure_collections(database).items()}
             await erased_in_scope(database, client, frozenset({"spieler"}), identifier="gwendolyn@example.com", **recorded)
 
-            return await the_one(database, Collection.ADDRESS_CHANGES, {"_id": MOVING_PUPIL_CHANGE_OID})
+            return await the_row(database, Collection.ADDRESS_CHANGES, {"_id": MOVING_PUPIL_CHANGE_OID})
 
         change = await on_a_league(mongo_replica_set_url, body)
 
@@ -1009,7 +1002,7 @@ class TestTheChangeOfAPupilsAddress:
             await pending_changes(database, (THEIR_CHANGE_OID, IDENTIFIER, "neu.adresse@anderswo.org", "their-own-change", "2126-03-30"))
             await erased_in_scope(database, client, frozenset({"spieler"}))
 
-            return await the_one(database, Collection.ADDRESS_CHANGES, {"_id": THEIR_CHANGE_OID})
+            return await the_row(database, Collection.ADDRESS_CHANGES, {"_id": THEIR_CHANGE_OID})
 
         change = await on_a_league(mongo_replica_set_url, body)
 
@@ -1166,7 +1159,7 @@ class TestThePreview:
             before = await everything_in(database)
             await erased_by_the_handler(database, client)
             ended = what_the_erasure_took(before, await everything_in(database))["address_change"]
-            return preview, ended, (await the_one(database, Collection.ADDRESS_CHANGES, {"_id": asked_first["_id"]}))["ended"]["kind"]
+            return preview, ended, (await the_row(database, Collection.ADDRESS_CHANGES, {"_id": asked_first["_id"]}))["ended"]["kind"]
 
         # The seed's two changes alone; the press still ends all three, nothing of the asked one being this address's.
         assert await on_a_league(mongo_replica_set_url, body) == (2, 3, "discarded")

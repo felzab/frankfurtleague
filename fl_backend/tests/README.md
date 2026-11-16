@@ -31,6 +31,7 @@ being flat.
 | `holds.py`                                                               | A write parked mid-transaction until a concurrent one commits (`fl_backend/tests/holds.py :: HeldCollection`)             |
 | `erasure.py`                                                             | A person's erasure run by the person route's own function outside a request, every collection handed in by name           |
 | `records.py`                                                             | The subject lookup's collections as a request holds them, over one database or stand-ins, any one replaced by name        |
+| `stored.py`                                                              | The one row a case reads back, by its id or by a filter, refused where none stands                                        |
 | `whole_database.py`                                                      | Each collection holding a value anywhere in the database, so a value is looked for where nobody thought to put it         |
 | `plans.py`                                                               | The server's plan for each read a call sends, which the index cases hold their scans to                                   |
 | `wire.py`                                                                | The commands a call sends, counted by name on a client of its own (`fl_backend/tests/wire.py :: commands_by_name`)        |

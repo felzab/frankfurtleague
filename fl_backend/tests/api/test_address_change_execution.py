@@ -53,6 +53,7 @@ from tests.config import ADMINISTRATORS, SYSTEM_AUTH
 from tests.holds import HeldCollection
 from tests.isolation import COMMITTED, outcome_of, refused_code
 from tests.records import record_collections
+from tests.stored import the_row
 from tests.whole_database import where_held
 from tests.worker import worker_database
 
@@ -92,7 +93,6 @@ from .address_change_harness import (
     read,
     registration,
     resend,
-    row,
     running,
     start,
     stop_by_link,
@@ -256,8 +256,8 @@ class TestThePersonsStart:
 
 async def everything_but_the_pupil(database: AsyncDatabase) -> dict[str, Mapping[str, Any]]:
     return {
-        "season row": await row(database, Collection.SAISON_TEAMS, ROW_OID),
-        "pending application": await row(database, Collection.BEWERBUNGEN, PENDING_OID),
+        "season row": await the_row(database, Collection.SAISON_TEAMS, ROW_OID),
+        "pending application": await the_row(database, Collection.BEWERBUNGEN, PENDING_OID),
     }
 
 
@@ -823,7 +823,7 @@ class TestTheNewAddressesOwnRecords:
             minted = await start(database, client)
             seen = (await view(database, client, minted.token)).view.state
             refused = await refused_code(answer(database, client, minted.token))
-            return seen, refused, (await row(database, Collection.SCHIEDSRICHTER, REFEREE_OID))["kontakt"]["email"]
+            return seen, refused, (await the_row(database, Collection.SCHIEDSRICHTER, REFEREE_OID))["kontakt"]["email"]
 
         assert await on_a_person(mongo_replica_set_url, body, pupil=False) == ("not_confirmable", Code.ADDRESS_CHANGE_OCCUPIED, EMAIL)
 
@@ -890,10 +890,10 @@ class TestAHoldersOwnChange:
             minted = await start(database, client, identifier=holder)
             answered = await answer(database, client, minted.token)
             early = await sweep(database, client, germany_now=NOW + wait - timedelta(minutes=1))
-            waiting = await row(database, Collection.GRANTS, before["_id"])
+            waiting = await the_row(database, Collection.GRANTS, before["_id"])
             due = NOW + wait + timedelta(minutes=1)
             late = await sweep(database, client, germany_now=due)
-            moved = await row(database, Collection.GRANTS, before["_id"])
+            moved = await the_row(database, Collection.GRANTS, before["_id"])
             return answered, early, waiting, late, moved, due, await carries(database), await owed(database)
 
         answered, early, waiting, late, moved, due, owed_carries, notices = await on_a_person(mongo_replica_set_url, body)
@@ -1087,7 +1087,7 @@ class TestAHoldersOwnChange:
             await answer(database, client, minted.token)
             await held_by_another(database, what)
             passed = await sweep(database, client, germany_now=AFTER_THE_DEADLINE)
-            return passed.effective, passed.discarded, (await row(database, Collection.GRANTS, grant))["address"]
+            return passed.effective, passed.discarded, (await the_row(database, Collection.GRANTS, grant))["address"]
 
         refused = UNCONSENTED_PUPIL if what == "an-unconfirmed-pupil" else None
         assert await on_a_person(mongo_replica_set_url, body, pupil=False, stores_a_refused_shape=refused) == (
@@ -1612,7 +1612,7 @@ class TestWhatTheEffectLeavesTheErasure:
             )
 
             return (
-                await row(database, Collection.REGISTRIERUNGEN, UNCONFIRMED_REG_OID),
+                await the_row(database, Collection.REGISTRIERUNGEN, UNCONFIRMED_REG_OID),
                 owed,
                 await database[Collection.OUTBOX].find_one({"key": "registrierung/unsent"}),
             )
@@ -1644,7 +1644,7 @@ class TestWhatTheEffectLeavesTheErasure:
             declined.update(compose_decline_update(reason=None, today=TODAY)["$set"])
             await database[Collection.REGISTRIERUNGEN].insert_one(declined)
             await confirmed_and_moved(database, client)
-            return await row(database, Collection.REGISTRIERUNGEN, DECLINED_REG_OID)
+            return await the_row(database, Collection.REGISTRIERUNGEN, DECLINED_REG_OID)
 
         assert (await on_a_person(mongo_replica_set_url, body))["email"] == NEW_EMAIL
 

@@ -38,6 +38,7 @@ from tests.database import a_clean_database
 from tests.documents import address_change_document, ban_document, rules_document, saison_document
 from tests.isolation import COMMITTED, InterleavedCollection, Rival, outcome_of, refused_code
 from tests.session_headers import StampedHeaders, session_headers
+from tests.stored import the_row
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -206,13 +207,6 @@ async def addresses(database: AsyncDatabase) -> list[str]:
     return sorted([str(row["address"]) async for row in database[Collection.GRANTS].find()])
 
 
-async def row_of(database: AsyncDatabase, grant_id: ObjectId) -> Mapping[str, Any]:
-    row = await database[Collection.GRANTS].find_one({"_id": grant_id})
-    assert row is not None
-
-    return row
-
-
 async def owed(database: AsyncDatabase) -> list[tuple[str, str, str | None, list[str], str | None]]:
     """Each notice owed, in order: its change, stage, address, everybody it is owed to, and the date it promises."""
 
@@ -358,7 +352,9 @@ class TestAWaitCountsHours:
             created = await add(database, client, now=BEFORE_THE_CLOCK_FALLS_BACK)
             await hand_over(database, client, now=BEFORE_THE_CLOCK_FALLS_BACK)
 
-            return (await row_of(database, created))["effective_from"], (await row_of(database, ANNA_ID))["owner_from"]
+            return (await the_row(database, Collection.GRANTS, created))["effective_from"], (
+                await the_row(database, Collection.GRANTS, ANNA_ID)
+            )["owner_from"]
 
         effective_from, owner_from = await on_a_league(mongo_replica_set_url, body)
 
@@ -452,7 +448,7 @@ class TestAHandover:
             await hand_over(database, client)
 
             return (
-                (await row_of(database, ANNA_ID))["owner_from"],
+                (await the_row(database, Collection.GRANTS, ANNA_ID))["owner_from"],
                 await tiers(database),
                 await owed(database),
                 await acts_on(database, ANNA_ID),
@@ -485,7 +481,12 @@ class TestAHandover:
             await hand_over(database, client)
             await stop(database, client)
 
-            return await row_of(database, ANNA_ID), await pass_at(database, client), await owed(database), await acts_on(database, ANNA_ID)
+            return (
+                await the_row(database, Collection.GRANTS, ANNA_ID),
+                await pass_at(database, client),
+                await owed(database),
+                await acts_on(database, ANNA_ID),
+            )
 
         row, handed_over, notices, acts = await on_a_league(mongo_replica_set_url, body)
 
@@ -506,10 +507,10 @@ class TestThePass:
     async def test_before_its_date_it_moves_nothing_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, dict[str, str], int]:
             await hand_over(database, client)
-            before = (await row_of(database, ANNA_ID))["bounded_writes"]
+            before = (await the_row(database, Collection.GRANTS, ANNA_ID))["bounded_writes"]
             handed_over = await pass_at(database, client, NOW + timedelta(days=OWNER_WAIT_DAYS) - timedelta(seconds=1))
 
-            return handed_over, await tiers(database), (await row_of(database, ANNA_ID))["bounded_writes"] - before
+            return handed_over, await tiers(database), (await the_row(database, Collection.GRANTS, ANNA_ID))["bounded_writes"] - before
 
         handed_over, held, anchors = await on_a_league(mongo_replica_set_url, body)
 
@@ -525,7 +526,7 @@ class TestThePass:
             handed_over = await pass_at(database, client, moment)
             logged = await database[Collection.ACTION_LOG].find_one({"action": "grant.handover_completed"})
 
-            return handed_over, await tiers(database), await row_of(database, ANNA_ID), (await owed(database))[-1], logged
+            return handed_over, await tiers(database), await the_row(database, Collection.GRANTS, ANNA_ID), (await owed(database))[-1], logged
 
         handed_over, held, row, notice, logged = await on_a_league(mongo_replica_set_url, body)
 
@@ -646,14 +647,14 @@ class TestAMove:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def move(session: AsyncClientSession) -> None:
                 await move_the_grant_in_session(
-                    await row_of(database, NORA_ID),
+                    await the_row(database, Collection.GRANTS, NORA_ID),
                     new_address="nora@neu.de",
                     grants_collection=database[Collection.GRANTS],
                     now=NOW,
                     session=session,
                 )
                 await move_the_grant_in_session(
-                    await row_of(database, ANNA_ID),
+                    await the_row(database, Collection.GRANTS, ANNA_ID),
                     new_address="anna@neu.de",
                     grants_collection=database[Collection.GRANTS],
                     now=NOW,
@@ -663,7 +664,7 @@ class TestAMove:
             async with client.start_session() as session:
                 await session.with_transaction(move)
 
-            return await row_of(database, NORA_ID), await row_of(database, ANNA_ID)
+            return await the_row(database, Collection.GRANTS, NORA_ID), await the_row(database, Collection.GRANTS, ANNA_ID)
 
         nora, anna = await on_a_league(mongo_replica_set_url, body, grants=[WAITING])
 
