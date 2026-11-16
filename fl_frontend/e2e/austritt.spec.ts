@@ -6,18 +6,16 @@ import { expect } from "@playwright/test";
 
 import { typeInto } from "./support/controls";
 import { ADMINISTRATOR_STATE, test } from "./support/journey";
+import { PEOPLE, RUNNING } from "./support/madeUpLeague";
 import { filedMessages, mailedMessage } from "./support/mailSink";
 
 test.use({ storageState: ADMINISTRATOR_STATE });
 
-/** The running season of the made-up seed. */
-const SAISON = "2027";
-
 /** The Trainer of the one opponent holding a contact (`scripts/ops/seed/seed.js`). */
-const OPPONENT = "berta.birkner@example.com";
+const OPPONENT = PEOPLE.austritt.opponent.address;
 
 test("a club leaves the season, and its opponent is told at once", async ({ page, departing: { club, fixture } }) => {
-  await page.goto(`/admin/saisons/${SAISON}/teams`);
+  await page.goto(`/admin/saisons/${RUNNING}/teams`);
   await page.getByRole("main").getByRole("link", { name: club }).click();
   await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: club })).toBeVisible();
 

@@ -7,16 +7,14 @@ import { expect } from "@playwright/test";
 
 import { box, chip, choose, typeInto } from "./support/controls";
 import { test } from "./support/journey";
+import { RUNNING } from "./support/madeUpLeague";
 import { filedMessages, mailedLink } from "./support/mailSink";
 import { declinePasskeyOffer, signInWithCode } from "./support/signIn";
 
 import type { Locator } from "@playwright/test";
 
-/** The running season of the made-up seed, which the club's link registers for. */
-const SAISON = "2027";
-
 /** Where a contact seat holding one team lands: its Übersicht of the season, under the team's id, which the seed mints. */
-const TEAM_OVERVIEW = new RegExp(`^/area/team/[0-9a-f]{24}/${SAISON}$`);
+const TEAM_OVERVIEW = new RegExp(`^/area/team/[0-9a-f]{24}/${RUNNING}$`);
 
 /** The pupil the journey registers through `club`'s link, and what they answer of the squad's three optional fields. */
 function pupilOf(club: string) {

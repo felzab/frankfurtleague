@@ -6,10 +6,11 @@ import { expect } from "@playwright/test";
 
 import { saveBar, typeInto } from "../support/controls";
 import { test } from "../support/journey";
+import { PEOPLE } from "../support/madeUpLeague";
 import { enrolPasskey, signInWithCode } from "../support/signIn";
 
 /** The administrator this journey alone signs in as (`scripts/ops/seed/seed.js`). */
-const EDITOR = "admin.editor@example.com";
+const EDITOR = PEOPLE.administrators.editor;
 
 /** A venue's own editor, by its pathname. */
 const EDITOR_PATH = /^\/admin\/spielorte\/[0-9a-f]{24}$/;
@@ -20,7 +21,7 @@ test("a save the proxy finds signed out lands on the sign-in page", async ({ pag
 
   // The list's row is one link to the venue's editor, a plain table the server draws.
   await page.goto("/admin/spielorte");
-  await page.getByRole("link", { name: "Sporthalle Birkenallee" }).click();
+  await page.getByRole("link", { name: PEOPLE.venues.edited }).click();
   await expect(page).toHaveURL((url) => EDITOR_PATH.test(url.pathname));
   const rent = page.getByRole("textbox", { name: "Mietpreis" });
   await expect(rent).toBeVisible();

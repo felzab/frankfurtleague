@@ -10,6 +10,7 @@ import path from "node:path";
 
 import { test as base, expect } from "@playwright/test";
 
+import { RUNNING } from "./madeUpLeague";
 import { standInForTurnstile } from "./turnstileStandIn";
 
 import type { Browser, BrowserContext, BrowserContextOptions, Page, Request } from "@playwright/test";
@@ -75,9 +76,10 @@ export const ADMINISTRATOR_STATE = path.join(E2E_DIR, "administrator.json");
  * route intercepts, not full loads. Called before the load, so the prefetch cannot be missed.
  */
 export function hydrated(page: Page): Promise<Request> {
+  const match = new RegExp(`^/saisons/${RUNNING}/spiele/[0-9a-f]{24}$`);
   return page.waitForRequest((request) => {
     const url = new URL(request.url());
-    return /^\/saisons\/2027\/spiele\/[0-9a-f]{24}$/.test(url.pathname) && url.searchParams.has("_rsc");
+    return match.test(url.pathname) && url.searchParams.has("_rsc");
   });
 }
 

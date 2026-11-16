@@ -7,10 +7,11 @@
 import { expect } from "@playwright/test";
 
 import { test } from "../support/journey";
+import { PEOPLE } from "../support/madeUpLeague";
 import { askForCode } from "../support/signIn";
 
 /** A grant no journey signs in with: asking for its code disturbs no other journey. */
-const MEMBER = "admin.nachfolge@example.com";
+const MEMBER = PEOPLE.administrators.successor;
 
 /** An address no record of the made-up league holds. */
 const STRANGER = "niemand@example.com";

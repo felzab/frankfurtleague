@@ -6,12 +6,10 @@ import { expect } from "@playwright/test";
 
 import { box, labelOf, save, saveBar } from "./support/controls";
 import { test } from "./support/journey";
+import { RUNNING } from "./support/madeUpLeague";
 import { declinePasskeyOffer, signInWithCode } from "./support/signIn";
 
 import type { Locator, Page } from "@playwright/test";
-
-/** The running season of the made-up seed, which every seat of the journeys holds. */
-const RUNNING = "2027";
 
 /** A lone seat's landing, its team's Übersicht, under the team's id, which the seed mints anew on every run. */
 const TEAM_LANDING = new RegExp(`^/area/team/[0-9a-f]{24}/${RUNNING}$`);

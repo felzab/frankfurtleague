@@ -8,8 +8,9 @@
 import { expect } from "@playwright/test";
 
 import { chooseWho } from "../support/actionLog";
-import { SAISON, SUBJECT } from "../support/application";
+import { SUBJECT } from "../support/application";
 import { ADMINISTRATOR_STATE, test } from "../support/journey";
+import { PEOPLE, PLANNED } from "../support/madeUpLeague";
 import { MAIL_WAIT_MS, mailedMessage } from "../support/mailSink";
 
 test.use({ storageState: ADMINISTRATOR_STATE });
@@ -27,7 +28,7 @@ const FIRST_PASS_WAIT_MS = FIRST_PASS_DELAY_MS + MAIL_WAIT_MS;
 const SINCE_THE_START = new Set<string>();
 
 /** The referee the pass tells, and the start of the notice's subject. */
-const REFEREE = "ben.brandt@example.com";
+const REFEREE = PEOPLE.firstPass.referee.address;
 const NOTICE = "Nicht mehr eingeteilt: Spiel am";
 
 // Each case waits for the pass itself, whichever project ran before it. The referee's notice comes of the job after those
@@ -39,12 +40,12 @@ test.beforeEach(async ({}, testInfo) => {
 });
 
 test("an application whose 14 days lapsed is deleted, and the seat that confirmed told", async ({ page }) => {
-  await mailedMessage("lea.lehmann@example.com", SUBJECT.deleted, SINCE_THE_START);
+  await mailedMessage(PEOPLE.firstPass.erased.address, SUBJECT.deleted, SINCE_THE_START);
 
-  await page.goto(`/admin/saisons/${SAISON}/bewerbungen`);
-  // A row the pass leaves first: a list not yet drawn holds no Lärche either.
-  await expect(page.getByRole("main").getByRole("link", { name: "Espe", exact: true })).toBeVisible();
-  await expect(page.getByRole("main").getByRole("link", { name: "Lärche", exact: true })).toHaveCount(0);
+  await page.goto(`/admin/saisons/${PLANNED}/bewerbungen`);
+  // A row the pass leaves first: a list not yet drawn holds no lapsed one either.
+  await expect(page.getByRole("main").getByRole("link", { name: PEOPLE.firstPass.applications.left, exact: true })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("link", { name: PEOPLE.firstPass.applications.lapsed, exact: true })).toHaveCount(0);
 });
 
 test("the referee booked on a departed club's fixture is told", async () => {

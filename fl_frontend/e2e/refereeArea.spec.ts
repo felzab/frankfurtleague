@@ -6,12 +6,10 @@ import { expect } from "@playwright/test";
 
 import { box, labelOf, save, typeInto } from "./support/controls";
 import { test } from "./support/journey";
+import { RUNNING } from "./support/madeUpLeague";
 import { declinePasskeyOffer, signInWithCode } from "./support/signIn";
 
 import type { Locator, Page } from "@playwright/test";
-
-/** The running season of the made-up seed, in which both games stand. */
-const SAISON = "2027";
 
 /**
  * A game's row on the Übersicht, by the link its name is: the row is the kit's, which holds its chip and its acts beside
@@ -57,7 +55,7 @@ test("a referee answers the coming game, saves the played game's report, and rea
   const playedRow = gameRow(page, played);
   await expect(playedRow.getByText("Spielbericht fehlt", { exact: true })).toBeVisible();
   await playedRow.getByRole("link", { name: played, exact: true }).click();
-  await expect(page).toHaveURL((url) => url.pathname.startsWith(`/area/schiedsrichter/${SAISON}/spielbericht/`));
+  await expect(page).toHaveURL((url) => url.pathname.startsWith(`/area/schiedsrichter/${RUNNING}/spielbericht/`));
   await expect(page.getByRole("heading", { level: 1, name: played })).toBeVisible();
 
   // The second club of each project's played game fields a squad in the seed, so its pupils are there to pick.
@@ -93,7 +91,7 @@ test("a referee answers the coming game, saves the played game's report, and rea
   await expect(card.getByRole("radio", { name: "Gelb", exact: true })).toBeChecked();
 
   // The Übersicht's row says the report is in.
-  await page.goto(`/area/schiedsrichter/${SAISON}`);
+  await page.goto(`/area/schiedsrichter/${RUNNING}`);
   await expect(gameRow(page, played).getByText("Spielbericht eingetragen", { exact: true })).toBeVisible();
 
   // Konto's referee box holds the fee the league pays them.

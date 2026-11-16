@@ -5,9 +5,10 @@
  */
 import { expect } from "@playwright/test";
 
-import { apply, confirmSeat, fillSeat, openApplication, personOf, SAISON, SEATS, SUBJECT } from "./support/application";
+import { apply, confirmSeat, fillSeat, openApplication, personOf, SEATS, SUBJECT } from "./support/application";
 import { choose, pressRowAct, typeInto } from "./support/controls";
 import { test } from "./support/journey";
+import { PLANNED } from "./support/madeUpLeague";
 import { filedMessages, mailedLink, mailedMessage } from "./support/mailSink";
 
 test("a new school applies, every seat confirms, and the administration accepts it", async ({ page, administration, applicants }) => {
@@ -17,7 +18,7 @@ test("a new school applies, every seat confirms, and the administration accepts 
   // The landing's way in while the window is open.
   await page.goto("/");
   await page.getByRole("main").getByRole("link", { name: "Zur Bewerbung" }).first().click();
-  await expect(page).toHaveURL((url) => url.pathname === `/bewerbung/${SAISON}`);
+  await expect(page).toHaveURL((url) => url.pathname === `/bewerbung/${PLANNED}`);
   await apply(page, school, { isListed: false });
 
   // Each person's own link: the Ansprechperson's in the mail saying the application came in.
@@ -42,7 +43,7 @@ test("a new school applies, every seat confirms, and the administration accepts 
   // Every seat is told, and the school now is a team of the season, whose editor the application leads to.
   for (const seat of SEATS) await mailedMessage(personOf(school, seat).address, SUBJECT.accepted, decided);
   await administration.getByRole("main").getByRole("link", { name: "Zum Team" }).click();
-  await expect(administration).toHaveURL((url) => url.pathname.startsWith(`/admin/saisons/${SAISON}/teams/`));
+  await expect(administration).toHaveURL((url) => url.pathname.startsWith(`/admin/saisons/${PLANNED}/teams/`));
   await expect(administration.getByRole("banner").getByRole("heading", { level: 1, name: school })).toBeVisible();
 });
 
@@ -50,7 +51,7 @@ test("a listed school is rejected, and every seat reads the reason", async ({ pa
   const school = applicants.declined;
   const reason = "Die Saison ist schon voll.";
 
-  await page.goto(`/bewerbung/${SAISON}`);
+  await page.goto(`/bewerbung/${PLANNED}`);
   await apply(page, school, { isListed: true });
 
   // A rejection waits for no confirmation.
@@ -77,7 +78,7 @@ test("a seat objects, „Sitz bearbeiten“ seats another person, and the fresh 
   const school = applicants.objected;
   const before = await filedMessages();
 
-  await page.goto(`/bewerbung/${SAISON}`);
+  await page.goto(`/bewerbung/${PLANNED}`);
   await apply(page, school, { isListed: false });
 
   // The Stellvertretung objects, which empties the seat and tells the Ansprechperson.

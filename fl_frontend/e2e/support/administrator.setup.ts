@@ -6,10 +6,11 @@
  * journey writes a record of its own, so sharing it costs no journey anything another reads.
  */
 import { ADMINISTRATOR_STATE, test } from "./journey";
+import { PEOPLE } from "./madeUpLeague";
 import { enrolPasskey, signInWithCode } from "./signIn";
 
 /** The administrator these journeys sign in as (`scripts/ops/seed/seed.js`), and no other journey. */
-const ADMINISTRATOR = "admin@example.com";
+const ADMINISTRATOR = PEOPLE.administrators.setup;
 
 test("the administration's session", async ({ page, context }) => {
   await signInWithCode(page, ADMINISTRATOR);

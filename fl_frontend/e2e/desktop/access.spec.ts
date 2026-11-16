@@ -10,17 +10,18 @@ import { expect } from "@playwright/test";
 import { chooseWho } from "../support/actionLog";
 import { chip, pressRowAct, typeInto } from "../support/controls";
 import { test } from "../support/journey";
+import { PEOPLE } from "../support/madeUpLeague";
 import { filedMessages, mailedMessage } from "../support/mailSink";
 import { assertionsSigned, enrolPasskey, signInWithCode } from "../support/signIn";
 
 /** The administrator these acts are done by (`scripts/ops/seed/seed.js`), whom no other journey signs in as. */
-const ADMINISTRATOR = "admin.zugang@example.com";
+const ADMINISTRATOR = PEOPLE.administrators.access;
 
 /** The person whose address the change starts on. */
-const MOVER = "marta.moos@example.com";
+const MOVER = PEOPLE.access.mover.address;
 
 /** The person this journey erases. */
-const ERASED = "olga.ott@example.com";
+const ERASED = PEOPLE.access.erased.address;
 
 /** The request's reference, the erasure's one word in the log. */
 const REFERENCE = "Anfrage 17";

@@ -6,14 +6,15 @@ import { expect } from "@playwright/test";
 
 import { scrollsSideways } from "../support/controls";
 import { test } from "../support/journey";
+import { RUNNING } from "../support/madeUpLeague";
 
 /** Each public page of the seed's running season, and the title it is read by once drawn. */
 const PAGES = [
   ["/", "Frankfurts Abi-Jahrgänge spielen um den Titel"],
-  ["/saisons/2027", "Spielplan"],
-  ["/saisons/2027/tabelle", "Tabelle"],
-  ["/saisons/2027/ko-runde", "K.-o.-Runde"],
-  ["/saisons/2027/teams", "Teams"],
+  [`/saisons/${RUNNING}`, "Spielplan"],
+  [`/saisons/${RUNNING}/tabelle`, "Tabelle"],
+  [`/saisons/${RUNNING}/ko-runde`, "K.-o.-Runde"],
+  [`/saisons/${RUNNING}/teams`, "Teams"],
 ] as const;
 
 test("no public page scrolls sideways at a phone's width", async ({ page }) => {
