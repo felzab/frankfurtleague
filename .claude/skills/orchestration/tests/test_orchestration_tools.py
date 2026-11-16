@@ -819,6 +819,21 @@ def test_a_refused_bank_from_an_agent_saves_nothing_so_its_retry_runs(tmp_path: 
     assert report.read_bytes() == b"Nothing to report.\n"
 
 
+def test_bank_from_an_agent_saves_the_report_before_its_rows_or_banks_nothing(tmp_path: Path) -> None:
+    """Rows banked before the save named a report a failed save never wrote, and a missing folder failed every save."""
+    env = _home(tmp_path)
+    _transcript(tmp_path / "home", "a1b2", ("m1", ["F1 the finding\n"]))
+    register = _register(tmp_path)
+    report = tmp_path / "reports" / "AGENT-report.md"
+    done = _run("ledger", "bank", str(register), str(report), "--from", "a1b2", env=env)
+    assert done.returncode == 4, done.stderr
+    assert report.read_bytes() == b"F1 the finding\n" and "| AGENT-F1 |" in register.read_bytes().decode("utf-8")
+    (tmp_path / "a-file").write_bytes(b"")
+    before = register.read_bytes()
+    unsaved = _run("ledger", "bank", str(register), str(tmp_path / "a-file" / "B-report.md"), "--from", "a1b2", "--as", "B", env=env)
+    assert unsaved.returncode == 2 and register.read_bytes() == before, unsaved.stderr
+
+
 @pytest.mark.parametrize(
     ("args", "said"), [(("--from", "nobody"), "0 transcripts"), ((), "X-report.md")], ids=["no transcript", "no report file"]
 )
