@@ -8,6 +8,7 @@ the input · 3 or more the environment is broken, spelled as a literal by no che
 from __future__ import annotations
 
 import io
+import runpy
 import sys
 import traceback
 from collections.abc import Callable, Iterable
@@ -71,3 +72,31 @@ def run(entry: Callable[[], int]) -> int:
         traceback.print_exc()
         print("\n  The check above did not finish, so it proved nothing. This is a crash, not a finding.", file=sys.stderr)
         return EXIT_CRASH
+
+
+def launch(script: str, arguments: list[str]) -> int:
+    """`script` run as `__main__` with `arguments`, its own exit code answered, inside `run`.
+
+    `run` in the script's own `__main__` line cannot reach the script's imports or its compile, which
+    Python answers with 1, the code this contract gives findings. Every caller of a checker runs it
+    through this file instead: `python scripts/lib/checker_kernel.py <script> [arguments]`.
+    """
+
+    def entry() -> int:
+        sys.argv = [script, *arguments]
+        try:
+            runpy.run_path(script, run_name="__main__")
+        except SystemExit as stop:
+            # The script's own `sys.exit(run(main))`, its code an int; None is a script ending bare.
+            if stop.code is None or isinstance(stop.code, int):
+                return stop.code or EXIT_OK
+            # A message, which Python prints and answers with 1.
+            print(stop.code, file=sys.stderr)
+            return EXIT_CRASH
+        return EXIT_OK
+
+    return run(entry)
+
+
+if __name__ == "__main__":
+    sys.exit(launch(sys.argv[1], sys.argv[2:]) if len(sys.argv) > 1 else EXIT_CRASH)

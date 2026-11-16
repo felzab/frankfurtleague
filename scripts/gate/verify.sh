@@ -536,12 +536,12 @@ repository cannot act on belongs in zizmor.yml with its reason, never suppressed
   step "ops · what each stack exposes, mounts, trusts, hands out and keeps"
   check --exits contract "A stack exposes, mounts, trusts, hands out or keeps more than the rule it breaks allows. The
 findings above name the service and the rule." \
-    "$PY" scripts/checks/check_compose_model.py "${OPS_SCRATCH}/production.json" "${OPS_SCRATCH}/local.json" \
+    "$PY" scripts/lib/checker_kernel.py scripts/checks/check_compose_model.py "${OPS_SCRATCH}/production.json" "${OPS_SCRATCH}/local.json" \
     && ok "each stack publishes, mounts, trusts and holds only what its rules allow"
 
   step "ops · every route handler, link page and metadata convention is metered at the edge"
   check --exits contract "The route accounting is out. Each finding above names the handler, the location or the reason." \
-    "$PY" scripts/checks/check_public_routes.py \
+    "$PY" scripts/lib/checker_kernel.py scripts/checks/check_public_routes.py \
     && ok "every route handler is accounted for at the edge"
 
   # A parse sees neither a log line nor a response, and both edges starting is the parse.

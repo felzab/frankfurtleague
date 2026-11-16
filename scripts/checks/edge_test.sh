@@ -75,7 +75,7 @@ mkdir -p "$SCRATCH"
 EDGE_PY="$(venv_python)" \
   || refuse "No fl_backend virtualenv found, so the edge's configuration could not be read. Create it with:  uv sync --project fl_backend --dev"
 conf_query() { # the query and its arguments, as scripts/lib/nginx_conf.py --help lists them
-  MSYS_NO_PATHCONV=1 "$EDGE_PY" scripts/lib/nginx_conf.py "$@"
+  MSYS_NO_PATHCONV=1 "$EDGE_PY" scripts/lib/checker_kernel.py scripts/lib/nginx_conf.py "$@"
 }
 
 # Each header's name and value off the file the set is written in, so a location restating the set

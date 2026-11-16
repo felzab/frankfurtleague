@@ -32,8 +32,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-# Every caller runs this as a script, so sys.path opens with this file's directory and `lib/` is a
-# sibling of it rather than in it.
+# Run by hand, a script's sys.path opens with its own directory, and `lib/` is a sibling of it rather
+# than in it.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
 from checker_kernel import (
