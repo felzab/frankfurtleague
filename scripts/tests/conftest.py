@@ -10,15 +10,17 @@ Invariants:
 from __future__ import annotations
 
 import contextlib
+import ctypes
 import importlib
 import os
 import re
 import shutil
+import signal
 import stat
 import subprocess
 import sys
 import tempfile
-from collections.abc import Callable
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from pathlib import Path
 from types import ModuleType
 from typing import Final
@@ -82,34 +84,102 @@ def write_shell(path: Path, text: str) -> Path:
     return path
 
 
-# The longest a process a case drives may run before it is killed and the case fails naming it: a stand-in
-# that never answers would otherwise hold the run until the CI job's own timeout. Below the stack dump
+# The longest a process a case drives may run before it is ended, with every process it started, and the case
+# fails naming it: a stand-in that never answers would otherwise hold the run until the CI job's own timeout. Below the stack dump
 # the gate's pytest runs take after `faulthandler_timeout`, so a hang ends here with its command named.
 PROCESS_BOUND_S: Final = 120
 _DUMP_AFTER_S: Final = int(re.findall(r"faulthandler_timeout=(\d+)", (REPO_ROOT / "scripts/gate/verify.sh").read_text(encoding="utf-8"))[0])
 assert PROCESS_BOUND_S < _DUMP_AFTER_S, f"PROCESS_BOUND_S must stay below the gate's faulthandler_timeout of {_DUMP_AFTER_S} s"
 
 
-def run_shell(
-    bash: str, script: Path, *args: str, env: dict[str, str] | None = None, cwd: Path | None = None
-) -> subprocess.CompletedProcess[str]:
-    """One shell script run to its end within `PROCESS_BOUND_S`, its streams decoded as utf-8.
+@contextlib.contextmanager
+def _whole_tree(process: subprocess.Popen[str]) -> Iterator[Callable[[], None]]:
+    """What ends `process` and every process it started, for as long as the run is held.
+
+    `subprocess.run`'s `timeout` kills the child alone. On Windows it then waits for the child's pipes to close, which
+    a grandchild still holds, so a hang in a stand-in a script started outlives the bound
+    (https://github.com/python/cpython/issues/81605); on POSIX it returns and leaves the grandchild running. Each OS's
+    documented way to end a tree is taken instead. On Windows that is a job object, which takes in every process
+    created inside it, an MSYS bash's children among them, which carry no parent chain `taskkill /T` could follow
+    (https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects). On POSIX it is the process group the
+    child leads, `process_group=0`, signalled whole.
+    """
+    if sys.platform == "win32":
+        from ctypes import wintypes
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.CreateJobObjectW.restype = wintypes.HANDLE
+        kernel32.OpenProcess.restype = wintypes.HANDLE
+        job = kernel32.CreateJobObjectW(None, None)
+        if not job:
+            raise ctypes.WinError(ctypes.get_last_error())
+        try:
+            # PROCESS_TERMINATE | PROCESS_SET_QUOTA, the rights AssignProcessToJobObject asks of the handle. A process
+            # the child starts before the assignment stays outside the job: the window is the child's first
+            # instructions, ahead of any command a script runs.
+            handle = kernel32.OpenProcess(0x0001 | 0x0100, False, process.pid)
+            if not handle:
+                raise ctypes.WinError(ctypes.get_last_error())
+            try:
+                if not kernel32.AssignProcessToJobObject(job, handle):
+                    raise ctypes.WinError(ctypes.get_last_error())
+            finally:
+                kernel32.CloseHandle(handle)
+
+            def end() -> None:
+                kernel32.TerminateJobObject(job, 1)
+
+            yield end
+        finally:
+            kernel32.CloseHandle(job)
+    else:
+
+        def end() -> None:
+            # A group whose every process has already exited is ended.
+            with contextlib.suppress(ProcessLookupError):
+                os.killpg(process.pid, signal.SIGKILL)
+
+        yield end
+
+
+def run_bounded(command: Sequence[str], *, env: Mapping[str, str] | None = None, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
+    """The one way a case runs a process, its streams decoded as utf-8, to its end or to `PROCESS_BOUND_S`.
+
+    At the bound the process is ended with every process it started, and the case fails on
+    `subprocess.TimeoutExpired`, which names the command.
 
     `text=True` alone would decode with the machine locale, which is cp1252 on Windows, where a
     verdict carrying an em dash does not survive.
     """
     # `errors="replace"`: a byte outside utf-8 belongs in the output being asserted on rather than
-    # in a decode error that says nothing about the run.
-    return subprocess.run(
-        (bash, script.as_posix(), *args),
-        capture_output=True,
-        encoding="utf-8",
-        errors="replace",
-        env=env,
-        cwd=cwd,
-        check=False,
-        timeout=PROCESS_BOUND_S,
-    )
+    # in a decode error that says nothing about the run. `process_group` is POSIX's alone, unused on Windows.
+    with (
+        subprocess.Popen(
+            tuple(command),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            encoding="utf-8",
+            errors="replace",
+            env=env,
+            cwd=cwd,
+            process_group=0,
+        ) as process,
+        _whole_tree(process) as end,
+    ):
+        try:
+            stdout, stderr = process.communicate(timeout=PROCESS_BOUND_S)
+        except subprocess.TimeoutExpired:
+            end()
+            process.communicate()
+            raise
+    return subprocess.CompletedProcess(process.args, process.returncode, stdout, stderr)
+
+
+def run_shell(
+    bash: str, script: Path, *args: str, env: dict[str, str] | None = None, cwd: Path | None = None
+) -> subprocess.CompletedProcess[str]:
+    """One shell script run through `run_bounded`."""
+    return run_bounded((bash, script.as_posix(), *args), env=env, cwd=cwd)
 
 
 def new_root(prefix: str) -> Path:

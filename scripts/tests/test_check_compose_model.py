@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Final
 
 import pytest
-from conftest import BASH, PROCESS_BOUND_S, REPO_ROOT, base_env, import_scripts, new_root, run_shell, write_shell
+from conftest import BASH, REPO_ROOT, base_env, import_scripts, new_root, run_bounded, run_shell, write_shell
 
 [checker] = import_scripts("check_compose_model")
 
@@ -272,8 +272,7 @@ def run_main(
     for name, rendered in models:
         (project / name).write_bytes(json.dumps(rendered).encode())
     command = (sys.executable, str(project / CHECKER_FILES[1]), str(project / CHECKER_FILES[0]), *(str(project / name) for name, _ in models))
-    # Its own encoding, not the machine's: the checker's streams are utf-8 whatever the codepage.
-    return subprocess.run(command, capture_output=True, encoding="utf-8", errors="replace", check=False, timeout=PROCESS_BOUND_S)
+    return run_bounded(command)
 
 
 def failures(done: subprocess.CompletedProcess[str]) -> list[str]:

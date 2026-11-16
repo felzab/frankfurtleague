@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from conftest import PROCESS_BOUND_S, REPO_ROOT, import_scripts, new_root
+from conftest import REPO_ROOT, import_scripts, new_root, run_bounded
 
 [routes, nginx] = import_scripts("check_public_routes", "nginx_conf", directories=("checks", "lib"))
 
@@ -673,15 +673,7 @@ def run_checker(app: Path, text: str | bytes, *, tree: Path | None = None) -> su
     conf = app.parent / SOURCE
     conf.write_bytes(text if isinstance(text, bytes) else text.encode("utf-8"))
     (app.parent / routes.NGINX_HTTP_CONF).write_bytes(HTTP_CONF.encode("utf-8"))
-    # Its own encoding, not the machine's: the checker's streams are utf-8 whatever the codepage.
-    return subprocess.run(
-        (sys.executable, str(KERNEL), str(CHECKER), str(tree or app), str(conf)),
-        capture_output=True,
-        encoding="utf-8",
-        errors="replace",
-        check=False,
-        timeout=PROCESS_BOUND_S,
-    )
+    return run_bounded((sys.executable, str(KERNEL), str(CHECKER), str(tree or app), str(conf)))
 
 
 def failures(done: subprocess.CompletedProcess[str]) -> list[str]:

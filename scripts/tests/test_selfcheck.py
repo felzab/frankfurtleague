@@ -11,11 +11,10 @@ from __future__ import annotations
 
 import os
 import shutil
-import subprocess
 from typing import Final
 
 import pytest
-from conftest import BASH, REPO_ROOT, base_env, new_root, run_shell, write_shell
+from conftest import BASH, REPO_ROOT, base_env, new_root, run_bounded, run_shell, write_shell
 
 DOCKER: Final = r"""#!/usr/bin/env bash
 case "${1:-}" in
@@ -37,7 +36,8 @@ def _selfcheck(lint_exit: str) -> tuple[int, str]:
         (root / path).parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(REPO_ROOT / path, root / path)
     for git in (("init", "-q"), ("add", "."), ("update-index", "--chmod=+x", "scripts/gate/selfcheck.sh")):
-        subprocess.run(("git", *git), cwd=root, check=True, capture_output=True)
+        made = run_bounded(("git", *git), cwd=root)
+        assert made.returncode == 0, f"git {' '.join(git)} exited {made.returncode}: {made.stderr}"
     stubs = new_root("fl-selfcheck-engine-")
     os.chmod(write_shell(stubs / "docker", DOCKER), 0o755)
     environment = base_env() | {"PATH": str(stubs) + os.pathsep + os.environ["PATH"], "FL_LINT_EXIT": lint_exit}

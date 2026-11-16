@@ -17,10 +17,9 @@ import json
 import os
 import re
 import shutil
-import subprocess
 from typing import Any, Final
 
-from conftest import REPO_ROOT
+from conftest import REPO_ROOT, run_bounded
 
 WORKFLOW: Final = REPO_ROOT / ".github" / "workflows" / "verify.yml"
 FRONTEND: Final = REPO_ROOT / "fl_frontend"
@@ -49,16 +48,7 @@ def listed(flags: list[str]) -> dict[str, Any]:
     )
     # Its report to stdout alone, never to a file a caller's environment names.
     env = {name: value for name, value in os.environ.items() if not name.startswith("PLAYWRIGHT_JSON_OUTPUT")}
-    # `encoding`, since `text=True` decodes with the machine's locale, cp1252 on Windows, which a German title breaks.
-    run = subprocess.run(
-        (pnpm, "exec", "playwright", "test", "--list", "--reporter=json", *flags),
-        cwd=FRONTEND,
-        env=env,
-        capture_output=True,
-        encoding="utf-8",
-        errors="replace",
-        check=False,
-    )
+    run = run_bounded((pnpm, "exec", "playwright", "test", "--list", "--reporter=json", *flags), cwd=FRONTEND, env=env)
     assert run.returncode == 0, f"playwright test --list {' '.join(flags)} exited {run.returncode}:\n{run.stderr}{run.stdout[-2000:]}"
     return json.loads(run.stdout)
 
