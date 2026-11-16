@@ -16,7 +16,7 @@ from pymongo.errors import BulkWriteError, ExecutionTimeout, PyMongoError
 from app.core.codes import Code
 from app.core.config import API_VERSION
 from app.core.exception_handlers import db_exception_handler, pydantic_validation_exception_handler
-from app.core.logging import JSONFormatter, TraceContextFilter
+from app.core.logging import FL_LOGGER_NAME, JSONFormatter, TraceContextFilter
 from app.main import create_shell
 from app.shared.schemas.custom import PERSON_NAME_PATTERN, CustomObjectId
 from tests.app_client import app_client
@@ -192,7 +192,7 @@ REFUSED_BULK_INSERT_REPORT: dict[str, Any] = {
 async def database_crash_document(caplog, exc: PyMongoError) -> str:
     """The line the database handler writes for one live exception."""
 
-    with caplog.at_level(logging.ERROR, logger="frankfurtleague"):
+    with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
         try:
             raise exc
         except PyMongoError as live:
@@ -209,7 +209,7 @@ class TestAServerFaultsLineWithholdsTheValue:
     """
 
     async def test_a_refused_stored_document_names_its_field_and_never_its_value(self, caplog):
-        with caplog.at_level(logging.ERROR, logger="frankfurtleague"):
+        with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
             await pydantic_validation_exception_handler(Request({"type": "http", "method": "GET", "headers": []}), rejected_name_error())
 
         document = logged_document(caplog)
@@ -236,7 +236,7 @@ class TestTraceContext:
 
 class TestAccessLine:
     def test_every_request_writes_one_line_with_its_trace_id_and_timing(self, caplog):
-        with caplog.at_level(logging.INFO, logger="frankfurtleague"):
+        with caplog.at_level(logging.INFO, logger=FL_LOGGER_NAME):
             TestClient(VALIDATION_APP).get(ANSWERED_PATH, headers={"traceparent": TRACEPARENT})
 
         lines = [record for record in caplog.records if getattr(record, "method", None) is not None]
@@ -293,7 +293,7 @@ CRASHES = [
 def _crashed(caplog: pytest.LogCaptureFixture, path: str) -> tuple[Response, list[Any]]:
     # The filter the console handler stamps each line with, so a record carries the ids the sink would read.
     caplog.handler.addFilter(TraceContextFilter())
-    with caplog.at_level(logging.INFO, logger="frankfurtleague"):
+    with caplog.at_level(logging.INFO, logger=FL_LOGGER_NAME):
         response = TestClient(_crashing_app(), raise_server_exceptions=False).get(path, headers={"traceparent": TRACEPARENT})
 
     return response, caplog.records

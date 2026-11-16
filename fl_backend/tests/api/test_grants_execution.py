@@ -27,6 +27,7 @@ from app.api.grants.system_router import post_handover_pass
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
+from app.core.crud import ANCHOR_FIELD
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.security import PASSKEY_FACTOR
 from app.shared.schemas.bounds import GRANT_WAIT_HOURS, OWNER_WAIT_DAYS
@@ -258,7 +259,7 @@ class TestAnAddition:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, Any]:
             created = await add(database, client)
 
-            return await database[Collection.GRANTS].find_one({"_id": created}, {"_id": 0, "bounded_writes": 0}), await owed(database)
+            return await database[Collection.GRANTS].find_one({"_id": created}, {"_id": 0, ANCHOR_FIELD: 0}), await owed(database)
 
         row, notices = await on_a_league(mongo_replica_set_url, body)
 
@@ -507,10 +508,10 @@ class TestThePass:
     async def test_before_its_date_it_moves_nothing_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, dict[str, str], int]:
             await hand_over(database, client)
-            before = (await the_row(database, Collection.GRANTS, ANNA_ID))["bounded_writes"]
+            before = (await the_row(database, Collection.GRANTS, ANNA_ID))[ANCHOR_FIELD]
             handed_over = await pass_at(database, client, NOW + timedelta(days=OWNER_WAIT_DAYS) - timedelta(seconds=1))
 
-            return handed_over, await tiers(database), (await the_row(database, Collection.GRANTS, ANNA_ID))["bounded_writes"] - before
+            return handed_over, await tiers(database), (await the_row(database, Collection.GRANTS, ANNA_ID))[ANCHOR_FIELD] - before
 
         handed_over, held, anchors = await on_a_league(mongo_replica_set_url, body)
 

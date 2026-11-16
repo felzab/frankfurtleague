@@ -20,7 +20,16 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import ACTOR_CHALLENGE
 from app.core.recording import actor_var, record_act
-from app.core.security import AUTH_TIME_HEADER, PASSKEY_FACTOR, Factor, bind_actor, get_actor_email, get_person_identifier
+from app.core.security import (
+    ACTOR_HEADER,
+    AUTH_FACTOR_HEADER,
+    AUTH_TIME_HEADER,
+    PASSKEY_FACTOR,
+    Factor,
+    bind_actor,
+    get_actor_email,
+    get_person_identifier,
+)
 from app.shared.schemas.bounds import ADMIN_WINDOW_HOURS, PERSON_WINDOW_DAYS
 from tests.app_client import app_under_test
 from tests.config import ADMIN_KEY, BASE_AUTH
@@ -63,15 +72,15 @@ def test_a_request_without_the_admin_key_sets_no_actor():
         pytest.param({}, id="no session"),
         pytest.param({AUTH_TIME_HEADER: ""}, id="no sign-in time"),
         pytest.param({AUTH_TIME_HEADER: "-60"}, id="a signed sign-in time"),
-        pytest.param({"X-FL-Auth-Factor": "sms"}, id="a factor no session is made by"),
-        pytest.param({"X-FL-Actor": ""}, id="no address"),
+        pytest.param({AUTH_FACTOR_HEADER: "sms"}, id="a factor no session is made by"),
+        pytest.param({ACTOR_HEADER: ""}, id="no address"),
         # Decoded leniently, `%41` would read as `A` and name another mailbox.
-        pytest.param({"X-FL-Actor": ACTOR}, id="an address sent unencoded"),
-        pytest.param({"X-FL-Actor": "admin%4example.com"}, id="a truncated escape"),
-        pytest.param({"X-FL-Actor": "k%c3%a4the%40example.com"}, id="a lower-case escape"),
-        pytest.param({"X-FL-Actor": "k%E4the%40example.com"}, id="an escape decoding to no UTF-8"),
+        pytest.param({ACTOR_HEADER: ACTOR}, id="an address sent unencoded"),
+        pytest.param({ACTOR_HEADER: "admin%4example.com"}, id="a truncated escape"),
+        pytest.param({ACTOR_HEADER: "k%c3%a4the%40example.com"}, id="a lower-case escape"),
+        pytest.param({ACTOR_HEADER: "k%E4the%40example.com"}, id="an escape decoding to no UTF-8"),
         # Bytes, as a client sending the address raw puts them on the wire; Starlette reads them as Latin-1.
-        pytest.param({"X-FL-Actor": "käthe%40example.com".encode("latin-1")}, id="a byte past ASCII"),
+        pytest.param({ACTOR_HEADER: "käthe%40example.com".encode("latin-1")}, id="a byte past ASCII"),
     ],
 )
 def test_a_request_naming_no_session_is_refused_before_the_grant_read(headers: Mapping[str, str | bytes]):
