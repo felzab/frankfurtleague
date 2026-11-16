@@ -355,29 +355,24 @@ _closing() { # $1 the ending · $2 a sentence for the green statement · $3 what
   case "$state" in
     # Named in the green statement, so a run cannot report "no findings" over a warning on screen.
     green)
-      printf '
-'
+      printf '\n'
       ok "Green — ${what}, no findings, ${elapsed}.${advisories}${extra:+ ${extra}}" ;;
     # "In the section it came from" survives Actions folding, where "the lines above" would not.
     findings)
-      printf '
-' >&2
+      printf '\n' >&2
       _emit "$C_RED" "   ✗" "$(( _RUN_FINDINGS + _ROW_FINDINGS )) finding(s) in this run, ${count} section(s), ${elapsed}. Each is
 named in the section it came from, and each names something to fix in the change — exit 1." >&2 ;;
     refused)
-      printf '
-' >&2
+      printf '\n' >&2
       _emit "$C_RED" "   ✗" "Refused after ${elapsed}, so nothing here stands as a verdict on the change and the
 refusal above names what could not be judged. Not findings, which would name what to
 fix; not a crash, which would mean the check never ran at all — exit 2." >&2 ;;
     crashed)
-      printf '
-' >&2
+      printf '\n' >&2
       _emit "$C_RED" "   ✗" "Crashed after ${elapsed}. A line above names the script itself failing rather than
 anything about the change, and nothing past that line ran — exit 3 or more." >&2 ;;
     interrupted)
-      printf '
-' >&2
+      printf '\n' >&2
       _emit "$C_YELLOW" "  !!" "Interrupted after ${elapsed}. The sections that had opened are all there is, and
 none is a verdict on the change (exit 130)." >&2 ;;
   esac
