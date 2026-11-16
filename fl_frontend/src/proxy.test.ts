@@ -11,6 +11,7 @@ import {
   ADMIN_EMAIL,
   configDouble,
   cookiePair,
+  deleteRow,
   madeByPasskey,
   memoryAdapterDouble,
   memoryStore,
@@ -241,7 +242,7 @@ describe("where the proxy sends a request for an area's page", () => {
       ["person", await signIn("leserin@example.org")],
       ["administrator", administrator],
     ] as const) {
-      store.session.splice(store.session.indexOf(row), 1);
+      deleteRow(store, "session", row.id);
 
       for (const url of [...PERSON_URLS, ADMIN_URL]) {
         const answer = await visit(url, cookie, "document");
@@ -323,7 +324,7 @@ describe("where a session that is only read slides", () => {
   it("revives no ended session: no row is written, and the cookie is expired", async () => {
     for (const ending of ["deleted", "lapsed"] as const) {
       const { cookie, row } = await signIn("leserin@example.org");
-      if (ending === "deleted") store.session.splice(store.session.indexOf(row), 1);
+      if (ending === "deleted") deleteRow(store, "session", row.id);
       else row.expiresAt = new Date(Date.now() - MINUTE_MS);
 
       const set = setSessionCookie(await visit(PERSON_URL, cookie), cookie);
@@ -380,7 +381,7 @@ describe("where the proxy sends a session asking for the sign-in", () => {
 
   it("lets a cookie naming no stored session through to the form", async () => {
     const { cookie, row } = await signIn("leserin@example.org");
-    store.session.splice(store.session.indexOf(row), 1);
+    deleteRow(store, "session", row.id);
 
     expect(sentTo(await visit(SIGN_IN_URL, cookie, "document"))).toBe(null);
   });

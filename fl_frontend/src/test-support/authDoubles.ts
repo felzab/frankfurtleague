@@ -318,6 +318,18 @@ export function memoryStore(name: string): MemoryStore {
   return store;
 }
 
+/**
+ * Takes the row `id` names out of `store`'s `table` as the table stands now, failing the case where none does. By id,
+ * never by a row held from before: a committed transaction writes each table anew, so a held row is no longer in it,
+ * and its index of -1 would take the table's last row instead.
+ */
+export function deleteRow(store: MemoryStore, table: "session" | "passkey", id: unknown): void {
+  const rows: { id?: unknown }[] = store[table];
+  const at = rows.findIndex((row) => row.id === id);
+  assert(at !== -1, `the store holds no ${table} row ${String(id)}`);
+  rows.splice(at, 1);
+}
+
 /** `signInByCode`'s session, as its cookie and the row `store` holds for it. */
 export async function sessionByCode(
   auth: typeof AuthInstance,

@@ -6,6 +6,7 @@ import {
   Barrier,
   configDouble,
   cookieHeader,
+  deleteRow,
   faultingAdapter,
   insertOrderedAdapter,
   lastMailedCode,
@@ -2105,7 +2106,7 @@ describe("which sign-ins the gate admits as the session is minted", () => {
 
       refusals.push([refused.status, await refused.text()]);
       expect(store.session, "a refused passkey sign-in minted a session or ended one").toStrictEqual(before);
-      store.passkey.splice(store.passkey.indexOf(passkey), 1);
+      deleteRow(store, "passkey", passkey.id);
     }
 
     const [barred, empty] = refusals;
