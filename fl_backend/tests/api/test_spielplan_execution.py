@@ -30,7 +30,6 @@ from app.api.teams.services import offered_gruppen
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from app.core.logging import trace_id_var
 from tests import documents
 from tests.bracket_reference import BRACKET_SEEDING
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
@@ -54,10 +53,6 @@ NEIGHBOUR_OID_OFFSET = 100
 
 # Fixed rather than the real day, so the watermark's date is a value this file chose.
 TODAY = "2026-08-21"
-
-# Bound as a request binds it, so "these rows are one action" is a real reading rather than the
-# system default answering for every row in the database.
-TRACE_ID = "0123456789abcdef0123456789abcdef"
 
 GROUPS = 4
 TEAMS_PER_GROUP = 4
@@ -170,23 +165,18 @@ def on_a_seeded_saison(
         async with a_clean_database(
             url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema, stores_a_refused_shape=stores_a_refused_shape
         ) as (client, database):
-            # Reset on the way out, so the trace bound here reaches no other case.
-            token = trace_id_var.set(TRACE_ID)
-            try:
-                await database[Collection.SAISONS].insert_one(seeded.saison)
-                await database[Collection.SAISON_TEAMS].insert_many(seeded.entered)
-                if seeded.spieltage:
-                    await database[Collection.SPIELTAGE].insert_many(seeded.spieltage)
-                if seeded.spiele:
-                    await database[Collection.SPIELE].insert_many(seeded.spiele)
+            await database[Collection.SAISONS].insert_one(seeded.saison)
+            await database[Collection.SAISON_TEAMS].insert_many(seeded.entered)
+            if seeded.spieltage:
+                await database[Collection.SPIELTAGE].insert_many(seeded.spieltage)
+            if seeded.spiele:
+                await database[Collection.SPIELE].insert_many(seeded.spiele)
 
-                if seeded.neighbour is not None:
-                    await database[Collection.SAISONS].insert_one(seeded.neighbour)
-                    await database[Collection.SAISON_TEAMS].insert_many(seeded.neighbour_entered)
+            if seeded.neighbour is not None:
+                await database[Collection.SAISONS].insert_one(seeded.neighbour)
+                await database[Collection.SAISON_TEAMS].insert_many(seeded.neighbour_entered)
 
-                return await body(database, client)
-            finally:
-                trace_id_var.reset(token)
+            return await body(database, client)
 
     return on_the_seed_loop(_run())
 

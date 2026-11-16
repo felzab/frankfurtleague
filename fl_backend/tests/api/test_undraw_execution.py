@@ -23,7 +23,6 @@ from app.api.teams.services import offered_gruppen
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from app.core.logging import trace_id_var
 from tests import documents
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.isolation import InterleavedCollection, outcome_of
@@ -47,8 +46,6 @@ NEIGHBOUR_OID_OFFSET = 100
 TODAY = "2026-08-21"
 # Noon of that day, the instant a match save reads its day from.
 NOW = datetime(2026, 8, 21, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
-
-TRACE_ID = "0123456789abcdef0123456789abcdef"
 
 GROUPS = 4
 TEAMS_PER_GROUP = 4
@@ -121,19 +118,14 @@ def on_a_seeded_saison(url: str, body: Body, *, seed: Seed | None = None, mutate
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
-            # Reset on the way out, so the trace bound here reaches no other case.
-            token = trace_id_var.set(TRACE_ID)
-            try:
-                await database[Collection.SAISONS].insert_one(seeded.saison)
-                await database[Collection.SAISON_TEAMS].insert_many(seeded.entered)
+            await database[Collection.SAISONS].insert_one(seeded.saison)
+            await database[Collection.SAISON_TEAMS].insert_many(seeded.entered)
 
-                if seeded.neighbour is not None:
-                    await database[Collection.SAISONS].insert_one(seeded.neighbour)
-                    await database[Collection.SAISON_TEAMS].insert_many(seeded.neighbour_entered)
+            if seeded.neighbour is not None:
+                await database[Collection.SAISONS].insert_one(seeded.neighbour)
+                await database[Collection.SAISON_TEAMS].insert_many(seeded.neighbour_entered)
 
-                return await body(database, client)
-            finally:
-                trace_id_var.reset(token)
+            return await body(database, client)
 
     return on_the_seed_loop(_run())
 
