@@ -12,6 +12,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.periodic_executor import AsyncPeriodicExecutor
 from pymongo.uri_parser import parse_uri
 
+from app.core.concurrency import concurrently
 from app.core.constraints import TTL_INDEXES, apply_constraints
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.readback import read_back
@@ -244,7 +245,7 @@ async def _expired_rows(database: AsyncDatabase) -> list[str]:
         found = await (await database[collection].aggregate(_expired_pipeline(key, seconds))).to_list(length=None)
         return _expired_message(database.name, collection, key, found)
 
-    return [message for message in await asyncio.gather(*(expired(ttl.collection, ttl.key, ttl.seconds) for ttl in TTL_INDEXES)) if message]
+    return [message for message in await concurrently(*(expired(ttl.collection, ttl.key, ttl.seconds) for ttl in TTL_INDEXES)) if message]
 
 
 async def _refused_records(client: AsyncMongoClient, name: str) -> str | None:
@@ -298,7 +299,7 @@ def _enforcement(info: Mapping[str, Any], specs: Iterable[Mapping[str, Any]]) ->
 
 
 async def _index_specs(database: AsyncDatabase, name: str) -> Sequence[Mapping[str, Any]]:
-    """`list_indexes` hands its cursor back through a coroutine, so a gather over it needs a call of its own to await twice."""
+    """`list_indexes` hands its cursor back through a coroutine, so a run beside others needs a call of its own to await twice."""
 
     return await (await database[name].list_indexes()).to_list(length=None)
 
@@ -309,7 +310,7 @@ async def _schema(database: AsyncDatabase) -> tuple[Schema, list[str]]:
     listed = await (await database.list_collections()).to_list(length=None)
     infos = _data(listed)
     # Concurrently: one `listIndexes` per collection is the whole added cost of naming the culprit.
-    specs = await asyncio.gather(*(_index_specs(database, info["name"]) for info in infos))
+    specs = await concurrently(*(_index_specs(database, info["name"]) for info in infos))
 
     return {info["name"]: _enforcement(info, found) for info, found in zip(infos, specs, strict=True)}, _foreign(listed)
 
@@ -366,10 +367,7 @@ async def _clear(database: AsyncDatabase, baseline: Schema) -> None:
     """Isolation without rebuilding a schema no test changed: every collection the last call left is emptied."""
 
     # Concurrently: ten sequential round trips is most of what building the schema once saves.
-    # Collected rather than propagated at the first, so no sibling is still running at `client.close()`.
-    for outcome in await asyncio.gather(*(database[name].delete_many({}) for name in baseline), return_exceptions=True):
-        if isinstance(outcome, BaseException):
-            raise outcome
+    await concurrently(*(database[name].delete_many({}) for name in baseline))
 
 
 @asynccontextmanager
@@ -461,7 +459,7 @@ async def _corpus(database: AsyncDatabase) -> Corpus:
     """Views and `system.*` are listed beside real collections and hold nothing a seed put there."""
 
     names = [info["name"] for info in _data(await (await database.list_collections()).to_list(length=None))]
-    found = await asyncio.gather(*(database[name].find().to_list(length=None) for name in names))
+    found = await concurrently(*(database[name].find().to_list(length=None) for name in names))
 
     return {name: sorted(repr(document) for document in documents) for name, documents in zip(names, found, strict=True)}
 

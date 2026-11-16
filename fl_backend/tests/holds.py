@@ -43,7 +43,7 @@ class HeldCollection:
             # On every path: `cancel()` only schedules the cancellation, and awaiting the waiter finishes
             # it inside this case rather than on the next one's loop pass.
             held.cancel()
-            await asyncio.gather(held, return_exceptions=True)
+            await asyncio.wait({held})
         if self.held.is_set():
             return
 
