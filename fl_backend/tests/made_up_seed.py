@@ -409,7 +409,7 @@ class MadeUpLeague:
         def unanswered(name: str, schule: str, payment: int, email: str) -> dict[str, Any]:
             """A referee entered three days ago who has not answered: the create's link and the deletion date it sets."""
 
-            row = schiedsrichter_document(
+            return schiedsrichter_document(
                 ObjectId(),
                 email=email,
                 name=name,
@@ -419,9 +419,6 @@ class MadeUpLeague:
                 einwilligung=None,
                 **compose_mint_update(today=self.day(-3)),
             )
-            # The create writes neither until the person's own confirmation does.
-            del row["birth_date"], row["einwilligung"]
-            return row
 
         def person(entry: Mapping[str, str], payment: int = 20) -> dict[str, Any]:
             """A journey's person: a confirmed referee no fixture books.
