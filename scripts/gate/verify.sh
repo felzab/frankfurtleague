@@ -119,40 +119,59 @@ fi
 
 SCOPE="${SELECTED[0]}"
 
-# Each tool's status: 1 is what it found, 130 an interrupt, anything else a tool that never reached a
-# verdict. `--checker` adds the 2 a checker built on the checker kernel answers for an input it
-# could not judge. `--summary` is for a tool raising an annotation per finding itself
-# under Actions, as Vitest and the self-check do: what is said then sums them, `fail --summary`.
-# `--pytest` raises those annotations for pytest, one per case its summary names.
-check() { # [--checker] [--summary | --pytest] $1 what to say on a finding · the command
+# A command's status read into the exit contract through `--exits`, its tool's tables in
+# `_lib.sh :: EXIT_CODES` (`tool` where none is named, `pytest` under `--pytest`): what it found is a
+# finding, what it could not judge a refusal, anything else a crash. `--summary` is for a tool raising
+# an annotation per finding itself under Actions, as Vitest and the self-check do: what is said then
+# sums them, `fail --summary`. `--pytest` raises those annotations for pytest, one per case its
+# summary names.
+check() { # [--exits <tables>] [--summary | --pytest] $1 what to say on a finding · the command
   local said rc=0 command
   local -a flags=()
-  while [[ "$1" == --checker || "$1" == --summary || "$1" == --pytest ]]; do flags+=("$1"); shift; done
+  while [[ "$1" == --exits || "$1" == --summary || "$1" == --pytest ]]; do
+    if [[ "$1" == --exits ]]; then flags+=("$1" "$2"); shift 2; else flags+=("$1"); shift; fi
+  done
   said="$1"; shift
   # Joined on spaces here: `$*` joins on the repository's IFS, a newline, and a crash would print the
   # command one word to a line.
   printf -v command '%s ' "$@"
-  quietly "$@" || rc=$?
+  quietly --exits "$(exits_of "${flags[@]}")" "$@" || rc=$?
   verdict "${flags[@]}" "$said" "$rc" "${BASH_LINENO[0]}" "${command% }"
 }
 
+# The tables `check`'s and `beside_verdict`'s flags name: `--exits`'s, else `pytest` under `--pytest`,
+# else `tool`.
+exits_of() { # the flags
+  local exits="" pytest=0
+  while (( $# )); do
+    case "$1" in
+      --exits) exits="$2"; shift ;;
+      --pytest) pytest=1 ;;
+    esac
+    shift
+  done
+  if [[ -z "$exits" ]]; then if (( pytest )); then exits=pytest; else exits=tool; fi; fi
+  printf '%s' "$exits"
+}
+
 # `check`'s reading of a status the command has already answered, its output in `QUIETLY_OUTPUT`.
-verdict() { # [--checker] [--summary | --pytest] $1 what to say on a finding · $2 the status · $3 the caller's line · $4 the command
-  local checker=0 pytest=0
+verdict() { # [--exits <tables>] [--summary | --pytest] $1 what to say on a finding · $2 the status · $3 the caller's line · $4 the command
+  local exits pytest=0 class=0
   local -a summary=()
-  if [[ "$1" == --checker ]]; then checker=1; shift; fi
+  exits="$(exits_of "$@")"
+  if [[ "$1" == --exits ]]; then shift 2; fi
   if [[ "$1" == --summary ]]; then summary=(--summary); shift; fi
   if [[ "$1" == --pytest ]]; then pytest=1; shift; fi
-  case "$2" in
+  exit_class "$exits" "$2" || class=$?
+  case "$class" in
     0) return 0 ;;
     # pnpm answers a script its manifest does not declare with 1 as well, and then no tool ran at all.
     1) if [[ "$QUIETLY_OUTPUT" == *ERR_PNPM_NO_SCRIPT* ]]; then on_error "$2" "$3" "$4"; fi
        if (( pytest )) && annotate_cases; then summary=(--summary); fi
        fail "${summary[@]}" "$1"; return 1 ;;
+    2) refuse "${_STEP_LABEL} could not judge its input, so nothing here stands as a verdict on the
+change. Its own reason is above (exit status $2)." ;;
     130) on_interrupt ;;
-    2) if (( checker )); then refuse "${_STEP_LABEL} could not judge its input, so nothing here stands as a verdict on the
-change. Its own reason is above."; fi
-       on_error "$2" "$3" "$4" ;;
     *) on_error "$2" "$3" "$4" ;;
   esac
 }
@@ -199,8 +218,8 @@ run_beside() { # $1 where its files go · the command
 # A command `run_beside` ran, read under the open step as `check` reads its own: its output where
 # it failed, or under `--verbose` whole, since two steps streaming at once would interleave. The
 # step's time is the command's own rather than the moment its step was printed.
-beside_verdict() { # $1 its files · [--summary | --pytest] $2 what to say on a finding · $3 the command, as a crash names it
-  local at="$1" rc=3 ms=0
+beside_verdict() { # $1 its files · [--exits <tables>] [--summary | --pytest] $2 what to say on a finding · $3 the command, as a crash names it
+  local at="$1" rc=3 ms=0 class=0
   local -a said=()
   shift
   # A command that left no status ended before it could write one, which reads as a crash.
@@ -209,7 +228,8 @@ beside_verdict() { # $1 its files · [--summary | --pytest] $2 what to say on a 
   QUIETLY_OUTPUT=""
   if [[ -f "${at}.log" ]]; then QUIETLY_OUTPUT="$(<"${at}.log")"; fi
   _STEP_MS0=$(( $(_now_ms) - ms ))
-  if (( VERBOSE || rc )); then mapfile -t said <<<"$QUIETLY_OUTPUT"; detail "${said[@]}"; fi
+  exit_class "$(exits_of "$@")" "$rc" || class=$?
+  if (( VERBOSE || class )); then mapfile -t said <<<"$QUIETLY_OUTPUT"; detail "${said[@]}"; fi
   verdict "${@:1:$#-1}" "$rc" "${BASH_LINENO[0]}" "${!#}"
 }
 
@@ -253,7 +273,7 @@ esac
 scope_scripts() {
   section scripts
   step "scripts · selfcheck"
-  check --checker --summary "scripts/gate/selfcheck.sh found the findings above." bash scripts/gate/selfcheck.sh \
+  check --exits contract --summary "scripts/gate/selfcheck.sh found the findings above." bash scripts/gate/selfcheck.sh \
     && ok "the shell scripts parse, are executable in git and lint clean, and the workflows lint clean"
 
   step "scripts · ruff  (lint, and format in check mode)"
@@ -262,7 +282,7 @@ scope_scripts() {
 
   # From inside scripts/, where pyright finds its config; no PyPI release lookup, uv.lock pins what runs.
   step "scripts · pyright"
-  check "pyright found type errors in scripts." in_dir scripts env PYRIGHT_PYTHON_IGNORE_WARNINGS=1 "$PY" -m pyright \
+  check --exits pyright "pyright found type errors in scripts." in_dir scripts env PYRIGHT_PYTHON_IGNORE_WARNINGS=1 "$PY" -m pyright \
     && ok "the gate's own types are clean"
 
   step "scripts · pytest"
@@ -275,25 +295,19 @@ scope_scripts() {
 # --- docs ------------------------------------------------------------------------------------------
 
 # Offline, every link and fragment inside the repository, through the pinned image with no network;
-# links leaving it are no part of this gate. lychee answers 2 for a broken one. The image is the one
-# its stage names in the tools file, the one place Dependabot moves it.
-check_links() {
-  local rc=0 image
-  image="$(sed -nE 's/^FROM ([^ ]+) AS lychee$/\1/p' scripts/gate/tools.Dockerfile)"
-  if [[ -z "$image" || "$image" == *$'\n'* ]]; then
-    info "scripts/gate/tools.Dockerfile names no single FROM line for lychee, so no link was checked."
-    return 1
-  fi
+# links leaving it are no part of this gate.
+check_links() { # $1 the image
   MSYS_NO_PATHCONV=1 docker run --rm --network none -v "$(mount_source):/input:ro" -w /input \
-    "$image" --config lychee.toml --no-progress . || rc=$?
-  if (( rc == 2 )); then return 1; fi
-  return "$rc"
+    "$1" --config lychee.toml --no-progress .
 }
 
 scope_docs() {
+  local image
   section docs
   step "docs · every link and fragment inside the repository resolves"
-  check "lychee names each broken link or fragment above, with the file it stands in." check_links \
+  image="$(tool_image lychee)" \
+    || die "${TOOLS_FILE} names no single FROM line for lychee, so no link was checked."
+  check --exits docker+lychee "lychee names each broken link or fragment above, with the file it stands in." check_links "$image" \
     && ok "every link inside the repository resolves"
   return 0
 }
@@ -313,7 +327,7 @@ scope_backend() {
     && ok "ruff clean"
 
   step "backend · pyright"
-  check "pyright found type errors in fl_backend." in_dir fl_backend env PYRIGHT_PYTHON_IGNORE_WARNINGS=1 "$PY" -m pyright \
+  check --exits pyright "pyright found type errors in fl_backend." in_dir fl_backend env PYRIGHT_PYTHON_IGNORE_WARNINGS=1 "$PY" -m pyright \
     && ok "no type errors"
 
   # No server starts: the controller starts none for the default tier's own `-m`.
@@ -331,30 +345,6 @@ scope_backend() {
 
 # --- format ----------------------------------------------------------------------------------------
 
-# The empty tree against the working tree: every tracked file is read whole, and a shallow clone needs
-# no history for it. git answers 2 for what it found.
-diff_check() {
-  local rc=0
-  git diff --check "$(git hash-object -t tree /dev/null)" || rc=$?
-  if (( rc == 2 )); then return 1; fi
-  return "$rc"
-}
-
-# Every tracked text file, for the zero-width, bidirectional and line-separator characters that hide
-# or reorder what a reviewer reads (CVE-2021-42574), the Arabic letter mark U+061C the one bidirectional
-# mark outside U+2000's block; the one deliberate fixture is left out. A UTF-8 locale, which `-P` needs
-# to read a code point past U+00FF. git grep answers 0 for a match, 1 for none.
-invisible_check() {
-  local rc=0
-  LC_ALL=C.UTF-8 git grep -I -n -P '[\x{061C}\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{2028}\x{2029}]' \
-    -- . ':!fl_frontend/src/core/emailAddress.test.ts' || rc=$?
-  case "$rc" in
-    0) return 1 ;;
-    1) return 0 ;;
-    *) return "$rc" ;;
-  esac
-}
-
 # Its own scope: prettier governs markdown, YAML and the compose files too.
 scope_format() {
   section format
@@ -368,12 +358,21 @@ scope_format() {
   check "markdownlint names each finding above with its file, line and rule." in_dir fl_frontend pnpm run lint:md \
     && ok "the Markdown keeps its rules"
 
+  # The empty tree against the working tree: every tracked file is read whole, and a shallow clone
+  # needs no history for it.
   step "format · no conflict marker or whitespace error in any tracked file"
-  check "A tracked file above carries a conflict marker or a whitespace error, each named by its line." diff_check \
+  check --exits git-diff-check "A tracked file above carries a conflict marker or a whitespace error, each named by its line." \
+    git diff --check "$(git hash-object -t tree /dev/null)" \
     && ok "no conflict marker or whitespace error"
 
+  # Every tracked text file, for the zero-width, bidirectional and line-separator characters that hide
+  # or reorder what a reviewer reads (CVE-2021-42574), the Arabic letter mark U+061C the one
+  # bidirectional mark outside U+2000's block; the one deliberate fixture is left out. A UTF-8 locale,
+  # which `-P` needs to read a code point past U+00FF.
   step "format · no invisible or bidirectional character in any tracked file"
-  check "A tracked file above carries an invisible or bidirectional character, each named by its line." invisible_check \
+  check --exits git-grep "A tracked file above carries an invisible or bidirectional character, each named by its line." \
+    env LC_ALL=C.UTF-8 git grep -I -n -P '[\x{061C}\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{2028}\x{2029}]' \
+    -- . ':!fl_frontend/src/core/emailAddress.test.ts' \
     && ok "no invisible or bidirectional character"
   return 0
 }
@@ -473,7 +472,7 @@ Fix with:  cd fl_frontend && pnpm dedupe  -- then commit the lockfile." \
   ok "route types generated"
 
   step "frontend · tsc"
-  beside_verdict "${at}/tsc" "tsc found type errors." "pnpm typecheck:only" && ok "no type errors"
+  beside_verdict "${at}/tsc" --exits contract "tsc found type errors." "pnpm typecheck:only" && ok "no type errors"
 
   step "frontend · eslint"
   beside_verdict "${at}/eslint" "eslint failed." "pnpm lint:only" && ok "lint clean"
@@ -503,11 +502,10 @@ or name production code knip cannot see in fl_frontend/knip.production.json." \
 OPS_SCRATCH=""
 cleanup_ops() { if [[ -n "$OPS_SCRATCH" ]]; then rm -rf "$OPS_SCRATCH" || true; fi; }
 
-# zizmor answers 11 to 14 for findings and 1 for its own failure, a GitHub API it could not read
-# among them. The release is the backend lockfile's, from the `zizmor` dependency group. Its wheel
-# installs the program alone, with no module `-m` could run, so it runs from beside the interpreter.
+# The release is the backend lockfile's, from the `zizmor` dependency group. Its wheel installs the
+# program alone, with no module `-m` could run, so it runs from beside the interpreter.
 run_zizmor() {
-  local rc=0 bin="${PY%/*}/zizmor"
+  local bin="${PY%/*}/zizmor"
   local -a network=(--offline)
   [[ -x "$bin" ]] || bin="${PY%/*}/zizmor.exe"
   # Online under Actions alone, with the job's read-only token, where the audits reading GitHub's API
@@ -515,13 +513,7 @@ run_zizmor() {
   # names one. Offline everywhere else, or a token in a person's environment turns those audits on.
   if [[ -n "${GITHUB_ACTIONS:-}" ]]; then network=(); fi
   # `--strict-collection`, or a malformed `.github/dependabot.yml` is a warning it exits 0 on.
-  "$bin" "${network[@]}" --strict-collection --persona regular . || rc=$?
-  case "$rc" in
-    0) return 0 ;;
-    11|12|13|14) return 1 ;;
-    130) return 130 ;;
-    *) return 3 ;;
-  esac
+  "$bin" "${network[@]}" --strict-collection --persona regular .
 }
 
 # The compose files, the nginx configuration and the GitHub Actions surface have no compiler and no
@@ -532,7 +524,7 @@ scope_ops() {
   OPS_SCRATCH="$(mktemp -d)"
 
   step "ops · zizmor audits the GitHub Actions surface"
-  check "zizmor found a finding in the GitHub Actions surface, each naming its file and rule. A rule this
+  check --exits zizmor "zizmor found a finding in the GitHub Actions surface, each naming its file and rule. A rule this
 repository cannot act on belongs in zizmor.yml with its reason, never suppressed at this call site." run_zizmor \
     && ok "the workflows, the composite actions and the Dependabot config are clean"
 
@@ -545,19 +537,19 @@ repository cannot act on belongs in zizmor.yml with its reason, never suppressed
 
   # A parse accepts a published port and a database alike.
   step "ops · what each stack exposes, mounts, trusts, hands out and keeps"
-  check --checker "A stack exposes, mounts, trusts, hands out or keeps more than the rule it breaks allows. The
+  check --exits contract "A stack exposes, mounts, trusts, hands out or keeps more than the rule it breaks allows. The
 findings above name the service and the rule." \
     "$PY" scripts/checks/check_compose_model.py "${OPS_SCRATCH}/production.json" "${OPS_SCRATCH}/local.json" \
     && ok "each stack publishes, mounts, trusts and holds only what its rules allow"
 
   step "ops · every route handler, link page and metadata convention is metered at the edge"
-  check --checker "The route accounting is out. Each finding above names the handler, the location or the reason." \
+  check --exits contract "The route accounting is out. Each finding above names the handler, the location or the reason." \
     "$PY" scripts/checks/check_public_routes.py \
     && ok "every route handler is accounted for at the edge"
 
   # A parse sees neither a log line nor a response, and both edges starting is the parse.
   step "ops · the edge starts, logs no credential and sends every security header once"
-  check --checker "The running edge failed a case. Each failing case above is what nginx WROTE or SENT, and the
+  check --exits contract "The running edge failed a case. Each failing case above is what nginx WROTE or SENT, and the
 files under nginx/shared/ decide it." bash scripts/checks/edge_test.sh \
     && ok "the edge logged and sent every case as written"
   return 0
@@ -576,15 +568,20 @@ CONTRACT_SCRATCH=.tmp-contract
 # generation added and nobody committed, which the comparison alone would pass. A generator that fails
 # reaches no verdict, and neither does a comparison git could not make.
 contract_check() {
-  local rc=0 untracked
+  local rc=0 untracked i class
+  # Each committed path beside the one regenerated into the scratch folder.
+  local -a compared=(fl_backend/openapi.json "${CONTRACT_SCRATCH}/openapi.json"
+    fl_frontend/src/core/generated "${CONTRACT_SCRATCH}/generated")
   rm -rf "$CONTRACT_SCRATCH" && mkdir "$CONTRACT_SCRATCH" || return 3
   in_dir fl_backend "$PY" -m app.openapi_document "../${CONTRACT_SCRATCH}/openapi.json" || return 3
   ( cd fl_frontend && CONTRACT_SCRATCH="../${CONTRACT_SCRATCH}" pnpm exec orval --fail-on-warnings ) || return 3
   untracked="$(git ls-files --others --exclude-standard -- "${CONTRACT_PATHS[@]}")"
   if [[ -n "$untracked" ]]; then printf 'Not committed:\n%s\n' "$untracked"; rc=1; fi
-  # git answers 1 for a difference.
-  git diff --no-index -- fl_backend/openapi.json "${CONTRACT_SCRATCH}/openapi.json" || { (( $? == 1 )) || return 3; rc=1; }
-  git diff --no-index -- fl_frontend/src/core/generated "${CONTRACT_SCRATCH}/generated" || { (( $? == 1 )) || return 3; rc=1; }
+  for (( i = 0; i < ${#compared[@]}; i += 2 )); do
+    class=0
+    git diff --no-index -- "${compared[i]}" "${compared[i + 1]}" || exit_class git-diff "$?" || class=$?
+    if (( class == 1 )); then rc=1; elif (( class )); then return "$class"; fi
+  done
   return "$rc"
 }
 
@@ -614,7 +611,7 @@ scope_db() {
   wait "$frontend" || true
 
   step "db · the contract and its generated client match the code they are built from"
-  beside_verdict "${DB_TIERS}/contract" "The committed contract no longer matches the code it is generated from; the diff above names each file.
+  beside_verdict "${DB_TIERS}/contract" --exits contract "The committed contract no longer matches the code it is generated from; the diff above names each file.
 Fix with:  (cd fl_frontend && pnpm run contract)  -- then commit both." "contract_check" \
     && ok "the contract and the client are current"
 

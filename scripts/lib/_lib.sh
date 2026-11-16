@@ -179,9 +179,12 @@ QUIETLY_OUTPUT=""
 # The streaming arm's copy while its command runs, so an interrupt can reclaim it.
 _QUIETLY_CAPTURE=""
 
-quietly() {
-  local out rc=0
+# `--exits` reads the status through `exit_class`, so a tool whose clean answer is not 0 replays only
+# where its class is not clean.
+quietly() { # [--exits <tables>] the command
+  local out rc=0 class exits=""
   local -a piped=() said=()
+  if [[ "${1-}" == --exits ]]; then exits="$2"; shift 2; fi
   QUIETLY_OUTPUT=""
   if (( VERBOSE )); then
     # Kept as well as streamed, or a caller grading by the output grades this form differently. A
@@ -196,8 +199,10 @@ quietly() {
     _QUIETLY_CAPTURE=""
   else
     out="$("$@" 2>&1)" || rc=$?
+    class="$rc"
+    if [[ -n "$exits" ]]; then class=0; exit_class "$exits" "$rc" || class=$?; fi
     # As arguments, one per line: a here-string yields at least one, so `detail` never reads stdin.
-    if (( rc )); then mapfile -t said <<<"$out"; detail "${said[@]}"; fi
+    if (( class )); then mapfile -t said <<<"$out"; detail "${said[@]}"; fi
   fi
   # shellcheck disable=SC2034  # read by the scripts that source this file
   QUIETLY_OUTPUT="$out"
@@ -492,6 +497,67 @@ on_interrupt() {
 }
 trap on_interrupt INT TERM HUP
 
+# --- The exit contract -------------------------------------------------------------------------------
+
+# Each tool's own exit statuses, read into the contract every script here answers on: 0 clean,
+# 1 findings, 2 refused, 3 crashed. Each row is the tool's documentation for the release this
+# repository pins, and every row reads it by one rule:
+# - 1 is the status by which the tool reports what it found;
+# - 2 is one by which the tool, having started, says in its own words that it could not judge: an
+#   input it could not read, a network it could not reach, a configuration it could not load;
+# - 3 is one saying our invocation was wrong or the tool itself died, one the tool shares between
+#   either of those and anything else, and any status its documentation does not name.
+# A status no row names is 3, and 130, the shell's for a command a SIGINT ended, is 130 in every row.
+declare -grA EXIT_CODES=(
+  # This repository's scripts, and every checker on scripts/lib/checker_kernel.py.
+  [contract]="0:0 1:1 2:2"
+  # A tool documenting 1 for what it found and every other failure as its own, or no other status.
+  [tool]="0:0 1:1"
+  # `docker run`'s own statuses, which come ahead of the container's: 125 the daemon failed, so
+  # nothing ran; 126 and 127 the image cannot invoke or find its command.
+  [docker]="125:2 126:3 127:3"
+  # 0.24.2: 1 missing inputs, a runtime failure or a configuration error, 2 a link that failed, 3 an
+  # error in the config file.
+  [lychee]="0:0 1:2 2:1 3:2"
+  # 1.32.0: 1 an error during the audit, a GitHub API it could not reach among them, 2 an argument it
+  # could not parse, 3 no input collected, 11 to 14 findings by their highest severity. Nothing
+  # answers 10 since 1.14.0.
+  [zizmor]="0:0 1:2 2:3 3:2 11:1 12:1 13:1 14:1"
+  # 0.11.0: 2 a file it could not process, 3 and 4 a flag or an option it was handed wrong.
+  [shellcheck]="0:0 1:1 2:2 3:3 4:3"
+  # 1.7.12: 2 an invalid command-line option, which Go's own panic status shares, 3 a fatal error.
+  [actionlint]="0:0 1:1 2:3 3:2"
+  # 2 an interrupt and a test module that does not collect alike, 3 an internal error, 4 a usage
+  # error or a conftest.py that fails to import, 5 no test collected.
+  [pytest]="0:0 1:1 2:3 3:3 4:3 5:2"
+  # 2 a fatal error with nothing reported, 3 a config file it could not read or parse, 4 an illegal
+  # command-line parameter.
+  [pyright]="0:0 1:1 2:3 3:2 4:3"
+  # git grep answers 0 for a match, which is what it found, and 1 for none.
+  [git-grep]="0:1 1:0"
+  # git diff answers 1 for a difference, and with --check 2 for what the check found.
+  [git-diff]="0:0 1:1"
+  [git-diff-check]="0:0 2:1"
+)
+
+# The class `$2` reads as through the tables `$1` names, joined by `+`, the first naming the status
+# deciding, answered as this function's own status: call it as `exit_class docker+lychee "$rc" ||
+# class=$?`. A table no row names is a defect of the caller, so it crashes rather than reading as 1.
+exit_class() { # $1 the tables · $2 the status
+  local table pair status="$2"
+  if [[ "$status" == 130 ]]; then return 130; fi
+  local IFS='+'
+  for table in $1; do
+    [[ -n "${EXIT_CODES[$table]+set}" ]] || on_error 3 "${BASH_LINENO[0]}" "exit_class: no table named '${table}'"
+    IFS=' '
+    for pair in ${EXIT_CODES[$table]}; do
+      if [[ "${pair%%:*}" == "$status" ]]; then return "${pair#*:}"; fi
+    done
+    IFS='+'
+  done
+  return 3
+}
+
 # --- Guards ----------------------------------------------------------------------------------------
 
 # Each ends through `refuse`, never `die`: a missing daemon, a wrong platform or an absent file is
@@ -535,6 +601,17 @@ $2}"; }
 # The checkout as a `docker run -v` source, in Windows' own spelling under Git Bash: Git Bash mounts
 # %TEMP% at /tmp, so a checkout there spelled `/tmp/...` binds an unrelated directory of the engine's.
 mount_source() { cygpath -w "$REPO_ROOT" 2>/dev/null || printf '/%s' "$REPO_ROOT"; }
+
+# The image the gate runs a linter from, read off the line its stage name marks in the tools file,
+# since Dependabot moves a `FROM` line and no image typed in a shell string. Answers 1 where the file
+# holds no single such line.
+TOOLS_FILE="scripts/gate/tools.Dockerfile"
+tool_image() { # $1 the stage naming the tool
+  local image
+  image="$(sed -nE "s/^FROM ([^ ]+) AS ${1}\$/\1/p" "$TOOLS_FILE")"
+  if [[ -z "$image" || "$image" == *$'\n'* ]]; then return 1; fi
+  printf '%s' "$image"
+}
 
 # --- The rendered compose models ----------------------------------------------------------------------
 
