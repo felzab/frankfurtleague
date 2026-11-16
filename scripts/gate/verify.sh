@@ -650,8 +650,8 @@ build_images() {
   fi
 }
 
-# What a successful build does not prove, asked of each image. In CI the workflow builds both through
-# `docker/build-push-action`, which carries the layer cache, and hands them over by `VERIFY_TAG`.
+# What a successful build does not prove, asked of each image. In CI the workflow builds both in one
+# bake through `docker/bake-action`, which carries the layer cache, and hands them over by `VERIFY_TAG`.
 scope_images() {
   section images
   if [[ -z "${VERIFY_IMAGES_BUILT:-}" ]]; then
