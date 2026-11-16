@@ -35,6 +35,7 @@ from app.core.security import PASSKEY_FACTOR
 from app.core.transactions import transaction_session
 from app.shared.tokens import hash_token
 from tests import documents
+from tests.acts import journal_records
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_KEY, ADMINISTRATORS, grants_for_the_suite
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database
@@ -537,10 +538,6 @@ def action_log_row(row_id: ObjectId, *, by: str, label: str | None = None) -> di
         "count": None,
         "trace_id": "t",
     }
-
-
-def journal_records(caplog: pytest.LogCaptureFixture) -> list[logging.LogRecord]:
-    return [record for record in caplog.records if record.getMessage() == "journal.act"]
 
 
 def as_person(email: str) -> StampedHeaders:

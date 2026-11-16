@@ -28,6 +28,7 @@ from app.core.crud import ANCHOR_FIELD
 from app.core.db import collection_dependency
 from app.core.exceptions import APIError
 from app.core.recording import actor_var
+from tests.acts import journal_records
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_KEY, ADMINISTRATORS, grants_for_the_suite
 from tests.database import a_clean_database
@@ -56,7 +57,6 @@ from .test_identity_erasure_execution import (
     a_person_holding_everything,
     as_person,
     everything_in,
-    journal_records,
 )
 from .test_identity_erasure_execution import PATH as OWN_ERASURE_PATH
 

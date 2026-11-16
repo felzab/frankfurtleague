@@ -24,7 +24,7 @@ being flat.
 | `payloads.py`                                                            | The request bodies a test submits, built from a stored document                                                           |
 | `team_writes.py`                                                         | The team editor's save and a seat's block written as the routes write them, outside a request                             |
 | `bans.py`                                                                | The ban list under the suite's key, and a ban entered through its route rather than seeded                                |
-| `acts.py`                                                                | The `action_log` rows a write left, oldest first, and the administrator a handler called outside a request acts as        |
+| `acts.py`                                                                | The `action_log` rows a write left, the journal lines a case captured, and the administrator a direct call acts as        |
 | `outbox.py`                                                              | The clock a case owes mail under, and one drain of the Postausgang as the frontend's drain settles it                     |
 | `delivery.py`                                                            | A mail the provider reported undeliverable, seeded straight into the Postausgang                                          |
 | `isolation.py`                                                           | A rival run once inside a write, and what the write reports: its refusal's code, or that it committed                     |

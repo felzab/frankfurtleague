@@ -22,6 +22,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.shared.einwilligung_evidence import TextVersions, evidence_state_of
 from app.shared.tokens import hash_token
+from tests.acts import journal_records
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_KEY, BASE_AUTH
 from tests.database import a_clean_database
@@ -43,8 +44,6 @@ from tests.documents import (
 )
 from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
-
-from .test_identity_erasure_execution import journal_records
 
 pytestmark = pytest.mark.db
 

@@ -32,6 +32,7 @@ from app.core.config import API_VERSION
 from app.core.recording import ACT_BY_KONTAKT, record_act
 from app.core.transactions import UNKNOWN_COMMIT_RESULT
 from app.shared.einwilligung_evidence import evidence_state_of
+from tests.acts import journal_records
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_KEY
 from tests.database import a_clean_database
@@ -43,7 +44,7 @@ from tests.worker import worker_database
 
 from . import test_spielbestaetigung_sweep_execution as confirmations
 from . import test_spiele_write_execution as spiel_saves
-from .test_identity_erasure_execution import IDENTIFIER, THEIR_GRANT_OID, THEIR_REPORT_OID, a_grant, action_log_row, journal_records
+from .test_identity_erasure_execution import IDENTIFIER, THEIR_GRANT_OID, THEIR_REPORT_OID, a_grant, action_log_row
 from .test_identity_erasure_execution import PUPIL_OID as THEIR_PUPIL_OID
 from .test_identity_erasure_execution import erased_by_the_handler as erased_by_the_person
 from .test_identity_erasure_execution import on_a_league as on_their_league
