@@ -61,10 +61,10 @@ if (( ${#SELECTED[@]} > 1 )); then
   # A run's stdout is a file, so it cannot tell a terminal is waiting for its colours.
   if [[ -n "$C_RED" ]]; then export FL_GATE_COLOR=1; else export FL_GATE_COLOR=0; fi
   # pnpm writes and deletes a probe file in its store's directory, which the format scope's walk can
-  # list and then fail to read; handed its store, pnpm writes none.
-  if [[ -n "${RUN[format]:-}" ]]; then
-    export pnpm_config_store_dir
-    pnpm_config_store_dir="$(cd fl_frontend && pnpm store path)"
+  # list and then fail to read; handed its store, pnpm writes none. Where pnpm cannot name it, no store
+  # is handed on, and the format scope's own start-up guard, which asks pnpm to start, gives the verdict.
+  if [[ -n "${RUN[format]:-}" ]] && store="$(pnpm --dir fl_frontend store path 2>/dev/null)"; then
+    export pnpm_config_store_dir="$store"
   fi
 
   declare -A SCOPE_OF=() ROW=()
@@ -93,7 +93,6 @@ if (( ${#SELECTED[@]} > 1 )); then
   # In the order they end: `wait -n -p`, bash 5.1's, names the run it reaped. Each run's own exit
   # code is its row's verdict, and its count of findings fills the row's column alone: a run that
   # counted a finding and then refused ends as the refusal it ended on alone.
-  declare -A RANK_OF=([0]=1 [1]=4 [2]=3 [3]=5 [130]=6)
   while (( ${#PID[@]} )); do
     rc=0
     wait -n -p reaped || rc=$?
@@ -104,7 +103,7 @@ if (( ${#SELECTED[@]} > 1 )); then
     if [[ -s "${RUNS_DIR}/${scope}.findings" ]]; then read -r count < "${RUNS_DIR}/${scope}.findings"; fi
     class=0
     exit_class contract "$rc" || class=$?
-    end_row "${ROW[$scope]}" "${RANK_OF[$class]}" "$(( $(_now_ms) - started ))" "$count"
+    end_row "${ROW[$scope]}" "${RANK_OF_CLASS[$class]}" "$(( $(_now_ms) - started ))" "$count"
   done
   for scope in "${SELECTED[@]}"; do cat "${RUNS_DIR}/${scope}.log"; done
 
@@ -152,9 +151,11 @@ exits_of() { # the flags
   printf '%s' "$exits"
 }
 
-# `check`'s reading of a status the command has already answered, its output in `QUIETLY_OUTPUT`.
+# `check`'s reading of a status the command has already answered, its output in `QUIETLY_OUTPUT`. A
+# finding a pnpm code decided says what `PNPM_SAID` gives that code, where it gives one, in place of
+# the call site's sentence.
 verdict() { # [--exits <tables>] [--summary | --annotated | --pytest] $1 what to say on a finding · $2 the status · $3 the caller's line · $4 the command
-  local exits pytest=0 class=0
+  local exits pytest=0 class=0 said
   local -a summary=() annotated=()
   exits="$(exits_of "$@")"
   if [[ "$1" == --exits ]]; then shift 2; fi
@@ -165,6 +166,10 @@ verdict() { # [--exits <tables>] [--summary | --annotated | --pytest] $1 what to
   case "$class" in
     0) return 0 ;;
     1) if (( pytest )) && annotate_cases; then summary=(--summary); fi
+       if [[ "${exits%%+*}" == pnpm ]]; then
+         said="$(pnpm_said "$QUIETLY_OUTPUT")"
+         if [[ -n "$said" ]]; then set -- "$said"; fi
+       fi
        fail "${summary[@]}" "$1"; return 1 ;;
     2) refuse "${annotated[@]}" "${_STEP_LABEL} could not judge its input, so nothing here stands as a verdict on the
 change. Its own reason is above (exit status $2)." ;;
@@ -236,36 +241,18 @@ PYTEST_SPREAD=(-n auto --dist loadfile -o faulthandler_timeout=180)
 case "$SCOPE" in
   docs|ops|db|images) require_docker ;;
 esac
-# Compose is a plugin of the Docker CLI, so an engine that answers is no proof it is installed, and
-# without it every compose file would read as one that does not parse. Its release is printed, since
-# nothing here pins the one the `compose` row's statuses are read against.
-if [[ "$SCOPE" == ops ]]; then
-  release="$(docker compose version --short 2>/dev/null)" \
-    || refuse "Docker Compose did not answer 'docker compose version', so no compose file was parsed.
-Install the Compose plugin, or start Docker Desktop, which carries it, then try again."
-  info "Docker Compose ${release}"
-fi
+if [[ "$SCOPE" == ops ]]; then require_compose; fi
 case "$SCOPE" in
   scripts|format|frontend-units|frontend|db)
     require_dir fl_frontend/node_modules "Every frontend tool runs out of it. Install it with:  cd fl_frontend && pnpm install"
-    # pnpm's dependency check (`verifyDepsBeforeRun`) runs on every `pnpm run` and `pnpm exec`, so
-    # one exec answers for every step below before any of them runs.
-    quietly in_dir fl_frontend pnpm exec node -e "" \
-      || refuse "pnpm would not start a command in fl_frontend: node_modules does not answer the manifest
-and lockfile, or pnpm itself did not start (its own words are above). Fix with:  cd fl_frontend && pnpm install" ;;
+    require_pnpm_starts ;;
 esac
 PY=""
 case "$SCOPE" in
   scripts|backend|ops|db)
     PY="$(venv_python)" || refuse "No fl_backend virtualenv found. Create it with:  uv sync --project fl_backend --dev"
-    # On a runner the job's own `uv sync --locked` has just run. `--frozen`, so the virtualenv is held to
-    # the lockfile alone: whether the lockfile answers pyproject.toml is the change's, which the backend
-    # scope's `uv lock --check` reports as a finding.
-    if [[ -z "${GITHUB_ACTIONS:-}" ]]; then
-      quietly uv sync --project fl_backend --dev --check --frozen \
-        || refuse "fl_backend/.venv does not match fl_backend/uv.lock, so a finding here would be about this
-machine rather than the change. Sync it with:  uv sync --project fl_backend --dev --frozen"
-    fi ;;
+    # On a runner the job's own `uv sync --locked` has just run.
+    if [[ -z "${GITHUB_ACTIONS:-}" ]]; then require_synced_venv; fi ;;
 esac
 
 # --- scripts ---------------------------------------------------------------------------------------
@@ -335,10 +322,11 @@ scope_backend() {
   check --pytest "fl_backend tests failed." in_dir fl_backend "$PY" -m pytest "${PYTEST_SPREAD[@]}" --maxprocesses 6 \
     && ok "default-tier tests pass"
 
-  # `app/` alone, deptry's default: `tests/` imports the dev group by design.
+  # `app/` alone, deptry's default: `tests/` imports the dev group by design. Through the kernel's
+  # launcher as a module, since an exception escaping deptry answers Python's own 1, its findings' status.
   step "backend · deptry  (what app/ imports against what the manifest declares)"
   check --exits deptry "fl_backend/pyproject.toml and what app/ imports disagree. The finding above names the package and its rule (https://deptry.com/rules-violations/)." \
-    in_dir fl_backend "$PY" -m deptry . \
+    in_dir fl_backend "$PY" ../scripts/lib/checker_kernel.py -m deptry . \
     && ok "the manifest declares what app/ imports"
   return 0
 }
@@ -391,26 +379,6 @@ scope_frontend_units() {
 
 # --- frontend --------------------------------------------------------------------------------------
 
-# tsc answers 2 for the errors it found where it wrote its build information and 1 where that was
-# current already (`ExitStatus.DiagnosticsPresent_OutputsGenerated`, `_OutputsSkipped`), and 1 too
-# where it stopped before there was a program to check, a project path it could not read among
-# them, as Node does for an uncaught exception. So its words decide: an error at a file's line and
-# column is a finding, and a failure naming none is no verdict on the change.
-typecheck() {
-  local rc=0 out line
-  out="$(in_dir fl_frontend pnpm typecheck:only 2>&1)" || rc=$?
-  printf '%s\n' "$out"
-  case "$rc" in
-    0) return 0 ;;
-    1|2)
-      while IFS= read -r line; do
-        if [[ "$line" =~ \([0-9]+,[0-9]+\):\ error\ TS[0-9]+: ]]; then return 1; fi
-      done <<< "$out"
-      return 3 ;;
-    *) return "$rc" ;;
-  esac
-}
-
 # Global, for the EXIT trap, which runs after the scope has returned.
 FRONTEND_STEPS=""
 
@@ -437,7 +405,7 @@ scope_frontend() {
   ( run_beside "${at}/typegen" in_dir fl_frontend pnpm typegen )
   if [[ -f "${at}/typegen.status" ]]; then IFS=' ' read -r typegen _ < "${at}/typegen.status"; fi
   if (( typegen == 0 )); then
-    ( run_beside "${at}/tsc" typecheck ) &
+    ( run_beside "${at}/tsc" in_dir fl_frontend pnpm typecheck:only ) &
     running+=("$!")
     ( run_beside "${at}/eslint" in_dir fl_frontend pnpm lint:only ) &
     running+=("$!")
@@ -474,7 +442,7 @@ Fix with:  cd fl_frontend && pnpm dedupe  -- then commit the lockfile." \
   ok "route types generated"
 
   step "frontend · tsc"
-  beside_verdict "${at}/tsc" --exits contract "tsc found type errors." "pnpm typecheck:only" && ok "no type errors"
+  beside_verdict "${at}/tsc" --exits pnpm+tsc "tsc found type errors." "pnpm typecheck:only" && ok "no type errors"
 
   step "frontend · eslint"
   beside_verdict "${at}/eslint" --exits pnpm+eslint "eslint failed." "pnpm lint:only" && ok "lint clean"
@@ -574,21 +542,28 @@ CONTRACT_SCRATCH=.tmp-contract
 # The published document regenerated from the routes and models, the client regenerated from that,
 # both into the scratch folder, and each compared with the tree's: a route, a model or a docstring the
 # committed files do not hold is a finding. An untracked file in the tree's folders is one a
-# generation added and nobody committed, which the comparison alone would pass. A generator that fails
-# reaches no verdict, and neither does a comparison git could not make.
+# generation added and nobody committed, which the comparison alone would pass. A generator that fails,
+# or exits 0 having written nothing, reaches no verdict, and neither does a comparison git could not
+# make. Run beside the db tiers, so each status is answered as its class rather than settled here.
 contract_check() {
   local rc=0 untracked i class
   # Each committed path beside the one regenerated into the scratch folder.
   local -a compared=(fl_backend/openapi.json "${CONTRACT_SCRATCH}/openapi.json"
     fl_frontend/src/core/generated "${CONTRACT_SCRATCH}/generated")
-  rm -rf "$CONTRACT_SCRATCH" && mkdir "$CONTRACT_SCRATCH" || return 3
-  in_dir fl_backend "$PY" -m app.openapi_document "../${CONTRACT_SCRATCH}/openapi.json" || return 3
-  ( cd fl_frontend && CONTRACT_SCRATCH="../${CONTRACT_SCRATCH}" pnpm exec orval --fail-on-warnings ) || return 3
+  tool_class utility rm -rf "$CONTRACT_SCRATCH" || return
+  tool_class utility mkdir "$CONTRACT_SCRATCH" || return
+  tool_class generator in_dir fl_backend "$PY" -m app.openapi_document "../${CONTRACT_SCRATCH}/openapi.json" || return
+  tool_class pnpm+generator quietly env CONTRACT_SCRATCH="../${CONTRACT_SCRATCH}" pnpm --dir fl_frontend exec orval --fail-on-warnings \
+    || return
   untracked="$(git ls-files --others --exclude-standard -- "${CONTRACT_PATHS[@]}")"
   if [[ -n "$untracked" ]]; then printf 'Not committed:\n%s\n' "$untracked"; rc=1; fi
   for (( i = 0; i < ${#compared[@]}; i += 2 )); do
+    # git answers a path it cannot access with a difference's 1: a regenerated one missing is the
+    # generator's failure, and a committed one missing is the change's, which the diff would name.
+    if [[ ! -e "${compared[i + 1]}" ]]; then printf '%s\n' "${compared[i + 1]} was not generated."; return 3; fi
+    if [[ ! -e "${compared[i]}" ]]; then printf 'Not committed:\n%s\n' "${compared[i]}"; rc=1; continue; fi
     class=0
-    git diff --no-index -- "${compared[i]}" "${compared[i + 1]}" || exit_class git-diff "$?" || class=$?
+    tool_class git-diff git diff --no-index -- "${compared[i]}" "${compared[i + 1]}" || class=$?
     if (( class == 1 )); then rc=1; elif (( class )); then return "$class"; fi
   done
   return "$rc"
@@ -647,13 +622,7 @@ cleanup_images() { docker image rm -f "${IMAGES_TAG}:frontend" "${IMAGES_TAG}:ba
 # `docker-bake.hcl`'s alone. Only where they land is this run's: loaded into the local image store
 # under this run's tag through `--set`, where CI writes the tarballs its publish pushes.
 build_images() {
-  local release
-  # As the ops scope asks for Compose: without the plugin the bake would read as a build that failed.
-  # Its release is printed, since nothing here pins the one the `buildx` row's statuses are read against.
-  release="$(docker buildx version 2>/dev/null)" \
-    || refuse "Docker Buildx did not answer 'docker buildx version', so no image was built.
-Install the Buildx plugin, or start Docker Desktop, which carries it, then try again."
-  info "Docker Buildx: ${release}"
+  require_buildx
   check --exits buildx "The images failed to build — the failure the frontend scope cannot see. Docker's own output above names the target." \
     docker buildx bake --file docker-bake.hcl --set '*.output=type=docker' \
     --set "frontend.tags=${IMAGES_TAG}:frontend" --set "backend.tags=${IMAGES_TAG}:backend" \

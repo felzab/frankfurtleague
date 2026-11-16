@@ -22,6 +22,11 @@
 #   location naming a zone refusing once its key is spent. No rate is held.
 # - Every body cap takes its figure and refuses a byte past it.
 #
+# A Docker call that fails, creating the network, starting a container or its relay, reading its
+# streams or its port, is a crash through `EXIT_CODES`'s `docker` row, since Docker gives our
+# invocation going wrong the same status as its own failure; nginx refusing the configuration it was
+# handed, read off a container that stopped, is the finding.
+#
 #   ./scripts/checks/edge_test.sh --verbose   print the access line every case was graded on
 #   ./scripts/checks/edge_test.sh --help
 
@@ -185,16 +190,17 @@ done
 [[ -n "$EDGE_IMAGE" ]] || refuse "the local stack's model names no image for nginx, so there is no release to serve."
 if verbose; then info "the model starts ${EDGE_IMAGE} with: ${EDGE_PRIVILEGES[*]}"; fi
 
-quietly docker network create "$NETWORK" \
-  || refuse "could not create the edge test's network ${NETWORK}. Docker's own reason is above."
+run_tool docker --crash "the edge test's network ${NETWORK} could not be created; Docker's own reason is above." -- \
+  quietly docker network create "$NETWORK"
 # Before either edge, as compose orders the pair before nginx: a configuration resolving its upstreams
 # at load still starts, and fails only the case aimed at it.
-MSYS_NO_PATHCONV=1 docker run -d --name "$BACKEND_STUB" --network "$NETWORK" --network-alias backend \
+run_tool docker --stdout _started --crash "the stub answering as backend could not be started; Docker's own reason is above." -- \
+  env MSYS_NO_PATHCONV=1 docker run -d --name "$BACKEND_STUB" --network "$NETWORK" --network-alias backend \
   -v "$(mount_source "${SCRATCH}/zz-upstream-stub.conf"):/etc/nginx/conf.d/zz-upstream-stub.conf:ro" \
-  "$EDGE_IMAGE" >/dev/null \
-  || refuse "could not start the stub answering as backend."
+  "$EDGE_IMAGE"
 
-MSYS_NO_PATHCONV=1 docker run -d --name "$CONTAINER" \
+run_tool docker --stdout _started --crash "the pinned nginx for the edge test could not be started; Docker's own reason is above." -- \
+  env MSYS_NO_PATHCONV=1 docker run -d --name "$CONTAINER" \
   -p 127.0.0.1:0:80 \
   --network "$NETWORK" --network-alias frontend \
   "${LOCAL_MOUNTS[@]}" \
@@ -202,8 +208,7 @@ MSYS_NO_PATHCONV=1 docker run -d --name "$CONTAINER" \
   -v "$(mount_source "${REPO_ROOT}/nginx/shared"):/etc/nginx/shared:ro" \
   -v "$(mount_source "${SCRATCH}/zz-upstream-stub.conf"):/etc/nginx/conf.d/zz-upstream-stub.conf:ro" \
   -v "$(mount_source "${SCRATCH}/relay-record.sh"):/relay-record.sh:ro" \
-  "$EDGE_IMAGE" >/dev/null \
-  || refuse "could not start the pinned nginx for the edge test."
+  "$EDGE_IMAGE"
 
 # A container stopped as it started is nginx refusing the configuration it was handed, in its own words
 # in the container's log: a finding about the change, never a run that judged nothing.
@@ -221,19 +226,34 @@ ACCESS_LOG="${SCRATCH}/stdout"
 ERROR_LOG="${SCRATCH}/stderr"
 PROD_ACCESS_LOG="${SCRATCH}/prod-stdout"
 PROD_ERROR_LOG="${SCRATCH}/prod-stderr"
+streams_into() { # $1 the container · $2 its stdout's file · $3 its stderr's file
+  docker logs "$1" > "$2" 2> "$3"
+}
 read_streams() {
-  docker logs "$CONTAINER" > "$ACCESS_LOG" 2> "$ERROR_LOG" \
-    || refuse "could not read the edge test's nginx streams back from Docker."
-  [[ -z "${PROD_BASE:-}" ]] || docker logs "$PROD_CONTAINER" > "$PROD_ACCESS_LOG" 2> "$PROD_ERROR_LOG" \
-    || refuse "could not read the nginx/prod/ edge's streams back from Docker."
+  run_tool docker --crash "the edge test's nginx streams could not be read back from Docker." -- \
+    streams_into "$CONTAINER" "$ACCESS_LOG" "$ERROR_LOG"
+  if [[ -n "${PROD_BASE:-}" ]]; then
+    run_tool docker --crash "the nginx/prod/ edge's streams could not be read back from Docker." -- \
+      streams_into "$PROD_CONTAINER" "$PROD_ACCESS_LOG" "$PROD_ERROR_LOG"
+  fi
 }
 
 # `docker port`, never a fixed number: a developer's own stack shares this host, and a collision
-# would read as a redaction failure rather than as a port already taken.
-ADDR="$(docker port "$CONTAINER" 80/tcp | head -n 1)" \
-  || { judge_start "$CONTAINER" nginx/local/; refuse "the edge test's nginx published no port."; }
-[[ -n "$ADDR" ]] || refuse "the edge test's nginx published no port."
-BASE="http://${ADDR%$'\r'}"
+# would read as a redaction failure rather than as a port already taken. The address it answers in
+# the variable `$3` names; a port it cannot name is nginx's refusal where the container has stopped,
+# and Docker's own failure otherwise.
+port_of() { # $1 the container · $2 the directory it serves · $3 the variable
+  if ! answered docker --stdout "$3" docker port "$1" 80/tcp; then
+    judge_start "$1" "$2"
+    crash "the edge over ${2} published no port, and Docker's own reason is above."
+  fi
+  # The first of the addresses it is published on, its IPv4 one.
+  printf -v "$3" '%s' "${!3%%$'\n'*}"
+  printf -v "$3" '%s' "${!3%$'\r'}"
+  [[ -n "${!3}" ]] || refuse "the edge over ${2} published no port."
+}
+port_of "$CONTAINER" nginx/local/ ADDR
+BASE="http://${ADDR}"
 
 # nginx accepts a connection before the worker serves, so retrying on connect is what separates
 # "not up yet" from "refuses this request". It carries no marker, so the grading below ignores it.
@@ -250,18 +270,15 @@ done
 # `nginx/prod/` mounted as production mounts it, on the plain port the connector dials, proxying to the
 # stub above. The form, sign-in and link zones and the connection ceiling are driven here, on keys
 # nothing else in this run spends.
-MSYS_NO_PATHCONV=1 docker run -d --name "$PROD_CONTAINER" \
+run_tool docker --stdout _started --crash "the pinned nginx over nginx/prod/ could not be started; Docker's own reason is above." -- \
+  env MSYS_NO_PATHCONV=1 docker run -d --name "$PROD_CONTAINER" \
   -p 127.0.0.1:0:80 \
   --network "$NETWORK" \
   "${EDGE_PRIVILEGES[@]}" \
   -v "$(mount_source "${REPO_ROOT}/nginx/prod"):/etc/nginx/conf.d:ro" \
   -v "$(mount_source "${REPO_ROOT}/nginx/shared"):/etc/nginx/shared:ro" \
-  "$EDGE_IMAGE" >/dev/null \
-  || refuse "could not start the pinned nginx over nginx/prod/."
-PROD_ADDR="$(docker port "$PROD_CONTAINER" 80/tcp | head -n 1)" \
-  || { judge_start "$PROD_CONTAINER" nginx/prod/; refuse "the nginx/prod/ edge published no port."; }
-PROD_ADDR="${PROD_ADDR%$'\r'}"
-[[ -n "$PROD_ADDR" ]] || refuse "the nginx/prod/ edge published no port."
+  "$EDGE_IMAGE"
+port_of "$PROD_CONTAINER" nginx/prod/ PROD_ADDR
 PROD_BASE="http://${PROD_ADDR}"
 _up=0
 for _ in $(seq 1 50); do
@@ -432,13 +449,15 @@ fi
 # stub's `$http_next_action` reads empty and missing alike, so a raw listener behind the stub's relay
 # records the headers themselves.
 
-# One transfer through the edge to the relay, printing the request the listener recorded, or nothing
-# where no whole header block arrived.
-relay_seen() { # the curl options naming the transfer's headers
-  local _k status="" seen=""
-  MSYS_NO_PATHCONV=1 docker exec -d "$CONTAINER" sh -c \
-    "rm -f /tmp/relay-seen; exec nc -l -p 3001 -e sh /relay-record.sh" \
-    || return 0
+# One transfer through the edge to the relay, the request the listener recorded answered in the
+# variable `$1` names, or nothing where no whole header block arrived. Run in this shell rather than
+# a substitution, so a listener Docker could not start ends the run as a crash.
+relay_seen() { # $1 the variable · the curl options naming the transfer's headers
+  local _relay_into="$1" _k status="" seen=""
+  shift
+  printf -v "$_relay_into" '%s' ""
+  run_tool docker --crash "the stub's relay listener could not be started in ${CONTAINER}; Docker's own reason is above." -- \
+    env MSYS_NO_PATHCONV=1 docker exec -d "$CONTAINER" sh -c "rm -f /tmp/relay-seen; exec nc -l -p 3001 -e sh /relay-record.sh"
   # A 502 alone is retried, the relay's answer before the listener is up: the listener takes one
   # connection, so a retry after a timeout that reached it reads a 502 and judges nothing.
   for _k in $(seq 1 25); do
@@ -453,10 +472,10 @@ relay_seen() { # the curl options naming the transfer's headers
   # A capture cut before its blank line can lack the very header the empty case looks for, which
   # would read as the edge having dropped it.
   [[ "$seen" == *$'\r\n\r\n'* ]] || return 0
-  printf '%s' "${seen//$'\r'/}"
+  printf -v "$_relay_into" '%s' "${seen//$'\r'/}"
 }
-RELAY_SENT="$(relay_seen -H "Next-Action: ${CLIENT_ACTION}")"
-RELAY_EMPTY="$(relay_seen -H "Next-Action;")"
+relay_seen RELAY_SENT -H "Next-Action: ${CLIENT_ACTION}"
+relay_seen RELAY_EMPTY -H "Next-Action;"
 if [[ "$RELAY_SENT" != *"GET /next-action-relay "* || "$RELAY_EMPTY" != *"GET /next-action-relay "* ]]; then
   refuse "the stub's relay recorded no whole request head, so whether the edge hands Next an empty Next-Action was not judged.
 It listens with the image's own busybox nc: ask it with  docker exec ${CONTAINER} nc -h"
@@ -1038,7 +1057,7 @@ for _ in $(seq 1 50); do
 done
 (( ${UPSTREAM_LOGGED:-0} >= ${#UPSTREAM_LABELS[@]} )) \
   || refuse "the edge logged ${UPSTREAM_LOGGED:-0} of the ${#UPSTREAM_LABELS[@]} requests its failing frontend answered, so whether an error line holds a token was not judged."
-grep -qF "$REFERRED_TOK" "$ERROR_LOG" \
+[[ "$(<"$ERROR_LOG")" == *"$REFERRED_TOK"* ]] \
   || refuse "the failing frontend's static file wrote no error line holding its Referer, so this run read no error line it could judge the link pages' silence against."
 UPSTREAM_ERRORS="$({ grep -F "$TOK" "$ERROR_LOG" || true; })"
 if [[ -n "$UPSTREAM_ERRORS" ]]; then

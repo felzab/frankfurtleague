@@ -25,6 +25,9 @@ SCRIPTS: Final = ("scripts/ops/e2e_stack.sh", "scripts/ops/made_up_seed.sh", "sc
 SEED_FILES: Final = ("fl_backend/tests/documents.py", "fl_backend/tests/made_up_seed.py", "fl_backend/tests/made_up_people.json")
 KEYS: Final = ("auth_secret", "internal_api_key_base", "internal_api_key_system", "internal_api_key_admin")
 E2E_FILES: Final = "docker-compose.yml:docker-compose.local.yml:docker-compose.e2e.yml"
+LOCAL_FILES: Final = "docker-compose.yml:docker-compose.local.yml"
+# The name Compose gives the primary checkout's directory, which local.sh holds the local stack to.
+LOCAL_PROJECT: Final = "frankfurtleague"
 # The project docker-compose.e2e.yml names, which every call must reach whatever the caller's environment names.
 (E2E_PROJECT,) = re.findall(r"(?m)^name: (\S+)$", (REPO_ROOT / "docker-compose.e2e.yml").read_bytes().decode())
 
@@ -45,7 +48,8 @@ case " $* " in
   # The two containers the wait above has running, the frontend not yet created.
   *" compose ps --all --format "*) printf '%s\n' "mongo running" "backend running"; exit 0 ;;
   *" sh -c "*) cat > /dev/null; exit "$(answer hand)" ;;
-  *" tests.made_up_seed "*) exit "$(answer seed)" ;;
+  # A seed answering 1 prints its own closing line, as made_up_seed.py does for an insert it was refused.
+  *" tests.made_up_seed "*) code="$(answer seed)"; if [[ "$code" == 1 ]]; then echo "An insert was refused: stand-in" >&2; fi; exit "$code" ;;
   *" app.readback "*) exit "$(answer readback)" ;;
 esac
 exit 0
@@ -74,11 +78,17 @@ def kind(call: str) -> str:
 
 
 def stack(
-    root: Path, *args: str, codes: Mapping[str, int] = MappingProxyType({}), script: str = "scripts/ops/e2e_stack.sh"
+    root: Path,
+    *args: str,
+    codes: Mapping[str, int] = MappingProxyType({}),
+    script: str = "scripts/ops/e2e_stack.sh",
+    reaches: tuple[str, str] = (E2E_FILES, E2E_PROJECT),
+    caller: str = LOCAL_PROJECT,
 ) -> tuple[int, str, list[str]]:
     """One run of `script` in `root`, each kind of call in `codes` answering with its code, 0 otherwise.
 
-    Returns the exit code, the output and the kinds of engine call made, in order.
+    Every compose call must reach the files and the project `reaches` names, whatever project `caller`, the caller's own
+    variable, names. Returns the exit code, the output and the kinds of engine call made, in order.
     """
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
     engine = new_root("fl-stack-engine-")
@@ -93,13 +103,13 @@ def stack(
         "PATH": str(stubs) + os.pathsep + os.environ["PATH"],
         "FL_STACK_DIR": engine.as_posix(),
         "COMPOSE_FILE": "docker-compose.yml;docker-compose.local.yml",
-        "COMPOSE_PROJECT_NAME": "frankfurtleague",
+        "COMPOSE_PROJECT_NAME": caller,
     }
     done = run_shell(BASH, root / script, *args, env=environment, cwd=root)
     calls = (engine / "calls").read_bytes().decode().splitlines() if (engine / "calls").exists() else []
     compose = [call.split(" | ", 2) for call in calls if " | compose " in call]
     # By either separator: local.sh spells Windows' own, and e2e_stack.sh the one it sets.
-    assert all(re.split("[:;]", files) == E2E_FILES.split(":") and project == E2E_PROJECT for files, project, _ in compose), compose
+    assert all(re.split("[:;]", files) == reaches[0].split(":") and project == reaches[1] for files, project, _ in compose), compose
     return done.returncode, done.stdout + done.stderr, [kind(arguments) for _, _, arguments in compose]
 
 
@@ -147,11 +157,13 @@ def test_a_start_runs_on_new_keys_over_an_empty_stack_and_mail_sink_and_serves_o
         # The seed's crash keeps its own status, and an interrupt stays 130.
         (("serve",), {"seed": 137}, 137, "seed"),
         (("serve",), {"seed": 130}, 130, "seed"),
+        # A service that never came up healthy and an image that does not build are what those two verbs judge.
         (("serve",), {"wait": 1}, 1, "wait"),
-        (("start",), {"down": 1}, 1, "down"),
         (("start", "--build"), {"build": 1}, 1, "build"),
+        # A teardown judges nothing, so Compose's 1 there is any error at all, a crash.
+        (("start",), {"down": 1}, 3, "down"),
     ],
-    ids=["seed-refused-stays-refused", "seed-fails", "seed-crashes", "seed-interrupted", "wait-fails", "teardown-fails", "build-fails"],
+    ids=["seed-refused-stays-refused", "seed-fails", "seed-crashes", "seed-interrupted", "wait-fails", "build-fails", "teardown-crashes"],
 )
 def test_nothing_starts_after_a_step_that_did_not_hold(args: tuple[str, ...], codes: dict[str, int], expected: int, last: str) -> None:
     code, said, kinds = stack(checkout(), *args, codes=codes)
@@ -174,5 +186,13 @@ def test_local_sh_keeps_the_stack_s_verdict(codes: dict[str, int], expected: int
 def test_local_sh_deletes_the_end_to_end_stack_s_volume_alone() -> None:
     # Its own call rather than `e2e_stack.sh`'s, so `stack` holds the project local.sh names.
     code, said, kinds = stack(checkout(), "--e2e", "--down", script="scripts/ops/local.sh")
+    assert code == 0, said
+    assert kinds == ["down"], kinds
+
+
+@pytest.mark.parametrize("args", [("--down",), ("--down", "--fresh")], ids=["down", "down-fresh"])
+def test_local_sh_holds_the_local_stack_to_its_own_name(args: tuple[str, ...]) -> None:
+    """`--down --fresh` deletes the named stack's volumes, so a caller's variable or a `.env` naming another stack must not reach it."""
+    code, said, kinds = stack(checkout(), *args, script="scripts/ops/local.sh", reaches=(LOCAL_FILES, LOCAL_PROJECT), caller="another-stack")
     assert code == 0, said
     assert kinds == ["down"], kinds

@@ -140,11 +140,6 @@ select = [
 # passes unread without these names.
 logger-objects = ["app.core.logging.fl_logger"]
 
-[tool.ruff.lint.per-file-ignores]
-# The scripts' configuration extends this file, and the gate's tooling reads its own environment by
-# design: every entry in the banned list guards the backend alone.
-"../scripts/**" = ["TID251"]
-
 # FastAPI reads a `Depends(...)` default as a declaration and calls the dependency per request, so the
 # one call evaluated at definition is the marker itself; every other call in a default stays a finding.
 [tool.ruff.lint.flake8-bugbear]

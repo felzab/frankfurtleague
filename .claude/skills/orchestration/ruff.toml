@@ -9,5 +9,5 @@ extend = "../../../scripts/ruff.toml"
 [lint]
 # The banned-api list guards how the backend reads its settings; these tools are no part of the
 # backend, and `land.py` hands its own environment to the type checker it runs. The gate's own
-# scripts carry the same exemption in `fl_backend/pyproject.toml`.
+# scripts are exempt from the backend's list in `scripts/ruff.toml`, which bans argparse's own parser in its place.
 extend-per-file-ignores = { "**/*.py" = ["TID251"] }

@@ -45,15 +45,28 @@ exit 1
 """
 
 
-# pnpm answering each command as `FL_PNPM_<command>` says, `<status>` or `<status>:<code>`, the code printed
-# as pnpm prints its own errors; a script it runs is named by the script, `lint:only` as `FL_PNPM_lint_only`.
+# pnpm answering each command as `FL_PNPM_<command>` says, as pnpm 11.28.9 prints, driven: `<status>` a script's
+# own, which pnpm closes on its `[ELIFECYCLE]` line; `<status>:<code>` pnpm's own error, opening a line
+# `[ERR_PNPM_<code>]`; `<status>:ERROR` a codeless error of its own; `<status>:quote` a script's finding quoting a
+# pnpm code inside its own line; `<status>:tsc` tsc's error at a file's line and column. A script it runs is named by
+# the script, `lint:only` as `FL_PNPM_lint_only`.
 PNPM: Final = r"""#!/usr/bin/env bash
 command="$1"
-if [[ "$command" == exec ]]; then exit 0; fi
+if [[ "$command" == exec || "$command" == --dir ]]; then exit 0; fi
 variable="FL_PNPM_${command//[^A-Za-z]/_}"
 answer="${!variable:-0}"
-if [[ "$answer" == *:* ]]; then printf '[ERR_PNPM_%s] stub: pnpm %s\n' "${answer#*:}" "$*" >&2; fi
-exit "${answer%%:*}"
+status="${answer%%:*}"
+case "$answer" in
+  *:quote) printf '%s\n' "src/core/x.ts: a finding quoting [ERR_PNPM_META_FETCH_FAIL] in its own words" ;;
+  *:tsc) printf '%s\n' "src/app/page.tsx(3,7): error TS2322: Type 'string' is not assignable to type 'number'." ;;
+  *:ERROR) printf '%s\n' "[ERROR] Bad escaped character in JSON at position 172" >&2 ;;
+  *:*) printf '[ERR_PNPM_%s] stub: pnpm %s\n' "${answer#*:}" "$*" >&2 ;;
+esac
+# A script that failed under pnpm, which pnpm's own errors are not.
+if [[ "$answer" != *:* || "$answer" == *:quote || "$answer" == *:tsc ]] && (( status )); then
+  printf '[ELIFECYCLE] Command failed with exit code %s.\n' "$status" >&2
+fi
+exit "$status"
 """
 
 
@@ -139,6 +152,8 @@ UNPARSED: Final = "docker-compose.yml does not parse."
 DEDUPE: Final = "holds a copy a dedupe would remove"
 PEERS: Final = "installs a peer outside the range"
 ESLINT: Final = "eslint failed."
+TSC: Final = "tsc found type errors."
+CONTRACT: Final = "The committed contract no longer matches"
 # `on_error`'s own line, which only a crash prints.
 CRASHED: Final = "exit status "
 
@@ -168,6 +183,29 @@ CRASHED: Final = "exit status "
         # A script's own status passes through pnpm, so the tool's own row reads it.
         pytest.param("--frontend", {"FL_PNPM_lint_only": "1"}, 1, ESLINT, JUDGED_NOTHING, id="an-eslint-error-is-a-finding"),
         pytest.param("--frontend", {"FL_PNPM_lint_only": "2"}, 3, CRASHED, ESLINT, id="eslint-s-own-failure-is-a-crash"),
+        # pnpm's code is read off pnpm's own line alone: a finding quoting one stays the tool's.
+        pytest.param(
+            "--frontend", {"FL_PNPM_lint_only": "1:quote"}, 1, ESLINT, JUDGED_NOTHING, id="a-finding-quoting-a-pnpm-code-stays-a-finding"
+        ),
+        pytest.param("--frontend", {"FL_PNPM_lint_only": "1:ERROR"}, 3, CRASHED, ESLINT, id="a-codeless-error-of-pnpm-s-own-is-a-crash"),
+        # The supply-chain policies refuse an entry wherever pnpm verifies the lockfile, in words of their own.
+        pytest.param(
+            "--frontend",
+            {"FL_PNPM_dedupe": "1:MINIMUM_RELEASE_AGE_VIOLATION"},
+            1,
+            "supply-chain policies refuse",
+            DEDUPE,
+            id="a-release-younger-than-the-policy-allows-is-a-finding-of-its-own",
+        ),
+        pytest.param("--frontend", {"FL_PNPM_dedupe": "1:FETCH_503"}, 2, JUDGED_NOTHING, DEDUPE, id="a-registry-answering-503-is-a-refusal"),
+        # tsc's 1 and 2 are a finding only where it names an error at a file's line and column.
+        pytest.param("--frontend", {"FL_PNPM_typecheck_only": "2:tsc"}, 1, TSC, JUDGED_NOTHING, id="a-type-error-is-a-finding"),
+        pytest.param("--frontend", {"FL_PNPM_typecheck_only": "1"}, 3, CRASHED, TSC, id="tsc-stopping-before-a-program-is-a-crash"),
+        pytest.param(
+            "--frontend", {"FL_PNPM_typecheck_only": "1:NO_SCRIPT"}, 3, CRASHED, TSC, id="a-typecheck-script-the-manifest-lacks-is-a-crash"
+        ),
+        # The db scope's three runs side by side: a generator that answered 0 and wrote nothing reached no verdict.
+        pytest.param("--db", {}, 3, "was not generated", CONTRACT, id="a-contract-generated-to-nowhere-is-a-crash"),
     ],
 )
 def test_each_tool_s_status_ends_the_scope_as_its_table_reads_it(scope: str, answers: dict[str, str], code: int, says: str, never: str) -> None:
