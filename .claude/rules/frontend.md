@@ -33,3 +33,12 @@ Each fails silently. The ratified decisions for this surface are in `docs/decisi
   `tsc` and every unit test pass, and the passkey journeys run in Chromium alone.
 - Grep for render props before deleting a `"use client"`. A Server Component may not pass a function
   to a Client Component, and neither `tsc` nor the build catches it on a dynamic route.
+- A domain check is never a type predicate. `tsc` trusts a hand-written `x is T` in both branches
+  without checking either, so a guard testing more than the type answers `false` for a value that
+  is a `T` and narrows it away: a contact seat on another team typed as no seat, a 5xx typed as no
+  `APIBadStatusError`, and `tsc` and every test pass. Such a check answers what it found, typed by
+  the compiler: the matching seats (`fl_frontend/src/core/roles.ts :: seatsAt`), the refusal or
+  `null` (`fl_frontend/src/core/errors.ts :: asRefusal`), or a boolean. A predicate TypeScript
+  infers from the body is left unannotated, so the compiler checks it; one is written by hand only
+  where it cannot infer it, an own-key lookup through `Object.hasOwn` or an exact property
+  refinement.
