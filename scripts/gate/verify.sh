@@ -277,7 +277,7 @@ invisible_check() {
 # links leaving it are no part of this gate. lychee answers 2 for a broken one.
 check_links() {
   local rc=0
-  MSYS_NO_PATHCONV=1 docker run --rm --network none -v "/${REPO_ROOT}:/input:ro" -w /input \
+  MSYS_NO_PATHCONV=1 docker run --rm --network none -v "${REPO_ROOT}:/input:ro" -w /input \
     lycheeverse/lychee:0.24.2@sha256:e2d19e57cf6ab037026f20b8e449a1f30d9d7f81eef4194763aab2eab20bd28d \
     --config lychee.toml --no-progress . || rc=$?
   if (( rc == 2 )); then return 1; fi
