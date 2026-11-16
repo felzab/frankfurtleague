@@ -1363,19 +1363,21 @@ built again before the next boot, on the first heartbeat the store answers as a 
 Each run ends with one
 `auth.indexes_settled` line counting the indexes `built` and `unbuilt`, written once every index
 is built or logged. So after every deploy ([section 1](#1-deploying-a-build-and-going-back-to-an-earlier-one))
-and every restart, wait for that line, then read the run's lines:
+and every restart, wait for that line, then read the run's lines. A restart keeps the container and
+its earlier log, so both commands read only from the container's own start:
 
 ```bash
-timeout 300 bash -c 'until docker compose logs frontend | grep -q auth.indexes_settled; do sleep 5; done'
-docker compose logs frontend | grep -E 'auth\.(index_unbuilt|indexes_settled)'
+since="$(docker inspect -f '{{.State.StartedAt}}' "$(docker compose ps -q frontend)")"
+timeout 300 bash -c "until docker compose logs --since '$since' frontend | grep -q auth.indexes_settled; do sleep 5; done"
+docker compose logs --since "$since" frontend | grep -E 'auth\.(index_unbuilt|indexes_settled)'
 ```
 
 **Five minutes outlasts any run the boot starts.** A run asks again for an unanswered build for
 three minutes (`fl_frontend/src/core/authIndexes.ts :: ANSWERED_WITHIN_MS`), counted from the boot,
 which comes before a deploy ends. Past the three minutes, the ask under way finishes, and each later
 index of the same collection is asked once. That is at most three asks, for `session`'s three
-indexes, and each waits at most nine seconds: the client's three bounds of three seconds each
-(`fl_frontend/src/core/db.ts`). A wait that ends in exit 124 means the frontend has written no
+indexes, and each waits at most nine seconds: the client's selection, checkout and socket bounds
+of three seconds each, its connect bound counted inside the checkout (`fl_frontend/src/core/db.ts`). A wait that ends in exit 124 means the frontend has written no
 verdict since it started: read its whole log.
 
 | The line's `code`                           | What stands                                                                 | What to do                                                                                                                                                               |

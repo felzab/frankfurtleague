@@ -277,7 +277,7 @@ match count follows from the season's rules and is held nowhere.
 | **`find_*_refusal` functions** | Everything spanning more than one document                                      | No model sees more than one document                                                                     |
 | **The pages that offer**       | Offering only legal choices, and reporting permitted states                     | A page may never be the only enforcement — a direct API call bypasses it                                 |
 
-Nothing in the database refuses a document of another shape, so a migration paste is followed by
+Nothing in the database refuses a document of another shape, so a migration is followed by
 `python -m app.readback` (`fl_backend/app/readback.py`), which reads every stored document back through its
 record model and names each one it refuses. **The pages narrow the offer and name what they cannot narrow;
 they never replace the refusal.** The entry form disables a group it can see is full, and the endpoint still
