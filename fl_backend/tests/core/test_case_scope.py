@@ -4,7 +4,8 @@ TESTS · the scope every async case runs in (`tests/database.py :: bounded_case`
 Invariants:
 - Every async case runs under the case's bound, which `tests/conftest.py :: pytest_collection_modifyitems` applies by
   wrapping what pytest-asyncio runs: a case reaching here unwrapped runs unbounded, and a rival deadlocked on its own
-  write's transaction waits out MongoDB's abort and passes on the retry.
+  write's transaction waits out MongoDB's abort and passes on the retry. Work past its bound is cut; a `TimeoutError`
+  the work raises itself passes as it was.
 - A task the work starts and leaves running fails the scope that left it, and is cancelled there rather than running
   into the next case, as is a task one of those starts as it unwinds. A task still running once cancelled refuses every
   later scope until it ends. A task started outside the scope is not the scope's, nor is a shared client's monitor,
@@ -20,13 +21,14 @@ import contextlib
 import contextvars
 from collections.abc import AsyncIterator
 
+import pymongo
 import pytest
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.collections import Collection
 from app.core.logging import NO_REQUEST_SENTINEL, trace_id_var
-from tests.config import UNANSWERED_URI
+from tests.config import UNANSWERED_DEADLINE_S, UNANSWERED_URI
 from tests.database import CASE_BOUND_S, a_clean_database, bounded, bounded_case, case_deadline, held_corpus, shared_client
 from tests.documents import saison_document
 from tests.worker import worker_database
@@ -39,6 +41,25 @@ async def test_a_case_runs_inside_its_bound():
 
     assert deadline is not None, "this case runs outside `bounded_case`: the collection hook did not wrap it"
     assert 0 < deadline - asyncio.get_running_loop().time() <= CASE_BOUND_S
+
+
+async def test_work_running_past_its_bound_is_cut_by_it():
+    # A backstop, so a bound that never fires fails this case here rather than hanging it.
+    async with asyncio.timeout(5):
+        with pytest.raises(TimeoutError, match=r"this ran past 0.05 s and was cancelled"):
+            await bounded(asyncio.Event().wait(), bound_s=0.05)
+
+
+async def test_a_timeout_the_work_raises_itself_passes_as_it_was():
+    raised = TimeoutError("the work's own")
+
+    async def times_out() -> None:
+        raise raised
+
+    with pytest.raises(TimeoutError) as caught:
+        await bounded(times_out())
+
+    assert caught.value is raised
 
 
 async def test_a_task_left_running_fails_its_scope_and_is_cancelled():
@@ -205,8 +226,10 @@ async def test_a_shared_client_s_monitor_mid_check_is_not_the_scope_s():
 
 async def test_a_clean_database_entered_outside_a_case_is_refused():
     async def entered_as_a_fixture_would() -> None:
-        async with a_clean_database(UNANSWERED_URI, DATABASE_NAME):
-            pass
+        # Past the refusal, the first selection fails at once rather than after pymongo's 30 s, the case's own bound.
+        with pymongo.timeout(UNANSWERED_DEADLINE_S):
+            async with a_clean_database(UNANSWERED_URI, DATABASE_NAME):
+                pass
 
     with pytest.raises(RuntimeError, match="entered outside a case"):
         # An empty context, as a fixture's setup runs outside any case.

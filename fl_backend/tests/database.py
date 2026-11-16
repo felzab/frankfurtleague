@@ -69,7 +69,7 @@ assert LONGEST_WAIT_S < CASE_BOUND_S < TRANSACTION_LIFETIME_S, (
 _DRAIN_S = 5.0
 
 _UNFINISHED = (
-    "{what} ran past {bound:.0f} s and was cancelled. Where it waits inside a write's transaction, the likely cause is a"
+    "{what} ran past {bound:g} s and was cancelled. Where it waits inside a write's transaction, the likely cause is a"
     " rival run inside that write which waits on the write's own transaction, a deadlock until MongoDB aborts it at its"
     " lifetime limit: run the rival before the write it contends with."
 )
@@ -171,30 +171,30 @@ def _refuse_while_one_runs[T](work: Coroutine[Any, Any, T], what: str) -> None:
     raise AssertionError(_NOT_ISOLATED.format(what=what, first=first, tasks=", ".join(_named(tasks))))
 
 
-async def _within[T](bound: asyncio.Timeout, work: Awaitable[T], what: str) -> T:
+async def _within[T](bound: asyncio.Timeout, bound_s: float, work: Awaitable[T], what: str) -> T:
     try:
         async with bound:
             return await work
     except TimeoutError as timeout:
         # A `TimeoutError` the work raised itself passes as it was.
         if bound.expired():
-            raise TimeoutError(_UNFINISHED.format(what=what, bound=CASE_BOUND_S)) from timeout
+            raise TimeoutError(_UNFINISHED.format(what=what, bound=bound_s)) from timeout
         raise
 
 
-async def _scoped[T](work: Coroutine[Any, Any, T], what: str, *, named: str, a_case: bool) -> T:
-    """`work` under `CASE_BOUND_S`, failing if it leaves a task of its own running; a case is marked as one while it runs.
+async def _scoped[T](work: Coroutine[Any, Any, T], what: str, *, named: str, a_case: bool, bound_s: float = CASE_BOUND_S) -> T:
+    """`work` under `bound_s`, failing if it leaves a task of its own running; a case is marked as one while it runs.
 
     Past the bound the work is cancelled and unwound before this raises, so its sessions abort their transactions here.
     A task still running once cancelled refuses every later scope, which a later refusal names by `named`.
     """
 
     _refuse_while_one_runs(work, what)
-    bound = asyncio.timeout(CASE_BOUND_S)
+    bound = asyncio.timeout(bound_s)
     scope = _SCOPE.set(bound)
     token = _CASE.set(bound) if a_case else None
     try:
-        return await _within(bound, work, what)
+        return await _within(bound, bound_s, work, what)
     finally:
         if token is not None:
             _CASE.reset(token)
@@ -217,10 +217,10 @@ async def bounded_case[T](case: Coroutine[Any, Any, T], nodeid: str) -> T:
     return await _scoped(case, "this case", named=nodeid, a_case=True)
 
 
-async def bounded[T](work: Coroutine[Any, Any, T], *, what: str = "this") -> T:
-    """`work` outside a case, under the case's bound and its check on the tasks it leaves."""
+async def bounded[T](work: Coroutine[Any, Any, T], *, what: str = "this", bound_s: float = CASE_BOUND_S) -> T:
+    """`work` outside a case, under the case's bound unless `bound_s` names a shorter one, and its check on the tasks it leaves."""
 
-    return await _scoped(work, what, named=what, a_case=False)
+    return await _scoped(work, what, named=what, a_case=False, bound_s=bound_s)
 
 
 async def close_the_shared_clients() -> None:
