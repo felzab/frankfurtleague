@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import tomllib
 from pathlib import Path
 from typing import Final
 
@@ -244,3 +245,26 @@ def test_the_backend_image_runs_the_python_series_ci_installs() -> None:
     assert tags and all(tag == series or tag.startswith(f"{series}.") for tag in tags), (
         f"{series} in fl_backend/.python-version, {tags} in the image"
     )
+
+
+BACKEND_MANIFEST: Final = REPO_ROOT / "fl_backend" / "pyproject.toml"
+SCRIPTS_PYRIGHT: Final = REPO_ROOT / "scripts" / "pyrightconfig.json"
+
+
+def test_every_python_series_the_checks_read_is_the_file_s() -> None:
+    """pyright judges each tree as its pinned Python and ruff targets `requires-python`, so a copy a bump misses checks another series."""
+    series = PYTHON_VERSION_FILE.read_text(encoding="utf-8").strip()
+    backend = tomllib.loads(BACKEND_MANIFEST.read_text(encoding="utf-8"))
+    # JSON with comments, which no parser of the standard library reads: the one key, by its line.
+    scripts = re.findall(r'^\s*"pythonVersion": "([^"]*)"\s*,?\s*$', SCRIPTS_PYRIGHT.read_text(encoding="utf-8"), re.MULTILINE)
+    copies = {
+        "fl_backend/pyproject.toml :: project.requires-python": backend["project"]["requires-python"],
+        "fl_backend/pyproject.toml :: tool.pyright.pythonVersion": backend["tool"]["pyright"]["pythonVersion"],
+        "scripts/pyrightconfig.json :: pythonVersion": scripts[0] if len(scripts) == 1 else scripts,
+    }
+    expected = {
+        "fl_backend/pyproject.toml :: project.requires-python": f">={series}",
+        "fl_backend/pyproject.toml :: tool.pyright.pythonVersion": series,
+        "scripts/pyrightconfig.json :: pythonVersion": series,
+    }
+    assert copies == expected, f"fl_backend/.python-version names {series}"
