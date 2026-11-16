@@ -13,6 +13,8 @@ import path from "node:path";
 const BUILDER = "@/core/action";
 // Next routes `.ts` and `.tsx` files alone (`next.config.ts :: pageExtensions`), the two this rule's files reach.
 const ROUTE = /(?:^|\/)src\/app\/(?:.*\/)?route\.tsx?$/;
+/** `fl_frontend`, read off this file's place rather than the directory ESLint was started in. */
+const ROOT = path.resolve(import.meta.dirname, "..");
 
 /**
  * What an object literal with no spread or computed key holds at `key`, or `undefined` where it has none. An accessor
@@ -46,7 +48,7 @@ const serverAction = {
   create(context) {
     const [{ keptRoutes }] = context.options;
     // Relative to the project, as the options name the kept files.
-    const filename = path.relative(context.cwd, path.resolve(context.cwd, context.filename)).replaceAll("\\", "/");
+    const filename = path.relative(ROOT, path.resolve(ROOT, context.filename)).replaceAll("\\", "/");
     let builder = null;
 
     /** Judges one `action({...})` declaration. */
