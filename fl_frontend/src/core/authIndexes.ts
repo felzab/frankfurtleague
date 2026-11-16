@@ -6,7 +6,7 @@ import { now } from "./clock";
 import { signInStore } from "./db";
 import { logger } from "./logging";
 
-import type { IndexOptions, IndexSpecification, TopologyDescriptionChangedEvent } from "mongodb";
+import type { IndexOptions, IndexSpecification, ServerHeartbeatSucceededEvent } from "mongodb";
 
 // Named for what the database holds rather than for the library that writes it, so the next swap
 // inherits a name it does not have to migrate.
@@ -57,29 +57,48 @@ export function buildAuthIndexes(): Promise<void> {
 }
 
 /**
- * How long a run asks again for a build the store has not answered: at most `scripts/ops/deploy.sh :: WAIT_S`, the
- * most a deploy waits before the runbook reads this log for `auth.index_unbuilt`, so the read after any deploy finds a
- * build still unanswered (`scripts/tests/test_index_build_window.py` holds the two in order). Without it a build that
- * never answers would hold `running`, and every rebuild queued behind it.
+ * How long a run asks again for a build the store has not answered. Without it a build that never answers would hold
+ * `running`, and every rebuild queued behind it.
  */
 const ANSWERED_WITHIN_MS = 180_000;
+
+/**
+ * The codes of a server answering while it changes role, an election's or a shutdown's, which judge no index: the SDAM
+ * specification's "not writable primary" and "node is recovering" errors, matched by code alone, as the specification
+ * requires where the reply carries one
+ * (https://github.com/mongodb/specifications/blob/master/source/server-discovery-and-monitoring/server-discovery-and-monitoring.md#not-writable-primary-and-node-is-recovering).
+ * The driver implements the same set as its `isStateChangeError`, which it does not export.
+ */
+const STATE_CHANGE_CODES: ReadonlySet<number> = new Set([
+  // Not writable primary: NotWritablePrimary, NotPrimaryNoSecondaryOk, LegacyNotPrimary.
+  10107, 13435, 10058,
+  // Node is recovering: InterruptedAtShutdown, InterruptedDueToReplStateChange, NotPrimaryOrSecondary,
+  // PrimarySteppedDown, ShutdownInProgress.
+  11600, 11602, 13436, 189, 91,
+]);
 
 async function buildOnce(): Promise<void> {
   const database = signInStore().db(MONGO_DB_NAME);
   const lanes = Map.groupBy(AUTH_INDEXES, (index) => index.collection);
   const askUntil = now().getTime() + ANSWERED_WITHIN_MS;
 
+  let unbuilt = 0;
   await Promise.all(
     [...lanes].map(async ([collection, indexes]) => {
       for (const { key, options } of indexes) {
         const failed = await failureOf(() => database.collection(collection).createIndex(key, options, undefined), askUntil);
         if (failed === undefined) continue;
+        unbuilt += 1;
         logUnbuilt(options.name, failed);
-        // No server code is a store that did not answer, which a restart would only meet again.
-        if (!(failed instanceof MongoServerError)) rebuildOnRecovery();
+        // Neither a store that did not answer, which carries no server code, nor a server changing role judged the
+        // index, so its recovery asks again; every other code is the store's verdict, which asking again only repeats.
+        if (!(failed instanceof MongoServerError) || STATE_CHANGE_CODES.has(Number(failed.code))) rebuildOnRecovery();
       }
     }),
   );
+  // The run's verdict, which a reader waits for rather than for a time: until it is written, a lane may still be
+  // asking, and its line still to come.
+  logger.info("auth.indexes_settled", { built: AUTH_INDEXES.length - unbuilt, unbuilt });
 }
 
 /**
@@ -100,22 +119,27 @@ async function failureOf(build: () => Promise<unknown>, askUntil: number): Promi
 }
 
 /**
- * The client reconnects on its own once the store answers, and the
- * build runs again on the first topology holding a writable server, rather than waiting for the next boot.
+ * The build runs again on the next heartbeat a writable server answers, rather than waiting for the next boot
+ * (`serverHeartbeatSucceeded`, https://www.mongodb.com/docs/drivers/node/current/monitoring-and-logging/monitoring/).
+ * A store that did not answer fails its heartbeats until it is back, and the client reconnects on its own. A store that
+ * stayed writable but timed out answers its next one, within the client's heartbeat interval: "If there is a network
+ * timeout on the connection after the handshake completes, the client MUST NOT mark the server Unknown"
+ * (https://github.com/mongodb/specifications/blob/master/source/server-discovery-and-monitoring/server-discovery-and-monitoring.md#network-error-when-reading-or-writing),
+ * so its topology never changes. While a store stays that slow, each window ends in its lines and the next heartbeat
+ * starts another, until it answers. A server that changed role is one the driver marks unknown and checks at once, and
+ * the first writable heartbeat after it is the new primary's.
  */
 function rebuildOnRecovery(): void {
   if (rebuildArmed) return;
   rebuildArmed = true;
   const store = signInStore();
-  // Never `open`, which the driver emits for a new topology alone: one recovering after its first open
-  // emits none, and the rebuild would wait for the next boot.
-  const recovered = ({ newDescription }: TopologyDescriptionChangedEvent): void => {
-    if (![...newDescription.servers.values()].some((server) => server.isWritable)) return;
-    store.off("topologyDescriptionChanged", recovered);
+  const recovered = ({ reply }: ServerHeartbeatSucceededEvent): void => {
+    if (reply["isWritablePrimary"] !== true) return;
+    store.off("serverHeartbeatSucceeded", recovered);
     rebuildArmed = false;
     void buildAuthIndexes();
   };
-  store.on("topologyDescriptionChanged", recovered);
+  store.on("serverHeartbeatSucceeded", recovered);
 }
 
 /**
