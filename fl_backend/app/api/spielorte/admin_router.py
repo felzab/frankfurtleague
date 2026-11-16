@@ -16,7 +16,7 @@ from app.api.spielorte.schemas import (
     FLSpielorteSingleResponse,
     FLSpielortListAdapter,
 )
-from app.api.spielorte.services import build_unplayed_booking_filter, find_venue_name_refusal, find_venue_retire_refusal
+from app.api.spielorte.services import build_unplayed_booking_filter, compose_maps_link, find_venue_name_refusal, find_venue_retire_refusal
 from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
@@ -33,7 +33,6 @@ from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.schemas.addresses import FLAddress
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.responses import FLCreatedResponse
 
@@ -76,11 +75,6 @@ async def get_spielort(spielort_id: CustomRouteObjectId, spielorte_collection: S
     return FLSpielorteSingleResponse(spielort=FLSpielort(**spielort_raw))
 
 
-def _maps_link(name: str, address: FLAddress) -> str:
-    """The Google Maps search string, not a URL. Derived here so a client can never supply one."""
-    return f"{name}, {address.to_string}, Deutschland"
-
-
 @router.post("", response_model=FLCreatedResponse, status_code=201, summary="Create a Spielort")
 async def post_spielort(
     spielort_data: Annotated[FLPostSpielortPayload, Body()],
@@ -99,7 +93,7 @@ async def post_spielort(
             collection=spielorte_collection,
             document={
                 **spielort_data.model_dump(mode="json"),
-                "maps_link": _maps_link(spielort_data.name, spielort_data.address),
+                "maps_link": compose_maps_link(spielort_data.name, spielort_data.address),
             },
             session=session,
         )
@@ -133,7 +127,7 @@ async def patch_spielort(
     Every fixture at the venue shows its new name and `maps_link`, and keeps the `mietpreis` agreed for it.
     """
 
-    maps_link = _maps_link(spielort_data.name, spielort_data.address)
+    maps_link = compose_maps_link(spielort_data.name, spielort_data.address)
 
     async def save_the_venue(session: AsyncClientSession) -> FLPatchSpielortResponse:
         taken = await is_held_elsewhere(
