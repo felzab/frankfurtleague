@@ -29,6 +29,7 @@ from checker_kernel import (
     report_findings,
     run,
 )
+from nginx_conf import NginxSyntax, parse, walk
 
 # Pinned rather than read off either file: a service joining production is a decision about what
 # the server runs, and the one this pin exists for is a database.
@@ -411,56 +412,16 @@ def edge_configuration(pairs: list[tuple[str, str]], checkout: Path) -> str:
     return "\n".join(file.read_bytes().decode() for directory in directories for file in sorted(directory.iterdir()) if file.is_file())
 
 
-def statements(conf: str) -> list[tuple[str, list[str]]]:
-    """nginx's statements in order, each with its words, comments dropped and quotes respected.
-
-    Never by line: nginx takes a whole `location { … }` on one line, where a line-anchored pattern
-    sees nothing.
-    """
-    found: list[tuple[str, list[str]]] = []
-    words: list[str] = []
-    word = ""
-    quote = ""
-    index = 0
-    while index < len(conf):
-        char = conf[index]
-        if quote:
-            word += char
-            if char == "\\" and index + 1 < len(conf):
-                word += conf[index + 1]
-                index += 1
-            elif char == quote:
-                quote = ""
-        elif char in "\"'":
-            quote = char
-            word += char
-        elif char == "#":
-            newline = conf.find("\n", index)
-            index = len(conf) if newline < 0 else newline
-            continue
-        elif char in ";{}" or char.isspace():
-            if word:
-                words.append(word)
-                word = ""
-            if not char.isspace():
-                found.append(({";": "statement", "{": "open", "}": "close"}[char], words))
-                words = []
-        else:
-            word += char
-        index += 1
-    return found
-
-
 def trusted_connector(conf: str, address: str, name: str) -> list[Finding]:
     """`set_real_ip_from` names the connector's address and nothing else, and the realip settings are declared once.
 
     Another address leaves every visitor keyed to the connector's; a wider one lets any host on it name a visitor.
+    Every depth is read, since nginx takes a whole `location { … }` on one line.
     """
-    parsed = statements(conf)
     declared: dict[str, list[str]] = {}
-    for kind, words in parsed:
-        if kind == "statement" and len(words) >= 2:
-            declared.setdefault(words[0], []).append(" ".join(words[1:]))
+    for directive in walk(parse(conf, name)):
+        if directive.block is None and directive.args:
+            declared.setdefault(directive.name, []).append(" ".join(directive.args))
     trusted = declared.get("set_real_ip_from", [])
     findings: list[Finding] = []
     if trusted != [address]:
@@ -598,7 +559,7 @@ def main() -> int:
             Stack(local_model, "local", Path(args.local).resolve().parent, connector),
         )
         findings = [finding for rule in RULES for stack in stacks for finding in rule(stack)]
-    except (*UNREADABLE, ValueError) as error:
+    except (*UNREADABLE, ValueError, NginxSyntax) as error:
         print(f"      {error}", file=sys.stderr)
         print("      Nothing was judged, so this is a refusal rather than a verdict on either stack.", file=sys.stderr)
         return EXIT_REFUSED

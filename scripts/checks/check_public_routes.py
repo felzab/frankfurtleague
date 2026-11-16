@@ -44,6 +44,7 @@ from checker_kernel import (
     report_findings,
     run,
 )
+from nginx_conf import Directive, NginxSyntax, read
 
 APP_ROUTER: Final = "fl_frontend/src/app"
 NGINX_CONF: Final = "nginx/shared/site.conf"
@@ -242,22 +243,8 @@ DYNAMIC_RE: Final = re.compile(r"^\[\[?(?:\.\.\.)?[A-Za-z0-9_]+\]?\]$")
 LITERAL_RE: Final = re.compile(r"^[A-Za-z0-9.~-][A-Za-z0-9._~-]*$")
 
 
-class NginxSyntax(Exception):
-    """A construct outside the subset this reader parses, named with the line that carries it."""
-
-
 class RouteShape(Exception):
     """A segment or a reserved file name whose URL this reader cannot derive, named with its file."""
-
-
-@dataclass(frozen=True)
-class Directive:
-    """One nginx directive: its name, its arguments, and the block under it where it opens one."""
-
-    name: str
-    args: tuple[str, ...]
-    block: tuple[Directive, ...] | None
-    line: int
 
 
 @dataclass(frozen=True)
@@ -302,104 +289,6 @@ class Handler:
     # prefix location has to cover for the whole handler to be covered.
     head: str
     dynamic: bool
-
-
-def lex(text: str, source: str) -> list[tuple[str, str, int]]:
-    """The configuration as `(kind, value, line)` tokens: a word, or one of `{`, `}` and `;`."""
-    tokens: list[tuple[str, str, int]] = []
-    line = 1
-    index = 0
-    while index < len(text):
-        char = text[index]
-        if char == "\n":
-            line += 1
-            index += 1
-        elif char in " \t\r":
-            index += 1
-        elif char == "#":
-            while index < len(text) and text[index] != "\n":
-                index += 1
-        elif char in "{};":
-            tokens.append((char, char, line))
-            index += 1
-        elif char in "\"'":
-            value, index, line = _quoted(text, index, line, source)
-            tokens.append(("word", value, line))
-        else:
-            start = index
-            while index < len(text) and text[index] not in " \t\r\n{};#":
-                index += 1
-            tokens.append(("word", text[start:index], line))
-    return tokens
-
-
-def _quoted(text: str, index: int, line: int, source: str) -> tuple[str, int, int]:
-    """One quoted string, answering its content and where the scan resumes.
-
-    A `log_format` string spans lines, so the line counter travels with the scan rather than being
-    recovered afterwards.
-    """
-    quote = text[index]
-    opened = line
-    index += 1
-    out: list[str] = []
-    while index < len(text) and text[index] != quote:
-        # The escape is consumed whole, or a `\"` inside a regex would close the string here.
-        if text[index] == "\\" and index + 1 < len(text):
-            out.append(text[index])
-            index += 1
-        if text[index] == "\n":
-            line += 1
-        out.append(text[index])
-        index += 1
-    if index >= len(text):
-        raise NginxSyntax(f"{source}:{opened}: a quoted string that never closes")
-    # The advanced counter, not `opened`: every line the string spanned is a line the scan passed,
-    # and handing back the opening one makes each refusal below it name a line too low.
-    return "".join(out), index + 1, line
-
-
-def parse(text: str, source: str) -> tuple[Directive, ...]:
-    """The configuration as a tree of directives."""
-    tree, _ = _block(lex(text, source), 0, source, top=True)
-    return tree
-
-
-def _block(tokens: list[tuple[str, str, int]], index: int, source: str, *, top: bool) -> tuple[tuple[Directive, ...], int]:
-    """The directives from `index` to the closing brace, and the index of the token after it."""
-    out: list[Directive] = []
-    words: list[str] = []
-    opened = 0
-    while index < len(tokens):
-        kind, value, line = tokens[index]
-        if kind == "word":
-            if not words:
-                opened = line
-            words.append(value)
-            index += 1
-        elif kind == ";":
-            if not words:
-                raise NginxSyntax(f"{source}:{line}: a semicolon with no directive in front of it")
-            out.append(Directive(words[0], tuple(words[1:]), None, opened))
-            words = []
-            index += 1
-        elif kind == "{":
-            if not words:
-                raise NginxSyntax(f"{source}:{line}: a block with no directive naming it")
-            nested, index = _block(tokens, index + 1, source, top=False)
-            out.append(Directive(words[0], tuple(words[1:]), nested, opened))
-            words = []
-        else:
-            if top:
-                raise NginxSyntax(f"{source}:{line}: a block closes without opening")
-            if words:
-                raise NginxSyntax(f"{source}:{opened}: a directive that never ends in a semicolon")
-            return tuple(out), index + 1
-    if not top:
-        raise NginxSyntax(f"{source}: a block that never closes")
-    if words:
-        raise NginxSyntax(f"{source}:{opened}: a directive that never ends in a semicolon")
-    return tuple(out), index
 
 
 def read_location(directive: Directive, source: str, redirected: frozenset[str] = frozenset()) -> Location | None:
@@ -459,7 +348,7 @@ def map_entries(http_path: Path, variable: str) -> tuple[tuple[str, str], ...]:
 
     A key nginx reads as something other than a string or a regex, and an entry taking other than one value, refuse.
     """
-    tree = parse(http_path.read_bytes().decode("utf-8"), http_path.name)
+    tree = read(http_path)
     found = [directive for directive in tree if directive.name == "map" and directive.args[-1:] == (variable,)]
     if not found:
         return ()
@@ -532,8 +421,8 @@ def edge_locations(conf_path: Path) -> tuple[Location, ...]:
     Bytes, so no platform's newline translation reaches a path this reader then compares.
     """
     http_path = conf_path.parent / NGINX_HTTP_CONF
-    maps = map_values(parse(http_path.read_bytes().decode("utf-8"), http_path.name))
-    return locations(parse(conf_path.read_bytes().decode("utf-8"), conf_path.name), conf_path.name, maps)
+    maps = map_values(read(http_path))
+    return locations(read(conf_path), conf_path.name, maps)
 
 
 def _targets(target: str, maps: Mapping[str, frozenset[str]], source: str, line: int) -> frozenset[str]:
@@ -705,7 +594,7 @@ def kader_size_max(openapi_path: Path) -> int:
 def zone_rates(http_path: Path) -> dict[str, int]:
     """Each `limit_req_zone` the http level declares, by name, at its rate in requests a minute."""
     rates: dict[str, int] = {}
-    for directive in parse(http_path.read_bytes().decode("utf-8"), http_path.name):
+    for directive in read(http_path):
         if directive.name != "limit_req_zone":
             continue
         named = next((arg.removeprefix(ZONE).partition(":")[0] for arg in directive.args if arg.startswith(ZONE)), None)

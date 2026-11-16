@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 from conftest import REPO_ROOT, import_scripts, new_root
 
-[routes] = import_scripts("check_public_routes")
+[routes, nginx] = import_scripts("check_public_routes", "nginx_conf", directories=("checks", "lib"))
 
 SOURCE = "fixture.conf"
 HANDLER = "export const POST = () => new Response();\n"
@@ -62,7 +62,7 @@ CATCH_ALL = block("location /", "        limit_conn conn 50;\n", PASS)
 def served(*blocks: str) -> tuple:
     """The locations of one server block holding the blocks given."""
     text = "server {\n    server_name frankfurtleague.de;\n" + "".join(blocks) + "}\n"
-    return routes.locations(routes.parse(text, SOURCE), SOURCE)
+    return routes.locations(nginx.parse(text, SOURCE), SOURCE)
 
 
 def tree(*urls: str, file: str = "route.ts") -> Path:
@@ -577,7 +577,7 @@ def test_a_variable_error_page_this_reader_cannot_resolve_refuses(maps, named):
     """Unresolved, every named location it reaches would read as dead; resolved to nothing, as reached."""
     text = "server {\n    error_page 429 = $target;\n" + block("location @page", PASS) + CATCH_ALL + "}\n"
     with pytest.raises(routes.NginxSyntax, match=named):
-        routes.locations(routes.parse(text, SOURCE), SOURCE, maps)
+        routes.locations(nginx.parse(text, SOURCE), SOURCE, maps)
 
 
 def test_a_location_inside_a_location_refuses():
@@ -600,7 +600,7 @@ def test_a_path_two_exact_matches_declare_refuses():
 def test_locations_at_the_top_and_inside_a_server_refuse():
     text = prefix("/api/") + "server {\n" + CATCH_ALL + "}\n"
     with pytest.raises(routes.NginxSyntax, match="both at the top and inside a server block"):
-        routes.locations(routes.parse(text, SOURCE), SOURCE)
+        routes.locations(nginx.parse(text, SOURCE), SOURCE)
 
 
 def test_two_server_blocks_declaring_locations_refuse():
@@ -608,24 +608,24 @@ def test_two_server_blocks_declaring_locations_refuse():
     text = "server {\n" + CATCH_ALL + "}\nserver {\n" + prefix("/api/") + "}\n"
 
     with pytest.raises(routes.NginxSyntax, match="server blocks declare a location"):
-        routes.locations(routes.parse(text, SOURCE), SOURCE)
+        routes.locations(nginx.parse(text, SOURCE), SOURCE)
 
 
 def test_a_block_that_never_closes_refuses():
     """A truncated file would otherwise read as a configuration declaring fewer locations."""
     with pytest.raises(routes.NginxSyntax, match="never closes"):
-        routes.parse("server {\n    location / { proxy_pass http://frontend:3000;\n", SOURCE)
+        nginx.parse("server {\n    location / { proxy_pass http://frontend:3000;\n", SOURCE)
 
 
 def test_a_directive_with_no_semicolon_refuses():
     """The line after it would be swallowed into its arguments, which loses a whole directive."""
     with pytest.raises(routes.NginxSyntax, match="semicolon"):
-        routes.parse("server {\n    location / {\n        proxy_pass http://frontend:3000\n    }\n}\n", SOURCE)
+        nginx.parse("server {\n    location / {\n        proxy_pass http://frontend:3000\n    }\n}\n", SOURCE)
 
 
 def test_a_quoted_string_spanning_lines_is_one_word():
     """`log_format` writes its line that way, and a lexer breaking it invents directives."""
-    tree_of = routes.parse('log_format fl_json escape=json \'{"a":"$b",\'\n    \'"c":$d}\';\n', SOURCE)
+    tree_of = nginx.parse('log_format fl_json escape=json \'{"a":"$b",\'\n    \'"c":$d}\';\n', SOURCE)
 
     assert [directive.name for directive in tree_of] == ["log_format"]
     assert len(tree_of[0].args) == 4
@@ -633,7 +633,7 @@ def test_a_quoted_string_spanning_lines_is_one_word():
 
 def test_a_regex_holding_an_escaped_quote_stays_inside_its_string():
     """A map body's regex carries backslashes, and one read as an escape ends the string early."""
-    tree_of = routes.parse('map $uri $x {\n    "~^/a\\"b"  1;\n    default    0;\n}\n', SOURCE)
+    tree_of = nginx.parse('map $uri $x {\n    "~^/a\\"b"  1;\n    default    0;\n}\n', SOURCE)
 
     assert tree_of[0].block is not None
     assert len(tree_of[0].block) == 2

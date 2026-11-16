@@ -252,8 +252,8 @@ def declared_secrets(project: Path, stack: str, **moved: str) -> dict[str, Any]:
     return {"secrets": {secret: {"file": str(project / source)} for secret, source in files.items()}}
 
 
-# The checker and the one module it imports, at their paths in a checkout.
-CHECKER_FILES: Final = ("scripts/checks/check_compose_model.py", "scripts/lib/checker_kernel.py")
+# The checker and the two modules it imports, at their paths in a checkout.
+CHECKER_FILES: Final = ("scripts/checks/check_compose_model.py", "scripts/lib/checker_kernel.py", "scripts/lib/nginx_conf.py")
 
 
 def run_main(production: dict[str, Any], local: dict[str, Any], project: Path) -> subprocess.CompletedProcess[str]:
