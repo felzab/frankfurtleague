@@ -11,6 +11,7 @@ so the docs and ops scopes run with no daemon, no audit and no install.
 from __future__ import annotations
 
 import os
+import re
 import shutil
 from typing import Final
 
@@ -103,6 +104,41 @@ def test_each_tool_s_status_ends_the_scope_as_its_table_reads_it(scope: str, ans
     """What the tool found is the finding 1, what it says it could not judge the refusal 2."""
     exited, output = _gate(scope, answers=answers)
     wrong = _wrong(exited, output, code, says, never)
+    assert not wrong, "\n".join(wrong) + "\n" + output
+
+
+@pytest.mark.parametrize(
+    ("lychee", "code", "row"),
+    [
+        pytest.param("0", 0, "pass", id="green"),
+        pytest.param("2", 1, "failed", id="a-finding"),
+        pytest.param("1", 2, "refused", id="a-refusal"),
+        pytest.param("127", 3, "crashed", id="a-crash"),
+        pytest.param("130", 130, "interrupted", id="an-interrupt"),
+    ],
+)
+def test_a_run_beside_others_ends_on_the_class_its_scope_ended_on(lychee: str, code: int, row: str) -> None:
+    """The docs scope ends on each class beside a green ops scope, and the run and the docs row end on that class."""
+    exited, output = _gate("--docs", "--ops", answers={"FL_LYCHEE_EXIT": lychee})
+    wrong = _wrong(exited, output, code, "running side by side: docs ops", "no verdict")
+    if not re.search(rf"^\s+docs\s+{row}\s", output, re.MULTILINE):
+        wrong.append(f"the table gives the docs row no {row!r}")
+    if not re.search(r"^\s+ops\s+pass\s", output, re.MULTILINE):
+        wrong.append("the table gives the ops row no 'pass'")
+    assert not wrong, "\n".join(wrong) + "\n" + output
+
+
+# zizmor's finding is counted, and the compose checker then refuses its input.
+COUNTED_THEN_REFUSED: Final = {"FL_ZIZMOR_EXIT": "13", "FL_CHECKER_EXIT": "2"}
+
+
+@pytest.mark.parametrize("scopes", [pytest.param(("--ops",), id="alone"), pytest.param(("--docs", "--ops"), id="beside-another-scope")])
+def test_a_scope_that_counted_a_finding_and_then_refused_ends_the_run_refused(scopes: tuple[str, ...]) -> None:
+    """The scope's own exit code decides its ending, never the count its row shows, so both runs end 2."""
+    exited, output = _gate(*scopes, answers=COUNTED_THEN_REFUSED)
+    wrong = _wrong(exited, output, 2, "zizmor found a finding", "finding(s) in this run")
+    if "Refused after" not in output:
+        wrong.append("the run closed on no refusal")
     assert not wrong, "\n".join(wrong) + "\n" + output
 
 

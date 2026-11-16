@@ -65,6 +65,8 @@ unset FL_GATE_FINDINGS_FILE
 # alone would close a run green over it. Advisories count apart, never failing a run.
 _RUN_FINDINGS=0
 _RUN_ADVISORIES=0
+# What the rows of units run as processes of their own counted, for the closing count alone.
+_ROW_FINDINGS=0
 
 VERBOSE="${VERBOSE:-0}"
 
@@ -327,9 +329,11 @@ add_row() {
 }
 
 # A row's verdict, printed as a line of the table the moment it arrives, the header before the first.
+# The rank alone decides how the run ends; the findings fill the row's column and the closing count,
+# never this run's own total, so a unit that counted a finding and then refused stays a refusal.
 end_row() { # $1 the row's index · $2 its rank · $3 its milliseconds · $4 its findings
   _SECTION_RANKS[$1]=$2; _SECTION_MS[$1]=$3; _SECTION_FINDINGS[$1]=$4
-  _RUN_FINDINGS=$(( _RUN_FINDINGS + $4 ))
+  _ROW_FINDINGS=$(( _ROW_FINDINGS + $4 ))
   if (( ! _ROWS_ENDED )); then _table_header; _ROWS_ENDED=1; fi
   _table_row "$1"
 }
@@ -358,7 +362,7 @@ _closing() { # $1 the ending · $2 a sentence for the green statement · $3 what
     findings)
       printf '
 ' >&2
-      _emit "$C_RED" "   ✗" "${_RUN_FINDINGS} finding(s) in this run, ${count} section(s), ${elapsed}. Each is
+      _emit "$C_RED" "   ✗" "$(( _RUN_FINDINGS + _ROW_FINDINGS )) finding(s) in this run, ${count} section(s), ${elapsed}. Each is
 named in the section it came from, and each names something to fix in the change — exit 1." >&2 ;;
     refused)
       printf '

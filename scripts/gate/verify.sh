@@ -90,7 +90,10 @@ if (( ${#SELECTED[@]} > 1 )); then
     ROW[$scope]=${#ROW[@]}
     add_row "$scope"
   done
-  # In the order they end: `wait -n -p`, bash 5.1's, names the run it reaped.
+  # In the order they end: `wait -n -p`, bash 5.1's, names the run it reaped. Each run's own exit
+  # code is its row's verdict, and its count of findings fills the row's column alone: a run that
+  # counted a finding and then refused ends as the refusal it ended on alone.
+  declare -A RANK_OF=([0]=1 [1]=4 [2]=3 [3]=5 [130]=6)
   while (( ${#PID[@]} )); do
     rc=0
     wait -n -p reaped || rc=$?
@@ -99,15 +102,9 @@ if (( ${#SELECTED[@]} > 1 )); then
     # A run that ended before its closing statement left no count, and found nothing it could report.
     count=0
     if [[ -s "${RUNS_DIR}/${scope}.findings" ]]; then read -r count < "${RUNS_DIR}/${scope}.findings"; fi
-    # The exit contract read back into the rank its row shows.
-    case "$rc" in
-      0)   rank=1 ;;
-      1)   rank=4 ;;
-      2)   rank=3 ;;
-      130) rank=6 ;;
-      *)   rank=5 ;;
-    esac
-    end_row "${ROW[$scope]}" "$rank" "$(( $(_now_ms) - started ))" "$count"
+    class=0
+    exit_class contract "$rc" || class=$?
+    end_row "${ROW[$scope]}" "${RANK_OF[$class]}" "$(( $(_now_ms) - started ))" "$count"
   done
   for scope in "${SELECTED[@]}"; do cat "${RUNS_DIR}/${scope}.log"; done
 
