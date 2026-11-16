@@ -1,25 +1,25 @@
 /**
- * E2E · J7, the owner's way on Administratoren: a handover the seed left waiting is stopped, an administrator is added
- * and stopped, and the role is handed over, each act behind the owner's real touch, every wait's person told. The owner
+ * E2E · the owner's way on Administratoren: a handover the seed left waiting is stopped, an administrator is added and
+ * stopped, and the role is handed over, each act behind the owner's real touch, every wait's person told. The owner
  * holds one grant and one passkey, and a wait's end can only be seeded, so this is one journey: the promotion itself is
- * the scheduler's pass, which a journey cannot time. Desktop alone, for the reason `fl_frontend/playwright.config.ts`
- * gives at its projects.
+ * the scheduler's pass, which a journey cannot time. Desktop alone, since Playwright's WebKit holds no authenticator.
  */
 import { expect } from "@playwright/test";
 
 import { chooseWho } from "../support/actionLog";
 import { chip, choose, typeInto } from "../support/controls";
 import { test } from "../support/journey";
+import { PEOPLE } from "../support/madeUpLeague";
 import { filedMessages, mailedMessage } from "../support/mailSink";
 import { assertionsSigned, enrolPasskey, signInWithCode } from "../support/signIn";
 
 import type { Locator, Page } from "@playwright/test";
 
-/** The one owner (`scripts/ops/seed/seed.js`), whom no other journey signs in as. */
-const OWNER = "inhaber@example.com";
+/** The one owner, whom no other journey signs in as. */
+const OWNER = PEOPLE.owner;
 
 /** The administrator the seed's handover names, and the one this journey hands over to again. */
-const SUCCESSOR = "admin.nachfolge@example.com";
+const SUCCESSOR = PEOPLE.administrators.successor;
 
 /** An address no record holds: an addition is stopped before it holds anything. */
 const ADDED = "admin.neu@example.com";
@@ -54,7 +54,7 @@ test("the owner stops what waits, adds an administrator and stops it, and hands 
   // What the seed left waiting: a handover, which locks a second one, and a holder's own change, the owner's alone to see.
   const seeded = waitingRow(page, "Übergabe der Leitung", SUCCESSOR);
   await expect(seeded).toBeVisible();
-  await expect(waitingRow(page, "Neue E-Mail-Adresse", "admin.umzug@example.com")).toBeVisible();
+  await expect(waitingRow(page, "Neue E-Mail-Adresse", PEOPLE.administrators.moving)).toBeVisible();
   const handOver = page.getByRole("button", { name: "Leitung übergeben" });
   await expect(handOver).toHaveAccessibleDescription("Übergabe läuft schon");
   await stop(page, seeded);

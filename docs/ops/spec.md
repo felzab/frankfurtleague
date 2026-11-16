@@ -477,8 +477,7 @@ merged over the local stack's two files):
 Both stacks publish ports 3000 and 27017, so one runs at a time. `--e2e --down` deletes the volume
 and `.tmp-e2e/`. The journeys run against it with `pnpm run e2e` in the `fl_frontend` of the checkout
 that started it, which reads that checkout's `.tmp-e2e/`, or from another checkout with `E2E_DIR`
-naming that folder (`fl_frontend/e2e/support/journey.ts :: E2E_DIR`); `E2E_BASE_URL` names an origin
-other than `http://localhost:3000` (`fl_frontend/playwright.config.ts`).
+naming that folder (`fl_frontend/e2e/support/journey.ts :: E2E_DIR`).
 
 **`--e2e --landing=<state>` re-seeds the running end-to-end stack with the landing in that state**,
 one of `fl_backend/tests/made_up_seed.py :: LANDING_STATES`, the seed refusing any other: the seed

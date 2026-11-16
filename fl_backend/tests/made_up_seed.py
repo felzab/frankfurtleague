@@ -27,7 +27,7 @@ and players pages and the access pages draw:
 - a retired club, and clubs still in the league the planned season has not entered.
 
 Every journey that writes signs in as a person no other journey signs in as, since one journey's writes would change what
-another reads (https://playwright.dev/docs/auth). Every person, club, fixture and link a journey types stands in
+another reads (https://playwright.dev/docs/auth). Every season, person, club, fixture and link a journey types stands in
 `made_up_people.json` beside this file: the seed writes each person from it, and writes nothing where a fixture, a club
 or a link it names is not the one the scenario sets up for that journey.
 
@@ -120,9 +120,12 @@ from tests.documents import (
     team_document,
 )
 
-# The people, clubs, fixtures and links the journeys type, read by them too.
+# The seasons, people, clubs, fixtures and links the journeys type, read by them too.
 PEOPLE: Final[Mapping[str, Any]] = json.loads(Path(__file__).with_name("made_up_people.json").read_text(encoding="utf-8"))
 PROJECTS: Final[Sequence[Mapping[str, Any]]] = (PEOPLE["projects"]["desktop"], PEOPLE["projects"]["phone"])
+FINISHED: Final[str] = PEOPLE["seasons"]["finished"]
+RUNNING: Final[str] = PEOPLE["seasons"]["running"]
+PLANNED: Final[str] = PEOPLE["seasons"]["planned"]
 
 # The collections `anchor_in_db` writes, each first document carrying the count an anchor advances, as a document of the
 # league's soon does, so the read-back judges that its record model declares it. Kept by hand from the backend's callers
@@ -366,12 +369,12 @@ class MadeUpLeague:
 
         self.venues = [
             venue("Sportplatz Ahornweg", 0, address("Ahornweg", "2", "60316", "Nordend"), None),
-            venue("Sporthalle Birkenallee", 40, address("Birkenallee", "14a", "60489", "Rödelheim"), None),
+            venue(PEOPLE["venues"]["edited"], 40, address("Birkenallee", "14a", "60489", "Rödelheim"), None),
             venue("Kunstrasen Eichenhain", 25, address("Eichenhain", "7", "60599", "Sachsenhausen"), None),
             venue("Bolzplatz Lindenstraße", 0, address("Lindenstraße", "30", "60325", "Westend"), self.day(-120)),
             # Last, so no fixture's booking (`booked`, by index) changes: a name as long as a real ground's can be.
             venue(
-                "Bezirkssportanlage Frankfurt-Nieder-Eschbach Nord",
+                PEOPLE["venues"]["longest"],
                 30,
                 address("Deuil-la-Barre-Straße", "100", "60437", "Nieder-Eschbach"),
                 None,
@@ -589,7 +592,7 @@ class MadeUpLeague:
             return {**played, **KNOCKOUT_SCORES[nr]}
 
         self.finished = self.season(
-            saison_id="2026",
+            saison_id=FINISHED,
             status="past",
             start=self.day(-300),
             end=self.day(-150),
@@ -653,7 +656,7 @@ class MadeUpLeague:
         # The running season, new groups. Matchday 1 is played and holds a forfeit, matchday 2 is today, matchday 3 is next
         # week, and the knockout is drawn with nobody in it yet.
         self.running = self.season(
-            saison_id="2027",
+            saison_id=RUNNING,
             status="active",
             start=self.day(-35),
             end=self.day(120),
@@ -773,7 +776,7 @@ class MadeUpLeague:
             raise ValueError(f"{club_name} holds a journey's seat and departs in another journey")
         self.running.row(club_name).update(
             self.row_seats(
-                f"{club_name.lower()}-2027",
+                f"{club_name.lower()}-{RUNNING}",
                 -30,
                 {
                     "trainer": self.confirmed_seat(trainer["first_name"], trainer["last_name"], trainer["address"]),
@@ -922,7 +925,7 @@ class MadeUpLeague:
         club_name: str,
         nummer: str,
         *,
-        saison: str = "2027",
+        saison: str = RUNNING,
         position: str = "Angriff",
         nominee: bool = False,
         retired_on: int | None = None,
@@ -967,7 +970,7 @@ class MadeUpLeague:
         # Mia captains Ahorn and Jonas is its Co-Kapitän, each mark standing on the squad and on match 1's line-up; Mia
         # played for Ahorn in the finished season too, a pupil's own page holding a past season beside the running one.
         self.squads = [
-            self.squad_row(self.mia, "Ahorn", "9", saison="2026"),
+            self.squad_row(self.mia, "Ahorn", "9", saison=FINISHED),
             self.squad_row(self.mia, "Ahorn", "9", rolle="kapitaen"),
             self.squad_row(self.jonas, "Ahorn", "4", rolle="co_kapitaen"),
             *positioned(self.ahorn, "Ahorn", 10),
@@ -985,7 +988,7 @@ class MadeUpLeague:
         # Weide's opens as the link no longer valid (`find_team_departed_refusal`).
         self.invitations = {
             club_name: invitation_document(
-                ObjectId(), saison_id="2027", team_id=self.club[club_name]["_id"], token=f"made-up-{club_name.lower()}-invitation"
+                ObjectId(), saison_id=RUNNING, team_id=self.club[club_name]["_id"], token=f"made-up-{club_name.lower()}-invitation"
             )
             for club_name in ("Ahorn", "Eiche", "Ulme", "Kastanie", "Weide")
         }
@@ -1011,7 +1014,7 @@ class MadeUpLeague:
             return registrierung_document(
                 ObjectId(),
                 person["email"],
-                saison_id="2027",
+                saison_id=RUNNING,
                 team_id=self.club[club_name]["_id"],
                 first_name=person["first_name"],
                 last_name=person["last_name"],
@@ -1116,7 +1119,7 @@ class MadeUpLeague:
         schule = None if new_school is None else {"team_name": new_school[0], **school(*new_school)}
         return bewerbung_document(
             ObjectId(),
-            "2028",
+            PLANNED,
             outcome.pop("status", "submitted"),
             kontakte=blocks["kontakte"],
             confirmations=blocks["confirmations"],
@@ -1134,7 +1137,7 @@ class MadeUpLeague:
         # as its write holds it (`registrierung_window_reaches_saison_start`). Undrawn: the create writes no `spielplan` key.
         # Four groups, so a full one stands beside room for every club the journeys enter (`planned_rows`).
         self.planned = saison_document(
-            "2028",
+            PLANNED,
             "future",
             start_date=self.day(150),
             end_date=self.day(300),
@@ -1173,7 +1176,7 @@ class MadeUpLeague:
         )
         # Its Ansprechperson's mail bounced, which the seat's row says, for an administrator to correct the address.
         self.bounced = self.application(
-            new_school=("Espe", 4),
+            new_school=(PEOPLE["firstPass"]["applications"]["left"], 4),
             submitted_on=-2,
             wunschfarbe="orange",
             states={
@@ -1254,7 +1257,7 @@ class MadeUpLeague:
             # Past its deadline: the first pass, a minute after the frontend starts, erases it and tells the Trainerin, the
             # one seat that confirmed, the one deletion a journey can read.
             self.application(
-                new_school=("Lärche", 6),
+                new_school=(PEOPLE["firstPass"]["applications"]["lapsed"], 6),
                 owner="laerche",
                 submitted_on=-16,
                 wunschfarbe="braun",
@@ -1284,7 +1287,14 @@ class MadeUpLeague:
         def planned_row(club_name: str, gruppe: str, trikot_farbe: str, people: Mapping[str, Any] | None = None) -> dict[str, Any]:
             club = self.club[club_name]
             return saison_team_document(
-                "2028", club["_id"], club["name"], club["shorthand"], _id=ObjectId(), gruppe=gruppe, trikot_farbe=trikot_farbe, **(people or {})
+                PLANNED,
+                club["_id"],
+                club["name"],
+                club["shorthand"],
+                _id=ObjectId(),
+                gruppe=gruppe,
+                trikot_farbe=trikot_farbe,
+                **(people or {}),
             )
 
         # Group B is full, group A has room for the acceptance's journeys and group C for the administration's. The two
@@ -1342,7 +1352,7 @@ class MadeUpLeague:
             now=recorded,
             data=FLBewerbungReceivedData(
                 kind="bewerbung_received",
-                saison_id="2028",
+                saison_id=PLANNED,
                 rollen=["ansprechperson"],
                 pending=["ansprechperson", "stellvertretung"],
                 deadline=self.bounced["confirmations"]["ansprechperson"]["deadline"],
@@ -1399,9 +1409,9 @@ class MadeUpLeague:
         # One row of each who: an administrator's folded address, a team's representative, a referee, a pass, a person.
         self.action_log = [
             logged(50, "person", "erasure.own"),
-            logged(40, "system", "retention.kontakte", label="2026", count=2),
-            logged(30, "schiedsrichter", "spielbericht.saved", label="2026 / 1"),
-            logged(20, "kontakt", "spielbestaetigung.answered", team="Birke", label="2026"),
+            logged(40, "system", "retention.kontakte", label=FINISHED, count=2),
+            logged(30, "schiedsrichter", "spielbericht.saved", label=f"{FINISHED} / 1"),
+            logged(20, "kontakt", "spielbestaetigung.answered", team=PEOPLE["access"]["loggedTeam"], label=FINISHED),
             logged(10, PEOPLE["owner"], "grant.added", label=PEOPLE["administrators"]["waiting"]),
         ]
 
