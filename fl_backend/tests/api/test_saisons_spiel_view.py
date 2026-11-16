@@ -169,7 +169,7 @@ async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
 
 
 async def the_page(url: str, spiel_id: ObjectId | None = None) -> Any:
-    database: AsyncDatabase = shared_client(url)[DATABASE_NAME]
+    database: AsyncDatabase = (await shared_client(url))[DATABASE_NAME]
     return await get_spiel(
         saison_id=SAISON,
         spiel_id=spiel_id or adopted_match()["_id"],

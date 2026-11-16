@@ -6,8 +6,9 @@ Invariants:
   wrapping what pytest-asyncio runs: a case reaching here unwrapped runs unbounded, and a rival deadlocked on its own
   write's transaction waits out MongoDB's abort and passes on the retry.
 - A task the work starts and leaves running fails the scope that left it, and is cancelled there rather than running
-  into the next case. A task started outside the scope does not, nor do the driver's monitors and the reads they send,
-  which outlive a case by design, wherever the monitor was opened.
+  into the next case, as is a task one of those starts as it unwinds. A task still running once cancelled refuses every
+  later scope until it ends. A task started outside the scope is not the scope's, nor is a shared client's monitor,
+  wherever that client was first asked for; a client the scope opens and leaves open fails it.
 - A clean database is entered in a case's body alone, and a module's corpus is judged after the module's cases: it is
   refused when released in the task that seeded it, and nothing clears it while it is held.
 - A variable a corpus's seed binds stays out of the fixture's context, which pytest-asyncio carries into every case of
@@ -15,7 +16,9 @@ Invariants:
 """
 
 import asyncio
+import contextlib
 import contextvars
+from collections.abc import AsyncIterator
 
 import pytest
 from pymongo import AsyncMongoClient
@@ -24,7 +27,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.core.collections import Collection
 from app.core.logging import NO_REQUEST_SENTINEL, trace_id_var
 from tests.config import UNANSWERED_URI
-from tests.database import CASE_BOUND_S, a_clean_database, bounded, case_deadline, held_corpus, shared_client
+from tests.database import CASE_BOUND_S, a_clean_database, bounded, bounded_case, case_deadline, held_corpus, shared_client
 from tests.documents import saison_document
 from tests.worker import worker_database
 
@@ -79,8 +82,70 @@ async def test_a_task_started_outside_the_scope_is_not_its_own():
         await asyncio.wait([parent, *children])
 
 
-async def test_a_driver_s_monitor_mid_check_is_no_task_left_behind():
-    """A client opened inside the scope, its monitor's first `hello` sent to a server that never answers it."""
+async def test_a_task_started_as_a_left_task_unwinds_is_cancelled_too():
+    started: list[asyncio.Task[None]] = []
+
+    async def never_finishes() -> None:
+        await asyncio.Event().wait()
+
+    running = asyncio.Event()
+
+    async def starts_another_as_it_unwinds() -> None:
+        try:
+            running.set()
+            await asyncio.Event().wait()
+        finally:
+            started.append(asyncio.create_task(never_finishes()))
+
+    async def starts_one() -> None:
+        started.append(asyncio.create_task(starts_another_as_it_unwinds()))
+        # Running, or its cancellation would land before its `try`.
+        await running.wait()
+
+    with pytest.raises(AssertionError, match=r"left 2 task\(s\) running, cancelled here: .*never_finishes, .*starts_another_as_it_unwinds"):
+        await bounded(starts_one())
+
+    assert [task.cancelled() for task in started] == [True, True]
+
+
+async def test_a_task_running_past_its_cancellation_refuses_every_later_scope_until_it_ends():
+    """A case leaving it, then the next case's scope, which names that case by its node id."""
+
+    released, running = asyncio.Event(), asyncio.Event()
+    started: list[asyncio.Task[None]] = []
+
+    async def ignores_its_cancellation() -> None:
+        running.set()
+        while not released.is_set():
+            # Swallowed on purpose: the defect a scope cannot cancel away.
+            with contextlib.suppress(asyncio.CancelledError):
+                await released.wait()
+
+    async def starts_one() -> None:
+        started.append(asyncio.create_task(ignores_its_cancellation()))
+        # Running, or its cancellation would land before its loop.
+        await running.wait()
+
+    with pytest.raises(AssertionError, match=r"still running 5 s after their cancellation: .*ignores_its_cancellation"):
+        await bounded_case(starts_one(), "tests/the_first.py::case")
+    try:
+        with pytest.raises(AssertionError, match=r"this case was not run: tests/the_first\.py::case left task\(s\) .*ignores_its_cancellation"):
+            await bounded_case(asyncio.sleep(0), "tests/the_next.py::case")
+    finally:
+        released.set()
+        await asyncio.wait(started)
+
+    # Once it ended, nothing runs that a later scope needs isolating from.
+    await bounded(asyncio.sleep(0))
+
+
+@contextlib.asynccontextmanager
+async def _a_server_that_never_answers() -> AsyncIterator[tuple[str, asyncio.Event]]:
+    """A url whose server takes a client's first `hello` and never answers it, and the event set once it has.
+
+    Its tasks, a Windows loop's accept among them, run in a context of their own, as a real server runs outside the case.
+    A client of it closes inside the block, since the server's close waits on its connections.
+    """
 
     received = asyncio.Event()
 
@@ -91,24 +156,51 @@ async def test_a_driver_s_monitor_mid_check_is_no_task_left_behind():
         await reader.read()
         writer.close()
 
-    async def mid_check(client: AsyncMongoClient) -> None:
-        # Opens the topology, whose monitor checks the server after the call returns, without selecting it.
-        await client.aconnect()
-        await received.wait()
-
-        reading = {getattr(task.get_coro(), "__qualname__", None) for task in asyncio.all_tasks()}
-        assert "PyMongoProtocol.read" in reading, "the monitor's read is not in flight, so the scope's end judges none"
-
-    # In a context of its own, as a real server runs outside the case: its tasks, a Windows loop's accept among them, are
-    # not the case's. The client closes inside it, since the server's close waits on its connections.
     server = await asyncio.create_task(asyncio.start_server(never_answers, "127.0.0.1", 0), context=contextvars.Context())
     async with server:
         port = server.sockets[0].getsockname()[1]
-        client: AsyncMongoClient = AsyncMongoClient(f"mongodb://127.0.0.1:{port}/?directConnection=true&serverMonitoringMode=poll")
+        yield f"mongodb://127.0.0.1:{port}/?directConnection=true&serverMonitoringMode=poll", received
+
+
+async def _reading(received: asyncio.Event) -> None:
+    """Once the monitor's first check is in flight, which `aconnect` starts without selecting the server."""
+
+    await received.wait()
+    reading = {getattr(task.get_coro(), "__qualname__", None) for task in asyncio.all_tasks()}
+    assert "PyMongoProtocol.read" in reading, "the monitor's read is not in flight, so the scope's end judges none"
+
+
+async def test_a_client_the_scope_opens_and_leaves_open_fails_it():
+    async with _a_server_that_never_answers() as (url, received):
+        client: AsyncMongoClient = AsyncMongoClient(url)
+
+        async def opens_it() -> None:
+            await client.aconnect()
+            await _reading(received)
+
         try:
-            await bounded(mid_check(client))
+            with pytest.raises(AssertionError, match=r"cancelled here: .*AsyncPeriodicExecutor\._run"):
+                await bounded(opens_it())
         finally:
             await client.close()
+
+
+async def test_a_shared_client_s_monitor_mid_check_is_not_the_scope_s():
+    """The shared client opened inside the scope, as the first case of a session opens it."""
+
+    async with _a_server_that_never_answers() as (url, received):
+        opened: list[AsyncMongoClient] = []
+
+        async def opens_it() -> None:
+            opened.append(await shared_client(url))
+            await _reading(received)
+
+        try:
+            await bounded(opens_it())
+        finally:
+            # Its own: no other case asks for this url, and `close_the_shared_clients` closing it again is a no-op.
+            for client in opened:
+                await client.close()
 
 
 async def test_a_clean_database_entered_outside_a_case_is_refused():
@@ -147,7 +239,9 @@ class TestAModuleCorpus:
     async def test_fails_where_a_case_wrote_to_it(self, mongo_replica_set_url: str):
         corpus = held_corpus(mongo_replica_set_url, DATABASE_NAME, _one_season)
         await asyncio.create_task(corpus.__aenter__())
-        await shared_client(mongo_replica_set_url)[DATABASE_NAME][Collection.SAISONS].insert_one(dict(saison_document("2127", "future")))
+        await (await shared_client(mongo_replica_set_url))[DATABASE_NAME][Collection.SAISONS].insert_one(
+            dict(saison_document("2127", "future"))
+        )
 
         with pytest.raises(AssertionError, match=r"holds documents its seed did not put there \(saisons\)"):
             await asyncio.create_task(corpus.__aexit__(None, None, None))

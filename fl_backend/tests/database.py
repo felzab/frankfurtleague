@@ -2,14 +2,13 @@ import asyncio
 import io
 from collections.abc import AsyncGenerator, Awaitable, Callable, Coroutine, Iterable, Mapping, Sequence
 from contextlib import AsyncExitStack, asynccontextmanager, redirect_stdout
-from contextvars import ContextVar
+from contextvars import Context, ContextVar
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pymongo
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
-from pymongo.periodic_executor import AsyncPeriodicExecutor
 from pymongo.uri_parser import parse_uri
 
 from app.core.concurrency import concurrently
@@ -39,8 +38,9 @@ _BUILT: dict[_Key, tuple[bool, Schema]] = {}
 _HELD: set[_Key] = set()
 
 # A module global for `_BUILT`'s reason. A client belongs to the loop that opened it, so each is kept under its loop:
-# every async case and fixture runs on the session's.
-_CLIENTS: dict[tuple[asyncio.AbstractEventLoop, str], AsyncMongoClient] = {}
+# every async case and fixture runs on the session's. Beside each, the task opening its topology, which every caller
+# awaits: one reaching the client before that task ran would open the topology in its own scope.
+_CLIENTS: dict[tuple[asyncio.AbstractEventLoop, str], tuple[AsyncMongoClient, asyncio.Task[None]]] = {}
 
 # Bounds each close. A serial `pytest -m db` may have stopped the containers by the time the session's
 # loop closes its clients, so an unbounded close waits pymongo's 30 s selection default per client, after
@@ -64,7 +64,8 @@ assert LONGEST_WAIT_S < CASE_BOUND_S < TRANSACTION_LIFETIME_S, (
     "the case bound must cut no case that would finish, and fire before MongoDB aborts"
 )
 
-# How long a task a scope left behind gets to unwind once cancelled, before the scope names it as still running.
+# How long the tasks a scope left behind get to unwind once cancelled, those they start as they unwind included, before
+# the scope names what still runs.
 _DRAIN_S = 5.0
 
 _UNFINISHED = (
@@ -77,6 +78,21 @@ _LEFT_BEHIND = (
     "{what} left {count} task(s) running, cancelled here: {tasks}. A task left on the session's loop runs into the next"
     " case, writing into a database that case has just cleared: await, cancel or drain every task where it is started."
 )
+
+_PAST_ITS_CANCELLATION = (
+    "{what} left {count} task(s) still running {drain:.0f} s after their cancellation: {tasks}. They run on the session's"
+    " loop into every later case, so each scope after this one is refused while one of them runs: a task must end once"
+    " cancelled."
+)
+
+_NOT_ISOLATED = (
+    "{what} was not run: {first} left task(s) running past their cancellation ({tasks}), which still run on this loop and"
+    " can write into a database this run has just cleared. Fixing {first} clears this refusal."
+)
+
+# The first scope whose tasks outlived their cancellation, and those tasks: while one runs, no later scope is isolated
+# from it. A list holding at most one entry, so that nothing rebinds it.
+_RUNNING_PAST: list[tuple[str, list[asyncio.Task[Any]]]] = []
 
 _UNSCOPED = (
     "a clean database was entered outside a case, where its checks judge what a fixture left rather than what the cases"
@@ -107,41 +123,52 @@ def case_deadline() -> float | None:
     return None if bound is None else bound.when()
 
 
-def _a_monitor(graph: asyncio.FutureCallGraph) -> bool:
-    """Whether the future is a monitor's task, or one a monitor's task awaits, however far down."""
-
-    future = graph.future
-    if isinstance(future, asyncio.Task) and getattr(future.get_coro(), "cr_code", None) is AsyncPeriodicExecutor._run.__code__:
-        return True
-
-    return any(_a_monitor(awaiter) for awaiter in graph.awaited_by)
-
-
-def _pymongos_own(task: asyncio.Task[Any]) -> bool:
-    """A monitor of the driver's, or a read one sends, which outlive the case that opened its client by design.
-
-    pymongo starts each monitor as `asyncio.create_task(self._run(), ...)` in `AsyncPeriodicExecutor.open`
-    (`pymongo/periodic_executor.py`), its one long-lived task, and runs each read in two tasks it awaits through
-    `asyncio.wait` (`pymongo/network_layer.py :: async_receive_message`), which records the monitor as their awaiter. A
-    monitor is matched by that coroutine's code and a read by the call graph, so a read the code under test starts is not
-    one: its awaiter is the case's task.
-    """
-
-    graph = asyncio.capture_call_graph(task)
-    return graph is not None and _a_monitor(graph)
-
-
-async def _cancelled(bound: asyncio.Timeout) -> list[str]:
-    """Every task the scope bounded by `bound` started and left running, cancelled and drained, by its coroutine's name."""
+def _marked(bound: asyncio.Timeout) -> list[asyncio.Task[Any]]:
+    """Every unfinished task carrying the scope's mark but the one asking."""
 
     current = asyncio.current_task()
-    left = [task for task in asyncio.all_tasks() if task is not current and task.get_context().get(_SCOPE) is bound and not _pymongos_own(task)]
-    for task in left:
-        task.cancel()
-    if left:
-        await asyncio.wait(left, timeout=_DRAIN_S)
+    return [task for task in asyncio.all_tasks() if task is not current and task.get_context().get(_SCOPE) is bound]
 
-    return sorted(getattr(task.get_coro(), "__qualname__", repr(task)) for task in left)
+
+def _named(tasks: Iterable[asyncio.Task[Any]]) -> list[str]:
+    return sorted(getattr(task.get_coro(), "__qualname__", repr(task)) for task in tasks)
+
+
+async def _cancelled(bound: asyncio.Timeout) -> tuple[list[asyncio.Task[Any]], list[asyncio.Task[Any]]]:
+    """Every task the scope bounded by `bound` started and left running, cancelled: those that ended, and those still running.
+
+    Listed again after each wait, within one `_DRAIN_S`, so a task one of them starts as it unwinds is cancelled too.
+    """
+
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + _DRAIN_S
+    cancelled: set[asyncio.Task[Any]] = set()
+    while (left := _marked(bound)) and (remaining := deadline - loop.time()) > 0:
+        for task in left:
+            task.cancel()
+        cancelled.update(left)
+        await asyncio.wait(left, timeout=remaining)
+
+    # One listed only once the budget is spent is cancelled with no time left to end.
+    for task in (running := _marked(bound)):
+        task.cancel()
+
+    return [task for task in cancelled if task.done()], running
+
+
+def _refuse_while_one_runs[T](work: Coroutine[Any, Any, T], what: str) -> None:
+    """Raise, closing `work` unrun, while a task an earlier scope left runs past its cancellation; forget them once all ended."""
+
+    if not _RUNNING_PAST:
+        return
+
+    first, tasks = _RUNNING_PAST[0]
+    if all(task.done() for task in tasks):
+        _RUNNING_PAST.clear()
+        return
+
+    work.close()
+    raise AssertionError(_NOT_ISOLATED.format(what=what, first=first, tasks=", ".join(_named(tasks))))
 
 
 async def _within[T](bound: asyncio.Timeout, work: Awaitable[T], what: str) -> T:
@@ -155,12 +182,14 @@ async def _within[T](bound: asyncio.Timeout, work: Awaitable[T], what: str) -> T
         raise
 
 
-async def _scoped[T](work: Awaitable[T], what: str, *, a_case: bool) -> T:
+async def _scoped[T](work: Coroutine[Any, Any, T], what: str, *, named: str, a_case: bool) -> T:
     """`work` under `CASE_BOUND_S`, failing if it leaves a task of its own running; a case is marked as one while it runs.
 
     Past the bound the work is cancelled and unwound before this raises, so its sessions abort their transactions here.
+    A task still running once cancelled refuses every later scope, which a later refusal names by `named`.
     """
 
+    _refuse_while_one_runs(work, what)
     bound = asyncio.timeout(CASE_BOUND_S)
     scope = _SCOPE.set(bound)
     token = _CASE.set(bound) if a_case else None
@@ -171,20 +200,27 @@ async def _scoped[T](work: Awaitable[T], what: str, *, a_case: bool) -> T:
             _CASE.reset(token)
         _SCOPE.reset(scope)
         # On every path, the failing one included: what a failing case left would otherwise fail the next case.
-        if left := await _cancelled(bound):
-            raise AssertionError(_LEFT_BEHIND.format(what=what, count=len(left), tasks=", ".join(left)))
+        ended, running = await _cancelled(bound)
+        found: list[str] = []
+        if ended:
+            found.append(_LEFT_BEHIND.format(what=what, count=len(ended), tasks=", ".join(_named(ended))))
+        if running:
+            _RUNNING_PAST[:] = [(named, running)]
+            found.append(_PAST_ITS_CANCELLATION.format(what=what, count=len(running), drain=_DRAIN_S, tasks=", ".join(_named(running))))
+        if found:
+            raise AssertionError(" ".join(found))
 
 
-async def bounded_case[T](case: Awaitable[T]) -> T:
-    """A case's body, as `tests/conftest.py :: pytest_collection_modifyitems` runs every async one."""
+async def bounded_case[T](case: Coroutine[Any, Any, T], nodeid: str) -> T:
+    """A case's body, as `tests/conftest.py :: pytest_collection_modifyitems` runs every async one, named by its node id."""
 
-    return await _scoped(case, "this case", a_case=True)
+    return await _scoped(case, "this case", named=nodeid, a_case=True)
 
 
-async def bounded[T](work: Awaitable[T], *, what: str = "this") -> T:
+async def bounded[T](work: Coroutine[Any, Any, T], *, what: str = "this") -> T:
     """`work` outside a case, under the case's bound and its check on the tasks it leaves."""
 
-    return await _scoped(work, what, a_case=False)
+    return await _scoped(work, what, named=what, a_case=False)
 
 
 async def close_the_shared_clients() -> None:
@@ -196,28 +232,35 @@ async def close_the_shared_clients() -> None:
 
     loop = asyncio.get_running_loop()
     for key in [key for key in _CLIENTS if key[0] is loop]:
+        client, _ = _CLIENTS.pop(key)
         # `close` selects a server to end the client's sessions, so a deadline is the only thing
         # bounding it. The error one raises is swallowed inside `close`: an `endSessions` failure
         # is one a driver must ignore.
         with pymongo.timeout(_CLOSE_TIMEOUT_S):
-            await _CLIENTS.pop(key).close()
+            await client.close()
 
 
-def shared_client(url: str) -> AsyncMongoClient:
+async def shared_client(url: str) -> AsyncMongoClient:
     """One client per url and loop: a topology handshake costs a client to open, not a case to run.
 
     Public because a module reading a seeded corpus needs that client without `a_clean_database`'s clearing. Called on a
-    running loop, which is the one the client belongs to.
+    running loop, which is the one the client belongs to. Its topology opens in a task with a context of its own, so the
+    background tasks pymongo starts as it opens carry no scope's mark, as a server's own work would not: a client a case
+    opens itself is that case's to close, and fails its scope while open.
     """
 
     key = (asyncio.get_running_loop(), url)
-    client = _CLIENTS.get(key)
-    if client is None:
+    entry = _CLIENTS.get(key)
+    if entry is None:
         # `poll`, the mode the driver picks for a process frozen between calls: the loop stands still
         # between cases, and a streaming check outliving its timeout there clears the pool on resume,
         # cancelling the next case's operations.
         client = AsyncMongoClient(url, serverMonitoringMode="poll")
-        _CLIENTS[key] = client
+        entry = _CLIENTS[key] = (client, asyncio.create_task(client.aconnect(), context=Context()))
+
+    client, opening = entry
+    # Shielded: a caller cancelled while it waits would otherwise cancel the opening every later caller waits on.
+    await asyncio.shield(opening)
 
     return client
 
@@ -428,7 +471,7 @@ async def _cleaned(
 
     # Shared, and bound to the running loop; closing it belongs to `close_the_shared_clients` as that loop
     # ends, so a body that raises leaves the next test a client rather than none.
-    client = shared_client(url)
+    client = await shared_client(url)
     key = _key(url, name)
     database = client[name]
 
