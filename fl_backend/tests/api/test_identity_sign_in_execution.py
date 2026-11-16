@@ -60,9 +60,8 @@ SCHIEDSRICHTER_ACTIVE = "pfeife.aktiv@schule.de"
 SCHIEDSRICHTER_RETIRED = "pfeife.ruhestand@schule.de"
 SCHIEDSRICHTER_OPEN = "pfeife.offen@schule.de"
 SCHIEDSRICHTER_RETIRED_OPEN = "pfeife.ruhestand.offen@schule.de"
-# A registration stored as every payload stores an address, folded, and asked in another spelling.
+# A registration's address, stored folded as every payload stores one, and asked in another spelling.
 REGISTERED = "rita.registriert@schule.de"
-REGISTERED_STORED = REGISTERED
 REGISTERED_DECLINED = "rita.abgelehnt@schule.de"
 REGISTERED_OPEN = "rita.offen@schule.de"
 BARRED = "gerda.gesperrt@schule.de"
@@ -91,12 +90,8 @@ def _seat(email: str, *, confirmed_at: str | None = STAMP) -> dict[str, Any]:
     return kontaktperson_document("Anna", confirmed_at=confirmed_at, email=email)
 
 
-def _kontakte(**seats: Any) -> dict[str, Any]:
-    return kontakte_document(**seats)
-
-
 def _row(team_id: ObjectId, saison_id: str, shorthand: str, *, austritt: Mapping[str, Any] | None = None, **seats: Any) -> dict[str, Any]:
-    return saison_team_document(saison_id, team_id, f"Schule {shorthand}", shorthand, austritt=austritt, kontakte=_kontakte(**seats))
+    return saison_team_document(saison_id, team_id, f"Schule {shorthand}", shorthand, austritt=austritt, kontakte=kontakte_document(**seats))
 
 
 def _bewerbung(oid: ObjectId, *, status: str, trainer: Mapping[str, Any]) -> dict[str, Any]:
@@ -106,7 +101,7 @@ def _bewerbung(oid: ObjectId, *, status: str, trainer: Mapping[str, Any]) -> dic
         oid,
         ACTIVE_SAISON,
         status,
-        kontakte=_kontakte(trainer=dict(trainer)),
+        kontakte=kontakte_document(trainer=dict(trainer)),
         submitted_at="2026-01-01",
         confirmation_deadline="2026-01-15",
         schule=new_schule_document(f"Bewerberschule {oid}"),
@@ -197,7 +192,7 @@ async def _seed(database: AsyncDatabase) -> None:
     )
     await database[Collection.REGISTRIERUNGEN].insert_many(
         [
-            _registrierung(REGISTRIERUNG_OID, REGISTERED_STORED),
+            _registrierung(REGISTRIERUNG_OID, REGISTERED),
             _registrierung(REGISTRIERUNG_DECLINED_OID, REGISTERED_DECLINED, status="declined"),
             _registrierung(REGISTRIERUNG_OPEN_OID, REGISTERED_OPEN, confirmed=False),
         ]
@@ -365,7 +360,7 @@ async def test_the_mounted_route_answers_the_four_flags_and_nothing_else(mongo_r
 
     async def _answered() -> Response:
         async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME)) as http:
-            return await http.post(PATH, headers=SYSTEM_AUTH, json={"email": REGISTERED_STORED.upper()})
+            return await http.post(PATH, headers=SYSTEM_AUTH, json={"email": REGISTERED.upper()})
 
     response = await _answered()
 
