@@ -1,0 +1,25 @@
+# The rules of `scripts/ruff.toml`, applied to the scripts' tests by `extend`, with one ban more: a case runs a
+# process through `conftest.py :: run_bounded` alone, which ends the process and every process it started at the
+# bound. A child's own `banned-api` replaces the parent's whole table, so the parent's entries stand here again,
+# which `test_bounded_processes.py` holds to the parent's.
+
+extend = "../ruff.toml"
+# The folder's own root, the default `src` resolving from this file instead: without it, isort reads `conftest` as
+# first-party and every test's imports as unsorted.
+src = [".."]
+
+# The one file that starts a process on purpose.
+[lint]
+per-file-ignores = { "conftest.py" = ["TID251"] }
+
+[lint.flake8-tidy-imports.banned-api]
+"argparse.ArgumentParser".msg = "Parse a checker's arguments with `checker_kernel.ArgumentParser`, which answers a usage error of ours as a crash."
+# Every entry point of `subprocess` that starts a process. A bound alone ends the child, and a grandchild holding its
+# pipes outlives it.
+"subprocess.run".msg = "Run a process through `conftest.run_bounded`, which ends its whole tree at the bound."
+"subprocess.Popen".msg = "Run a process through `conftest.run_bounded`, which ends its whole tree at the bound."
+"subprocess.call".msg = "Run a process through `conftest.run_bounded`, which ends its whole tree at the bound."
+"subprocess.check_call".msg = "Run a process through `conftest.run_bounded`, which ends its whole tree at the bound."
+"subprocess.check_output".msg = "Run a process through `conftest.run_bounded`, which ends its whole tree at the bound."
+"subprocess.getoutput".msg = "Run a process through `conftest.run_bounded`, which ends its whole tree at the bound."
+"subprocess.getstatusoutput".msg = "Run a process through `conftest.run_bounded`, which ends its whole tree at the bound."

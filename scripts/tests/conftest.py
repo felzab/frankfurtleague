@@ -142,11 +142,14 @@ def _whole_tree(process: subprocess.Popen[str]) -> Iterator[Callable[[], None]]:
         yield end
 
 
-def run_bounded(command: Sequence[str], *, env: Mapping[str, str] | None = None, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
-    """The one way a case runs a process, its streams decoded as utf-8, to its end or to `PROCESS_BOUND_S`.
+def run_bounded(
+    command: Sequence[str], *, env: Mapping[str, str] | None = None, cwd: Path | None = None, bound_s: float = PROCESS_BOUND_S
+) -> subprocess.CompletedProcess[str]:
+    """The one way a case runs a process, its streams decoded as utf-8, to its end or to `bound_s`.
 
     At the bound the process is ended with every process it started, and the case fails on
-    `subprocess.TimeoutExpired`, which names the command.
+    `subprocess.TimeoutExpired`, which names the command. `bound_s` is shorter only where a case drives
+    the bound itself, which the default would make a two-minute wait.
 
     `text=True` alone would decode with the machine locale, which is cp1252 on Windows, where a
     verdict carrying an em dash does not survive.
@@ -167,7 +170,7 @@ def run_bounded(command: Sequence[str], *, env: Mapping[str, str] | None = None,
         _whole_tree(process) as end,
     ):
         try:
-            stdout, stderr = process.communicate(timeout=PROCESS_BOUND_S)
+            stdout, stderr = process.communicate(timeout=bound_s)
         except subprocess.TimeoutExpired:
             end()
             process.communicate()
