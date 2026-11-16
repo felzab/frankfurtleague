@@ -227,7 +227,7 @@ prefix; order in the file decides nothing.
 - `authapi`, 30 a minute, every method: the sign-in library's routes, its landing and the readiness
   probe, each reading a database. The code check spends it too, so a GET there meets a meter.
 - `linkpage`, 30 a minute, every method: every page a mailed or shared link opens.
-- `action`, 60 a minute: every server action, which Next 16.4.2 runs for a POST carrying a
+- `action`, 60 a minute: every server action, which Next runs for a POST carrying a
   `Next-Action` header or either form content type, at any path. Every other request's key is empty,
   so it meters no page load, asset or JSON post.
 
@@ -317,7 +317,7 @@ A route handler bounding its body tighter takes its own cap at its location, its
 but a page load's.** The server block's `error_page 429` sends a refusal by what the request asks
 for (`nginx/shared/http.conf :: $edge_refusal_target`): a request naming `text/html` gets a page
 with its way back to the site, written inline in `nginx/shared/site.conf`, and anything else the
-sentence. Next 16.4.2 hands a server action's caller a failed answer's body as the error only under
+sentence. Next hands a server action's caller a failed answer's body as the error only under
 exactly that type, and the frontend reads the sentence as a press that wrote nothing
 (`fl_frontend/src/kit/edgeRefusal.ts`); a `charset` would make every refused press read as an
 unclear save. The page withholds the referrer, its URL possibly carrying a link's token, and its
@@ -525,7 +525,7 @@ and frontend scopes alone, of which the scripts scope needs Docker for shellchec
 | `--format`         | Prettier in check mode over the whole repository, then markdownlint over every Markdown file, then no conflict marker, whitespace error or invisible character in any tracked file                              | pnpm install                                                                                                                                   |
 | `--frontend-units` | the unit tests `fl_frontend/package.json`'s `test` script finds under `fl_frontend/`                                                                                                                            | pnpm install                                                                                                                                   |
 | `--frontend`       | the frozen lockfile, peer and dedupe checks, `next typegen`, tsc, eslint, both knip runs and `next build`                                                                                                       | pnpm install                                                                                                                                   |
-| `--ops`            | zizmor audits `.github/`; both stacks parse; `check_compose_model.py` judges both models; `check_public_routes.py` accounts for every route; `edge_test.sh` starts both edges and drives them                   | Docker, and the backend virtualenv with its `zizmor` group                                                                                     |
+| `--ops`            | zizmor audits `.github/`; both stacks parse; `check_compose_model.py` judges both models; `check_public_routes.py` accounts for every route; `edge_test.sh` starts both edges and drives them                   | Docker with its Compose plugin, refused at start-up without it, and the backend virtualenv with its `zizmor` group                             |
 | `--db`             | the contract and its client generated into an ignored scratch folder and compared with the committed ones, then `pytest -m db` over the backend and `pnpm run test:db` over `*.db.test.ts`                      | venv + pnpm install + Docker                                                                                                                   |
 | `--images`         | both images baked from `docker-bake.hcl`, CI's own definition, then what a build does not prove: `instrumentation.js` present, neither image running as uid 0, neither holding a file its dockerignore excludes | Docker                                                                                                                                         |
 

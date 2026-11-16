@@ -95,7 +95,7 @@ LINK_REFERRER_POLICY="no-referrer"
 # The stub answers as `frontend`, the edge's own alias on the network, from inside the same nginx, and
 # as `backend` from a container of its own, so each case is graded on a real 200 rather than a 502
 # that never reached a location.
-
+#
 # It answers with the headers it was handed, so the header block below reads what reached the
 # application, and with its own copy of every security header, which the edge must not pass beside its
 # own.
@@ -231,7 +231,6 @@ BASE="http://${ADDR%$'\r'}"
 
 # nginx accepts a connection before the worker serves, so retrying on connect is what separates
 # "not up yet" from "refuses this request". It carries no marker, so the grading below ignores it.
-
 # Any status is an answer: an edge answering 502 everywhere is a configuration defect the cases below
 # name, exit 1, where waiting for a 200 would refuse it as no verdict.
 _up=0
@@ -476,10 +475,9 @@ fi
 # production's, each on a key nothing before it spent.
 ACTION_FAILURES=0
 ACTION_ID="7f3c0ffee7f3c0ffee7f3c0ffee7f3c0ffee7f3c0f"
-# What a refused request asks for decides its answer: Next 16.4.2's server-action client asks for this
-# alone (`next/dist/client/components/router-reducer/reducers/server-action-reducer.js`), and a
-# browser's page load names `text/html` first. Every other transfer asks with curl's own `*/*`, as an
-# in-page navigation's and a prefetch's fetch does, naming no type of its own.
+# What a refused request asks for decides its answer: Next's server-action client asks for this
+# alone, and a browser's page load names `text/html` first. Every other transfer asks with curl's own
+# `*/*`, as an in-page navigation's and a prefetch's fetch does, naming no type of its own.
 ACTION_ACCEPT="text/x-component"
 NAVIGATION_ACCEPT="text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
 # Every transfer of this pass goes to one curl as lines of a config read from stdin (`curl -K -`), not
@@ -830,12 +828,10 @@ fi
 # body the application takes. The figures are the application's own, written here rather than read off
 # `nginx/shared/site.conf`, which is what they judge.
 BODY_FAILURES=0
-# Next's `serverActions.bodySizeLimit` at its default, `1024 * 1024` in
-# `next/dist/server/app-render/action-handler.js`, which the frontend's config leaves standing.
-# Every page path takes a server action, so `/` stands for the server block's cap.
+# Next's `serverActions.bodySizeLimit` at its default, `1024 * 1024` bytes, which the frontend's config
+# leaves standing. Every page path takes a server action, so `/` stands for the server block's cap.
 ACTION_BODY_MAX=1048576
-# Room for the largest report the client-error route's `ClientErrorReportSchema` takes, as site.conf's
-# `location = /api/client-error` reasons it.
+# Room for the largest report the client-error route's `ClientErrorReportSchema` takes.
 REPORT_BODY_MAX=32768
 # No application figure bounds these two: the edge's own headroom over an address and six digits, and
 # over a delivery event of about a kilobyte.

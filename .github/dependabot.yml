@@ -1,13 +1,10 @@
 version: 2
 
-# Dependency version updates for a single-maintainer repository.
-#
 # The governing constraint is noise, not coverage: ungrouped weekly updates across the ecosystems
 # below would open dozens of pull requests a month, each triggering the full `verify` gate, and none
 # would be read. Monthly and grouped per ecosystem for minor and patch bumps; a major stays its own
 # pull request, because those are the ones that need a changelog read. `github-actions`, `docker`
-# and `docker-compose` are weekly, being the three no security update reaches; the reason is written
-# at `github-actions` and `docker` below.
+# and `docker-compose` are weekly, being the three no security update reaches.
 #
 # Invariants:
 # - Security updates arrive from Dependabot alerts, not from here, and ignore this schedule;
@@ -16,23 +13,18 @@ version: 2
 #   before a pull request proposes it — where its registry dates it, unlike `ghcr.io`. A security
 #   update is exempt from it, but pnpm's strict `minimumReleaseAge` still refuses a release under a
 #   day old, so a frontend security update goes green on a re-run after 24 hours.
-# - Each ecosystem sets a commit prefix, so messages keep `docs/writing.md`'s shape.
+# - Each ecosystem sets a commit prefix, so its messages open with one of the repository's scopes.
 # - No ecosystem below reads an image a workflow's step names in a string, so these two are kept by
-#   hand: Playwright's and BuildKit's in `.github/workflows/verify.yml`'s `journeys` and `images`
-#   jobs. Every image a script or a test runs is read from a file an ecosystem below moves.
+#   hand: Playwright's and BuildKit's in the verify workflow's `journeys` and `images` jobs. Every
+#   image a script or a test runs is read from a file an ecosystem below moves.
 
 updates:
   # --- GitHub Actions -------------------------------------------------------------------------
 
-  # The highest-value ecosystem here and the cheapest to review: few dependencies, small diffs, and
-  # an outdated action is a supply-chain exposure that nothing else in the repo would surface.
-
-  # Weekly, alone here: GitHub raises no alert for an action pinned to a commit SHA and every
-  # `uses:` naming a repository is pinned that way, so for actions this scheduled run IS the
-  # coverage rather than a convenience.
-
-  # A fix therefore arrives one interval plus one cooldown after disclosure, at worst.
-
+  # Weekly: GitHub raises no alert for an action pinned to a commit SHA and every `uses:` naming a
+  # repository is pinned that way, so for actions this scheduled run IS the coverage rather than a
+  # convenience. A fix therefore arrives one interval plus one cooldown after disclosure, at worst.
+  #
   # `/` is not the repository for this ecosystem: it means the root `action.yml` plus
   # `.github/workflows/`, and reaches no composite action. The glob over `.github/actions` is what
   # watches a local action added later, without a config edit.
@@ -56,13 +48,13 @@ updates:
 
   # --- Frontend (pnpm) ------------------------------------------------------------------------
 
-  # Dependabot reads pnpm-lock.yaml natively. `packageManager` and `engines.pnpm` pin pnpm itself
-  # and are deliberately unmanaged -- bumping the package manager is a decision, not a routine
-  # update, and `ARG PNPM_VERSION` moves with it.
-
-  # A package `patchedDependencies` keys to its version cannot move
-  # here: pnpm refuses the update with ERR_PNPM_UNUSED_PATCH, which Dependabot reports in its log
-  # under Insights -> Dependency graph -> Dependabot. The move is by hand, once the patch is re-read.
+  # `packageManager`, which pins pnpm itself, and `engines.pnpm`, its floor, are deliberately
+  # unmanaged: bumping the package manager is a decision, not a routine update, and the frontend
+  # image's `ARG PNPM_VERSION` moves with the pin.
+  #
+  # A package `patchedDependencies` keys to its version cannot move here: pnpm refuses the update
+  # with ERR_PNPM_UNUSED_PATCH, which Dependabot reports in its log under Insights -> Dependency
+  # graph -> Dependabot. The move is by hand, once the patch is re-read.
   - package-ecosystem: npm
     directory: /fl_frontend
     schedule:
@@ -117,22 +109,20 @@ updates:
     ignore:
       # pydantic pins pydantic-core exactly, so every update attempt here resolves unsatisfiably;
       # ignoring it loses nothing, because pydantic's own pin still moves it. The entry stands while
-      # `fl_backend/app/shared/schemas/custom.py` imports pydantic_core.
+      # the application imports pydantic_core directly.
       - dependency-name: pydantic-core
 
   # --- Base images ----------------------------------------------------------------------------
 
   # Both Dockerfiles pin their base image, and the backend's `FROM ghcr.io/astral-sh/uv ... AS uv`
-  # stage is a second image in the same file for the same reason. A Dockerfile change triggers the
-  # `images` CI job on the pull request itself (.github/workflows/verify.yml), so a base-image bump
-  # proves both images build before it merges.
-
-  # Each `FROM` names a tag and its digest, and this ecosystem rewrites the
-  # two together; the compose ecosystem below does the same for every image either stack names.
-
-  # It moves the `FROM` line alone, so its pull request for a new Node or uv stays red until the pin
-  # moves on the same branch.
-
+  # stage is a second image in the same file. CI's `images` job runs on the pull request itself, so
+  # a base-image bump proves both images build before it merges.
+  #
+  # Each `FROM` names a tag and its digest, and this ecosystem rewrites the two together; the
+  # compose ecosystem below does the same for every image either stack names. It moves the `FROM`
+  # line alone, so its pull request for a new Node or uv stays red until the pin moves on the same
+  # branch.
+  #
   # No security update reaches this ecosystem, so a Node or Python security release waits for this
   # schedule and its cooldown: weekly, so eight days at worst.
   - package-ecosystem: docker
@@ -170,9 +160,9 @@ updates:
       - dependency-name: python
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
 
-  # The gate's linters: `scripts/gate/tools.Dockerfile` is never built, and its `FROM` lines are the
-  # one place shellcheck, actionlint and lychee are pinned, each read by the script running it. A
-  # major stays its own pull request, since a linter's major is where new findings arrive.
+  # The gate's linters: this folder's Dockerfile is never built, and its `FROM` lines are the one
+  # place shellcheck, actionlint and lychee are pinned. A major stays its own pull request, since a
+  # linter's major is where new findings arrive.
   - package-ecosystem: docker
     directory: /scripts/gate
     schedule:
@@ -191,7 +181,7 @@ updates:
   # A separate ecosystem from `docker`, which reads Dockerfiles and Kubernetes manifests and would
   # not open either compose file. This one reads `services.*.image` in both root compose files, so
   # the image the stacks put in front of the application is watched like any other dependency.
-
+  #
   # An image whose tag carries no version yields nothing here -- there is no comparison to make --
   # so a floating tag is a silent opt-out rather than an update nobody sees. This repository's own
   # two images are such, their tag being the `${TAG:?…}` the deploy sets, so no bot proposes a

@@ -1,4 +1,4 @@
-"""SCRIPTS · the orchestration skill's core, held to the size compaction re-attaches whole.
+"""ORCHESTRATION · the orchestration skill's core, held to the size compaction re-attaches whole.
 
 Compaction re-attaches the first 5,000 tokens of each invoked skill, and Anthropic's skill guide
 sizes a SKILL.md body under 5k tokens: past that, a compacted coordinator works from a truncated copy

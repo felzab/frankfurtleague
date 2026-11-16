@@ -1,7 +1,6 @@
 name: ai-tooling
 
-# The orchestration tools' lint, types and tests, which live with the tools under `.claude/`. No
-# required check names this job: the AI tooling is kept apart from what decides a merge, and this
+# No required check names this job: the AI tooling is kept apart from what decides a merge, and this
 # file is the one piece of it outside `.claude/`.
 
 on:
@@ -41,7 +40,6 @@ jobs:
         with:
           application: false
           group: checks
-      # From the root, the skill's `ruff.toml` extending `scripts/ruff.toml`.
       - name: Lint the orchestration tools
         if: hashFiles('.claude/skills/orchestration/tests/*.py') != ''
         run: fl_backend/.venv/bin/python -m ruff check .claude/skills/orchestration

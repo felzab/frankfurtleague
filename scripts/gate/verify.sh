@@ -123,7 +123,7 @@ SCOPE="${SELECTED[0]}"
 # verdict. `--checker` adds the 2 a checker built on the checker kernel answers for an input it
 # could not judge. `--summary` is for a tool raising an annotation per finding itself
 # under Actions, as Vitest and the self-check do: what is said then sums them, `fail --summary`.
-# `--pytest` raises those annotations for pytest, one per case its summary names (`annotate_cases`).
+# `--pytest` raises those annotations for pytest, one per case its summary names.
 check() { # [--checker] [--summary | --pytest] $1 what to say on a finding · the command
   local said rc=0 command
   local -a flags=()
@@ -171,14 +171,12 @@ annotate_cases() {
   return "$found"
 }
 
-# A command run from inside one of the repository's directories.
 in_dir() { # $1 the directory · the command
   local dir="$1"
   shift
   ( cd "$dir" && "$@" )
 }
 
-# ruff's lint, then its formatter in check mode, over the paths named from inside `$1`.
 ruff_both() { # $1 the directory · the paths
   local dir="$1"
   shift
@@ -187,8 +185,8 @@ ruff_both() { # $1 the directory · the paths
 
 # A command run beside others, its output kept in `$1.log` and its status, with the milliseconds it
 # took, in `$1.status`. Bash starts an `&` command of a script with SIGINT and SIGQUIT ignored,
-# which would leave a step running past a Ctrl-C: reset, as `build_images` does. Called in a
-# subshell, so the reset never reaches the scope's own shell.
+# which would leave a step running past a Ctrl-C, so both are reset. Called in a subshell, so the
+# reset never reaches the scope's own shell.
 run_beside() { # $1 where its files go · the command
   local at="$1" t0 rc=0
   shift
@@ -222,6 +220,13 @@ PYTEST_SPREAD=(-n auto --dist loadfile -o faulthandler_timeout=180)
 case "$SCOPE" in
   docs|ops|db|images) require_docker ;;
 esac
+# Compose is a plugin of the Docker CLI, so an engine that answers is no proof it is installed, and
+# without it every compose file would read as one that does not parse.
+if [[ "$SCOPE" == ops ]]; then
+  docker compose version >/dev/null 2>&1 \
+    || refuse "Docker Compose did not answer 'docker compose version', so no compose file was parsed.
+Install the Compose plugin, or start Docker Desktop, which carries it, then try again."
+fi
 case "$SCOPE" in
   scripts|format|frontend-units|frontend|db)
     require_dir fl_frontend/node_modules "Every frontend tool runs out of it. Install it with:  cd fl_frontend && pnpm install"
@@ -279,7 +284,7 @@ check_links() {
     info "scripts/gate/tools.Dockerfile names no single FROM line for lychee, so no link was checked."
     return 1
   fi
-  MSYS_NO_PATHCONV=1 docker run --rm --network none -v "${REPO_ROOT}:/input:ro" -w /input \
+  MSYS_NO_PATHCONV=1 docker run --rm --network none -v "$(mount_source):/input:ro" -w /input \
     "$image" --config lychee.toml --no-progress . || rc=$?
   if (( rc == 2 )); then return 1; fi
   return "$rc"
@@ -336,11 +341,12 @@ diff_check() {
 }
 
 # Every tracked text file, for the zero-width, bidirectional and line-separator characters that hide
-# or reorder what a reviewer reads (CVE-2021-42574); the one deliberate fixture is left out. A UTF-8
-# locale, which `-P` needs to read a code point past U+00FF. git grep answers 0 for a match, 1 for none.
+# or reorder what a reviewer reads (CVE-2021-42574), the Arabic letter mark U+061C the one bidirectional
+# mark outside U+2000's block; the one deliberate fixture is left out. A UTF-8 locale, which `-P` needs
+# to read a code point past U+00FF. git grep answers 0 for a match, 1 for none.
 invisible_check() {
   local rc=0
-  LC_ALL=C.UTF-8 git grep -I -n -P '[\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{2028}\x{2029}]' \
+  LC_ALL=C.UTF-8 git grep -I -n -P '[\x{061C}\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{2028}\x{2029}]' \
     -- . ':!fl_frontend/src/core/emailAddress.test.ts' || rc=$?
   case "$rc" in
     0) return 1 ;;
@@ -633,8 +639,7 @@ cleanup_images() { docker image rm -f "${IMAGES_TAG}:frontend" "${IMAGES_TAG}:ba
 
 # Both in one bake of the definition CI builds, so each target's context, Dockerfile and arguments are
 # `docker-bake.hcl`'s alone. Only where they land is this run's: loaded into the local image store
-# under this run's tag (`--set`, https://docs.docker.com/build/bake/overrides/), where CI writes the
-# tarballs its publish pushes.
+# under this run's tag through `--set`, where CI writes the tarballs its publish pushes.
 build_images() {
   local log rc=0
   log="$(mktemp)"

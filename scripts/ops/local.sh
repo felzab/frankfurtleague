@@ -28,8 +28,7 @@
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
 
 # docker-compose.local.yml merged over docker-compose.yml, named for every call below by Compose's
-# own variable:
-# https://docs.docker.com/compose/how-tos/environment-variables/envvars/#compose_file
+# own variable.
 export COMPOSE_FILE="docker-compose.yml;docker-compose.local.yml"
 # The base file names both images by the tag a deploy pins and refuses to parse without one; the
 # local file builds both images in their place, so the word is never an image's.
@@ -74,15 +73,15 @@ STOP_COMMAND="./scripts/ops/local.sh --down"
 # Where the local stack's frontend files the mail it does not send, as its compose file mounts it.
 MAIL_SINK="${REPO_ROOT}/.tmp-mail"
 if (( E2E )); then
-  # Merged over the local stack's two, as that one merges over production's (docker-compose.e2e.yml).
+  # Merged over the local stack's two, as that one merges over production's.
   COMPOSE_FILE="${COMPOSE_FILE};docker-compose.e2e.yml"
   STOP_COMMAND="./scripts/ops/local.sh --e2e --down"
 fi
 # Compose as a developer types it beside this stack.
 BY_HAND="COMPOSE_FILE='${COMPOSE_FILE}' TAG=${TAG} docker compose"
 
-# Everything the end-to-end stack holds on the host, its keys and its mail sink among it, which
-# scripts/ops/e2e_stack.sh writes. `.tmp-*/` is gitignored.
+# Everything the end-to-end stack holds on the host, its keys and its mail sink among it.
+# `.tmp-*/` is gitignored.
 E2E_DIR="${REPO_ROOT}/.tmp-e2e"
 
 # The made-up league loaded into the running backend's database and read back; `--landing` hands its
@@ -145,8 +144,9 @@ if (( DOWN )); then
   finish
 fi
 
-# The running stack's database emptied and seeded again, its keys, its sign-in store and every image as they are; the
-# frontend then recreated, since a reseed alone would leave the landing's read in Next's in-memory cache for minutes.
+# The running stack's database emptied and seeded again, its keys, its sign-in store and every image
+# as they are; the frontend then recreated, since a reseed alone would leave the landing's read in
+# Next's in-memory cache for minutes.
 if (( RESEED )); then
   section "landing"
 
