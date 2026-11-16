@@ -30,6 +30,8 @@ if (( BUILD )) && [[ "$PHASE" != start ]]; then refuse "--build belongs to start
 # local stack's holds the developer's database. The separator spelled out, since Compose's own differs by platform.
 export COMPOSE_PATH_SEPARATOR=":"
 export COMPOSE_FILE="docker-compose.yml:docker-compose.local.yml:docker-compose.e2e.yml"
+# The stack's name as docker-compose.e2e.yml gives it, which a caller's variable or a `.env` would outrank.
+export COMPOSE_PROJECT_NAME="frankfurtleague-e2e"
 # The tag docker-compose.yml's two images read, which Compose demands before it merges the files that name this stack's
 # own images in their place; no image is pulled or built by it.
 export TAG=e2e

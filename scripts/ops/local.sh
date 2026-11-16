@@ -75,6 +75,9 @@ MAIL_SINK="${REPO_ROOT}/.tmp-mail"
 if (( E2E )); then
   # Merged over the local stack's two, as that one merges over production's.
   COMPOSE_FILE="${COMPOSE_FILE};docker-compose.e2e.yml"
+  # The stack's name as docker-compose.e2e.yml gives it, which a caller's variable or a `.env` would
+  # outrank: `--down` deletes the named stack's volume, and `--landing` empties its database.
+  export COMPOSE_PROJECT_NAME="frankfurtleague-e2e"
   STOP_COMMAND="./scripts/ops/local.sh --e2e --down"
 fi
 # Compose as a developer types it beside this stack.
