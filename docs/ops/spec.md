@@ -456,9 +456,11 @@ type stand in `fl_backend/tests/made_up_people.json`, which the seed writes them
 deletes the volume, and the database with it.
 
 **A seed is in place before anything renders a page**, so no empty read is cached. The made-up seed
-runs inside the backend container, copied there with the tests' builders, and reaches only the
-database that container's settings name; it loads once the backend's boot has built every index, and
-`python -m app.readback` then reads every document it wrote back through its record model; only then
+runs inside the backend container, copied there with the tests' builders. **It writes only to the
+database service the local and the end-to-end stacks each start and production lacks**:
+`scripts/ops/made_up_seed.sh` refuses any stack whose Compose files declare no such service, and the
+seed refuses any server its settings name but that one, before it connects. It loads once the
+backend's boot has built every index, and `python -m app.readback` then reads every document it wrote back through its record model; only then
 do the frontend and nginx start.
 
 **The local stack starts with an empty `auth`, and a sign-in builds it.** The grants deciding which
