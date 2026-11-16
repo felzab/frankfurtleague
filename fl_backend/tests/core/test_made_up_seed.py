@@ -12,6 +12,7 @@ Invariants:
 """
 
 import os
+import re
 import secrets
 import subprocess
 import sys
@@ -23,7 +24,7 @@ import pytest
 from app.core import clock
 from app.core.config import MONGODB_URI_FILE, SECRET_FILES
 from tests.boot import BACKEND_ROOT, Withheld
-from tests.made_up_seed import LANDING_STATES, MadeUpLeague, is_local_server
+from tests.made_up_seed import CRASHED, LANDING_STATES, MadeUpLeague, is_local_server
 
 # Each a server, or a way of naming one, that is not the local stack's own; named, never the URI itself, since a case's
 # name is printed by every run.
@@ -59,18 +60,24 @@ def test_any_other_server_is_not(uri: str) -> None:
 
 
 def seeded(directory: Path, uri: str) -> subprocess.CompletedProcess[str]:
-    """`python -m tests.made_up_seed` run to its exit with `uri` as its database's settings, inheriting nothing else.
-
-    A process of its own, as the container runs it, so the seed's own read of the settings is what it judges. Run from
-    `directory`, so no package's dotenv file is read beside the case's settings.
-    """
+    """`python -m tests.made_up_seed` run to its exit with `uri` as its database's settings, inheriting nothing else."""
 
     settings = directory / "run-secrets"
     settings.mkdir()
     for name in SECRET_FILES:
         # Bytes: a text-mode write would end each file in a carriage return on Windows.
         (settings / name).write_bytes((uri if name == MONGODB_URI_FILE else secrets.token_hex(32)).encode())
-    environment = Withheld({"SECRETS_DIR": str(settings), "DB_BASE_NAME": "fl_made_up", "PYTHONPATH": str(BACKEND_ROOT)})
+    return run_seed(directory, {"SECRETS_DIR": str(settings), "DB_BASE_NAME": "fl_made_up", "PYTHONPATH": str(BACKEND_ROOT)})
+
+
+def run_seed(directory: Path, settings: dict[str, str]) -> subprocess.CompletedProcess[str]:
+    """`python -m tests.made_up_seed` run to its exit over `settings` alone.
+
+    A process of its own, as the container runs it, so the seed's own read of the settings is what it judges. Run from
+    `directory`, so no package's dotenv file is read beside the case's settings.
+    """
+
+    environment = Withheld(settings)
     # Windows' sockets cannot load their providers without it, so `asyncio` fails at its import (WinError 10106).
     if "SYSTEMROOT" in os.environ:
         environment["SYSTEMROOT"] = os.environ["SYSTEMROOT"]
@@ -94,6 +101,28 @@ def test_the_seed_refuses_any_other_server_before_any_client_exists(uri: str, tm
     assert done.returncode == 2, said
     assert REFUSAL in done.stderr, said
     assert "emptied" not in said and "seeded" not in said, said
+
+
+def test_an_import_that_fails_answers_crashed(tmp_path: Path) -> None:
+    """The script sends the operator to correct the seed on a 1, so the seed failing in itself answers 3."""
+
+    # A package the seed imports, shadowed by one that cannot be imported: an install broken under it.
+    (tmp_path / "pydantic").mkdir()
+    (tmp_path / "pydantic" / "__init__.py").write_bytes(b'raise ImportError("a broken install")\n')
+
+    done = run_seed(tmp_path, {"PYTHONPATH": os.pathsep.join((str(tmp_path), str(BACKEND_ROOT)))})
+
+    assert (done.returncode, done.stderr.startswith("The made-up seed crashed (ImportError at ")) == (CRASHED, True), done.stdout + done.stderr
+
+
+def test_a_run_that_fails_answers_crashed_and_names_no_value(tmp_path: Path) -> None:
+    """Settings that cannot be built fail inside the run, before any client exists, and their refusal can carry a value."""
+
+    done = run_seed(tmp_path, {"SECRETS_DIR": str(tmp_path), "PYTHONPATH": str(BACKEND_ROOT)})
+
+    assert (done.returncode, done.stdout) == (CRASHED, ""), done.stdout + done.stderr
+    # The whole output, one line naming the type and where it was raised: nothing the refusal said reaches it.
+    assert re.fullmatch(r"The made-up seed crashed \(EnvironmentValidationError at \S+\.py:\d+\)\.\n", done.stderr), done.stderr
 
 
 @pytest.mark.parametrize("state", LANDING_STATES)

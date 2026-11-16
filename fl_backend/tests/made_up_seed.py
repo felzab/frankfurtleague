@@ -34,6 +34,9 @@ or a link it names is not the one the scenario sets up for that journey.
 `SEED_LANDING` in the environment sets the landing's state, the seed as written by default (`LANDING_STATES`); any other
 name is refused, exit 2, before the database is reached.
 
+It exits 0 when the league is written, 1 when an insert is refused, 2 when it refuses to run or could not write the
+database, and 3 when the seed itself failed, at its imports included.
+
 Run by `./scripts/ops/local.sh --e2e`, `--e2e --landing=<state>` and `--seed-made-up`, and by the journeys' CI job, as
 `python -m tests.made_up_seed` inside the stack's backend container, copied there beside the tests' builders: it reads the
 settings the read-back reads, and refuses, exit 2, before any client exists unless they name the local stack's own server
@@ -51,88 +54,113 @@ Invariants:
   drive reads each state of a link page. The token is no secret: its hash stands in this made-up stack alone.
 """
 
-import asyncio
-import copy
-import json
-import os
 import sys
-from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field
-from datetime import UTC, date, datetime, timedelta
-from pathlib import Path
-from typing import Any, Final
+import traceback
+from typing import NoReturn
 
-from bson import ObjectId
-from pymongo import AsyncMongoClient
-from pymongo.errors import BulkWriteError, PyMongoError
-from pymongo.uri_parser import parse_uri
+# The exit contract the script reads: 0 seeded, 1 a document to correct, 2 refused or could not write, 3 crashed.
+CRASHED = 3
 
-from app.api.address_change.services import compose_record
-from app.api.bewerbungen.services import compose_confirmation as compose_bewerbung_confirmation
-from app.api.bewerbungen.services import compose_confirmation_update as compose_seat_confirmation_update
-from app.api.bewerbungen.services import compose_einwilligung as compose_seat_einwilligung
-from app.api.outbox.schemas import FLBewerbungReceivedData, FLOutboxReference
-from app.api.outbox.services import final_update
-from app.api.saisons.schemas import FLSaisonRules
-from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
-from app.api.schiedsrichter.services import compose_confirmation as compose_schiedsrichter_confirmation
-from app.api.schiedsrichter.services import compose_confirmation_update as compose_schiedsrichter_confirmation_update
-from app.api.schiedsrichter.services import compose_mint_update
-from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment
-from app.api.spielbestaetigungen.services import compose_answer_update, compose_schiedsrichter_answer_update, compose_spielbestaetigung
-from app.api.spielorte.services import compose_maps_link
-from app.api.teams.services import compose_kontakt_confirmation
-from app.core import clock
-from app.core.collections import Collection
-from app.core.config import get_config
-from app.core.crud import ANCHOR_FIELD, Anchored
-from app.core.db import SERVER_SELECTION_TIMEOUT_MS
-from app.readback import RECORD_MODELS
-from app.shared.einwilligung_evidence import compose_initial
-from app.shared.schemas.addresses import FLAddress
-from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS
-from app.shared.schemas.literals import FLAddressChangeWay
-from app.shared.tokens import hash_token
-from tests.documents import (
-    SCHIEDSRICHTER_TEXT_VERSIONS,
-    SEAT_TEXT_VERSIONS,
-    SPIELER_TEXT_VERSIONS,
-    action_log_document,
-    aufstellung_document,
-    ban_document,
-    bericht_document,
-    bewerbung_document,
-    grant_document,
-    invitation_document,
-    mailbox_anchor_document,
-    outbox_document,
-    read_back_document,
-    registrierung_confirmed,
-    registrierung_document,
-    rules_document,
-    saison_document,
-    saison_spieler_document,
-    saison_team_document,
-    schiedsrichter_document,
-    spiel_document,
-    spielbericht_document,
-    spielbericht_sides,
-    spieler_document,
-    spielort_document,
-    spieltag_document,
-    team_document,
-)
 
-# The seasons, people, clubs, fixtures and links the journeys type, read by them too.
-PEOPLE: Final[Mapping[str, Any]] = json.loads(Path(__file__).with_name("made_up_people.json").read_text(encoding="utf-8"))
-PROJECTS: Final[Sequence[Mapping[str, Any]]] = (PEOPLE["projects"]["desktop"], PEOPLE["projects"]["phone"])
-FINISHED: Final[str] = PEOPLE["seasons"]["finished"]
-RUNNING: Final[str] = PEOPLE["seasons"]["running"]
-PLANNED: Final[str] = PEOPLE["seasons"]["planned"]
+def _crashed(error: BaseException) -> NoReturn:
+    """The crash by its type and where it was raised: a message, or a traceback's locals, can carry a secret's value."""
 
-# The collections whose record model declares the count an anchor advances, each first document carrying it, as a
-# document of the league's soon does.
-ANCHORED: Final[frozenset[Collection]] = frozenset(collection for collection, model in RECORD_MODELS.items() if issubclass(model, Anchored))
+    frames = traceback.extract_tb(error.__traceback__)
+    where = f" at {frames[-1].filename}:{frames[-1].lineno}" if frames else ""
+    print(f"The made-up seed crashed ({type(error).__name__}{where}).", file=sys.stderr)
+    raise SystemExit(CRASHED) from None
+
+
+# Inside the contract's reach: an import failing before `_main` exists would otherwise exit Python's own 1, which the
+# script reads as a document to correct.
+try:
+    import asyncio
+    import copy
+    import json
+    import os
+    from collections.abc import Callable, Mapping, Sequence
+    from dataclasses import dataclass, field
+    from datetime import UTC, date, datetime, timedelta
+    from pathlib import Path
+    from typing import Any, Final
+
+    from bson import ObjectId
+    from pymongo import AsyncMongoClient
+    from pymongo.errors import BulkWriteError, PyMongoError
+    from pymongo.uri_parser import parse_uri
+
+    from app.api.address_change.services import compose_record
+    from app.api.bewerbungen.services import compose_confirmation as compose_bewerbung_confirmation
+    from app.api.bewerbungen.services import compose_confirmation_update as compose_seat_confirmation_update
+    from app.api.bewerbungen.services import compose_einwilligung as compose_seat_einwilligung
+    from app.api.outbox.schemas import FLBewerbungReceivedData, FLOutboxReference
+    from app.api.outbox.services import final_update
+    from app.api.saisons.schemas import FLSaisonRules
+    from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
+    from app.api.schiedsrichter.services import compose_confirmation as compose_schiedsrichter_confirmation
+    from app.api.schiedsrichter.services import compose_confirmation_update as compose_schiedsrichter_confirmation_update
+    from app.api.schiedsrichter.services import compose_mint_update
+    from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment
+    from app.api.spielbestaetigungen.services import compose_answer_update, compose_schiedsrichter_answer_update, compose_spielbestaetigung
+    from app.api.spielorte.services import compose_maps_link
+    from app.api.teams.services import compose_kontakt_confirmation
+    from app.core import clock
+    from app.core.collections import Collection
+    from app.core.config import get_config
+    from app.core.crud import ANCHOR_FIELD, Anchored
+    from app.core.db import SERVER_SELECTION_TIMEOUT_MS
+    from app.readback import RECORD_MODELS
+    from app.shared.einwilligung_evidence import compose_initial
+    from app.shared.schemas.addresses import FLAddress
+    from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS
+    from app.shared.schemas.literals import FLAddressChangeWay
+    from app.shared.tokens import hash_token
+    from tests.documents import (
+        SCHIEDSRICHTER_TEXT_VERSIONS,
+        SEAT_TEXT_VERSIONS,
+        SPIELER_TEXT_VERSIONS,
+        action_log_document,
+        aufstellung_document,
+        ban_document,
+        bericht_document,
+        bewerbung_document,
+        grant_document,
+        invitation_document,
+        mailbox_anchor_document,
+        outbox_document,
+        read_back_document,
+        registrierung_confirmed,
+        registrierung_document,
+        rules_document,
+        saison_document,
+        saison_spieler_document,
+        saison_team_document,
+        schiedsrichter_document,
+        spiel_document,
+        spielbericht_document,
+        spielbericht_sides,
+        spieler_document,
+        spielort_document,
+        spieltag_document,
+        team_document,
+    )
+
+    # The seasons, people, clubs, fixtures and links the journeys type, read by them too.
+    PEOPLE: Final[Mapping[str, Any]] = json.loads(Path(__file__).with_name("made_up_people.json").read_text(encoding="utf-8"))
+    PROJECTS: Final[Sequence[Mapping[str, Any]]] = (PEOPLE["projects"]["desktop"], PEOPLE["projects"]["phone"])
+    FINISHED: Final[str] = PEOPLE["seasons"]["finished"]
+    RUNNING: Final[str] = PEOPLE["seasons"]["running"]
+    PLANNED: Final[str] = PEOPLE["seasons"]["planned"]
+
+    # The collections whose record model declares the count an anchor advances, each first document carrying it, as a
+    # document of the league's soon does.
+    ANCHORED: Final[frozenset[Collection]] = frozenset(collection for collection, model in RECORD_MODELS.items() if issubclass(model, Anchored))
+except Exception as error:
+    # Imported, the failure is the importer's to see; run, it is the contract's 3.
+    if __name__ != "__main__":
+        raise
+    _crashed(error)
+
 
 # The landing's state the seed as written stands in.
 AS_WRITTEN: Final = "running"
@@ -1589,10 +1617,11 @@ async def write(client: AsyncMongoClient, database_name: str, league: MadeUpLeag
     except BulkWriteError as refused:
         print(f"An insert was refused: {refused.details['writeErrors'][0]['errmsg']}", file=sys.stderr)
         return 1
-    # The type alone: the driver's message names the host it resolved out of the secret.
+    # The type alone: the driver's message names the host it resolved out of the secret. Nothing of the seed was judged,
+    # as the read-back's own unreadable database is not.
     except PyMongoError as failure:
         print(f"The database could not be written ({type(failure).__name__}).", file=sys.stderr)
-        return 1
+        return 2
 
     print(f"made-up seed written to '{database_name}', today being {league.today}")
     return 0
@@ -1644,4 +1673,8 @@ async def _main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(asyncio.run(_main()))
+    try:
+        code = asyncio.run(_main())
+    except Exception as error:
+        _crashed(error)
+    raise SystemExit(code)
