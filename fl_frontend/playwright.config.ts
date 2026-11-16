@@ -105,6 +105,8 @@ export default defineConfig<JourneyOptions>({
       // The profile `playwright open --mobile` takes in WebKit, Playwright's newest iPhone.
       use: {
         ...devices["iPhone 17"],
+        // Playwright starts Windows WebKit without accelerated compositing, under which a view transition crashes it.
+        launchOptions: { ignoreDefaultArgs: ["--disable-accelerated-compositing"] },
         ...optionsOf(PEOPLE.projects.phone, { accepted: "Tanne", objected: "Fichte", colour: "Bordeaux" }),
       },
     },
