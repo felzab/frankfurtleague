@@ -171,9 +171,9 @@ jobs:
       - name: Run the ops scope
         run: ./scripts/gate/verify.sh --ops
 
-  # Both images, built through Docker's own action, which carries the Actions layer cache. Each is
-  # written to a file and loaded, so a push hands the publish job exactly the bytes checked
-  # here (https://docs.docker.com/build/ci/github-actions/share-image-jobs/).
+  # Both images, built side by side in one bake through Docker's own action, which carries the Actions
+  # layer cache. Each is written to a file and loaded, so a push hands the publish job exactly the
+  # bytes checked here (https://docs.docker.com/build/ci/github-actions/share-image-jobs/).
   images:
     runs-on: ubuntu-latest
     timeout-minutes: 16
@@ -208,45 +208,30 @@ jobs:
           cleanup: false
       # `sha-<commit>` as the version, the tag a deploy pins and the one each image is stamped with,
       # and the OCI labels both images carry. No `images`, so the version is the one tag it computes,
-      # and each build names its own repository before it.
+      # and each image's target names its own repository before it.
       - id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           tags: type=sha
-      # One cache scope per image, buildx overwriting rather than merging a key, and `version` left to
-      # buildx, which picks the live cache service.
-
-      # A push reads no cache, so no planted cache entry reaches an image a push publishes, and a push
-      # alone writes one, into its branch's scope. A pull request restores its own merge ref's caches,
-      # its base branch's and the default branch's
-      # (https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching), so
-      # what it wrote would serve its own later runs alone, each paying the export.
-      - name: Build the frontend
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+      - name: Build both images
+        uses: docker/bake-action@59cb1203cd42bcefd40a1b6d73b589e48c86040e # v7.5.0
+        env:
+          APP_VERSION: ${{ steps.meta.outputs.version }}
+          TARBALL_DIR: ${{ runner.temp }}
+          # A push reads no cache, so no planted cache entry reaches an image a push publishes, and a
+          # push alone writes one, into its branch's scope. A pull request restores its own merge ref's
+          # caches, its base branch's and the default branch's
+          # (https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching), so
+          # what it wrote would serve its own later runs alone, each paying the export.
+          READ_CACHE: ${{ github.event_name != 'push' }}
+          WRITE_CACHE: ${{ github.event_name == 'push' }}
         with:
-          context: fl_frontend
-          file: fl_frontend/Dockerfile
-          tags: |
-            ${{ env.VERIFY_TAG }}:frontend
-            ${{ env.FRONTEND_IMAGE }}:${{ steps.meta.outputs.version }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: APP_VERSION=${{ steps.meta.outputs.version }}
-          outputs: type=docker,dest=${{ runner.temp }}/frontend.tar
-          cache-from: ${{ github.event_name != 'push' && 'type=gha,scope=frontend' || '' }}
-          cache-to: ${{ github.event_name == 'push' && 'type=gha,scope=frontend,mode=max' || '' }}
-      - name: Build the backend
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: fl_backend
-          file: fl_backend/Dockerfile
-          tags: |
-            ${{ env.VERIFY_TAG }}:backend
-            ${{ env.BACKEND_IMAGE }}:${{ steps.meta.outputs.version }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: APP_VERSION=${{ steps.meta.outputs.version }}
-          outputs: type=docker,dest=${{ runner.temp }}/backend.tar
-          cache-from: ${{ github.event_name != 'push' && 'type=gha,scope=backend' || '' }}
-          cache-to: ${{ github.event_name == 'push' && 'type=gha,scope=backend,mode=max' || '' }}
+          # The checkout as the build context, where the action's default is a Git context BuildKit
+          # fetches for itself.
+          source: .
+          files: |
+            ./docker-bake.hcl
+            cwd://${{ steps.meta.outputs.bake-file-labels }}
       # On every event, so a pull request's run proves the outputs a push publishes by.
       - name: Record each tarball's digest and each image's tag
         id: bind
