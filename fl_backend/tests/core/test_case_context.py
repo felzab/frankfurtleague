@@ -16,6 +16,12 @@ from tests.database import CASE_BOUND_S
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 CANARIES = Path(__file__).with_name("context_canary_cases.py")
 
+# A pytest of its own: an interpreter's start, the suite's imports and three cases, about 3 s on a developer machine. Above
+# a case's own bound, so a canary that hangs is cut and reported by that pytest rather than by this timeout.
+CANARIES_BOUND_S = 60.0
+
+assert CASE_BOUND_S < CANARIES_BOUND_S, "the canaries' run must outlast a case its own bound cuts"
+
 
 def test_each_case_runs_in_a_context_of_its_own():
     # The environment passes through as it is and is never held in a local: `--showlocals` prints a failing case's.
@@ -25,7 +31,7 @@ def test_each_case_runs_in_a_context_of_its_own():
         capture_output=True,
         text=True,
         encoding="utf-8",
-        timeout=CASE_BOUND_S,
+        timeout=CANARIES_BOUND_S,
         check=False,
     )
 

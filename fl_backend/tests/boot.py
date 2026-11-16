@@ -33,7 +33,11 @@ BOOT_BOUND_S: Final = SERVER_SELECTION_TIMEOUT_MS / 1000 + 45
 # and under the case's own bound, so a boot that never starts fails as one.
 SERVING_BOUND_S: Final = 20.0
 
-assert SERVING_BOUND_S < CASE_BOUND_S, "a boot held inside a case must time out before the case does"
+# How long a boot asked to stop gets before it is killed. uvicorn defers a SIGTERM until its lifespan's startup ends, so
+# a boot stuck there, the one `SERVING_BOUND_S` cuts, ends only when killed.
+STOP_GRACE_S: Final = 5.0
+
+assert SERVING_BOUND_S + STOP_GRACE_S < CASE_BOUND_S, "a boot held inside a case must time out and stop before the case does"
 
 # The shape of the application's own log message (`app/core/logging.py`), which carries no value; uvicorn's lines and a
 # traceback's do not take it.
@@ -179,17 +183,35 @@ async def serving(directory: Path, files: Mapping[str, str], variables: Mapping[
     process = await _started(directory, files, variables)
     assert process.stdout is not None
     lines: list[bytes] = []
+    reading = asyncio.timeout(SERVING_BOUND_S)
     try:
-        async with asyncio.timeout(SERVING_BOUND_S):
-            while line := await process.stdout.readline():
-                lines.append(line)
-                if Boot(None, line.decode("utf-8", errors="replace")).events == [until]:
-                    break
+        try:
+            async with reading:
+                while line := await process.stdout.readline():
+                    lines.append(line)
+                    if Boot(None, line.decode("utf-8", errors="replace")).events == [until]:
+                        break
+        except TimeoutError as timeout:
+            if reading.expired():
+                raise TimeoutError(f"the boot logged no `{until}` within {SERVING_BOUND_S:.0f} s") from timeout
+            raise
         yield Boot(process.returncode, b"".join(lines).decode("utf-8", errors="replace"))
     finally:
-        if process.returncode is None:
-            process.terminate()
-        await process.wait()
+        await _stopped(process)
+
+
+async def _stopped(process: asyncio.subprocess.Process) -> None:
+    """The boot asked to stop, and killed once `STOP_GRACE_S` has passed; on Windows the ask is already a kill."""
+
+    if process.returncode is None:
+        process.terminate()
+        try:
+            async with asyncio.timeout(STOP_GRACE_S):
+                await process.wait()
+        except TimeoutError:
+            process.kill()
+
+    await process.wait()
 
 
 def names(sentence: str | None, opening: str) -> set[str]:
