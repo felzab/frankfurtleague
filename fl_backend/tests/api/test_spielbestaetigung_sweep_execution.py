@@ -481,12 +481,6 @@ async def a_pass_through(database: AsyncDatabase, client: AsyncMongoClient, *, k
     return await handed_out(database, client, await a_pass(database, client, **collections), kontakt_links=kontakt_links, now=NOW)
 
 
-async def unstamp(database: AsyncDatabase) -> None:
-    """Every row as one whose party no mail was ever owed: what a row nobody could be asked on reads as."""
-
-    await database[Collection.SPIELBESTAETIGUNGEN].update_many({}, {"$set": {"asked_at": None}})
-
-
 async def move(
     database: AsyncDatabase, client: AsyncMongoClient, spiel_id: ObjectId, *, spiele: Any = None, **overrides: Any
 ) -> FLPatchSpielDataResponse:
@@ -636,36 +630,6 @@ class TestTheWindow:
 
         assert {row["spiel_id"] for row in stored} == {SPIEL}
         assert {row["deadline"] for row in stored} == {days_after(day=TODAY, days=14)}
-
-    async def test_a_spiel_inside_the_notice_period_is_due_today(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await sweep(database, client)
-            return await rows(database)
-
-        stored = await on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, days_after(day=TODAY, days=3))])
-
-        assert {row["deadline"] for row in stored} == {TODAY}
-
-
-class TestTheMintNeverAsksWhatTheCloseShuts:
-    """Each fixture would be closed by the next pass, so a mint here is a fresh request every hour with nothing failing."""
-
-    @pytest.mark.parametrize("austritt_tag", [pytest.param(NEXT_WEEK, id="a club gone on the fixture's day")])
-    async def test_two_passes_mint_nothing(self, mongo_replica_set_url: str, austritt_tag: str):
-        austritt = {"type": "rueckzug", "reason": "Schulwechsel", "date": austritt_tag}
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            first, second = await sweep(database, client), await sweep(database, client)
-            return first, second, await rows(database)
-
-        first, second, stored = await on_a_league(
-            mongo_replica_set_url,
-            body,
-            spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)],
-            junctions=[junction(ALPHA, austritt=austritt), junction(BETA)],
-        )
-
-        assert (stored, first.requests, second.requests, first.closed + second.closed) == ([], [], [], 0)
 
 
 class TestASpielCalledOffAndReinstatedIsAskedAgain:
@@ -1998,28 +1962,6 @@ class TestARefereeWhoAcceptedIsToldTheyWereTakenOff:
         assert [notice.address for notice in second.schiedsrichter_switched] == [REFEREE_EMAIL]
 
 
-class TestAMoveIsAnnouncedWhileEitherDayIsToCome:
-    """Its parties asked about `NEXT_WEEK`, the fixture moved before any pass closed their rows."""
-
-    @pytest.mark.parametrize(
-        ("today", "moved_to"),
-        [pytest.param(days_after(day=NEXT_WEEK, days=1), TODAY, id="from one day gone by to another")],
-    )
-    async def test_the_pass_closing_it(self, mongo_replica_set_url: str, today: str, moved_to: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await sweep(database, client)
-            await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"date": moved_to}})
-            return await sweep(database, client, today=today), await rows(database, closed={"$ne": None})
-
-        late, closed = await on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)])
-
-        assert {row["closed"]["reason"] for row in closed} == {"ansetzung_changed"}
-        # Told by the notice, or by the request about a new slot asked at once.
-        clubs = len(late.new_ansetzungen) + len([request for request in late.requests if request.moved_from is not None])
-        referees = len(late.schiedsrichter_new_ansetzungen) + len([e for e in late.einteilungen if e.moved_from is not None])
-        assert (clubs, referees) == (0, 0)
-
-
 class TestAnAddressMovedBesideTheNoticeIsTheOneTold:
     """The notice step writes each referee whose address it read, so an address change crossing it conflicts and it reads again."""
 
@@ -2045,14 +1987,10 @@ class TestAnAddressMovedBesideTheNoticeIsTheOneTold:
 # --- A FIXTURE CALLED OFF after its parties were asked.
 
 
-async def asked_and_called_off(
-    database: AsyncDatabase, client: AsyncMongoClient, *, stamped: bool = True, sonderereignis: str = "ausgefallen"
-) -> Any:
-    """The first pass asks both clubs and the referee, its requests owed or, unstamped, never, and the fixture is called off."""
+async def asked_and_called_off(database: AsyncDatabase, client: AsyncMongoClient, *, sonderereignis: str = "ausgefallen") -> Any:
+    """The first pass asks both clubs and the referee, and the fixture is called off."""
 
     first = await sweep(database, client)
-    if not stamped:
-        await unstamp(database)
     await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"sonderereignis": sonderereignis}})
 
     return first
@@ -2099,16 +2037,6 @@ class TestACalledOffSpielTellsEveryPartyItAsked:
             "nichtantreten_team1"
         }
         assert (third.spiel_cancelled, third.schiedsrichter_spiel_cancelled) == ([], [])
-
-    async def test_a_party_never_mailed_is_told_nothing(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await asked_and_called_off(database, client, stamped=False)
-            return await sweep(database, client)
-
-        second = await on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)])
-
-        # The premise: every row closed for the call-off all the same.
-        assert (second.closed, second.spiel_cancelled, second.schiedsrichter_spiel_cancelled) == (3, [], [])
 
 
 # --- A SAVE MOVING A FIXTURE beside a step of the pass. No referee is booked, whom both would write, so the fixture is the

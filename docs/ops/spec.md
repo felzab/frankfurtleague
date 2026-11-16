@@ -477,8 +477,7 @@ merged over the local stack's two files):
 Both stacks publish ports 3000 and 27017, so one runs at a time. `--e2e --down` deletes the volume
 and `.tmp-e2e/`. The journeys run against it with `pnpm run e2e` in the `fl_frontend` of the checkout
 that started it, which reads that checkout's `.tmp-e2e/`, or from another checkout with `E2E_DIR`
-naming that folder (`fl_frontend/e2e/support/journey.ts :: E2E_DIR`); `E2E_BASE_URL` names an origin
-other than `http://localhost:3000` (`fl_frontend/playwright.config.ts`).
+naming that folder (`fl_frontend/e2e/support/journey.ts :: E2E_DIR`).
 
 **`--e2e --landing=<state>` re-seeds the running end-to-end stack with the landing in that state**,
 one of `fl_backend/tests/made_up_seed.py :: LANDING_STATES`, the seed refusing any other: the seed
@@ -491,16 +490,15 @@ created the stack's containers, which Compose records on each as
 recreates takes the keys, the mail folder and the compose files of the checkout it runs in.
 
 **The checkers are Python, and one kernel makes their answers comparable**,
-`scripts/lib/checker_kernel.py` (§1.7). **The interpreter floor is bash's**
-(`scripts/lib/_lib.sh :: PYTHON_FLOOR`), asked at every entry point before a checker is handed a
-file: below it a checker dies compiling and Python exits 1, which this scale reads as a finding
-about the change.
+`scripts/lib/checker_kernel.py` (§1.7). Each runs in the backend's virtualenv, the gate's and the edge
+test's alike, whose interpreter `uv` holds to `fl_backend/pyproject.toml`'s `requires-python`.
 
 **Registry pruning stays manual and optional**, a botched delete destroying the builds a hand
 rollback pulls ([`runbooks.md`](runbooks.md) §1). When pruning, keep roughly the last five `sha-`
 tags per package, never the one the server's `.env` pins, and never an **untagged version created
 alongside a tag still in use**: BuildKit provenance attestations the tagged image references by
-digest, so deleting one corrupts the tag it belongs to.
+digest, so deleting one corrupts the tag it belongs to. The backend package's `follow-up-sha-` tags,
+which no deploy pulls, can go once their branch has merged.
 
 ### 1.6 The verification gate
 
@@ -509,31 +507,30 @@ side by side and replays each one's output in the order below. `--quick` runs th
 and frontend scopes alone, which need Docker only where shellcheck or actionlint is not on PATH at
 its pinned release.
 
-| Scope              | Runs                                                                                                                                                                                                                                                                                          | Needs                                                                                                                                          |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--scripts`        | `selfcheck.sh`, `ruff` and `pyright` over the Python in `scripts/`, and the pytest suite in `scripts/tests/`                                                                                                                                                                                  | the backend venv, `pytest` included; shellcheck and actionlint at their pinned releases from PATH, else Docker                                 |
-| `--docs`           | no conflict marker, whitespace error or invisible character in any tracked file; and lychee, offline, over every link and fragment inside the repository                                                                                                                                      | Docker for lychee                                                                                                                              |
-| `--backend`        | `uv lock --check` alone and first, then `ruff`, `pyright`, `pytest` (default tier) and `deptry` over `app/`                                                                                                                                                                                   | the backend venv, and for the lockfile check a uv inside `fl_backend/pyproject.toml`'s `required-version` range; any other refuses at start-up |
-| `--format`         | Prettier in check mode over the whole repository, then markdownlint over every Markdown file                                                                                                                                                                                                  | pnpm install                                                                                                                                   |
-| `--frontend-units` | the unit tests `fl_frontend/package.json`'s `test` script finds under `fl_frontend/`                                                                                                                                                                                                          | pnpm install                                                                                                                                   |
-| `--frontend`       | the frozen lockfile, peer and dedupe checks, `next typegen`, tsc, eslint, both knip runs and `next build`, then the dependency audit, an advisory that never fails the scope                                                                                                                  | pnpm install                                                                                                                                   |
-| `--ops`            | zizmor audits `.github/`; both stacks parse; `check_compose_model.py` judges both models; `check_public_routes.py` accounts for every route; `check_retired_stems.py` finds no retired German stem in a path or a name; nginx accepts `prod.conf`; `nginx/edge_test.sh` drives a running edge | Docker, `uv` for zizmor at `scripts/gate/zizmor/requirements.txt`'s pin, and the backend virtualenv                                            |
-| `--db`             | the contract and its client generated into an ignored scratch folder and compared with the committed ones, then `pytest -m db` over the backend and `pnpm run test:db` over `*.db.test.ts`                                                                                                    | venv + pnpm install + Docker                                                                                                                   |
-| `--images`         | both `docker build`s, then what a build does not prove: `instrumentation.js` present, neither image running as uid 0, neither holding a file its dockerignore excludes                                                                                                                        | Docker                                                                                                                                         |
+| Scope              | Runs                                                                                                                                                                                                | Needs                                                                                                                                          |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--scripts`        | `selfcheck.sh`, `ruff` and `pyright` over the Python in `scripts/`, and the pytest suite in `scripts/tests/`                                                                                        | the backend venv, `pytest` included; pnpm install; shellcheck and actionlint at their pinned releases from PATH, else Docker                   |
+| `--docs`           | no conflict marker, whitespace error or invisible character in any tracked file; and lychee, offline, over every link and fragment inside the repository                                            | Docker for lychee                                                                                                                              |
+| `--backend`        | `uv lock --check` alone and first, then `ruff`, `pyright`, `pytest` (default tier) and `deptry` over `app/`                                                                                         | the backend venv, and for the lockfile check a uv inside `fl_backend/pyproject.toml`'s `required-version` range; any other refuses at start-up |
+| `--format`         | Prettier in check mode over the whole repository, then markdownlint over every Markdown file                                                                                                        | pnpm install                                                                                                                                   |
+| `--frontend-units` | the unit tests `fl_frontend/package.json`'s `test` script finds under `fl_frontend/`                                                                                                                | pnpm install                                                                                                                                   |
+| `--frontend`       | the frozen lockfile, peer and dedupe checks, `next typegen`, tsc, eslint, both knip runs and `next build`                                                                                           | pnpm install                                                                                                                                   |
+| `--ops`            | zizmor audits `.github/`; both stacks parse; `check_compose_model.py` judges both models; `check_public_routes.py` accounts for every route; `nginx/edge_test.sh` starts both edges and drives them | Docker, and the backend virtualenv with its `zizmor` group                                                                                     |
+| `--db`             | the contract and its client generated into an ignored scratch folder and compared with the committed ones, then `pytest -m db` over the backend and `pnpm run test:db` over `*.db.test.ts`          | venv + pnpm install + Docker                                                                                                                   |
+| `--images`         | both `docker build`s, then what a build does not prove: `instrumentation.js` present, neither image running as uid 0, neither holding a file its dockerignore excludes                              | Docker                                                                                                                                         |
 
 **CI runs every scope on every event**, one job per scope in `.github/workflows/verify.yml`, each
 running `./scripts/gate/verify.sh` with that scope's flag. Beside them:
 
 - **`journeys`** runs the Playwright journeys against the end-to-end stack, raised from the images
-  the `images` job built, in six legs, each on a runner and a stack of its own: `desktop` with
-  `first-pass`, `phone`, and the layout-shift guard's four, `layout-public`, which re-seeds its
-  database under each state of the landing (`fl_backend/tests/made_up_seed.py :: LANDING_STATES`) and
-  runs the landing's cases again, and `layout-signed-in-1` to `-3`, whose cases Playwright's `--shard`
-  splits in three.
+  the `images` job built, in two legs, each on a runner and a stack of its own: `desktop` with
+  `first-pass`, and `phone`.
 - **`verify`**, the required check, fails on a job that failed, was cancelled or was skipped, and on
   a job missing from its `needs:`.
-- **`publish`**, on a push to `main` that `verify` passed, pushes the two images the `images` job
-  built and checked under their `sha-` tags, building nothing again.
+- **`publish`**, on a push that `verify` passed, pushes what the `images` job built and checked,
+  building nothing again: on `main` both images under their `sha-` tags, on `follow-up` the backend
+  image alone under `follow-up-sha-` and the same seven hex digits, a tag `deploy.sh` refuses, so a
+  branch's backend can be run against production's database by hand before the branch merges.
 
 **Every CI job that needs the backend virtualenv creates it through
 `.github/actions/backend-toolchain/action.yml`**, on the uv the backend image copies in (§1.1).
@@ -576,8 +573,9 @@ each entry point inserting it at its own top, and `pyrightconfig.json`'s `extraP
 listing of that fact.
 
 **The ops scope exists because the compose files and the nginx configuration have no compiler.**
-`nginx -t` parses and sees no response, so `nginx/edge_test.sh` starts the checkout's own edge as
-`docker-compose.yml` starts it and grades what it wrote, sent and answered:
+A parse sees no response, so `nginx/edge_test.sh` starts the checkout's own edges as
+`docker-compose.yml` starts nginx, fails a configuration either refuses to start on with nginx's own
+log, and grades what each wrote, sent and answered:
 
 - no mailed link's query in an access line;
 - a visitor's `traceparent` replaced;
@@ -618,19 +616,21 @@ than run, so the `_` marking a sourced script would say the wrong thing about it
 **The output standard.** One vocabulary, one verb per meaning, and no script writes formatting of its
 own:
 
-| Verb          | Means                                                                                    |
-| ------------- | ---------------------------------------------------------------------------------------- |
-| `section`     | Opens a phase group, closing the one before it, and one fold in the Actions log          |
-| `end_section` | Closes the open group without ending the run, for a line that belongs outside every fold |
-| `step`        | Opens a step and starts its timer                                                        |
-| `ok`          | The step passed, with the time it took                                                   |
-| `info`        | Neutral detail                                                                           |
-| `warn`        | An advisory: a problem the run is meant to survive, on stderr                            |
-| `fail`        | A finding recorded, the run continuing, for a caller collecting several before it ends   |
-| `die`         | A finding that ends the run, on stderr                                                   |
-| `refuse`      | The check ran and its answer cannot stand as a verdict, so the run ends without one      |
-| `detail`      | Supporting output belonging to the line above it, from arguments or from stdin           |
-| `finish`      | Ends a run that reached its end, printing the closing table and statement                |
+| Verb          | Means                                                                                                 |
+| ------------- | ----------------------------------------------------------------------------------------------------- |
+| `section`     | Opens a phase group, closing the one before it, and one fold in the Actions log                       |
+| `end_section` | Closes the open group without ending the run, for a line that belongs outside every fold              |
+| `step`        | Opens a step and starts its timer                                                                     |
+| `ok`          | The step passed, with the time it took, which outside a section shows from three seconds              |
+| `info`        | Neutral detail                                                                                        |
+| `warn`        | An advisory: a problem the run is meant to survive, on stderr                                         |
+| `fail`        | A finding recorded, the run continuing, for a caller collecting several before it ends                |
+| `die`         | A finding that ends the run, on stderr                                                                |
+| `refuse`      | The check ran and its answer cannot stand as a verdict, so the run ends without one                   |
+| `detail`      | Supporting output belonging to the line above it, from arguments or from stdin                        |
+| `finish`      | Ends a run that reached its end: a table of its rows where it has several, then the closing statement |
+| `add_row`     | Adds a row with no verdict to the closing table, for a unit run as a process of its own               |
+| `end_row`     | Gives such a row its verdict, printing it as a line of the table the moment it arrives                |
 
 | Helper    | Answers                                                                                                          |
 | --------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -753,7 +753,6 @@ be true there, a check the owner makes in its list of monitors:
 | Each upstream is named through a variable and found through Docker's DNS, so a recreated container needs no reload                         | `nginx/edge_test.sh`                                                                                                                                                                   |
 | Each zone and the connection ceiling refuse past their figure with the edge's `429`                                                        | `nginx/edge_test.sh`, which reads each figure off the configuration it judges                                                                                                          |
 | Every route handler, link page and metadata convention is metered or accounted for at the edge                                             | `scripts/checks/check_public_routes.py`, its rules driven red in `scripts/tests/test_check_public_routes.py`                                                                           |
-| No tracked path, and no name in a tracked code file, holds a German word the renames retired                                               | `scripts/checks/check_retired_stems.py` with its list `scripts/checks/retired-stems.txt`, its rules driven red in `scripts/tests/test_check_retired_stems.py`                          |
 | A link page's location writes no error line, withholds the referrer, and takes a burst sized for the largest squad                         | `scripts/checks/check_public_routes.py :: unlogged_links`, `:: referring_links` and `:: unsized_links`; `nginx/edge_test.sh`                                                           |
 | Every image this repository does not build is pinned by tag and digest                                                                     | `scripts/tests/test_image_pins.py`                                                                                                                                                     |
 | The frontend image's Node, the backend image's Python series and its uv are the ones the checkout and CI run                               | `scripts/tests/test_image_pins.py`                                                                                                                                                     |
@@ -761,7 +760,7 @@ be true there, a check the owner makes in its list of monitors:
 | Every gate scope has one CI job, and every job but `journeys`, `verify` and `publish` runs one scope                                       | `scripts/tests/test_gate_jobs.py`; the `verify` job holds every job to its `needs:`                                                                                                    |
 | Scripts carry the git executable bit                                                                                                       | `scripts/gate/selfcheck.sh`, its second step                                                                                                                                           |
 | A deploy pins no build its last read finds with a service not running and healthy, and a stopped one-off container names no service        | `scripts/tests/test_deploy.py`, which runs `scripts/ops/deploy.sh` behind a stand-in engine; no real engine is driven                                                                  |
-| CI's landing loop names every landing state the seed seeds but the seed as written                                                         | `scripts/tests/test_landing_states.py`                                                                                                                                                 |
+| The journeys job's legs together run every project `fl_frontend/playwright.config.ts` defines, a setup project included                    | `scripts/tests/test_journeys_projects.py`, which asks Playwright's `--list` for each leg's flags                                                                                       |
 | Production never builds                                                                                                                    | unenforced: `docker-compose.yml` declares no `build:`, and `deploy.sh` only pulls                                                                                                      |
 | The builder stage has no reachable backend and no real environment                                                                         | `fl_frontend/Dockerfile`'s `SKIP_ENV_VALIDATION=true`, with no secrets directory and no `API_URL`                                                                                      |
 | The three API keys are 64 printable ASCII characters without the space, one file each that both sides read                                 | `fl_frontend/src/core/config.ts :: INTERNAL_API_KEY` and `fl_backend/app/core/config.py :: INTERNAL_API_KEY_CHARACTERS`                                                                |

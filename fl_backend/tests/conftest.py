@@ -17,6 +17,7 @@ from pymongo import MongoClient
 from app.core.recording import actor_var
 from tests.database import bounded, close_the_shared_clients
 from tests.documents import EINWILLIGUNG, rules_document
+from tests.payloads import PayloadFactory
 from tests.tier import is_db_marked, refuse_server_fixtures
 from tests.worker import guard_every_database, release_every_database
 
@@ -35,8 +36,6 @@ SPIELTAG_ID = "6890a1b2c3d4e5f607182932"
 SPIELORT_ID = "6890a1b2c3d4e5f607182933"
 SCHIEDSRICHTER_ID = "6890a1b2c3d4e5f607182934"
 SPIELER_ID = "6890a1b2c3d4e5f607182935"
-
-PayloadFactory = Callable[..., dict[str, Any]]
 
 
 def _factory(base: dict[str, Any]) -> PayloadFactory:

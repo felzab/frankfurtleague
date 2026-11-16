@@ -1,22 +1,23 @@
 import {
   configDouble,
-  GATE_BACKEND_CONFIG,
   insertOrderedAdapter,
   madeByPasskey,
   memoryStore,
   ORIGIN,
   registerAuthDoubles,
   sessionByCode,
-} from "@/test-support/authDoubles.ts";
-import { serveBackend } from "@/test-support/backend.ts";
-import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/test-support/nextRequest.ts";
-import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures.ts";
+} from "@/test-support/authDoubles";
+import { serveBackend } from "@/test-support/backend";
+import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/test-support/nextRequest";
+import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures";
+import { thrownRedirect } from "@/test-support/thrownRedirect";
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
-import { SITE_CACHE_TAG } from "@/core/siteCache.ts";
+import { ROUTES } from "@/core/routes";
+import { SITE_CACHE_TAG } from "@/core/siteCache";
 
-import type { SessionRow } from "@/test-support/authDoubles.ts";
-import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
+import type { SessionRow } from "@/test-support/authDoubles";
+import type { LookupFixture } from "@/test-support/subjectFixtures";
 import type { MemoryDB } from "better-auth/adapters/memory";
 
 /** What the request a case arrives as carries, which `arriveAs` sets. */
@@ -40,7 +41,7 @@ const ADAPTER_DOUBLE = {
 const mail = registerAuthDoubles({
   // The admin key the person lane's erasure is sent under, beside the system key the gate reads with.
   core: {
-    config: configDouble(GATE_BACKEND_CONFIG, { internalApiKeyAdmin: () => "fabricated-admin-not-a-credential" }),
+    config: configDouble({}, { internalApiKeyAdmin: () => "fabricated-admin-not-a-credential" }),
   },
   specifiers: {
     "next/headers": HEADERS_DOUBLE,
@@ -103,10 +104,10 @@ const {
   saveSpielerConsent,
   signOutOthers,
   withdrawAddressChange,
-} = await import("./personActions.ts");
-const { COPY } = await import("@/core/copy.ts");
-const { SERVER_COPY } = await import("@/core/serverCopy.ts");
-const { auth } = await import("@/core/auth/library.ts");
+} = await import("./personActions");
+const { COPY } = await import("@/core/copy");
+const { SERVER_COPY } = await import("@/core/serverCopy");
+const { auth } = await import("@/core/auth/library");
 
 beforeEach(() => {
   store.passkey.length = 0;
@@ -146,17 +147,9 @@ const heldOf = (userId: string) => ({
 /** Whether the library still holds the link's token, unspent. */
 const linkStands = (token: string) => store.verification.some((held) => held.identifier === `delete-account-${token}`);
 
-/** The page the deletion leads to, as Next's redirect names it in what it throws. */
-const LEADS_TO_THE_DONE_PAGE = /^NEXT_REDIRECT;[a-z]+;\/erasure\/done;/;
-
 /** Whether a press ended in Next's redirect to the done page, which the action throws rather than answers. */
 async function ledToTheDonePage(pressed: Promise<unknown>): Promise<void> {
-  const thrown: unknown = await pressed.then(
-    () => null,
-    (error: unknown) => error,
-  );
-  const digest = thrown instanceof Error && "digest" in thrown ? String(thrown.digest) : "";
-  expect(digest, "the press led to no done page").toMatch(LEADS_TO_THE_DONE_PAGE);
+  expect((await thrownRedirect(pressed)).address, "the press led to no done page").toBe(ROUTES.accountErased.path());
 }
 
 /** A signed-in owner, the request arriving as their passkey session of this moment, and a link mailed to them. */

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-const { mailFor } = await import("./mailKinds.ts");
-const { ROUTES } = await import("./routes.ts");
-const { COPY } = await import("./copy.ts");
+const { mailFor } = await import("./mailKinds");
+const { ROUTES } = await import("./routes");
+const { COPY } = await import("./copy");
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";

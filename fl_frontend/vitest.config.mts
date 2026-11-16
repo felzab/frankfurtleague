@@ -5,22 +5,9 @@ import { TEST_ENVIRONMENT } from "./src/test-support/testEnvironment.mts";
 /**
  * The suites of code taking a production build's branch, which run under the `NODE_ENV` `next build` inlines and
  * nowhere else. A project setting none runs under the shell's `NODE_ENV`, or under `test`, which Vitest sets where
- * the shell sets none. A file's `.production.test.ts` infix selects this project, beside the four suites named after
- * their module that run here whole.
+ * the shell sets none. A file's `.production.test.ts` infix selects this project.
  */
-const PRODUCTION_BUILD = [
-  "src/**/*.production.test.ts",
-  "src/instrumentation.test.ts",
-  "src/core/logging.test.ts",
-  "src/core/instrumentation.test.ts",
-  "src/app/api/client-error/route.test.ts",
-];
-
-/** The suites of the server `next dev` builds, which run under the `NODE_ENV` it sets. */
-const DEVELOPMENT_BUILD = ["src/instrumentation.development.test.ts"];
-
-/** The database suites of the client `next dev` builds, which run under the `NODE_ENV` it sets. */
-const DEVELOPMENT_BUILD_DB = ["src/core/db.development.db.test.ts"];
+const PRODUCTION_BUILD = ["src/**/*.production.test.ts"];
 
 /**
  * A case here waits on a replica set in a container and on bounds of its own past Vitest's five seconds. The replica
@@ -56,11 +43,10 @@ export default defineConfig({
         test: {
           name: "unit",
           include: ["src/**/*.test.{ts,tsx}", "eslint-rules/**/*.test.mjs"],
-          exclude: ["src/**/*.db.test.ts", ...PRODUCTION_BUILD, ...DEVELOPMENT_BUILD],
-          // Past Vitest's five seconds: the slowest case, `src/kit/Lineup.test.tsx`'s line-up of eleven,
-          // took 6.5 s in a whole run on a loaded 16-core machine (2026-11). Four times that, rounded
-          // up to the next ten seconds, as the workflow sets each job's `timeout-minutes`; hooks keep
-          // Vitest's ten.
+          exclude: ["src/**/*.db.test.ts", ...PRODUCTION_BUILD],
+          // Past Vitest's five seconds: a file's first case pays the cold import of every module it
+          // loads, and in a whole run on a machine loaded by other work the slowest such case took
+          // 11 s (2026-11-16). Hooks keep Vitest's ten.
           testTimeout: 30_000,
           // Off both clocks a formatter pins, Berlin's and UTC's: one that drops its `timeZone` prints the runtime's, so
           // `src/core/format.test.ts` can fail only under a third zone, on every machine. Forks take this, the pool Vitest
@@ -73,13 +59,7 @@ export default defineConfig({
         test: { name: "unit-production", include: PRODUCTION_BUILD, env: { NODE_ENV: "production" } },
       },
       {
-        test: { name: "unit-development", include: DEVELOPMENT_BUILD, env: { NODE_ENV: "development" } },
-      },
-      {
-        test: { name: "db", include: ["src/**/*.db.test.ts"], exclude: DEVELOPMENT_BUILD_DB, ...DB_TIER },
-      },
-      {
-        test: { name: "db-development", include: DEVELOPMENT_BUILD_DB, env: { NODE_ENV: "development" }, ...DB_TIER },
+        test: { name: "db", include: ["src/**/*.db.test.ts"], ...DB_TIER },
       },
     ],
   },

@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { Suspense } from "react";
 
-import { serveBackend } from "@/test-support/backend.ts";
-import { doubleNextRequest } from "@/test-support/nextRequest.ts";
+import { serveBackend } from "@/test-support/backend";
+import { doubleNextRequest } from "@/test-support/nextRequest";
 import { act, render, screen } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 

@@ -1,9 +1,25 @@
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from pydantic import BaseModel
 
 from app.api.spiele.schemas import SPIEL_PATCH_WRITTEN_FIELDS, FLSpielortFieldPayload, FLSpielSchiedsrichterFieldPayload
+
+PayloadFactory = Callable[..., dict[str, Any]]
+SpielFactory = Callable[..., dict[str, Any]]
+
+
+def sieger(spiel_nr: int) -> dict[str, Any]:
+    return {"type": "spiel", "spiel_nr": spiel_nr, "ausgang": "sieger"}
+
+
+def verlierer(spiel_nr: int) -> dict[str, Any]:
+    return {"type": "spiel", "spiel_nr": spiel_nr, "ausgang": "verlierer"}
+
+
+def gruppenplatz(gruppe: str, platz: int) -> dict[str, Any]:
+    return {"type": "gruppe", "gruppe": gruppe, "platz": platz}
+
 
 # The two blocks a payload takes field by field, which refuse any other: a test's document may carry
 # more than the stored shape, the name a read joins among it.

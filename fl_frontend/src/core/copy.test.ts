@@ -1,8 +1,8 @@
 import { describe, it } from "vitest";
 
-import { COPY } from "./copy.ts";
+import { COPY } from "./copy";
 
-import type { Copy } from "./copy.ts";
+import type { Copy } from "./copy";
 
 const show = (text: Copy): Copy => text;
 

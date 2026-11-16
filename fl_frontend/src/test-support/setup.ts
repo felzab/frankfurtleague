@@ -1,4 +1,4 @@
-import { serveTheNetwork } from "@/test-support/backend.ts";
+import { serveTheNetwork } from "@/test-support/backend";
 import { vi } from "vitest";
 
 // Before any test file's own code, so no request of a file is sent past this machine: a request no case answers fails

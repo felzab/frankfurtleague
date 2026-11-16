@@ -1,7 +1,8 @@
-import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, overriding, registerAuthDoubles, signInByCode } from "@/test-support/authDoubles.ts";
-import { beginRenderPass, serveServerReact } from "@/test-support/cacheScope.ts";
-import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
-import { captureLog } from "@/test-support/stdoutCapture.ts";
+import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, overriding, registerAuthDoubles, signInByCode } from "@/test-support/authDoubles";
+import { beginRenderPass, serveServerReact } from "@/test-support/cacheScope";
+import { emptyStore } from "@/test-support/emptyStore";
+import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions";
+import { captureLog } from "@/test-support/stdoutCapture";
 import { assert, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import type { MongoClient } from "mongodb";
@@ -13,7 +14,7 @@ let requestHeaders: Headers | undefined;
 
 // The real `fl_frontend/src/core/db.ts`, which the auth doubles replace by default: the client
 // under test is the one it builds.
-const PRODUCTION_DB = "@/core/db.ts";
+const PRODUCTION_DB = "@/core/db";
 
 /** Every line the real logger writes, the index build's failures among them. */
 const log = captureLog();
@@ -38,13 +39,13 @@ serveServerReact();
 const { signInStore } = (await import(PRODUCTION_DB)) as { signInStore: () => MongoClient };
 const client = signInStore();
 closing(() => client.close());
-const { auth } = await import("@/core/auth/library.ts");
-const { getAccountSession, getAdminSession } = await import("@/core/auth/guards.ts");
-const { getPasskeyStep } = await import("@/core/auth/landing.ts");
-const { buildAuthIndexes } = await import("@/core/authIndexes.ts");
-const { getSubjectSession } = await import("@/core/subject.ts");
+const { auth } = await import("@/core/auth/library");
+const { getAccountSession, getAdminSession } = await import("@/core/auth/guards");
+const { getPasskeyStep } = await import("@/core/auth/landing");
+const { buildAuthIndexes } = await import("@/core/authIndexes");
+const { getSubjectSession } = await import("@/core/subject");
 const { devicesOf } = await import("@/features/account/security");
-const { heldPasskeysOf } = await import("@/features/passkeys/held.ts");
+const { heldPasskeysOf } = await import("@/features/passkeys/held");
 
 // Production's indexes under every case, so the library is driven over what it meets there: built once for the
 // file, since a build runs under the client's socket bound, which a stall on a loaded machine outlasts.
@@ -60,11 +61,8 @@ beforeAll(async () => {
   ).toStrictEqual([]);
 });
 
-// An empty store, its indexes kept, each case signing the administrator in afresh.
-beforeEach(async () => {
-  const collections = await client.db("auth").listCollections({}, { nameOnly: true }).toArray();
-  await Promise.all(collections.map(({ name }) => client.db("auth").collection(name).deleteMany({})));
-});
+// Each case signs the administrator in afresh.
+beforeEach(() => emptyStore(client.db("auth")));
 
 // Set before the first operation opens a connection, which is when the pool reads it; the option is
 // the client's own, left out of its published type.
@@ -120,7 +118,7 @@ async function signInAsAdministrator(): Promise<Headers> {
 /** Puts every stored session where the library's next refreshing read would write it, its windows untouched. */
 async function dueForRefresh(): Promise<() => Promise<unknown[]>> {
   const sessions = client.db("auth").collection<{ updatedAt: Date; expiresAt: Date }>("session");
-  const updateAge = (auth.options.session?.updateAge ?? Number.NaN) * 1000;
+  const updateAge = auth.options.session.updateAge * 1000;
   // The library refreshes by how far `expiresAt` has run down, never by `updatedAt`, which the guards' idle windows read.
   await sessions.updateMany({}, [{ $set: { expiresAt: { $subtract: ["$expiresAt", 2 * updateAge] } } }]);
   return async () => (await sessions.find({}).toArray()).map(({ updatedAt, expiresAt }) => [updatedAt, expiresAt]);
@@ -219,7 +217,7 @@ describe("the holder's passkeys, with another account's beside them in the store
    ended. */
 describe("the account row the session read joins, against a real store", () => {
   it("refuses a session its account's ending stamp postdates, at every guard", async () => {
-    const { readServedSession } = await import("@/core/auth/session.ts");
+    const { readServedSession } = await import("@/core/auth/session");
     requestHeaders = await signInAsAdministrator();
     beginRenderPass();
     assert.ok(await getAdminSession(), "the administrator was refused before the stamp, so the refusals below prove nothing");
@@ -235,7 +233,7 @@ describe("the account row the session read joins, against a real store", () => {
   });
 
   it("serves no session whose account row is gone, the session row standing", async () => {
-    const { readServedSession } = await import("@/core/auth/session.ts");
+    const { readServedSession } = await import("@/core/auth/session");
     requestHeaders = await signInAsAdministrator();
     await client.db("auth").collection("user").deleteMany({});
     expect(await client.db("auth").collection("session").countDocuments({}), "the session row went with the account's").toBe(1);

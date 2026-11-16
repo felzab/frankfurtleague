@@ -1,12 +1,12 @@
-import { memoryAdapterDouble, memoryStore, registerAuthDoubles } from "@/test-support/authDoubles.ts";
-import { serveBackend } from "@/test-support/backend.ts";
+import { memoryAdapterDouble, memoryStore, registerAuthDoubles } from "@/test-support/authDoubles";
+import { serveBackend } from "@/test-support/backend";
 import { describe, expect, it } from "vitest";
 
 import type {
   FLAddressChangeMovesDonePayload,
   FLAddressChangeMovesDoneResponse,
   FLAddressChangeMovesResponse,
-} from "@/core/generated/client/types.ts";
+} from "@/core/generated/client/types";
 
 /** The owed carries the backend lists, page after page; a case sets them. */
 let pages: FLAddressChangeMovesResponse["moves"][] = [];
@@ -25,7 +25,7 @@ const STORE = "__flMovesStore";
 registerAuthDoubles({ specifiers: { "@better-auth/mongo-adapter": memoryAdapterDouble(STORE) } });
 const store = memoryStore(STORE);
 
-const { runAddressChangeMoves } = await import("./moves.ts");
+const { runAddressChangeMoves } = await import("./moves");
 
 const move = (n: number) => ({ id: n.toString(16).padStart(24, "0"), old: `alt${String(n)}@schule.de`, new: `neu${String(n)}@schule.de` });
 

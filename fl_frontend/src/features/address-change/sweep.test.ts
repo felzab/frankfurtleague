@@ -1,9 +1,9 @@
-import { networkFailure, serveBackend } from "@/test-support/backend.ts";
+import { networkFailure, serveBackend } from "@/test-support/backend";
 import { describe, expect, it } from "vitest";
 
-import { APINetworkError } from "@/core/errors.ts";
+import { APINetworkError } from "@/core/errors";
 
-import type { FLAddressChangeSweepResponse } from "@/core/generated/client/types.ts";
+import type { FLAddressChangeSweepResponse } from "@/core/generated/client/types";
 
 /** One call's answer, `after` the place the next call starts after. */
 const antwort = (removed: number, remaining: number, after: string | null = null): FLAddressChangeSweepResponse => ({
@@ -30,7 +30,7 @@ const backend = serveBackend(({ method, path }) => {
   return undefined;
 });
 
-const { sweepAddressChange } = await import("./sweep.ts");
+const { sweepAddressChange } = await import("./sweep");
 
 /** Every request in the order sent: the sweep's by the place it carried, the carry's list by its name. */
 const calls = (): string[] => backend.sent.map(({ path, search }) => (path === MOVES ? "moves" : (search.get("after") ?? "-")));

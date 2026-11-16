@@ -2,16 +2,15 @@ import {
   ADMIN_EMAIL,
   configDouble,
   cookieHeader,
-  GATE_BACKEND_CONFIG,
   ORIGIN,
   overriding,
   registerAuthDoubles,
   seatEveryAddress,
   signInByCode,
-} from "@/test-support/authDoubles.ts";
-import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
-import { NEXT_CACHE_DOUBLE } from "@/test-support/nextRequest.ts";
-import { captureLog } from "@/test-support/stdoutCapture.ts";
+} from "@/test-support/authDoubles";
+import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions";
+import { NEXT_CACHE_DOUBLE } from "@/test-support/nextRequest";
+import { captureLog } from "@/test-support/stdoutCapture";
 import { ObjectId } from "mongodb";
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
@@ -25,7 +24,7 @@ let storeClient: MongoClient | undefined;
 
 // The real `fl_frontend/src/core/db.ts`, which the auth doubles replace by default: the client
 // under test is the one it builds.
-const PRODUCTION_DB = "@/core/db.ts";
+const PRODUCTION_DB = "@/core/db";
 
 const DB_DOUBLE = overriding(PRODUCTION_DB, {
   signInStore: (real) => {
@@ -50,7 +49,7 @@ seatEveryAddress();
 
 registerAuthDoubles({
   core: {
-    config: configDouble(GATE_BACKEND_CONFIG, { mongodbUri: () => replicaSetUrl(mongod) }),
+    config: configDouble({}, { mongodbUri: () => replicaSetUrl(mongod) }),
     db: DB_DOUBLE,
   },
   specifiers: {
@@ -61,10 +60,10 @@ registerAuthDoubles({
 });
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
-const { auth } = await import("./auth/library.ts");
-const { endOtherSessions } = await import("./auth/accountSessions.ts");
-const { getAccountSession } = await import("./auth/guards.ts");
-const { buildAuthIndexes } = await import("./authIndexes.ts");
+const { auth } = await import("./auth/library");
+const { endOtherSessions } = await import("./auth/accountSessions");
+const { getAccountSession } = await import("./auth/guards");
+const { buildAuthIndexes } = await import("./authIndexes");
 
 const store = () => (storeClient as MongoClient).db("auth");
 const COLLECTIONS = ["session", "passkey", "user", "verification"] as const;

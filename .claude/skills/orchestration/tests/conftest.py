@@ -66,7 +66,6 @@ def base_env() -> dict[str, str]:
     env.pop("GITHUB_ACTIONS", None)
     env.pop("VERBOSE", None)
     env["FL_GATE_COLOR"] = "0"
-    env["NO_SPINNER"] = "1"
     return env
 
 

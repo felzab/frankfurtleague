@@ -1,7 +1,8 @@
-import { captureLog } from "@/test-support/stdoutCapture.ts";
+import { networkFailure, serveHost } from "@/test-support/backend";
+import { captureLog } from "@/test-support/stdoutCapture";
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
-import type { LoggedLine } from "@/test-support/stdoutCapture.ts";
+import type { LoggedLine } from "@/test-support/stdoutCapture";
 
 /** What Cloudflare's published test site key mints (https://developers.cloudflare.com/turnstile/troubleshooting/testing/, read 2026-10-04). */
 const TEST_TOKEN = "XXXX.DUMMY.TOKEN.XXXX";
@@ -20,24 +21,24 @@ const log = captureLog();
 const carriesTheToken = (line: LoggedLine | undefined): boolean =>
   line === undefined || line.raw.includes(TEST_TOKEN) || line.error !== undefined;
 
-/** Every request the helper drew, and Cloudflare's answers in turn, the last one repeating; one throwing answers nothing. */
-const asked: { url: string; body: Record<string, unknown> }[] = [];
+const SITEVERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
+
+/** Cloudflare's answers in turn, the last one repeating; a case naming none leaves the request unanswered. */
 let answers: (() => Response)[] = [];
 
-// The network edge, faked, under the real config: the secret sent is the one this process boots with, which outside the
-// production deployment is Cloudflare's published test secret.
-globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-  asked.push({ url: String(input), body: JSON.parse(String(init?.body)) as Record<string, unknown> });
+// Cloudflare's side of the network, under the real config: the secret sent is the one this process boots with, which
+// outside the production deployment is Cloudflare's published test secret.
+const asked = serveHost(new URL(SITEVERIFY_URL).origin, ({ method, url }) => {
+  if (method !== "POST" || url.href !== SITEVERIFY_URL) return undefined;
   const answer = answers.length > 1 ? answers.shift() : answers[0];
-  if (answer === undefined) throw new Error("a case asked Cloudflare without saying how it answers");
+  return answer?.();
+});
 
-  return answer();
-}) as typeof fetch;
+/** What the request `index` posted, as Cloudflare read it. */
+const postedAt = (index: number) => asked[index]?.body as Record<string, unknown> | undefined;
 
-const { CHECK_DISRUPTED, turnstileRefusal } = await import("./turnstile.ts");
-const { CONFIRM_HUMAN } = await import("./turnstileToken.ts");
-
-const SITEVERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
+const { CHECK_DISRUPTED, turnstileRefusal } = await import("./turnstile");
+const { CONFIRM_HUMAN } = await import("./turnstileToken");
 
 const json = (body: unknown, status = 200): Response =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -48,7 +49,6 @@ const judged =
     json({ success: codes.length === 0, "error-codes": codes });
 
 beforeEach(() => {
-  asked.length = 0;
   answers = [];
 });
 
@@ -58,9 +58,9 @@ describe("the bot check's verdict on a submission", () => {
 
     expect(await turnstileRefusal(TEST_TOKEN)).toBe(null);
 
-    expect(asked.map(({ url, body }) => ({ url, secret: body.secret, response: body.response }))).toStrictEqual([
-      { url: SITEVERIFY_URL, secret: TEST_SECRET, response: TEST_TOKEN },
-    ]);
+    expect(
+      asked.map(({ url }, index) => ({ url: url.href, secret: postedAt(index)?.secret, response: postedAt(index)?.response })),
+    ).toStrictEqual([{ url: SITEVERIFY_URL, secret: TEST_SECRET, response: TEST_TOKEN }]);
     expect(log.lines(), "a judged pass wrote a line").toStrictEqual([]);
   });
 
@@ -136,8 +136,8 @@ describe("Cloudflare's own failure", () => {
 
     expect(await turnstileRefusal(TEST_TOKEN)).toBe(null);
     expect(asked.length).toBe(2);
-    expect(typeof asked[0]?.body.idempotency_key).toBe("string");
-    expect(asked[1]?.body.idempotency_key, "the retry carried another key").toBe(asked[0]?.body.idempotency_key);
+    expect(typeof postedAt(0)?.idempotency_key).toBe("string");
+    expect(postedAt(1)?.idempotency_key, "the retry carried another key").toBe(postedAt(0)?.idempotency_key);
     expect(log.lines()).toStrictEqual([]);
   });
 
@@ -160,12 +160,7 @@ describe("a check Cloudflare could not answer", () => {
   /* Cloudflare fronts the whole site, so its outage refusing every sign-in and application would cost
      more than one submission going through unchecked. */
   const UNANSWERED: readonly [string, () => Response][] = [
-    [
-      "an unreachable endpoint",
-      () => {
-        throw new TypeError("fetch failed");
-      },
-    ],
+    ["an unreachable endpoint", networkFailure],
     ["a server error", () => json({}, 503)],
     ["a body that is no JSON", () => new Response("<html>", { status: 200 })],
     ["a body of another shape", () => json({ ok: true })],

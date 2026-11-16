@@ -7,23 +7,12 @@ from app.api.spiele.schemas import FLBracketFaultQuelle, FLBracketFaultSlot, FLS
 from app.api.spiele.services import find_gruppen_not_run, resolve_bracket
 from app.api.teams.services import DecidedStanding
 from app.shared.schemas.literals import FLGruppenNames, FLSonderereignis
+from tests.payloads import PayloadFactory, SpielFactory, gruppenplatz, sieger
 
 MATCH_ID = "6890a1b2c3d4e5f60718{:04d}"
 BRACKET_TEAM_ID = "6890a1b2c3d4e5f60719{:04d}"
 
-# Duplicated rather than imported: `--import-mode=importlib` is why `conftest.py` shares helpers as
-# fixtures, and one alias is not worth the exception.
-PayloadFactory = Callable[..., dict[str, Any]]
 SideFactory = Callable[..., dict[str, Any]]
-SpielFactory = Callable[..., dict[str, Any]]
-
-
-def sieger(spiel_nr: int) -> dict[str, Any]:
-    return {"type": "spiel", "spiel_nr": spiel_nr, "ausgang": "sieger"}
-
-
-def gruppenplatz(gruppe: str, platz: int) -> dict[str, Any]:
-    return {"type": "gruppe", "gruppe": gruppe, "platz": platz}
 
 
 Standings = Mapping[FLGruppenNames, DecidedStanding]

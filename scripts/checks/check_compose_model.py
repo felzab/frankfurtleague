@@ -29,6 +29,7 @@ from checker_kernel import (
     report_findings,
     run,
 )
+from nginx_conf import NginxSyntax, parse, walk
 
 # Pinned rather than read off either file: a service joining production is a decision about what
 # the server runs, and the one this pin exists for is a database.
@@ -88,15 +89,8 @@ SECRET_HOLDERS: Final[dict[str, dict[str, tuple[frozenset[str], str]]]] = {
         "frontend_mongodb_uri": (_FRONTEND, f"{SECRETS_PATH}/frontend_mongodb_uri"),
         "backend_mongodb_uri": (_BACKEND, f"{SECRETS_PATH}/backend_mongodb_uri"),
     },
-    # No connector, no mail and no provider event; both logins are `CONFIG_HOLDERS`'.
+    # No connector, no mail and no provider event; both logins are inline configs `local_logins` judges.
     "local": {secret: (holders, f"{SECRETS_PATH}/{secret}") for secret, holders in _EITHER_STACK.items()},
-}
-
-# Every file each stack hands a service as an inline config at `RUN_SECRETS`, by its holders: the local
-# stack's logins, which name its own database and no credential, so no machine keeps production's.
-CONFIG_HOLDERS: Final[dict[str, dict[str, frozenset[str]]]] = {
-    "production": {},
-    "local": {"frontend_mongodb_uri": _FRONTEND, "backend_mongodb_uri": _BACKEND},
 }
 
 # The environment names those files replace: one in a service's `environment:` is a second copy of a
@@ -129,7 +123,7 @@ def services(model: dict[str, Any], name: str) -> dict[str, Any]:
 def host_network(model: dict[str, Any], name: str) -> list[Finding]:
     """Host networking declares no port and publishes every socket, the widest exposure there is."""
     return [
-        Finding("fail", f"{name}: {service} takes the host's own network, publishing everything it listens on")
+        Finding(f"{name}: {service} takes the host's own network, publishing everything it listens on")
         for service, definition in sorted(services(model, name).items())
         if definition.get("network_mode") == "host"
     ]
@@ -142,13 +136,12 @@ def production(model: dict[str, Any], name: str) -> list[Finding]:
     if set(declared) != PRODUCTION_SERVICES:
         findings.append(
             Finding(
-                "fail",
                 f"{name} declares {sorted(declared)}, not {sorted(PRODUCTION_SERVICES)}\n"
                 f"{CONTINUATION}production runs no database; a new service is a change to PRODUCTION_SERVICES",
             )
         )
     findings += [
-        Finding("fail", f"{name}: {service} publishes {definition['ports']!r}\n{CONTINUATION}production publishes nothing")
+        Finding(f"{name}: {service} publishes {definition['ports']!r}\n{CONTINUATION}production publishes nothing")
         for service, definition in sorted(declared.items())
         if definition.get("ports")
     ]
@@ -167,13 +160,10 @@ def networks(model: dict[str, Any], name: str) -> list[Finding]:
             raise ValueError(f"{name}: {service} has networks Compose did not render as a mapping, so this is not its rendered model")
         expected = SERVICE_NETWORKS.get(service)
         if expected is None:
-            findings.append(
-                Finding("fail", f"{name}: {service} is on no list of who joins which network\n{CONTINUATION}add it to SERVICE_NETWORKS")
-            )
+            findings.append(Finding(f"{name}: {service} is on no list of who joins which network\n{CONTINUATION}add it to SERVICE_NETWORKS"))
         elif frozenset(joined) != expected:
             findings.append(
                 Finding(
-                    "fail",
                     f"{name}: {service} joins {sorted(joined)}, not {sorted(expected)}\n"
                     f"{CONTINUATION}the connector reaches nginx alone, and the application reaches nothing but through nginx",
                 )
@@ -204,11 +194,11 @@ def privileges(model: dict[str, Any], name: str) -> list[Finding]:
         added = _capabilities(definition.get("cap_add"))
         allowed = CAPABILITIES_ADDED.get(service, frozenset())
         if dropped != {"ALL"}:
-            findings.append(Finding("fail", f"{name}: {service} drops {sorted(dropped) or 'nothing'}, not ALL"))
+            findings.append(Finding(f"{name}: {service} drops {sorted(dropped) or 'nothing'}, not ALL"))
         if added != allowed:
-            findings.append(Finding("fail", f"{name}: {service} adds back {sorted(added) or 'nothing'}, not {sorted(allowed) or 'nothing'}"))
+            findings.append(Finding(f"{name}: {service} adds back {sorted(added) or 'nothing'}, not {sorted(allowed) or 'nothing'}"))
         if not NO_NEW_PRIVILEGES & set(definition.get("security_opt") or []):
-            findings.append(Finding("fail", f"{name}: {service} does not set no-new-privileges"))
+            findings.append(Finding(f"{name}: {service} does not set no-new-privileges"))
     return findings
 
 
@@ -233,14 +223,13 @@ def secrets_directory(model: dict[str, Any], name: str, project: Path) -> list[F
             if volume.get("type") == "bind" and (source.is_relative_to(directory) or directory.is_relative_to(source)):
                 findings.append(
                     Finding(
-                        "fail",
                         f"{name}: {service} bind-mounts {source} at {volume.get('target')}, which reaches {directory.name}/\n"
                         f"{CONTINUATION}a file there reaches a service as a Compose secret naming it, and no other way",
                     )
                 )
     for config, declared in sorted((model.get("configs") or {}).items()):
         if (project / _declared_file(declared, project)).is_relative_to(directory):
-            findings.append(Finding("fail", f"{name}: the config {config} is read from {directory.name}/, where only secrets are"))
+            findings.append(Finding(f"{name}: the config {config} is read from {directory.name}/, where only secrets are"))
     return findings
 
 
@@ -253,7 +242,7 @@ def secret_holders(model: dict[str, Any], name: str, project: Path, stack: str) 
     declared = model.get("secrets") or {}
     findings: list[Finding] = []
     for secret in sorted(set(declared) - set(expected)):
-        findings.append(Finding("fail", f"{name}: the secret {secret} is declared and SECRET_HOLDERS lists no such secret"))
+        findings.append(Finding(f"{name}: the secret {secret} is declared and SECRET_HOLDERS lists no such secret"))
     held: dict[str, list[str]] = {secret: [] for secret in expected}
     for service, definition in sorted(services(model, name).items()):
         for entry in definition.get("secrets") or []:
@@ -265,16 +254,16 @@ def secret_holders(model: dict[str, Any], name: str, project: Path, stack: str) 
             # A relative target is a name under `/run/secrets` (https://docs.docker.com/reference/compose-file/services/#secrets).
             mounted = target if target.startswith("/") else f"{RUN_SECRETS}/{target}"
             if mounted != f"{RUN_SECRETS}/{source}":
-                findings.append(Finding("fail", f"{name}: {service} mounts {source} at {mounted}, not {RUN_SECRETS}/{source}"))
+                findings.append(Finding(f"{name}: {service} mounts {source} at {mounted}, not {RUN_SECRETS}/{source}"))
     for secret, (holders, source_file) in sorted(expected.items()):
         if secret not in declared:
-            findings.append(Finding("fail", f"{name}: the secret {secret} is not declared, and {sorted(holders)} read it"))
+            findings.append(Finding(f"{name}: the secret {secret} is not declared, and {sorted(holders)} read it"))
             continue
         read = _declared_file(declared[secret], project)
         if read != source_file:
-            findings.append(Finding("fail", f"{name}: {secret} is read from {read!r}, not {source_file}"))
+            findings.append(Finding(f"{name}: {secret} is read from {read!r}, not {source_file}"))
         if sorted(held[secret]) != sorted(holders):
-            findings.append(Finding("fail", f"{name}: {held[secret] or 'nothing'} holds {secret}, not {sorted(holders)}"))
+            findings.append(Finding(f"{name}: {held[secret] or 'nothing'} holds {secret}, not {sorted(holders)}"))
     return findings
 
 
@@ -293,15 +282,15 @@ def _not_the_local_database(content: object, services_declared: dict[str, Any]) 
     return None
 
 
-def config_holders(model: dict[str, Any], name: str, stack: str) -> list[Finding]:
-    """Exactly `CONFIG_HOLDERS[stack]` mounted at `RUN_SECRETS`, each by its services alone and naming this stack's database.
+def local_logins(model: dict[str, Any], name: str) -> list[Finding]:
+    """Every config a service mounts at `RUN_SECRETS` is a login-free URI naming the stack's own database.
 
-    A service reads any file there as a credential, so a config nothing lists there is one no secret table checks.
+    A service reads any file there as a credential, and a config sits in a tracked compose file: a login there is
+    published, and any other host aims the stack at a database it does not start. Production starts none, so a
+    config there is a finding whatever it holds.
     """
-    expected = CONFIG_HOLDERS[stack]
     declared = model.get("configs") or {}
     services_declared = services(model, name)
-    held: dict[str, list[str]] = {file: [] for file in expected}
     findings: list[Finding] = []
     for service, definition in sorted(services_declared.items()):
         for entry in definition.get("configs") or []:
@@ -310,24 +299,15 @@ def config_holders(model: dict[str, Any], name: str, stack: str) -> list[Finding
             source = str(entry.get("source"))
             # A config's default target is `/<source>` (https://docs.docker.com/reference/compose-file/services/#configs).
             target = str(entry.get("target") or f"/{source}")
-            directory, _, file = target.rpartition("/")
-            if directory != RUN_SECRETS:
+            if target.rpartition("/")[0] != RUN_SECRETS:
                 continue
-            if file not in held:
-                findings.append(Finding("fail", f"{name}: {service} mounts the config {source} at {target}, a file CONFIG_HOLDERS lacks"))
-                continue
-            held[file].append(service)
             if (wrong := _not_the_local_database((declared.get(source) or {}).get("content"), services_declared)) is not None:
                 findings.append(
                     Finding(
-                        "fail",
                         f"{name}: the config {source}, which {service} reads at {target}, {wrong}\n"
                         f"{CONTINUATION}a login there aims the stack at a database other than its own",
                     )
                 )
-    for file, holders in sorted(expected.items()):
-        if sorted(held[file]) != sorted(holders):
-            findings.append(Finding("fail", f"{name}: {held[file] or 'nothing'} reads a config as {file}, not {sorted(holders)}"))
     return findings
 
 
@@ -345,7 +325,6 @@ def moved_names(model: dict[str, Any], name: str) -> list[Finding]:
             if str(variable).upper() in MOVED_ENV_NAMES:
                 findings.append(
                     Finding(
-                        "fail",
                         f"{name}: {service} is handed {variable} in its environment\n"
                         f"{CONTINUATION}its value is a secret file's, which the service reads from /run/secrets",
                     )
@@ -368,7 +347,6 @@ def local(model: dict[str, Any], name: str) -> list[Finding]:
                 where = port.get("host_ip") or "every interface"
                 findings.append(
                     Finding(
-                        "fail",
                         f"{name}: {service} publishes {port.get('published')}->{port.get('target')} on {where}\n"
                         f"{CONTINUATION}nothing of the local stack is reachable off this host; bind 127.0.0.1",
                     )
@@ -402,15 +380,12 @@ def edge_mounts(model: dict[str, Any], name: str, project: Path, checkout: Path)
         if not (checkout / relative).is_dir():
             findings.append(
                 Finding(
-                    "fail",
                     f"{name}: {EDGE_SERVICE} mounts {relative} at {volume.get('target')}, which is not a directory\n"
                     f"{CONTINUATION}a file mount keeps the file a pull replaced, and a reload re-reads it",
                 )
             )
     if not pairs:
-        findings.append(
-            Finding("fail", f"{name}: {EDGE_SERVICE} mounts nothing from {EDGE_CONFIG_ROOT}/, so it serves none of this checkout's edge")
-        )
+        findings.append(Finding(f"{name}: {EDGE_SERVICE} mounts nothing from {EDGE_CONFIG_ROOT}/, so it serves none of this checkout's edge"))
     return pairs, findings
 
 
@@ -437,62 +412,21 @@ def edge_configuration(pairs: list[tuple[str, str]], checkout: Path) -> str:
     return "\n".join(file.read_bytes().decode() for directory in directories for file in sorted(directory.iterdir()) if file.is_file())
 
 
-def statements(conf: str) -> list[tuple[str, list[str]]]:
-    """nginx's statements in order, each with its words, comments dropped and quotes respected.
-
-    Never by line: nginx takes a whole `location { … }` on one line, where a line-anchored pattern
-    sees nothing.
-    """
-    found: list[tuple[str, list[str]]] = []
-    words: list[str] = []
-    word = ""
-    quote = ""
-    index = 0
-    while index < len(conf):
-        char = conf[index]
-        if quote:
-            word += char
-            if char == "\\" and index + 1 < len(conf):
-                word += conf[index + 1]
-                index += 1
-            elif char == quote:
-                quote = ""
-        elif char in "\"'":
-            quote = char
-            word += char
-        elif char == "#":
-            newline = conf.find("\n", index)
-            index = len(conf) if newline < 0 else newline
-            continue
-        elif char in ";{}" or char.isspace():
-            if word:
-                words.append(word)
-                word = ""
-            if not char.isspace():
-                found.append(({";": "statement", "{": "open", "}": "close"}[char], words))
-                words = []
-        else:
-            word += char
-        index += 1
-    return found
-
-
 def trusted_connector(conf: str, address: str, name: str) -> list[Finding]:
     """`set_real_ip_from` names the connector's address and nothing else, and the realip settings are declared once.
 
     Another address leaves every visitor keyed to the connector's; a wider one lets any host on it name a visitor.
+    Every depth is read, since nginx takes a whole `location { … }` on one line.
     """
-    parsed = statements(conf)
     declared: dict[str, list[str]] = {}
-    for kind, words in parsed:
-        if kind == "statement" and len(words) >= 2:
-            declared.setdefault(words[0], []).append(" ".join(words[1:]))
+    for directive in walk(parse(conf, name)):
+        if directive.block is None and directive.args:
+            declared.setdefault(directive.name, []).append(" ".join(directive.args))
     trusted = declared.get("set_real_ip_from", [])
     findings: list[Finding] = []
     if trusted != [address]:
         findings.append(
             Finding(
-                "fail",
                 f"{name} trusts {trusted or 'nothing'} with set_real_ip_from, and the connector is {address}\n"
                 f"{CONTINUATION}the edge takes a visitor's address from the connector alone",
             )
@@ -502,7 +436,6 @@ def trusted_connector(conf: str, address: str, name: str) -> list[Finding]:
         if values != [expected]:
             findings.append(
                 Finding(
-                    "fail",
                     f"{name} declares {directive} {values or 'nowhere'}, not once as {expected}\n"
                     f"{CONTINUATION}a second one, in a server or a location, replaces the shared one there",
                 )
@@ -525,7 +458,6 @@ def deployment_name(model: dict[str, Any], name: str, stack: str) -> list[Findin
         return []
     return [
         Finding(
-            "fail",
             f"{name}: the frontend runs as APP_ENV {environment.get('APP_ENV')!r}, not {expected!r}\n"
             f"{CONTINUATION}its boot then demands another stack's files and mails as that stack does",
         )
@@ -558,7 +490,6 @@ def env_files(model: dict[str, Any], name: str) -> list[Finding]:
         if read != [expected]:
             findings.append(
                 Finding(
-                    "fail",
                     f"{name}: {service} reads the environment files {read}, not {expected} alone\n"
                     f"{CONTINUATION}a service's settings are its own package's file and nothing beside it",
                 )
@@ -608,7 +539,7 @@ RULES: Final[tuple[Callable[[Stack], list[Finding]], ...]] = (
     lambda stack: networks(stack.model, stack.name),
     lambda stack: privileges(stack.model, stack.name),
     lambda stack: secret_holders(stack.model, stack.name, stack.project, stack.name),
-    lambda stack: config_holders(stack.model, stack.name, stack.name),
+    lambda stack: local_logins(stack.model, stack.name),
     lambda stack: moved_names(stack.model, stack.name),
     lambda stack: secrets_directory(stack.model, stack.name, stack.project),
 )
@@ -628,7 +559,7 @@ def main() -> int:
             Stack(local_model, "local", Path(args.local).resolve().parent, connector),
         )
         findings = [finding for rule in RULES for stack in stacks for finding in rule(stack)]
-    except (*UNREADABLE, ValueError) as error:
+    except (*UNREADABLE, ValueError, NginxSyntax) as error:
         print(f"      {error}", file=sys.stderr)
         print("      Nothing was judged, so this is a refusal rather than a verdict on either stack.", file=sys.stderr)
         return EXIT_REFUSED

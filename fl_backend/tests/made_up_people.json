@@ -1,4 +1,6 @@
 {
+  "seasons": { "finished": "2026", "running": "2027", "planned": "2028" },
+  "venues": { "edited": "Sporthalle Birkenallee", "longest": "Bezirkssportanlage Frankfurt-Nieder-Eschbach Nord" },
   "owner": "inhaber@example.com",
   "administrators": {
     "editor": "admin.editor@example.com",
@@ -72,9 +74,10 @@
     "mover": { "first_name": "Marta", "last_name": "Moos", "address": "marta.moos@example.com" },
     "erased": { "first_name": "Olga", "last_name": "Ott", "address": "olga.ott@example.com" },
     "changing": { "first_name": "Nina", "last_name": "Noll", "address": "nina.noll@example.com" },
-    "ban": "gesperrte.person.mit.langer.adresse@example.com"
+    "ban": "gesperrte.person.mit.langer.adresse@example.com",
+    "loggedTeam": "Birke"
   },
-  "layout": {
+  "others": {
     "pupil": { "first_name": "Mia", "last_name": "Ahornberg", "address": "mia.ahornberg@schule.example" },
     "referee": { "first_name": "Anna", "last_name": "Ahrens", "address": "anna.ahrens@example.com" },
     "contact": { "first_name": "Konrad", "last_name": "Kuhn", "address": "konrad.kuhn@example.com" },
@@ -82,7 +85,8 @@
   },
   "firstPass": {
     "referee": { "first_name": "Ben", "last_name": "Brandt", "address": "ben.brandt@example.com" },
-    "erased": { "first_name": "Lea", "last_name": "Lehmann", "address": "lea.lehmann@example.com" }
+    "erased": { "first_name": "Lea", "last_name": "Lehmann", "address": "lea.lehmann@example.com" },
+    "applications": { "lapsed": "Lärche", "left": "Espe" }
   },
   "austritt": {
     "opponent": { "first_name": "Berta", "last_name": "Birkner", "address": "berta.birkner@example.com" }

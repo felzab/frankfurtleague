@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { underNext } from "@/test-support/nextContexts";
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -7,14 +8,11 @@ import { COPY } from "@/core/copy";
 
 import { RailFrame } from "./RailFrame";
 
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import type { Account } from "./FrameNav";
 
-vi.mock("next/navigation", () => ({
-  usePathname: () => "/admin/spielorte",
-  useParams: () => ({}),
-  useRouter: () => ({ push: () => undefined, replace: () => undefined }),
-}));
+/** Next's navigation at the Spielorte, a page whose address names no season. */
+const AtSpielorte = ({ children }: { children: ReactNode }) => underNext(children, { pathname: "/admin/spielorte", params: {} });
 
 vi.mock("next-themes", () => ({ useTheme: () => ({ theme: "system", setTheme: () => undefined }) }));
 
@@ -59,6 +57,7 @@ async function renderFrame(account: Promise<Account | null>) {
         foot={{ kind: "account", account }}>
         <p>Seite</p>
       </RailFrame>,
+      { wrapper: AtSpielorte },
     ),
   );
 }
@@ -95,6 +94,7 @@ describe("the menu's prefetch", () => {
           prefetch>
           <p>Seite</p>
         </RailFrame>,
+        { wrapper: AtSpielorte },
       ),
     );
 

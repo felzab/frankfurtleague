@@ -1,15 +1,15 @@
-import { answerInEveryCase, answerWhereUnanswered, BACKEND_ORIGIN, caseRunning, networkFailure } from "@/test-support/backend.ts";
-import { answerAt, deepFrozen, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures.ts";
+import { answerInEveryCase, answerWhereUnanswered, BACKEND_ORIGIN, caseRunning, networkFailure } from "@/test-support/backend";
+import { answerAt, deepFrozen, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures";
 import { TEST_SECRETS } from "@/test-support/testEnvironment.mts";
 import { memoryAdapter } from "better-auth/adapters/memory";
 import { symmetricDecrypt } from "better-auth/crypto";
 import { ObjectId } from "mongodb";
 import { assert, beforeEach, onTestFinished, vi } from "vitest";
 
-import type { auth as AuthInstance } from "@/core/auth/library.ts";
-import type { MailSender } from "@/core/emailShell.ts";
-import type { FLOutboxSignInPayload } from "@/core/generated/client/types.ts";
-import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
+import type { auth as AuthInstance } from "@/core/auth/library";
+import type { MailSender } from "@/core/emailShell";
+import type { FLOutboxSignInPayload } from "@/core/generated/client/types";
+import type { LookupFixture } from "@/test-support/subjectFixtures";
 import type { MemoryDB } from "better-auth/adapters/memory";
 
 /** A module's doubled exports, by name: a name the double leaves out fails on Vitest's missing-export error. */
@@ -47,7 +47,8 @@ const SECRET_DOUBLES: SecretReaders = {
 
 /** A config standing in for the real one where a suite must vary a value per file, `secrets` over the run's own. */
 export function configDouble(overrides: Readonly<Record<string, unknown>> = {}, secrets: SecretReaders = {}): DoubledExports {
-  const config = {
+  // Typed as the overrides are: a spread drops their index signature, and with it the `undefined` they may carry.
+  const config: Readonly<Record<string, unknown>> = {
     ...GATE_BACKEND_CONFIG,
     AUTH_URL: `http://${ORIGIN.host}`,
     ...overrides,
@@ -149,9 +150,9 @@ function doubleOutbox(): {
 
     // Imported at the request, after the suite's own doubles, so the config and the kinds are the ones it loaded.
     const [{ authSecret, frontend_config }, { mailFor }, { renderMail }] = await Promise.all([
-      import("@/core/config.ts"),
-      import("@/core/mailKinds.ts"),
-      import("@/core/emailShell.ts"),
+      import("@/core/config"),
+      import("@/core/mailKinds"),
+      import("@/core/emailShell"),
     ]);
     const secret = payload.secret === null ? null : await symmetricDecrypt({ key: authSecret(), data: payload.secret });
     const message = mailFor(payload.data.kind, payload.data, { token: null, secret, origin: frontend_config.AUTH_URL });
@@ -192,7 +193,7 @@ export function registerAuthDoubles({ core = {}, specifiers = {} }: AuthDoubles 
   // The mailer is always `doubleOutbox`'s, whose record this answers. A second one is refused rather
   // than layered: two mailer hooks answer by registration order, and a suite would read whichever came last.
   if ("mail" in core) throw new Error("The mailer is doubleOutbox's: read the record registerAuthDoubles answers.");
-  const modules = Object.entries({ db: DB_DOUBLE, ...core }).map(([name, double]): [string, ModuleDouble] => [`@/core/${name}.ts`, double]);
+  const modules = Object.entries({ db: DB_DOUBLE, ...core }).map(([name, double]): [string, ModuleDouble] => [`@/core/${name}`, double]);
 
   // The grant is read over the lookup, so without an answer no suite has an administrator at all. Only where nothing
   // else answers it: a suite answering the lookup, before this or after it, or the whole backend itself, keeps its own.
@@ -318,6 +319,18 @@ export function memoryStore(name: string): MemoryStore {
   return store;
 }
 
+/**
+ * Takes the row `id` names out of `store`'s `table` as the table stands now, failing the case where none does. By id,
+ * never by a row held from before: a committed transaction writes each table anew, so a held row is no longer in it,
+ * and its index of -1 would take the table's last row instead.
+ */
+export function deleteRow(store: MemoryStore, table: "session" | "passkey", id: unknown): void {
+  const rows: { id?: unknown }[] = store[table];
+  const at = rows.findIndex((row) => row.id === id);
+  assert(at !== -1, `the store holds no ${table} row ${String(id)}`);
+  rows.splice(at, 1);
+}
+
 /** `signInByCode`'s session, as its cookie and the row `store` holds for it. */
 export async function sessionByCode(
   auth: typeof AuthInstance,
@@ -333,16 +346,13 @@ export async function sessionByCode(
 }
 
 /** Where the sign-in gate's one backend read goes, in every config double this file builds. */
-export const GATE_BACKEND_CONFIG = {
+const GATE_BACKEND_CONFIG = {
   API_URL: BACKEND_ORIGIN,
 } as const;
 
-/** What the lookup answers an address holding nothing, which every answer below builds on. */
-export const HOLDS_NOTHING = NO_RECORDS;
-
 /** `ADMIN_EMAIL`'s answer: a grant and no league record, which is what makes it an administrator, dated before any session a case makes. */
 export const GRANTED = deepFrozen({
-  ...HOLDS_NOTHING,
+  ...NO_RECORDS,
   admin_tier: "administration" as const,
   granted_since: "2026-01-01T00:00:00Z",
   account: false,
@@ -410,7 +420,7 @@ const DEFAULT_LOOKUP: LookupAnswer = (email) => (email === ADMIN_EMAIL ? GRANTED
  * address `granted` names, so a suite minting a person's session gets past the gate at session creation.
  */
 export function seatEveryAddress(granted: readonly string[] = [ADMIN_EMAIL]): void {
-  answerTheLookup((email) => ({ ...(granted.includes(email) ? GRANTED : HOLDS_NOTHING), seats: [SEAT], account: true }));
+  answerTheLookup((email) => ({ ...(granted.includes(email) ? GRANTED : NO_RECORDS), seats: [SEAT], account: true }));
 }
 
 /**

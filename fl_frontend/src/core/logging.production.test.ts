@@ -1,13 +1,13 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { documentsWrittenByAsync } from "@/test-support/stdoutCapture.ts";
+import { documentsWrittenByAsync } from "@/test-support/stdoutCapture";
 import { MongoServerError } from "mongodb";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import { logger } from "./logging.ts";
-import { runWithRequestScope } from "./requestScope.ts";
+import { logger } from "./logging";
+import { runWithRequestScope } from "./requestScope";
 
 // Looked for whole, never as any "@": a stack frame's path carries one wherever the package store
 // spells a version, as pnpm's `.pnpm/<name>@<version>/` does.

@@ -13,7 +13,7 @@ import traceback
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final, Literal, TextIO
+from typing import Final
 
 # Three levels: this file sits in `scripts/lib/`.
 REPO_ROOT: Final = Path(__file__).resolve().parents[2]
@@ -36,29 +36,11 @@ for _stream in (sys.stdout, sys.stderr):
         _stream.reconfigure(encoding="utf-8", errors="replace")
 
 
-Severity = Literal["fail", "report"]
-
-
 @dataclass(frozen=True)
 class Finding:
-    """One thing a checker found. `fail` decides the exit code; `report` is advisory."""
+    """One thing a checker found; any one fails the run."""
 
-    severity: Severity
     detail: str
-
-
-def failures[F: Finding](findings: Iterable[F]) -> list[F]:
-    """The findings that decide the exit code."""
-    return [finding for finding in findings if finding.severity == "fail"]
-
-
-def reports[F: Finding](findings: Iterable[F]) -> list[F]:
-    """The advisory findings — printed, never fatal."""
-    return [finding for finding in findings if finding.severity != "fail"]
-
-
-def exit_code(findings: Iterable[Finding]) -> int:
-    return EXIT_FINDINGS if any(finding.severity == "fail" for finding in findings) else EXIT_OK
 
 
 # The column `report_findings` leaves after its `FAIL` tag, so a finding's second line lands under
@@ -66,23 +48,12 @@ def exit_code(findings: Iterable[Finding]) -> int:
 CONTINUATION: Final = " " * 14
 
 
-def report_findings(findings: Iterable[Finding], *, indent: int = 6, stream: TextIO | None = None) -> int:
-    """Print the failures, then the advisories, into one stream, and answer the run's exit code.
-
-    One stream: the gate prints a failing check's output whole, so splitting the
-    severities would interleave them under the wrong heading.
-    """
+def report_findings(findings: Iterable[Finding]) -> int:
+    """Print every finding and answer the run's exit code."""
     collected = list(findings)
-    # None rather than `sys.stdout` in the signature, which binds the object this module was
-    # imported under: a caller redirecting the stream afterwards, which is what a test's capture
-    # does, would be reading one nothing writes to.
-    into = sys.stdout if stream is None else stream
-    pad = " " * indent
-    for finding in failures(collected):
-        print(f"{pad}FAIL    {finding.detail}", file=into)
-    for finding in reports(collected):
-        print(f"{pad}report  {finding.detail}", file=into)
-    return exit_code(collected)
+    for finding in collected:
+        print(f"      FAIL    {finding.detail}")
+    return EXIT_FINDINGS if collected else EXIT_OK
 
 
 def run(entry: Callable[[], int]) -> int:

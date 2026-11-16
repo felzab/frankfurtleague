@@ -1,12 +1,12 @@
-import { serveBackend } from "@/test-support/backend.ts";
+import { serveBackend } from "@/test-support/backend";
 import { expect, it } from "vitest";
 
 // Every call answered with an empty body: the cases judge what the client made of each request, not its answer.
 const backend = serveBackend(() => ({}));
 
-const { serializeQuery } = await import("./transport.ts");
-const sdk = await import("./generated/client/sdk.ts");
-const { requestWriteMayStand, runWithRequestScope } = await import("./requestScope.ts");
+const { serializeQuery } = await import("./transport");
+const sdk = await import("./generated/client/sdk");
+const { requestWriteMayStand, runWithRequestScope } = await import("./requestScope");
 
 /* Every generated call's query passes through here: a null sent as "null" would filter on that word. */
 it("leaves an absent value out", () => {

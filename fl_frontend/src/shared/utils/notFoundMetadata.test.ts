@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { metadataFor } from "@/shared/utils/notFoundMetadata.ts";
+import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 describe("metadataFor", () => {
   /* Nothing else sees it: the page answers 200 either way, and only the tag keeps an outage's page out of the index. */

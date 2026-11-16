@@ -1,5 +1,6 @@
 import { serveBackend } from "@/test-support/backend";
 import { doubleNextRequest } from "@/test-support/nextRequest";
+import { posted } from "@/test-support/posted";
 import { describe, expect, it } from "vitest";
 
 import { SEAT_TEXT_VERSIONS } from "@/core/consentWordings";
@@ -25,13 +26,6 @@ doubleNextRequest();
 const { answerKontakt, objectKontakt } = await import("./answerKontakt");
 
 const TOKEN = "not-a-real-token";
-
-/** The question's form as the browser posts it, the act pressed among its entries. */
-const posted = (entries: Readonly<Record<string, string>>) => {
-  const formData = new FormData();
-  for (const [name, value] of Object.entries(entries)) formData.set(name, value);
-  return formData;
-};
 
 describe("a contact person's answer", () => {
   // The harm: a ticked consent stored as refused, or an unticked one as given, nothing on the page saying so.

@@ -1,5 +1,5 @@
-import type { FLSubjectSeat } from "@/core/generated/client/types.ts";
-import type { SubjectSession } from "@/core/subject.ts";
+import type { FLSubjectSeat } from "@/core/generated/client/types";
+import type { SubjectSession } from "@/core/subject";
 
 /**
  * `value` with every object and array under it frozen. Every subject a suite builds shares these, so

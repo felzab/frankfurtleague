@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "./copy.ts";
+import { COPY } from "./copy";
 
-import type { FLKontaktLinkData, FLKontaktRow } from "./generated/client/types.ts";
+import type { FLKontaktLinkData, FLKontaktRow } from "./generated/client/types";
 
-const { mailFor } = await import("./mailKinds.ts");
-const { renderMail } = await import("./emailShell.ts");
-const { kontaktConfirmationLink } = await import("./kontaktLink.ts");
-const { SERVER_COPY } = await import("./serverCopy.ts");
+const { mailFor } = await import("./mailKinds");
+const { renderMail } = await import("./emailShell");
+const { kontaktConfirmationLink } = await import("./kontaktLink");
+const { SERVER_COPY } = await import("./serverCopy");
 
 const ORIGIN = "http://localhost:3000";
 

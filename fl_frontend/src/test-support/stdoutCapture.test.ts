@@ -1,20 +1,15 @@
 // The log capture's own guarantee, which every suite reading the logger's lines relies on and none tests: it reads
 // the logger's chunks alone, each case from an empty record, and a line it cannot read fails the case, not the writer.
-import { captureLog } from "@/test-support/stdoutCapture.ts";
-import { afterEach, describe, expect, it } from "vitest";
+import { caseFailures } from "@/test-support/caseFailures";
+import { captureLog } from "@/test-support/stdoutCapture";
+import { describe, expect, it } from "vitest";
 
 const log = captureLog();
 
 // Imported after the capture, as a suite's subject is.
-const { logger } = await import("@/core/logging.ts");
+const { logger } = await import("@/core/logging");
 
-/** Each case's failure messages, read once every hook of the case has run. */
-const failures = new Map<string, string>();
-afterEach(({ task, onTestFinished: finished }) => {
-  finished(() => {
-    failures.set(task.name, (task.result?.errors ?? []).map(({ message }) => String(message)).join("\n"));
-  });
-});
+const { failsNaming } = caseFailures();
 
 describe("the capture", () => {
   it("reads the logger's line", () => {
@@ -43,13 +38,12 @@ describe("the capture", () => {
     expect(log.lines()).toStrictEqual([]);
   });
 
-  it.fails("fails the case on a line it cannot read, never the code that wrote it", () => {
-    // A message holding a newline splits the plain line before its fields.
-    logger.info("split\nacross two lines");
-  });
-  it("fails the case on a line it cannot read: the failure names it", () => {
-    expect(failures.get("fails the case on a line it cannot read, never the code that wrote it")).toMatch(
-      /^the logger wrote what the capture cannot read:\na plain log line without its fields: INFO split/,
-    );
-  });
+  failsNaming(
+    "fails the case on a line it cannot read, never the code that wrote it",
+    /^the logger wrote what the capture cannot read:\na plain log line without its fields: INFO split/,
+    () => {
+      // A message holding a newline splits the plain line before its fields.
+      logger.info("split\nacross two lines");
+    },
+  );
 });

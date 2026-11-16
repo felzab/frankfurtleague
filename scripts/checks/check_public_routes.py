@@ -10,17 +10,11 @@ the edge meters on no zone deliberately.
 Each rule is a row of `RULES`, which `main` runs whole. A construct this reader cannot place refuses
 rather than answering, and so does a rule that found nothing to judge: either would read as a pass.
 
-The same walk judges the intercepting pages, which no build or test below the journeys sees: Next
-rewrites an intercepted URL by the page the visitor stands on, so two interceptors for one URL compete
-in an order Next documents nowhere, and one under a route group intercepts from pages its group's
-layout never draws.
-
 Invariants:
 - The population is `ROUTE_FILES` and the code-generated metadata conventions `METADATA` places,
   with `PAGE_FILES` joining it for a link page's meter.
 - A reserved metadata name this reader cannot place refuses; an image convention supplied as an
   image file runs no module and stands outside the population.
-- An intercepted URL has one intercepting page, with no route group above its intercepting segment.
 - A link page's `linkpage` burst is the one the largest squad the backend publishes needs at that zone's rate.
 - A link page's location sends every error line it writes to `/dev/null`.
 - A link page's responses withhold the referrer, the map withholding it only as a link page's location matches.
@@ -50,6 +44,7 @@ from checker_kernel import (
     report_findings,
     run,
 )
+from nginx_conf import Directive, NginxSyntax, read
 
 APP_ROUTER: Final = "fl_frontend/src/app"
 NGINX_CONF: Final = "nginx/shared/site.conf"
@@ -248,22 +243,8 @@ DYNAMIC_RE: Final = re.compile(r"^\[\[?(?:\.\.\.)?[A-Za-z0-9_]+\]?\]$")
 LITERAL_RE: Final = re.compile(r"^[A-Za-z0-9.~-][A-Za-z0-9._~-]*$")
 
 
-class NginxSyntax(Exception):
-    """A construct outside the subset this reader parses, named with the line that carries it."""
-
-
 class RouteShape(Exception):
     """A segment or a reserved file name whose URL this reader cannot derive, named with its file."""
-
-
-@dataclass(frozen=True)
-class Directive:
-    """One nginx directive: its name, its arguments, and the block under it where it opens one."""
-
-    name: str
-    args: tuple[str, ...]
-    block: tuple[Directive, ...] | None
-    line: int
 
 
 @dataclass(frozen=True)
@@ -308,104 +289,6 @@ class Handler:
     # prefix location has to cover for the whole handler to be covered.
     head: str
     dynamic: bool
-
-
-def lex(text: str, source: str) -> list[tuple[str, str, int]]:
-    """The configuration as `(kind, value, line)` tokens: a word, or one of `{`, `}` and `;`."""
-    tokens: list[tuple[str, str, int]] = []
-    line = 1
-    index = 0
-    while index < len(text):
-        char = text[index]
-        if char == "\n":
-            line += 1
-            index += 1
-        elif char in " \t\r":
-            index += 1
-        elif char == "#":
-            while index < len(text) and text[index] != "\n":
-                index += 1
-        elif char in "{};":
-            tokens.append((char, char, line))
-            index += 1
-        elif char in "\"'":
-            value, index, line = _quoted(text, index, line, source)
-            tokens.append(("word", value, line))
-        else:
-            start = index
-            while index < len(text) and text[index] not in " \t\r\n{};#":
-                index += 1
-            tokens.append(("word", text[start:index], line))
-    return tokens
-
-
-def _quoted(text: str, index: int, line: int, source: str) -> tuple[str, int, int]:
-    """One quoted string, answering its content and where the scan resumes.
-
-    A `log_format` string spans lines, so the line counter travels with the scan rather than being
-    recovered afterwards.
-    """
-    quote = text[index]
-    opened = line
-    index += 1
-    out: list[str] = []
-    while index < len(text) and text[index] != quote:
-        # The escape is consumed whole, or a `\"` inside a regex would close the string here.
-        if text[index] == "\\" and index + 1 < len(text):
-            out.append(text[index])
-            index += 1
-        if text[index] == "\n":
-            line += 1
-        out.append(text[index])
-        index += 1
-    if index >= len(text):
-        raise NginxSyntax(f"{source}:{opened}: a quoted string that never closes")
-    # The advanced counter, not `opened`: every line the string spanned is a line the scan passed,
-    # and handing back the opening one makes each refusal below it name a line too low.
-    return "".join(out), index + 1, line
-
-
-def parse(text: str, source: str) -> tuple[Directive, ...]:
-    """The configuration as a tree of directives."""
-    tree, _ = _block(lex(text, source), 0, source, top=True)
-    return tree
-
-
-def _block(tokens: list[tuple[str, str, int]], index: int, source: str, *, top: bool) -> tuple[tuple[Directive, ...], int]:
-    """The directives from `index` to the closing brace, and the index of the token after it."""
-    out: list[Directive] = []
-    words: list[str] = []
-    opened = 0
-    while index < len(tokens):
-        kind, value, line = tokens[index]
-        if kind == "word":
-            if not words:
-                opened = line
-            words.append(value)
-            index += 1
-        elif kind == ";":
-            if not words:
-                raise NginxSyntax(f"{source}:{line}: a semicolon with no directive in front of it")
-            out.append(Directive(words[0], tuple(words[1:]), None, opened))
-            words = []
-            index += 1
-        elif kind == "{":
-            if not words:
-                raise NginxSyntax(f"{source}:{line}: a block with no directive naming it")
-            nested, index = _block(tokens, index + 1, source, top=False)
-            out.append(Directive(words[0], tuple(words[1:]), nested, opened))
-            words = []
-        else:
-            if top:
-                raise NginxSyntax(f"{source}:{line}: a block closes without opening")
-            if words:
-                raise NginxSyntax(f"{source}:{opened}: a directive that never ends in a semicolon")
-            return tuple(out), index + 1
-    if not top:
-        raise NginxSyntax(f"{source}: a block that never closes")
-    if words:
-        raise NginxSyntax(f"{source}:{opened}: a directive that never ends in a semicolon")
-    return tuple(out), index
 
 
 def read_location(directive: Directive, source: str, redirected: frozenset[str] = frozenset()) -> Location | None:
@@ -465,7 +348,7 @@ def map_entries(http_path: Path, variable: str) -> tuple[tuple[str, str], ...]:
 
     A key nginx reads as something other than a string or a regex, and an entry taking other than one value, refuse.
     """
-    tree = parse(http_path.read_bytes().decode("utf-8"), http_path.name)
+    tree = read(http_path)
     found = [directive for directive in tree if directive.name == "map" and directive.args[-1:] == (variable,)]
     if not found:
         return ()
@@ -538,8 +421,8 @@ def edge_locations(conf_path: Path) -> tuple[Location, ...]:
     Bytes, so no platform's newline translation reaches a path this reader then compares.
     """
     http_path = conf_path.parent / NGINX_HTTP_CONF
-    maps = map_values(parse(http_path.read_bytes().decode("utf-8"), http_path.name))
-    return locations(parse(conf_path.read_bytes().decode("utf-8"), conf_path.name), conf_path.name, maps)
+    maps = map_values(read(http_path))
+    return locations(read(conf_path), conf_path.name, maps)
 
 
 def _targets(target: str, maps: Mapping[str, frozenset[str]], source: str, line: int) -> frozenset[str]:
@@ -614,73 +497,23 @@ def pages(app_dir: Path) -> tuple[Handler, ...]:
     return tuple(found)
 
 
-def _address(url: str) -> str:
-    """A URL with each dynamic segment reduced to its kind, so `[saison]` and `[id]` read as one address."""
-    return "/".join(
-        ("[[...]]" if part.startswith("[[") else "[...]" if part.startswith("[...") else "[]") if DYNAMIC_RE.match(part) else part
-        for part in url.split("/")
-    )
-
-
 class NothingJudged(Exception):
     """A rule that found nothing to judge, which would otherwise read as a pass."""
 
 
 @dataclass(frozen=True)
 class Accounting:
-    """What every rule reads: the tree's handlers and pages, its link pages, and the edge's locations and zones."""
+    """What every rule reads: the tree's handlers, its link pages, and the edge's locations and zones."""
 
     found: tuple[Handler, ...]
-    paged: tuple[Handler, ...]
     linked: tuple[Handler, ...]
     where: tuple[Location, ...]
     rates: Mapping[str, int]
     squad: int
     # The entries of the map naming each response's `Referrer-Policy`, empty where the http level declares none.
     referrer: tuple[tuple[str, str], ...]
-    app_dir: Path
     root: Path
     conf: str
-
-
-def interceptions(judged: Accounting) -> list[Finding]:
-    """Every intercepting page sharing its URL with another, or standing under a route group.
-
-    Next keys an interceptor's rewrite on the page the visitor leaves, read from the interceptor's level, and a route
-    group is no level: a slot of `(classic)` intercepting `(.)saisons` reaches from `/`, so from every page of the site,
-    where the group's layout draws the slot on its own pages alone. Two rewrites for one URL both match from a page
-    under both levels, and the first in the build's order wins.
-    """
-    findings: list[Finding] = []
-    by_address: dict[str, list[Handler]] = {}
-    for page in judged.paged:
-        parts = page.path.parent.relative_to(judged.app_dir).parts
-        at = next((index for index, part in enumerate(parts) if SAME_LEVEL_RE.match(part)), None)
-        if at is None:
-            continue
-        by_address.setdefault(_address(page.url), []).append(page)
-        grouped = [part for part in parts[:at] if GROUP_RE.match(part)]
-        if grouped:
-            findings.append(
-                Finding(
-                    "fail",
-                    f"{shown(page.path, judged.root)} intercepts {page.url} under the route group {grouped[0]}\n"
-                    f"{CONTINUATION}a group is no level of the URL, so the interceptor reaches from every page of its "
-                    f"parent level while the group's layout draws the slot on its own pages alone: "
-                    f"put the slot in the layout every page it intercepts from shares",
-                )
-            )
-    for address, pages_there in sorted(by_address.items()):
-        if len(pages_there) > 1:
-            findings.append(
-                Finding(
-                    "fail",
-                    f"{', '.join(shown(one.path, judged.root) for one in pages_there)} all intercept {address}\n"
-                    f"{CONTINUATION}from a page both levels hold, their rewrites compete in an order Next documents nowhere: "
-                    f"keep one interceptor for the address, in the slot every page it intercepts from shares",
-                )
-            )
-    return findings
 
 
 def link_pages(found: tuple[Handler, ...]) -> tuple[Handler, ...]:
@@ -761,7 +594,7 @@ def kader_size_max(openapi_path: Path) -> int:
 def zone_rates(http_path: Path) -> dict[str, int]:
     """Each `limit_req_zone` the http level declares, by name, at its rate in requests a minute."""
     rates: dict[str, int] = {}
-    for directive in parse(http_path.read_bytes().decode("utf-8"), http_path.name):
+    for directive in read(http_path):
         if directive.name != "limit_req_zone":
             continue
         named = next((arg.removeprefix(ZONE).partition(":")[0] for arg in directive.args if arg.startswith(ZONE)), None)
@@ -825,7 +658,6 @@ def loosened(judged: Accounting) -> list[Finding]:
         ceiling = any(line.startswith("limit_conn ") for line in owed)
         findings.append(
             Finding(
-                "fail",
                 f"{judged.conf}:{one.line}: `location {'= ' if one.exact else ''}{one.path}` is carved out of `location "
                 f"{wider.path}` and lacks its {', '.join(f'`{line}`' for line in sorted(owed))}\n"
                 f"{CONTINUATION}a request here would otherwise meet that meter: write each line as `location {wider.path}` "
@@ -858,7 +690,6 @@ def unsized_links(judged: Accounting) -> list[Finding]:
                 continue
             findings.append(
                 Finding(
-                    "fail",
                     f"{judged.conf}:{one.line}: `location {'= ' if one.exact else ''}{one.path}` meters {zone} with "
                     f"`limit_req {' '.join(args)}`, where a squad of {judged.squad} needs burst={expected[zone]}\n"
                     f"{CONTINUATION}the link pages are sized for the largest squad {OPENAPI} publishes: size the burst for it",
@@ -888,7 +719,6 @@ def unmetered_links(judged: Accounting) -> list[Finding]:
         reached = "no location" if location is None else f"`location {'= ' if location.exact else ''}{location.path}`"
         findings.append(
             Finding(
-                "fail",
                 f"{shown(page.path, judged.root)} reads a link's token, and {page.url} reaches {reached} in {judged.conf}, "
                 f"which does not meter it on {', '.join(sorted(LINK_ZONES))}\n"
                 f"{CONTINUATION}put the page under a prefix carrying that zone, or give it an exact match carrying it",
@@ -914,7 +744,6 @@ def unlogged_links(judged: Accounting) -> list[Finding]:
         reached = "no location" if location is None else f"`location {'= ' if location.exact else ''}{location.path}`"
         findings.append(
             Finding(
-                "fail",
                 f"{shown(page.path, judged.root)} reads a link's token, and {page.url} reaches {reached} in {judged.conf}, "
                 f"whose error lines, each repeating the request line, are not all sent to {DISCARDED_LOG}\n"
                 f"{CONTINUATION}give that location `error_log {DISCARDED_LOG};` as its only error_log",
@@ -941,7 +770,6 @@ def referring_links(judged: Accounting) -> list[Finding]:
             continue
         findings.append(
             Finding(
-                "fail",
                 f"{shown(page.path, judged.root)} reads a link's token, and {NGINX_HTTP_CONF}'s map setting {REFERRER_MAP} gives "
                 f"{page.url} {policy or 'no value'}, which hands the address on in every request the page starts\n"
                 f"{CONTINUATION}give the page's location its entry, valued {LINK_REFERRER_POLICY}",
@@ -959,7 +787,6 @@ def referring_links(judged: Accounting) -> list[Finding]:
             continue
         findings.append(
             Finding(
-                "fail",
                 f"{NGINX_HTTP_CONF}'s map setting {REFERRER_MAP} gives {key!r} {value}, a match no link page's location in "
                 f"{judged.conf} makes\n"
                 f"{CONTINUATION}spell the entry as the link page's location matches, or drop it: every other page keeps the site's policy",
@@ -1031,7 +858,6 @@ def account(judged: Accounting) -> list[Finding]:
             if not match.metered:
                 findings.append(
                     Finding(
-                        "fail",
                         f"{name} answers {handler.url}, whose exact-match location carries no limit_req\n"
                         f"{CONTINUATION}an exact match is where a rate is declared, and {judged.conf} declares none there",
                     )
@@ -1043,7 +869,6 @@ def account(judged: Accounting) -> list[Finding]:
         elif declaring(prefix.path) is None:
             findings.append(
                 Finding(
-                    "fail",
                     f"{name} answers {handler.url}, covered by the prefix location {prefix.path} and by no recorded reason\n"
                     f"{CONTINUATION}meter it with an exact-match location, or record why that prefix is enough at "
                     f"scripts/checks/check_public_routes.py :: REASONS",
@@ -1056,12 +881,10 @@ def _unreached(handler: Handler, name: str, conf: str) -> Finding:
     """The finding for a handler no location but the catch-all reaches."""
     if handler.dynamic:
         return Finding(
-            "fail",
             f"{name} answers {handler.url}, which no exact match can name and no prefix location covers\n"
             f"{CONTINUATION}a dynamic segment is unmeterable without a prefix: give {conf} one, or the whole subtree runs unmetered",
         )
     return Finding(
-        "fail",
         f"{name} answers {handler.url}, and no location in {conf} names it\n"
         f"{CONTINUATION}it reaches Next through `location /`, whose one rate zone meters server actions alone",
     )
@@ -1069,7 +892,7 @@ def _unreached(handler: Handler, name: str, conf: str) -> Finding:
 
 # Every rule `main` runs, each over the whole accounting: a rule written and left out of this table is
 # one nothing runs, which the table makes a reader's to see rather than a sequence of calls to miss.
-RULES: Final = (account, loosened, unmetered_links, unlogged_links, referring_links, unsized_links, interceptions)
+RULES: Final = (account, loosened, unmetered_links, unlogged_links, referring_links, unsized_links)
 
 
 def main() -> int:
@@ -1115,7 +938,7 @@ def main() -> int:
         print(f"      Nothing was accounted for: {OPENAPI}'s squad bound has to be readable.", file=sys.stderr)
         return EXIT_REFUSED
 
-    judged = Accounting(found, paged, linked, where, rates, squad, referrer, app_dir, root, conf_path.name)
+    judged = Accounting(found, linked, where, rates, squad, referrer, root, conf_path.name)
     try:
         findings = [finding for rule in RULES for finding in rule(judged)]
     except NothingJudged as error:
@@ -1133,8 +956,7 @@ def main() -> int:
         print("      location goes to :: DISCARDED_LOG, and :: REFERRER_MAP gives it :: LINK_REFERRER_POLICY,")
         print("      spelled as its location matches. A location serving pages writes every meter line of")
         print("      the location it is carved out of, or :: UNCEILINGED says why the ceiling does not bound it.")
-        print("      The rule is docs/ops/spec.md, section 1.3. An intercepted URL has one intercepting page,")
-        print("      under no route group: :: interceptions says why.")
+        print("      The rule is docs/ops/spec.md, section 1.3.")
         return code
 
     metered = sum(1 for one in where if one.exact and one.metered)

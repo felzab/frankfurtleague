@@ -99,18 +99,6 @@ def spiel_document(saison_id: str) -> dict[str, Any]:
     )
 
 
-def spieltag_document(saison_id: str) -> dict[str, Any]:
-    return {
-        "_id": an_id("3", saison_id),
-        "start": f"{saison_id}-03-15",
-        "end": f"{saison_id}-03-15",
-        "position": 1,
-        "saison_phase": "gruppenphase",
-        "saison_id": saison_id,
-        "version": 0,
-    }
-
-
 # Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
 # from being left as a claim.
 @pytest.fixture(scope="module")
@@ -123,7 +111,12 @@ async def seeded_league(mongo_replica_set_url: str) -> AsyncIterator[str]:
             await database[Collection.TEAMS].insert_one(team_document())
             await database[Collection.SAISON_TEAMS].insert_many([junction_row(saison_id) for saison_id in STATUS_OF] + [opponent_row()])
             await database[Collection.SPIELE].insert_many([spiel_document(saison_id) for saison_id in STATUS_OF])
-            await database[Collection.SPIELTAGE].insert_many([spieltag_document(saison_id) for saison_id in STATUS_OF])
+            await database[Collection.SPIELTAGE].insert_many(
+                [
+                    documents.spieltag_document(an_id("3", saison_id), saison_id, 1, start=f"{saison_id}-03-15", end=f"{saison_id}-03-15")
+                    for saison_id in STATUS_OF
+                ]
+            )
             await database[Collection.SPIELER].insert_one(spieler_document(SPIELER_OID, "Maxim"))
             await database[Collection.SAISON_SPIELER].insert_many([squad_row(saison_id) for saison_id in STATUS_OF])
 

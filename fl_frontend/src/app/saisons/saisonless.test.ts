@@ -1,5 +1,6 @@
-import { serveBackend } from "@/test-support/backend.ts";
-import { doubleNextRequest } from "@/test-support/nextRequest.ts";
+import { serveBackend } from "@/test-support/backend";
+import { doubleNextRequest } from "@/test-support/nextRequest";
+import { thrownRedirect } from "@/test-support/thrownRedirect";
 import { describe, expect, it } from "vitest";
 
 import { ROUTES } from "@/core/routes";
@@ -19,13 +20,7 @@ doubleNextRequest();
 const { GET: spielplan } = await import("./route");
 
 /** Where the handler sends the request, as Next's redirect names it in what it throws. */
-async function sentTo(handler: () => Promise<never>): Promise<string> {
-  const thrown: unknown = await handler().catch((error: unknown) => error);
-  const digest = thrown instanceof Error && "digest" in thrown ? String(thrown.digest) : "";
-  const [kind, , address] = digest.split(";");
-  if (kind !== "NEXT_REDIRECT" || address === undefined) throw thrown;
-  return address;
-}
+const sentTo = async (handler: () => Promise<never>): Promise<string> => (await thrownRedirect(handler())).address;
 
 // The harm: every address naming no season answers through one redirect, and a throw on a league without a season is
 // an error page where the landing was meant.

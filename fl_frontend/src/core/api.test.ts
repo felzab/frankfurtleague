@@ -6,7 +6,7 @@ let drains = 0;
 /** The status the backend answers every call with, which a case sets. */
 let status = 200;
 
-vi.doMock("@/core/config.ts", () => ({
+vi.doMock("@/core/config", () => ({
   frontend_config: { API_URL: "http://backend.invalid" },
   internalApiKeyBase: () => "base-key-double",
   internalApiKeySystem: () => "system-key-double",
@@ -21,8 +21,8 @@ vi.doMock("next/server", async (importOriginal) => ({
   },
 }));
 
-const { sendToBackend } = await import("./api.ts");
-const { requestWriteMayStand, runInBackground, runWithRequestScope } = await import("./requestScope.ts");
+const { sendToBackend } = await import("./api");
+const { requestWriteMayStand, runInBackground, runWithRequestScope } = await import("./requestScope");
 
 beforeEach(() => {
   drains = 0;

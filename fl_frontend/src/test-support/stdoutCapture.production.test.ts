@@ -1,12 +1,12 @@
 // What the capture reads off the production build's document beyond the plain line: its trace and its error as
 // written, which the cases proving a value kept off a line read.
-import { captureLog } from "@/test-support/stdoutCapture.ts";
+import { captureLog } from "@/test-support/stdoutCapture";
 import { describe, expect, it } from "vitest";
 
 const log = captureLog();
 
 // Imported after the capture, as a suite's subject is.
-const { logger } = await import("@/core/logging.ts");
+const { logger } = await import("@/core/logging");
 
 const TRACE = "a".repeat(32);
 

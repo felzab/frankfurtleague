@@ -60,7 +60,11 @@ dev = [
     # Runs the `async def` cases, each as a task of its own in a copy of pytest's context, on one
     # loop the session shares (`asyncio_default_test_loop_scope` below).
     "pytest-asyncio>=1.5.0",
+    {include-group = "zizmor"},
 ]
+# The ops scope's audit of `.github/`, in a group of its own so CI's ops job syncs it alone: that
+# scope's checkers need an interpreter and nothing else installed.
+zizmor = ["zizmor>=1.32.0"]
 
 [tool.deptry.per_rule_ignores]
 # Declared though never imported, each for the reason at its line in `dependencies`.
@@ -74,6 +78,9 @@ required-version = ">=0.12.18,<0.14"
 # A release younger than a day is left out of every resolution, the day `.github/dependabot.yml`'s
 # cooldown waits. Relative, so it moves with the clock rather than freezing the graph at a date.
 exclude-newer = "1 day"
+# zizmor from a wheel alone: its sdist builds with a Rust toolchain and a build backend no hash in
+# the lockfile covers.
+no-build-package = ["zizmor"]
 
 [tool.ruff]
 line-length = 144
@@ -158,6 +165,11 @@ extend-immutable-calls = ["fastapi.Depends"]
 "datetime.datetime.today".msg = "Read the clock through `app.core.clock.now`, or in a request through `get_germany_now`."
 "datetime.datetime.utcnow".msg = "Read the clock through `app.core.clock.now`, or in a request through `get_germany_now`."
 "time.time".msg = "Read the clock through `app.core.clock.now`, or in a request through `get_germany_now`."
+# `EmailStr` never turns `allow_smtputf8` off, so a field typed with it stores a Unicode local part
+# the league's rule refuses, and a ban keyed on that address misses its folded twin. Both spellings,
+# since the ban matches the path an import names.
+"pydantic.EmailStr".msg = "Type an address `app.shared.schemas.kontakt.CustomEmail`, which runs the league's address rule."
+"pydantic.networks.EmailStr".msg = "Type an address `app.shared.schemas.kontakt.CustomEmail`, which runs the league's address rule."
 
 [tool.pytest.ini_options]
 # importlib is pytest's recommended import mode for new suites: no sys.path manipulation, and test

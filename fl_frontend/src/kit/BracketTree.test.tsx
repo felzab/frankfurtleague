@@ -1,18 +1,12 @@
 // @vitest-environment jsdom
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 
 import { BracketTree } from "./BracketTree";
 
-import type { ComponentProps } from "react";
 import type { BracketMatch, BracketRound } from "./BracketTree";
-
-vi.mock("next/link", async (original) => ({
-  ...(await original<object>()),
-  default: ({ children, ...props }: ComponentProps<"a">) => <a {...props}>{children}</a>,
-}));
 
 const { phase } = COPY.shared;
 const ROUND_NAMES = [phase.achtelfinale, phase.viertelfinale, phase.halbfinale, phase.finale];

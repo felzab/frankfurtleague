@@ -443,9 +443,6 @@ const TRANSITION_REWRAP = syntax(
 /** Every read of `name` off a module's namespace: a member, or a destructured key. */
 const readsOff = (name) => [`MemberExpression[property.name=${name}]`, `ObjectPattern > Property[key.name=${name}]`].join(", ");
 
-/** The names the image's builder stage sets, which a module may read while it loads. */
-const PROVIDED_WHILE_BUILDING = "CI|NEXT_RUNTIME|NEXT_TELEMETRY_DISABLED|NODE_ENV|NODE_VERSION|PATH|PNPM_HOME|SKIP_ENV_VALIDATION";
-
 /** Every secret's reader, whose call returns what the builder leaves undefined. */
 const SECRET_READER_NAMES = Object.values(SECRET_READERS).flatMap(({ importNames }) => importNames);
 
@@ -456,7 +453,7 @@ const SECRET_READER_NAMES = Object.values(SECRET_READERS).flatMap(({ importNames
  * excepted, and the builder sets both.
  */
 const LOAD_TIME_ENVIRONMENT = [
-  `MemberExpression[object.name="frontend_config"]:not([property.name=/^(?:${PROVIDED_WHILE_BUILDING})$/])`,
+  `MemberExpression[object.name="frontend_config"]`,
   `VariableDeclarator[init.name="frontend_config"]`,
   `CallExpression[callee.name=/^(?:${SECRET_READER_NAMES.join("|")})$/]`,
 ]
@@ -596,6 +593,26 @@ const SOURCE_BANS = [
     ),
     SOURCE,
     { allow: ["src/features/saisons/queries.ts", "src/app/(classic)/landing.ts", "src/kit/ClassicFrame.tsx"] },
+  ),
+  // An address someone types for another person, being erased, banned or seated, would stay in their browser and be
+  // offered to the next form, which nothing shows. The boxes where a person types their own address keep their fill.
+  syntaxBan(
+    syntax(
+      [
+        'JSXOpeningElement:has(> JSXAttribute[name.name="kind"][value.value="email"]):not(:has(> JSXAttribute[name.name="autofill"][value.value="off"]))',
+        'ObjectExpression:has(> Property[key.name="kind"][value.value="email"]):not(:has(> Property[key.name="autofill"][value.value="off"]))',
+      ].join(", "),
+      'An address box takes `autofill="off"`: an address typed for someone else stays in the browser and is offered to the next form. A box where a person types their own address joins this ban\'s `allow` list in eslint.config.mjs.',
+    ),
+    PRODUCTION,
+    {
+      allow: [
+        "src/app/(classic)/bewerbung/[saison]/BewerbungFields.tsx",
+        "src/app/(classic)/registrierung/RegistrierungFields.tsx",
+        "src/app/account/(pages)/signin/SignInBoxes.tsx",
+        "src/kit/SignInPage.tsx",
+      ],
+    },
   ),
 ];
 
@@ -1241,7 +1258,8 @@ const BAN_BLOCKS = [
   ...fileBlocks(),
 ];
 
-const JS_FILES = ["**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx}"];
+/** The files `eslint-config-next` registers its plugins for: one of their rules set on a `.cjs` file stops the lint whole. */
+const JS_FILES = ["**/*.{js,jsx,mjs,ts,tsx,mts,cts}"];
 
 /** The rules of `eslint-rules/`, one plugin: flat config refuses a plugin's name registered twice with two objects. */
 const OWN_RULES = { rules: { "server-action": serverAction, "no-own-module-double": noOwnModuleDouble } };
@@ -1259,6 +1277,10 @@ const MODULE_FILE_CASE = `@(${CAMEL}|${PASCAL})`;
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  // A rule is set here alone: a directive in a comment, `eslint-disable` among them, is reported rather than obeyed,
+  // so no file switches a rule off for itself. A `@ts-` comment is typescript-eslint's `ban-ts-comment`, which the
+  // recommended set above refuses but for an `@ts-expect-error` saying why.
+  { linterOptions: { noInlineConfig: true } },
   // React's rules of hooks hold React code, which lives in `src/`: elsewhere a call named `use`, a
   // Playwright fixture's callback among them, is no hook.
   {
@@ -1318,6 +1340,9 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-unsafe-call": "error",
       "@typescript-eslint/no-unsafe-member-access": "error",
       "@typescript-eslint/no-unsafe-return": "error",
+      // A check its types say cannot fail is a dead branch, or a type narrower than what the runtime hands over,
+      // which is widened where the value enters rather than the check dropped.
+      "@typescript-eslint/no-unnecessary-condition": "error",
     },
   },
 
@@ -1401,6 +1426,13 @@ const eslintConfig = defineConfig([
     rules: { "fl/no-own-module-double": ["error", { edges: EDGE_MODULES }] },
   },
 
+  // A test imports a module as the source does, without its `.ts` or `.tsx` suffix. Every other file keeps its own: a
+  // `.mts` one, which TypeScript's bundler resolution does not add, a stylesheet or an image, and a package's deep path.
+  {
+    files: [...TEST_FILES, "src/test-support/**/*.{ts,tsx,mts}"],
+    rules: { "import/extensions": ["error", "always", { ignorePackages: true, pattern: { ts: "never", tsx: "never" } }] },
+  },
+
   // The a11y rule set. Only the rules are taken from the plugin: `eslint-config-next` already
   // registers it, and registering it twice is a flat-config error.
   {
@@ -1435,6 +1467,20 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+
+  // Two file names the toolchain takes in silence. Next 16 still runs a `middleware.ts`, deprecated, so it would be a
+  // second request hook beside `proxy.ts`; Tailwind 4 reads no `tailwind.config.*` but through a stylesheet's `@config`.
+  ...[
+    ["**/middleware.{ts,tsx,js}", "Next.js 16 renamed `middleware.ts` to `proxy.ts`: the request hook is fl_frontend/src/proxy.ts."],
+    [
+      "**/tailwind.config.{js,ts,cjs,mjs}",
+      "Tailwind 4 is configured in CSS: the theme is `@theme` in fl_frontend/src/app/tokens.css and globals.css.",
+    ],
+  ].map(([pattern, errorMessage]) => ({
+    files: [pattern],
+    plugins: { "check-file": checkFile },
+    rules: { "check-file/filename-blocklist": ["error", { [pattern]: "" }, { errorMessage }] },
+  })),
 
   // The token file's colours, held to one list and to the contrast each pair's job needs.
   {

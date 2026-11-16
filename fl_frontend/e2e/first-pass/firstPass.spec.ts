@@ -1,22 +1,23 @@
 /**
- * E2E · what only the scheduler does, which no lower tier sees run in the built image: its first pass deletes J2's
- * application whose 14 days lapsed and tells its confirmed seat, tells J10's booked referee by closing a departed club's
- * fixture, and deletes J4's pupil a season past their last squad. The pass runs a minute after the frontend boots and the
- * next an hour later (`fl_frontend/src/instrumentationNode.ts`), so each case reads what the made-up seed left it, once:
- * the seed holds one of each.
+ * E2E · what only the scheduler does, which no lower tier sees run in the built image: its first pass deletes the
+ * planned season's application whose 14 days lapsed and tells its one confirmed seat, tells the referee booked on a
+ * disqualified club's fixture still to play that the booking is lifted, and deletes a pupil in no squad since the
+ * finished season. The pass runs a minute after the frontend boots and the next an hour later, so each case reads what
+ * the made-up seed left it, once: the seed holds one of each.
  */
 import { expect } from "@playwright/test";
 
 import { chooseWho } from "../support/actionLog";
-import { SAISON, SUBJECT } from "../support/application";
+import { SUBJECT } from "../support/application";
 import { ADMINISTRATOR_STATE, test } from "../support/journey";
+import { PEOPLE, PLANNED } from "../support/madeUpLeague";
 import { MAIL_WAIT_MS, mailedMessage } from "../support/mailSink";
 
 test.use({ storageState: ADMINISTRATOR_STATE });
 
 /**
- * The scheduler's own delay from the frontend's boot to its first pass, `fl_frontend/src/instrumentationNode.ts ::
- * FIRST_PASS_DELAY_MS`, spelled again here: that module is the server's boot hook, which a journey does not load.
+ * The scheduler's own delay from the frontend's boot to its first pass, spelled again here under the scheduler's name
+ * for it: its module is the server's boot hook, which a journey does not load.
  */
 const FIRST_PASS_DELAY_MS = 60 * 1000;
 
@@ -27,24 +28,24 @@ const FIRST_PASS_WAIT_MS = FIRST_PASS_DELAY_MS + MAIL_WAIT_MS;
 const SINCE_THE_START = new Set<string>();
 
 /** The referee the pass tells, and the start of the notice's subject. */
-const REFEREE = "ben.brandt@example.com";
+const REFEREE = PEOPLE.firstPass.referee.address;
 const NOTICE = "Nicht mehr eingeteilt: Spiel am";
 
 // Each case waits for the pass itself, whichever project ran before it. The referee's notice comes of the job after those
-// that delete (`fl_frontend/src/instrumentationNode.ts :: loadJobs`), so every deletion stands once it is filed. The
-// test's own budget grows by the wait, so the wait ends first and reports what it waited for.
+// that delete, so every deletion stands once it is filed. The test's own budget grows by the wait, so the wait ends
+// first and reports what it waited for.
 test.beforeEach(async ({}, testInfo) => {
   testInfo.setTimeout(testInfo.timeout + FIRST_PASS_WAIT_MS);
   await mailedMessage(REFEREE, NOTICE, SINCE_THE_START, { timeout: FIRST_PASS_WAIT_MS });
 });
 
 test("an application whose 14 days lapsed is deleted, and the seat that confirmed told", async ({ page }) => {
-  await mailedMessage("lea.lehmann@example.com", SUBJECT.deleted, SINCE_THE_START);
+  await mailedMessage(PEOPLE.firstPass.erased.address, SUBJECT.deleted, SINCE_THE_START);
 
-  await page.goto(`/admin/saisons/${SAISON}/bewerbungen`);
-  // A row the pass leaves first: a list not yet drawn holds no Lärche either.
-  await expect(page.getByRole("main").getByRole("link", { name: "Espe", exact: true })).toBeVisible();
-  await expect(page.getByRole("main").getByRole("link", { name: "Lärche", exact: true })).toHaveCount(0);
+  await page.goto(`/admin/saisons/${PLANNED}/bewerbungen`);
+  // A row the pass leaves first: a list not yet drawn holds no lapsed one either.
+  await expect(page.getByRole("main").getByRole("link", { name: PEOPLE.firstPass.applications.left, exact: true })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("link", { name: PEOPLE.firstPass.applications.lapsed, exact: true })).toHaveCount(0);
 });
 
 test("the referee booked on a departed club's fixture is told", async () => {

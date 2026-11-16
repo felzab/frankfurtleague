@@ -17,7 +17,9 @@ from app.api.spielbestaetigungen.services import (
     austritte_of,
     compose_ansetzung,
     due_by_of,
+    find_enter_refusal,
     find_unanswerable_refusal,
+    holds_an_open_proposal,
     lapsed_on,
     proposal_payload,
     reason_of,
@@ -403,3 +405,61 @@ class TestAClosedRowReadsAsThePublicFixtureCountsIt:
         assert (
             state_of(spielbestaetigung_raw=row(**fields), ansetzung_state=ansetzung_state(**situation), now=NOW, vorschlag_open=None) == state
         )
+
+
+class TestAClubAnswersUntilItsDeadline:
+    def test_on_its_deadline_the_answer_is_taken_and_the_day_after_refused(self):
+        on, after = (
+            find_unanswerable_refusal(spielbestaetigung_raw=row(), ansetzung_state=ansetzung_state(), now=now)
+            for now in (ON_THE_DEADLINE, PAST_THE_DEADLINE)
+        )
+
+        assert on is None
+        assert after is not None and after.error_code == Code.ANSETZUNG_DEADLINE_PAST
+
+
+# The two ways a save or an exit overtakes a row the pass has yet to shut: the match called off, a club gone by its day.
+CALLED_OFF = {"spiel_overrides": {"sonderereignis": "ausgefallen"}}
+GONE_BY_ITS_DAY = {"austritt": DATE}
+
+
+class TestTheAdministratorSettlesAnOpenRowAlone:
+    """Recorded on any other row, the league's record would hold an agreement nobody can still give."""
+
+    @pytest.mark.parametrize(
+        ("fields", "situation", "now", "refused"),
+        [
+            pytest.param({}, {}, NOW, False, id="an open row"),
+            # The triage queue lists such a row for the administrator to settle.
+            pytest.param({}, {}, PAST_THE_DEADLINE, False, id="an open row past its deadline"),
+            pytest.param({"answer": AGREED}, {}, NOW, True, id="an answered row"),
+            pytest.param({"closed": {"reason": "cancelled"}}, {}, NOW, True, id="a closed row"),
+            pytest.param({}, CALLED_OFF, NOW, True, id="a row the pass would close for a call-off"),
+            pytest.param({}, GONE_BY_ITS_DAY, NOW, True, id="a row the pass would close for a club gone by its day"),
+        ],
+    )
+    def test_the_settle(self, fields: dict[str, Any], situation: dict[str, Any], now: datetime, refused: bool):
+        refusal = find_enter_refusal(spielbestaetigung_raw=row(**fields), ansetzung_state=ansetzung_state(**situation), now=now)
+
+        assert (None if refusal is None else refusal.error_code) == (Code.ANSETZUNG_NOT_ENTERABLE if refused else None)
+
+
+class TestADiscardAndAnAdoptionActOnAnOpenProposalAlone:
+    """Acted on any other row, a club would be told the date stands, or every party asked about a date, for a question gone."""
+
+    @pytest.mark.parametrize(
+        ("fields", "situation", "holds"),
+        [
+            pytest.param({"answer": DECLINED}, {}, True, id="a club's decline with a proposal"),
+            pytest.param({}, {}, False, id="an unanswered row"),
+            pytest.param({"answer": AGREED}, {}, False, id="an agreement"),
+            pytest.param({"answer": {**DECLINED, "vorschlag": None}}, {}, False, id="a decline proposing nothing"),
+            pytest.param({**REFEREES, "answer": DECLINED}, {}, False, id="a referee's decline"),
+            pytest.param({"answer": DECLINED, "closed": {"reason": "discarded"}}, {}, False, id="a decline already discarded"),
+            pytest.param({"answer": DECLINED}, MOVED, False, id="a decline about a slot the fixture left"),
+            pytest.param({"answer": DECLINED}, CALLED_OFF, False, id="a decline the pass would close for a call-off"),
+            pytest.param({"answer": DECLINED}, GONE_BY_ITS_DAY, False, id="a decline the pass would close for a club gone by its day"),
+        ],
+    )
+    def test_the_proposal_is_open(self, fields: dict[str, Any], situation: dict[str, Any], holds: bool):
+        assert holds_an_open_proposal(spielbestaetigung_raw=row(**fields), ansetzung_state=ansetzung_state(**situation), now=NOW) is holds

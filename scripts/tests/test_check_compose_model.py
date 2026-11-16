@@ -252,8 +252,8 @@ def declared_secrets(project: Path, stack: str, **moved: str) -> dict[str, Any]:
     return {"secrets": {secret: {"file": str(project / source)} for secret, source in files.items()}}
 
 
-# The checker and the one module it imports, at their paths in a checkout.
-CHECKER_FILES: Final = ("scripts/checks/check_compose_model.py", "scripts/lib/checker_kernel.py")
+# The checker and the two modules it imports, at their paths in a checkout.
+CHECKER_FILES: Final = ("scripts/checks/check_compose_model.py", "scripts/lib/checker_kernel.py", "scripts/lib/nginx_conf.py")
 
 
 def run_main(production: dict[str, Any], local: dict[str, Any], project: Path) -> subprocess.CompletedProcess[str]:
@@ -528,27 +528,26 @@ def test_the_local_stack_reading_a_database_login_from_secrets_fails():
 # --- which service reads which login from an inline config -------------------------------------------
 
 LOCAL_URI: Final = "mongodb://mongo:27017/?directConnection=true"
+# The file each application service reads its login from, as `docker-compose.local.yml` mounts the one inline config.
+LOCAL_LOGINS: Final = {"frontend": "frontend_mongodb_uri", "backend": "backend_mongodb_uri"}
 
 
 def configured(stack: str, service: str) -> dict[str, Any]:
-    """A service's configs as Compose renders the long syntax: one per file `CONFIG_HOLDERS` gives it, at `RUN_SECRETS`."""
-    held = [
-        {"source": "local_mongodb_uri", "target": f"{checker.RUN_SECRETS}/{file}"}
-        for file, holders in sorted(checker.CONFIG_HOLDERS[stack].items())
-        if service in holders
-    ]
-    return {"configs": held} if held else {}
+    """A service's configs as Compose renders the long syntax: the local stack's login at `RUN_SECRETS`, nothing in production."""
+    if stack != "local" or service not in LOCAL_LOGINS:
+        return {}
+    return {"configs": [{"source": "local_mongodb_uri", "target": f"{checker.RUN_SECRETS}/{LOCAL_LOGINS[service]}"}]}
 
 
 def declared_configs(stack: str, content: object = LOCAL_URI) -> dict[str, Any]:
-    """The top-level `configs` as Compose renders an inline one; none where the stack's table names none."""
-    return {"configs": {"local_mongodb_uri": {"content": content}}} if checker.CONFIG_HOLDERS[stack] else {}
+    """The top-level `configs` as Compose renders an inline one; none in production."""
+    return {"configs": {"local_mongodb_uri": {"content": content}}} if stack == "local" else {}
 
 
 def configured_stack(stack: str, content: object = LOCAL_URI) -> dict[str, Any]:
-    """Every service of `stack` reading what `CONFIG_HOLDERS` gives it, beside the stack's own database."""
-    names = {service for holders in checker.CONFIG_HOLDERS[stack].values() for service in holders}
-    return model(mongo={}, **{service: configured(stack, service) for service in names}) | declared_configs(stack, content)
+    """Both application services of `stack` reading what it mounts them, beside the local stack's own database."""
+    database = {"mongo": {}} if stack == "local" else {}
+    return model(**database, **{service: configured(stack, service) for service in LOCAL_LOGINS}) | declared_configs(stack, content)
 
 
 @pytest.mark.parametrize(
@@ -563,7 +562,7 @@ def configured_stack(stack: str, content: object = LOCAL_URI) -> dict[str, Any]:
 )
 def test_a_login_config_naming_anything_but_the_stacks_own_database_fails(content: object):
     """Both readers take it for their login, so any other value aims the stack at a database it does not start."""
-    found = checker.config_holders(configured_stack("local", content), "p", "local")
+    found = checker.local_logins(configured_stack("local", content), "p")
 
     assert len(found) == 2 and all("the config local_mongodb_uri" in finding.detail for finding in found), found
 
@@ -572,25 +571,7 @@ def test_a_login_naming_a_service_the_stack_lacks_fails():
     rendered = configured_stack("local")
     del rendered["services"]["mongo"]
 
-    assert len(checker.config_holders(rendered, "p", "local")) == 2
-
-
-def test_a_login_config_one_reader_lacks_fails():
-    rendered = configured_stack("local")
-    rendered["services"]["backend"] = {}
-
-    found = checker.config_holders(rendered, "p", "local")
-
-    assert [finding.detail for finding in found] == ["p: nothing reads a config as backend_mongodb_uri, not ['backend']"]
-
-
-def test_a_second_reader_of_a_login_config_fails():
-    rendered = configured_stack("local")
-    rendered["services"]["nginx"] = configured("local", "frontend")
-
-    found = checker.config_holders(rendered, "p", "local")
-
-    assert len(found) == 1 and "['frontend', 'nginx'] reads a config" in found[0].detail, found
+    assert len(checker.local_logins(rendered, "p")) == 2
 
 
 def test_a_config_where_a_service_reads_its_credentials_fails_in_production():
@@ -598,9 +579,9 @@ def test_a_config_where_a_service_reads_its_credentials_fails_in_production():
     rendered = configured_stack("production") | declared_configs("local")
     rendered["services"]["backend"] = configured("local", "backend")
 
-    found = checker.config_holders(rendered, "p", "production")
+    found = checker.local_logins(rendered, "p")
 
-    assert len(found) == 1 and "a file CONFIG_HOLDERS lacks" in found[0].detail, found
+    assert len(found) == 1 and "not the stack's own mongo service" in found[0].detail, found
 
 
 def test_a_secret_the_table_lists_left_undeclared_fails():

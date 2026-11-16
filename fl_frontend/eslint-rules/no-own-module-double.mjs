@@ -15,6 +15,8 @@ import path from "node:path";
 const EXTENSIONS = [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"];
 const SCRIPT = /\.[cm]?[jt]sx?$/;
 const HELPER_MODULE = "src/test-support/authDoubles.ts";
+/** `fl_frontend`, read off this file's place rather than the directory ESLint was started in. */
+const ROOT = path.resolve(import.meta.dirname, "..");
 
 /** Each target's `"use server"`, by its path, kept while the file is unchanged. */
 const directives = new Map();
@@ -41,16 +43,15 @@ const noOwnModuleDouble = {
 
   create(context) {
     const [{ edges }] = context.options;
-    const root = context.cwd;
-    const relative = (file) => path.relative(root, file).replaceAll("\\", "/");
-    const directory = path.dirname(path.resolve(root, context.filename));
+    const relative = (file) => path.relative(ROOT, file).replaceAll("\\", "/");
+    const directory = path.dirname(path.resolve(ROOT, context.filename));
     let vi = null;
     let helper = null;
 
     /** The file a specifier names under `src/`, `null` for a package's, `undefined` for a path naming no file. */
     function resolve(specifier) {
       let base;
-      if (specifier.startsWith("@/")) base = path.join(root, "src", specifier.slice(2));
+      if (specifier.startsWith("@/")) base = path.join(ROOT, "src", specifier.slice(2));
       else if (specifier.startsWith("./") || specifier.startsWith("../")) base = path.resolve(directory, specifier);
       else return null;
       const found = ["", ...EXTENSIONS].map((extension) => base + extension).find((file) => existsSync(file) && statSync(file).isFile());
@@ -59,7 +60,7 @@ const noOwnModuleDouble = {
 
     /** Whether the module at `file` opens with `"use server"`, read by the parser this file is linted with. */
     function isServerModule(file) {
-      const absolute = path.join(root, file);
+      const absolute = path.join(ROOT, file);
       const { mtimeMs } = statSync(absolute);
       const known = directives.get(absolute);
       if (known?.mtimeMs === mtimeMs) return known.server;

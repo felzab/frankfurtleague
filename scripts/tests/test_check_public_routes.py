@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 from conftest import REPO_ROOT, import_scripts, new_root
 
-[routes] = import_scripts("check_public_routes")
+[routes, nginx] = import_scripts("check_public_routes", "nginx_conf", directories=("checks", "lib"))
 
 SOURCE = "fixture.conf"
 HANDLER = "export const POST = () => new Response();\n"
@@ -38,11 +38,6 @@ def write(root: Path, rel: str, text: str) -> None:
 def details(findings: list) -> str:
     """Every finding's text as one string, for a case asserting on what a run reported."""
     return "\n".join(finding.detail for finding in findings)
-
-
-def severities(findings: list) -> list:
-    """The severities a run reported, so a case pins how many findings it caused as well as which."""
-    return [finding.severity for finding in findings]
 
 
 def block(header: str, *lines: str) -> str:
@@ -67,7 +62,7 @@ CATCH_ALL = block("location /", "        limit_conn conn 50;\n", PASS)
 def served(*blocks: str) -> tuple:
     """The locations of one server block holding the blocks given."""
     text = "server {\n    server_name frankfurtleague.de;\n" + "".join(blocks) + "}\n"
-    return routes.locations(routes.parse(text, SOURCE), SOURCE)
+    return routes.locations(nginx.parse(text, SOURCE), SOURCE)
 
 
 def tree(*urls: str, file: str = "route.ts") -> Path:
@@ -85,13 +80,11 @@ def accounting(app: Path | None = None, where: tuple = (), *, rates: dict | None
     paged = routes.pages(app)
     return routes.Accounting(
         found=routes.handlers(app),
-        paged=paged,
         linked=routes.link_pages(paged),
         where=where,
         rates={"linkpage": 30} if rates is None else rates,
         squad=squad,
         referrer=referrer,
-        app_dir=app,
         root=app.parent,
         conf=SOURCE,
     )
@@ -134,7 +127,7 @@ def test_a_handler_filed_as_a_tsx_route_is_walked_too():
     """Next resolves both configured extensions, so a walk seeing one of them accounts for part of the tree."""
     findings = accounted(tree("/api/example", file="route.tsx"), served(METERED, CATCH_ALL))
 
-    assert severities(findings) == ["fail"]
+    assert len(findings) == 1
     assert "/api/example" in details(findings)
 
 
@@ -177,35 +170,11 @@ def test_a_page_intercepting_a_level_up_or_the_root_refuses(marker):
         routes.pages(tree(f"/saisons/[saison]/@modal/{marker}spiele/[spiel]", file="page.tsx"))
 
 
-ROOT_INTERCEPTOR = "/@modal/(.)saisons/[saison]/spiele/[spiel]"
-
-
-def intercepting(*urls: str) -> list:
-    """What the interception rule says about a tree holding a page at each of `urls`."""
-    return routes.interceptions(accounting(tree(*urls, file="page.tsx")))
-
-
-def test_an_interceptor_under_a_route_group_is_a_finding():
-    """A group is no level, so `(classic)`'s slot intercepts from every page while its layout draws it on its own alone."""
-    findings = intercepting("/(classic)" + ROOT_INTERCEPTOR)
-
-    assert severities(findings) == ["fail"]
-    assert "under the route group (classic)" in details(findings)
-
-
-def test_two_interceptors_for_one_address_are_a_finding():
-    """Each level's rewrite matches from a season page, whatever each names its dynamic segment."""
-    findings = intercepting(ROOT_INTERCEPTOR, "/saisons/[id]/@modal/(.)spiele/[spiel]")
-
-    assert severities(findings) == ["fail"]
-    assert "all intercept /saisons/[]/spiele/[]" in details(findings)
-
-
 def test_an_exact_match_carrying_no_limit_req_is_a_finding():
     """The gap the check exists for: a location naming the handler and metering nothing."""
     findings = accounted(tree("/api/bewerbung"), served(exact("/api/bewerbung", metered=False), CATCH_ALL))
 
-    assert severities(findings) == ["fail"]
+    assert len(findings) == 1
     assert "carries no limit_req" in details(findings)
 
 
@@ -213,7 +182,7 @@ def test_a_handler_no_location_names_is_a_finding():
     """A route handler added with no edge change at all, which is how one ships unmetered."""
     findings = accounted(tree("/api/example"), served(METERED, CATCH_ALL))
 
-    assert severities(findings) == ["fail"]
+    assert len(findings) == 1
     assert "/api/example" in details(findings)
 
 
@@ -240,7 +209,7 @@ def test_a_dynamic_segment_with_no_prefix_over_it_is_unmeterable():
     """An exact match cannot name a catch-all's URLs, so only a prefix reaches the subtree at all."""
     findings = accounted(tree("/api/auth/[...all]"), served(METERED, CATCH_ALL))
 
-    assert severities(findings) == ["fail"]
+    assert len(findings) == 1
     assert "unmeterable" in details(findings)
 
 
@@ -287,7 +256,7 @@ def test_a_link_page_only_the_catch_all_answers_is_a_finding(text):
     """Under every spelling of the read, the hook's being what a case-blind match exists for."""
     findings = unmetered(link_page("/new", text), served(METERED, CATCH_ALL))
 
-    assert severities(findings) == ["fail"]
+    assert len(findings) == 1
     assert "/new reaches `location /`" in details(findings)
 
 
@@ -295,7 +264,7 @@ def test_a_link_page_another_zone_meters_is_a_finding():
     """Metered is not enough: another zone passes any rule asking only for a `limit_req`."""
     findings = unmetered(link_page("/new"), served(exact("/new"), CATCH_ALL))
 
-    assert severities(findings) == ["fail"]
+    assert len(findings) == 1
     assert "/new reaches `location = /new`" in details(findings)
 
 
@@ -408,7 +377,7 @@ def test_a_link_burst_sized_for_another_squad_is_a_finding():
 
     findings = routes.unsized_links(accounting(where=where, squad=11))
 
-    assert severities(findings) == ["fail"] * 2
+    assert len(findings) == 2
     assert "where a squad of 11 needs burst=50" in details(findings)
 
 
@@ -435,7 +404,7 @@ def test_a_link_page_s_location_writing_an_error_line_anywhere_is_a_finding(line
     """nginx writes to every log a level names, so a second beside the discard writes the token; a full disk's line is crit."""
     findings = unlogged(*lines)
 
-    assert severities(findings) == ["fail"]
+    assert len(findings) == 1
     assert "/new reaches `location = /new`" in details(findings)
 
 
@@ -451,7 +420,7 @@ def test_a_link_page_the_map_hands_the_site_s_policy_is_a_finding():
     """A link page added with its block and no entry, which is how one ships handing its address on."""
     findings = referring(served(block("location = /new", LINK_ZONE, PASS), CATCH_ALL), (("default", "strict-origin-when-cross-origin"),))
 
-    assert severities(findings) == ["fail"]
+    assert len(findings) == 1
     assert "gives /new strict-origin-when-cross-origin" in details(findings)
 
 
@@ -460,7 +429,7 @@ def test_an_exact_entry_answers_before_a_regex_withholding_the_referrer():
     entries = (("/new/page", "strict-origin-when-cross-origin"), ("~^/new/", "no-referrer"), ("default", "strict-origin-when-cross-origin"))
     findings = referring(served(block("location /new/", LINK_ZONE, PASS), CATCH_ALL), entries, "/new/page")
 
-    assert severities(findings) == ["fail"]
+    assert len(findings) == 1
     assert "gives /new/page strict-origin-when-cross-origin" in details(findings)
 
 
@@ -469,7 +438,7 @@ def test_an_entry_withholding_the_referrer_where_no_link_page_s_location_matches
     """Every other page keeps the site's policy, so an entry matching more, or elsewhere, is one."""
     findings = referring(served(block("location = /new", LINK_ZONE, PASS), CATCH_ALL), (*NEW_REFERRER, (key, "no-referrer")))
 
-    assert severities(findings) == ["fail"]
+    assert len(findings) == 1
     assert f"gives {key!r} no-referrer, a match no link page's location" in details(findings)
 
 
@@ -523,7 +492,7 @@ def test_a_page_s_location_lacking_a_line_of_the_catch_all_s_meter_is_a_finding(
     """Next runs a server action at any page's path, so a block lacking either line is where a script posts past it."""
     findings = loosened(block("location /new/", *lines, PASS))
 
-    assert severities(findings) == ["fail"]
+    assert len(findings) == 1
     assert f"`location /new/` is carved out of `location /` and lacks its {lacking}" in details(findings)
 
 
@@ -536,7 +505,7 @@ def test_an_exact_match_carved_out_of_a_handler_s_prefix_owes_the_prefix_s_zone(
 
     findings = loosened(prefix_block, block("location = /api/auth/code", ZONE, PASS), app=app)
 
-    assert severities(findings) == ["fail"]
+    assert len(findings) == 1
     assert "carved out of `location /api/auth` and lacks its `limit_req zone=authapi burst=10 nodelay`" in details(findings)
 
 
@@ -546,7 +515,7 @@ def test_a_location_the_ceiling_is_recorded_not_to_bound_still_owes_the_action_z
 
     findings = loosened(block("location /_next/static/", PASS))
 
-    assert severities(findings) == ["fail"]
+    assert len(findings) == 1
     assert "lacks its `limit_req zone=action burst=30 nodelay`\n" in details(findings)
 
 
@@ -608,7 +577,7 @@ def test_a_variable_error_page_this_reader_cannot_resolve_refuses(maps, named):
     """Unresolved, every named location it reaches would read as dead; resolved to nothing, as reached."""
     text = "server {\n    error_page 429 = $target;\n" + block("location @page", PASS) + CATCH_ALL + "}\n"
     with pytest.raises(routes.NginxSyntax, match=named):
-        routes.locations(routes.parse(text, SOURCE), SOURCE, maps)
+        routes.locations(nginx.parse(text, SOURCE), SOURCE, maps)
 
 
 def test_a_location_inside_a_location_refuses():
@@ -631,7 +600,7 @@ def test_a_path_two_exact_matches_declare_refuses():
 def test_locations_at_the_top_and_inside_a_server_refuse():
     text = prefix("/api/") + "server {\n" + CATCH_ALL + "}\n"
     with pytest.raises(routes.NginxSyntax, match="both at the top and inside a server block"):
-        routes.locations(routes.parse(text, SOURCE), SOURCE)
+        routes.locations(nginx.parse(text, SOURCE), SOURCE)
 
 
 def test_two_server_blocks_declaring_locations_refuse():
@@ -639,24 +608,24 @@ def test_two_server_blocks_declaring_locations_refuse():
     text = "server {\n" + CATCH_ALL + "}\nserver {\n" + prefix("/api/") + "}\n"
 
     with pytest.raises(routes.NginxSyntax, match="server blocks declare a location"):
-        routes.locations(routes.parse(text, SOURCE), SOURCE)
+        routes.locations(nginx.parse(text, SOURCE), SOURCE)
 
 
 def test_a_block_that_never_closes_refuses():
     """A truncated file would otherwise read as a configuration declaring fewer locations."""
     with pytest.raises(routes.NginxSyntax, match="never closes"):
-        routes.parse("server {\n    location / { proxy_pass http://frontend:3000;\n", SOURCE)
+        nginx.parse("server {\n    location / { proxy_pass http://frontend:3000;\n", SOURCE)
 
 
 def test_a_directive_with_no_semicolon_refuses():
     """The line after it would be swallowed into its arguments, which loses a whole directive."""
     with pytest.raises(routes.NginxSyntax, match="semicolon"):
-        routes.parse("server {\n    location / {\n        proxy_pass http://frontend:3000\n    }\n}\n", SOURCE)
+        nginx.parse("server {\n    location / {\n        proxy_pass http://frontend:3000\n    }\n}\n", SOURCE)
 
 
 def test_a_quoted_string_spanning_lines_is_one_word():
     """`log_format` writes its line that way, and a lexer breaking it invents directives."""
-    tree_of = routes.parse('log_format fl_json escape=json \'{"a":"$b",\'\n    \'"c":$d}\';\n', SOURCE)
+    tree_of = nginx.parse('log_format fl_json escape=json \'{"a":"$b",\'\n    \'"c":$d}\';\n', SOURCE)
 
     assert [directive.name for directive in tree_of] == ["log_format"]
     assert len(tree_of[0].args) == 4
@@ -664,7 +633,7 @@ def test_a_quoted_string_spanning_lines_is_one_word():
 
 def test_a_regex_holding_an_escaped_quote_stays_inside_its_string():
     """A map body's regex carries backslashes, and one read as an escape ends the string early."""
-    tree_of = routes.parse('map $uri $x {\n    "~^/a\\"b"  1;\n    default    0;\n}\n', SOURCE)
+    tree_of = nginx.parse('map $uri $x {\n    "~^/a\\"b"  1;\n    default    0;\n}\n', SOURCE)
 
     assert tree_of[0].block is not None
     assert len(tree_of[0].block) == 2

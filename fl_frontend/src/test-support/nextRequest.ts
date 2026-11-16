@@ -27,7 +27,7 @@ const recorded = (names: readonly string[]): Record<string, (...args: unknown[])
  * declare a cached read rather than clear one, so they record nothing.
  */
 export const NEXT_CACHE_DOUBLE = {
-  ...recorded(["updateTag", "refresh", "revalidateTag", "revalidatePath"]),
+  ...recorded(["updateTag", "refresh"]),
   cacheLife: (): undefined => undefined,
   cacheTag: (): undefined => undefined,
 };

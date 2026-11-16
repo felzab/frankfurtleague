@@ -1,13 +1,14 @@
 import asyncio
 import enum
 import functools
+import json
 import logging
 import re
 import time
 from collections.abc import Awaitable, Callable, Mapping
 from contextvars import ContextVar
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import Any, Final, NamedTuple
 
 import pytest
 from bson import ObjectId
@@ -38,8 +39,8 @@ from tests.worker import worker_database
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 
-FETCH_CEILING = re.compile(r"const FETCH_TIMEOUT_MS = (\d+);")
-FRONTEND_API = BACKEND_ROOT.parent / "fl_frontend" / "src" / "core" / "api.ts"
+# The frontend's bound on each call to this API, which the frontend's suite holds `FETCH_TIMEOUT_MS` to.
+FETCH_TIMEOUT_MS: Final[int] = json.loads((BACKEND_ROOT / "tests" / "shared" / "drain_bounds.json").read_bytes())["fetch_timeout_ms"]
 
 # Far under the stall's 60 s, what the case below would wait with no deadline, so an answer in time can
 # only be the deadline's doing.
@@ -57,12 +58,9 @@ class TestTheDeadlinesTheApplicationSets:
         Those run one grace between them, as `app/core/middlewares.py :: RequestDeadline` counts it.
         """
 
-        ceiling = FETCH_CEILING.search(FRONTEND_API.read_text(encoding="utf-8"))
-        assert ceiling is not None, f"{FRONTEND_API} no longer declares `FETCH_TIMEOUT_MS` where `FETCH_CEILING` looks"
-
         # Positive, because pymongo reads a zero deadline as none at all.
-        assert 0 < REQUEST_DEADLINE_S < int(ceiling[1]) / 1000
-        assert 0 < ABORT_GRACE_S < int(ceiling[1]) / 1000 - REQUEST_DEADLINE_S
+        assert 0 < REQUEST_DEADLINE_S < FETCH_TIMEOUT_MS / 1000
+        assert 0 < ABORT_GRACE_S < FETCH_TIMEOUT_MS / 1000 - REQUEST_DEADLINE_S
 
 
 COMPOSE_FILE = BACKEND_ROOT.parent / "docker-compose.yml"
@@ -99,6 +97,8 @@ def _backend_stop_grace() -> int:
     return int(grace[0])
 
 
+# Reads the compose file and the Dockerfile as text, where a test keeps to its own surface: the budgets
+# live in three files of three parts, so wherever this check stood it would read two of them as text.
 class TestAStoppedContainerOutlastsEveryRequest:
     """Four budgets nested, each inside the next, or the outer one cuts what the inner one allows."""
 
