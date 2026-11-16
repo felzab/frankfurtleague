@@ -43,7 +43,7 @@ def numbered(position: int) -> ObjectId:
 
 
 def address_of(position: int) -> str:
-    return f"schuelerin.{position}@beispielschule.de"
+    return f"schuelerin.{position}@beispielschule.example.org"
 
 
 def pupil(spieler_id: ObjectId, email: str, *, last_name: str = "Muster", **fields: Any) -> dict[str, Any]:

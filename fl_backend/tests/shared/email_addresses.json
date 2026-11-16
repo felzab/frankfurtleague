@@ -1,81 +1,81 @@
 [
   {
     "case": "a plain address",
-    "typed": "anna@schule.de",
-    "stored": "anna@schule.de",
-    "folded": "anna@schule.de"
+    "typed": "anna@schule.example.org",
+    "stored": "anna@schule.example.org",
+    "folded": "anna@schule.example.org"
   },
   {
     "case": "capitals on both sides of the at sign",
-    "typed": "Anna.Mueller@Schule.DE",
-    "stored": "anna.mueller@schule.de",
-    "folded": "anna.mueller@schule.de"
+    "typed": "Anna.Mueller@Schule.EXAMPLE.ORG",
+    "stored": "anna.mueller@schule.example.org",
+    "folded": "anna.mueller@schule.example.org"
   },
   {
     "case": "ASCII whitespace around it",
-    "typed": "  anna@schule.de\t",
-    "stored": "anna@schule.de",
-    "folded": "anna@schule.de"
+    "typed": "  anna@schule.example.org\t",
+    "stored": "anna@schule.example.org",
+    "folded": "anna@schule.example.org"
   },
   {
     "case": "a no-break and an ideographic space around it",
-    "typed": " anna@schule.de　",
-    "stored": "anna@schule.de",
-    "folded": "anna@schule.de"
+    "typed": " anna@schule.example.org　",
+    "stored": "anna@schule.example.org",
+    "folded": "anna@schule.example.org"
   },
   {
     "case": "a zero-width no-break space before it",
-    "typed": "﻿anna@schule.de",
-    "stored": "anna@schule.de",
-    "folded": "anna@schule.de"
+    "typed": "\ufeffanna@schule.example.org",
+    "stored": "anna@schule.example.org",
+    "folded": "anna@schule.example.org"
   },
   {
     "case": "a next-line character after it",
-    "typed": "anna@schule.de\u0085",
+    "typed": "anna@schule.example.org\u0085",
     "stored": null,
-    "folded": "anna@schule.de\u0085"
+    "folded": "anna@schule.example.org\u0085"
   },
   {
     "case": "an umlaut domain",
-    "typed": "anna@müller.de",
+    "typed": "anna@müller.example.org",
     "stored": null,
-    "folded": "anna@müller.de"
+    "folded": "anna@müller.example.org"
   },
   {
     "case": "an umlaut domain in capitals, whose umlaut no fold lowers",
-    "typed": "Anna@MÜLLER.DE",
+    "typed": "Anna@MÜLLER.EXAMPLE.ORG",
     "stored": null,
-    "folded": "anna@mÜller.de"
+    "folded": "anna@mÜller.example.org"
   },
   {
     "case": "a domain in punycode",
-    "typed": "anna@xn--mller-kva.de",
-    "stored": "anna@xn--mller-kva.de",
-    "folded": "anna@xn--mller-kva.de"
+    "typed": "anna@xn--mller-kva.example.org",
+    "stored": "anna@xn--mller-kva.example.org",
+    "folded": "anna@xn--mller-kva.example.org"
   },
   {
     "case": "the punycode in capitals",
-    "typed": "Anna@XN--MLLER-KVA.DE",
-    "stored": "anna@xn--mller-kva.de",
-    "folded": "anna@xn--mller-kva.de"
+    "typed": "Anna@XN--MLLER-KVA.EXAMPLE.ORG",
+    "stored": "anna@xn--mller-kva.example.org",
+    "folded": "anna@xn--mller-kva.example.org"
   },
   {
     "case": "an umlaut in the local part",
-    "typed": "jürgen@schule.de",
+    "typed": "jürgen@schule.example.org",
     "stored": null,
-    "folded": "jürgen@schule.de"
+    "folded": "jürgen@schule.example.org"
   },
   {
     "case": "a display name around the address",
-    "typed": "Erika <erika@example.de>",
+    "typed": "Erika <erika@example.net>",
     "stored": null,
-    "folded": "erika <erika@example.de>"
+    "folded": "erika <erika@example.net>"
   },
   {
     "case": "two dots in a row",
-    "typed": "anna..mueller@schule.de",
+    "typed": "anna..mueller@schule.example.org",
     "stored": null,
-    "folded": "anna..mueller@schule.de"
+    "folded": "anna..mueller@schule.example.org"
   },
   {
     "case": "a domain without a dot",

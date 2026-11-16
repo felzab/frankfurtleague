@@ -58,9 +58,9 @@ ADULT = "1990-05-09"
 V = f"/api/v{API_VERSION}"
 
 # One person holding a pupil row, a referee row and two seats.
-PERSON = "ortrud.zwiebelmayer@schule.de"
-REGISTRANT = "jonas.jungspund@schule.de"
-OBJECTING_REFEREE = "kunigunde@schule.de"
+PERSON = "ortrud.zwiebelmayer@schule.example.org"
+REGISTRANT = "jonas.jungspund@schule.example.org"
+OBJECTING_REFEREE = "kunigunde@schule.example.org"
 # `kontaktperson_document`'s address for a seat named so.
 DECLINER = "ida@example.com"
 

@@ -32,14 +32,14 @@ NOW = datetime(2126, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 
 ADMIN = "admin@frankfurtleague.de"
 
-BANNED = "Zorbanax@Beispielschule.de"
+BANNED = "Zorbanax@Beispielschule.example.org"
 # The same person typing the same address differently: the case the write and the check must agree on.
-BANNED_RETYPED = "zorbanax@beispielschule.de"
-OTHER = "quillhilde@beispielschule.de"
+BANNED_RETYPED = "zorbanax@beispielschule.example.org"
+OTHER = "quillhilde@beispielschule.example.org"
 # A row whose wait has not run out, which counts as held.
-WAITING = "wartet@beispielschule.de"
+WAITING = "wartet@beispielschule.example.org"
 # Where a holder's live change moves them.
-INCOMING = "neue.adresse@beispielschule.de"
+INCOMING = "neue.adresse@beispielschule.example.org"
 
 BAN_REASON = "Falsches Geburtsdatum bei der Anmeldung"
 
@@ -172,7 +172,7 @@ class TestTheCheckASignInAsks:
 
             return [
                 await address_is_barred(ban_list_collection=database[Collection.BAN_LIST], address=typed)
-                for typed in (BANNED, BANNED_RETYPED, "Zorbanax@BEISPIELSCHULE.DE  ", OTHER)
+                for typed in (BANNED, BANNED_RETYPED, "Zorbanax@BEISPIELSCHULE.EXAMPLE.ORG  ", OTHER)
             ]
 
         assert await on_a_clean_list(mongo_replica_set_url, body) == [True, True, True, False]

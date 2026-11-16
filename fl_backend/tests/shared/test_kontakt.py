@@ -53,7 +53,7 @@ def test_rejects_a_malformed_phone_number(kontakt, phone):
 
 @pytest.mark.parametrize(
     "phone",
-    ["+49 69 1234567\n", "\n\n1234567", "+49\t69\t1234567", "+49 69 1234567\r", "069 123\x0b4567"],
+    ["+49 69 90009123\n", "\n\n90009123", "+49\t69\t90009123", "+49 69 90009123\r", "069 9000\x0b9123"],
 )
 def test_rejects_a_phone_number_carrying_a_control_character(kontakt, phone):
     """A whitespace class inside `^...$` lets a newline through end to end, and the value is stored and rendered as text."""
@@ -61,7 +61,7 @@ def test_rejects_a_phone_number_carrying_a_control_character(kontakt, phone):
         FLKontaktPayload.model_validate(kontakt(phone=phone))
 
 
-@pytest.mark.parametrize("phone", ["+49 69 1234567"])
+@pytest.mark.parametrize("phone", ["+49 69 90009123"])
 def test_accepts_the_phone_formats_in_use(kontakt, phone):
     assert FLKontaktPayload.model_validate(kontakt(phone=phone)).phone == phone
 
@@ -104,7 +104,7 @@ class TestTheAddressIsRequired:
 class TestTheReadShapeJudgesNeitherMember:
     """The pair's whole point. Each value here is one the payload above refuses and a stored row can hold."""
 
-    @pytest.mark.parametrize("phone", ["069 1234 ", "069-1234-", "(069) 1234567."])
+    @pytest.mark.parametrize("phone", ["069 9000 ", "069-9000-", "(069) 90009123."])
     def test_a_stored_number_the_narrowed_rule_would_refuse_is_served(self, kontakt, phone):
         """Trailing punctuation, which the rule accepted until a final digit was required of it."""
         assert FLKontakt.model_validate(kontakt(phone=phone)).phone == phone
@@ -145,8 +145,8 @@ class TestAStoredAddress:
     def test_the_read_back_names_one_its_fold_would_change(self, model: type[BaseModel], field: str):
         adapter = TypeAdapter(model.model_fields[field].rebuild_annotation())
 
-        assert adapter.validate_python("tom@beispielschule.de") == "tom@beispielschule.de"
-        for unfolded in ("Tom@beispielschule.de", " tom@beispielschule.de"):
+        assert adapter.validate_python("tom@beispielschule.example.org") == "tom@beispielschule.example.org"
+        for unfolded in ("Tom@beispielschule.example.org", " tom@beispielschule.example.org"):
             with pytest.raises(ValidationError):
                 adapter.validate_python(unfolded)
 

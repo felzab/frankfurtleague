@@ -26,8 +26,8 @@ it.each([
   ["a write", () => sdk.spielePatchSpiel(SPIEL_ID, SPIEL, {}), true],
   ["the save's dry run", () => sdk.spielePatchSpiel(SPIEL_ID, SPIEL, { dry_run: true }), false],
   ["a base-tier read over POST", () => sdk.registrierungenPostInvitationView({ token: "t" }), false],
-  ["a system-tier read over POST", () => sdk.identityGetSubject({ email: "a@schule.de" }), false],
-  ["an admin-tier read over POST", () => sdk.identityGetErasureView({ email: "a@schule.de" }), false],
+  ["a system-tier read over POST", () => sdk.identityGetSubject({ email: "a@schule.example.org" }), false],
+  ["an admin-tier read over POST", () => sdk.identityGetErasureView({ email: "a@schule.example.org" }), false],
 ])("sends %s as its operation's contract states", async (_, send, standing) => {
   const mayStand = await runWithRequestScope({ traceId: "0".repeat(31) + "1", actor: ACTOR }, async () => {
     await send();

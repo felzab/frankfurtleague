@@ -206,8 +206,8 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
         kontaktperson = {
             "first_name": "Anke",
             "last_name": "Koerner",
-            "email": "a.koerner@example.de",
-            "phone": "+49 170 1234567",
+            "email": "a.koerner@example.net",
+            "phone": "+49 171 3920000",
             "version": 0,
         }
         austritt = {"type": "rueckzug", "reason": "Zu wenige Spieler", "date": "2026-03-01"}

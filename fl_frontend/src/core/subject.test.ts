@@ -24,8 +24,8 @@ const STORE = "__flSubjectStore";
 const PERSON_EMAIL = "spielerin@example.org";
 /* A no-break space and a space around capitals: the sign-in library lower-cases what it stores but never
    trims, so a case-only spelling reaches the guard folded already and would pass with the fold deleted. */
-const UNFOLDED_EMAIL = `${String.fromCodePoint(0xa0)}Anna.Mueller@Schule.DE `;
-const FOLDED_EMAIL = "anna.mueller@schule.de";
+const UNFOLDED_EMAIL = `${String.fromCodePoint(0xa0)}Anna.Mueller@Schule.EXAMPLE.ORG `;
+const FOLDED_EMAIL = "anna.mueller@schule.example.org";
 
 /**
  * Each read of the request's headers: the session read's, and the lookup's for its trace, each of which every uncached

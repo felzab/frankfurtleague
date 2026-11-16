@@ -44,10 +44,10 @@ PAST_SAISON = "2025"
 ACTIVE_SAISON = "2026"
 
 # Stored folded, as every pupil row stores its address.
-IDENTIFIER = "ortrud.zwiebelmayer@schule.de"
-YOUNG = "jonas.jungspund@schule.de"
+IDENTIFIER = "ortrud.zwiebelmayer@schule.example.org"
+YOUNG = "jonas.jungspund@schule.example.org"
 BYSTANDER = "baldur.krautzberger@example.com"
-NOBODY = "niemand@schule.de"
+NOBODY = "niemand@schule.example.org"
 # The administrator saving the Spieler editor.
 EDITOR = "admin@frankfurtleague.de"
 

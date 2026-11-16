@@ -68,13 +68,13 @@ B_PUPIL = ObjectId("6890a1b2c3d4e5f607920011")
 ALLOWED_STUFEN = ["Q1", "Q2"]
 
 # One mailbox per seat, spelled so that a hit cannot be a coincidence.
-ANSPRECH = "ansprech.kader@schule.de"
-TRAINER_ALONE = "trainer.kader@schule.de"
-UPPER_STORED = "gross.kader@schule.de"
-B_ANSPRECH = "b.ansprech.kader@schule.de"
+ANSPRECH = "ansprech.kader@schule.example.org"
+TRAINER_ALONE = "trainer.kader@schule.example.org"
+UPPER_STORED = "gross.kader@schule.example.org"
+B_ANSPRECH = "b.ansprech.kader@schule.example.org"
 
-SEAT_PHONE = "+49 69 5550199"
-PUPIL_EMAIL_DOMAIN = "pupil.example.de"
+SEAT_PHONE = "+49 69 90009199"
+PUPIL_EMAIL_DOMAIN = "pupil.example.net"
 
 KADER_PATH = f"/api/v{API_VERSION}/spieler/kader"
 

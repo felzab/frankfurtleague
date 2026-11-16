@@ -446,7 +446,7 @@ class TestADomainIsRefusedBeyondAscii:
     @pytest.mark.parametrize(
         ("payload", "body"),
         [
-            pytest.param(FLErasurePayload, erasure_of("anna@müller.de"), id="the erasure"),
+            pytest.param(FLErasurePayload, erasure_of("anna@müller.example.org"), id="the erasure"),
         ],
     )
     def test_the_address_rule_s_own_refusal_names_the_box(self, payload: type[FLErasureAddressPayload], body: dict[str, str]):

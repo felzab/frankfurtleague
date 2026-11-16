@@ -33,8 +33,8 @@ TODAY = "2026-04-01"
 
 ADMIN = "admin@frankfurtleague.de"
 
-BANNED = "Zorbanax@Beispielschule.de"
-OTHER = "quillhilde@beispielschule.de"
+BANNED = "Zorbanax@Beispielschule.example.org"
+OTHER = "quillhilde@beispielschule.example.org"
 
 BAN_REASON = "Falsches Geburtsdatum bei der Anmeldung"
 

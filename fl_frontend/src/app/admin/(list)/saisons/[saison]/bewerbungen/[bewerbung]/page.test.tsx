@@ -31,7 +31,7 @@ const { default: BewerbungPage } = await import("./page");
 const person = {
   first_name: "Anke",
   last_name: "Koerner",
-  email: "a@example.de",
+  email: "a@example.net",
   phone: "069 1",
   einwilligung: { confirmed_at: null },
 } as FLKontaktperson;

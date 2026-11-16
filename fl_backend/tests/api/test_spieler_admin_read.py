@@ -26,7 +26,7 @@ BEN_OID = ObjectId("6890a1b2c3d4e5f608410012")
 CARL_OID = ObjectId("6890a1b2c3d4e5f608410013")
 DORA_OID = ObjectId("6890a1b2c3d4e5f608410014")
 
-ADDRESS = "anna@beispielschule.de"
+ADDRESS = "anna@beispielschule.example.org"
 
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
@@ -46,9 +46,9 @@ async def on_a_league(url: str, body: Body) -> Any:
         await database[Collection.SPIELER].insert_many(
             [
                 spieler_document(ANNA_OID, "Anna", "Arndt", email=ADDRESS),
-                spieler_document(BEN_OID, "Ben", "Berg", email="ben@beispielschule.de"),
-                spieler_document(CARL_OID, "Carl", "Cramer", email="carl@beispielschule.de"),
-                spieler_document(DORA_OID, "Dora", "Dorn", email="dora@beispielschule.de"),
+                spieler_document(BEN_OID, "Ben", "Berg", email="ben@beispielschule.example.org"),
+                spieler_document(CARL_OID, "Carl", "Cramer", email="carl@beispielschule.example.org"),
+                spieler_document(DORA_OID, "Dora", "Dorn", email="dora@beispielschule.example.org"),
             ]
         )
         await database[Collection.SAISON_SPIELER].insert_many(

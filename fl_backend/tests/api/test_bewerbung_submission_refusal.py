@@ -48,7 +48,7 @@ def person(**overrides: Any) -> dict[str, Any]:
         "first_name": "Quillhilde",
         "last_name": "Brackenmoor",
         "email": "quillhilde@example.com",
-        "phone": "+49 170 1234567",
+        "phone": "+49 171 3920000",
         **overrides,
     }
 
@@ -58,8 +58,8 @@ def kontakte(**overrides: Any) -> dict[str, Any]:
 
     return {
         "trainer": person(),
-        "ansprechperson": person(first_name="Ansgar", email="ansgar@example.com", phone="+49 170 7654321"),
-        "stellvertretung": person(first_name="Stellan", email="stellan@example.com", phone="0171 5555555"),
+        "ansprechperson": person(first_name="Ansgar", email="ansgar@example.com", phone="+49 171 3920001"),
+        "stellvertretung": person(first_name="Stellan", email="stellan@example.com", phone="0171 3920055"),
         "trainer_is_also": None,
         **overrides,
     }
@@ -86,7 +86,7 @@ def schule(**overrides: Any) -> dict[str, Any]:
         "full_name": "Zorbanax-Gymnasium",
         "schulform": "gymnasium_g9",
         "address": dict(ADDRESS),
-        "website_url": "https://zorbanax.example.de",
+        "website_url": "https://zorbanax.example.net",
         **overrides,
     }
 
@@ -108,16 +108,16 @@ class TestOneNumberHasOneSpelling:
     @pytest.mark.parametrize(
         ("written", "normalised"),
         [
-            pytest.param("+49 170 1234567", "01701234567", id="the international form"),
-            pytest.param("0049-170-1234567", "01701234567", id="the international form with a zero prefix"),
-            pytest.param("0170 1234567", "01701234567", id="the national form"),
-            pytest.param("(0170) 123 45 67", "01701234567", id="brackets and spaces"),
+            pytest.param("+49 171 3920000", "01713920000", id="the international form"),
+            pytest.param("0049-171-3920000", "01713920000", id="the international form with a zero prefix"),
+            pytest.param("0171 3920000", "01713920000", id="the national form"),
+            pytest.param("(0171) 392 00 00", "01713920000", id="brackets and spaces"),
             # The commonest German spelling of all: the trunk zero kept in brackets after the
             # country code, which no international-format number really carries.
-            pytest.param("+49 (0)170 1234567", "01701234567", id="the bracketed trunk zero"),
-            pytest.param("0049 (0)170 1234567", "01701234567", id="the bracketed trunk zero, zero-prefixed"),
-            pytest.param("+490170 1234567", "01701234567", id="the trunk zero with no brackets at all"),
-            pytest.param("069 1234567", "0691234567", id="a landline, untouched"),
+            pytest.param("+49 (0)171 3920000", "01713920000", id="the bracketed trunk zero"),
+            pytest.param("0049 (0)171 3920000", "01713920000", id="the bracketed trunk zero, zero-prefixed"),
+            pytest.param("+490171 3920000", "01713920000", id="the trunk zero with no brackets at all"),
+            pytest.param("069 90009123", "06990009123", id="a landline, untouched"),
             # The fold must not reach a NATIONAL number whose area code begins 49; the trunk zero in
             # front of it is what keeps the two apart.
             pytest.param("0491 234567", "0491234567", id="a national number whose area code starts 49"),
@@ -135,7 +135,7 @@ class TestOneNumberHasOneSpelling:
 # A spelling that must reach the distinctness rule as ONE number, which `PHONE_REGEX` admits; the
 # fold's other spellings are `TestOneNumberHasOneSpelling`'s.
 ONE_LINE_TWO_WAYS = [
-    pytest.param("+49 (0)170 1234567", id="bracketed trunk zero against the national form"),
+    pytest.param("+49 (0)171 3920000", id="bracketed trunk zero against the national form"),
 ]
 
 
@@ -176,7 +176,7 @@ class TestTheThreeSeatsAreThreePeople:
     def test_one_refusal_names_every_repeated_box(self):
         """Each box its own press would ask the bot check again for one form."""
 
-        other = person(first_name="Andere", email="QUILLHILDE@example.com", phone="0170 1234567")
+        other = person(first_name="Andere", email="QUILLHILDE@example.com", phone="0171 3920000")
 
         assert repeated_boxes(kontakte(stellvertretung=other)) == (
             ("kontakte", "stellvertretung", "email"),
@@ -189,7 +189,7 @@ class TestTheThreeSeatsAreThreePeople:
         Its own telephone, or the number rule would fire here and this would prove nothing about case.
         """
 
-        other = person(first_name="Andere", email="QUILLHILDE@Example.com", phone="+49 170 9999999")
+        other = person(first_name="Andere", email="QUILLHILDE@Example.com", phone="+49 171 3920099")
 
         assert repeated_boxes(kontakte(ansprechperson=other)) == (("kontakte", "ansprechperson", "email"),)
 
@@ -197,11 +197,11 @@ class TestTheThreeSeatsAreThreePeople:
     def test_one_number_written_two_ways_is_still_one_number(self, written: str):
         """The whole reason `normalise_phone` exists: `PHONE_REGEX` admits many spellings of one line.
 
-        The trainer holds `0170 1234567`; each spelling here is that same line, so a second person
+        The trainer holds `0171 3920000`; each spelling here is that same line, so a second person
         writing one of them is not a second telephone.
         """
 
-        trainer = person(phone="0170 1234567")
+        trainer = person(phone="0171 3920000")
         other = person(first_name="Andere", phone=written, email="andere@example.com")
 
         assert repeated_boxes(kontakte(trainer=trainer, ansprechperson=other)) == (("kontakte", "ansprechperson", "phone"),)
@@ -211,7 +211,7 @@ class TestTheThreeSeatsAreThreePeople:
 
         block = kontakte(
             ansprechperson=person(),
-            stellvertretung=person(first_name="Stellan", email="quillhilde@example.com", phone="0171 5555555"),
+            stellvertretung=person(first_name="Stellan", email="quillhilde@example.com", phone="0171 3920055"),
             trainer_is_also="ansprechperson",
         )
 

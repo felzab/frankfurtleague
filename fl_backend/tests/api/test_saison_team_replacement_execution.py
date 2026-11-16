@@ -83,8 +83,8 @@ SQUAD_PERSON_ID = "6890a1b2c3d4e5f60726b{:03d}"
 OUTGOING_KONTAKTPERSON = {
     "first_name": "Anke",
     "last_name": "Koerner",
-    "email": "a.koerner@outgoing.example.de",
-    "phone": "+49 170 1234567",
+    "email": "a.koerner@outgoing.example.net",
+    "phone": "+49 171 3920000",
     "birth_date": "1984-05-09",
     "einwilligung": confirmed_kenntnisnahme(),
 }
@@ -162,7 +162,7 @@ def club(team_id: ObjectId, inactive_since: str | None = None) -> dict[str, Any]
         name,
         shorthand,
         full_name=f"{name}-Schule Frankfurt",
-        website_url=f"https://{shorthand.lower()}.example.de",
+        website_url=f"https://{shorthand.lower()}.example.net",
         inactive_since=inactive_since,
     )
 

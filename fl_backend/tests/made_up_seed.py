@@ -8,7 +8,7 @@ and players pages and the access pages draw:
 
 - a finished season: every fixture played, the match for third place among them, the final decided on penalties;
 - the running season: a played matchday holding a forfeit, today's matchday holding a played, an open and a cancelled
-  fixture, next week's matchday holding a stored line-up and owed ones, and a knockout round drawn, undated and not yet
+  fixture, next week's matchday holding a stored line-up and owed ones, and a knockout round drawn, its fixtures undated and not yet
   decided; its registration links open past the window's end, two squads at their cap, one beside a nominee and a retired
   nominee, and a departed club with an open fixture and a live link;
 - a planned season: its application window open today, one group full and the others with room, and applications whose
@@ -34,6 +34,9 @@ or a link it names is not the one the scenario sets up for that journey.
 `SEED_LANDING` in the environment sets the landing's state, the seed as written by default (`LANDING_STATES`); any other
 name is refused, exit 2, before the database is reached.
 
+It exits 0 when the league is written, 1 when an insert is refused, 2 when it refuses to run or could not write the
+database, and 3 when the seed itself failed, at its imports included.
+
 Run by `./scripts/ops/local.sh --e2e`, `--e2e --landing=<state>` and `--seed-made-up`, and by the journeys' CI job, as
 `python -m tests.made_up_seed` inside the stack's backend container, copied there beside the tests' builders: it reads the
 settings the read-back reads, and refuses, exit 2, before any client exists unless they name the local stack's own server
@@ -51,88 +54,113 @@ Invariants:
   drive reads each state of a link page. The token is no secret: its hash stands in this made-up stack alone.
 """
 
-import asyncio
-import copy
-import json
-import os
 import sys
-from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field
-from datetime import UTC, date, datetime, timedelta
-from pathlib import Path
-from typing import Any, Final
+import traceback
+from typing import NoReturn
 
-from bson import ObjectId
-from pymongo import AsyncMongoClient
-from pymongo.errors import BulkWriteError, PyMongoError
-from pymongo.uri_parser import parse_uri
+# The exit contract the script reads: 0 seeded, 1 a document to correct, 2 refused or could not write, 3 crashed.
+CRASHED = 3
 
-from app.api.address_change.services import compose_record
-from app.api.bewerbungen.services import compose_confirmation as compose_bewerbung_confirmation
-from app.api.bewerbungen.services import compose_confirmation_update as compose_seat_confirmation_update
-from app.api.bewerbungen.services import compose_einwilligung as compose_seat_einwilligung
-from app.api.outbox.schemas import FLBewerbungReceivedData, FLOutboxReference
-from app.api.outbox.services import final_update
-from app.api.saisons.schemas import FLSaisonRules
-from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
-from app.api.schiedsrichter.services import compose_confirmation as compose_schiedsrichter_confirmation
-from app.api.schiedsrichter.services import compose_confirmation_update as compose_schiedsrichter_confirmation_update
-from app.api.schiedsrichter.services import compose_mint_update
-from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment
-from app.api.spielbestaetigungen.services import compose_answer_update, compose_schiedsrichter_answer_update, compose_spielbestaetigung
-from app.api.spielorte.services import compose_maps_link
-from app.api.teams.services import compose_kontakt_confirmation
-from app.core import clock
-from app.core.collections import Collection
-from app.core.config import get_config
-from app.core.crud import ANCHOR_FIELD, Anchored
-from app.core.db import SERVER_SELECTION_TIMEOUT_MS
-from app.readback import RECORD_MODELS
-from app.shared.einwilligung_evidence import compose_initial
-from app.shared.schemas.addresses import FLAddress
-from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS
-from app.shared.schemas.literals import FLAddressChangeWay
-from app.shared.tokens import hash_token
-from tests.documents import (
-    SCHIEDSRICHTER_TEXT_VERSIONS,
-    SEAT_TEXT_VERSIONS,
-    SPIELER_TEXT_VERSIONS,
-    action_log_document,
-    aufstellung_document,
-    ban_document,
-    bericht_document,
-    bewerbung_document,
-    grant_document,
-    invitation_document,
-    mailbox_anchor_document,
-    outbox_document,
-    read_back_document,
-    registrierung_confirmed,
-    registrierung_document,
-    rules_document,
-    saison_document,
-    saison_spieler_document,
-    saison_team_document,
-    schiedsrichter_document,
-    spiel_document,
-    spielbericht_document,
-    spielbericht_sides,
-    spieler_document,
-    spielort_document,
-    spieltag_document,
-    team_document,
-)
 
-# The seasons, people, clubs, fixtures and links the journeys type, read by them too.
-PEOPLE: Final[Mapping[str, Any]] = json.loads(Path(__file__).with_name("made_up_people.json").read_text(encoding="utf-8"))
-PROJECTS: Final[Sequence[Mapping[str, Any]]] = (PEOPLE["projects"]["desktop"], PEOPLE["projects"]["phone"])
-FINISHED: Final[str] = PEOPLE["seasons"]["finished"]
-RUNNING: Final[str] = PEOPLE["seasons"]["running"]
-PLANNED: Final[str] = PEOPLE["seasons"]["planned"]
+def _crashed(error: BaseException) -> NoReturn:
+    """The crash by its type and where it was raised: a message, or a traceback's locals, can carry a secret's value."""
 
-# The collections whose record model declares the count an anchor advances, each first document carrying it, as a
-# document of the league's soon does.
-ANCHORED: Final[frozenset[Collection]] = frozenset(collection for collection, model in RECORD_MODELS.items() if issubclass(model, Anchored))
+    frames = traceback.extract_tb(error.__traceback__)
+    where = f" at {frames[-1].filename}:{frames[-1].lineno}" if frames else ""
+    print(f"The made-up seed crashed ({type(error).__name__}{where}).", file=sys.stderr)
+    raise SystemExit(CRASHED) from None
+
+
+# Inside the contract's reach: an import failing before `_main` exists would otherwise exit Python's own 1, which the
+# script reads as a document to correct.
+try:
+    import asyncio
+    import copy
+    import json
+    import os
+    from collections.abc import Callable, Mapping, Sequence
+    from dataclasses import dataclass, field
+    from datetime import UTC, date, datetime, timedelta
+    from pathlib import Path
+    from typing import Any, Final
+
+    from bson import ObjectId
+    from pymongo import AsyncMongoClient
+    from pymongo.errors import BulkWriteError, PyMongoError
+    from pymongo.uri_parser import parse_uri
+
+    from app.api.address_change.services import compose_record
+    from app.api.bewerbungen.services import compose_confirmation as compose_bewerbung_confirmation
+    from app.api.bewerbungen.services import compose_confirmation_update as compose_seat_confirmation_update
+    from app.api.bewerbungen.services import compose_einwilligung as compose_seat_einwilligung
+    from app.api.outbox.schemas import FLBewerbungReceivedData, FLOutboxReference
+    from app.api.outbox.services import final_update
+    from app.api.saisons.schemas import FLSaisonRules
+    from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
+    from app.api.schiedsrichter.services import compose_confirmation as compose_schiedsrichter_confirmation
+    from app.api.schiedsrichter.services import compose_confirmation_update as compose_schiedsrichter_confirmation_update
+    from app.api.schiedsrichter.services import compose_mint_update
+    from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment
+    from app.api.spielbestaetigungen.services import compose_answer_update, compose_schiedsrichter_answer_update, compose_spielbestaetigung
+    from app.api.spielorte.services import compose_maps_link
+    from app.api.teams.services import compose_kontakt_confirmation
+    from app.core import clock
+    from app.core.collections import Collection
+    from app.core.config import get_config
+    from app.core.crud import ANCHOR_FIELD, Anchored
+    from app.core.db import SERVER_SELECTION_TIMEOUT_MS
+    from app.readback import RECORD_MODELS
+    from app.shared.einwilligung_evidence import compose_initial
+    from app.shared.schemas.addresses import FLAddress
+    from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS
+    from app.shared.schemas.literals import FLAddressChangeWay
+    from app.shared.tokens import hash_token
+    from tests.documents import (
+        SCHIEDSRICHTER_TEXT_VERSIONS,
+        SEAT_TEXT_VERSIONS,
+        SPIELER_TEXT_VERSIONS,
+        action_log_document,
+        aufstellung_document,
+        ban_document,
+        bericht_document,
+        bewerbung_document,
+        grant_document,
+        invitation_document,
+        mailbox_anchor_document,
+        outbox_document,
+        read_back_document,
+        registrierung_confirmed,
+        registrierung_document,
+        rules_document,
+        saison_document,
+        saison_spieler_document,
+        saison_team_document,
+        schiedsrichter_document,
+        spiel_document,
+        spielbericht_document,
+        spielbericht_sides,
+        spieler_document,
+        spielort_document,
+        spieltag_document,
+        team_document,
+    )
+
+    # The seasons, people, clubs, fixtures and links the journeys type, read by them too.
+    PEOPLE: Final[Mapping[str, Any]] = json.loads(Path(__file__).with_name("made_up_people.json").read_text(encoding="utf-8"))
+    PROJECTS: Final[Sequence[Mapping[str, Any]]] = (PEOPLE["projects"]["desktop"], PEOPLE["projects"]["phone"])
+    FINISHED: Final[str] = PEOPLE["seasons"]["finished"]
+    RUNNING: Final[str] = PEOPLE["seasons"]["running"]
+    PLANNED: Final[str] = PEOPLE["seasons"]["planned"]
+
+    # The collections whose record model declares the count an anchor advances, each first document carrying it, as a
+    # document of the league's soon does.
+    ANCHORED: Final[frozenset[Collection]] = frozenset(collection for collection, model in RECORD_MODELS.items() if issubclass(model, Anchored))
+except Exception as error:
+    # Imported, the failure is the importer's to see; run, it is the contract's 3.
+    if __name__ != "__main__":
+        raise
+    _crashed(error)
+
 
 # The landing's state the seed as written stands in.
 AS_WRITTEN: Final = "running"
@@ -310,9 +338,15 @@ type SeatState = Callable[[Mail], tuple[dict[str, Any] | None, dict[str, Any] | 
 
 @dataclass
 class MadeUpLeague:
-    """Every document of the league, built in the scenario's order from the German day `now` falls on."""
+    """Every document of the league, built in the scenario's order from the German day `now` falls on.
+
+    `first_year` builds the league before its first season: the clubs, venues, referees, grants and the planned season,
+    and nothing a season played would have left. It is the one league with no season running, since the rollover, the one
+    write of a status, activates a season as it retires another.
+    """
 
     now: datetime
+    first_year: bool = False
     today: str = field(init=False)
     seated_people: int = field(default=0, init=False)
 
@@ -321,11 +355,21 @@ class MadeUpLeague:
         self._clubs()
         self._venues_and_referees()
         self._grants()
-        self._seasons()
-        self._seats()
-        self._requests()
-        self._squads()
-        self._registrations()
+        self.played: list[Season] = []
+        self.spielbestaetigungen: list[dict[str, Any]] = []
+        self.spieler: list[dict[str, Any]] = []
+        self.squads: list[dict[str, Any]] = []
+        self.invitations: dict[str, dict[str, Any]] = {}
+        self.registrierungen: list[dict[str, Any]] = []
+        self.spielberichte: list[dict[str, Any]] = []
+        self.aufstellungen: list[dict[str, Any]] = []
+        if not self.first_year:
+            self._seasons()
+            self.played = [self.finished, self.running]
+            self._seats()
+            self._requests()
+            self._squads()
+            self._registrations()
         self._planned_season()
         self._access()
 
@@ -640,12 +684,13 @@ class MadeUpLeague:
                     # Ben Brandt's, whom the first pass tells of the booking's lifting (`asked_referee`), on a ground no other
                     # fixture that day holds.
                     return {"date": self.day(7), "time": "18:30:00", "booking": self.booked(1, self.referees[1])}
-                # The knockout: drawn, undated, nobody in it.
+                # The knockout: drawn, its fixtures undated, nobody in them.
                 case _:
                     return {}
 
         # The running season, new groups. Matchday 1 is played and holds a forfeit, matchday 2 is today, matchday 3 is next
-        # week, and the knockout is drawn with nobody in it yet.
+        # week, and the knockout is drawn with nobody in it yet. Its two days are set, as the activation refuses a season
+        # holding an undated matchday (`activate_spieltage_undated`), and a dated one is never undated again.
         self.running = self.season(
             saison_id=RUNNING,
             status="active",
@@ -653,7 +698,13 @@ class MadeUpLeague:
             end=self.day(120),
             drawn=self.day(-40),
             groups={"A": ("Ahorn", "Eiche", "Ulme", "Kastanie"), "B": ("Birke", "Linde", "Esche", "Weide")},
-            dates=[(self.day(-14), self.day(-10)), (self.day(-2), self.day(2)), (self.day(5), self.day(9)), (None, None), (None, None)],
+            dates=[
+                (self.day(-14), self.day(-10)),
+                (self.day(-2), self.day(2)),
+                (self.day(5), self.day(9)),
+                (self.day(28), self.day(28)),
+                (self.day(35), self.day(35)),
+            ],
             play=running_play,
         )
         # The registration window ended the day before the season began, and its link stays open: an entry now is a
@@ -688,15 +739,18 @@ class MadeUpLeague:
     def seated(self, first_name: str, last_name: str, entered_on: int, email: str | None = None) -> dict[str, Any]:
         """A person as the form or the league seats them, nobody having answered.
 
-        Every phone its own: the form refuses two people one number (`find_repeated_contact_refusal`).
+        Every phone its own: the form refuses two people one number (`find_repeated_contact_refusal`). Each is one of the
+        hundred the Bundesnetzagentur keeps unassigned for media productions, (0)176 040690 00 to 99.
         """
 
         self.seated_people += 1
+        if self.seated_people > 99:
+            raise ValueError("the seed seats more people than the media range holds numbers")
         return {
             "first_name": first_name,
             "last_name": last_name,
             "email": email or f"{first_name}.{last_name}@example.com".lower(),
-            "phone": f"+49 170 {2000000 + self.seated_people}",
+            "phone": f"+49 176 040690{self.seated_people:02d}",
             "birth_date": None,
             "einwilligung": compose_seat_einwilligung(today=self.day(entered_on)),
         }
@@ -1370,8 +1424,13 @@ class MadeUpLeague:
         ]
 
         access = PEOPLE["access"]
-        # Long enough for a phone's row to have to wrap it.
-        self.ban_list = [ban_document(access["ban"], until="2031", ban_reason="Beleidigungen am Spielfeldrand", created_at=self.day(-30))]
+        # Long enough for a phone's row to have to wrap it. None before a first season: a ban counts its five seasons from
+        # the running one, and the list refuses a ban while none runs (`ban_list_no_saison`).
+        self.ban_list = (
+            []
+            if self.first_year
+            else [ban_document(access["ban"], until="2031", ban_reason="Beleidigungen am Spielfeldrand", created_at=self.day(-30))]
+        )
 
         def address_change(holder: str, way: FLAddressChangeWay, label: str, **step: Any) -> dict[str, Any]:
             """A running change as its start writes it, its links minted at their hand-outs, `step` the presses since."""
@@ -1405,18 +1464,27 @@ class MadeUpLeague:
         def logged(hours_ago: int, by: str, action: str, **fields: Any) -> dict[str, Any]:
             return action_log_document(action, by=by, at=self.now - timedelta(hours=hours_ago), **fields)
 
-        # One row of each who: an administrator's folded address, a team's representative, a referee, a pass, a person.
+        # One row of each who: an administrator's folded address, a team's representative, a referee, a pass, a person. Before
+        # a first season, the acts no season was there for alone.
         self.action_log = [
             logged(50, "person", "erasure.own"),
-            logged(40, "system", "retention.kontakte", label=FINISHED, count=2),
-            logged(30, "schiedsrichter", "spielbericht.saved", label=f"{FINISHED} / 1"),
-            logged(20, "kontakt", "spielbestaetigung.answered", team=PEOPLE["access"]["loggedTeam"], label=FINISHED),
+            *(
+                []
+                if self.first_year
+                else [
+                    logged(40, "system", "retention.kontakte", label=FINISHED, count=2),
+                    logged(30, "schiedsrichter", "spielbericht.saved", label=f"{FINISHED} / 1"),
+                    logged(20, "kontakt", "spielbestaetigung.answered", team=PEOPLE["access"]["loggedTeam"], label=FINISHED),
+                ]
+            ),
             logged(10, PEOPLE["owner"], "grant.added", label=PEOPLE["administrators"]["waiting"]),
         ]
 
         # The mailbox of the latest registration's pupil, whose press anchored it: as the seed runs, since an anchor lapses
         # an hour after its last press and the read-back reads it after the seed.
-        self.mailbox_anchors = [mailbox_anchor_document(self.registrierungen[0]["email"], anchored_at=self.now)]
+        self.mailbox_anchors = [
+            mailbox_anchor_document(registrierung["email"], anchored_at=self.now) for registrierung in self.registrierungen[:1]
+        ]
 
     # --- Writing it -----------------------------------------------------------------------------------------------
 
@@ -1431,10 +1499,10 @@ class MadeUpLeague:
             Collection.SPIELORTE: self.venues,
             Collection.SCHIEDSRICHTER: self.referees,
             Collection.GRANTS: self.grants,
-            Collection.SAISONS: [self.finished.saison, self.running.saison, self.planned],
-            Collection.SAISON_TEAMS: [*self.finished.rows, *self.running.rows, *self.planned_rows],
-            Collection.SPIELTAGE: [*self.finished.spieltage, *self.running.spieltage],
-            Collection.SPIELE: [*self.finished.spiele, *self.running.spiele],
+            Collection.SAISONS: [*(season.saison for season in self.played), self.planned],
+            Collection.SAISON_TEAMS: [*(row for season in self.played for row in season.rows), *self.planned_rows],
+            Collection.SPIELTAGE: [spieltag for season in self.played for spieltag in season.spieltage],
+            Collection.SPIELE: [spiel for season in self.played for spiel in season.spiele],
             Collection.SPIELER: self.spieler,
             Collection.SAISON_SPIELER: self.squads,
             Collection.SPIELBERICHTE: self.spielberichte,
@@ -1530,35 +1598,43 @@ def decided(league: MadeUpLeague) -> None:
     played(league, running.spiel(16), (1, 1), sides=("Ahorn", "Ulme"), elfmeterschiessen={"team1": 4, "team2": 3})
 
 
-def no_season_running(league: MadeUpLeague) -> None:
-    league.running.saison["status"] = "past"
-
-
 def no_window_open(league: MadeUpLeague) -> None:
-    no_season_running(league)
     league.planned["bewerbung"]["open"] = False
 
 
+def landed(state: Callable[[MadeUpLeague], None], *, first_year: bool = False) -> Callable[[datetime], MadeUpLeague]:
+    """The league built on `now`, then `state` applied once every request has copied the fixture it is about.
+
+    A request about a moved fixture is one about a slot the fixture left, which neither act takes.
+    """
+
+    def build(now: datetime) -> MadeUpLeague:
+        league = MadeUpLeague(now=now, first_year=first_year)
+        state(league)
+        return league
+
+    return build
+
+
 # The state of the season card and the join band on the landing, by `SEED_LANDING`, which `local.sh --e2e --landing=<state>`
-# seeds for a look at `/` under each: each changes the running season's dates and results,
-# and its status where the site is on no season, and the planned season's window where none is open. Applied once every
-# request has copied the fixture it is about, so a request about a moved fixture is one about a slot the fixture left,
-# which neither act takes.
+# seeds for a look at `/` under each. The running ones change the running season's dates and results; the two with no
+# season running are the league before its first season, the one league with none, the second closing the planned
+# season's window.
 # - `running`, the seed as written: a last result and a next match.
 # - `running-two-one-side`: every fixture dated in the past, so the card shows two last results and no next match.
 # - `countdown`: the season starts in two weeks, no fixture dated or played.
 # - `countdown-with-opening`: the same, its fixtures dated, the first of them the opening match.
 # - `decided`: every group fixture and the knockout played three weeks back, the final on penalties.
-# - `window`: no season running, the planned one's application window open, so the card is the window's.
-# - `none`: no season running and no window open, so the card is the empty box.
-LANDING_STATES: Final[Mapping[str, Callable[[MadeUpLeague], None]]] = {
-    "running": lambda league: None,
-    "running-two-one-side": lambda league: move_running(league, -10),
-    "countdown": lambda league: countdown(league, undated=True),
-    "countdown-with-opening": lambda league: countdown(league, undated=False),
-    "decided": decided,
-    "window": no_season_running,
-    "none": no_window_open,
+# - `window`: no season yet, the planned one's application window open, so the card is the window's.
+# - `none`: no season yet and no window open, so the card is the empty box.
+LANDING_STATES: Final[Mapping[str, Callable[[datetime], MadeUpLeague]]] = {
+    "running": landed(lambda league: None),
+    "running-two-one-side": landed(lambda league: move_running(league, -10)),
+    "countdown": landed(lambda league: countdown(league, undated=True)),
+    "countdown-with-opening": landed(lambda league: countdown(league, undated=False)),
+    "decided": landed(decided),
+    "window": landed(lambda league: None, first_year=True),
+    "none": landed(no_window_open, first_year=True),
 }
 
 
@@ -1586,10 +1662,11 @@ async def write(client: AsyncMongoClient, database_name: str, league: MadeUpLeag
     except BulkWriteError as refused:
         print(f"An insert was refused: {refused.details['writeErrors'][0]['errmsg']}", file=sys.stderr)
         return 1
-    # The type alone: the driver's message names the host it resolved out of the secret.
+    # The type alone: the driver's message names the host it resolved out of the secret. Nothing of the seed was judged,
+    # as the read-back's own unreadable database is not.
     except PyMongoError as failure:
         print(f"The database could not be written ({type(failure).__name__}).", file=sys.stderr)
-        return 1
+        return 2
 
     print(f"made-up seed written to '{database_name}', today being {league.today}")
     return 0
@@ -1630,8 +1707,7 @@ async def _main() -> int:
         # A refusal, 2, before any client exists. It names what the seed requires alone: the settings are a secret.
         print("The made-up seed writes only to the local or the end-to-end stack's own mongo service, at port 27017.", file=sys.stderr)
         return 2
-    league = MadeUpLeague(now=clock.now())
-    LANDING_STATES[landing](league)
+    league = LANDING_STATES[landing](clock.now())
 
     client = AsyncMongoClient(host=uri, serverSelectionTimeoutMS=SERVER_SELECTION_TIMEOUT_MS)
     try:
@@ -1641,4 +1717,8 @@ async def _main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(asyncio.run(_main()))
+    try:
+        code = asyncio.run(_main())
+    except Exception as error:
+        _crashed(error)
+    raise SystemExit(code)

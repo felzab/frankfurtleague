@@ -23,7 +23,7 @@ const { default: ActionLogPage } = await import("./page");
 
 const answer = (overrides: Partial<FLActionLogListResponse>): FLActionLogListResponse => ({
   action_log: [],
-  by_options: ["anna@example.de", "system"],
+  by_options: ["anna@example.net", "system"],
   cursor: null,
   ...overrides,
 });
@@ -60,7 +60,7 @@ describe("the Protokoll's reads", () => {
   /* The filter cannot show a value it does not offer, so honouring one would empty a list under a select reading „Alle“. */
   it("reads the whole log for a `by` it does not hold", async () => {
     state.answer = answer({});
-    const { more, table } = await read({ by: "gone@example.de" });
+    const { more, table } = await read({ by: "gone@example.net" });
     expect(askedFor().map(({ by }) => by)).toStrictEqual([null]);
     expect(more.carry).toStrictEqual({});
     expect(table.empty.kind).toBe("none");

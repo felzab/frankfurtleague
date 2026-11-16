@@ -72,7 +72,7 @@ class TestWhatASeatWriteMoves:
     SEAT = {"token_hashes": [], "sent_at": "2026-03-01", "deadline": "2026-03-15", "reminded_at": None, "declined_at": None}
 
     def written(self, seats: tuple[str, ...] = ("trainer",), /, **confirmations: Any) -> Mapping[str, Any]:
-        person = {"first_name": "Berta", "last_name": "Beispiel", "email": "berta@example.de", "phone": "069 1234567"}
+        person = {"first_name": "Berta", "last_name": "Beispiel", "email": "berta@example.net", "phone": "069 90009123"}
 
         return compose_kontakt_seat_update(seats=seats, person=person, today="2026-04-01", kontakte={}, confirmations=confirmations)["$set"]
 
@@ -141,7 +141,7 @@ class TestCorrectingOneContactAddress:
             "trainer_is_also": None,
         }
 
-        refusal = find_seat_contact_refusal(kontakte=seats, seats=("ansprechperson",), email="STELLAN@example.com", phone="069 7654321")
+        refusal = find_seat_contact_refusal(kontakte=seats, seats=("ansprechperson",), email="STELLAN@example.com", phone="069 90009765")
 
         # Naming the field, or the dialog has no box to say it on.
         assert refusal is not None and (refusal.error_code, refusal.fields) == (Code.BEWERBUNG_KONTAKT_EMAIL_TAKEN, (("email",),))
@@ -150,12 +150,12 @@ class TestCorrectingOneContactAddress:
         """Stored, it reaches the season row at acceptance, where every later write on either person is refused `kontakt_phone_taken`."""
 
         seats = {
-            "trainer": kontaktperson_document("Quillhilde", phone="069 1000"),
-            "ansprechperson": kontaktperson_document("Ansgar", phone="069 2000"),
-            "stellvertretung": kontaktperson_document("Stellan", phone="069 3000"),
+            "trainer": kontaktperson_document("Quillhilde", phone="069 90009010"),
+            "ansprechperson": kontaktperson_document("Ansgar", phone="069 90009020"),
+            "stellvertretung": kontaktperson_document("Stellan", phone="069 90009030"),
             "trainer_is_also": None,
         }
 
-        refusal = find_seat_contact_refusal(kontakte=seats, seats=("ansprechperson",), email="ansgar@example.com", phone="+49 (0)69 3000")
+        refusal = find_seat_contact_refusal(kontakte=seats, seats=("ansprechperson",), email="ansgar@example.com", phone="+49 (0)69 90009030")
 
         assert refusal is not None and (refusal.error_code, refusal.fields) == (Code.BEWERBUNG_KONTAKT_PHONE_TAKEN, (("phone",),))

@@ -12,7 +12,7 @@ CONFIRMED_ON = "2026-03-20"
 def kontaktperson(first_name: str, email: str, *, confirmed_at: str | None) -> dict[str, Any]:
     """One seat as the junction stores it. `confirmed_at` is the whole of what a recipient has to clear."""
 
-    return kontaktperson_document(first_name, confirmed_at=confirmed_at, email=email, phone="+49 69 1234567")
+    return kontaktperson_document(first_name, confirmed_at=confirmed_at, email=email, phone="+49 69 90009123")
 
 
 def kontakte(*, trainer: Any = None, ansprechperson: Any = None, stellvertretung: Any = None) -> dict[str, Any]:

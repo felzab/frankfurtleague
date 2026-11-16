@@ -97,7 +97,7 @@ SEATED: Final = {"date": "2026-01-15"}
 
 def kontaktperson(first_name: str) -> dict[str, Any]:
     """A function rather than a constant: the nested consent has to be fresh per slot too, which a `dict()` of a shared one is not."""
-    return kontaktperson_document(first_name, confirmed_at="2026-01-16", einwilligung=SEATED, phone="+49 69 1234567", birth_date="1980-05-04")
+    return kontaktperson_document(first_name, confirmed_at="2026-01-16", einwilligung=SEATED, phone="+49 69 90009123", birth_date="1980-05-04")
 
 
 def valid_documents() -> dict[Collection, dict[str, Any]]:
@@ -579,9 +579,9 @@ async def _replayed_application(watched: AsyncDatabase, client: AsyncMongoClient
                 "team_id": str(TEAM_OID),
                 "schule": None,
                 "kontakte": {
-                    "trainer": _contact("Wraxlington", "+49 170 1111111"),
-                    "ansprechperson": _contact("Quillhilde", "+49 170 2222222"),
-                    "stellvertretung": _contact("Bramblewick", "+49 170 3333333"),
+                    "trainer": _contact("Wraxlington", "+49 171 3920011"),
+                    "ansprechperson": _contact("Quillhilde", "+49 171 3920022"),
+                    "stellvertretung": _contact("Bramblewick", "+49 171 3920033"),
                     "trainer_is_also": None,
                 },
                 "trikot": {"existing_set": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},

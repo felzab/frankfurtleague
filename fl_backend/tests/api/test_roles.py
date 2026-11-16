@@ -18,6 +18,7 @@ from tests.documents import (
     kontaktperson_document,
     own_einwilligung_document,
     saison_team_document,
+    schiedsrichter_document,
     school_year_saison_document,
     spieler_document,
 )
@@ -53,27 +54,27 @@ ROW_NAME_E = "Herder"
 STAMP = "2026-02-01"
 
 # One mailbox per case, each spelled so that a hit in the corpus cannot be a coincidence.
-ACTIVE = "aktiv.sitz@schule.de"
+ACTIVE = "aktiv.sitz@schule.example.org"
 
-TWO_TEAMS = "zwei.teams@schule.de"
-TIMES = "zeiten.sitz@schule.de"
-WITHOUT_STAMP = "ohne.stempel@schule.de"
-ALSO = "zugleich.sitz@schule.de"
-ONLY_OPEN = "nur.offen@schule.de"
-MIXED = "gemischt@schule.de"
-RETIREMENT_SCHIEDSRICHTER = "ruhestand.pfeife@schule.de"
-RETIREMENT_OPEN = "ruhestand.offen@schule.de"
-SCHIEDSRICHTER_WITHOUT_RECORD = "pfeife.ohne@schule.de"
-SCHIEDSRICHTER_NULL_RECORD = "pfeife.null@schule.de"
+TWO_TEAMS = "zwei.teams@schule.example.org"
+TIMES = "zeiten.sitz@schule.example.org"
+WITHOUT_STAMP = "ohne.stempel@schule.example.org"
+ALSO = "zugleich.sitz@schule.example.org"
+ONLY_OPEN = "nur.offen@schule.example.org"
+MIXED = "gemischt@schule.example.org"
+RETIREMENT_SCHIEDSRICHTER = "ruhestand.pfeife@schule.example.org"
+RETIREMENT_OPEN = "ruhestand.offen@schule.example.org"
+SCHIEDSRICHTER_WITHOUT_RECORD = "pfeife.ohne@schule.example.org"
+SCHIEDSRICHTER_NULL_RECORD = "pfeife.null@schule.example.org"
 # A confirmed seat on a `past` season beside an unconfirmed one on the `active` season, and an
 # unconfirmed `past` seat alone: the flag is judged over what could grant a panel.
-PAST_AND_OPEN = "vergangen.und.offen@schule.de"
-ONLY_PAST_OPEN = "nur.vergangen.offen@schule.de"
+PAST_AND_OPEN = "vergangen.und.offen@schule.example.org"
+ONLY_PAST_OPEN = "nur.vergangen.offen@schule.example.org"
 # Seated on a team that withdrew from the active season and is entered again for the future one.
-EXITED = "ausgetreten.sitz@schule.de"
-EXITED_OPEN = "ausgetreten.offen@schule.de"
+EXITED = "ausgetreten.sitz@schule.example.org"
+EXITED_OPEN = "ausgetreten.offen@schule.example.org"
 
-ANSPRECHPERSON = "post@strasse.de"
+ANSPRECHPERSON = "post@strasse.example.org"
 
 # Retired, and brought back inside the transaction case.
 SPIELER_UNCONFIRMED_OID = ObjectId("6890a1b2c3d4e5f607830021")
@@ -86,7 +87,7 @@ SCHIEDSRICHTER_RETIREMENT_OPEN_OID = ObjectId("6890a1b2c3d4e5f607830036")
 
 
 def _seat(email: str, *, confirmed_at: str | None = STAMP) -> dict[str, Any]:
-    return kontaktperson_document("Anna", confirmed_at=confirmed_at, last_name="Müller", email=email, phone="+49 69 5550101")
+    return kontaktperson_document("Anna", confirmed_at=confirmed_at, last_name="Müller", email=email, phone="+49 69 90009101")
 
 
 def _junction(
@@ -116,18 +117,11 @@ def _unconfirmed_spieler(spieler_id: ObjectId, email: str) -> dict[str, Any]:
     return {**spieler_document(spieler_id, "Anna", "Müller", email=email), "einwilligung": {**EINWILLIGUNG, "confirmed_at": None}}
 
 
-def _schiedsrichter(schiedsrichter_id: ObjectId, email: str, name: str | None, **fields: Any) -> dict[str, Any]:
+def _schiedsrichter(schiedsrichter_id: ObjectId, email: str, name: str, **fields: Any) -> dict[str, Any]:
     # A name per referee: `app/core/constraints.py :: uniq_schiedsrichter_name` indexes it.
-    return {
-        "_id": schiedsrichter_id,
-        "name": name,
-        "schule": None,
-        "default_payment": 20,
-        "kontakt": {"phone": "+49 69 5550202", "email": email},
-        "inactive_since": None,
-        "version": 0,
-        **fields,
-    }
+    return schiedsrichter_document(
+        schiedsrichter_id, email=email, name=name, default_payment=20, einwilligung=fields.pop("einwilligung", None), **fields
+    )
 
 
 # A referee's record as their own confirmation leaves it.
@@ -211,7 +205,8 @@ async def _seed(database: AsyncDatabase) -> None:
                 SCHIEDSRICHTER_RETIREMENT_OID, RETIREMENT_SCHIEDSRICHTER, "C. Ruhestand", einwilligung=CONFIRMED, inactive_since="2026-03-01"
             ),
             _schiedsrichter(SCHIEDSRICHTER_WITHOUT_RECORD_OID, SCHIEDSRICHTER_WITHOUT_RECORD, "D. Ohne"),
-            _schiedsrichter(SCHIEDSRICHTER_NULL_RECORD_OID, SCHIEDSRICHTER_NULL_RECORD, "E. Null", einwilligung=None),
+            # A record stored as null, which no write leaves, beside "D. Ohne"'s absent one: the read answers both alike.
+            {**_schiedsrichter(SCHIEDSRICHTER_NULL_RECORD_OID, SCHIEDSRICHTER_NULL_RECORD, "E. Null"), "einwilligung": None},
             _schiedsrichter(
                 SCHIEDSRICHTER_RETIREMENT_OPEN_OID, RETIREMENT_OPEN, "F. Ruhestand-Offen", einwilligung=None, inactive_since="2026-03-01"
             ),

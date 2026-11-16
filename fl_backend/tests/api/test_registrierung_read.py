@@ -57,7 +57,7 @@ def registrierung_document(
         "status": status,
         "first_name": first_name,
         "last_name": f"{first_name}-Brandt",
-        "email": f"{first_name.lower()}@beispielschule.de",
+        "email": f"{first_name.lower()}@beispielschule.example.org",
         "position": None,
         "nummer": None,
         "stufe": "Q1",
@@ -139,7 +139,7 @@ class TestWhatTheReadServes:
             # Beside the seed's two pending rows, one past the cap.
             await database[Collection.REGISTRIERUNGEN].insert_many(
                 [
-                    {**registrierung_document(ObjectId(), first_name="Flut"), "email": f"flut{index}@beispielschule.de"}
+                    {**registrierung_document(ObjectId(), first_name="Flut"), "email": f"flut{index}@beispielschule.example.org"}
                     for index in range(LIST_LIMIT_DEFAULT - 1)
                 ]
             )

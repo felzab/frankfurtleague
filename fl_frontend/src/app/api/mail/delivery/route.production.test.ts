@@ -25,7 +25,7 @@ const { NextRequest } = await import("next/server");
 const { Webhook } = await import("svix");
 
 const ROW_ID = `${"b".repeat(23)}2`;
-const ADDRESS = "erika@schule.de";
+const ADDRESS = "erika@schule.example.org";
 
 /** One event about the row, sent to `ADDRESS`. */
 const eventFor = (type: string, data: Record<string, unknown> = {}): Record<string, unknown> => ({

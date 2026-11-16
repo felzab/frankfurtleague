@@ -71,9 +71,9 @@ def person(first_name: str, *, phone: str, email: str | None = None) -> dict[str
 
 # Distinct on every field a rule compares, so a case moving one of them is the only thing under test.
 KONTAKTE: Mapping[str, Any] = {
-    "trainer": person("Wraxlington", phone="+49 170 1111111"),
-    "ansprechperson": person("Quillhilde", phone="+49 170 2222222"),
-    "stellvertretung": person("Bramblewick", phone="+49 170 3333333"),
+    "trainer": person("Wraxlington", phone="+49 171 3920011"),
+    "ansprechperson": person("Quillhilde", phone="+49 171 3920022"),
+    "stellvertretung": person("Bramblewick", phone="+49 171 3920033"),
     "trainer_is_also": None,
 }
 
@@ -88,7 +88,7 @@ def schule_block(**overrides: Any) -> dict[str, Any]:
         "full_name": "Zorbanax-Gesamtschule",
         "schulform": "gesamtschule",
         "address": dict(ADDRESS),
-        "website_url": "https://zorbanax.example.de",
+        "website_url": "https://zorbanax.example.net",
         **overrides,
     }
 
