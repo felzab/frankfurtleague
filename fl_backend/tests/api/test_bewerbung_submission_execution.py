@@ -12,7 +12,7 @@ from httpx2 import Response
 from pymongo import MongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.public_router import get_einwilligung_view, post_bewerbung
+from app.api.bewerbungen.public_router import post_bewerbung
 from app.api.bewerbungen.schemas import FLPostBewerbungPayload
 from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, compose_kontakte
 from app.core.codes import Code
@@ -20,10 +20,10 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.shared.schemas.bounds import BEWERBUNG_CONFIRMATION_DEADLINE_DAYS
-from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
 from tests.app_client import app_client, app_under_test
+from tests.bewerbung_routes import viewed
 from tests.config import BASE_AUTH, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync
 from tests.documents import ADDRESS, minted_confirmations, rules_document, saison_document, saison_team_document, team_document
@@ -159,14 +159,7 @@ async def submit(database: AsyncDatabase, *, key: UUID | None = None, bewerbunge
 async def view(database: AsyncDatabase, token: str) -> Any:
     """What the confirmation page shows for this link."""
 
-    return await get_einwilligung_view(
-        view_data=FLTokenPayload(token=token),
-        bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        teams_collection=database[Collection.TEAMS],
-        today=TODAY,
-    )
+    return await viewed(database, token, today=TODAY)
 
 
 class TestWhatASubmissionStores:

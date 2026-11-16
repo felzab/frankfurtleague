@@ -25,6 +25,7 @@ being flat.
 | `team_writes.py`                                                         | The team editor's save and a seat's block written as the routes write them, outside a request                                                |
 | `spiel_saves.py`                                                         | A season whose fixtures a case saves, and the save run by the route's own function                                                           |
 | `spielbestaetigung_corpus.py`                                            | A league whose fixtures the confirmation pass asks about, and the pass run by its route's own function                                       |
+| `bewerbung_routes.py`                                                    | The routes a seat's link reaches, each called by its own function outside a request                                                          |
 | `bans.py`                                                                | The ban list under the suite's key, and a ban entered through its route rather than seeded                                                   |
 | `acts.py`                                                                | The `action_log` rows a write left, the journal lines a case captured, and the administrator a direct call acts as                           |
 | `outbox.py`                                                              | The clock a case owes mail under, and one drain of the Postausgang as the frontend's drain settles it                                        |

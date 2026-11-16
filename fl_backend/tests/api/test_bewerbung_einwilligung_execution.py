@@ -5,22 +5,20 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from pydantic import TypeAdapter
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.admin_router import post_kontakt_seat, resend_einwilligung
-from app.api.bewerbungen.public_router import get_einwilligung_view, post_einwilligung
-from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAnswerPayload, FLBewerbungKontaktSeatPayload
+from app.api.bewerbungen.admin_router import post_kontakt_seat
+from app.api.bewerbungen.schemas import FLBewerbungKontaktSeatPayload
 from app.core.clock import utc_stamp
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.shared.schemas.bounds import BEWERBUNG_KONTAKT_MAX_AGE_YEARS
-from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
 from tests import documents
+from tests.bewerbung_routes import answered, resent, viewed
 from tests.database import a_clean_database
 from tests.documents import kontaktperson_document, team_document
 from tests.outbox import MAIL_NOW, drained
@@ -109,14 +107,7 @@ async def on_a_league(url: str, body: Body, *, documents: list[dict[str, Any]] |
 
 
 async def read_view(database: AsyncDatabase, token: str) -> Any:
-    return await get_einwilligung_view(
-        view_data=FLTokenPayload(token=token),
-        bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        teams_collection=database[Collection.TEAMS],
-        today=TODAY,
-    )
+    return await viewed(database, token, today=TODAY)
 
 
 async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, *, now: datetime = NOW, **overrides: Any) -> Any:
@@ -132,30 +123,11 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
     }
     body = {"token": token, **(overrides if overrides.get("answer") == "declined" else {**given, **overrides})}
 
-    return await post_einwilligung(
-        answer_data=TypeAdapter(FLBewerbungEinwilligungAnswerPayload).validate_python(body),
-        bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        outbox_collection=database[Collection.OUTBOX],
-        db=client,
-        today=TODAY,
-        germany_now=now,
-    )
+    return await answered(database, client, body, today=TODAY, germany_now=now)
 
 
 async def resend(database: AsyncDatabase, seat: str, bewerbung_id: ObjectId = BEWERBUNG_OID) -> Any:
-    return await resend_einwilligung(
-        bewerbung_id=bewerbung_id,
-        seat=seat,
-        bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        teams_collection=database[Collection.TEAMS],
-        outbox_collection=database[Collection.OUTBOX],
-        db=database.client,
-        today=TODAY,
-        germany_now=MAIL_NOW,
-    )
+    return await resent(database, bewerbung_id, seat, today=TODAY, germany_now=MAIL_NOW)
 
 
 async def stored(database: AsyncDatabase, bewerbung_id: ObjectId = BEWERBUNG_OID) -> Mapping[str, Any]:
@@ -163,52 +135,6 @@ async def stored(database: AsyncDatabase, bewerbung_id: ObjectId = BEWERBUNG_OID
     assert found is not None, "the seeded application is gone"
 
     return found
-
-
-class ReadsRecorded:
-    """A collection, keeping what each `find_one` answered: the season rows' link tests read it too.
-
-    A delegating wrapper rather than a stub: mongod applies the projection, and a stub would hand
-    back whatever the handler asked for.
-    """
-
-    def __init__(self, collection: Any) -> None:
-        self._collection = collection
-        self.answered: list[tuple[Any, Any]] = []
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._collection, name)
-
-    # Spelled `filter` because `fl_backend/app/core/crud.py` passes it by that keyword; a rename here
-    # is a TypeError at the first helper this collection is handed to.
-    async def find_one(self, filter: Any = None, *args: Any, **kwargs: Any) -> Any:
-        document = await self._collection.find_one(filter, *args, **kwargs)
-        self.answered.append((filter, document))
-
-        return document
-
-
-def loaded_by_the_link(recorder: ReadsRecorded) -> list[Any]:
-    """Every document the TOKEN filter found.
-
-    `fl_backend/app/core/crud.py :: patch_one_in_db` reads the same application twice more, on `_id`
-    and unprojected, its pre-image being the log's.
-    """
-
-    return [document for db_filter, document in recorder.answered if "$or" in db_filter]
-
-
-def leaf_paths(document: Any, prefix: str = "") -> set[str]:
-    """Every dotted path this document holds a value at.
-
-    An empty block counts as one: it would otherwise vanish from the comparison, and a projection
-    widened onto a block this seed leaves empty would pass.
-    """
-
-    if not isinstance(document, Mapping) or not document:
-        return {prefix} if prefix else set()
-
-    return {path for key, value in document.items() for path in leaf_paths(value, f"{prefix}.{key}" if prefix else key)}
 
 
 class TestWhatALinkOpens:
