@@ -18,6 +18,7 @@ from tests.documents import (
     kontaktperson_document,
     own_einwilligung_document,
     saison_team_document,
+    schiedsrichter_document,
     school_year_saison_document,
     spieler_document,
 )
@@ -116,18 +117,11 @@ def _unconfirmed_spieler(spieler_id: ObjectId, email: str) -> dict[str, Any]:
     return {**spieler_document(spieler_id, "Anna", "Müller", email=email), "einwilligung": {**EINWILLIGUNG, "confirmed_at": None}}
 
 
-def _schiedsrichter(schiedsrichter_id: ObjectId, email: str, name: str | None, **fields: Any) -> dict[str, Any]:
+def _schiedsrichter(schiedsrichter_id: ObjectId, email: str, name: str, **fields: Any) -> dict[str, Any]:
     # A name per referee: `app/core/constraints.py :: uniq_schiedsrichter_name` indexes it.
-    return {
-        "_id": schiedsrichter_id,
-        "name": name,
-        "schule": None,
-        "default_payment": 20,
-        "kontakt": {"phone": "+49 69 90009202", "email": email},
-        "inactive_since": None,
-        "version": 0,
-        **fields,
-    }
+    return schiedsrichter_document(
+        schiedsrichter_id, email=email, name=name, default_payment=20, einwilligung=fields.pop("einwilligung", None), **fields
+    )
 
 
 # A referee's record as their own confirmation leaves it.
@@ -211,7 +205,8 @@ async def _seed(database: AsyncDatabase) -> None:
                 SCHIEDSRICHTER_RETIREMENT_OID, RETIREMENT_SCHIEDSRICHTER, "C. Ruhestand", einwilligung=CONFIRMED, inactive_since="2026-03-01"
             ),
             _schiedsrichter(SCHIEDSRICHTER_WITHOUT_RECORD_OID, SCHIEDSRICHTER_WITHOUT_RECORD, "D. Ohne"),
-            _schiedsrichter(SCHIEDSRICHTER_NULL_RECORD_OID, SCHIEDSRICHTER_NULL_RECORD, "E. Null", einwilligung=None),
+            # A record stored as null, which no write leaves, beside "D. Ohne"'s absent one: the read answers both alike.
+            {**_schiedsrichter(SCHIEDSRICHTER_NULL_RECORD_OID, SCHIEDSRICHTER_NULL_RECORD, "E. Null"), "einwilligung": None},
             _schiedsrichter(
                 SCHIEDSRICHTER_RETIREMENT_OPEN_OID, RETIREMENT_OPEN, "F. Ruhestand-Offen", einwilligung=None, inactive_since="2026-03-01"
             ),

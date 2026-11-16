@@ -48,16 +48,14 @@ PHONE = "+49 69 90009303"
 def referee_document(**overrides: Any) -> dict[str, Any]:
     """A referee as the administrator entered them, before their own answer."""
 
-    return {
-        "_id": SCHIEDSRICHTER_OID,
-        "name": NAME,
-        "schule": "Bettina-Schule",
-        "default_payment": 20,
-        "kontakt": {"phone": PHONE, "email": EMAIL},
-        "inactive_since": None,
-        "version": 0,
-        **overrides,
-    }
+    return documents.schiedsrichter_document(
+        SCHIEDSRICHTER_OID,
+        email=EMAIL,
+        name=NAME,
+        default_payment=20,
+        einwilligung=None,
+        **{"schule": "Bettina-Schule", "kontakt": {"phone": PHONE, "email": EMAIL}, **overrides},
+    )
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]

@@ -24,7 +24,7 @@ from app.shared.folding import sign_in_identifier
 from app.shared.schemas.kontakt import FLKontaktPayload
 from app.shared.tokens import hash_token
 from tests.database import a_clean_database
-from tests.documents import SCHIEDSRICHTER_TEXT_VERSIONS, own_einwilligung_document, saison_document, spiel_document
+from tests.documents import SCHIEDSRICHTER_TEXT_VERSIONS, own_einwilligung_document, saison_document, schiedsrichter_document, spiel_document
 from tests.erasure import erased
 from tests.outbox import MAIL_NOW
 from tests.worker import worker_database
@@ -110,20 +110,19 @@ ARCHIVED_SPIEL_OID = ObjectId("6890a1b2c3d4e5f607800014")
 def referee_document(schiedsrichter_id: ObjectId) -> dict[str, Any]:
     """Every field `FLSchiedsrichterRecord` requires, and the referee SERVING: no retire-first precondition attaches to this endpoint."""
 
-    return {
-        "_id": schiedsrichter_id,
-        "name": REFEREE_NAMES[schiedsrichter_id],
-        "schule": SCHULE,
-        "default_payment": DEFAULT_PAYMENT,
-        "kontakt": dict(FORMER_KONTAKT[schiedsrichter_id]),
-        "inactive_since": None,
+    return schiedsrichter_document(
+        schiedsrichter_id,
+        email=FORMER_KONTAKT[schiedsrichter_id]["email"],
+        name=REFEREE_NAMES[schiedsrichter_id],
+        default_payment=DEFAULT_PAYMENT,
+        einwilligung=own_einwilligung_document(text_versions=SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at=MINTED_ON, media=True),
+        schule=SCHULE,
+        kontakt=dict(FORMER_KONTAKT[schiedsrichter_id]),
         # Seeded because the erasure adds no `$set` for any of the three: a row carrying none of
         # them would let a nulling write pass every case below.
-        "confirmation": {**compose_confirmation(today=MINTED_ON), "token_hashes": [TOKEN_HASHES[schiedsrichter_id]]},
-        "einwilligung": own_einwilligung_document(text_versions=SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at=MINTED_ON, media=True),
-        "birth_date": BIRTH_DATE,
-        "version": 0,
-    }
+        confirmation={**compose_confirmation(today=MINTED_ON), "token_hashes": [TOKEN_HASHES[schiedsrichter_id]]},
+        birth_date=BIRTH_DATE,
+    )
 
 
 def booked_spiel_document(schiedsrichter_id: ObjectId, spiel_id: ObjectId, spiel_nr: int) -> dict[str, Any]:

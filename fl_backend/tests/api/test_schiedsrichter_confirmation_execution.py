@@ -83,19 +83,17 @@ def saison_document() -> dict[str, Any]:
     return documents.saison_document(SAISON_ID, "active")
 
 
-def referee_document(*, email: str | None = EMAIL, **overrides: Any) -> dict[str, Any]:
+def referee_document(*, email: str = EMAIL, **overrides: Any) -> dict[str, Any]:
     """A referee entered before this flow: no link, no record, no birthdate."""
 
-    return {
-        "_id": SCHIEDSRICHTER_OID,
-        "name": NAME,
-        "schule": SCHULE,
-        "default_payment": DEFAULT_PAYMENT,
-        "kontakt": {"phone": PHONE, "email": email},
-        "inactive_since": None,
-        "version": 0,
-        **overrides,
-    }
+    return documents.schiedsrichter_document(
+        overrides.pop("_id", SCHIEDSRICHTER_OID),
+        email=email,
+        name=overrides.pop("name", NAME),
+        default_payment=DEFAULT_PAYMENT,
+        einwilligung=None,
+        **{"schule": SCHULE, "kontakt": {"phone": PHONE, "email": email}, **overrides},
+    )
 
 
 def payload_body(*, email: str | None = EMAIL) -> dict[str, Any]:
