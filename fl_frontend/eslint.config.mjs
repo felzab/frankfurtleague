@@ -1426,6 +1426,13 @@ const eslintConfig = defineConfig([
     rules: { "fl/no-own-module-double": ["error", { edges: EDGE_MODULES }] },
   },
 
+  // A test imports a module as the source does, without its `.ts` or `.tsx` suffix. Every other file keeps its own: a
+  // `.mts` one, which TypeScript's bundler resolution does not add, a stylesheet or an image, and a package's deep path.
+  {
+    files: [...TEST_FILES, "src/test-support/**/*.{ts,tsx,mts}"],
+    rules: { "import/extensions": ["error", "always", { ignorePackages: true, pattern: { ts: "never", tsx: "never" } }] },
+  },
+
   // The a11y rule set. Only the rules are taken from the plugin: `eslint-config-next` already
   // registers it, and registering it twice is a flat-config error.
   {

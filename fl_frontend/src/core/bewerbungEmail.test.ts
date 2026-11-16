@@ -2,8 +2,8 @@ import { assert, describe, expect, it } from "vitest";
 
 import type { FLBewerbungLinkData, FLBewerbungZusageData } from "./generated/client/types";
 
-const { buildBewerbungConfirmationEmail, buildBewerbungZusageEmail } = await import("./bewerbungEmail.ts");
-const { renderMail } = await import("./emailShell.ts");
+const { buildBewerbungConfirmationEmail, buildBewerbungZusageEmail } = await import("./bewerbungEmail");
+const { renderMail } = await import("./emailShell");
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";

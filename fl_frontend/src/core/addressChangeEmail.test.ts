@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { COPY } from "./copy.ts";
+import { COPY } from "./copy";
 
-const { HOLDER_WAIT } = await import("./addressChange.ts");
-const { mailFor } = await import("./mailKinds.ts");
-const { renderMail } = await import("./emailShell.ts");
-const { SERVER_COPY } = await import("./serverCopy.ts");
+const { HOLDER_WAIT } = await import("./addressChange");
+const { mailFor } = await import("./mailKinds");
+const { renderMail } = await import("./emailShell");
+const { SERVER_COPY } = await import("./serverCopy");
 
 const LINK = { token: "example-one", secret: null, origin: "http://localhost:3000" };
 

@@ -1,7 +1,7 @@
-import { networkFailure, serveBackend } from "@/test-support/backend.ts";
+import { networkFailure, serveBackend } from "@/test-support/backend";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { APINetworkError } from "@/core/errors.ts";
+import { APINetworkError } from "@/core/errors";
 
 const LIST = "/spielbestaetigungen/sweep";
 
@@ -29,7 +29,7 @@ const backend = serveBackend(({ method, path }) => {
   return saisonId === undefined ? undefined : passAnswer(saisonId);
 });
 
-const { runSpielSweep } = await import("./sweep.ts");
+const { runSpielSweep } = await import("./sweep");
 
 /** Every request in the order sent. */
 const sent = (): string[] => backend.sent.map(({ method, path }) => `${method} ${path}`);

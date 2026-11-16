@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import type { FLGrantData } from "./generated/client/types.ts";
+import type { FLGrantData } from "./generated/client/types";
 
-const { mailFor } = await import("./mailKinds.ts");
-const { renderMail } = await import("./emailShell.ts");
-const { SERVER_COPY } = await import("./serverCopy.ts");
+const { mailFor } = await import("./mailKinds");
+const { renderMail } = await import("./emailShell");
+const { SERVER_COPY } = await import("./serverCopy");
 
 const WORDS = SERVER_COPY.mail.grant;
 const ADDRESS = "nora.neu@beispielschule.de";

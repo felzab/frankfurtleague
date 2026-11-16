@@ -1,13 +1,13 @@
 // The log capture's own guarantee, which every suite reading the logger's lines relies on and none tests: it reads
 // the logger's chunks alone, each case from an empty record, and a line it cannot read fails the case, not the writer.
-import { caseFailures } from "@/test-support/caseFailures.ts";
-import { captureLog } from "@/test-support/stdoutCapture.ts";
+import { caseFailures } from "@/test-support/caseFailures";
+import { captureLog } from "@/test-support/stdoutCapture";
 import { describe, expect, it } from "vitest";
 
 const log = captureLog();
 
 // Imported after the capture, as a suite's subject is.
-const { logger } = await import("@/core/logging.ts");
+const { logger } = await import("@/core/logging");
 
 const { failsNaming } = caseFailures();
 

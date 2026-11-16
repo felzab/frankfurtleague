@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-const { buildInvitationEmail } = await import("./invitationEmail.ts");
-const { renderMail } = await import("./emailShell.ts");
+const { buildInvitationEmail } = await import("./invitationEmail");
+const { renderMail } = await import("./emailShell");
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";

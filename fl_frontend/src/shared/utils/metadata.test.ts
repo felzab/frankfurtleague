@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { ROUTES } from "@/core/routes.ts";
+import { ROUTES } from "@/core/routes";
 
-import { pageMetadata } from "./metadata.ts";
+import { pageMetadata } from "./metadata";
 
 import type { ResolvedMetadata, ResolvingMetadata } from "next";
 

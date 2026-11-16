@@ -4,8 +4,8 @@ import path from "node:path";
 import { expect, it } from "vitest";
 import { z } from "zod";
 
-import { FETCH_TIMEOUT_MS } from "./api.ts";
-import { MAIL_TIMEOUT_MS } from "./mail.ts";
+import { FETCH_TIMEOUT_MS } from "./api";
+import { MAIL_TIMEOUT_MS } from "./mail";
 
 /**
  * The drain's two bounds as the backend's lease counts them, the first also the bound the backend's request deadline

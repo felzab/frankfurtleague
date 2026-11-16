@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 
-import { memoryAdapterDouble, memoryStore, registerAuthDoubles } from "@/test-support/authDoubles.ts";
-import { captureLog } from "@/test-support/stdoutCapture.ts";
+import { memoryAdapterDouble, memoryStore, registerAuthDoubles } from "@/test-support/authDoubles";
+import { captureLog } from "@/test-support/stdoutCapture";
 import { MongoServerError, MongoServerSelectionError } from "mongodb";
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
@@ -61,8 +61,8 @@ registerAuthDoubles({
 });
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
-const { buildAuthIndexes } = await import("./authIndexes.ts");
-const { auth } = await import("./auth/library.ts");
+const { buildAuthIndexes } = await import("./authIndexes");
+const { auth } = await import("./auth/library");
 
 /** The collections the build writes to, each a table of the library's. */
 const COLLECTIONS = ["session", "passkey", "user", "verification"] as const;

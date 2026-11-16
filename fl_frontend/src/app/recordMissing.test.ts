@@ -1,10 +1,10 @@
-import { refusal, serveBackend } from "@/test-support/backend.ts";
-import { signedInRequest } from "@/test-support/session.ts";
+import { refusal, serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
 import { describe, expect, it } from "vitest";
 
-import { APIBadStatusError } from "@/core/errors.ts";
+import { APIBadStatusError } from "@/core/errors";
 
-import type { Code } from "@/core/generated/client/types.ts";
+import type { Code } from "@/core/generated/client/types";
 
 /** What the backend answers every read with, set by each case. */
 let failure: () => Response;
@@ -13,9 +13,9 @@ const backend = serveBackend(() => failure());
 // (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
 signedInRequest();
 
-const bewerbungen = await import("@/features/bewerbungen/queries.ts");
-const schiedsrichter = await import("@/features/schiedsrichter/queries.ts");
-const spiele = await import("@/features/spiele/queries.ts");
+const bewerbungen = await import("@/features/bewerbungen/queries");
+const schiedsrichter = await import("@/features/schiedsrichter/queries");
+const spiele = await import("@/features/spiele/queries");
 
 const ONE_ID = "0123456789abcdef01234567";
 

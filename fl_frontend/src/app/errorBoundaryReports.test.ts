@@ -5,13 +5,13 @@ import { pathToFileURL } from "node:url";
 
 import { createElement as h } from "react";
 
-import { underNext } from "@/test-support/nextContexts.ts";
-import { filesUnder } from "@/test-support/treeWalk.ts";
+import { underNext } from "@/test-support/nextContexts";
+import { filesUnder } from "@/test-support/treeWalk";
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
-import { COPY } from "@/core/copy.ts";
-import { ROUTES } from "@/core/routes.ts";
+import { COPY } from "@/core/copy";
+import { ROUTES } from "@/core/routes";
 
 import type { ComponentType } from "react";
 import type { MockInstance } from "vitest";

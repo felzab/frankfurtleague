@@ -2,9 +2,9 @@
 import { renderHook } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 
-import { useReportClientCrash } from "./useReportClientCrash.ts";
+import { useReportClientCrash } from "./useReportClientCrash";
 
-const { POST } = await import("@/app/api/client-error/route.ts");
+const { POST } = await import("@/app/api/client-error/route");
 const { NextRequest } = await import("next/server");
 
 afterEach(() => void vi.restoreAllMocks());

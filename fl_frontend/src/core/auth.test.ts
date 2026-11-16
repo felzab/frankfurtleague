@@ -16,19 +16,19 @@ import {
   registerAuthDoubles,
   sessionByCode,
   signInByCode,
-} from "@/test-support/authDoubles.ts";
-import { networkFailure, serveBackend } from "@/test-support/backend.ts";
-import { captureLog } from "@/test-support/stdoutCapture.ts";
-import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures.ts";
-import { assertionFor, COSE_KEY, CREDENTIAL_ID, CREDENTIAL_RAW_ID, registrationFor } from "@/test-support/testAuthenticator.ts";
+} from "@/test-support/authDoubles";
+import { networkFailure, serveBackend } from "@/test-support/backend";
+import { captureLog } from "@/test-support/stdoutCapture";
+import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures";
+import { assertionFor, COSE_KEY, CREDENTIAL_ID, CREDENTIAL_RAW_ID, registrationFor } from "@/test-support/testAuthenticator";
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { assertionAnswer } from "./auth/assertionAnswer.ts";
-import { PASSKEY_TOUCH_SECONDS } from "./sessionLifetimes.ts";
+import { assertionAnswer } from "./auth/assertionAnswer";
+import { PASSKEY_TOUCH_SECONDS } from "./sessionLifetimes";
 
-import type { MemoryStore, SessionRow } from "@/test-support/authDoubles.ts";
-import type { LoggedLine } from "@/test-support/stdoutCapture.ts";
-import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
+import type { MemoryStore, SessionRow } from "@/test-support/authDoubles";
+import type { LoggedLine } from "@/test-support/stdoutCapture";
+import type { LookupFixture } from "@/test-support/subjectFixtures";
 import type { MemoryDB } from "better-auth/adapters/memory";
 
 /** Granted nothing: the person arm of every case below. */
@@ -231,16 +231,16 @@ const { toNextJsHandler } = await import("better-auth/next-js");
 const { runWithEndpointContext } = (await import(
   pathToFileURL(createRequire(import.meta.resolve("better-auth")).resolve("@better-auth/core/context")).href
 )) as { runWithEndpointContext: <T>(context: object, run: () => Promise<T>) => Promise<T> };
-const { auth } = await import("./auth/library.ts");
-const { deleteAccountFor, deleteOwnAccount, listAccounts, requestAccountDeletion } = await import("./auth/accounts.ts");
-const { endSessionsOfAddress } = await import("./auth/accountSessions.ts");
-const { getAccountSession, getAdminSession, isAdminSession, judgeAdminRequest, passesPasskeyTouch } = await import("./auth/guards.ts");
-const { getPasskeyStep, getSignInLanding } = await import("./auth/landing.ts");
-const { PASSKEY_LIMIT } = await import("./auth/enrolment.ts");
-const { readServedSession } = await import("./auth/session.ts");
-const { getSubjectSession } = await import("./subject.ts");
-const { CODE_VALIDITY_MINUTES } = await import("./authEmail.ts");
-const { proxy } = await import("../proxy.ts");
+const { auth } = await import("./auth/library");
+const { deleteAccountFor, deleteOwnAccount, listAccounts, requestAccountDeletion } = await import("./auth/accounts");
+const { endSessionsOfAddress } = await import("./auth/accountSessions");
+const { getAccountSession, getAdminSession, isAdminSession, judgeAdminRequest, passesPasskeyTouch } = await import("./auth/guards");
+const { getPasskeyStep, getSignInLanding } = await import("./auth/landing");
+const { PASSKEY_LIMIT } = await import("./auth/enrolment");
+const { readServedSession } = await import("./auth/session");
+const { getSubjectSession } = await import("./subject");
+const { CODE_VALIDITY_MINUTES } = await import("./authEmail");
+const { proxy } = await import("../proxy");
 const { NextRequest } = await import("next/server");
 
 const handler = toNextJsHandler(auth);
@@ -2035,7 +2035,7 @@ describe("which addresses the send gate mails", () => {
 
   for (const [who, email, backend, verdict] of VERDICTS) {
     it(`answers ${who} \`${verdict}\``, async () => {
-      const { mayReceiveSignIn } = await import("./signInGate.ts");
+      const { mayReceiveSignIn } = await import("./signInGate");
       if (backend !== undefined) BACKENDS.set(email, backend);
 
       expect(await mayReceiveSignIn(email)).toBe(verdict);
@@ -2155,7 +2155,7 @@ describe("which spelling of an administrator a write is attributed to", () => {
   /* One person, one spelling in `action_log.by`, which an administrator's act takes from this actor,
      so a log filtered on it holds every write they made. */
   it("records the folded identifier, which is the spelling the grant itself is looked up by", async () => {
-    const { getRequestActor, runWithRequestScope } = await import("./requestScope.ts");
+    const { getRequestActor, runWithRequestScope } = await import("./requestScope");
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
 
@@ -2179,7 +2179,7 @@ describe("which spelling of an administrator a write is attributed to", () => {
   /* What the backend reads beside the admin key: the admin tier admits only a passkey's session
      inside the administrator's window, judged off these two values. */
   it("states the session's address, age and factor under the administrator's lane", async () => {
-    const { getRequestActor, runWithRequestScope } = await import("./requestScope.ts");
+    const { getRequestActor, runWithRequestScope } = await import("./requestScope");
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
     arriveAs(cookie);
@@ -2261,7 +2261,7 @@ describe("a sign-in the ban's ending overtook between its gate read and its row"
 
 /** Runs `run` as one request of `email`'s, its person recorded as the actor, as the person spine records one. */
 async function asPerson<T>(email: string, run: () => Promise<T>): Promise<T> {
-  const { runWithRequestScope } = await import("./requestScope.ts");
+  const { runWithRequestScope } = await import("./requestScope");
   return runWithRequestScope(
     {
       traceId: `${"0".repeat(31)}3`,

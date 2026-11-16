@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { allowedReturnAddress, withReturnAddress } from "./returnAddress.ts";
+import { allowedReturnAddress, withReturnAddress } from "./returnAddress";
 
 describe("the addresses a sign-in may return to", () => {
   it.each(["/area", "/account", "/admin", "/admin/spielorte", "/erasure"])("holds %s", (asked) => {

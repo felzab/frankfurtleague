@@ -10,17 +10,17 @@ import {
   overriding,
   registerAuthDoubles,
   signInByCode,
-} from "@/test-support/authDoubles.ts";
-import { serveBackend } from "@/test-support/backend.ts";
-import { emptyStore } from "@/test-support/emptyStore.ts";
-import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
-import { captureLog } from "@/test-support/stdoutCapture.ts";
-import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures.ts";
-import { registrationFor } from "@/test-support/testAuthenticator.ts";
+} from "@/test-support/authDoubles";
+import { serveBackend } from "@/test-support/backend";
+import { emptyStore } from "@/test-support/emptyStore";
+import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions";
+import { captureLog } from "@/test-support/stdoutCapture";
+import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures";
+import { registrationFor } from "@/test-support/testAuthenticator";
 import { MongoServerError } from "mongodb";
 import { assert, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
+import type { LookupFixture } from "@/test-support/subjectFixtures";
 
 // A replica set.
 const { mongod, closing } = await startJudgedReplicaSet();
@@ -30,7 +30,7 @@ const MONGO_URL = replicaSetUrl(mongod);
 
 // The real `fl_frontend/src/core/db.ts`, which the auth doubles replace by default: the client
 // under test is the one it builds.
-const PRODUCTION_DB = "@/core/db.ts";
+const PRODUCTION_DB = "@/core/db";
 
 type Method = (...args: unknown[]) => unknown;
 
@@ -185,10 +185,10 @@ const counting = new Barrier();
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { toNextJsHandler } = await import("better-auth/next-js");
-const { auth } = await import("./auth/library.ts");
-const { carryAccount, deleteAccountFor, deleteOwnAccount, requestAccountDeletion } = await import("./auth/accounts.ts");
-const { endSessionsOfAddress } = await import("./auth/accountSessions.ts");
-const { buildAuthIndexes } = await import("./authIndexes.ts");
+const { auth } = await import("./auth/library");
+const { carryAccount, deleteAccountFor, deleteOwnAccount, requestAccountDeletion } = await import("./auth/accounts");
+const { endSessionsOfAddress } = await import("./auth/accountSessions");
+const { buildAuthIndexes } = await import("./authIndexes");
 
 type Collection = {
   find: (filter: object) => { toArray: () => Promise<Record<string, unknown>[]> };
@@ -556,8 +556,8 @@ describe("a code sign-in through the mint, against a real database", () => {
    never test: an update matching nothing signs the reader out instead. */
 describe("a session only read, against a real database", () => {
   it("slides the stored row once past `updateAge` at the proxy, and never at a guard's read", async () => {
-    const { readServedSession } = await import("./auth/session.ts");
-    const { proxy } = await import("../proxy.ts");
+    const { readServedSession } = await import("./auth/session");
+    const { proxy } = await import("../proxy");
     const { NextRequest } = await import("next/server");
 
     gateAnswer = { seats: [SEAT], barred: false, account: true };
@@ -637,7 +637,7 @@ async function heldOf({ userId, pending }: { userId: string; pending: readonly s
    never shows: a row they miss stands here and nowhere else. */
 describe("an account deleted, against a real database", () => {
   it("leaves nothing of the address once its own link completes, and nothing of anybody else's goes", async () => {
-    const { runWithRequestScope } = await import("./requestScope.ts");
+    const { runWithRequestScope } = await import("./requestScope");
     const bystander = await seedAccount("unbeteiligt-db@example.org");
     const person = await seedAccount("loeschende-db@example.org");
     const erasuresBefore = erasuresAsked;
@@ -658,7 +658,7 @@ describe("an account deleted, against a real database", () => {
   /* Both deletion paths find an account by its user row, so the helper goes first: a failure at that row
      leaves it for them to find, and no passkey past their reach. */
   it("leaves the user row alone where the library's delete of it fails, its passkeys and pending rows gone", async () => {
-    const { runWithRequestScope } = await import("./requestScope.ts");
+    const { runWithRequestScope } = await import("./requestScope");
     const person = await seedAccount("nutzerzeile-db@example.org");
     deletingUser = () => Promise.reject(new Error("planted: the user row's delete fails"));
 
@@ -692,7 +692,7 @@ describe("an account deleted, against a real database", () => {
   /* The first run's commit fails transiently and writes nothing, so the adapter runs the deletion again; that
      run fails before its commit, and the caller is told of the rollback it is rather than an unknown outcome. */
   it("answers a rollback where the run retried after a transient commit failure fails, and deletes nothing", async () => {
-    const { RolledBackError } = await import("./errors.ts");
+    const { RolledBackError } = await import("./errors");
     const person = await seedAccount("konto-zweiter-lauf-db@example.org");
     let commits = 0;
     atCommit = async (session) => {

@@ -7,16 +7,16 @@ import {
   ORIGIN,
   registerAuthDoubles,
   sessionByCode,
-} from "@/test-support/authDoubles.ts";
-import { serveBackend } from "@/test-support/backend.ts";
-import { beginRenderPass, leaveRenderPass, serveServerReact } from "@/test-support/cacheScope.ts";
-import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures.ts";
-import { timeoutSignalsOnFakeTimers } from "@/test-support/timeoutSignals.ts";
+} from "@/test-support/authDoubles";
+import { serveBackend } from "@/test-support/backend";
+import { beginRenderPass, leaveRenderPass, serveServerReact } from "@/test-support/cacheScope";
+import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures";
+import { timeoutSignalsOnFakeTimers } from "@/test-support/timeoutSignals";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { SessionRow } from "@/test-support/authDoubles.ts";
-import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
-import type { RequestActor } from "./requestScope.ts";
+import type { SessionRow } from "@/test-support/authDoubles";
+import type { LookupFixture } from "@/test-support/subjectFixtures";
+import type { RequestActor } from "./requestScope";
 
 const STORE = "__flSubjectStore";
 
@@ -97,14 +97,14 @@ beforeEach(() => {
 });
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
-const { auth } = await import("./auth/library.ts");
-const { getAdminSession } = await import("./auth/guards.ts");
-const { getSignInLanding } = await import("./auth/landing.ts");
-const { getSubjectSession } = await import("./subject.ts");
-const { getRequestActor, requestWriteMayStand, runWithRequestScope } = await import("./requestScope.ts");
-const { APINetworkError } = await import("./errors.ts");
-const { readTraceparent, TRACEPARENT_HEADER } = await import("./trace.ts");
-const { FETCH_TIMEOUT_MS } = await import("./api.ts");
+const { auth } = await import("./auth/library");
+const { getAdminSession } = await import("./auth/guards");
+const { getSignInLanding } = await import("./auth/landing");
+const { getSubjectSession } = await import("./subject");
+const { getRequestActor, requestWriteMayStand, runWithRequestScope } = await import("./requestScope");
+const { APINetworkError } = await import("./errors");
+const { readTraceparent, TRACEPARENT_HEADER } = await import("./trace");
+const { FETCH_TIMEOUT_MS } = await import("./api");
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
@@ -618,7 +618,7 @@ describe("the guard across one render pass", () => {
   /* Each guard called once, so each one's own memo is idle and the count is the reads the three share: the session
      read's and the lookup's. */
   it("reads the session once for the person guard, the account guard and the administrator's guard of one render pass", async () => {
-    const { getAccountSession } = await import("./auth/guards.ts");
+    const { getAccountSession } = await import("./auth/guards");
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
     arriveAs(cookie);
@@ -639,8 +639,8 @@ describe("the guard across one render pass", () => {
    in an action's body ran the whole guard again: a session read, a backend lookup and a token. */
 describe("the administrator's guard across a server action", () => {
   it("judges the action's body and every admin read in it once, and the render after it afresh", async () => {
-    const { runWithIncomingTrace } = await import("./traceScope.ts");
-    const { runAdminRead } = await import("@/shared/utils/adminRead.ts");
+    const { runWithIncomingTrace } = await import("./traceScope");
+    const { runAdminRead } = await import("@/shared/utils/adminRead");
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
     arriveAs(cookie);

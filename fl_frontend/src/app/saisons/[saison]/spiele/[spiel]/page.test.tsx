@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { Table } from "@/kit/Table";
-import { serveBackend } from "@/test-support/backend.ts";
-import { doubleNextRequest } from "@/test-support/nextRequest.ts";
+import { serveBackend } from "@/test-support/backend";
+import { doubleNextRequest } from "@/test-support/nextRequest";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 

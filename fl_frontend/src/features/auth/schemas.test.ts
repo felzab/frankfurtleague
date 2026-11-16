@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { SignInAddressSchema } from "./schemas.ts";
+import { SignInAddressSchema } from "./schemas";
 
 describe("an address a person will sign in at", () => {
   /* The API takes every atext character and the sign-in library does not: a grant there admits nobody, and a change onto

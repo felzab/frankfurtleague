@@ -1,9 +1,9 @@
-import { memoryAdapterDouble, memoryStore, overriding, registerAuthDoubles } from "@/test-support/authDoubles.ts";
-import { networkFailure, refusal, serveBackend, serveHost } from "@/test-support/backend.ts";
-import { captureLog } from "@/test-support/stdoutCapture.ts";
+import { memoryAdapterDouble, memoryStore, overriding, registerAuthDoubles } from "@/test-support/authDoubles";
+import { networkFailure, refusal, serveBackend, serveHost } from "@/test-support/backend";
+import { captureLog } from "@/test-support/stdoutCapture";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { FLOutboxHandout } from "@/core/generated/client/types.ts";
+import type { FLOutboxHandout } from "@/core/generated/client/types";
 
 /* Every pass here runs the five real jobs and the real drain, the backend and the hosts they reach answered on the
    network: what a job did is what the backend saw it ask. */
@@ -97,7 +97,7 @@ const store = memoryStore(STORE);
 registerAuthDoubles({
   core: {
     // The environment's edge: the values a case varies, every other reader the real one over the run's secret files.
-    config: overriding("@/core/config.ts", {
+    config: overriding("@/core/config", {
       frontend_config: ({ frontend_config }) => Object.assign(settings, frontend_config, { APP_VERSION: "sha-1234567", APP_ENV: "production" }),
       heartbeatUrl: () => () => heartbeat,
       authResendKey: () => () => "fabricated-resend-not-a-credential",
@@ -126,9 +126,9 @@ registerAuthDoubles({
 });
 const log = captureLog();
 
-const { register } = await import("./instrumentation.ts");
-const { auth } = await import("@/core/auth/library.ts");
-const { drainOutbox } = await import("@/core/mail.ts");
+const { register } = await import("./instrumentation");
+const { auth } = await import("@/core/auth/library");
+const { drainOutbox } = await import("@/core/mail");
 
 const schedulerLines = () =>
   log

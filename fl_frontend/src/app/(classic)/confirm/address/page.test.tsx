@@ -1,5 +1,5 @@
-import { serveBackend } from "@/test-support/backend.ts";
-import { doubleNextRequest } from "@/test-support/nextRequest.ts";
+import { serveBackend } from "@/test-support/backend";
+import { doubleNextRequest } from "@/test-support/nextRequest";
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";

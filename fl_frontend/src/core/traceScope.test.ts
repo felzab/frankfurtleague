@@ -1,6 +1,6 @@
-import { beginRenderPass, serveServerReact } from "@/test-support/cacheScope.ts";
-import { NEXT_HEADERS_DOUBLE } from "@/test-support/nextRequest.ts";
-import { timeoutSignalsOnFakeTimers } from "@/test-support/timeoutSignals.ts";
+import { beginRenderPass, serveServerReact } from "@/test-support/cacheScope";
+import { NEXT_HEADERS_DOUBLE } from "@/test-support/nextRequest";
+import { timeoutSignalsOnFakeTimers } from "@/test-support/timeoutSignals";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Only the scope's own module: a render pass is what the server build's scope stands in for.
@@ -8,8 +8,8 @@ serveServerReact();
 
 vi.doMock("next/headers", () => NEXT_HEADERS_DOUBLE);
 
-const { runWithIncomingTrace } = await import("./traceScope.ts");
-const { boundCall, getRequestTraceId, REQUEST_DEADLINE_MS } = await import("./requestScope.ts");
+const { runWithIncomingTrace } = await import("./traceScope");
+const { boundCall, getRequestTraceId, REQUEST_DEADLINE_MS } = await import("./requestScope");
 
 /** `performance.now()`'s reading, which the mocked timers leave alone and `advance` moves beside them. */
 let clock = 0;

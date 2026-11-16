@@ -1,8 +1,8 @@
-import { networkFailure, serveHost } from "@/test-support/backend.ts";
-import { captureLog } from "@/test-support/stdoutCapture.ts";
+import { networkFailure, serveHost } from "@/test-support/backend";
+import { captureLog } from "@/test-support/stdoutCapture";
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
-import type { LoggedLine } from "@/test-support/stdoutCapture.ts";
+import type { LoggedLine } from "@/test-support/stdoutCapture";
 
 /** What Cloudflare's published test site key mints (https://developers.cloudflare.com/turnstile/troubleshooting/testing/, read 2026-10-04). */
 const TEST_TOKEN = "XXXX.DUMMY.TOKEN.XXXX";
@@ -37,8 +37,8 @@ const asked = serveHost(new URL(SITEVERIFY_URL).origin, ({ method, url }) => {
 /** What the request `index` posted, as Cloudflare read it. */
 const postedAt = (index: number) => asked[index]?.body as Record<string, unknown> | undefined;
 
-const { CHECK_DISRUPTED, turnstileRefusal } = await import("./turnstile.ts");
-const { CONFIRM_HUMAN } = await import("./turnstileToken.ts");
+const { CHECK_DISRUPTED, turnstileRefusal } = await import("./turnstile");
+const { CONFIRM_HUMAN } = await import("./turnstileToken");
 
 const json = (body: unknown, status = 200): Response =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });

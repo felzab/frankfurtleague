@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 
-import { seatsOf } from "./seats.ts";
+import { seatsOf } from "./seats";
 
-import type { FLBewerbung, FLBewerbungConfirmation, FLKontaktperson } from "@/core/generated/client/types.ts";
+import type { FLBewerbung, FLBewerbungConfirmation, FLKontaktperson } from "@/core/generated/client/types";
 
 const person = (confirmedAt: string | null): FLKontaktperson =>
   ({

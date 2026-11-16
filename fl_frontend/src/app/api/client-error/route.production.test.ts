@@ -1,7 +1,7 @@
-import { documentsWrittenByAsync } from "@/test-support/stdoutCapture.ts";
+import { documentsWrittenByAsync } from "@/test-support/stdoutCapture";
 import { describe, expect, it } from "vitest";
 
-const { POST } = await import("./route.ts");
+const { POST } = await import("./route");
 const { NextRequest } = await import("next/server");
 
 const TRACE = "a".repeat(32);

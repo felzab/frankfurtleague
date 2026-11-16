@@ -1,9 +1,9 @@
 // The session helper's own guarantee, which every signed-in suite relies on and none tests: what the sign-in library
 // owes is on record, a lookup no case answered fails its case, and nothing one case did reaches the next.
-import { ADMIN_EMAIL, answerTheLookup, ORIGIN } from "@/test-support/authDoubles.ts";
-import { serveBackend } from "@/test-support/backend.ts";
-import { caseFailures } from "@/test-support/caseFailures.ts";
-import { signedInRequest } from "@/test-support/session.ts";
+import { ADMIN_EMAIL, answerTheLookup, ORIGIN } from "@/test-support/authDoubles";
+import { serveBackend } from "@/test-support/backend";
+import { caseFailures } from "@/test-support/caseFailures";
+import { signedInRequest } from "@/test-support/session";
 import { TEST_SECRETS } from "@/test-support/testEnvironment.mts";
 import { describe, expect, it } from "vitest";
 
@@ -14,9 +14,9 @@ const backend = serveBackend();
 const { arriveAs, store, outbox } = signedInRequest();
 
 // Imported after the helper's doubles, as a suite's subject is.
-const { auth } = await import("@/core/auth/library.ts");
+const { auth } = await import("@/core/auth/library");
 const { cookies } = await import("next/headers");
-const { frontend_config, internalApiKeyAdmin } = await import("@/core/config.ts");
+const { frontend_config, internalApiKeyAdmin } = await import("@/core/config");
 
 /** Asks the sign-in library to mail `email` a code, as the sign-in page's send does. */
 const sendCode = (email: string) => auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers: new Headers(ORIGIN) });
