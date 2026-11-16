@@ -6,7 +6,8 @@ Invariants:
   wrapping what pytest-asyncio runs: a case reaching here unwrapped runs unbounded, and a rival deadlocked on its own
   write's transaction waits out MongoDB's abort and passes on the retry.
 - A task the work starts and leaves running fails the scope that left it, and is cancelled there rather than running
-  into the next case; the driver's own monitors, which outlive a case by design, do not.
+  into the next case. A task started outside the scope does not, nor do the driver's monitors and the reads they send,
+  which outlive a case by design, wherever the monitor was opened.
 - A clean database is entered in a case's body alone, and a module's corpus is judged after the module's cases: it is
   refused when released in the task that seeded it, and nothing clears it while it is held.
 - A variable a corpus's seed binds stays out of the fixture's context, which pytest-asyncio carries into every case of
@@ -52,13 +53,62 @@ async def test_a_task_left_running_fails_its_scope_and_is_cancelled():
     assert [task.cancelled() for task in started] == [True]
 
 
-async def test_a_driver_s_monitor_is_no_task_left_behind():
-    client: AsyncMongoClient = AsyncMongoClient(UNANSWERED_URI)
+async def test_a_task_started_outside_the_scope_is_not_its_own():
+    """A monitor opened before the scope, as an earlier case opens the shared client's, starting a read during it."""
+
+    asked, started = asyncio.Event(), asyncio.Event()
+    children: list[asyncio.Task[bool]] = []
+
+    async def outside() -> None:
+        await asked.wait()
+        children.append(asyncio.create_task(asyncio.Event().wait()))
+        started.set()
+
+    async def asks_for_one() -> None:
+        asked.set()
+        await started.wait()
+
+    parent = asyncio.create_task(outside())
     try:
-        # Opens the topology, whose monitors keep polling after the call returns, without selecting a server.
-        await bounded(client.aconnect())
+        await bounded(asks_for_one())
+
+        assert [child.cancelled() for child in children] == [False]
     finally:
-        await client.close()
+        for task in [parent, *children]:
+            task.cancel()
+        await asyncio.wait([parent, *children])
+
+
+async def test_a_driver_s_monitor_mid_check_is_no_task_left_behind():
+    """A client opened inside the scope, its monitor's first `hello` sent to a server that never answers it."""
+
+    received = asyncio.Event()
+
+    async def never_answers(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        await reader.read(1)
+        received.set()
+        # Until the client closes the connection.
+        await reader.read()
+        writer.close()
+
+    async def mid_check(client: AsyncMongoClient) -> None:
+        # Opens the topology, whose monitor checks the server after the call returns, without selecting it.
+        await client.aconnect()
+        await received.wait()
+
+        reading = {getattr(task.get_coro(), "__qualname__", None) for task in asyncio.all_tasks()}
+        assert "PyMongoProtocol.read" in reading, "the monitor's read is not in flight, so the scope's end judges none"
+
+    # In a context of its own, as a real server runs outside the case: its tasks, a Windows loop's accept among them, are
+    # not the case's. The client closes inside it, since the server's close waits on its connections.
+    server = await asyncio.create_task(asyncio.start_server(never_answers, "127.0.0.1", 0), context=contextvars.Context())
+    async with server:
+        port = server.sockets[0].getsockname()[1]
+        client: AsyncMongoClient = AsyncMongoClient(f"mongodb://127.0.0.1:{port}/?directConnection=true&serverMonitoringMode=poll")
+        try:
+            await bounded(mid_check(client))
+        finally:
+            await client.close()
 
 
 async def test_a_clean_database_entered_outside_a_case_is_refused():

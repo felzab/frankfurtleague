@@ -143,9 +143,6 @@ logger-objects = ["app.core.logging.fl_logger"]
 # The scripts' configuration extends this file, and the gate's tooling reads its own environment by
 # design: every entry in the banned list guards the backend alone.
 "../scripts/**" = ["TID251"]
-# Every entry guards the application, and a test reads both freely: it stages stored instants against
-# the wall clock it runs under, and it builds settings from the environment to judge them.
-"tests/**" = ["TID251"]
 
 # FastAPI reads a `Depends(...)` default as a declaration and calls the dependency per request, so the
 # one call evaluated at definition is the marker itself; every other call in a default stays a finding.

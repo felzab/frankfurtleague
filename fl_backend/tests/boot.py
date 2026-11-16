@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
 
+from app.core.concurrency import concurrently
 from app.core.db import SERVER_SELECTION_TIMEOUT_MS
 from tests.database import CASE_BOUND_S
 
@@ -166,7 +167,7 @@ async def booted(boots: Mapping[str, Booting]) -> dict[str, Boot]:
     """
 
     names = list(boots)
-    ended = await asyncio.gather(*(_to_its_exit(*boots[name]) for name in names))
+    ended = await concurrently(*(_to_its_exit(*boots[name]) for name in names))
 
     return dict(zip(names, ended, strict=True))
 
