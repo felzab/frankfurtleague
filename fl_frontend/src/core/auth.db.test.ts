@@ -14,6 +14,7 @@ import {
   signInByCode,
 } from "@/test-support/authDoubles.ts";
 import { serveBackend } from "@/test-support/backend.ts";
+import { emptyStore } from "@/test-support/emptyStore.ts";
 import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
 import { captureLog } from "@/test-support/stdoutCapture.ts";
 import { answerAt, SEAT } from "@/test-support/subjectFixtures.ts";
@@ -223,9 +224,7 @@ beforeEach(async () => {
   atCommit = async () => undefined;
   deletingAccounts = async () => undefined;
   deletingUser = async () => undefined;
-  // An empty store, its indexes kept.
-  const collections = await authDb().listCollections({}, { nameOnly: true }).toArray();
-  await Promise.all(collections.map(({ name }) => authDb().collection(name).deleteMany({})));
+  await emptyStore(authDb());
 });
 
 const handler = toNextJsHandler(auth);

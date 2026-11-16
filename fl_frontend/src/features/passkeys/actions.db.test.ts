@@ -11,6 +11,7 @@ import {
   registerAuthDoubles,
   signInByCode,
 } from "@/test-support/authDoubles.ts";
+import { emptyStore } from "@/test-support/emptyStore.ts";
 import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
 import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/test-support/nextRequest.ts";
 import { captureLog } from "@/test-support/stdoutCapture.ts";
@@ -213,9 +214,7 @@ beforeEach(async () => {
   barrier.disarm();
   signingOut = async () => undefined;
   readGate = OPEN_GATE;
-  // An empty store, its indexes kept.
-  const collections = await authDb().listCollections({}, { nameOnly: true }).toArray();
-  await Promise.all(collections.map(({ name }) => authDb().collection(name).deleteMany({})));
+  await emptyStore(authDb());
 });
 
 /** The passkey the acting device signed in with, which `seedPasskeys` writes last unless a case names it. */
