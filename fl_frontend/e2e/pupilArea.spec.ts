@@ -5,7 +5,7 @@
  */
 import { expect } from "@playwright/test";
 
-import { box, chip, choose, typeInto, valueOf } from "./support/controls";
+import { box, chip, choose, enteredDialog, typeInto, valueOf } from "./support/controls";
 import { test } from "./support/journey";
 import { RUNNING } from "./support/madeUpLeague";
 import { filedMessages, mailedLink } from "./support/mailSink";
@@ -81,7 +81,7 @@ test("a pupil registers through their team's link, confirms, is admitted, and fi
   await expect(chip(row, "Bestätigt")).toBeVisible();
   // The row opens its dialog, titled by the pupil's name, which holds „Aufnehmen“.
   await row.getByRole("button", { name, exact: true }).click();
-  await team.getByRole("dialog", { name }).getByRole("button", { name: "Aufnehmen", exact: true }).click();
+  await (await enteredDialog(team, name)).getByRole("button", { name: "Aufnehmen", exact: true }).click();
   // The admission's end: the registration leaves the open list for the squad.
   await expect(row).toHaveCount(0);
 

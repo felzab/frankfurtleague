@@ -6,7 +6,7 @@
  */
 import { expect } from "@playwright/test";
 
-import { typeInto } from "../support/controls";
+import { enteredDialog, enteredQuestion, typeInto } from "../support/controls";
 import { test } from "../support/journey";
 import { PEOPLE } from "../support/madeUpLeague";
 import { filedMessages, mailedMessage } from "../support/mailSink";
@@ -31,7 +31,7 @@ test("a banned person is told, loses their session and cannot sign in, by the se
   const before = await filedMessages();
   await desk.goto("/admin/ban-list");
   await desk.getByRole("button", { name: "Sperre eintragen" }).click();
-  const dialog = desk.getByRole("dialog", { name: "Sperre eintragen" });
+  const dialog = await enteredDialog(desk, "Sperre eintragen");
   await typeInto(dialog.getByRole("textbox", { name: /^E-Mail-Adresse/ }), PERSON);
   await typeInto(dialog.getByRole("textbox", { name: /^Grund/ }), "Beleidigungen am Spielfeldrand");
   await dialog.getByRole("button", { name: "Sperre eintragen" }).click();
@@ -47,9 +47,9 @@ test("a banned person is told, loses their session and cannot sign in, by the se
   await page.getByRole("button", { name: "Mit Passkey anmelden" }).click();
   await expect(page.getByRole("main").getByText("Mit dieser Adresse ist keine Anmeldung möglich.")).toBeVisible();
 
-  // Lifted from its row, behind a touch of its own. The question is named: the ban's toast is an `alertdialog` too.
+  // Lifted from its row, behind a touch of its own.
   await row.getByRole("button", { name: "Entfernen" }).click();
-  const question = desk.getByRole("alertdialog", { name: "Sperre entfernen?" });
+  const question = await enteredQuestion(desk, "Sperre entfernen?");
   await question.getByRole("button", { name: "Entfernen" }).click();
   await expect(question).toBeHidden();
   await expect(row).toHaveCount(0);

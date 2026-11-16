@@ -17,12 +17,85 @@ export async function typeInto(box: Locator, value: string): Promise<void> {
 }
 
 /**
- * Opens the select `label` names inside `scope` and presses `option`, which its list shows in a pop-over of the page's. A
- * select's button is named by its value, then its label (`useSelect`), so only a select holding no value starts on its label.
+ * Waits until `overlay`, a dialog, a sheet or a pop-over React Aria draws, has entered, the one state a journey presses
+ * inside one. A press on a control still moving fails Playwright's stability check, and its retry scrolls the control
+ * into view: that carries a rising sheet back down its scroller, which React Aria's `Sheet` closes once the viewport has
+ * lost it, and closes a combo box's list, which React Aria closes on a scroll. A finger scrolls nothing by pressing, so
+ * no person meets either. Entered is all of:
+ * - no `[data-entering]` on the overlay or an ancestor: React Aria's documented entry state, which its `ModalOverlay`,
+ *   `Modal`, `Popover` and `Sheet` carry while their entry runs;
+ * - any part of it in the viewport (Playwright's `toBeInViewport`): React Aria mounts an overlay a frame or two before
+ *   its entry starts (`runAfterKeyboard` in its `Modal` and `Popover`), a bottom sheet still below the screen then, with
+ *   no `[data-entering]` yet. Not the whole of it, since a tall form's dialog scrolls inside its box on a phone.
+ */
+async function settled(overlay: Locator): Promise<void> {
+  await expect(overlay.and(overlay.page().locator(":not([data-entering], [data-entering] *)"))).toBeInViewport();
+}
+
+/**
+ * Waits until `dialog` has entered and holds the focus, the dialog itself or a child of it, which React Aria moves there
+ * once it has entered: a dialog's own focus waits for the overlay's entry (`UNSTABLE_deferUntilEntered`, which the kit's
+ * sheet sets), but a child taking focus as it mounts takes it at once, as a menu does (`useMenuTrigger` hands it
+ * `autoFocus`), so the focus alone never says the dialog has entered.
+ */
+async function entered(dialog: Locator): Promise<void> {
+  await settled(dialog.and(dialog.page().locator(":focus-within")));
+}
+
+/**
+ * A dialog named `name`, or the one dialog standing, once it has entered: a centred one, a phone's sheet, or a pop-over
+ * React Aria makes a dialog. The locator returned is the dialog's alone, so it also says when the dialog has gone.
+ */
+export async function enteredDialog(page: Page, name?: string): Promise<Locator> {
+  const dialog = page.getByRole("dialog", name === undefined ? {} : { name });
+  await entered(dialog);
+  return dialog;
+}
+
+/**
+ * The question `name` asks before an act runs, once it has entered. A question is found by its name: the toast an act
+ * answers in is an `alertdialog` too, though it never takes the focus.
+ */
+export async function enteredQuestion(page: Page, name: string): Promise<Locator> {
+  const question = page.getByRole("alertdialog", { name });
+  await entered(question);
+  return question;
+}
+
+/** The toast an act answers with, by its title. It never takes the focus and is read where it stands, so it is no overlay to wait on. */
+export function toast(page: Page, title: string): Locator {
+  return page.getByRole("alertdialog", { name: title });
+}
+
+/** That no dialog stands on the page. */
+export async function expectNoDialog(page: Page): Promise<void> {
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+}
+
+/**
+ * The options of the combo box's list standing open, those named `name` where it is given, once its pop-over has
+ * entered. A combo box's pop-over is non-modal (React Aria's `ComboBox` sets `isNonModal`), so it is no dialog
+ * (`Popover` makes only a modal one a dialog) and never takes the focus, which stays in the box: only its entry is
+ * waited on.
+ */
+export async function comboOptions(page: Page, name?: string): Promise<Locator> {
+  const list = page.getByRole("listbox");
+  await settled(list);
+  return list.getByRole("option", name === undefined ? {} : { name, exact: true });
+}
+
+/**
+ * Opens the select `label` names inside `scope` and presses `option`, which its list shows in a pop-over of the page's,
+ * as far as the pop-over gone: it lies over what stands under it until its exit has run, and a press covered by it would
+ * be retried behind a scroll. A select's button is named by its value, then its label (`useSelect`), so only a select
+ * holding no value starts on its label.
  */
 export async function choose(page: Page, scope: Locator, label: RegExp, option: string | RegExp): Promise<void> {
   await scope.getByRole("button", { name: label }).click();
-  await page.getByRole("option", { name: option, exact: true }).click();
+  const list = page.getByRole("dialog").filter({ has: page.getByRole("listbox") });
+  await entered(list);
+  await list.getByRole("option", { name: option, exact: true }).click();
+  await expect(list).toBeHidden();
 }
 
 /**
@@ -40,19 +113,11 @@ export async function pressRowAct(row: Locator, name: string): Promise<void> {
     return;
   }
   await more.click();
-  await row.page().getByRole("menuitem", { name, exact: true }).click();
-}
-
-/**
- * A phone's sheet named `name`, once it has risen, for a press inside it. It takes the focus only then (the kit's overlay
- * defers it until entered). A press on a control still rising fails Playwright's stability check, and its retry scrolls
- * the control into view, which carries the sheet back down its scroller, and React Aria closes a sheet the viewport has
- * lost: the press then lands on a sheet already leaving. A finger scrolls nothing by pressing, so no person meets it.
- */
-export async function risenSheet(page: Page, name: string): Promise<Locator> {
-  const sheet = page.getByRole("dialog", { name });
-  await expect(sheet).toBeFocused();
-  return sheet;
+  // The menu's dialog: a pop-over on desktop, a sheet on a phone.
+  const page = row.page();
+  const menu = page.getByRole("dialog").filter({ has: page.getByRole("menu") });
+  await entered(menu);
+  await menu.getByRole("menuitem", { name, exact: true }).click();
 }
 
 /** A page's box under `title`: a box carries its title as a heading, and no landmark. */

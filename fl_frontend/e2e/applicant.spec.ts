@@ -6,7 +6,7 @@
 import { expect } from "@playwright/test";
 
 import { apply, confirmSeat, fillSeat, openApplication, personOf, SEATS, SUBJECT } from "./support/application";
-import { choose, pressRowAct, typeInto } from "./support/controls";
+import { choose, enteredDialog, enteredQuestion, pressRowAct, typeInto } from "./support/controls";
 import { test } from "./support/journey";
 import { PLANNED } from "./support/madeUpLeague";
 import { filedMessages, mailedLink, mailedMessage } from "./support/mailSink";
@@ -31,7 +31,7 @@ test("a new school applies, every seat confirms, and the administration accepts 
   await expect(administration.getByRole("banner").getByText("Vollständig", { exact: true })).toBeVisible();
   const decided = await filedMessages();
   await administration.getByRole("main").getByRole("button", { name: "Annehmen", exact: true }).click();
-  const dialog = administration.getByRole("dialog", { name: "Bewerbung annehmen" });
+  const dialog = await enteredDialog(administration, "Bewerbung annehmen");
   await choose(administration, dialog, /^Gruppe/, /^Gruppe A/);
   // The box opens on the wish, and a colour given away closes on the form every later application fills.
   await choose(administration, dialog, /Trikotfarbe/, "Nicht hinterlegt");
@@ -58,7 +58,7 @@ test("a listed school is rejected, and every seat reads the reason", async ({ pa
   await openApplication(administration, school);
   const decided = await filedMessages();
   await administration.getByRole("main").getByRole("button", { name: "Ablehnen", exact: true }).click();
-  const dialog = administration.getByRole("dialog", { name: "Bewerbung ablehnen" });
+  const dialog = await enteredDialog(administration, "Bewerbung ablehnen");
   await typeInto(dialog.getByRole("textbox", { name: /^Grund/ }), reason);
   await dialog.getByRole("button", { name: "Ablehnen", exact: true }).click();
   await expect(dialog).toBeHidden();
@@ -85,7 +85,7 @@ test("a seat objects, „Sitz bearbeiten“ seats another person, and the fresh 
   await page.goto(await mailedLink(personOf(school, "stellvertretung").address, SUBJECT.seat, before));
   await page.getByRole("main").getByRole("button", { name: "Widersprechen" }).click();
   // The objection asks before it acts; its question's own press does it.
-  await page.getByRole("alertdialog", { name: "Eintrag widersprechen?" }).getByRole("button", { name: "Widersprechen" }).click();
+  await (await enteredQuestion(page, "Eintrag widersprechen?")).getByRole("button", { name: "Widersprechen" }).click();
   await expect(page.getByRole("main").getByRole("heading", { name: "Widersprochen", exact: true })).toBeVisible();
   await mailedMessage(personOf(school, "ansprechperson").address, SUBJECT.objected, before);
 
@@ -94,7 +94,7 @@ test("a seat objects, „Sitz bearbeiten“ seats another person, and the fresh 
   const seats = administration.getByRole("list", { name: "Kontaktpersonen" }).getByRole("listitem");
   const replaced = await filedMessages();
   await pressRowAct(seats.filter({ hasText: "Niemand" }), "Sitz bearbeiten");
-  const dialog = administration.getByRole("dialog", { name: "Sitz bearbeiten" });
+  const dialog = await enteredDialog(administration, "Sitz bearbeiten");
   const replacement = { firstName: "Noah", lastName: "Neumann", address: `neu.${school.toLowerCase()}@example.com`, phone: "069 90009004" };
   await fillSeat(dialog, replacement);
   await dialog.getByRole("button", { name: "Speichern" }).click();

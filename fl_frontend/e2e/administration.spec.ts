@@ -4,7 +4,7 @@
  */
 import { expect } from "@playwright/test";
 
-import { choose, save, saveBar, typeInto } from "./support/controls";
+import { choose, enteredDialog, save, saveBar, typeInto } from "./support/controls";
 import { ADMINISTRATOR_STATE, test } from "./support/journey";
 import { nameOf, PEOPLE, PLANNED, RUNNING } from "./support/madeUpLeague";
 
@@ -18,7 +18,7 @@ test("a known club enters the planned season, and its editor's one save reaches 
 
   await page.goto(`/admin/saisons/${PLANNED}/teams`);
   await page.getByRole("button", { name: "Team eintragen" }).click();
-  const dialog = page.getByRole("dialog", { name: "Team eintragen" });
+  const dialog = await enteredDialog(page, "Team eintragen");
   await choose(page, dialog, /^Team$/, club);
   await choose(page, dialog, /^Gruppe/, /^Gruppe C/);
   await dialog.getByRole("button", { name: "Eintragen" }).click();

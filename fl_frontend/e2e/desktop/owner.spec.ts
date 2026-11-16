@@ -7,7 +7,7 @@
 import { expect } from "@playwright/test";
 
 import { chooseWho } from "../support/actionLog";
-import { chip, choose, typeInto } from "../support/controls";
+import { chip, choose, enteredDialog, enteredQuestion, typeInto } from "../support/controls";
 import { test } from "../support/journey";
 import { PEOPLE } from "../support/madeUpLeague";
 import { filedMessages, mailedMessage } from "../support/mailSink";
@@ -30,11 +30,11 @@ const waitingRow = (page: Page, kind: string, address: string): Locator =>
 
 /**
  * „Zurückziehen“ on a waiting row, asked once and then touched. The open question hides the rows, so its close comes
- * first. It is named: the toast the act answers in is an `alertdialog` too.
+ * first.
  */
 async function stop(page: Page, row: Locator): Promise<void> {
   await row.getByRole("button", { name: "Zurückziehen" }).click();
-  const question = page.getByRole("alertdialog", { name: "Änderung zurückziehen?" });
+  const question = await enteredQuestion(page, "Änderung zurückziehen?");
   await question.getByRole("button", { name: "Zurückziehen" }).click();
   await expect(question).toBeHidden();
   await expect(row).toHaveCount(0);
@@ -62,7 +62,7 @@ test("the owner stops what waits, adds an administrator and stops it, and hands 
   // An addition: its person is told at the start and at the stop.
   const beforeTheAddition = await filedMessages();
   await page.getByRole("button", { name: "Administrator eintragen" }).click();
-  const addition = page.getByRole("dialog", { name: "Administrator eintragen" });
+  const addition = await enteredDialog(page, "Administrator eintragen");
   await typeInto(addition.getByRole("textbox", { name: /^E-Mail-Adresse/ }), ADDED);
   await addition.getByRole("button", { name: "Administrator eintragen" }).click();
   await expect(addition).toBeHidden();
@@ -77,7 +77,7 @@ test("the owner stops what waits, adds an administrator and stops it, and hands 
   // A handover to a current administrator, now that none waits.
   const beforeTheHandover = await filedMessages();
   await handOver.click();
-  const handover = page.getByRole("dialog", { name: "Leitung übergeben" });
+  const handover = await enteredDialog(page, "Leitung übergeben");
   await choose(page, handover, /^Neu/, SUCCESSOR);
   await handover.getByRole("button", { name: "Leitung übergeben" }).click();
   await expect(handover).toBeHidden();
