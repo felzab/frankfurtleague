@@ -1,9 +1,6 @@
 # The repository's Python rules, applied to the gate's own tooling by `extend` rather than a copy. It
-# must keep adding and overriding nothing — the moment it carries its own `select`, this
-# configuration and the backend's can disagree.
-#
-# No `target-version` for that same reason, and because the inherited one is right: `extend` carries
-# the backend's `requires-python` across, so ruff reads this folder at the version its python RUNS
-# on.
+# adds and overrides nothing: a `select` of its own would let this configuration and the backend's
+# disagree. No `target-version` either: `extend` carries the backend's `requires-python` across, the
+# version the gate's Python runs on.
 
 extend = "../fl_backend/pyproject.toml"

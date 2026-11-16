@@ -1,11 +1,10 @@
-// scripts/pyrightconfig.json — the type checker for the gate's own python, which the
-// `[tool.pyright]` block in `fl_backend/pyproject.toml` does not reach: a type error in a checker
-// here is a gate reporting the wrong scope.
+// The type checker for the gate's own Python, which the backend's `[tool.pyright]` block does not
+// reach: a type error in a checker here is a gate reporting the wrong scope.
 
-// Why it sits at the top of this folder rather than at the repository root, and why `pythonVersion`
-// is pinned rather than inferred: `docs/ops/spec.md` §1.6. It has to stay here whatever moves
-// below it: `include` is read relative to this file, and a copy inside a category would type-check
-// that category alone.
+// At the top of this folder whatever moves below it: at the repository root it would become the
+// nearest configuration for `fl_backend/` too, and `include` is read relative to this file, so a
+// copy inside a category would type-check that category alone. `pythonVersion` is pinned so pyright
+// infers none per machine.
 
 // `extraPaths` names the directories a run puts on `sys.path` for itself, which pyright emulates
 // for none of them: `lib/` through each entry point's own insert, `checks/` because python seeds
