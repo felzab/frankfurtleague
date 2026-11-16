@@ -95,8 +95,8 @@ running. A site whose every page errors can pass. So once the run ends:
 
 1. **Open the site.** Where it answers 502 or 1033 and the run said live, the tunnel routes
    somewhere else (below).
-2. **Read the frontend's index builds**: `docker compose logs frontend | grep auth.index_unbuilt`
-   prints nothing, or each line is [section 14](#14-the-auth-databases-indexes)'s.
+2. **Read the frontend's index builds once they have settled**, with
+   [section 14](#14-the-auth-databases-indexes)'s two commands.
 
 **The tunnel's two routes name `nginx:80`.** In the Cloudflare dashboard, the tunnel's published
 application routes for `frankfurtleague.de` and `www.frankfurtleague.de` each have the service type
@@ -1359,12 +1359,23 @@ publication consents withdrawn again above.
 **Every production boot of the frontend builds them, and serves the site whether or not each is
 built** (`fl_frontend/src/core/authIndexes.ts :: AUTH_INDEXES`). An index the boot could not build
 is one `auth.index_unbuilt` line naming it. Only a line with no `code` is built again before the
-next boot, on the first heartbeat the store answers as a writable server. So after every deploy ([section 1](#1-deploying-a-build-and-going-back-to-an-earlier-one)),
-read the frontend's log for that event:
+next boot, on the first heartbeat the store answers as a writable server. Each run ends with one
+`auth.indexes_settled` line counting the indexes `built` and `unbuilt`, written once every index
+is built or logged. So after every deploy ([section 1](#1-deploying-a-build-and-going-back-to-an-earlier-one))
+and every restart, wait for that line, then read the run's lines:
 
 ```bash
-docker compose logs frontend | grep auth.index_unbuilt
+timeout 300 bash -c 'until docker compose logs frontend | grep -q auth.indexes_settled; do sleep 5; done'
+docker compose logs frontend | grep -E 'auth\.(index_unbuilt|indexes_settled)'
 ```
+
+**Five minutes outlasts any run the boot starts.** A run asks again for an unanswered build for
+three minutes (`fl_frontend/src/core/authIndexes.ts :: ANSWERED_WITHIN_MS`), counted from the boot,
+which comes before a deploy ends. Past the three minutes, the ask under way finishes, and each later
+index of the same collection is asked once. That is at most three asks, for `session`'s three
+indexes, and each waits at most nine seconds: the client's three bounds of three seconds each
+(`fl_frontend/src/core/db.ts`). A wait that ends in exit 124 means the frontend has written no
+verdict since it started: read its whole log.
 
 | The line's `code` | What stands                                                                 | What to do                                                                                                                                                               |
 | ----------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

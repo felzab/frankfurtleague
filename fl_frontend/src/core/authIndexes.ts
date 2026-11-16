@@ -57,10 +57,8 @@ export function buildAuthIndexes(): Promise<void> {
 }
 
 /**
- * How long a run asks again for a build the store has not answered: at most `scripts/ops/deploy.sh :: WAIT_S`, the
- * most a deploy waits before the runbook reads this log for `auth.index_unbuilt`, so the read after any deploy finds a
- * build still unanswered (`scripts/tests/test_index_build_window.py` holds the two in order). Without it a build that
- * never answers would hold `running`, and every rebuild queued behind it.
+ * How long a run asks again for a build the store has not answered. Without it a build that never answers would hold
+ * `running`, and every rebuild queued behind it.
  */
 const ANSWERED_WITHIN_MS = 180_000;
 
@@ -69,17 +67,22 @@ async function buildOnce(): Promise<void> {
   const lanes = Map.groupBy(AUTH_INDEXES, (index) => index.collection);
   const askUntil = now().getTime() + ANSWERED_WITHIN_MS;
 
+  let unbuilt = 0;
   await Promise.all(
     [...lanes].map(async ([collection, indexes]) => {
       for (const { key, options } of indexes) {
         const failed = await failureOf(() => database.collection(collection).createIndex(key, options, undefined), askUntil);
         if (failed === undefined) continue;
+        unbuilt += 1;
         logUnbuilt(options.name, failed);
         // No server code is a store that did not answer, which a restart would only meet again.
         if (!(failed instanceof MongoServerError)) rebuildOnRecovery();
       }
     }),
   );
+  // The run's verdict, which a reader waits for rather than for a time: until it is written, a lane may still be
+  // asking, and its line still to come.
+  logger.info("auth.indexes_settled", { built: AUTH_INDEXES.length - unbuilt, unbuilt });
 }
 
 /**

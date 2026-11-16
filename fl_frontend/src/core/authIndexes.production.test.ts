@@ -23,6 +23,12 @@ const log = captureLog("production");
 /** Each error line written, by its event and fields. */
 const errorLines = () => log.lines().flatMap(({ level, message, fields }) => (level === "ERROR" ? [{ event: message, fields }] : []));
 
+/** The last line written, which a settled run's verdict is: a reader waits for it, then reads every line before it. */
+const lastLine = () => {
+  const last = log.lines().at(-1);
+  return last && { level: last.level, event: last.message, fields: last.fields };
+};
+
 /** The builds still running, by collection, which `afterHeartbeat` waits out. */
 const running = new Map<string, number>();
 
@@ -130,6 +136,7 @@ describe("the sign-in store's index build", () => {
         fields: { index: "session_token_uidx", name: "MongoServerError", code: 11000, codeName: "DuplicateKey" },
       },
     ]);
+    expect(lastLine()).toStrictEqual({ level: "INFO", event: "auth.indexes_settled", fields: { built: 7, unbuilt: 1 } });
     for (const { error, raw } of log.lines()) {
       assert.ok(!raw.includes(TOKEN), "the line quoted the value the refusal named");
       expect(error, "the refusal reached the line as its error").toBe(undefined);
@@ -182,6 +189,7 @@ describe("the sign-in store's index build", () => {
     const lines = errorLines();
     expect(lines.map(({ fields }) => fields["index"]).sort()).toStrictEqual([...asked.values()].sort());
     for (const { event, fields } of lines) expect([event, fields["name"]]).toStrictEqual(["auth.index_unbuilt", "MongoNetworkTimeoutError"]);
+    expect(lastLine()).toStrictEqual({ level: "INFO", event: "auth.indexes_settled", fields: { built: 0, unbuilt: lines.length } });
   });
 
   /* Read off the library's own schema rather than the list, so a field it declares unique, or an
