@@ -443,9 +443,6 @@ const TRANSITION_REWRAP = syntax(
 /** Every read of `name` off a module's namespace: a member, or a destructured key. */
 const readsOff = (name) => [`MemberExpression[property.name=${name}]`, `ObjectPattern > Property[key.name=${name}]`].join(", ");
 
-/** The names the image's builder stage sets, which a module may read while it loads. */
-const PROVIDED_WHILE_BUILDING = "CI|NEXT_RUNTIME|NEXT_TELEMETRY_DISABLED|NODE_ENV|NODE_VERSION|PATH|PNPM_HOME|SKIP_ENV_VALIDATION";
-
 /** Every secret's reader, whose call returns what the builder leaves undefined. */
 const SECRET_READER_NAMES = Object.values(SECRET_READERS).flatMap(({ importNames }) => importNames);
 
@@ -456,7 +453,7 @@ const SECRET_READER_NAMES = Object.values(SECRET_READERS).flatMap(({ importNames
  * excepted, and the builder sets both.
  */
 const LOAD_TIME_ENVIRONMENT = [
-  `MemberExpression[object.name="frontend_config"]:not([property.name=/^(?:${PROVIDED_WHILE_BUILDING})$/])`,
+  `MemberExpression[object.name="frontend_config"]`,
   `VariableDeclarator[init.name="frontend_config"]`,
   `CallExpression[callee.name=/^(?:${SECRET_READER_NAMES.join("|")})$/]`,
 ]
