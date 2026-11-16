@@ -14,7 +14,8 @@ version: 2
 #   `github-actions`, `docker` and `docker-compose` get none.
 # - Every ecosystem sets the same cooldown, so a release compromised at publication can be yanked
 #   before a pull request proposes it — where its registry dates it, unlike `ghcr.io`. A security
-#   update is exempt from it.
+#   update is exempt from it, but pnpm's strict `minimumReleaseAge` still refuses a release under a
+#   day old, so a frontend security update goes green on a re-run after 24 hours.
 # - Each ecosystem sets a commit prefix, so messages keep `docs/writing.md`'s shape.
 # - No ecosystem below reads an image a script, a workflow's step or a test names in a string, so
 #   these are kept by hand: shellcheck and actionlint in `scripts/gate/selfcheck.sh`, lychee in
@@ -73,7 +74,13 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: "Frontend deps"
+    # A dependency joins the first group it matches. These two each need a hand step on the bot's
+    # branch, the journeys' Playwright image pin and `pnpm run contract`, so they move apart and
+    # leave the rest's pull request green.
     groups:
+      frontend-hand-steps:
+        patterns: ["@playwright/test", "orval"]
+        update-types: ["minor", "patch"]
       frontend-minor-patch:
         patterns: ["*"]
         update-types: ["minor", "patch"]
