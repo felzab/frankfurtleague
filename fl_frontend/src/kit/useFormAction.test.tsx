@@ -2,7 +2,7 @@
 import { Activity } from "react";
 import { redirect } from "next/navigation";
 
-import { thrownRedirect } from "@/test-support/thrownRedirect.ts";
+import { thrownRedirect } from "@/test-support/thrownRedirect";
 import { act, renderHook } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";

@@ -1,6 +1,7 @@
 import { serveBackend, serveHost } from "@/test-support/backend";
 import { doubleNextRequest, writtenCookies } from "@/test-support/nextRequest";
-import { thrownRedirect } from "@/test-support/thrownRedirect.ts";
+import { posted } from "@/test-support/posted";
+import { thrownRedirect } from "@/test-support/thrownRedirect";
 import { describe, expect, it } from "vitest";
 
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
@@ -48,12 +49,6 @@ const BOXES: Readonly<Record<string, string>> = {
   nummer: "",
   position: "",
   stufe: "",
-};
-
-const posted = (entries: Readonly<Record<string, string>>) => {
-  const formData = new FormData();
-  for (const [name, value] of Object.entries(entries)) formData.set(name, value);
-  return formData;
 };
 
 describe("the registration a press sends", () => {

@@ -1,7 +1,7 @@
 import { answerTheLookup } from "@/test-support/authDoubles";
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
-import { thrownRedirect } from "@/test-support/thrownRedirect.ts";
+import { thrownRedirect } from "@/test-support/thrownRedirect";
 import { describe, expect, it } from "vitest";
 
 import { ROUTES } from "@/core/routes";
