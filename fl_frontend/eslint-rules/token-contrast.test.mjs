@@ -6,8 +6,8 @@ import { RuleTester } from "eslint";
 import postcss from "postcss";
 import { describe, expect, it } from "vitest";
 
-import { buttonLook } from "../src/kit/buttonStyles.ts";
-import { Chip } from "../src/kit/Chip.tsx";
+import { buttonLook } from "../src/kit/buttonStyles";
+import { Chip } from "../src/kit/Chip";
 import tokenContrast, { PAIRS } from "./token-contrast.mjs";
 
 RuleTester.describe = describe;
