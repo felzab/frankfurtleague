@@ -34,6 +34,7 @@ from pymongo.periodic_executor import AsyncPeriodicExecutor
 
 from app.core.collections import Collection
 from app.core.concurrency import concurrently
+from app.core.db import new_client
 from app.core.logging import NO_REQUEST_SENTINEL, trace_id_var
 from tests.config import UNANSWERED_DEADLINE_S, UNANSWERED_URI
 from tests.database import CASE_BOUND_S, a_clean_database, bounded, bounded_case, case_deadline, held_corpus, in_a_scope, shared_client
@@ -225,7 +226,7 @@ async def _reading(received: asyncio.Event) -> None:
 
 async def test_a_client_the_scope_opens_and_leaves_open_fails_it():
     async with _a_server_that_never_answers() as (url, received):
-        client: AsyncMongoClient = AsyncMongoClient(url)
+        client: AsyncMongoClient = new_client(url)
 
         async def opens_it() -> None:
             await client.aconnect()

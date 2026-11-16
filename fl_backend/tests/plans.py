@@ -4,6 +4,8 @@ from typing import Any
 from pymongo import AsyncMongoClient, monitoring
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.core.db import new_client
+
 # Which commands a case asks the plan of, by the collection one names and the command itself.
 Wanted = Callable[[str, Mapping[str, Any]], bool]
 
@@ -63,7 +65,7 @@ async def plans_of_sent_reads[T](
 
     reads = SentReads(wanted)
     # A client of the read's own, so the listener sees its commands and none of the seeding.
-    watched = AsyncMongoClient(url, event_listeners=[reads])
+    watched = new_client(url, event_listeners=[reads])
     try:
         answer = await read(watched[database.name], watched)
     finally:

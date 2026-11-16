@@ -28,6 +28,7 @@ from app.api.teams.schemas import FLPostTeamPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
+from app.core.db import new_client
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.transactions import transaction_session
 from app.shared.tokens import hash_token
@@ -954,7 +955,7 @@ class TestTheAcceptanceJudgesWhatItReadsInsideTheTransaction:
         async def body(database: AsyncDatabase, _client: AsyncMongoClient) -> Any:
             # A client of this test's own, so the spy sees the endpoint's commands rather than the
             # seeding `on_a_league` did through the fixture's.
-            watched = AsyncMongoClient(mongo_replica_set_url, event_listeners=[spy])
+            watched = new_client(mongo_replica_set_url, event_listeners=[spy])
             try:
                 await accept(watched[DATABASE_NAME], watched, PICKED_BEWERBUNG, version=0)
             finally:

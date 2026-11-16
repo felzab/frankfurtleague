@@ -14,7 +14,6 @@ import pytest
 from bson import ObjectId
 from fastapi import FastAPI
 from httpx2 import ASGITransport, AsyncClient
-from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
@@ -25,7 +24,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import post_one_to_db
-from app.core.db import CLOSE_TIMEOUT_S, collection_dependency
+from app.core.db import CLOSE_TIMEOUT_S, collection_dependency, new_client
 from app.core.logging import fl_logger
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.core.transactions import ABORT_GRACE_S, transaction_session
@@ -163,7 +162,7 @@ class _Transacted(NamedTuple):
 async def _transactions_held(url: str, session_ids: list[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
     """Through a client of its own: the route's would hand this read the session it asks about, then listed as this read rather than idle."""
 
-    async with AsyncMongoClient(url) as probe:
+    async with new_client(url) as probe:
         listed = await probe.admin.aggregate(
             [
                 {"$currentOp": {"allUsers": True, "idleSessions": True}},
@@ -202,7 +201,7 @@ async def _transacted(url: str, cut: _Cut) -> _Transacted:
     On a client of its own, whose sessions no other cut's transaction can be handed once this one ends.
     """
 
-    async with AsyncMongoClient(url) as client:
+    async with new_client(url) as client:
         written = client[CUTS_DATABASE_NAME][Collection.ACTION_LOG]
         mark = {"cut": cut.value}
 

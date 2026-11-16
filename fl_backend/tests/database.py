@@ -16,6 +16,7 @@ from pymongo.uri_parser import parse_uri
 
 from app.core.concurrency import concurrently
 from app.core.constraints import TTL_INDEXES, apply_constraints
+from app.core.db import new_client
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.readback import read_back
 
@@ -310,7 +311,7 @@ async def shared_client(url: str) -> AsyncMongoClient:
         # `poll`, the mode the driver picks for a process frozen between calls: the loop stands still
         # between cases, and a streaming check outliving its timeout there clears the pool on resume,
         # cancelling the next case's operations.
-        client = AsyncMongoClient(url, serverMonitoringMode="poll")
+        client = new_client(url, serverMonitoringMode="poll")
         entry = _CLIENTS[key] = (client, asyncio.create_task(client.aconnect(), context=Context()))
 
     client, opening = entry

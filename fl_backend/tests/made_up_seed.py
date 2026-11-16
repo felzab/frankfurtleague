@@ -91,7 +91,7 @@ from app.core import clock
 from app.core.collections import Collection
 from app.core.config import EnvironmentValidationError, get_config
 from app.core.crud import ANCHOR_FIELD, Anchored
-from app.core.db import SERVER_SELECTION_TIMEOUT_MS
+from app.core.db import new_client
 from app.readback import RECORD_MODELS
 from app.shared.einwilligung_evidence import compose_initial
 from app.shared.schemas.addresses import FLAddress
@@ -1721,7 +1721,7 @@ async def _main() -> int:
         return UNJUDGED
     league = LANDING_STATES[landing](clock.now())
 
-    client = AsyncMongoClient(host=uri, serverSelectionTimeoutMS=SERVER_SELECTION_TIMEOUT_MS)
+    client = new_client(uri)
     try:
         return await write(client, config.db_base_name, league)
     finally:

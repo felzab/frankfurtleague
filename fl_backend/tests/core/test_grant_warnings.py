@@ -18,7 +18,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.core.collections import Collection
-from app.core.db import NO_GRANT, NO_OWNER, lifespan, warn_about_the_grants
+from app.core.db import NO_GRANT, NO_OWNER, lifespan, new_client, warn_about_the_grants
 from app.core.logging import FL_LOGGER_NAME
 from tests.config import build_test_config
 from tests.worker import worker_database
@@ -60,7 +60,7 @@ async def booted_over(grants: Sequence[Mapping[str, Any]], mongo_replica_set_url
 
     name = worker_database("fl_boot_grants")
     config = build_test_config().model_copy(update={"mongodb_uri": SecretStr(mongo_replica_set_url), "db_base_name": name})
-    client: AsyncMongoClient = AsyncMongoClient(mongo_replica_set_url)
+    client: AsyncMongoClient = new_client(mongo_replica_set_url)
 
     try:
         await client.drop_database(name)
