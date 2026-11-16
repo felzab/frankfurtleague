@@ -46,11 +46,12 @@ exit 1
 
 
 # pnpm answering each command as `FL_PNPM_<command>` says, and a program it runs as `FL_PNPM_exec_<program>`, as pnpm
-# 11.28.9 prints, driven: `<status>` a script's
-# own, which pnpm closes on its `[ELIFECYCLE]` line; `<status>:<code>` pnpm's own error, opening a line
-# `[ERR_PNPM_<code>]`; `<status>:ERROR` a codeless error of its own; `<status>:quote` a script's finding quoting a
-# pnpm code inside its own line; `<status>:tsc` tsc's error at a file's line and column. A script it runs is named by
-# the script, `lint:only` as `FL_PNPM_lint_only`.
+# 11.28.9 prints, driven: `<status>` a script's own, which pnpm closes on its `[ELIFECYCLE]` line; `<status>:<code>`
+# pnpm's own error, opening a line `[ERR_PNPM_<code>]`; `<status>:ERROR` a codeless error of its own;
+# `<status>:node-<code>` a code Node set, which pnpm prints as it found it; `<status>:quote` a script's finding quoting a
+# pnpm code inside its own line; `<status>:tsc` tsc's error at a file's line and column. Under `FORCE_COLOR` each
+# reporter line is coloured as pnpm's `formatErrorSummary` colours it. A script it runs is named by the script,
+# `lint:only` as `FL_PNPM_lint_only`.
 PNPM: Final = r"""#!/usr/bin/env bash
 if [[ "$1" == --dir ]]; then shift 2; fi
 command="$1"
@@ -62,15 +63,23 @@ fi
 variable="FL_PNPM_${command//[^A-Za-z]/_}"
 answer="${!variable:-0}"
 status="${answer%%:*}"
+reported() { # $1 the code · $2 the message
+  if [[ -n "${FORCE_COLOR:-}" ]]; then
+    printf '\e[41m\e[31m[\e[39m\e[49m\e[41m\e[30m%s\e[39m\e[49m\e[41m\e[31m]\e[39m\e[49m \e[31m%s\e[39m\n' "$1" "$2" >&2
+  else
+    printf '[%s] %s\n' "$1" "$2" >&2
+  fi
+}
 case "$answer" in
   *:quote) printf '%s\n' "src/core/x.ts: a finding quoting [ERR_PNPM_META_FETCH_FAIL] in its own words" ;;
   *:tsc) printf '%s\n' "src/app/page.tsx(3,7): error TS2322: Type 'string' is not assignable to type 'number'." ;;
-  *:ERROR) printf '%s\n' "[ERROR] Bad escaped character in JSON at position 172" >&2 ;;
-  *:*) printf '[ERR_PNPM_%s] stub: pnpm %s\n' "${answer#*:}" "$*" >&2 ;;
+  *:ERROR) reported ERROR "Bad escaped character in JSON at position 172" ;;
+  *:node-*) reported "${answer#*:node-}" "stub: pnpm $*" ;;
+  *:*) reported "ERR_PNPM_${answer#*:}" "stub: pnpm $*" ;;
 esac
 # A script that failed under pnpm, which pnpm's own errors are not.
 if [[ "$answer" != *:* || "$answer" == *:quote || "$answer" == *:tsc ]] && (( status )); then
-  printf '[ELIFECYCLE] Command failed with exit code %s.\n' "$status" >&2
+  reported ELIFECYCLE "Command failed with exit code ${status}."
 fi
 exit "$status"
 """
@@ -194,6 +203,20 @@ CRASHED: Final = "exit status "
             "--frontend", {"FL_PNPM_lint_only": "1:quote"}, 1, ESLINT, JUDGED_NOTHING, id="a-finding-quoting-a-pnpm-code-stays-a-finding"
         ),
         pytest.param("--frontend", {"FL_PNPM_lint_only": "1:ERROR"}, 3, CRASHED, ESLINT, id="a-codeless-error-of-pnpm-s-own-is-a-crash"),
+        # pnpm prints a code Node set as it found it, before the script runs.
+        pytest.param("--frontend", {"FL_PNPM_lint_only": "1:node-EACCES"}, 3, CRASHED, ESLINT, id="a-code-node-set-is-a-crash"),
+        # A developer's `FORCE_COLOR` reaches pnpm's reporter, which colours a code's brackets.
+        pytest.param(
+            "--frontend",
+            {"FL_PNPM_dedupe": "1:DEDUPE_CHECK_ISSUES", "FORCE_COLOR": "1"},
+            1,
+            DEDUPE,
+            CRASHED,
+            id="a-coloured-pnpm-code-reads-as-its-code",
+        ),
+        pytest.param(
+            "--frontend", {"FL_PNPM_lint_only": "1", "FORCE_COLOR": "1"}, 1, ESLINT, CRASHED, id="a-coloured-script-failure-stays-the-tool-s"
+        ),
         # The supply-chain policies refuse an entry wherever pnpm verifies the lockfile, in words of their own.
         pytest.param(
             "--frontend",

@@ -679,18 +679,36 @@ declare -grA PNPM_SAID=(
   [MISSING_TARBALL_INTEGRITY]="$_PNPM_POLICY_SAID" [MISSING_NAMED_REGISTRY]="$_PNPM_POLICY_SAID"
 )
 
-# The line pnpm's reporter writes for an error of its own, a code's or a codeless one's, or for a script
-# that failed under it, each opening a line; a tool's output quoting one inside a line is no such line.
-_PNPM_REPORTED='^\[(ERR_PNPM_[A-Z0-9_]+|ELIFECYCLE|ERROR)\]( |$)'
+# A colour or cursor sequence, which a tool writes into a line under `FORCE_COLOR` as a terminal would read it:
+# pnpm's reporter wraps a code's brackets in chalk's, and chalk honours that variable whatever pnpm's `color` says.
+_ESCAPE=$'\e''\[[0-9;?]*[A-Za-z]'
 
-# The code pnpm's last reporter line names in `$1`, the command's output, or nothing where that line is
-# a script's failure, a codeless error of pnpm's own (`ERROR`), or there is none.
-pnpm_code() { # $1 the command's output
-  local line last=""
+# The lines of `$1` as their words read, into `_LINES`: each without its colour sequences, and without the carriage
+# return a Windows tool ends it with. The one reader of a tool's words, so no pattern meets another spelling of a line.
+_LINES=()
+_plain_lines() { # $1 the output
+  local line
+  _LINES=()
   while IFS= read -r line; do
     line="${line%$'\r'}"
-    if [[ "$line" =~ $_PNPM_REPORTED ]]; then last="${BASH_REMATCH[1]}"; fi
+    while [[ "$line" =~ $_ESCAPE ]]; do line="${line/"${BASH_REMATCH[0]}"/}"; done
+    _LINES+=("$line")
   done <<<"${1-}"
+}
+
+# A line pnpm's reporter writes, opening on the code in brackets: `ERR_PNPM_<code>` an error of pnpm's own,
+# `ELIFECYCLE` a script that failed under it, `ERROR` a codeless one, and any other a code Node or a library set,
+# `EACCES` or `EPERM` among them, which pnpm prints as it found it. A tool's output quoting one inside a line is
+# no such line, and neither is a lower-case tag such as Prettier's `[warn]`.
+_PNPM_REPORTED='^\[([A-Z][A-Z0-9_]*)\]( |$)'
+
+# The code pnpm's last reporter line names in `$1`, the command's output, or nothing where there is none.
+pnpm_code() { # $1 the command's output
+  local line last=""
+  _plain_lines "${1-}"
+  for line in "${_LINES[@]}"; do
+    if [[ "$line" =~ $_PNPM_REPORTED ]]; then last="${BASH_REMATCH[1]}"; fi
+  done
   printf '%s' "$last"
 }
 
@@ -716,20 +734,21 @@ declare -grA EXIT_LINES=(
   [readback]='1 1 ^[0-9]+ documents read, [1-9][0-9]* refused\.$'
 )
 
-# Whether a line of `$2` matches the ERE `$1`, a carriage return a Windows tool ends it with aside.
+# Whether a line of `$2`, as `_plain_lines` reads it, matches the ERE `$1`.
 _said() { # $1 the ERE · $2 the output
   local line
-  while IFS= read -r line; do
-    if [[ "${line%$'\r'}" =~ $1 ]]; then return 0; fi
-  done <<<"${2-}"
+  _plain_lines "${2-}"
+  for line in "${_LINES[@]}"; do
+    if [[ "$line" =~ $1 ]]; then return 0; fi
+  done
   return 1
 }
 
 # The class `$2` reads as through the tables `$1` names, joined by `+`, the first naming the status
 # deciding, answered as this function's own status: call it as `exit_class docker+lychee "$rc" ||
-# class=$?`. Where the first table is `pnpm` and the status is not 0, a code pnpm's last reporter line in
-# `$3`, the command's output, names decides first, a codeless error of pnpm's own is a crash, and a
-# script's failure under it, or no such line, leaves the status to the tables after it. A table whose
+# class=$?`. Where the first table is `pnpm` and the status is not 0, the code pnpm's last reporter line in
+# `$3`, the command's output, names decides first: a code of pnpm's own by `PNPM_ERRORS`, a script's failure
+# under it, or no such line, by the tables after it, and any other code a crash. A table whose
 # `EXIT_LINES` entry names the status is read by its words. A table list naming no row is a defect of the
 # caller, so it crashes rather than reading as 1, every name checked before any decides: a misspelt one
 # crashes on the first run, not the first failure.
@@ -744,10 +763,11 @@ exit_class() { # $1 the tables · $2 the status · $3 the command's output
   if [[ "${1%%+*}" == pnpm && "$status" != 0 ]]; then
     code="$(pnpm_code "${3-}")"
     case "$code" in
+      "" | ELIFECYCLE) ;;
       ERR_PNPM_*) code="${code#ERR_PNPM_}"
                   if [[ -n "${PNPM_ERRORS[$code]+set}" ]]; then return "${PNPM_ERRORS[$code]}"; fi
                   return 3 ;;
-      ERROR) return 3 ;;
+      *) return 3 ;;
     esac
   fi
   for table in $1; do
