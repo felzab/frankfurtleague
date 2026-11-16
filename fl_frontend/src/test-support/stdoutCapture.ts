@@ -1,4 +1,4 @@
-import { afterAll, afterEach, assert, beforeEach } from "vitest";
+import { afterEach, assert, beforeEach } from "vitest";
 
 /** Test-only: every export below replaces `process.stdout.write` for the length of a call or a file. */
 
@@ -157,6 +157,27 @@ function requireProductionBuild(): void {
   );
 }
 
+/** The end of each capture the file opened, which `endEveryCapture` runs once every other hook of the file has run. */
+const OPEN_CAPTURES: (() => void)[] = [];
+
+/**
+ * Stops every capture the file opened and fails the file on a line no case judged, from the setup file's `afterAll`:
+ * Vitest runs a file's after-hooks last registered first, and the setup file registers before any of the file's own,
+ * so a line logged while a file's clients close is read rather than passed to the reporter.
+ */
+export function endEveryCapture(): void {
+  const failures: unknown[] = [];
+  for (const end of OPEN_CAPTURES.splice(0)) {
+    try {
+      end();
+    } catch (failure) {
+      failures.push(failure);
+    }
+  }
+  if (failures.length === 1) throw failures[0];
+  if (failures.length > 1) throw new AggregateError(failures, failures.map(String).join("\n"));
+}
+
 /**
  * Every line the application's logger writes from this call to the end of the file: a case reads the stream the
  * logger really writes rather than a double of the logger. Called at module level, before the subject's import, so a
@@ -168,23 +189,33 @@ function requireProductionBuild(): void {
  * - A chunk the logger did not write goes on to the runner's reporter untouched, whatever its shape.
  * - A line the capture cannot read fails the case it was written in, from the capture's `afterEach`, rather than
  *   throwing into the code that wrote it.
+ * - It stops after every other hook of the file, its clients' closes included, whatever order the file calls it in, and
+ *   a line written once the file's last case ended, read or not, fails the file: no case is left to read it.
  */
 export function captureLog(build?: "production"): { lines(): readonly LoggedLine[]; clear(): void } {
   if (build === "production") requireProductionBuild();
   const read = build === "production" ? readDocument : readPlain;
   const lines: LoggedLine[] = [];
+  /** Each line read since the last case ended, which no case's end has judged. */
+  const late: string[] = [];
   const { faults, restore } = beginCapture((raw) => {
     lines.push(read(raw));
+    late.push(raw);
   });
 
   beforeEach(() => {
     lines.length = 0;
   });
   afterEach(() => {
+    late.length = 0;
     const unread = faults.splice(0);
     assert(unread.length === 0, `the logger wrote what the capture cannot read:\n${unread.join("\n")}`);
   });
-  afterAll(restore);
+  OPEN_CAPTURES.push(() => {
+    restore();
+    const unjudged = [...late, ...faults];
+    assert(unjudged.length === 0, `the logger wrote once the file's last case had ended, where no case reads it:\n${unjudged.join("")}`);
+  });
 
   return {
     lines: () => [...lines],
