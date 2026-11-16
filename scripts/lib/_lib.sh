@@ -651,8 +651,19 @@ render_compose_model() {
 
 # --- What a successful build does not prove ------------------------------------------------------------
 
-# Asked of the image itself, by the gate's images scope. Each answers 0, 1 for what it found, and 3
-# for an image that would not run, which says nothing about the image.
+# Asked of the image itself, by the gate's images scope. Each answers 0, 1 for what it found, and
+# for a probe that did not run the class `EXIT_CODES`'s `docker` row reads Docker's status as: 2
+# where the daemon itself failed, 3 where the image could not start the probe or the probe failed,
+# neither saying anything about the image.
+
+# A probe's `docker run` that did not answer what the probe found, the reason printed. 130 travels:
+# flattened it would read as a crash rather than an interrupt.
+_unprobed() { # $1 the image · $2 docker's status · $3 what was never read
+  local class=0
+  exit_class docker "$2" || class=$?
+  if (( class != 130 )); then printf '%s\n' "the ${1} image did not run its probe (exit ${2}), so ${3} was never read"; fi
+  return "$class"
+}
 
 # From the repo root `instrumentation.ts` compiles but is not traced into the standalone output,
 # which silently disables the startup env gate and onRequestError.
@@ -661,12 +672,9 @@ image_has_instrumentation() { # $1 the frontend image
   docker run --rm --entrypoint sh "$1" -c '[ -f .next/server/instrumentation.js ]' || rc=$?
   case "$rc" in
     0) ;;
-    # The test's own answer. Anything higher is docker's, and says nothing about the file.
+    # The test's own answer. Anything else is Docker's or the shell's, and says nothing about the file.
     1) printf '%s\n' "the ${1} image has no .next/server/instrumentation.js"; return 1 ;;
-    # 130 travels: flattened to 3 it reads as a crash, and the caller cannot recover the interrupt.
-    130) return 130 ;;
-    *) printf '%s\n' "the ${1} image would not run (exit ${rc}), so whether instrumentation.js reached it was never read"
-       return 3 ;;
+    *) _unprobed "$1" "$rc" "whether instrumentation.js reached it" || return ;;
   esac
 }
 
@@ -676,12 +684,7 @@ image_runs_unprivileged() { # $1.. the images
   for image in "$@"; do
     rc=0
     uid="$(docker run --rm --entrypoint sh "$image" -c 'id -u')" || rc=$?
-    # 130 travels: flattened to 3 it would read as a crash rather than an interrupt.
-    if (( rc == 130 )); then return 130; fi
-    if (( rc )); then
-      printf '%s\n' "the ${image} image would not run, so its runtime user was never read"
-      return 3
-    fi
+    if (( rc )); then _unprobed "$image" "$rc" "its runtime user" || return; fi
     if [[ "$uid" == "0" ]]; then
       printf '%s\n' "the ${image} image runs as uid 0, so no USER line takes effect in it"
       return 1
@@ -699,12 +702,7 @@ image_context_clean() { # $1.. the images
   for image in "$@"; do
     rc=0
     found="$(docker run --rm --entrypoint sh "$image" -c "$IMAGE_CONTEXT_FIND")" || rc=$?
-    # 130 travels: flattened to 3 it would read as a crash rather than an interrupt.
-    if (( rc == 130 )); then return 130; fi
-    if (( rc )); then
-      printf '%s\n' "the ${image} image would not run, so its context was never read"
-      return 3
-    fi
+    if (( rc )); then _unprobed "$image" "$rc" "its context" || return; fi
     if [[ -n "$found" ]]; then
       printf '%s\n' "the ${image} image carries what its dockerignore exists to keep out:" "$found"
       return 1

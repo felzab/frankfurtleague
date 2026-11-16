@@ -659,19 +659,20 @@ scope_images() {
     ok "both images build"
   fi
 
-  # Each assertion answers 1 for what it found and 3 for an image that would not run.
+  # Each assertion answers 1 for what it found, and for a probe that did not run the class Docker's status
+  # reads as (`_lib.sh :: _unprobed`).
   step "images · instrumentation.js is in the frontend image"
-  check "instrumentation.js is MISSING from the image. It must live at fl_frontend/src/instrumentation.ts, not the repository root." \
+  check --exits contract "instrumentation.js is MISSING from the image. It must live at fl_frontend/src/instrumentation.ts, not the repository root." \
     image_has_instrumentation "${IMAGES_TAG}:frontend" \
     && ok "instrumentation.js present — the environment gate and error logging will run"
 
   step "images · neither image runs as root"
-  check "An image runs as root, which a build reports as success. The USER line in that image's Dockerfile sets it." \
+  check --exits contract "An image runs as root, which a build reports as success. The USER line in that image's Dockerfile sets it." \
     image_runs_unprivileged "${IMAGES_TAG}:frontend" "${IMAGES_TAG}:backend" \
     && ok "both images drop to an unprivileged user"
 
   step "images · the dockerignore kept its promise about the build context"
-  check "A build context carried a file its dockerignore exists to exclude, named above." \
+  check --exits contract "A build context carried a file its dockerignore exists to exclude, named above." \
     image_context_clean "${IMAGES_TAG}:frontend" "${IMAGES_TAG}:backend" \
     && ok "no environment file, key, certificate or npm configuration reached either image"
   return 0

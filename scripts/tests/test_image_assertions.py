@@ -65,6 +65,7 @@ case "$cmd" in
     case "${FL_IMAGE_CASE:-clean}" in
       instrumentation_interrupted) exit 130 ;;
       instrumentation_unreadable) exit 125 ;;
+      instrumentation_unrunnable) exit 127 ;;
       instrumentation_missing) exit 1 ;;
       *) exit 0 ;;
     esac ;;
@@ -118,13 +119,15 @@ CASES: Final[tuple[Case, ...]] = (
     Case("clean", 0, "Green", built=True),
     Case("instrumentation_missing", 1, "instrumentation.js is MISSING"),
     Case("instrumentation_missing", 1, "instrumentation.js is MISSING", built=True),
-    Case("instrumentation_unreadable", 3, "Crashed after", "instrumentation.js is MISSING"),
+    # Docker's own 125, the daemon failing, judged nothing; 127, the image without the probe's shell, is a crash.
+    Case("instrumentation_unreadable", 2, "Refused after", "instrumentation.js is MISSING"),
+    Case("instrumentation_unrunnable", 3, "Crashed after", "instrumentation.js is MISSING"),
     Case("instrumentation_interrupted", 130, "Interrupted after", "Crashed after"),
     Case("user_root", 1, "An image runs as root"),
-    Case("user_unreadable", 3, "Crashed after", "An image runs as root"),
+    Case("user_unreadable", 2, "Refused after", "An image runs as root"),
     Case("user_interrupted", 130, "Interrupted after", "Crashed after"),
     Case("context_breach", 1, "dockerignore exists to exclude"),
-    Case("context_unreadable", 3, "Crashed after", "dockerignore exists to exclude"),
+    Case("context_unreadable", 2, "Refused after", "dockerignore exists to exclude"),
     Case("context_interrupted", 130, "Interrupted after", "Crashed after"),
 )
 
