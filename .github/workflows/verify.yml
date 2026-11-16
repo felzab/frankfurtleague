@@ -422,9 +422,6 @@ jobs:
       - name: The stack's logs, on a failure
         if: failure()
         run: docker compose logs --no-color --tail=200
-      - name: Stop the stack
-        if: always()
-        run: docker compose down -v --remove-orphans
 
   # THE REQUIRED STATUS CHECK, which the ruleset names. `always()`: the verdict is the steps below,
   # never GitHub's reading of a job skipped over a failed need.
