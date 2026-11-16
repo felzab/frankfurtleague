@@ -216,23 +216,30 @@ def test_each_tool_s_status_ends_the_scope_as_its_table_reads_it(scope: str, ans
 
 
 @pytest.mark.parametrize(
-    ("lychee", "code", "row"),
+    ("lychee", "code", "row", "closes"),
     [
-        pytest.param("0", 0, "pass", id="green"),
-        pytest.param("2", 1, "failed", id="a-finding"),
-        pytest.param("3", 2, "refused", id="a-refusal"),
-        pytest.param("127", 3, "crashed", id="a-crash"),
-        pytest.param("130", 130, "interrupted", id="an-interrupt"),
+        pytest.param("0", 0, "pass", "Green — 2 scopes, no findings, ", id="green"),
+        pytest.param("2", 1, "failed", "finding(s) in this run", id="a-finding"),
+        pytest.param("3", 2, "refused", "Refused after", id="a-refusal"),
+        pytest.param("127", 3, "crashed", "Crashed after", id="a-crash"),
+        pytest.param("130", 130, "interrupted", "Interrupted after", id="an-interrupt"),
     ],
 )
-def test_a_run_beside_others_ends_on_the_class_its_scope_ended_on(lychee: str, code: int, row: str) -> None:
-    """The docs scope ends on each class beside a green ops scope, and the run and the docs row end on that class."""
+def test_a_run_beside_others_ends_on_the_class_its_scope_ended_on(lychee: str, code: int, row: str, closes: str) -> None:
+    """The docs scope ends on each class beside a green ops scope, and the run and the docs row end on that class.
+
+    The run closes on its class's line, a green one naming the scopes it ran: only a run of every scope is safe to merge.
+    """
     exited, output = _gate("--docs", "--ops", answers={"FL_LYCHEE_EXIT": lychee})
     wrong = _wrong(exited, output, code, "running side by side: docs ops", "no verdict")
     if not re.search(rf"^\s+docs\s+{row}\s", output, re.MULTILINE):
         wrong.append(f"the table gives the docs row no {row!r}")
     if not re.search(r"^\s+ops\s+pass\s", output, re.MULTILINE):
         wrong.append("the table gives the ops row no 'pass'")
+    if closes not in output:
+        wrong.append(f"the run closed on no {closes!r}")
+    if "Safe to merge" in output:
+        wrong.append("a run of two scopes called itself safe to merge, which only a run of every scope is")
     assert not wrong, "\n".join(wrong) + "\n" + output
 
 
