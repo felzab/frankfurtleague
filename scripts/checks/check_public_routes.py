@@ -663,7 +663,6 @@ def interceptions(judged: Accounting) -> list[Finding]:
         if grouped:
             findings.append(
                 Finding(
-                    "fail",
                     f"{shown(page.path, judged.root)} intercepts {page.url} under the route group {grouped[0]}\n"
                     f"{CONTINUATION}a group is no level of the URL, so the interceptor reaches from every page of its "
                     f"parent level while the group's layout draws the slot on its own pages alone: "
@@ -674,7 +673,6 @@ def interceptions(judged: Accounting) -> list[Finding]:
         if len(pages_there) > 1:
             findings.append(
                 Finding(
-                    "fail",
                     f"{', '.join(shown(one.path, judged.root) for one in pages_there)} all intercept {address}\n"
                     f"{CONTINUATION}from a page both levels hold, their rewrites compete in an order Next documents nowhere: "
                     f"keep one interceptor for the address, in the slot every page it intercepts from shares",
@@ -825,7 +823,6 @@ def loosened(judged: Accounting) -> list[Finding]:
         ceiling = any(line.startswith("limit_conn ") for line in owed)
         findings.append(
             Finding(
-                "fail",
                 f"{judged.conf}:{one.line}: `location {'= ' if one.exact else ''}{one.path}` is carved out of `location "
                 f"{wider.path}` and lacks its {', '.join(f'`{line}`' for line in sorted(owed))}\n"
                 f"{CONTINUATION}a request here would otherwise meet that meter: write each line as `location {wider.path}` "
@@ -858,7 +855,6 @@ def unsized_links(judged: Accounting) -> list[Finding]:
                 continue
             findings.append(
                 Finding(
-                    "fail",
                     f"{judged.conf}:{one.line}: `location {'= ' if one.exact else ''}{one.path}` meters {zone} with "
                     f"`limit_req {' '.join(args)}`, where a squad of {judged.squad} needs burst={expected[zone]}\n"
                     f"{CONTINUATION}the link pages are sized for the largest squad {OPENAPI} publishes: size the burst for it",
@@ -888,7 +884,6 @@ def unmetered_links(judged: Accounting) -> list[Finding]:
         reached = "no location" if location is None else f"`location {'= ' if location.exact else ''}{location.path}`"
         findings.append(
             Finding(
-                "fail",
                 f"{shown(page.path, judged.root)} reads a link's token, and {page.url} reaches {reached} in {judged.conf}, "
                 f"which does not meter it on {', '.join(sorted(LINK_ZONES))}\n"
                 f"{CONTINUATION}put the page under a prefix carrying that zone, or give it an exact match carrying it",
@@ -914,7 +909,6 @@ def unlogged_links(judged: Accounting) -> list[Finding]:
         reached = "no location" if location is None else f"`location {'= ' if location.exact else ''}{location.path}`"
         findings.append(
             Finding(
-                "fail",
                 f"{shown(page.path, judged.root)} reads a link's token, and {page.url} reaches {reached} in {judged.conf}, "
                 f"whose error lines, each repeating the request line, are not all sent to {DISCARDED_LOG}\n"
                 f"{CONTINUATION}give that location `error_log {DISCARDED_LOG};` as its only error_log",
@@ -941,7 +935,6 @@ def referring_links(judged: Accounting) -> list[Finding]:
             continue
         findings.append(
             Finding(
-                "fail",
                 f"{shown(page.path, judged.root)} reads a link's token, and {NGINX_HTTP_CONF}'s map setting {REFERRER_MAP} gives "
                 f"{page.url} {policy or 'no value'}, which hands the address on in every request the page starts\n"
                 f"{CONTINUATION}give the page's location its entry, valued {LINK_REFERRER_POLICY}",
@@ -959,7 +952,6 @@ def referring_links(judged: Accounting) -> list[Finding]:
             continue
         findings.append(
             Finding(
-                "fail",
                 f"{NGINX_HTTP_CONF}'s map setting {REFERRER_MAP} gives {key!r} {value}, a match no link page's location in "
                 f"{judged.conf} makes\n"
                 f"{CONTINUATION}spell the entry as the link page's location matches, or drop it: every other page keeps the site's policy",
@@ -1031,7 +1023,6 @@ def account(judged: Accounting) -> list[Finding]:
             if not match.metered:
                 findings.append(
                     Finding(
-                        "fail",
                         f"{name} answers {handler.url}, whose exact-match location carries no limit_req\n"
                         f"{CONTINUATION}an exact match is where a rate is declared, and {judged.conf} declares none there",
                     )
@@ -1043,7 +1034,6 @@ def account(judged: Accounting) -> list[Finding]:
         elif declaring(prefix.path) is None:
             findings.append(
                 Finding(
-                    "fail",
                     f"{name} answers {handler.url}, covered by the prefix location {prefix.path} and by no recorded reason\n"
                     f"{CONTINUATION}meter it with an exact-match location, or record why that prefix is enough at "
                     f"scripts/checks/check_public_routes.py :: REASONS",
@@ -1056,12 +1046,10 @@ def _unreached(handler: Handler, name: str, conf: str) -> Finding:
     """The finding for a handler no location but the catch-all reaches."""
     if handler.dynamic:
         return Finding(
-            "fail",
             f"{name} answers {handler.url}, which no exact match can name and no prefix location covers\n"
             f"{CONTINUATION}a dynamic segment is unmeterable without a prefix: give {conf} one, or the whole subtree runs unmetered",
         )
     return Finding(
-        "fail",
         f"{name} answers {handler.url}, and no location in {conf} names it\n"
         f"{CONTINUATION}it reaches Next through `location /`, whose one rate zone meters server actions alone",
     )

@@ -40,11 +40,6 @@ def details(findings: list) -> str:
     return "\n".join(finding.detail for finding in findings)
 
 
-def severities(findings: list) -> list:
-    """The severities a run reported, so a case pins how many findings it caused as well as which."""
-    return [finding.severity for finding in findings]
-
-
 def block(header: str, *lines: str) -> str:
     """One location block, written the way `nginx/shared/site.conf` writes them."""
     return "\n    " + header + " {\n" + "".join(lines) + "    }\n"
@@ -134,7 +129,7 @@ def test_a_handler_filed_as_a_tsx_route_is_walked_too():
     """Next resolves both configured extensions, so a walk seeing one of them accounts for part of the tree."""
     findings = accounted(tree("/api/example", file="route.tsx"), served(METERED, CATCH_ALL))
 
-    assert severities(findings) == ["fail"]
+    assert len(findings) == 1
     assert "/api/example" in details(findings)
 
 
@@ -189,7 +184,7 @@ def test_an_interceptor_under_a_route_group_is_a_finding():
     """A group is no level, so `(classic)`'s slot intercepts from every page while its layout draws it on its own alone."""
     findings = intercepting("/(classic)" + ROOT_INTERCEPTOR)
 
-    assert severities(findings) == ["fail"]
+    assert len(findings) == 1
     assert "under the route group (classic)" in details(findings)
 
 
@@ -197,7 +192,7 @@ def test_two_interceptors_for_one_address_are_a_finding():
     """Each level's rewrite matches from a season page, whatever each names its dynamic segment."""
     findings = intercepting(ROOT_INTERCEPTOR, "/saisons/[id]/@modal/(.)spiele/[spiel]")
 
-    assert severities(findings) == ["fail"]
+    assert len(findings) == 1
     assert "all intercept /saisons/[]/spiele/[]" in details(findings)
 
 
@@ -205,7 +200,7 @@ def test_an_exact_match_carrying_no_limit_req_is_a_finding():
     """The gap the check exists for: a location naming the handler and metering nothing."""
     findings = accounted(tree("/api/bewerbung"), served(exact("/api/bewerbung", metered=False), CATCH_ALL))
 
-    assert severities(findings) == ["fail"]
+    assert len(findings) == 1
     assert "carries no limit_req" in details(findings)
 
 
@@ -213,7 +208,7 @@ def test_a_handler_no_location_names_is_a_finding():
     """A route handler added with no edge change at all, which is how one ships unmetered."""
     findings = accounted(tree("/api/example"), served(METERED, CATCH_ALL))
 
-    assert severities(findings) == ["fail"]
+    assert len(findings) == 1
     assert "/api/example" in details(findings)
 
 
@@ -240,7 +235,7 @@ def test_a_dynamic_segment_with_no_prefix_over_it_is_unmeterable():
     """An exact match cannot name a catch-all's URLs, so only a prefix reaches the subtree at all."""
     findings = accounted(tree("/api/auth/[...all]"), served(METERED, CATCH_ALL))
 
-    assert severities(findings) == ["fail"]
+    assert len(findings) == 1
     assert "unmeterable" in details(findings)
 
 
@@ -287,7 +282,7 @@ def test_a_link_page_only_the_catch_all_answers_is_a_finding(text):
     """Under every spelling of the read, the hook's being what a case-blind match exists for."""
     findings = unmetered(link_page("/new", text), served(METERED, CATCH_ALL))
 
-    assert severities(findings) == ["fail"]
+    assert len(findings) == 1
     assert "/new reaches `location /`" in details(findings)
 
 
@@ -295,7 +290,7 @@ def test_a_link_page_another_zone_meters_is_a_finding():
     """Metered is not enough: another zone passes any rule asking only for a `limit_req`."""
     findings = unmetered(link_page("/new"), served(exact("/new"), CATCH_ALL))
 
-    assert severities(findings) == ["fail"]
+    assert len(findings) == 1
     assert "/new reaches `location = /new`" in details(findings)
 
 
@@ -408,7 +403,7 @@ def test_a_link_burst_sized_for_another_squad_is_a_finding():
 
     findings = routes.unsized_links(accounting(where=where, squad=11))
 
-    assert severities(findings) == ["fail"] * 2
+    assert len(findings) == 2
     assert "where a squad of 11 needs burst=50" in details(findings)
 
 
@@ -435,7 +430,7 @@ def test_a_link_page_s_location_writing_an_error_line_anywhere_is_a_finding(line
     """nginx writes to every log a level names, so a second beside the discard writes the token; a full disk's line is crit."""
     findings = unlogged(*lines)
 
-    assert severities(findings) == ["fail"]
+    assert len(findings) == 1
     assert "/new reaches `location = /new`" in details(findings)
 
 
@@ -451,7 +446,7 @@ def test_a_link_page_the_map_hands_the_site_s_policy_is_a_finding():
     """A link page added with its block and no entry, which is how one ships handing its address on."""
     findings = referring(served(block("location = /new", LINK_ZONE, PASS), CATCH_ALL), (("default", "strict-origin-when-cross-origin"),))
 
-    assert severities(findings) == ["fail"]
+    assert len(findings) == 1
     assert "gives /new strict-origin-when-cross-origin" in details(findings)
 
 
@@ -460,7 +455,7 @@ def test_an_exact_entry_answers_before_a_regex_withholding_the_referrer():
     entries = (("/new/page", "strict-origin-when-cross-origin"), ("~^/new/", "no-referrer"), ("default", "strict-origin-when-cross-origin"))
     findings = referring(served(block("location /new/", LINK_ZONE, PASS), CATCH_ALL), entries, "/new/page")
 
-    assert severities(findings) == ["fail"]
+    assert len(findings) == 1
     assert "gives /new/page strict-origin-when-cross-origin" in details(findings)
 
 
@@ -469,7 +464,7 @@ def test_an_entry_withholding_the_referrer_where_no_link_page_s_location_matches
     """Every other page keeps the site's policy, so an entry matching more, or elsewhere, is one."""
     findings = referring(served(block("location = /new", LINK_ZONE, PASS), CATCH_ALL), (*NEW_REFERRER, (key, "no-referrer")))
 
-    assert severities(findings) == ["fail"]
+    assert len(findings) == 1
     assert f"gives {key!r} no-referrer, a match no link page's location" in details(findings)
 
 
@@ -523,7 +518,7 @@ def test_a_page_s_location_lacking_a_line_of_the_catch_all_s_meter_is_a_finding(
     """Next runs a server action at any page's path, so a block lacking either line is where a script posts past it."""
     findings = loosened(block("location /new/", *lines, PASS))
 
-    assert severities(findings) == ["fail"]
+    assert len(findings) == 1
     assert f"`location /new/` is carved out of `location /` and lacks its {lacking}" in details(findings)
 
 
@@ -536,7 +531,7 @@ def test_an_exact_match_carved_out_of_a_handler_s_prefix_owes_the_prefix_s_zone(
 
     findings = loosened(prefix_block, block("location = /api/auth/code", ZONE, PASS), app=app)
 
-    assert severities(findings) == ["fail"]
+    assert len(findings) == 1
     assert "carved out of `location /api/auth` and lacks its `limit_req zone=authapi burst=10 nodelay`" in details(findings)
 
 
@@ -546,7 +541,7 @@ def test_a_location_the_ceiling_is_recorded_not_to_bound_still_owes_the_action_z
 
     findings = loosened(block("location /_next/static/", PASS))
 
-    assert severities(findings) == ["fail"]
+    assert len(findings) == 1
     assert "lacks its `limit_req zone=action burst=30 nodelay`\n" in details(findings)
 
 
