@@ -2,10 +2,10 @@
 import { Suspense } from "react";
 
 import { serveBackend } from "@/test-support/backend";
-import { underNext } from "@/test-support/nextContexts";
+import { renderUnderNext } from "@/test-support/nextContexts";
 import { signedInRequest } from "@/test-support/session";
 import { seat } from "@/test-support/subjectFixtures";
-import { act, render, screen } from "@testing-library/react";
+import { act, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
@@ -26,7 +26,7 @@ const { default: AccountLayout } = await import("./layout");
  */
 async function renderFor() {
   const frame = AccountLayout({ children: AccountListLayout({ children: <p>Seite</p> }) });
-  await act(async () => render(underNext(<Suspense>{frame}</Suspense>, { pathname: ROUTES.account.path(), params: {} })));
+  await act(async () => renderUnderNext(<Suspense>{frame}</Suspense>, { pathname: ROUTES.account.path(), params: {} }));
   // The frame holds no boundary of its own, so its page shows once every read it waits on is answered.
   await screen.findByText("Seite");
 }

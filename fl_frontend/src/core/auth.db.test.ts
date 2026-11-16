@@ -14,11 +14,12 @@ import {
 import { serveBackend } from "@/test-support/backend";
 import { emptyStore } from "@/test-support/emptyStore";
 import { replicaSetUrl, startReplicaSet } from "@/test-support/replicaSet";
+import { signInIndexesForTheFile } from "@/test-support/signInIndexes";
 import { captureLog } from "@/test-support/stdoutCapture";
 import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures";
 import { registrationFor } from "@/test-support/testAuthenticator";
 import { MongoServerError } from "mongodb";
-import { assert, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { assert, beforeEach, describe, expect, it } from "vitest";
 
 import type { LookupFixture } from "@/test-support/subjectFixtures";
 
@@ -207,13 +208,7 @@ const realClient = productionClient as RealClient;
 closing(() => realClient.close());
 const authDb = () => realClient.db(MONGO_DB_NAME);
 
-// Production's indexes under every case, so the library is driven over what it meets there: built once for the
-// file, as a boot builds them once.
-beforeAll(async () => {
-  const from = log.lines().length;
-  await buildAuthIndexes();
-  expect(eventsAt("ERROR", from), "an index of the sign-in store was left unbuilt").toStrictEqual([]);
-});
+signInIndexesForTheFile(buildAuthIndexes, log);
 
 beforeEach(async () => {
   gateAnswer = { seats: [], barred: false, account: false };

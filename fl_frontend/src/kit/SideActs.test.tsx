@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { underNext } from "@/test-support/nextContexts";
-import { render, screen, within } from "@testing-library/react";
+import { renderUnderNext } from "@/test-support/nextContexts";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -10,10 +10,7 @@ import { SeatRows } from "./SeatRows";
 import { SideActs } from "./SideActs";
 import { Table } from "./Table";
 
-import type { ReactNode } from "react";
 import type { SideAct } from "./SideActs";
-
-const Next = ({ children }: { children: ReactNode }) => underNext(children);
 
 const SEND = COPY.shared.withObject(COPY.account.address.link, "send");
 const DISCARD = COPY.shared.verb.discard;
@@ -29,14 +26,13 @@ describe("a row's side acts folded", () => {
   // the reason under its label; or its press runs the act after all.
   it("keep a locked act's entry in the keys' reach, its press running nothing", async () => {
     const edit = vi.fn();
-    render(
+    renderUnderNext(
       <SideActs
         acts={[
           { label: SEND, onPress: () => undefined },
           { label: DISCARD, locked: COPY.shared.failure.stale, onPress: edit },
         ]}
       />,
-      { wrapper: Next },
     );
 
     screen.getByRole("button", { name: MORE }).focus();
@@ -88,7 +84,7 @@ describe.each(Object.entries(LISTS))("the side acts of a list's rows (%s)", (_, 
   // one shows; or a button's press runs nothing. Which form each width shows is the browser's to judge.
   it("are labelled buttons and one „⋯“ alike, a button's press running its act", async () => {
     const discard = vi.fn();
-    render(
+    renderUnderNext(
       listOf([
         [
           { label: SEND, onPress: () => undefined },
@@ -96,7 +92,6 @@ describe.each(Object.entries(LISTS))("the side acts of a list's rows (%s)", (_, 
         ],
         [{ label: DISCARD, tone: "danger", onPress: () => undefined }],
       ]),
-      { wrapper: Next },
     );
 
     const labelled = [...screen.getAllByRole("button", { name: SEND }), ...screen.getAllByRole("button", { name: DISCARD })];
@@ -112,14 +107,13 @@ describe.each(Object.entries(LISTS))("the side acts of a list's rows (%s)", (_, 
   it("list a locked act in both forms with its reason, its press running nothing", async () => {
     const discard = vi.fn();
     const reason = COPY.shared.failure.stale;
-    render(
+    renderUnderNext(
       listOf([
         [
           { label: SEND, onPress: () => undefined },
           { label: DISCARD, tone: "danger", locked: reason, onPress: discard },
         ],
       ]),
-      { wrapper: Next },
     );
 
     const button = screen.getByRole("button", { name: DISCARD });

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { underNext } from "@/test-support/nextContexts";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { renderUnderNext } from "@/test-support/nextContexts";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
@@ -13,7 +13,7 @@ import { ToastRegion } from "./Toast";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
-import type { ReactElement, ReactNode } from "react";
+import type { ReactElement } from "react";
 
 const HOLDER = "anna@example.com";
 const SIGNED_IN = { data: { status: true, email: HOLDER }, error: null };
@@ -22,7 +22,6 @@ const DONE: ActionAnswer = { ok: true, value: undefined };
 
 const passkey = vi.hoisted(() => ({ prompt: vi.fn() }));
 
-const Next = ({ children }: { children: ReactNode }) => underNext(children);
 vi.mock("@/core/auth/browserClient", () => ({
   loadAuthClient: async () => ({ signIn: { passkey: passkey.prompt } }),
   usePreloadedAuthClient: () => undefined,
@@ -38,12 +37,11 @@ afterEach(() => {
 
 /** What a case draws, with the frame's toast region beside it. */
 const renderWithToasts = (drawn: ReactElement) =>
-  render(
+  renderUnderNext(
     <>
       {drawn}
       <ToastRegion frame="rail" />
     </>,
-    { wrapper: Next },
   );
 
 const VERB = COPY.shared.verb.delete;
@@ -209,7 +207,7 @@ describe("the browser's passkey prompt after a dialog", () => {
       return new Promise((resolve) => (answer = resolve));
     });
     const onConfirm = vi.fn(async () => DONE);
-    render(draw(onConfirm), { wrapper: Next });
+    renderUnderNext(draw(onConfirm));
 
     await userEvent.click(screen.getByRole("button", { name: VERB }));
     const asked = await screen.findByRole(role);

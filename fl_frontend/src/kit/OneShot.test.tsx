@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { underNext } from "@/test-support/nextContexts";
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { renderUnderNext } from "@/test-support/nextContexts";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -13,8 +13,6 @@ import { TextField } from "./TextField";
 import type { ActionAnswer } from "@/core/action";
 import type { ReactNode } from "react";
 import type { EndState, OneShotActs } from "./OneShot";
-
-const Next = ({ children }: { children: ReactNode }) => underNext(children);
 
 /** The options the form's check rendered Cloudflare's widget with, whose callbacks the case calls as Cloudflare would. */
 let widget: Record<string, unknown> | undefined;
@@ -65,7 +63,7 @@ describe("a form anybody may send", () => {
   // The harm: a press with no token is refused on the server in words that tell the visitor nothing they can do.
   it("sends nothing while the check holds no token, and says the check's own sentence", async () => {
     const action = vi.fn(async () => REFUSED);
-    render(form(action), { wrapper: Next });
+    renderUnderNext(form(action));
     // Cloudflare asks the visitor to click, so no token is minted until they do.
     cloudflare("before-interactive-callback")();
 
@@ -79,7 +77,7 @@ describe("a form anybody may send", () => {
   // under the old key is answered as the press before it, the edit stored nowhere and nothing on the page saying so.
   it("posts each press's token, the last press's key on a retry, and a new key once a field changed", async () => {
     const action = vi.fn<(formData: FormData) => Promise<ActionAnswer<EndState>>>(async () => REFUSED);
-    render(
+    renderUnderNext(
       form(
         action,
         <TextField
@@ -88,7 +86,6 @@ describe("a form anybody may send", () => {
           kind="text"
         />,
       ),
-      { wrapper: Next },
     );
     // Each press spends the token it posts, and Cloudflare mints the next one after it.
     const minted = cloudflare("callback");
@@ -129,7 +126,7 @@ const confirmIn = async () => within(await screen.findByRole("alertdialog", { na
 describe("a mailed page's refusal", () => {
   it("asks before it posts, posting nothing when the question closes unanswered", async () => {
     const action = vi.fn<(formData: FormData) => Promise<ActionAnswer<EndState>>>(async () => REFUSED);
-    render(refusalForm(action, { primary: COPY.page.entryConfirmation, refusal: REFUSAL }), { wrapper: Next });
+    renderUnderNext(refusalForm(action, { primary: COPY.page.entryConfirmation, refusal: REFUSAL }));
     const refusal = screen.getByRole("button", { name: OPPOSE });
 
     await userEvent.click(refusal);
@@ -150,7 +147,7 @@ describe("a mailed page's refusal", () => {
 
   it("asks as the page's one act too, and posts as its main act", async () => {
     const action = vi.fn<(formData: FormData) => Promise<ActionAnswer<EndState>>>(async () => REFUSED);
-    render(refusalForm(action, { refusal: REFUSAL }), { wrapper: Next });
+    renderUnderNext(refusalForm(action, { refusal: REFUSAL }));
 
     await userEvent.click(screen.getByRole("button", { name: OPPOSE }));
     expect(action).not.toHaveBeenCalled();

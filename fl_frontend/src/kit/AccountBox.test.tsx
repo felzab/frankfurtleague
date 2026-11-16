@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { underNext } from "@/test-support/nextContexts";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { renderUnderNext } from "@/test-support/nextContexts";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -9,9 +9,6 @@ import { COPY } from "@/core/copy";
 import { AccountBox, AccountRows } from "./AccountBox";
 
 import type { ActionAnswer } from "@/core/action";
-import type { ReactNode } from "react";
-
-const Next = ({ children }: { children: ReactNode }) => underNext(children);
 
 const PASSKEY = COPY.account.passkeys.title;
 const REFUSAL = COPY.shared.failure.stale;
@@ -30,13 +27,12 @@ describe("a Konto box's act behind a question", () => {
       .fn<() => Promise<ActionAnswer<unknown>>>()
       .mockResolvedValueOnce({ ok: false, reason: REFUSAL })
       .mockResolvedValueOnce({ ok: true, value: undefined, note: NOTE });
-    render(
+    renderUnderNext(
       <AccountBox
         title={PASSKEY}
         description={COPY.account.passkeys.description}
         act={{ run, button: { confirm: { verb: "delete", subject: PASSKEY, consequence: CONSEQUENCE, tone: "danger" } } }}
       />,
-      { wrapper: Next },
     );
 
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.withObject(PASSKEY, "delete") }));
@@ -57,7 +53,7 @@ describe("a locked Konto box", () => {
   // The harm: a locked button is no submit button, and a form without one still submits on Enter from a lone field.
   it("runs nothing on Enter from its field", async () => {
     const run = vi.fn<() => Promise<ActionAnswer<unknown>>>();
-    render(
+    renderUnderNext(
       <AccountBox
         title={PASSKEY}
         description={COPY.account.passkeys.description}
@@ -67,7 +63,6 @@ describe("a locked Konto box", () => {
           name="name"
         />
       </AccountBox>,
-      { wrapper: Next },
     );
 
     await userEvent.type(screen.getByRole("textbox"), "Laptop{Enter}");
@@ -76,7 +71,7 @@ describe("a locked Konto box", () => {
 
   // The harm: a dialog's trigger around the locked button would open the question behind the reason.
   it("answers a press with its reason, never the question", async () => {
-    render(
+    renderUnderNext(
       <AccountBox
         title={PASSKEY}
         description={COPY.account.passkeys.description}
@@ -86,7 +81,6 @@ describe("a locked Konto box", () => {
           locked: reason,
         }}
       />,
-      { wrapper: Next },
     );
 
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.withObject(PASSKEY, "delete") }));
@@ -102,7 +96,7 @@ describe("a Konto row's removal", () => {
       .fn<() => Promise<ActionAnswer<unknown>>>()
       .mockResolvedValueOnce({ ok: false, reason: REFUSAL })
       .mockResolvedValueOnce({ ok: true, value: undefined });
-    render(
+    renderUnderNext(
       <AccountRows
         rows={[
           {
@@ -113,7 +107,6 @@ describe("a Konto row's removal", () => {
           },
         ]}
       />,
-      { wrapper: Next },
     );
 
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.delete }));

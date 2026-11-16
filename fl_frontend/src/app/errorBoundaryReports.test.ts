@@ -5,9 +5,9 @@ import { pathToFileURL } from "node:url";
 
 import { createElement as h } from "react";
 
-import { underNext } from "@/test-support/nextContexts";
+import { renderUnderNext } from "@/test-support/nextContexts";
 import { filesUnder } from "@/test-support/treeWalk";
-import { act, cleanup, render } from "@testing-library/react";
+import { act, cleanup } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
@@ -52,7 +52,7 @@ describe.each(BOUNDARIES)("the error boundary $shown", ({ file, shown }) => {
   it("sends its crash report to a route this app serves", async () => {
     const Boundary = await boundaryOf(file);
 
-    render(underNext(h(Boundary, { error: new Error("gepflanzt"), retry: () => undefined }), ROUTED));
+    renderUnderNext(h(Boundary, { error: new Error("gepflanzt"), retry: () => undefined }), ROUTED);
     // `render` has already flushed the effect sending the report; the turn after its answer charges a
     // second report sent meanwhile to this boundary's count, never to the next one's.
     await act(() => Promise.resolve());
@@ -73,8 +73,8 @@ describe.each(BOUNDARIES)("the error boundary $shown", ({ file, shown }) => {
   it("renders a thrown non-Error and reports it once across a re-render", async () => {
     const Boundary = await boundaryOf(file);
 
-    const { rerender } = render(underNext(h(Boundary, { error: null, retry: () => undefined }), ROUTED));
-    rerender(underNext(h(Boundary, { error: null, retry: () => undefined }), ROUTED));
+    const { rerender } = renderUnderNext(h(Boundary, { error: null, retry: () => undefined }), ROUTED);
+    rerender(h(Boundary, { error: null, retry: () => undefined }));
     await act(() => Promise.resolve());
 
     expect(sent.mock.calls.length, `${shown}: reports one thrown null ${String(sent.mock.calls.length)} times`).toBe(1);
@@ -97,7 +97,7 @@ describe("the rail frame's own boundary", () => {
     const next = { label: COPY.shared.end.toOverview, href: ROUTES.admin.path() };
     // The frame drawn again commits once its account read settles, so the render waits for it.
     await act(async () => {
-      render(underNext(h(RailFrameBoundary, { groups: [], bar: ["overview"], next }, h(FailingRead)), ROUTED));
+      renderUnderNext(h(RailFrameBoundary, { groups: [], bar: ["overview"], next }, h(FailingRead)), ROUTED);
     });
     const reports = sent.mock.calls.map(([input, init]) => ({ address: String(input), method: init?.method }));
 

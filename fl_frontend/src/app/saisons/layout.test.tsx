@@ -2,20 +2,19 @@
 import { Suspense } from "react";
 
 import { serveBackend } from "@/test-support/backend";
-import { underNext } from "@/test-support/nextContexts";
+import { renderUnderNext } from "@/test-support/nextContexts";
 import { doubleNextRequest } from "@/test-support/nextRequest";
-import { act, render, screen } from "@testing-library/react";
+import { act, screen } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
 import type { FLSaisonFrameResponse } from "@/core/generated/client/types";
-import type { ReactNode } from "react";
+import type { NextContexts } from "@/test-support/nextContexts";
 
 /** The season the address names; a case naming one the frame does not hold sets it. */
 const address = vi.hoisted(() => ({ saison: "2027" }));
-const Next = ({ children }: { children: ReactNode }) =>
-  underNext(children, { pathname: `/saisons/${address.saison}`, params: { saison: address.saison } });
+const atAddress = (): NextContexts => ({ pathname: `/saisons/${address.saison}`, params: { saison: address.saison } });
 // Typed whole, so a field the frame stops serving fails the compile rather than standing in the fixture.
 const FRAME = {
   saisons: [
@@ -44,7 +43,7 @@ describe("the public season pages' frame", () => {
     // would never settle before the next retry. The render stands in a boundary of its own, where the suspended read
     // settles.
     const frame = SaisonsLayout({ children: <p>Seite</p> });
-    await act(async () => render(<Suspense>{frame}</Suspense>, { wrapper: Next }));
+    await act(async () => renderUnderNext(<Suspense>{frame}</Suspense>, atAddress));
 
     const tabelle = await screen.findAllByRole("link", { name: COPY.page.tabelle });
     expect(tabelle.map((link) => link.getAttribute("href"))).toContain("/saisons/2027/tabelle");

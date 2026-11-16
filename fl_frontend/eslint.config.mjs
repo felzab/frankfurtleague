@@ -83,6 +83,7 @@ const EVERY = () => true;
 /** Production source and the tests' support folder. */
 const SOURCE = (zone) => zone.kind !== "test";
 const PRODUCTION = (zone) => zone.kind !== "test" && zone.kind !== "support";
+const TESTS = (zone) => zone.kind === "test";
 const OUTSIDE_KIT = (zone) => PRODUCTION(zone) && zone.kind !== "kit";
 const KIT = (zone) => zone.kind === "kit";
 const PAGE_CODE = (zone) => zone.kind === "page";
@@ -460,11 +461,47 @@ const LOAD_TIME_ENVIRONMENT = [
   .map((read) => `${read}:not(:function ${read})`)
   .join(", ");
 
+/**
+ * A comparison TypeScript itself narrows exactly, whose `false` holds of every value it narrows away: a property's or a
+ * `typeof`'s against a literal.
+ */
+const EXACT_TEST =
+  'BinaryExpression[operator=/^[!=]==$/]:matches([left.type="MemberExpression"], [left.operator="typeof"])[right.type="Literal"]';
+const OWN_KEY = 'CallExpression[callee.object.name="Object"][callee.property.name="hasOwn"]';
+/**
+ * The bodies a hand-written type predicate may have, which TypeScript cannot infer one from: an own-key lookup, with a
+ * `typeof` test ahead of it where the key must be one, and an exact test, alone or in a disjunction of exact tests.
+ */
+const ADMITTED_PREDICATE_BODIES = [
+  `${OWN_KEY}.body`,
+  `LogicalExpression.body[operator="&&"]:has(> ${OWN_KEY}.right):has(> ${EXACT_TEST}.left[left.operator="typeof"])`,
+  `${EXACT_TEST}.body`,
+  `LogicalExpression.body[operator="||"]:not(:has(:not(LogicalExpression[operator="||"], ${EXACT_TEST}, ${EXACT_TEST} *)))`,
+];
+const TYPE_PREDICATE_BAN = syntax(
+  `TSTypePredicate:not(ArrowFunctionExpression:matches(${ADMITTED_PREDICATE_BODIES.map((body) => `:has(> ${body})`).join(", ")}) > TSTypeAnnotation > TSTypePredicate)`,
+  "A type predicate is trusted in both branches unchecked: a check answers what it found, typed by the compiler, or a boolean, and one TypeScript infers from its body stays unannotated. By hand only an arrow's own-key lookup through `Object.hasOwn`, or its exact test of a property or a `typeof` against a literal.",
+);
+
 const syntaxBan = (entry, reach, options) => ban("no-restricted-syntax", entry, reach, options);
 
 const SOURCE_BANS = [
   syntaxBan(ENVIRONMENT_READ, SOURCE, { allow: ["src/core/config.ts"] }),
   syntaxBan(ACTION_STATE_BAN, SOURCE, { allow: ["src/kit/useFormAction.ts"] }),
+  // Tests included: a test's helper narrowing a value away misleads its case as surely.
+  syntaxBan(TYPE_PREDICATE_BAN, EVERY),
+  syntaxBan(
+    // A tree handed to Testing Library already wrapped draws a `rerender`'s tree outside the contexts; a wrapper of a
+    // file's own is the copy the helpers replace. A tree rendered by React's own server renderers keeps `underNext`.
+    syntax(
+      [
+        ':matches(CallExpression[callee.name="render"], CallExpression[callee.name="rerender"]) > CallExpression.arguments[callee.name="underNext"]',
+        'CallExpression[callee.name="underNext"][arguments.0.type="Identifier"][arguments.0.name="children"]',
+      ].join(", "),
+      "Render under Next's contexts through `renderUnderNext` or `renderHookUnderNext` in fl_frontend/src/test-support/nextContexts.ts, Testing Library's custom render, whose wrapper keeps a `rerender` under them.",
+    ),
+    TESTS,
+  ),
   syntaxBan(
     // At the construction rather than on a string: an image held in a variable starts a container as surely as one
     // typed there.
@@ -1484,10 +1521,10 @@ const eslintConfig = defineConfig([
     },
   },
 
-  // A journey reaches a dialog, a question, a menu or a list's options through `e2e/support/controls.ts` alone, whose
-  // helpers press inside one only once it has entered: a press on an overlay still entering is retried behind a scroll,
+  // A journey looks up a dialog, a question, a menu or a list's options through `e2e/support/controls.ts` alone, whose
+  // helpers answer one only once it has entered: a press on an overlay still entering is retried behind a scroll,
   // which closes a rising sheet or a combo box's list. A role a journey computes is looked up there too, where no such
-  // role can hide in it.
+  // role can hide in it. A control looked up by its own role passes, an overlay's among them.
   {
     files: ["e2e/**/*.ts"],
     ignores: ["e2e/support/controls.ts"],

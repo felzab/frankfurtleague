@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { Suspense } from "react";
 
-import { underNext } from "@/test-support/nextContexts";
-import { act, render, screen, within } from "@testing-library/react";
+import { renderUnderNext } from "@/test-support/nextContexts";
+import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
@@ -11,16 +11,16 @@ import { ROUTES } from "@/core/routes";
 
 import { BarPlaces, MenuScope, RailEntries, SaisonScope } from "./FrameNav";
 
-import type { ReactNode } from "react";
+import type { NextContexts } from "@/test-support/nextContexts";
 import type { RailGroup, Saisons } from "./FrameNav";
 
 /** The address a case renders the menus at: its path, and the season and team its segments name. */
 const address = { path: "", saison: undefined as string | undefined, team: undefined as string | undefined };
 
 /** Next's navigation at `address` as it stands at each render, a rerender's included. */
-function AtAddress({ children }: { children: ReactNode }) {
+function atAddress(): NextContexts {
   const params = Object.fromEntries(Object.entries({ saison: address.saison, team: address.team }).filter(([, value]) => value !== undefined));
-  return underNext(children, { pathname: address.path, params });
+  return { pathname: address.path, params };
 }
 
 // jsdom lays nothing out, so it sees nothing come into view, which is how React Aria's sheet knows it has slid in.
@@ -54,7 +54,7 @@ async function renderMenus(path: string, saisons: Saisons | null) {
   address.path = path;
   address.saison = saisons?.standard;
   await act(async () =>
-    render(
+    renderUnderNext(
       <Suspense fallback={null}>
         <SaisonScope value={{ saisons: Promise.resolve(saisons), home: "adminOverview", withoutSaison: ROUTES.adminSaisons.path(), pages: [] }}>
           <MenuScope value={{ groups: GROUPS, bar: ["overview", "saisons"], extra: [] }}>
@@ -63,7 +63,7 @@ async function renderMenus(path: string, saisons: Saisons | null) {
           </MenuScope>
         </SaisonScope>
       </Suspense>,
-      { wrapper: AtAddress },
+      atAddress,
     ),
   );
 }
@@ -98,13 +98,13 @@ describe("the entry marked as the current page", () => {
     address.path = ROUTES.areaSchiedsrichter.path();
     address.saison = undefined;
     await act(async () =>
-      render(
+      renderUnderNext(
         <Suspense fallback={null}>
           <SaisonScope value={{ saisons: Promise.resolve(null), home: "schiedsrichterOverview", withoutSaison: address.path, pages: [] }}>
             <RailEntries groups={[{ entries: [{ id: "overview", label: page.title, saison: "schiedsrichterOverview", icon: "overview" }] }]} />
           </SaisonScope>
         </Suspense>,
-        { wrapper: AtAddress },
+        atAddress,
       ),
     );
 
@@ -135,7 +135,7 @@ describe("the season a page whose address names none works in", () => {
     );
     address.path = ROUTES.adminSpiele.path("2025");
     address.saison = "2025";
-    const { rerender } = await act(async () => render(menus(), { wrapper: AtAddress }));
+    const { rerender } = await act(async () => renderUnderNext(menus(), atAddress));
 
     address.path = ROUTES.adminSpielorte.path();
     address.saison = undefined;
@@ -168,7 +168,7 @@ describe("the season a page whose address names none works in", () => {
     );
     address.path = ROUTES.adminSpiele.path("2025");
     address.saison = "2025";
-    const { rerender } = await act(async () => render(menus(), { wrapper: AtAddress }));
+    const { rerender } = await act(async () => renderUnderNext(menus(), atAddress));
 
     address.path = ROUTES.admin.path();
     address.saison = undefined;
@@ -217,13 +217,13 @@ async function teamRailAt(team: string, saison: string) {
     address.team = undefined;
   });
   await act(async () =>
-    render(
+    renderUnderNext(
       <Suspense fallback={null}>
         <SaisonScope value={{ teams: Promise.resolve(TEAMS), home: "teamOverview", pages: [] }}>
           <RailEntries groups={TEAM_GROUPS} />
         </SaisonScope>
       </Suspense>,
-      { wrapper: AtAddress },
+      atAddress,
     ),
   );
   return screen.getAllByRole("link").map((link) => link.getAttribute("href"));

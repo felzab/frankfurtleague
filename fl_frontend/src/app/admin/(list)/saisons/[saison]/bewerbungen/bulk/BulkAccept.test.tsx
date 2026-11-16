@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { underNext } from "@/test-support/nextContexts";
-import { render, screen, within } from "@testing-library/react";
+import { renderUnderNext } from "@/test-support/nextContexts";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -10,12 +10,13 @@ import { acceptBewerbung } from "../[bewerbung]/decideBewerbung";
 import { BulkAccept } from "./BulkAccept";
 
 import type { FLBewerbungListRow } from "@/core/generated/client/types";
-import type { ReactNode } from "react";
+import type { NextContexts } from "@/test-support/nextContexts";
 
 const ADDRESS = "/admin/saisons/2027/bewerbungen/bulk";
 
 vi.mock("../[bewerbung]/decideBewerbung", () => ({ acceptBewerbung: vi.fn() }));
-const Next = ({ children }: { children: ReactNode }) => underNext(children, { pathname: ADDRESS, search: window.location.search });
+/** Next's navigation at the page, its search as the steps leave it at each render. */
+const atThePage = (): NextContexts => ({ pathname: ADDRESS, search: window.location.search });
 
 const row = (id: string, name: string) =>
   ({
@@ -57,7 +58,7 @@ afterEach(() => {
 describe("a finished Sammel-Zusage", () => {
   it("names its end a rung below the strip's title", async () => {
     vi.mocked(acceptBewerbung).mockResolvedValue({ ok: true, value: undefined });
-    render(
+    renderUnderNext(
       <BulkAccept
         saison="2027"
         rows={[row("a", "Goethe-Gymnasium")]}
@@ -65,7 +66,7 @@ describe("a finished Sammel-Zusage", () => {
         taken={[]}
         rules={{ required: { gruppe: false, trikot_farbe: false } }}
       />,
-      { wrapper: Next },
+      atThePage,
     );
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.next }));
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.withObject(COPY.admin.bewerbung.count(1), "accept") }));
@@ -80,7 +81,7 @@ describe("a finished Sammel-Zusage", () => {
 // nothing but this case reads that cell before the run's one confirm.
 describe("the check page's „Stand“ column", () => {
   it("states each application's standing before the run writes it", async () => {
-    const { rerender } = render(run(), { wrapper: Next });
+    const { rerender } = renderUnderNext(run(), atThePage);
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.next }));
     rerender(run());
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.next }));

@@ -93,7 +93,7 @@ const isPatterned = (kind: string): kind is keyof typeof PATTERNED => Object.has
 const isLined = (kind: string): kind is keyof typeof SERVER_COPY.ruleLine => Object.hasOwn(SERVER_COPY.ruleLine, kind);
 
 /** Whether the catalogue words this rule, so a screen may place it. */
-export const isWordedRule = (kind: string): kind is WordedRule => isPatterned(kind) || isLined(kind);
+export const isWordedRule = (kind: string) => isPatterned(kind) || isLined(kind);
 
 /** Whether a pattern words this code from the bounds its refusal carries, so `ruleMessage` words its fields. */
 export const isBoundedCode = (code: Code): boolean => isPatterned(code);

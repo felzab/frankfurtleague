@@ -14,8 +14,9 @@ import {
 import { emptyStore } from "@/test-support/emptyStore";
 import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/test-support/nextRequest";
 import { replicaSetUrl, startReplicaSet } from "@/test-support/replicaSet";
+import { signInIndexesForTheFile } from "@/test-support/signInIndexes";
 import { captureLog } from "@/test-support/stdoutCapture";
-import { assert, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 // A replica set: the property under test is a transaction's.
 const { mongod, closing } = await startReplicaSet();
@@ -202,13 +203,7 @@ const realClient = productionClient as RealClient;
 closing(() => realClient.close());
 const authDb = () => realClient.db(MONGO_DB_NAME);
 
-// Production's indexes under every case, so the library is driven over what it meets there: built once for the
-// file, as a boot builds them once.
-beforeAll(async () => {
-  const from = log.lines().length;
-  await buildAuthIndexes();
-  expect(eventsAt("ERROR", from), "an index of the sign-in store was left unbuilt").toStrictEqual([]);
-});
+signInIndexesForTheFile(buildAuthIndexes, log);
 
 beforeEach(async () => {
   barrier.disarm();

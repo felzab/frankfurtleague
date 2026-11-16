@@ -2,10 +2,10 @@
 import { Suspense } from "react";
 
 import { serveBackend } from "@/test-support/backend";
-import { underNext } from "@/test-support/nextContexts";
+import { renderUnderNext } from "@/test-support/nextContexts";
 import { signedInRequest } from "@/test-support/session";
 import { seat, SEAT } from "@/test-support/subjectFixtures";
-import { act, render, screen } from "@testing-library/react";
+import { act, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -64,7 +64,7 @@ const { default: TeamLayout } = await import("./layout");
  */
 async function renderAt(path: (team: string, saison: string) => string, team: string, saison: string) {
   const frame = TeamLayout({ children: <p>Seite</p> });
-  await act(async () => render(underNext(<Suspense>{frame}</Suspense>, { pathname: path(team, saison), params: { team, saison } })));
+  await act(async () => renderUnderNext(<Suspense>{frame}</Suspense>, { pathname: path(team, saison), params: { team, saison } }));
   // The frame holds no boundary of its own, so its page shows once every read it waits on is answered: a season
   // button looked for before then is absent for every team.
   await screen.findByText("Seite");

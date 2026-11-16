@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { underNext } from "@/test-support/nextContexts";
-import { getDefaultNormalizer, render, screen, waitFor } from "@testing-library/react";
+import { renderUnderNext } from "@/test-support/nextContexts";
+import { getDefaultNormalizer, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -11,15 +11,14 @@ import { SpielEditor } from "./SpielEditor";
 import { NO_SONDEREREIGNIS } from "./spielValues";
 
 import type { ActionAnswer } from "@/core/action";
-import type { ReactNode } from "react";
+import type { NextContexts } from "@/test-support/nextContexts";
 import type { Adoption } from "./SpielEditor";
 import type { SpielValues } from "./spielValues";
 
 const WORDS = COPY.admin.spiel;
 const SPIEL_ID = "64b000000000000000000001";
 
-const Next = ({ children }: { children: ReactNode }) =>
-  underNext(children, { pathname: `/admin/saisons/2027/spiele/${SPIEL_ID}`, params: { saison: "2027", spiel: SPIEL_ID } });
+const AT_ADDRESS: NextContexts = { pathname: `/admin/saisons/2027/spiele/${SPIEL_ID}`, params: { saison: "2027", spiel: SPIEL_ID } };
 
 /** A played group match whose stored 1:0 the administrator typed in by hand. */
 const STORED: SpielValues = {
@@ -82,7 +81,7 @@ function Editor({ save }: { save: Parameters<typeof SpielEditor>[0]["save"] }) {
 describe("a report whose proposal the fields already hold", () => {
   it("is offered for adoption, the press counting as one change whose save stamps the report", async () => {
     const save = vi.fn(async (): Promise<ActionAnswer<number>> => ({ ok: true, value: 4 }));
-    render(<Editor save={save} />, { wrapper: Next });
+    renderUnderNext(<Editor save={save} />, AT_ADDRESS);
 
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.adopt }));
 

@@ -38,6 +38,19 @@ describe("the capture", () => {
     expect(log.lines()).toStrictEqual([]);
   });
 
+  it("passes on a chunk written by what the logger calls, which is not the logger's", () => {
+    // Written while the logger turns a field into JSON, the logger's frame further down the stack.
+    const field = {
+      toJSON: () => {
+        process.stdout.write('INFO not.the.logger {"written":"inside the logger\'s call"}\n');
+        return "read";
+      },
+    };
+    logger.info("capture.inner", { field });
+
+    expect(log.lines().map(({ message, fields }) => [message, fields])).toStrictEqual([["capture.inner", { field: "read" }]]);
+  });
+
   failsNaming(
     "fails the case on a line it cannot read, never the code that wrote it",
     /^the logger wrote what the capture cannot read:\na plain log line without its fields: INFO split/,
