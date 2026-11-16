@@ -78,6 +78,17 @@ export function scrollsSideways(page: Page): Promise<boolean> {
   );
 }
 
+/**
+ * A fact's value: the definition after its term. ARIA prohibits naming a `term` or a `definition`, so neither is found by
+ * a name; a screen reader reads the two in order.
+ */
+export function valueOf(scope: Locator, term: string): Locator {
+  return scope
+    .getByRole("term")
+    .filter({ hasText: new RegExp(`^${term}$`) })
+    .locator("xpath=following-sibling::dd[1]");
+}
+
 /** An editor's save bar, a landmark of its own named by its act, so its lines are read inside it. */
 export function saveBar(page: Page): Locator {
   return page.getByRole("region", { name: "Speichern" });

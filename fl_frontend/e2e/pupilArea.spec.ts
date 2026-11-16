@@ -5,13 +5,11 @@
  */
 import { expect } from "@playwright/test";
 
-import { box, chip, choose, typeInto } from "./support/controls";
+import { box, chip, choose, typeInto, valueOf } from "./support/controls";
 import { test } from "./support/journey";
 import { RUNNING } from "./support/madeUpLeague";
 import { filedMessages, mailedLink } from "./support/mailSink";
 import { declinePasskeyOffer, signInWithCode } from "./support/signIn";
-
-import type { Locator } from "@playwright/test";
 
 /** Where a contact seat holding one team lands: its Übersicht of the season, under the team's id, which the seed mints. */
 const TEAM_OVERVIEW = new RegExp(`^/area/team/[0-9a-f]{24}/${RUNNING}$`);
@@ -34,17 +32,6 @@ function pupilOf(club: string) {
  */
 function birthDate(): string {
   return `0101${String(new Date().getFullYear() - 17)}`;
-}
-
-/**
- * A fact's value: the definition after its term. ARIA prohibits naming a `term` or a `definition`, so neither is found by
- * a name; a screen reader reads the two in order.
- */
-function valueOf(scope: Locator, term: string): Locator {
-  return scope
-    .getByRole("term")
-    .filter({ hasText: new RegExp(`^${term}$`) })
-    .locator("xpath=following-sibling::dd[1]");
 }
 
 test("a pupil registers through their team's link, confirms, is admitted, and finds their season", async ({

@@ -4,7 +4,7 @@
  */
 import { expect } from "@playwright/test";
 
-import { box, labelOf, save, typeInto } from "./support/controls";
+import { box, labelOf, save, typeInto, valueOf } from "./support/controls";
 import { test } from "./support/journey";
 import { RUNNING } from "./support/madeUpLeague";
 import { declinePasskeyOffer, signInWithCode } from "./support/signIn";
@@ -97,10 +97,5 @@ test("a referee answers the coming game, saves the played game's report, and rea
   // Konto's referee box holds the fee the league pays them.
   await page.goto("/account/entries");
   const entry = box(page, "Schiedsrichter");
-  // The definition after its term: ARIA prohibits naming either, so a screen reader reads the two in order.
-  const fee = entry
-    .getByRole("term")
-    .filter({ hasText: /^Honorar$/ })
-    .locator("xpath=following-sibling::dd[1]");
-  await expect(fee).toHaveText(/^\d+,\d{2}\s€$/);
+  await expect(valueOf(entry, "Honorar")).toHaveText(/^\d+,\d{2}\s€$/);
 });
