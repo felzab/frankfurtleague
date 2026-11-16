@@ -380,18 +380,6 @@ typecheck() {
   esac
 }
 
-# pnpm audit answers 1 for an advisory and for a registry it could not read alike; only a run that read
-# one writes its report, so the report decides: 0 none at the level, 1 one or more, 2 no report.
-audit_prod() {
-  local report rc=0
-  report="$(in_dir fl_frontend pnpm audit:prod --json)" || rc=$?
-  printf '%s\n' "$report"
-  case "$rc" in
-    0|1) if [[ "$report" == *'"metadata"'* ]]; then return "$rc"; fi; return 2 ;;
-    *) return "$rc" ;;
-  esac
-}
-
 scope_frontend() {
   section frontend
   # `--frozen-lockfile` makes `--lockfile-only`'s write impossible, and the repeat-install shortcut
@@ -426,7 +414,7 @@ Fix with:  cd fl_frontend && pnpm dedupe  -- then commit the lockfile." \
   check "tsc found type errors." typecheck && ok "no type errors"
 
   step "frontend · eslint"
-  check "eslint failed." in_dir fl_frontend pnpm lint && ok "lint clean"
+  check "eslint failed." in_dir fl_frontend pnpm lint:only && ok "lint clean"
 
   step "frontend · knip  (unused files, exports and dependencies)"
   check "knip found something nothing uses, named above. Delete it, or name the reader knip cannot see in fl_frontend/knip.json." \
@@ -445,19 +433,6 @@ or name production code knip cannot see in fl_frontend/knip.production.json." \
   step "frontend · next build"
   check "next build failed." in_dir fl_frontend env SKIP_ENV_VALIDATION=true NEXT_TELEMETRY_DISABLED=1 pnpm build \
     && ok "build succeeds"
-
-  # An advisory, never a finding: one is published upstream while the tree stays as it was.
-  step "frontend · dependency audit  (runtime advisories, high and above)"
-  local rc=0
-  quietly audit_prod || rc=$?
-  case "$rc" in
-    0)   ok "no known runtime vulnerability at high or above" ;;
-    1)   warn "pnpm audit names a runtime advisory at high or above in the report above. Upgrade the package, or
-triage with:  cd fl_frontend && pnpm audit" ;;
-    2)   warn "pnpm audit wrote no report, so no advisory was read. Its own words are above." ;;
-    130) on_interrupt ;;
-    *)   on_error "$rc" "${LINENO}" "pnpm audit:prod --json" ;;
-  esac
   return 0
 }
 

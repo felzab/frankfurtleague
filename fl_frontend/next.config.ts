@@ -53,7 +53,7 @@ const nextConfig: NextConfig = {
     // Off, or every `next dev` and `next build` checks for advisories and reminds of an upgrade: in a
     // terminal the command's output waits behind the reminder's prompt for up to ten seconds, and run
     // by a coding agent, the gate's build included, the command stops with instructions for that
-    // agent and passes when retried. The gate's advisory check is `pnpm audit:prod`.
+    // agent and passes when retried.
     agentUpgrade: false,
   },
   output: "standalone",
