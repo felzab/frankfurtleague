@@ -1,7 +1,8 @@
 import "server-only";
 
-import { MongoError, MongoServerError } from "mongodb";
+import { MongoError, MongoNetworkTimeoutError, MongoServerError } from "mongodb";
 
+import { now } from "./clock";
 import { signInStore } from "./db";
 import { logger } from "./logging";
 
@@ -55,25 +56,47 @@ export function buildAuthIndexes(): Promise<void> {
   return running;
 }
 
+/**
+ * How long a run asks again for a build the store has not answered: at most `scripts/ops/deploy.sh :: WAIT_S`, the
+ * most a deploy waits before the runbook reads this log for `auth.index_unbuilt`, so the read after any deploy finds a
+ * build still unanswered (`scripts/tests/test_index_build_window.py` holds the two in order). Without it a build that
+ * never answers would hold `running`, and every rebuild queued behind it.
+ */
+const ANSWERED_WITHIN_MS = 180_000;
+
 async function buildOnce(): Promise<void> {
   const database = signInStore().db(MONGO_DB_NAME);
   const lanes = Map.groupBy(AUTH_INDEXES, (index) => index.collection);
+  const askUntil = now().getTime() + ANSWERED_WITHIN_MS;
 
   await Promise.all(
     [...lanes].map(async ([collection, indexes]) => {
       for (const { key, options } of indexes) {
-        try {
-          // Under the client's socket bound like every call: a build outlasting it is logged unbuilt
-          // and still finishes, since the server keeps a build whose connection closed.
-          await database.collection(collection).createIndex(key, options, undefined);
-        } catch (failed) {
-          logUnbuilt(options.name, failed);
-          // No server code is a store that did not answer, which a restart would only meet again.
-          if (!(failed instanceof MongoServerError)) rebuildOnRecovery();
-        }
+        const failed = await failureOf(() => database.collection(collection).createIndex(key, options, undefined), askUntil);
+        if (failed === undefined) continue;
+        logUnbuilt(options.name, failed);
+        // No server code is a store that did not answer, which a restart would only meet again.
+        if (!(failed instanceof MongoServerError)) rebuildOnRecovery();
       }
     }),
   );
+}
+
+/**
+ * `undefined` once the store answers the build, or the failure standing for its verdict. Each call is under the
+ * client's socket bound, and a timeout is no verdict: the server goes on building after the client stops waiting, and
+ * the same `createIndex` waits for a build already under way and answers with its outcome. So a timeout is asked
+ * again, until `askUntil`.
+ */
+async function failureOf(build: () => Promise<unknown>, askUntil: number): Promise<unknown> {
+  for (;;) {
+    try {
+      await build();
+      return undefined;
+    } catch (failed) {
+      if (!(failed instanceof MongoNetworkTimeoutError) || now().getTime() >= askUntil) return failed;
+    }
+  }
 }
 
 /**

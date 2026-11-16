@@ -12,13 +12,14 @@ from app.api.ban_list.admin_router import delete_ban_list_entry, get_ban_list_en
 from app.api.ban_list.crud import address_is_barred
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError, DocumentNotFoundError
+from app.core.exceptions import DocumentNotFoundError
 from tests.acts import acting_as
 from tests.bans import ban_through_the_route
 from tests.config import grants_for_the_suite
 from tests.database import a_clean_database
 from tests.documents import address_change_document, rules_document, saison_document, spieler_document
 from tests.erasure import erased
+from tests.isolation import refused_code
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -92,13 +93,12 @@ class TestABanOfAnAdministratorsAddress:
     async def test_it_is_refused_and_nothing_is_stored_while_another_address_is_banned(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
             # `ADMIN` holds `administration` rather than `owner`, so the refusal reads every grant.
-            with pytest.raises(APIError) as raised:
-                await ban(database, client, email=ADMIN.upper())
+            code = await refused_code(ban(database, client, email=ADMIN.upper()))
             refused = await database[Collection.BAN_LIST].count_documents({})
             # The control: a check refusing every address would pass the refusal above.
             await ban(database, client)
 
-            return raised.value.error_code, refused
+            return code, refused
 
         assert await on_a_clean_list(mongo_replica_set_url, body) == (Code.BAN_LIST_ADMIN, 0)
 
@@ -110,10 +110,7 @@ class TestABanOfAnAdministratorsAddress:
                 {**grants_for_the_suite()[-1], "_id": ObjectId(), "address": WAITING, "effective_from": datetime(2999, 1, 1, tzinfo=UTC)}
             )
 
-            with pytest.raises(APIError) as raised:
-                await ban(database, client, email=WAITING)
-
-            return raised.value.error_code
+            return await refused_code(ban(database, client, email=WAITING))
 
         assert await on_a_clean_list(mongo_replica_set_url, body) == Code.BAN_LIST_ADMIN
 
@@ -128,12 +125,11 @@ class TestABanOfAnAdministratorsAddress:
                 ]
             )
 
-            with pytest.raises(APIError) as raised:
-                await ban(database, client, email=INCOMING)
+            code = await refused_code(ban(database, client, email=INCOMING))
             # The control: the same read answering every change would refuse this one too.
             await ban(database, client)
 
-            return raised.value.error_code, await database[Collection.BAN_LIST].count_documents({})
+            return code, await database[Collection.BAN_LIST].count_documents({})
 
         assert await on_a_clean_list(mongo_replica_set_url, body) == (Code.BAN_LIST_ADMIN, 1)
 

@@ -12,6 +12,7 @@ from app.core.collections import Collection
 from app.core.exceptions import APIError
 from tests.database import a_clean_database
 from tests.documents import confirmed_kenntnisnahme, rules_document, saison_document, saison_team_document, spiel_document, team_document
+from tests.isolation import refused_code
 from tests.outbox import MAIL_NOW
 from tests.stored import the_row
 from tests.team_writes import save_the_team
@@ -132,10 +133,7 @@ class TestRecordingAnExitFromTheSeason:
         async def body(database: AsyncDatabase) -> Any:
             await call_put(database, dict(EXIT))
             before = await stored_row(database)
-            with pytest.raises(APIError) as refused:
-                await call_put(database, second)
-
-            return refused.value.error_code, before, await stored_row(database)
+            return await refused_code(call_put(database, second)), before, await stored_row(database)
 
         code, before, after = await on_a_season(mongo_replica_set_url, body)
 
@@ -147,10 +145,7 @@ class TestRecordingAnExitFromTheSeason:
 
         async def body(database: AsyncDatabase) -> Any:
             before = await stored_row(database)
-            with pytest.raises(APIError) as refused:
-                await call_put(database, dict(EXIT))
-
-            return refused.value.error_code, before, await stored_row(database)
+            return await refused_code(call_put(database, dict(EXIT))), before, await stored_row(database)
 
         code, before, after = await on_a_season(mongo_replica_set_url, body, saison_status="past")
 
@@ -186,10 +181,7 @@ class TestMovingAClubBetweenGroups:
         """`entry_gruppe_locked`'s move lock through the route: the group phase is a round robin, so a move after the draw strands it."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(APIError) as conflict:
-                await save_the_team(database, team_id=ADLER, saison_id=SAISON_ID, gruppe="B")
-
-            return conflict.value.error_code, await stored_row(database)
+            return await refused_code(save_the_team(database, team_id=ADLER, saison_id=SAISON_ID, gruppe="B")), await stored_row(database)
 
         code, row = await on_a_season(mongo_replica_set_url, body, saison_status="active", spiele=[team_spiel_document(ADLER, side)])
 
@@ -200,10 +192,7 @@ class TestMovingAClubBetweenGroups:
         """The entry gate reached through the move: a group at its cap cannot take one more however the club arrives."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(APIError) as conflict:
-                await save_the_team(database, team_id=ADLER, saison_id=SAISON_ID, gruppe="B")
-
-            return conflict.value.error_code, await stored_row(database)
+            return await refused_code(save_the_team(database, team_id=ADLER, saison_id=SAISON_ID, gruppe="B")), await stored_row(database)
 
         code, row = await on_a_season(mongo_replica_set_url, body, junctions=[junction_document(CRONBERG, "B")])
 

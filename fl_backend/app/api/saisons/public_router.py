@@ -1,4 +1,3 @@
-import asyncio
 from collections.abc import Mapping
 from typing import Any, Final
 
@@ -55,6 +54,7 @@ from app.api.teams.schemas import (
 )
 from app.api.teams.services import build_team_pipeline, counting_spiele_match
 from app.core.collections import Collection
+from app.core.concurrency import concurrently
 from app.core.config import API_VERSION
 from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
@@ -183,7 +183,7 @@ async def _league_counts(
 ) -> FLLandingCounts:
     """The league's figures over every season the public reads, three reads sent at once."""
 
-    count_saisons, counted_raw, schulen_raw = await asyncio.gather(
+    count_saisons, counted_raw, schulen_raw = await concurrently(
         saisons_collection.count_documents(base_tier_status_term()),
         # The matches the Tabelle counts, every phase's: one group, so the goals and the matches stand on one basis.
         aggregate_many_from_db(
@@ -230,7 +230,7 @@ async def _landing_saison(
     # Known before any match is read, so only the reads its state can serve are sent: the opening match before it, the
     # two lists after. The Finale is read either way, a played one deciding the season over both.
     started = has_started(start_date=saison_raw["start_date"], today=today)
-    first_raw, recent_raw, upcoming_raw, finale_by_saison, teams = await asyncio.gather(
+    first_raw, recent_raw, upcoming_raw, finale_by_saison, teams = await concurrently(
         _no_rows() if started else aggregate_many_from_db(collection=spiele_collection, pipeline=_opening_spiel_pipeline(saison_id), limit=1),
         aggregate_many_from_db(
             collection=spiele_collection,
@@ -308,7 +308,7 @@ async def get_landing(
     """
 
     # The windows and the figures beside the season's two steps rather than after them, so they add no step to the read.
-    saison, windows, counts = await asyncio.gather(
+    saison, windows, counts = await concurrently(
         _landing_saison(
             saisons_collection=saisons_collection, spiele_collection=spiele_collection, teams_collection=teams_collection, today=today
         ),
@@ -364,7 +364,7 @@ async def _spielplan_of(
     """
 
     db_filter = {"saison_id": saison_id, **phase_term}
-    saison, spieltage_raw, spiele_raw = await asyncio.gather(
+    saison, spieltage_raw, spiele_raw = await concurrently(
         resolve_public_saison(saisons_collection=saisons_collection, saison_id=saison_id),
         pull_many_from_db(collection=spieltage_collection, db_filter=db_filter),
         aggregate_many_from_db(collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter=db_filter)),
@@ -462,7 +462,7 @@ async def get_teams(saison_id: str, saisons_collection: SaisonsReadCollection, t
     404 for a season this tier may not read.
     """
 
-    _, teams = await asyncio.gather(
+    _, teams = await concurrently(
         resolve_public_saison(saisons_collection=saisons_collection, saison_id=saison_id),
         _clubs_of(teams_collection=teams_collection, saison_id=saison_id),
     )
@@ -485,7 +485,7 @@ async def get_team(
     """
 
     # Beside the resolve: each needs the path's id alone, and none is served before the resolve has passed.
-    saison, club_raw, spiele_raw, kader_raw = await asyncio.gather(
+    saison, club_raw, spiele_raw, kader_raw = await concurrently(
         resolve_public_saison(saisons_collection=saisons_collection, saison_id=saison_id),
         # A club that left the league stays addressable by id, as `GET /teams/{team_id}` keeps it: a caller holding one
         # was given it by something.
@@ -542,7 +542,7 @@ async def get_spiel(
     and unchanged since, every pupil through the public mask.
     """
 
-    saison, spiele_raw, berichte_raw = await asyncio.gather(
+    saison, spiele_raw, berichte_raw = await concurrently(
         resolve_public_saison(saisons_collection=saisons_collection, saison_id=saison_id),
         aggregate_many_from_db(
             collection=spiele_collection,

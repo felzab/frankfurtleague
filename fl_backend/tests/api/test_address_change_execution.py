@@ -180,9 +180,7 @@ class TestThePersonsStart:
 
     async def test_the_address_signed_in_on_is_refused_in_any_spelling(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(APIError) as refused:
-                await start(database, client, email=TYPED.upper())
-            return refused.value.error_code
+            return await refused_code(start(database, client, email=TYPED.upper()))
 
         assert await on_a_person(mongo_replica_set_url, body) == Code.ADDRESS_CHANGE_UNCHANGED
 
@@ -1438,7 +1436,9 @@ class TestTwoPressesAtOnce:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             ours = await start(database, client)
             theirs = await start(database, client, identifier=OTHER_EMAIL)
-            codes = await asyncio.gather(outcome_of(answer(database, client, ours.token)), outcome_of(answer(database, client, theirs.token)))
+            async with asyncio.TaskGroup() as group:
+                presses = [group.create_task(outcome_of(answer(database, client, minted.token))) for minted in (ours, theirs)]
+            codes = [press.result() for press in presses]
             holders = [found["_id"] async for found in database[Collection.SPIELER].find({"email": NEW_EMAIL}, {"_id": 1})]
             return codes, holders, {minted.id: await change(database, minted.id) for minted in (ours, theirs)}
 
@@ -1454,10 +1454,15 @@ class TestTwoPressesAtOnce:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await start(database, client)
-            confirmed, discarded = await asyncio.gather(
-                outcome_of(answer(database, client, minted.token)), outcome_of(discard(database, client, minted.id))
+            async with asyncio.TaskGroup() as group:
+                confirmed = group.create_task(outcome_of(answer(database, client, minted.token)))
+                discarded = group.create_task(outcome_of(discard(database, client, minted.id)))
+            return (
+                confirmed.result(),
+                discarded.result(),
+                (await change(database, minted.id))["ended"]["kind"],
+                (await everything(database))["pupil"]["email"],
             )
-            return confirmed, discarded, (await change(database, minted.id))["ended"]["kind"], (await everything(database))["pupil"]["email"]
 
         confirmed, discarded, kind, address = await on_a_person(mongo_replica_set_url, body)
 
@@ -1767,15 +1772,12 @@ class TestTwoStartsAtOnce:
             committed = asyncio.Event()
             held = _HeldAfterItsRead(database[Collection.ADDRESS_CHANGES], committed)
             # Past the restart interval, so the retry meeting the rival's change replaces it rather than waiting.
-            task = asyncio.ensure_future(start(database, client, address_changes_collection=cast(Any, held), germany_now=NOW + RESTART))
-            await held.until_held(task)
-            try:
+            async with asyncio.TaskGroup() as group:
+                task = group.create_task(start(database, client, address_changes_collection=cast(Any, held), germany_now=NOW + RESTART))
+                await held.until_held(task)
                 rival = await administrator_starts(database, client, email=FOREIGN_EMAIL)
-            except BaseException:
-                await held.abandon(task)
-                raise
-            committed.set()
-            minted = await task
+                committed.set()
+            minted = task.result()
 
             live = await database[Collection.ADDRESS_CHANGES].find({"ended": None}).to_list(None)
             return held.reads, held.insert_failures, [row["_id"] for row in live], minted.id, (await change(database, rival.id))["ended"]

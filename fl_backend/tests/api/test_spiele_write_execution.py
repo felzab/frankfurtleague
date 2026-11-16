@@ -37,7 +37,7 @@ from app.core.transactions import transaction_session
 from tests import documents
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database
 from tests.erasure import erased
-from tests.isolation import InterleavedCollection, outcome_of
+from tests.isolation import InterleavedCollection, outcome_of, refused_code
 from tests.spiel_saves import (
     ALPHA,
     BETA,
@@ -319,10 +319,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spiel_data = await payload_for(database, GRUPPE_FILLING, spielort={"spielort_id": chosen, "mietpreis": 80})
 
-            with pytest.raises(APIError) as refused:
-                await call_patch(database, client, GRUPPE_FILLING, spiel_data)
-
-            return refused.value.error_code, await spiele_now(database)
+            return await refused_code(call_patch(database, client, GRUPPE_FILLING, spiel_data)), await spiele_now(database)
 
         code, spiele = await on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag())
 
@@ -337,10 +334,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
             assigned = {"schiedsrichter_id": SCHIEDSRICHTER_RETIRED, "payment": 20}
             spiel_data = await payload_for(database, GRUPPE_FILLING, schiedsrichter=assigned)
 
-            with pytest.raises(APIError) as refused:
-                await call_patch(database, client, GRUPPE_FILLING, spiel_data)
-
-            return refused.value.error_code
+            return await refused_code(call_patch(database, client, GRUPPE_FILLING, spiel_data))
 
         assert await on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag()) == Code.BOOKING_UNKNOWN_RESOURCE
 
@@ -351,10 +345,10 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
             assigned = {"schiedsrichter_id": SCHIEDSRICHTER_UNCONFIRMED, "payment": 20}
             spiel_data = await payload_for(database, GRUPPE_FILLING, schiedsrichter=assigned)
 
-            with pytest.raises(APIError) as refused:
-                await call_patch(database, client, GRUPPE_FILLING, spiel_data)
-
-            return refused.value.error_code, (await spiele_now(database))[GRUPPE_FILLING_NR]["schiedsrichter"]
+            return (
+                await refused_code(call_patch(database, client, GRUPPE_FILLING, spiel_data)),
+                (await spiele_now(database))[GRUPPE_FILLING_NR]["schiedsrichter"],
+            )
 
         assert await on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag()) == (
             Code.BOOKING_UNCONFIRMED_SCHIEDSRICHTER,
@@ -375,10 +369,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spiel_data = await payload_for(database, GRUPPE_FILLING, sonderereignis=None)
 
-            with pytest.raises(APIError) as refused:
-                await call_patch(database, client, GRUPPE_FILLING, spiel_data, dry_run=dry_run)
-
-            return refused.value.error_code, await spiele_now(database)
+            return await refused_code(call_patch(database, client, GRUPPE_FILLING, spiel_data, dry_run=dry_run)), await spiele_now(database)
 
         held, filling = an_unbooked_spieltag()
         code, spiele = await on_a_seeded_season(
@@ -1522,10 +1513,12 @@ class TestOnlyALandedSaveStamps:
             # A day off its matchday's span, so the refusal is `spiel_outside_spieltag`.
             spiel_data = await payload_for(database, VIERTELFINALE, team1=side(ALPHA, 3), team2=side(BETA, 1), date="2026-05-02")
 
-            with pytest.raises(APIError) as refused:
-                await call_patch(database, client, VIERTELFINALE, spiel_data, adopts_bericht=SEEDED_VERSION)
-
-            return refused.value.error_code, await spiele_now(database), before, await reports_now(database)
+            return (
+                await refused_code(call_patch(database, client, VIERTELFINALE, spiel_data, adopts_bericht=SEEDED_VERSION)),
+                await spiele_now(database),
+                before,
+                await reports_now(database),
+            )
 
         refusal, spiele_after, before, after = await on_a_seeded_season(mongo_replica_set_url, body, spiele=spiele)
 

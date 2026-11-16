@@ -19,12 +19,20 @@ from pathlib import Path
 from typing import Any, Final
 
 from app.core.db import SERVER_SELECTION_TIMEOUT_MS
+from tests.database import CASE_BOUND_S
 
 BACKEND_ROOT: Final = Path(__file__).resolve().parents[1]
 DOCKERFILE: Final = BACKEND_ROOT / "Dockerfile"
 
-# Far past the longest boot a case waits out, the driver's server selection, so only a boot that hangs reaches it.
+# Far past the longest boot run to its exit, one waiting out the driver's server selection, so only a boot that hangs
+# reaches it. `booted` runs in a module fixture, outside any case's bound.
 BOOT_BOUND_S: Final = SERVER_SELECTION_TIMEOUT_MS / 1000 + 45
+
+# A boot `serving` holds, which runs inside a case: past the few seconds an import takes against a server that answers,
+# and under the case's own bound, so a boot that never starts fails as one.
+SERVING_BOUND_S: Final = 20.0
+
+assert SERVING_BOUND_S < CASE_BOUND_S, "a boot held inside a case must time out before the case does"
 
 # The shape of the application's own log message (`app/core/logging.py`), which carries no value; uvicorn's lines and a
 # traceback's do not take it.
@@ -171,7 +179,7 @@ async def serving(directory: Path, files: Mapping[str, str], variables: Mapping[
     assert process.stdout is not None
     lines: list[bytes] = []
     try:
-        async with asyncio.timeout(BOOT_BOUND_S):
+        async with asyncio.timeout(SERVING_BOUND_S):
             while line := await process.stdout.readline():
                 lines.append(line)
                 if Boot(None, line.decode("utf-8", errors="replace")).events == [until]:

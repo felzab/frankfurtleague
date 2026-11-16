@@ -26,6 +26,7 @@ from tests.documents import (
     spielbestaetigung_document,
     team_document,
 )
+from tests.isolation import refused_code
 from tests.stored import the_row
 from tests.worker import worker_database
 
@@ -172,10 +173,7 @@ class TestTheOneSave:
         """Judged ahead of every write: a group move the row refuses leaves the rename unsaved, so the save is whole or nothing."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(APIError) as refused:
-                await save(database, gruppe="B", name="Adler neu")
-
-            return refused.value.error_code, await club_now(database), await row_now(database)
+            return await refused_code(save(database, gruppe="B", name="Adler neu")), await club_now(database), await row_now(database)
 
         code, club, row = await on_a_league(mongo_replica_set_url, body)
 
@@ -216,10 +214,7 @@ class TestTheOneSave:
             await database[moved].update_one(
                 {"team_id": ADLER} if moved == Collection.SAISON_TEAMS else {"_id": ADLER}, {"$inc": {"version": 1}}
             )
-            with pytest.raises(APIError) as refused:
-                await save(database, version=served, name="Adler neu")
-
-            return refused.value.error_code, (await club_now(database))["name"]
+            return await refused_code(save(database, version=served, name="Adler neu")), (await club_now(database))["name"]
 
         assert await on_a_league(mongo_replica_set_url, body) == (Code.VERSION_STALE, "Adler")
 
@@ -258,10 +253,7 @@ class TestTheOneSave:
         """Its table and podium are read off these rows, whatever else the save carries."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(APIError) as refused:
-                await save(database, name="Adler neu", **changed)
-
-            return refused.value.error_code, (await club_now(database))["name"]
+            return await refused_code(save(database, name="Adler neu", **changed)), (await club_now(database))["name"]
 
         assert await on_a_league(mongo_replica_set_url, body, saison_status="past") == (Code.SAISON_PAST, "Adler")
 
@@ -271,17 +263,19 @@ class TestTheRetirement:
         """Only a stale page reaches this, the button being locked: retired, the club drops out of the reads and placings shift."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(APIError) as refused:
-                await delete_team(
-                    team_id=ADLER,
-                    teams_collection=database[Collection.TEAMS],
-                    saison_teams_collection=database[Collection.SAISON_TEAMS],
-                    saisons_collection=database[Collection.SAISONS],
-                    db=database.client,
-                    today=TODAY,
-                )
-
-            return refused.value.error_code, (await club_now(database))["inactive_since"]
+            return (
+                await refused_code(
+                    delete_team(
+                        team_id=ADLER,
+                        teams_collection=database[Collection.TEAMS],
+                        saison_teams_collection=database[Collection.SAISON_TEAMS],
+                        saisons_collection=database[Collection.SAISONS],
+                        db=database.client,
+                        today=TODAY,
+                    )
+                ),
+                (await club_now(database))["inactive_since"],
+            )
 
         assert await on_a_league(mongo_replica_set_url, body, saison_status="active") == (Code.RETIRE_BLOCKED, None)
 
@@ -291,10 +285,10 @@ class TestTheEntry:
         """The club is written first, so outside one transaction a full group leaves it in the league for nobody's asking."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(APIError) as refused:
-                await enter(database, {"kind": "new", "team": club_fields(name="Eschborn", shorthand="ESC")}, gruppe="B")
-
-            return refused.value.error_code, await database[Collection.TEAMS].count_documents({"name": "Eschborn"})
+            return (
+                await refused_code(enter(database, {"kind": "new", "team": club_fields(name="Eschborn", shorthand="ESC")}, gruppe="B")),
+                await database[Collection.TEAMS].count_documents({"name": "Eschborn"}),
+            )
 
         assert await on_a_league(mongo_replica_set_url, body) == (Code.ENTRY_GRUPPE_FULL, 0)
 
@@ -327,10 +321,10 @@ class TestTheEntry:
         """A dialog left open over an acceptance: named by its code, so the screen words it where the unique index would not."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(APIError) as refused:
-                await enter(database, {"kind": "known", "team_id": str(ADLER)})
-
-            return refused.value.error_code, await database[Collection.SAISON_TEAMS].count_documents({"team_id": ADLER, "saison_id": SAISON_ID})
+            return (
+                await refused_code(enter(database, {"kind": "known", "team_id": str(ADLER)})),
+                await database[Collection.SAISON_TEAMS].count_documents({"team_id": ADLER, "saison_id": SAISON_ID}),
+            )
 
         code, rows = await on_a_league(mongo_replica_set_url, body)
 

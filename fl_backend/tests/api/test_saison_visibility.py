@@ -6,7 +6,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.public_router import get_frame
 from app.core.collections import Collection
-from tests.database import a_clean_database, bounded, shared_client, unwritten
+from tests.database import held_corpus, shared_client
 from tests.documents import saison_document
 from tests.worker import worker_database
 
@@ -23,19 +23,16 @@ SEEDED = [saison_document(ARCHIVED, "past"), saison_document(RUNNING, "active"),
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
-# Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
+# Module-scoped: every case below reads this corpus and none writes it, which `held_corpus` keeps
 # from being left as a claim.
 @pytest.fixture(scope="module")
 async def seeded_league(mongo_replica_set_url: str) -> AsyncIterator[str]:
     """The finished, the running and the planned season."""
 
-    async def _seed() -> None:
-        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
-            await database[Collection.SAISONS].insert_many([dict(document) for document in SEEDED])
+    async def seed(database: AsyncDatabase) -> None:
+        await database[Collection.SAISONS].insert_many([dict(document) for document in SEEDED])
 
-    await bounded(_seed())
-
-    with unwritten(mongo_replica_set_url, DATABASE_NAME):
+    async with held_corpus(mongo_replica_set_url, DATABASE_NAME, seed):
         yield mongo_replica_set_url
 
 

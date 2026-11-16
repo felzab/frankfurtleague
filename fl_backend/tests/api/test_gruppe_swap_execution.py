@@ -11,10 +11,9 @@ from app.api.saisons.admin_router import swap_gruppen
 from app.api.saisons.schemas import FLSwapGruppenPayload
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database
 from tests.documents import saison_document, saison_team_document, spiel_document
-from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
+from tests.isolation import COMMITTED, InterleavedCollection, outcome_of, refused_code
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -309,9 +308,7 @@ class TestTheRefusalsReadTheRealDocuments:
         """Nothing has been played, so the season being over is the only thing refusing this."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(APIError) as refusal:
-                await call_swap(database, client, ALPHA, BETA)
-            return refusal.value.error_code, await sides_now(database)
+            return await refused_code(call_swap(database, client, ALPHA, BETA)), await sides_now(database)
 
         code, sides = await on_a_seeded_season(mongo_replica_set_url, body, spiele=list(DRAWN_ROUND_ROBIN), saison_status="past")
 
@@ -325,9 +322,7 @@ class TestTheRefusalsReadTheRealDocuments:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(APIError) as refusal:
-                await call_swap(database, client, ALPHA, BETA)
-            return refusal.value.error_code, await gruppen_now(database), await sides_now(database)
+            return await refused_code(call_swap(database, client, ALPHA, BETA)), await gruppen_now(database), await sides_now(database)
 
         code, stored, sides = await on_a_seeded_season(mongo_replica_set_url, body, spiele=list(DRAWN_ROUND_ROBIN), start_date=TODAY)
 

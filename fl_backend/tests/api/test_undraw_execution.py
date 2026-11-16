@@ -22,10 +22,9 @@ from app.api.spiele.schemas import FLPatchSpielDataPayload
 from app.api.teams.services import offered_gruppen
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError
 from tests import documents
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database
-from tests.isolation import InterleavedCollection, outcome_of
+from tests.isolation import InterleavedCollection, outcome_of, refused_code
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -465,14 +464,13 @@ async def an_undraw_refused_on(url: str, *, record: dict[str, Any]) -> RefusedUn
         drawn = await call_draw(database, client)
         await database[Collection.SPIELE].update_one({"spiel_nr": 1}, {"$set": record})
 
-        with pytest.raises(APIError) as refused:
-            await call_undraw(database, client)
+        code = await refused_code(call_undraw(database, client))
 
         spieltage, spiele = await counts_now(database)
 
         return RefusedUndraw(
             drawn=drawn,
-            error_code=refused.value.error_code,
+            error_code=code,
             spieltage=spieltage,
             spiele=spiele,
         )
@@ -564,8 +562,7 @@ async def a_bracket_slot_seeded_by_hand(url: str) -> SeededBracket:
 
         await call_patch_spiel(database, client, spiel_id=slot["_id"], payload=seeding_payload(slot, entered["team_id"]))
 
-        with pytest.raises(APIError) as refused:
-            await call_undraw(database, client)
+        code = await refused_code(call_undraw(database, client))
 
         stored = await database[Collection.SPIELE].find_one({"_id": slot["_id"]})
 
@@ -573,7 +570,7 @@ async def a_bracket_slot_seeded_by_hand(url: str) -> SeededBracket:
             seeded_team=entered["team_id"],
             stored_team1=(stored or {}).get("team1"),
             stored_team1_quelle=(stored or {}).get("team1_quelle"),
-            error_code=refused.value.error_code,
+            error_code=code,
         )
 
     return await on_a_seeded_saison(url, body)

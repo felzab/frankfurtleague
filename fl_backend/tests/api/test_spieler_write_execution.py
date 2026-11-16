@@ -12,6 +12,7 @@ from app.core.crud import composite_version
 from app.core.exceptions import APIError, DocumentNotFoundError
 from tests.database import a_clean_database
 from tests.documents import EINWILLIGUNG, rules_document, saison_document, saison_spieler_document, saison_team_document, spieler_document
+from tests.isolation import refused_code
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -176,10 +177,10 @@ class TestTheOneSave:
             spieler_id = await self.seated(database)
             await database.saison_spieler.insert_one(squad_row(spieler_id=spieler_id_for(80), team_id=HOME_TEAM_OID, rolle="kapitaen"))
 
-            with pytest.raises(APIError) as excinfo:
-                await save(database, spieler_id, first_name="Maximilian", rolle="kapitaen")
-
-            return excinfo.value.error_code, await database.spieler.find_one({"_id": spieler_id})
+            return (
+                await refused_code(save(database, spieler_id, first_name="Maximilian", rolle="kapitaen")),
+                await database.spieler.find_one({"_id": spieler_id}),
+            )
 
         code, person = await on_a_database(mongo_replica_set_url, body)
 
@@ -203,10 +204,10 @@ class TestTheOneSave:
             key = "_id" if collection == "spieler" else "spieler_id"
             await database[collection].update_one({key: spieler_id}, {"$inc": {"version": 1}})
 
-            with pytest.raises(APIError) as excinfo:
-                await save(database, spieler_id, nummer="9", first_name="Maximilian", version=read.version)
-
-            return excinfo.value.error_code, await database.spieler.find_one({"_id": spieler_id})
+            return (
+                await refused_code(save(database, spieler_id, nummer="9", first_name="Maximilian", version=read.version)),
+                await database.spieler.find_one({"_id": spieler_id}),
+            )
 
         code, person = await on_a_database(mongo_replica_set_url, body)
 
@@ -248,10 +249,7 @@ class TestTheOneSave:
             spieler_id = await self.seated(database)
             await database.saisons.update_one({"_id": SAISON_ID}, {"$set": {"rules.allowed_stufen": ["Q1"]}})
 
-            with pytest.raises(APIError) as excinfo:
-                await save(database, spieler_id, stufe="Q3")
-
-            return excinfo.value.error_code
+            return await refused_code(save(database, spieler_id, stufe="Q3"))
 
         assert await on_a_database(mongo_replica_set_url, body) == Code.KADER_STUFE_NOT_ALLOWED
 

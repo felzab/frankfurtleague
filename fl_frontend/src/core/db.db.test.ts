@@ -141,6 +141,30 @@ describe("the sign-in store's client bounds every operation it sends", () => {
 });
 
 describe("the sign-in store's indexes recover with the store", () => {
+  /* A build the client stopped waiting for is no verdict: the server goes on building, and the same `createIndex`
+     waits for a build under way. Dropped rather than delayed, so the server never builds it unless asked again. */
+  it("asks again for a build whose answer never came, and logs no index unbuilt", async () => {
+    const { MONGO_DB_NAME, buildAuthIndexes } = await import("./authIndexes");
+    const store = client.db(MONGO_DB_NAME);
+    const held = async () => {
+      const names: string[] = [];
+      for (const { name } of await store.listCollections({}, { nameOnly: true }).toArray()) {
+        for (const index of await store.collection(name).indexes()) names.push(`${name}.${String(index.name)}`);
+      }
+      return names.sort();
+    };
+    await buildAuthIndexes();
+    const reference = await held();
+    await store.dropDatabase();
+    log.clear();
+
+    await relay.dropFirst("createIndexes", () => buildAuthIndexes());
+
+    assert.ok(relay.triggered, "the run sent no createIndexes, so no answer went missing");
+    expect(errorLines(), "a build whose answer never came was logged unbuilt").toStrictEqual([]);
+    expect(await held(), "the build whose answer never came was not asked again").toStrictEqual(reference);
+  });
+
   /* The client opened before the outage, so its topology is the one recovering, and the driver marks
      that recovery with no `open`: only a new topology emits one. */
   it("builds an index again once a store that stopped answering after the first open answers again", async () => {
@@ -168,6 +192,9 @@ describe("the sign-in store's indexes recover with the store", () => {
       while (!(await indexed()) && Date.now() < deadline) await pause(200);
 
       expect(await indexed(), "the index was not built again once the store answered").toBe(true);
+      // The rebuild's other indexes may still be on the wire: a run queues behind the one in flight, so the file's
+      // close meets no build to cut.
+      await buildAuthIndexes();
       expect(opens, "the client emitted `open`, so this drove a new topology rather than a recovered one").toBe(0);
     } finally {
       client.off("open", counted);

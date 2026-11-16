@@ -4,6 +4,7 @@ from typing import Any
 import pytest
 from bson import ObjectId
 from httpx2 import Response
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -11,7 +12,7 @@ from tests import documents
 from tests.app_client import app_client, app_under_test
 from tests.config import BASE_AUTH
 from tests.core.app_source import application
-from tests.database import a_clean_database, bounded, unwritten
+from tests.database import held_corpus
 from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_saison_contents_visibility_test")
@@ -93,30 +94,27 @@ def spiel_document(saison_id: str) -> dict[str, Any]:
     )
 
 
-# Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
+# Module-scoped: every case below reads this corpus and none writes it, which `held_corpus` keeps
 # from being left as a claim.
 @pytest.fixture(scope="module")
 async def seeded_league(mongo_replica_set_url: str) -> AsyncIterator[str]:
     """Three seasons, one club entered in each, and a fixture, a matchday and squad rows per season."""
 
-    async def _seed() -> None:
-        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
-            await database[Collection.SAISONS].insert_many([saison_document(saison_id) for saison_id in STATUS_OF])
-            await database[Collection.TEAMS].insert_one(team_document())
-            await database[Collection.SAISON_TEAMS].insert_many([junction_row(saison_id) for saison_id in STATUS_OF] + [opponent_row()])
-            await database[Collection.SPIELE].insert_many([spiel_document(saison_id) for saison_id in STATUS_OF])
-            await database[Collection.SPIELTAGE].insert_many(
-                [
-                    documents.spieltag_document(an_id("3", saison_id), saison_id, 1, start=f"{saison_id}-03-15", end=f"{saison_id}-03-15")
-                    for saison_id in STATUS_OF
-                ]
-            )
-            await database[Collection.SPIELER].insert_one(spieler_document(SPIELER_OID, "Maxim"))
-            await database[Collection.SAISON_SPIELER].insert_many([squad_row(saison_id) for saison_id in STATUS_OF])
+    async def seed(database: AsyncDatabase) -> None:
+        await database[Collection.SAISONS].insert_many([saison_document(saison_id) for saison_id in STATUS_OF])
+        await database[Collection.TEAMS].insert_one(team_document())
+        await database[Collection.SAISON_TEAMS].insert_many([junction_row(saison_id) for saison_id in STATUS_OF] + [opponent_row()])
+        await database[Collection.SPIELE].insert_many([spiel_document(saison_id) for saison_id in STATUS_OF])
+        await database[Collection.SPIELTAGE].insert_many(
+            [
+                documents.spieltag_document(an_id("3", saison_id), saison_id, 1, start=f"{saison_id}-03-15", end=f"{saison_id}-03-15")
+                for saison_id in STATUS_OF
+            ]
+        )
+        await database[Collection.SPIELER].insert_one(spieler_document(SPIELER_OID, "Maxim"))
+        await database[Collection.SAISON_SPIELER].insert_many([squad_row(saison_id) for saison_id in STATUS_OF])
 
-    await bounded(_seed())
-
-    with unwritten(mongo_replica_set_url, DATABASE_NAME):
+    async with held_corpus(mongo_replica_set_url, DATABASE_NAME, seed):
         yield mongo_replica_set_url
 
 

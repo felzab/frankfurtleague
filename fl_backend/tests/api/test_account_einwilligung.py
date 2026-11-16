@@ -201,10 +201,6 @@ def _seat(email: str, *, confirmed_at: str | None = "2026-09-03", **einwilligung
     )
 
 
-def _kontakte(**seats: Any) -> dict[str, Any]:
-    return kontakte_document(**seats)
-
-
 async def _seed(database: AsyncDatabase) -> None:
     # The clubs as they are called today, apart from each season row's copy, so the `{schule}` fill is seen to be the club's.
     await database[Collection.TEAMS].insert_many(
@@ -219,7 +215,7 @@ async def _seed(database: AsyncDatabase) -> None:
                 TEAM_A_OID,
                 ROW_NAME_A_PAST,
                 "HEX",
-                kontakte=_kontakte(
+                kontakte=kontakte_document(
                     trainer=_seat(REFEREE_STORED, media=True),
                     ansprechperson=_seat(REFEREE_STORED, media=True),
                     trainer_is_also="ansprechperson",
@@ -230,11 +226,15 @@ async def _seed(database: AsyncDatabase) -> None:
                 TEAM_B_OID,
                 ROW_NAME_B,
                 "LEX",
-                kontakte=_kontakte(trainer=_seat(BYSTANDER, media=True), stellvertretung=_seat(REFEREE_STORED, media=True)),
+                kontakte=kontakte_document(trainer=_seat(BYSTANDER, media=True), stellvertretung=_seat(REFEREE_STORED, media=True)),
             ),
             # Awaiting its person's confirmation: nothing on it to change yet.
             saison_team_document(
-                ACTIVE_SAISON, TEAM_A_OID, ROW_NAME_A_ACTIVE, "HEX", kontakte=_kontakte(trainer=_seat(REFEREE_STORED, confirmed_at=None))
+                ACTIVE_SAISON,
+                TEAM_A_OID,
+                ROW_NAME_A_ACTIVE,
+                "HEX",
+                kontakte=kontakte_document(trainer=_seat(REFEREE_STORED, confirmed_at=None)),
             ),
         ]
     )
@@ -774,15 +774,15 @@ async def _applications(database: AsyncDatabase) -> None:
             _bewerbung(
                 PENDING_OID,
                 status="submitted",
-                kontakte=_kontakte(
+                kontakte=kontakte_document(
                     trainer=_seat(REFEREE_STORED, media=True),
                     ansprechperson=_seat(REFEREE_STORED, media=True),
                     stellvertretung=_seat(BYSTANDER, media=True),
                     trainer_is_also="ansprechperson",
                 ),
             ),
-            _bewerbung(DECIDED_OID, status="accepted", kontakte=_kontakte(trainer=_seat(REFEREE_STORED, media=True))),
-            _bewerbung(UNANSWERED_OID, status="submitted", kontakte=_kontakte(trainer=_seat(REFEREE_STORED, confirmed_at=None))),
+            _bewerbung(DECIDED_OID, status="accepted", kontakte=kontakte_document(trainer=_seat(REFEREE_STORED, media=True))),
+            _bewerbung(UNANSWERED_OID, status="submitted", kontakte=kontakte_document(trainer=_seat(REFEREE_STORED, confirmed_at=None))),
         ]
     )
 

@@ -1,4 +1,3 @@
-import asyncio
 import secrets
 from collections.abc import Mapping, Sequence
 from datetime import datetime
@@ -96,6 +95,7 @@ from app.api.teams.services import (
     with_link_state,
 )
 from app.core.collections import Collection
+from app.core.concurrency import concurrently
 from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
@@ -305,7 +305,7 @@ async def get_teams_admin(
     """
 
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": filters.saison_id}, projection=["status", "rules"])
-    rows, clubs = await asyncio.gather(
+    rows, clubs = await concurrently(
         # Each whole, as the group's fill is judged over every row. The seat's stamp and never its person: this list names none.
         pull_whole_from_db(
             collection=saison_teams_collection,
@@ -384,7 +384,7 @@ async def get_team_saison_admin(
     row_raw = next((row for row in team_raw["memberships"] if row["saison_id"] == saison_id), None)
 
     # Every membership is read for the seasons `retire_blocked` judges; only this season's seats are served.
-    served, season_rows, held_saisons, spiele_drawn, live = await asyncio.gather(
+    served, season_rows, held_saisons, spiele_drawn, live = await concurrently(
         _with_seat_states(
             [{**team_raw, "memberships": [] if row_raw is None else [row_raw]}],
             outbox_collection=outbox_collection,
