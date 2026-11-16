@@ -187,6 +187,9 @@ jobs:
       FRONTEND_IMAGE: ghcr.io/felzab/frankfurtleague-frontend
       BACKEND_IMAGE: ghcr.io/felzab/frankfurtleague-backend
       VERIFY_TAG: frankfurtleague-verify
+      # No build summary, and with it no build record exported and uploaded in the build's post step:
+      # nothing reads either, and both sit on the path every later job waits on.
+      DOCKER_BUILD_SUMMARY: "false"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
