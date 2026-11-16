@@ -2,10 +2,10 @@
 
 Every caller fails on any code but 0, so only this suite tells a refusal from a failure: no engine, a stack without the
 local database service, without a running backend or with a running frontend, a state the seed does not hold, or a
-read-back that could not judge, is 2, and a seed or a document to correct is 1. Each case copies the script with `_lib.sh` into a fixture
-tree of its own and puts a stand-in `docker` first on PATH, which lists the services of the files `COMPOSE_FILE` names
-and answers every other call with the code the case gives. The seed's own decisions are judged by the backend's suite,
-`fl_backend/tests/core/test_made_up_seed.py`.
+read-back that could not judge, is 2, a seed or a document to correct is 1, an interrupt 130, and a crash 3 or more.
+Each case copies the script with `_lib.sh` into a fixture tree of its own and puts a stand-in `docker` first on PATH,
+which lists the services of the files `COMPOSE_FILE` names and answers every other call with the code the case gives.
+The seed's own decisions are judged by the backend's suite, `fl_backend/tests/core/test_made_up_seed.py`.
 """
 
 from __future__ import annotations
@@ -99,11 +99,27 @@ def test_a_seed_read_back_whole_passes_with_its_state_alone_in_the_seed_s_enviro
         ((), {"seed": 1}, 1),
         ((), {"hand": 1}, 1),
         ((), {"readback": 1}, 1),
-        ((), {"readback": 3}, 2),
+        ((), {"readback": 2}, 2),
+        # A crash keeps the child's own status where it is 3 or more, and an interrupt stays 130.
+        ((), {"seed": 137}, 137),
+        ((), {"seed": 130}, 130),
+        ((), {"readback": 3}, 3),
+        ((), {"readback": 130}, 130),
     ],
-    ids=["unknown-state-refused", "seed-refusal-stays-refused", "seed-fails", "hand-in-fails", "document-refused", "read-back-cannot-judge"],
+    ids=[
+        "unknown-state-refused",
+        "seed-refusal-stays-refused",
+        "seed-fails",
+        "hand-in-fails",
+        "document-refused",
+        "read-back-cannot-judge",
+        "seed-crashes",
+        "seed-interrupted",
+        "read-back-crashes",
+        "read-back-interrupted",
+    ],
 )
-def test_a_refusal_stays_apart_from_a_failure(args: tuple[str, ...], codes: dict[str, int], expected: int) -> None:
+def test_each_verdict_keeps_its_own_code(args: tuple[str, ...], codes: dict[str, int], expected: int) -> None:
     code, said, calls, _ = seed(*args, codes=codes)
     assert code == expected, said
     # Nothing is judged after a seed that did not load.

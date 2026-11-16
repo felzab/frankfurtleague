@@ -11,7 +11,8 @@
 # seeded: the script refuses any stack Compose resolves without the mongo service, and the seed any server but that
 # one. Exit 0 seeded, and every document reads back through its record model; 1 a seed or a document to correct; 2
 # refused, Docker not responding, another stack, no backend running, a frontend running, another server, a state the
-# seed does not hold or a read-back that could not judge.
+# seed does not hold or a read-back that could not read the database; 130 interrupted; 3 or more a step that crashed,
+# its own status kept where it is 3 or more.
 
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
 
@@ -67,20 +68,26 @@ state=()
 if (( GIVEN )); then state=(--env "SEED_LANDING=${LANDING}"); fi
 rc=0
 quietly docker compose exec -T "${state[@]}" backend env "PYTHONPATH=${SEED_ROOT}" python -m tests.made_up_seed || rc=$?
-case "$rc" in
+class=0; exit_class contract "$rc" || class=$?
+case "$class" in
   0) ok "seeded the made-up league" ;;
+  1) die "the made-up seed did not load; its own account is above. A refused insert names the index's key: correct
+fl_backend/tests/made_up_seed.py." ;;
   # The seed's own refusal, a state it does not hold or a server not the local stack's, its account above saying which.
   2) refuse "the made-up seed refused, and its own account above says why." ;;
-  *) die "the made-up seed did not load; its own account is above. A refused insert names the index's key: correct
-fl_backend/tests/made_up_seed.py." ;;
+  130) on_interrupt ;;
+  *) on_error "$rc" "$LINENO" "python -m tests.made_up_seed" ;;
 esac
 
 step "The backend's own check of what the seed wrote"
 rc=0
 quietly docker compose exec -T backend python -m app.readback || rc=$?
-case "$rc" in
+class=0; exit_class contract "$rc" || class=$?
+case "$class" in
   0) ok "every document the seed wrote reads back through its model" ;;
   1) die "the made-up seed holds a document its model refuses, and the lines above name it: correct
 fl_backend/tests/made_up_seed.py." ;;
-  *) refuse "the backend could not judge the seed (exit ${rc}); its own account is above." ;;
+  2) refuse "the backend could not read what the seed wrote, so nothing of it was judged; its own account is above." ;;
+  130) on_interrupt ;;
+  *) on_error "$rc" "$LINENO" "python -m app.readback" ;;
 esac

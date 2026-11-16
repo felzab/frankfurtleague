@@ -141,13 +141,16 @@ def test_a_start_runs_on_new_keys_over_an_empty_stack_and_mail_sink_and_serves_o
 @pytest.mark.parametrize(
     ("args", "codes", "expected", "last"),
     [
-        (("serve",), {"readback": 3}, 2, "readback"),
+        (("serve",), {"readback": 2}, 2, "readback"),
         (("serve",), {"seed": 1}, 1, "seed"),
+        # The seed's crash keeps its own status, and an interrupt stays 130.
+        (("serve",), {"seed": 137}, 137, "seed"),
+        (("serve",), {"seed": 130}, 130, "seed"),
         (("serve",), {"wait": 1}, 1, "wait"),
         (("start",), {"down": 1}, 1, "down"),
         (("start", "--build"), {"build": 1}, 1, "build"),
     ],
-    ids=["seed-refused-stays-refused", "seed-fails", "wait-fails", "teardown-fails", "build-fails"],
+    ids=["seed-refused-stays-refused", "seed-fails", "seed-crashes", "seed-interrupted", "wait-fails", "teardown-fails", "build-fails"],
 )
 def test_nothing_starts_after_a_step_that_did_not_hold(args: tuple[str, ...], codes: dict[str, int], expected: int, last: str) -> None:
     code, said, kinds = stack(checkout(), *args, codes=codes)
@@ -155,7 +158,11 @@ def test_nothing_starts_after_a_step_that_did_not_hold(args: tuple[str, ...], co
     assert kinds[-1] == last, kinds
 
 
-@pytest.mark.parametrize(("codes", "expected"), [({"readback": 3}, 2), ({"seed": 1}, 1)], ids=["refused", "failed"])
+@pytest.mark.parametrize(
+    ("codes", "expected"),
+    [({"readback": 2}, 2), ({"seed": 1}, 1), ({"seed": 137}, 137), ({"seed": 130}, 130)],
+    ids=["refused", "failed", "crashed", "interrupted"],
+)
 def test_local_sh_keeps_the_stack_s_verdict(codes: dict[str, int], expected: int) -> None:
     code, said, kinds = stack(checkout(), "--e2e", codes=codes, script="scripts/ops/local.sh")
     assert code == expected, said
