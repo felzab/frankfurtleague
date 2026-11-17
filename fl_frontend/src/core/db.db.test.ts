@@ -118,8 +118,8 @@ describe("the sign-in store's client bounds every operation it sends", () => {
         auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN), returnHeaders: true }),
       ),
     );
-    // The commit never reached the server, whose transaction would otherwise stand open past the
-    // case, holding the sign-in's collections, and fail it from the replica set's check after it.
+    // The commit never reached the server, whose transaction would otherwise hold the sign-in's
+    // collections until its own lifetime ran out, a minute any later case writing them would wait.
     // Inside the container: the client's strict Stable API refuses the command.
     const killed = await mongod.exec(["mongosh", "--quiet", "--eval", "db.adminCommand({ killAllSessions: [] }).ok"]);
     expect(killed.output.trim(), `the hung commit's transaction was left standing: ${killed.output}`).toBe("1");
