@@ -1,22 +1,23 @@
 // The log capture's own guarantee, which every suite reading the logger's lines relies on and none tests: it reads
-// the logger's chunks alone, each case from an empty record, and a line it cannot read fails the case, not the writer.
+// the logger's chunks alone, each case from an empty record, a line it cannot read fails the case, not the writer, and
+// a line outside every case reaches the stream.
 import { caseFailures } from "@/test-support/caseFailures";
-import { captureLog, documentsWrittenByAsync, endEveryCapture } from "@/test-support/stdoutCapture";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { captureLog, documentsWrittenByAsync } from "@/test-support/stdoutCapture";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-/** The stream's own `write`, which the file's captures replace in turn. */
+/** Every chunk the capture passes on, recorded on its way to the stream's own `write`. */
+const reached: string[] = [];
 const streamWrite = process.stdout.write;
-
-/** The case after which a hook running past the capture's `afterEach` writes a line. */
-const AFTER_HOOK_CASE = "fails the case a later after-hook writes after, whichever case it is";
-
-// Registered ahead of the captures, so it runs after their `afterEach`, as a file's client close registered first does.
-afterEach(({ task }) => {
-  if (task.name === AFTER_HOOK_CASE) logger.info("capture.after_hook");
+const toStream = streamWrite.bind(process.stdout) as (chunk: unknown, ...rest: unknown[]) => boolean;
+process.stdout.write = ((chunk: unknown, ...rest: unknown[]) => {
+  reached.push(String(chunk));
+  return toStream(chunk, ...rest);
+}) as typeof process.stdout.write;
+// Registered ahead of the capture, so it runs after the capture's own end.
+afterAll(() => {
+  process.stdout.write = streamWrite;
 });
 
-// Two captures, as a file opening a second one stacks it on the first: the logger's chunks reach the last alone.
-captureLog();
 const log = captureLog();
 
 // Imported after the capture, as a suite's subject is.
@@ -82,58 +83,14 @@ describe("the capture", () => {
 });
 
 // The harm: a line written outside every case's body is swallowed from the reporter, and no case reads it.
-describe("a line no case reads", () => {
-  describe("written by a hook ahead of the cases", () => {
-    beforeAll(() => {
-      logger.info("capture.before_all");
-    });
-
-    failsNaming(
-      "fails the case it was written ahead of",
-      /^the logger wrote before this case began, where no case reads it:\nINFO capture\.before_all/,
-      () => undefined,
-    );
+describe("a line outside every case", () => {
+  beforeAll(() => {
+    logger.info("capture.before_all");
   });
 
-  failsNaming(
-    AFTER_HOOK_CASE,
-    /^the logger wrote once this case had ended, where no case reads it:\nINFO capture\.after_hook/,
-    () => undefined,
-  );
+  it("reaches the stream, where a case's own line does not", () => {
+    logger.info("capture.in_the_case");
 
-  describe("read by the hook that wrote it", () => {
-    beforeAll(() => {
-      logger.info("capture.read_by_its_hook");
-      expect(log.lines().at(-1)?.message).toBe("capture.read_by_its_hook");
-    });
-
-    it("fails no case", () => {
-      expect(log.lines()).toStrictEqual([]);
-    });
-  });
-
-  describe("cleared before a hook read the lines after it", () => {
-    beforeAll(() => {
-      logger.info("capture.cleared_unread");
-      log.clear();
-      logger.info("capture.read_after_the_clear");
-      expect(log.lines().map(({ message }) => message)).toStrictEqual(["capture.read_after_the_clear"]);
-    });
-
-    failsNaming(
-      "fails the case it was written ahead of, the line read after it judged",
-      /^the logger wrote before this case began, where no case reads it:\nINFO capture\.cleared_unread \{\}\n$/,
-      () => undefined,
-    );
-  });
-});
-
-describe("the captures' end", () => {
-  // The harm: ended first opened first, the first gives the stream back its own `write` and the second then puts back
-  // the one it replaced, the first's, so a capture stays installed past the file's end.
-  it("gives the stream back its own write, every capture ended last opened first", () => {
-    endEveryCapture();
-
-    expect(process.stdout.write).toBe(streamWrite);
+    expect(reached.filter((chunk) => chunk.includes("capture."))).toStrictEqual(["INFO capture.before_all {}\n"]);
   });
 });

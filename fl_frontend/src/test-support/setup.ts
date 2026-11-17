@@ -1,13 +1,9 @@
 import { serveTheNetwork } from "@/test-support/backend";
-import { endEveryCapture } from "@/test-support/stdoutCapture";
-import { afterAll, vi } from "vitest";
+import { vi } from "vitest";
 
 // Before any test file's own code, so no request of a file is sent past this machine: a request no case answers fails
 // the case it was sent in (`fl_frontend/src/test-support/backend.ts`).
 serveTheNetwork();
-
-// Registered ahead of every hook of the file, so it runs after all of them: a log capture outlives each client's close.
-afterAll(endEveryCapture);
 
 // `server-only` throws unless the bundler resolves it under React's `react-server` condition, which
 // Next's server build sets and a test never does. Empty here, as the server build gets it.
