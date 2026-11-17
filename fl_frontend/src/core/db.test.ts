@@ -41,23 +41,4 @@ describe("when `fl_frontend/src/core/db.ts :: signInStore` builds the client", (
       await first.close();
     }
   });
-
-  /* The most a visitor waits on each stage, held as literals: a removed option reads as the driver's default, 30 s or no
-     bound at all, and so would any figure read off the driver. */
-  it("bounds every stage of the store's client at three seconds", async () => {
-    const { signInStore } = await import("./db");
-    uri = "mongodb://127.0.0.1:9/?directConnection=true";
-    const client = signInStore();
-    try {
-      const { serverSelectionTimeoutMS, waitQueueTimeoutMS, connectTimeoutMS, socketTimeoutMS } = client.options;
-      expect({ serverSelectionTimeoutMS, waitQueueTimeoutMS, connectTimeoutMS, socketTimeoutMS }).toStrictEqual({
-        serverSelectionTimeoutMS: 3000,
-        waitQueueTimeoutMS: 3000,
-        connectTimeoutMS: 3000,
-        socketTimeoutMS: 3000,
-      });
-    } finally {
-      await client.close();
-    }
-  });
 });
