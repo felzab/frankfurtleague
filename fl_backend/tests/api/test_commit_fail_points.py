@@ -7,8 +7,8 @@ lookup's reads are held on the server, so that the ones a transaction runs are s
 
 Every case configuring `failCommand` lives in this module, through `fail_point`: MongoDB holds one configuration of a
 fail point for the whole server, which every worker shares, so a second module configuring it on another worker would
-replace this one's configuration, and either case's `off` would clear both. The gate's `--dist loadfile` runs one
-module on one worker, its cases one after another.
+replace this one's configuration, and either case's `off` would clear both. The `--dist loadfile` that
+`fl_backend/pyproject.toml` passes every run runs one module on one worker, its cases one after another.
 """
 
 import logging
