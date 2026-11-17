@@ -4,11 +4,13 @@ version: 2
 # below would open dozens of pull requests a month, each triggering the full `verify` gate, and none
 # would be read. Monthly and grouped per ecosystem for minor and patch bumps; a major stays its own
 # pull request, because those are the ones that need a changelog read. `github-actions`, `docker`
-# and `docker-compose` are weekly, being the three no security update reaches.
+# and `docker-compose` are weekly, being the three no security update reaches, the gate's linters
+# aside, which production never runs.
 #
 # Invariants:
 # - Security updates arrive from Dependabot alerts, not from here, and ignore this schedule;
-#   `github-actions`, `docker` and `docker-compose` get none.
+#   `github-actions`, `docker` and `docker-compose` get none, and a dependency an `ignore` names
+#   whole gets none either.
 # - Every ecosystem sets the same cooldown, so a release compromised at publication can be yanked
 #   before a pull request proposes it — where its registry dates it, unlike `ghcr.io`. A security
 #   update is exempt from it, but pnpm's strict `minimumReleaseAge` still refuses a release under a
@@ -89,11 +91,11 @@ updates:
         update-types: ["version-update:semver-major"]
       # From 1.7.21 the MongoDB adapter builds indexes of its own at start-up, two of them new on
       # the production sign-in store, so the three move together with the stored-index change and
-      # its migration rather than as a routine update.
+      # its migration rather than as a routine update. Named alone, so every update of them is
+      # held: `update-types` holds version updates only, while an ignore naming the dependency holds
+      # its security updates too, so an alert against them is answered by hand, with the migration.
       - dependency-name: better-auth
-        update-types: ["version-update:semver-minor", "version-update:semver-patch"]
       - dependency-name: "@better-auth/*"
-        update-types: ["version-update:semver-minor", "version-update:semver-patch"]
 
   # --- Backend (uv) ---------------------------------------------------------------------------
 
@@ -167,13 +169,13 @@ updates:
       - dependency-name: python
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
 
-  # The gate's linters and its shell parser: this folder's Dockerfile is never built, and its `FROM`
-  # lines are the one place shellcheck, actionlint, lychee and shfmt are pinned. A major stays its own
-  # pull request, since a linter's major is where new findings arrive.
+  # The gate's linters: this folder's Dockerfile is never built, and its `FROM` lines are the one
+  # place shellcheck, actionlint and lychee are pinned. Monthly, since production runs none of them.
+  # A major stays its own pull request, since a linter's major is where new findings arrive.
   - package-ecosystem: docker
     directory: /scripts/gate
     schedule:
-      interval: weekly
+      interval: monthly
     cooldown:
       default-days: 1
     commit-message:

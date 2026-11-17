@@ -9,9 +9,10 @@
 #   ./scripts/ops/e2e_stack.sh --help
 #
 # Two calls, so a caller can run something of its own while the database and the backend start. Without --build, the
-# images are the ones docker-compose.e2e.yml names, and no image is built. Exit 0 up; 1 something to correct, an image
-# that does not build and a service that never came up healthy among them; 2 refused, the seed's refusal among them; 130
-# interrupted; 3 or more a step that crashed, the seed's own status kept, and a Compose call judging nothing that failed.
+# images are the ones docker-compose.e2e.yml names, and no image is built. Exit 0 up; 1 something to correct, the seed's
+# among them, and any failure of the build or of a start that waits, Compose answering a service that never came up
+# healthy and its own error alike; 2 refused, the seed's refusal among them; 130 interrupted; 3 or more a step that
+# crashed, the seed's own status kept where it is 3 or more.
 
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh" || exit 3
 
@@ -52,13 +53,9 @@ write_keys() {
   local -
   set +x
   local name=""
-  run_tool utility --crash "${E2E_DIR}/secrets could not be made; mkdir's own account is above." -- mkdir -p "${E2E_DIR}/secrets"
-  for name in "${E2E_KEYS[@]}"; do
-    run_tool utility --crash "the end-to-end stack's ${name} could not be generated; openssl's own account is above." -- \
-      new_key "${E2E_DIR}/secrets/${name}"
-  done
-  run_tool utility --crash "the end-to-end stack's keys could not be made readable; chmod's own account is above." -- \
-    chmod 644 "${E2E_DIR}/secrets/"*
+  mkdir -p "${E2E_DIR}/secrets"
+  for name in "${E2E_KEYS[@]}"; do new_key "${E2E_DIR}/secrets/${name}"; done
+  chmod 644 "${E2E_DIR}/secrets/"*
 }
 
 require_docker
@@ -73,28 +70,26 @@ if [[ "$PHASE" == start ]]; then
 
   # Every start from nothing, so no journey reads what an earlier run left: its database and its sign-in store.
   step "An empty end-to-end stack"
-  run_tool compose --crash "the end-to-end stack could not be torn down; compose's own account is above." -- \
-    quietly docker compose down -v --remove-orphans
+  quietly docker compose down -v --remove-orphans
   ok "torn down"
 
   # Emptied, so a code an earlier run filed never reads as current. Made here rather than left to the engine, whose
   # bind-mount source is root's, and writable by every user, since the frontend writes as `nextjs`.
   step "Where the frontend writes the mail it does not send"
-  run_tool utility --crash "the mail an earlier run filed could not be removed; rm's own account is above." -- rm -rf "${E2E_DIR:?}/mail"
-  run_tool utility --crash "the mail sink's directory could not be made; mkdir's own account is above." -- mkdir -p "${E2E_DIR}/mail"
-  run_tool utility --crash "the mail sink could not be made writable; chmod's own account is above." -- chmod 777 "${E2E_DIR}/mail"
+  rm -rf "${E2E_DIR:?}/mail"
+  mkdir -p "${E2E_DIR}/mail"
+  chmod 777 "${E2E_DIR}/mail"
   ok "emptied — this run's withheld mail lands in .tmp-e2e/mail"
 
   if (( BUILD )); then
     step "Building images from source"
-    run_tool compose-build --finding "the image build failed; its own output is above." -- docker compose build
+    docker compose build || die "the image build failed; its own output is above."
     ok "images built"
   fi
 
   # No wait, so a caller's own work runs while the database is pulled and both start.
   step "The database and the backend, starting"
-  run_tool compose --crash "the database and the backend could not be started; compose's own account is above." -- \
-    quietly docker compose up -d --no-build --remove-orphans mongo backend
+  quietly docker compose up -d --no-build --remove-orphans mongo backend
   ok "started"
   exit 0
 fi
@@ -102,18 +97,18 @@ fi
 # After the backend's boot, which gives every collection its indexes, so each insert meets them as it lands. The `up`
 # recreates neither container, since `up` recreates one only for a changed configuration or image.
 step "The database and the backend, healthy"
-run_tool compose-wait --finding "the database and the backend did not both come up healthy; compose's own account is above." -- \
-  quietly docker compose up -d --no-build --wait --wait-timeout 180 mongo backend
+quietly docker compose up -d --no-build --wait --wait-timeout 180 mongo backend \
+  || die "the database and the backend did not both come up healthy; compose's own account is above."
 ok "database and backend up"
 
 # Before the frontend's start, so no page renders, and no cache keeps, a read of a database still filling. The seed
 # script annotates its own ending.
-run_tool contract --annotated \
-  --finding "the made-up seed failed, and the lines above name what to correct. The frontend and nginx have not been started." \
-  --refusal "the made-up seed was refused, and the lines above say why. The frontend and nginx have not been started." -- \
+run_contract --summary \
+  "the made-up seed failed, and the lines above name what to correct. The frontend and nginx have not been started." \
+  "the made-up seed was refused, and the lines above say why. The frontend and nginx have not been started." \
   "${REPO_ROOT}/scripts/ops/made_up_seed.sh"
 
 step "The rest of the stack"
-run_tool compose-wait --finding "the stack came up unhealthy; compose's own account is above." -- \
-  quietly docker compose up -d --no-build --remove-orphans --wait --wait-timeout 240
+quietly docker compose up -d --no-build --remove-orphans --wait --wait-timeout 240 \
+  || die "the stack came up unhealthy; compose's own account is above."
 ok "every service is healthy"

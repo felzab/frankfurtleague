@@ -321,24 +321,24 @@ def test_a_pull_that_failed_is_a_crash_with_the_stack_unchanged():
     assert pinned == f"TAG={PREVIOUS}\n", pinned
 
 
-def test_an_nginx_test_compose_could_not_run_is_a_crash_not_a_refused_configuration():
-    """Compose answers its own failure to run the exec 1, as nginx answers a refused configuration: nginx's line tells them apart."""
-    code, out, err, calls, pinned = deploy(nginx_t=1, exec_fails=True)
+@pytest.mark.parametrize(
+    ("new_up", "exec_fails", "unwritable_pin", "failure"),
+    [
+        # Compose answers its own failure to run the exec 1, as nginx answers a refused configuration.
+        pytest.param(0, True, False, "nginx did not take this checkout's configuration", id="nginx-t-unrun"),
+        pytest.param(137, False, False, f"{NEW} did not come up", id="wait-killed"),
+        pytest.param(0, False, True, "the .env could not be written to pin it", id="pin-unwritable"),
+    ],
+)
+def test_any_failure_once_the_start_has_begun_goes_back(new_up: int, exec_fails: bool, unwritable_pin: bool, failure: str):
+    """Past the start the stack is half moved, so no failure there ends the run where it stands."""
+    code, out, err, calls, pinned = deploy(new_up=new_up, nginx_t=1 if exec_fails else 0, exec_fails=exec_fails, unwritable_pin=unwritable_pin)
 
-    assert code == 3, out + err
-    assert "still holds the configuration nginx refused" not in err, err
-    assert not went_back(calls), calls
-    assert not reloaded_nginx(calls), calls
+    assert code == 1, out + err
+    assert went_back(calls), calls
     assert pinned == f"TAG={PREVIOUS}\n", pinned
-
-
-def test_a_wait_compose_answered_outside_its_row_is_a_crash():
-    """`up --wait`'s row reads its 1 as a start that failed; any other status no row names says nothing of the build."""
-    code, out, err, calls, pinned = deploy(new_up=2)
-
-    assert code == 3, out + err
-    assert not went_back(calls), calls
-    assert pinned == f"TAG={PREVIOUS}\n", pinned
+    said = last_line(err)
+    assert failure in said and f"so the stack went back to {PREVIOUS}, which is live." in said, err
 
 
 def test_a_pin_that_cannot_be_written_is_a_crash_before_the_build_starts():
@@ -361,10 +361,9 @@ def test_a_missing_compose_plugin_is_a_refusal_with_the_stack_unchanged():
 
 
 def test_a_head_git_cannot_name_is_a_crash_before_compose_is_asked():
-    """Outside a checkout git answers 128, which the deploy keeps as its own crash's status."""
     code, out, err, calls, pinned = deploy(deployed=None)
 
-    assert code == 128, out + err
+    assert code == 3, out + err
     assert "git could not name the checkout's HEAD" in err, err
     assert not any(call.startswith("compose ") for call in calls), calls
     assert pinned == f"TAG={PREVIOUS}\n", pinned

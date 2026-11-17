@@ -54,7 +54,7 @@ def _selfcheck(lint_exit: str) -> tuple[int, str]:
         pytest.param("125", 125, "docker run of shellcheck", id="an-image-that-never-ran-is-a-crash"),
     ],
 )
-def test_each_linter_s_status_ends_the_self_check_as_its_table_reads_it(lint_exit: str, code: int, says: str) -> None:
+def test_each_linter_s_status_ends_the_self_check_as_the_contract_reads_it(lint_exit: str, code: int, says: str) -> None:
     """What a linter found is the finding 1, and Docker's own 125 a crash."""
     exited, output = _selfcheck(lint_exit)
     wrong: list[str] = []

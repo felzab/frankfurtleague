@@ -1,21 +1,19 @@
 """What every checker under `scripts/` is built on.
 
-The repository root, the argument parser and the finding-to-exit-code tail, once each: a checker
-taking any of them from its own copy drifts into its own behaviour. The exit contract is 0 pass · 1 findings · 2 could not judge
+The repository root and the finding-to-exit-code tail, once each: a checker taking either from its
+own copy drifts into its own behaviour. The exit contract is 0 pass · 1 findings · 2 could not judge
 the input · 3 or more the environment is broken, spelled as a literal by no checker.
 """
 
 from __future__ import annotations
 
-import argparse
 import io
-import runpy
 import sys
 import traceback
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final, NoReturn
+from typing import Final
 
 # Three levels: this file sits in `scripts/lib/`.
 REPO_ROOT: Final = Path(__file__).resolve().parents[2]
@@ -58,19 +56,6 @@ def report_findings(findings: Iterable[Finding]) -> int:
     return EXIT_FINDINGS if collected else EXIT_OK
 
 
-class ArgumentParser(argparse.ArgumentParser):
-    """argparse's parser, a usage error answering `EXIT_CRASH` rather than argparse's 2, which is `EXIT_REFUSED` here.
-
-    Only this repository's scripts call a checker, so an argument it refuses is our invocation gone
-    wrong. `exit` is the method argparse's documentation offers for overriding, and every subparser
-    inherits it, `add_subparsers` building each from `type(self)`; `exit_on_error=False` reaches no
-    subparser's error.
-    """
-
-    def exit(self, status: int = 0, message: str | None = None) -> NoReturn:
-        super().exit(EXIT_CRASH if status else status, message)
-
-
 def run(entry: Callable[[], int]) -> int:
     """A checker's `__main__` line, so one exit code means one thing whichever checker answered.
 
@@ -86,38 +71,3 @@ def run(entry: Callable[[], int]) -> int:
         traceback.print_exc()
         print("\n  The check above did not finish, so it proved nothing. This is a crash, not a finding.", file=sys.stderr)
         return EXIT_CRASH
-
-
-def launch(script: str, arguments: list[str], *, module: bool = False) -> int:
-    """`script` run as `__main__` with `arguments`, its own exit code answered, inside `run`.
-
-    `run` in the script's own `__main__` line cannot reach the script's imports or its compile, which
-    Python answers with 1, the code this contract gives findings. Every caller of a checker runs it
-    through this file instead: `python scripts/lib/checker_kernel.py <script> [arguments]`. A tool
-    whose findings exit 1 and whose escaped exception Python answers 1 as well runs as a module the
-    same way, `python scripts/lib/checker_kernel.py -m <module> [arguments]`, as `python -m` would.
-    """
-
-    def entry() -> int:
-        sys.argv = [script, *arguments]
-        try:
-            if module:
-                runpy.run_module(script, run_name="__main__", alter_sys=True)
-            else:
-                runpy.run_path(script, run_name="__main__")
-        except SystemExit as stop:
-            # The script's own `sys.exit(run(main))`, its code an int; None is a script ending bare.
-            if stop.code is None or isinstance(stop.code, int):
-                return stop.code or EXIT_OK
-            # A message, which Python prints and answers with 1.
-            print(stop.code, file=sys.stderr)
-            return EXIT_CRASH
-        return EXIT_OK
-
-    return run(entry)
-
-
-if __name__ == "__main__":
-    if sys.argv[1:2] == ["-m"]:
-        sys.exit(launch(sys.argv[2], sys.argv[3:], module=True) if len(sys.argv) > 2 else EXIT_CRASH)
-    sys.exit(launch(sys.argv[1], sys.argv[2:]) if len(sys.argv) > 1 else EXIT_CRASH)

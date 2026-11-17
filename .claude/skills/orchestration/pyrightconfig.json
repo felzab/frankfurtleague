@@ -1,10 +1,11 @@
 // The coordinator's tools and their tests, type-checked as the gate checks `scripts/`, from this
-// folder; the tests import each tool by name off `tools/`.
+// folder, at the Python version that folder's configuration pins; the tests import each tool by
+// name off `tools/`.
 {
+  "extends": "../../../scripts/pyrightconfig.json",
   "include": ["tools", "tests"],
   "extraPaths": ["tools", "tests"],
   "venvPath": "../../../fl_backend",
   "venv": ".venv",
-  "typeCheckingMode": "standard",
-  "pythonVersion": "3.14"
+  "typeCheckingMode": "standard"
 }

@@ -19,8 +19,7 @@
 #   ./scripts/ops/local.sh --e2e --landing=<state>
 #                                    load the made-up league again into the RUNNING end-to-end stack,
 #                                    the landing in <state> (the seed's LANDING_STATES), and restart its
-#                                    frontend; nothing is built, and sessions and passkeys stay.
-#                                    It refuses any checkout but the one whose --e2e started the stack
+#                                    frontend; nothing is built, and sessions and passkeys stay
 #   ./scripts/ops/local.sh --down       stop the stack; with --fresh, also delete the volumes; with
 #                                    --e2e, stop the end-to-end stack and delete all it holds
 #   ./scripts/ops/local.sh --help
@@ -95,11 +94,11 @@ E2E_DIR="${REPO_ROOT}/.tmp-e2e"
 load_made_up_seed() {
   local landing=()
   if (( RESEED )); then landing=("--landing=${LANDING}"); fi
-  run_tool contract --annotated \
-    --finding "the made-up seed failed, and the lines above name what to correct.
+  run_contract --summary \
+    "the made-up seed failed, and the lines above name what to correct.
 The frontend has not been started or recreated." \
-    --refusal "the made-up seed was refused, and the lines above say why.
-The frontend has not been started or recreated." -- \
+    "the made-up seed was refused, and the lines above say why.
+The frontend has not been started or recreated." \
     quietly "${REPO_ROOT}/scripts/ops/made_up_seed.sh" "${landing[@]}"
   ok "seeded the made-up league, and every document it wrote reads back through its model"
 }
@@ -107,12 +106,12 @@ The frontend has not been started or recreated." -- \
 # The script CI's journeys raise the stack with, its steps shown as they run and its verdict kept: a
 # refusal stays 2, an interrupt 130 and a crash its own status, each annotated by the script itself.
 e2e_stack() {
-  run_tool contract --annotated \
-    --finding "the end-to-end stack did not come up, and the lines above name what to correct.
+  run_contract --summary \
+    "the end-to-end stack did not come up, and the lines above name what to correct.
 Each service's own lines:  ${BY_HAND} logs <service>
 Stop what is left:  ${STOP_COMMAND}" \
-    --refusal "the end-to-end stack was refused, and the lines above say why.
-Stop what is left:  ${STOP_COMMAND}" -- \
+    "the end-to-end stack was refused, and the lines above say why.
+Stop what is left:  ${STOP_COMMAND}" \
     "${REPO_ROOT}/scripts/ops/e2e_stack.sh" "$@"
 }
 
@@ -130,21 +129,21 @@ if (( DOWN )); then
   if (( E2E )); then
     step "Stopping the end-to-end stack and removing its volume"
     # Always the volume too: every start begins from an empty one, so nothing in it is kept.
-    run_tool compose --crash "the stack could not be stopped — the output above is compose's own." -- quietly docker compose down -v --remove-orphans
+    quietly docker compose down -v --remove-orphans
     # Its keys and its withheld mail, whose codes are live credentials, go with it.
     rm -rf "${E2E_DIR:?}"
     ok "stopped — its database, its keys and its withheld mail are gone"
   # --fresh combines: stop AND delete the volumes, instead of being silently ignored.
   elif (( FRESH )); then
     step "Stopping the local stack and removing volumes"
-    run_tool compose --crash "the stack could not be stopped — the output above is compose's own." -- quietly docker compose down -v --remove-orphans
+    quietly docker compose down -v --remove-orphans
     rm -rf "${MAIL_SINK:?}"
     ok "stopped — Next's cache rebuilds, and the database and the withheld mail are gone"
   else
     step "Stopping the local stack"
     # `--remove-orphans` here as well as on the way up: a service deleted from the compose file
     # leaves a container behind that nothing else on this machine will ever mention again.
-    run_tool compose --crash "the stack could not be stopped — the output above is compose's own." -- quietly docker compose down --remove-orphans
+    quietly docker compose down --remove-orphans
     # A withheld sign-in mail holds a live code, a credential nothing needs once the stack is down.
     rm -rf "${MAIL_SINK:?}"
     ok "stopped — the withheld mail is gone"
@@ -159,63 +158,29 @@ if (( RESEED )); then
   section "landing"
 
   step "The running end-to-end stack"
-  # Each filled by the listing or the inspection that names it.
-  services="" existing="" listed="" created="" here=""
-  run_tool compose --stdout services --crash "compose could not list the stack's services; its own account is above." -- \
-    docker compose ps --status running --services
+  services="$(docker compose ps --status running --services)"
   for service in mongo backend nginx; do
     holds_line "$service" "$services" || refuse "the end-to-end stack's ${service} is not running, so there is nothing to re-seed.
 Start the stack with ./scripts/ops/local.sh --e2e first."
   done
   # In any state: the seed needs it stopped, and a re-seed that failed leaves it so.
-  run_tool compose --stdout existing --crash "compose could not list the stack's services; its own account is above." -- \
-    docker compose ps --all --services
+  existing="$(docker compose ps --all --services)"
   holds_line frontend "$existing" || refuse "the end-to-end stack has no frontend, so there is nothing to re-seed.
 Start the stack with ./scripts/ops/local.sh --e2e first."
   ok "running"
 
-  # The stack's name is fixed, so a checkout that did not start it reaches it too, and the frontend
-  # recreated below would take this checkout's keys, mail folder and compose files, which the rest of
-  # the stack does not share. Compose labels each container with the absolute directory of the
-  # project that created it; both sides are spelled by cygpath and compared without case, as Windows
-  # compares paths.
-  step "The checkout that started it"
-  run_tool compose --stdout listed --crash "compose could not list the stack's containers; its own account is above." -- \
-    docker compose ps --all -q
-  mapfile -t ids <<< "$listed"
-  # Each line opened by a word, so a container without the label is a line of its own and never one
-  # the capture drops at the end.
-  run_tool docker --stdout created --crash "the stack's containers could not be inspected; docker's own account is above." -- \
-    docker inspect --format 'from {{index .Config.Labels "com.docker.compose.project.working_dir"}}' "${ids[@]}"
-  run_tool utility --stdout here --crash "cygpath could not spell this checkout's directory as Windows does." -- \
-    cygpath -m "$REPO_ROOT"
-  declare -A others=()
-  while IFS= read -r dir; do
-    dir="${dir%$'\r'}"
-    dir="${dir#from }"
-    if [[ -z "$dir" ]]; then others["an unnamed directory"]=1; continue; fi
-    run_tool utility --stdout dir --crash "cygpath could not read the directory a container was created from." -- \
-      cygpath -m "$dir"
-    if [[ "${dir,,}" != "${here,,}" ]]; then others["$dir"]=1; fi
-  done <<< "$created"
-  if (( ${#others[@]} )); then
-    refuse "the end-to-end stack's containers were created from $(IFS=' '; printf '%s' "${!others[*]}"), not from this checkout, ${here}.
-Run --e2e --landing=<state> from the checkout whose --e2e started the stack, or start it here with --e2e."
-  fi
-  ok "started from this checkout"
-
   # The seed writes only a database nothing else writes, and the recreate below starts it again.
   step "The frontend, stopped"
-  run_tool compose --crash "the frontend could not be stopped, and compose's own account is above." -- quietly docker compose stop frontend
+  quietly docker compose stop frontend
   ok "stopped"
 
   step "The made-up league, the landing ${LANDING}, and the backend's check of it"
   load_made_up_seed
 
   step "The frontend, recreated"
-  run_tool compose-wait --finding "the frontend did not come back healthy, and compose's own account is above.
-Its own lines:  ${BY_HAND} logs frontend" -- \
-    quietly docker compose up -d --no-build --no-deps --force-recreate --wait --wait-timeout 240 frontend
+  quietly docker compose up -d --no-build --no-deps --force-recreate --wait --wait-timeout 240 frontend \
+    || die "the frontend did not come back healthy, and compose's own account is above.
+Its own lines:  ${BY_HAND} logs frontend"
   ok "recreated — no read of the earlier seed is cached"
   finish "The end-to-end stack serves the landing ${LANDING} at http://localhost:3000."
 fi
@@ -239,23 +204,23 @@ section "preflight"
 
 if (( FRESH )); then
   step "Tearing down, including volumes"
-  run_tool compose --crash "the stack could not be torn down — the output above is compose's own." -- quietly docker compose down -v --remove-orphans
+  quietly docker compose down -v --remove-orphans
   ok "volumes removed — Next's cache rebuilds and the database starts empty; --seed-made-up fills it"
 fi
 
 # Emptied on every start, so a code an earlier run filed never reads as current.
 step "Where the frontend writes the mail it does not send"
 # Removed whole, as --down removes it, whatever names the frontend gives its messages.
-run_tool utility --crash "the mail an earlier run filed could not be removed from ${MAIL_SINK}; rm's own account is above." -- rm -rf "${MAIL_SINK:?}"
+rm -rf "${MAIL_SINK:?}"
 # Made here rather than left to the engine: a bind-mount source it creates is root-owned, and the
 # frontend writes as `nextjs`.
-run_tool utility --crash "the mail sink's directory could not be created; mkdir's own account is above." -- mkdir -p "$MAIL_SINK"
+mkdir -p "$MAIL_SINK"
 ok "emptied — this run's withheld mail lands in ${MAIL_SINK#"$REPO_ROOT"/}"
 
 section "build"
 
 step "Building images from source"
-run_tool compose-build --finding "The image build failed — its own output is above." -- docker compose build
+docker compose build || die "The image build failed — its own output is above."
 ok "images built"
 
 # After the backend's boot, which gives every collection its indexes, so each insert meets them as
@@ -266,10 +231,10 @@ if (( MADE_UP )); then
 
   # A frontend left running from an earlier start: the seed writes only a database nothing else writes.
   step "The database and the backend, before anything renders a page"
-  run_tool compose --crash "the frontend could not be stopped, and compose's own account is above." -- quietly docker compose stop frontend
-  run_tool compose-wait --finding "the database and the backend did not both come up healthy, and compose's own account is above.
-Each one's own lines:  ${BY_HAND} logs mongo backend" -- \
-    quietly docker compose up -d --force-recreate --remove-orphans --wait --wait-timeout 180 mongo backend
+  quietly docker compose stop frontend
+  quietly docker compose up -d --force-recreate --remove-orphans --wait --wait-timeout 180 mongo backend \
+    || die "the database and the backend did not both come up healthy, and compose's own account is above.
+Each one's own lines:  ${BY_HAND} logs mongo backend"
   ok "database and backend up"
 
   step "The made-up league, and the backend's check of it"
@@ -281,11 +246,7 @@ section "start"
 step "Starting the stack"
 # Every service recreated, so a frontend left running from an earlier start drops what it cached of
 # a database `--seed-made-up` has just replaced. Its finding is worded below, with what to read next.
-rc=0
-quietly docker compose up -d --force-recreate --remove-orphans --wait --wait-timeout 240 || rc=$?
-class=0
-settle compose-wait "$rc" "$LINENO" "docker compose up" "$QUIETLY_OUTPUT" || class=$?
-if (( class == 0 )); then
+if quietly docker compose up -d --force-recreate --remove-orphans --wait --wait-timeout 240; then
   ok "every service is healthy"
 
   end_section
@@ -299,8 +260,7 @@ if (( class == 0 )); then
 else
   fail "The stack came up unhealthy, and compose's own account is above."
   # An account of a failure already counted, so a listing compose cannot give is said and passed.
-  listing=""
-  if answered compose --stdout listing docker compose ps --all; then
+  if listing="$(docker compose ps --all)"; then
     detail <<<"$listing"
   else
     detail "compose could not list the services; its own account is above."
