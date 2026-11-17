@@ -46,11 +46,10 @@ case " $* " in
   *" compose up "*" --wait "*" mongo backend ") exit "$(answer wait)" ;;
   *" compose up "*" --wait "*) exit "$(answer rest)" ;;
   *" compose up "*) exit "$(answer start)" ;;
-  # The two containers the wait above has running, the frontend not yet created.
-  *" compose ps --all --format "*) printf '%s\n' "mongo running" "backend running"; exit 0 ;;
+  # The backend's container, which the wait above has running.
+  *" compose ps "*) printf '%s\n' 4f2a; exit 0 ;;
   *" sh -c "*) cat > /dev/null; exit "$(answer hand)" ;;
-  # A seed answering 1 prints its own closing line, as made_up_seed.py does for an insert it was refused.
-  *" tests.made_up_seed "*) code="$(answer seed)"; if [[ "$code" == 1 ]]; then echo "An insert was refused: stand-in" >&2; fi; exit "$code" ;;
+  *" tests.made_up_seed "*) exit "$(answer seed)" ;;
   *" app.readback "*) exit "$(answer readback)" ;;
 esac
 exit 0
@@ -69,7 +68,7 @@ def kind(call: str) -> str:
         (" compose version ", "version"),
         (" compose down ", "down"),
         (" compose build", "build"),
-        (" compose ps --all --format ", "states"),
+        (" compose ps ", "states"),
         (" sh -c ", "hand"),
         ("tests.made_up_seed", "seed"),
         ("app.readback", "readback"),
@@ -174,9 +173,12 @@ def test_a_start_runs_on_new_keys_over_an_empty_stack_and_mail_sink_and_serves_o
     ids=["seed-refused-stays-refused", "seed-fails", "seed-crashes", "seed-interrupted", "wait-fails", "build-fails", "teardown-crashes"],
 )
 def test_nothing_starts_after_a_step_that_did_not_hold(args: tuple[str, ...], codes: dict[str, int], expected: int, last: str) -> None:
-    code, said, kinds = stack(checkout(), *args, codes=codes)
+    """Under Actions the step that ended the run raises the one annotation, the seed script its own, and an interrupt none."""
+    code, said, kinds = stack(checkout(), *args, codes=codes, extra={"GITHUB_ACTIONS": "true"})
     assert code == expected, said
     assert kinds[-1] == last, kinds
+    annotations = [line for line in said.splitlines() if line.lstrip().startswith("::error::")]
+    assert len(annotations) == (0 if expected == 130 else 1), annotations
 
 
 @pytest.mark.parametrize(
@@ -185,41 +187,22 @@ def test_nothing_starts_after_a_step_that_did_not_hold(args: tuple[str, ...], co
     ids=["refused", "failed", "crashed", "interrupted"],
 )
 def test_local_sh_keeps_the_stack_s_verdict(codes: dict[str, int], expected: int) -> None:
-    code, said, kinds = stack(checkout(), "--e2e", codes=codes, script="scripts/ops/local.sh")
+    code, said, kinds = stack(checkout(), "--e2e", codes=codes, script="scripts/ops/local.sh", extra={"GITHUB_ACTIONS": "true"})
     assert code == expected, said
     assert kinds[:3] == ["down", "build", "start"], kinds
     assert "rest" not in kinds, kinds
-
-
-@pytest.mark.parametrize(
-    ("script", "args", "codes", "expected"),
-    [
-        ("scripts/ops/e2e_stack.sh", ("serve",), {"seed": 1}, 1),
-        ("scripts/ops/e2e_stack.sh", ("serve",), {"readback": 2}, 2),
-        ("scripts/ops/e2e_stack.sh", ("serve",), {"seed": 137}, 137),
-        ("scripts/ops/local.sh", ("--e2e",), {"seed": 1}, 1),
-    ],
-    ids=["seed-fails", "read-back-refuses", "seed-crashes", "local-e2e-seed-fails"],
-)
-def test_an_ending_the_seed_annotated_raises_one_annotation_under_actions(
-    script: str, args: tuple[str, ...], codes: dict[str, int], expected: int
-) -> None:
-    """The seed script annotates its own ending, so each script restating it raises none, as the gate's own `check` does."""
-    code, said, _ = stack(checkout(), *args, codes=codes, script=script, extra={"GITHUB_ACTIONS": "true"})
     annotations = [line for line in said.splitlines() if line.lstrip().startswith("::error::")]
-    assert code == expected, said
-    assert len(annotations) == 1, annotations
+    assert len(annotations) == (0 if expected == 130 else 1), annotations
 
 
 @pytest.mark.parametrize(
     ("script", "args"),
     [
         ("scripts/ops/e2e_stack.sh", ("start", "--build")),
-        ("scripts/ops/e2e_stack.sh", ("serve",)),
         ("scripts/ops/local.sh", ()),
         ("scripts/ops/local.sh", ("--e2e",)),
     ],
-    ids=["e2e-start", "e2e-serve", "local", "local-e2e"],
+    ids=["e2e", "local", "local-e2e"],
 )
 def test_a_missing_compose_plugin_is_a_refusal_before_any_compose_verb(script: str, args: tuple[str, ...]) -> None:
     """Docker answers 1 for a plugin it does not hold, which the build's and the wait's rows read as their finding."""

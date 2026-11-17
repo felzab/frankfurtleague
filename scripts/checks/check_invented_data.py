@@ -31,6 +31,7 @@ A file this reader cannot decode refuses, and so does an empty population: eithe
 
 from __future__ import annotations
 
+import argparse
 import re
 import subprocess
 import sys
@@ -43,7 +44,7 @@ from typing import Final
 # than in it.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
-from checker_kernel import CONTINUATION, EXIT_REFUSED, REPO_ROOT, UNREADABLE, ArgumentParser, Finding, report_findings, run
+from checker_kernel import CONTINUATION, EXIT_REFUSED, REPO_ROOT, UNREADABLE, Finding, report_findings, run
 
 # Every tracked file a test of either tier invents its data in, as `git ls-files` reads a pathspec.
 TEST_FILES: Final = (
@@ -219,7 +220,7 @@ def read(path: Path) -> str:
 
 
 def main() -> int:
-    parser = ArgumentParser(description="Does every test invent its addresses, sites and numbers from reserved ones?")
+    parser = argparse.ArgumentParser(description="Does every test invent its addresses, sites and numbers from reserved ones?")
     parser.add_argument("files", nargs="*", metavar="FILE", help="the files to judge (default: every tracked test file of both tiers)")
     args = parser.parse_args()
 

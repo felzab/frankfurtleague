@@ -6,13 +6,6 @@
 extend = "../fl_backend/pyproject.toml"
 
 # Every name the backend bans guards the backend alone, and the gate's tooling reads its own environment by
-# design. A child's own `banned-api` replaces the parent's whole table, so this list is the folder's alone,
-# and the one file that builds argparse's parser on purpose is exempt from it.
-[lint]
-per-file-ignores = { "lib/checker_kernel.py" = ["TID251"] }
-
-# argparse answers a usage error with 2, which the exit contract reads as a refusal of the input, where only
-# this repository's scripts call a checker and a wrong argument is theirs. Every spelling of the name, an
-# import of it included.
-[lint.flake8-tidy-imports.banned-api]
-"argparse.ArgumentParser".msg = "Parse a checker's arguments with `checker_kernel.ArgumentParser`, which answers a usage error of ours as a crash."
+# design. A child's own `banned-api` replaces the parent's whole table, so an empty one lifts every ban.
+[lint.flake8-tidy-imports]
+banned-api = {}

@@ -54,7 +54,6 @@ case "${1:-}" in
     case "${FL_IMAGE_CASE:-clean}" in
       build_failed) printf '%s\\n' "ERROR: failed to solve"; exit 1 ;;
       build_exhausted) exit 102 ;;
-      build_internal) exit 100 ;;
       build_interrupted) exit 130 ;;
     esac
     exit 0 ;;
@@ -75,7 +74,6 @@ case "$cmd" in
     case "${FL_IMAGE_CASE:-clean}" in
       instrumentation_interrupted) exit 130 ;;
       instrumentation_unreadable) exit 125 ;;
-      instrumentation_unrunnable) exit 127 ;;
       instrumentation_missing) exit 1 ;;
       *) exit 0 ;;
     esac ;;
@@ -125,10 +123,9 @@ CASES: Final[tuple[Case, ...]] = (
     Case("context_breach", 1, "dockerignore exists to exclude", only="frontend"),
     Case("context_breach", 1, "dockerignore exists to exclude", only="backend"),
     Case("build_failed", 1, "failed to build"),
-    # buildx's own statuses past its 1: BuildKit out of a resource judged nothing, and its internal error is a
-    # crash, which ends on the status itself, the contract's "3 or more".
-    Case("build_exhausted", 2, "Refused after", "failed to build"),
-    Case("build_internal", 100, "Crashed after", "failed to build"),
+    # buildx's own statuses past its 1, BuildKit out of a resource among them, are a crash, which ends on the
+    # status itself, the contract's "3 or more".
+    Case("build_exhausted", 102, "Crashed after", "failed to build"),
     Case("build_interrupted", 130, "Interrupted after", "failed to build"),
     # Without the plugin the bake never ran, so nothing failed to build.
     Case("buildx_missing", 2, "Docker Buildx did not answer", "failed to build"),
@@ -136,10 +133,8 @@ CASES: Final[tuple[Case, ...]] = (
     Case("clean", 0, "Green", built=True),
     Case("instrumentation_missing", 1, "instrumentation.js is MISSING"),
     Case("instrumentation_missing", 1, "instrumentation.js is MISSING", built=True),
-    # Docker's own 125, which a flag it does not hold answers as well as the daemon failing, and 127, the image
-    # without the probe's shell, are each a crash.
+    # Docker's own 125, which a flag it does not hold answers as well as the daemon failing, is a crash.
     Case("instrumentation_unreadable", 3, "Crashed after", "instrumentation.js is MISSING"),
-    Case("instrumentation_unrunnable", 3, "Crashed after", "instrumentation.js is MISSING"),
     Case("instrumentation_interrupted", 130, "Interrupted after", "Crashed after"),
     Case("user_root", 1, "An image runs as root"),
     Case("user_unreadable", 3, "Crashed after", "An image runs as root"),

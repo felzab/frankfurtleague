@@ -16,7 +16,6 @@ from conftest import REPO_ROOT, import_scripts, new_root, run_bounded
 
 [invented, kernel] = import_scripts("check_invented_data", "checker_kernel", directories=("checks", "lib"))
 
-KERNEL = REPO_ROOT / "scripts" / "lib" / "checker_kernel.py"
 CHECKER = REPO_ROOT / "scripts" / "checks" / "check_invented_data.py"
 
 
@@ -81,8 +80,8 @@ def test_what_names_no_invented_value_is_not_judged(text: str):
 
 
 def run_checker(*files: Path) -> subprocess.CompletedProcess[str]:
-    """The checker run as the gate runs it, through the kernel, as its own process."""
-    return run_bounded((sys.executable, str(KERNEL), str(CHECKER), *map(str, files)))
+    """The checker run as the gate runs it, as its own process."""
+    return run_bounded((sys.executable, str(CHECKER), *map(str, files)))
 
 
 def planted(name: str, content: bytes) -> Path:

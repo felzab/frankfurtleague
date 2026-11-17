@@ -23,11 +23,9 @@
 # - Every body cap takes its figure and refuses a byte past it.
 #
 # A Docker call that fails, creating the network, starting a container or its relay, reading its
-# streams, its port or its state, is a crash through `EXIT_CODES`'s `docker` row, since Docker gives
-# our invocation going wrong the same status as its own failure; nginx refusing the configuration it
-# was handed, read off a container that stopped, is the finding. A request a case sends is read through
-# curl's row, one the edge did not answer graded by the 000 curl wrote for it, and a search of a log or
-# a body through grep's or cmp's, whose error is a crash.
+# streams, its port or its state, is a crash; nginx refusing the configuration it was handed, read off a
+# container that stopped, is the finding. A request the edge did not answer is graded by the 000 curl
+# wrote for it.
 #
 #   ./scripts/checks/edge_test.sh --verbose   print the access line every case was graded on
 #   ./scripts/checks/edge_test.sh --help
@@ -82,26 +80,29 @@ mkdir -p "$SCRATCH"
 # Windows path.
 EDGE_PY="$(venv_python)" \
   || refuse "No fl_backend virtualenv found, so the edge's configuration could not be read. Create it with:  uv sync --project fl_backend --dev"
-# The answer goes to the file `$1`, never through a substitution, whose subshell a crash would end alone:
-# the status is settled in this shell, and a file that does not say what was asked answers 2, which each
-# caller refuses with its own sentence.
+# The answer goes to the file `$1`. A file that does not say what was asked answers 2, which each caller
+# refuses with its own sentence, as it does every other failure of the read.
 conf_query() { # $1 the file the answer goes to · the query and its arguments, as scripts/lib/nginx_conf.py --help lists them
-  local into="$1" rc=0 IFS=' '
+  local into="$1"
   shift
-  MSYS_NO_PATHCONV=1 "$EDGE_PY" scripts/lib/checker_kernel.py scripts/lib/nginx_conf.py "$@" > "$into" || rc=$?
-  settle query "$rc" "${BASH_LINENO[0]}" "nginx_conf.py $*"
+  MSYS_NO_PATHCONV=1 "$EDGE_PY" scripts/lib/nginx_conf.py "$@" > "$into"
 }
 
-# One curl run whose answers the cases grade by what it wrote: a transfer the edge did not answer writes
-# 000, which its case grades as the edge's, and curl's own failure, a flag or a file it could not write,
-# ends the run as the crash it is.
+# One curl run whose answers the cases grade by what it wrote, its stdout into the variable `--stdout`
+# names: a transfer the edge did not answer writes 000, which its case grades as the edge's, so curl's
+# own status decides nothing.
 requested() { # [--stdout <name>] the curl command
-  probe curl "$@" || return 0
+  local _rq_name="" _rq_out=""
+  if [[ "${1-}" == --stdout ]]; then _rq_name="$2"; shift 2; fi
+  _rq_out="$("$@")" || true
+  if [[ -n "$_rq_name" ]]; then printf -v "$_rq_name" '%s' "$_rq_out"; fi
 }
 
-# A path as a mount source, into the variable `$1` names, through the `utility` row.
+# A path as a mount source, into the variable `$1` names.
 mounted() { # $1 the variable · $2 the path
-  run_tool utility --stdout "$1" --crash "cygpath could not spell ${2} as a mount source." -- mount_source "$2"
+  local source
+  source="$(mount_source "$2")"
+  printf -v "$1" '%s' "$source"
 }
 
 # Each header's name and value off the file the set is written in, so a location restating the set
@@ -193,8 +194,7 @@ EDGE_IMAGE=""
 # capability it needs never starts.
 EDGE_PRIVILEGES=()
 edge_model=""
-run_tool reader --stdout edge_model --crash "the edge test's own read of the local stack's model failed; Python's account is above." -- \
-  "$EDGE_PY" -c "$EDGE_MODEL_READ" "${SCRATCH}/model/local.json"
+edge_model="$("$EDGE_PY" -c "$EDGE_MODEL_READ" "${SCRATCH}/model/local.json")"
 mapfile -t EDGE_MODEL <<<"$edge_model"
 for model_line in "${EDGE_MODEL[@]}"; do
   model_line="${model_line%$'\r'}"
@@ -209,8 +209,7 @@ done
 [[ -n "$EDGE_IMAGE" ]] || refuse "the local stack's model names no image for nginx, so there is no release to serve."
 if verbose; then info "the model starts ${EDGE_IMAGE} with: ${EDGE_PRIVILEGES[*]}"; fi
 
-run_tool docker --crash "the edge test's network ${NETWORK} could not be created; Docker's own reason is above." -- \
-  quietly docker network create "$NETWORK"
+quietly docker network create "$NETWORK"
 STUB_SOURCE="" SHARED_SOURCE="" RELAY_SOURCE="" PROD_SOURCE=""
 mounted STUB_SOURCE "${SCRATCH}/zz-upstream-stub.conf"
 mounted SHARED_SOURCE "${REPO_ROOT}/nginx/shared"
@@ -218,13 +217,11 @@ mounted RELAY_SOURCE "${SCRATCH}/relay-record.sh"
 mounted PROD_SOURCE "${REPO_ROOT}/nginx/prod"
 # Before either edge, as compose orders the pair before nginx: a configuration resolving its upstreams
 # at load still starts, and fails only the case aimed at it.
-run_tool docker --stdout _started --crash "the stub answering as backend could not be started; Docker's own reason is above." -- \
-  env MSYS_NO_PATHCONV=1 docker run -d --name "$BACKEND_STUB" --network "$NETWORK" --network-alias backend \
+MSYS_NO_PATHCONV=1 docker run -d --name "$BACKEND_STUB" --network "$NETWORK" --network-alias backend \
   -v "${STUB_SOURCE}:/etc/nginx/conf.d/zz-upstream-stub.conf:ro" \
-  "$EDGE_IMAGE"
+  "$EDGE_IMAGE" > /dev/null
 
-run_tool docker --stdout _started --crash "the pinned nginx for the edge test could not be started; Docker's own reason is above." -- \
-  env MSYS_NO_PATHCONV=1 docker run -d --name "$CONTAINER" \
+MSYS_NO_PATHCONV=1 docker run -d --name "$CONTAINER" \
   -p 127.0.0.1:0:80 \
   --network "$NETWORK" --network-alias frontend \
   "${LOCAL_MOUNTS[@]}" \
@@ -232,14 +229,13 @@ run_tool docker --stdout _started --crash "the pinned nginx for the edge test co
   -v "${SHARED_SOURCE}:/etc/nginx/shared:ro" \
   -v "${STUB_SOURCE}:/etc/nginx/conf.d/zz-upstream-stub.conf:ro" \
   -v "${RELAY_SOURCE}:/relay-record.sh:ro" \
-  "$EDGE_IMAGE"
+  "$EDGE_IMAGE" > /dev/null
 
 # A container stopped as it started is nginx refusing the configuration it was handed, in its own words
 # in the container's log: a finding about the change, never a run that judged nothing.
 judge_start() { # $1 the container, $2 the directory it serves; returns where the container still runs
-  local running=""
-  run_tool docker --stdout running --crash "Docker could not say whether the edge over ${2} is running." -- \
-    docker inspect -f '{{.State.Running}}' "$1"
+  local running
+  running="$(docker inspect -f '{{.State.Running}}' "$1")"
   [[ "${running%$'\r'}" == false ]] || return 0
   docker logs "$1" 2>&1 | detail
   die "nginx refused to start over ${2}: its own words are above."
@@ -251,16 +247,9 @@ ACCESS_LOG="${SCRATCH}/stdout"
 ERROR_LOG="${SCRATCH}/stderr"
 PROD_ACCESS_LOG="${SCRATCH}/prod-stdout"
 PROD_ERROR_LOG="${SCRATCH}/prod-stderr"
-streams_into() { # $1 the container · $2 its stdout's file · $3 its stderr's file
-  docker logs "$1" > "$2" 2> "$3"
-}
 read_streams() {
-  run_tool docker --crash "the edge test's nginx streams could not be read back from Docker." -- \
-    streams_into "$CONTAINER" "$ACCESS_LOG" "$ERROR_LOG"
-  if [[ -n "${PROD_BASE:-}" ]]; then
-    run_tool docker --crash "the nginx/prod/ edge's streams could not be read back from Docker." -- \
-      streams_into "$PROD_CONTAINER" "$PROD_ACCESS_LOG" "$PROD_ERROR_LOG"
-  fi
+  docker logs "$CONTAINER" > "$ACCESS_LOG" 2> "$ERROR_LOG"
+  if [[ -n "${PROD_BASE:-}" ]]; then docker logs "$PROD_CONTAINER" > "$PROD_ACCESS_LOG" 2> "$PROD_ERROR_LOG"; fi
 }
 
 # `docker port`, never a fixed number: a developer's own stack shares this host, and a collision
@@ -268,13 +257,14 @@ read_streams() {
 # the variable `$3` names; a port it cannot name is nginx's refusal where the container has stopped,
 # and Docker's own failure otherwise.
 port_of() { # $1 the container · $2 the directory it serves · $3 the variable
-  if ! answered docker --stdout "$3" docker port "$1" 80/tcp; then
+  local published
+  if ! published="$(docker port "$1" 80/tcp)"; then
     judge_start "$1" "$2"
     crash "the edge over ${2} published no port, and Docker's own reason is above."
   fi
   # The first of the addresses it is published on, its IPv4 one.
-  printf -v "$3" '%s' "${!3%%$'\n'*}"
-  printf -v "$3" '%s' "${!3%$'\r'}"
+  published="${published%%$'\n'*}"
+  printf -v "$3" '%s' "${published%$'\r'}"
   [[ -n "${!3}" ]] || refuse "the edge over ${2} published no port."
 }
 port_of "$CONTAINER" nginx/local/ ADDR
@@ -296,19 +286,18 @@ done
 # `nginx/prod/` mounted as production mounts it, on the plain port the connector dials, proxying to the
 # stub above. The form, sign-in and link zones and the connection ceiling are driven here, on keys
 # nothing else in this run spends.
-run_tool docker --stdout _started --crash "the pinned nginx over nginx/prod/ could not be started; Docker's own reason is above." -- \
-  env MSYS_NO_PATHCONV=1 docker run -d --name "$PROD_CONTAINER" \
+MSYS_NO_PATHCONV=1 docker run -d --name "$PROD_CONTAINER" \
   -p 127.0.0.1:0:80 \
   --network "$NETWORK" \
   "${EDGE_PRIVILEGES[@]}" \
   -v "${PROD_SOURCE}:/etc/nginx/conf.d:ro" \
   -v "${SHARED_SOURCE}:/etc/nginx/shared:ro" \
-  "$EDGE_IMAGE"
+  "$EDGE_IMAGE" > /dev/null
 port_of "$PROD_CONTAINER" nginx/prod/ PROD_ADDR
 PROD_BASE="http://${PROD_ADDR}"
 _up=0
 for (( _try = 0; _try < 50; _try++ )); do
-  if probe curl curl -s -o /dev/null --max-time 2 -H "Host: www.frankfurtleague.de" "${PROD_BASE}/probe"; then _up=1; break; fi
+  if curl -s -o /dev/null --max-time 2 -H "Host: www.frankfurtleague.de" "${PROD_BASE}/probe"; then _up=1; break; fi
   sleep 0.2
 done
 (( _up )) || { judge_start "$PROD_CONTAINER" nginx/prod/; refuse "the nginx/prod/ edge never answered on ${PROD_ADDR}."; }
@@ -321,14 +310,14 @@ done
 MARKER="fl-mailed-link"
 LINE_FAILURES=0
 UNANSWERED=""
-if ! probe curl curl -s -o /dev/null --max-time 5 -H "Host: localhost" -A "$MARKER" "${BASE}/confirm/kontakt?token=${TOK}"; then
+if ! curl -s -o /dev/null --max-time 5 -H "Host: localhost" -A "$MARKER" "${BASE}/confirm/kontakt?token=${TOK}"; then
   UNANSWERED=", which the edge did not answer"
 fi
 # Docker carries a line to its log after curl already has the response, so one read races it.
 MAILED_LINE=""
 for (( _try = 0; _try < 50; _try++ )); do
   read_streams
-  if probe grep --stdout MAILED_LINE grep -F "\"user_agent\":\"${MARKER}\"" "$ACCESS_LOG"; then break; fi
+  if MAILED_LINE="$(grep -F "\"user_agent\":\"${MARKER}\"" "$ACCESS_LOG")"; then break; fi
   sleep 0.2
 done
 # `refuse`, not `die`: nothing was judged, and a 1 here would read as a leak nobody observed.
@@ -479,14 +468,12 @@ fi
 # records the headers themselves.
 
 # One transfer through the edge to the relay, the request the listener recorded answered in the
-# variable `$1` names, or nothing where no whole header block arrived. Run in this shell rather than
-# a substitution, so a listener Docker could not start ends the run as a crash.
+# variable `$1` names, or nothing where no whole header block arrived.
 relay_seen() { # $1 the variable · the curl options naming the transfer's headers
   local _relay_into="$1" _k status="" seen=""
   shift
   printf -v "$_relay_into" '%s' ""
-  run_tool docker --crash "the stub's relay listener could not be started in ${CONTAINER}; Docker's own reason is above." -- \
-    env MSYS_NO_PATHCONV=1 docker exec -d "$CONTAINER" sh -c "rm -f /tmp/relay-seen; exec nc -l -p 3001 -e sh /relay-record.sh"
+  MSYS_NO_PATHCONV=1 docker exec -d "$CONTAINER" sh -c "rm -f /tmp/relay-seen; exec nc -l -p 3001 -e sh /relay-record.sh"
   # A 502 alone is retried, the relay's answer before the listener is up: the listener takes one
   # connection, so a retry after a timeout that reached it reads a 502 and judges nothing.
   for (( _k = 0; _k < 25; _k++ )); do
@@ -497,8 +484,7 @@ relay_seen() { # $1 the variable · the curl options naming the transfer's heade
   # What the listener recorded, nothing where no request reached it, so Docker's own failure alone is
   # one: a crash. The `.` keeps the head's closing newline, which the capture would strip: a bodiless
   # request ends on its blank line, so without it no whole head ever matches.
-  run_tool docker --stdout seen --crash "the relay's record could not be read out of ${CONTAINER}; Docker's own reason is above." -- \
-    env MSYS_NO_PATHCONV=1 docker exec "$CONTAINER" sh -c 'if [ -f /tmp/relay-seen ]; then cat /tmp/relay-seen; fi; printf .'
+  seen="$(MSYS_NO_PATHCONV=1 docker exec "$CONTAINER" sh -c 'if [ -f /tmp/relay-seen ]; then cat /tmp/relay-seen; fi; printf .')"
   seen="${seen%.}"
   # A capture cut before its blank line can lack the very header the empty case looks for, which
   # would read as the edge having dropped it.
@@ -512,12 +498,12 @@ if [[ "$RELAY_SENT" != *"GET /next-action-relay "* || "$RELAY_EMPTY" != *"GET /n
 It listens with the image's own busybox nc: ask it with  docker exec ${CONTAINER} nc -h"
 fi
 # The control: a relay dropping every Next-Action would pass the empty case below unasked.
-if ! probe grep grep -qiE "^next-action: ${CLIENT_ACTION}$" <<< "$RELAY_SENT"; then
+if ! grep -qiE "^next-action: ${CLIENT_ACTION}$" <<< "$RELAY_SENT"; then
   fail "UPSTREAM /next-action-relay"
   detail "expected Next-Action ${CLIENT_ACTION} at the relay, it recorded: ${RELAY_SENT}"
   HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
 fi
-if probe grep grep -qi "^next-action:" <<< "$RELAY_EMPTY"; then
+if grep -qi "^next-action:" <<< "$RELAY_EMPTY"; then
   fail "UPSTREAM an empty Next-Action"
   detail "the edge handed Next an empty Next-Action, which Next runs as a server action and the action meter reads as none: ${RELAY_EMPTY}"
   HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
@@ -708,8 +694,8 @@ grade_refusal() { # $1 the transfer's label, its files named for it
     fail "ACTION $1"
     detail "expected the body '${REFUSAL_WRITTEN}' in ASCII alone, nginx sent none"
     ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
-  elif ! probe cmp cmp -s "${SCRATCH}/$1.body" "$REFUSAL_WRITTEN_FILE" \
-    || probe grep env LC_ALL=C grep -q '[^ -~]' "${SCRATCH}/$1.body"; then
+  elif ! cmp -s "${SCRATCH}/$1.body" "$REFUSAL_WRITTEN_FILE" \
+    || LC_ALL=C grep -q '[^ -~]' "${SCRATCH}/$1.body"; then
     fail "ACTION $1"
     detail "expected the body '${REFUSAL_WRITTEN}' in ASCII alone, nginx sent '$(<"${SCRATCH}/$1.body")'"
     ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
@@ -796,21 +782,20 @@ grade_page_body() { # $1 the transfer's label, its files named for it
     ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
     return 0
   fi
-  if ! probe cmp cmp -s "$body" "$REFUSAL_PAGE"; then
-    run_tool utility --stdout sent -- wc -c < "$body"
+  if ! cmp -s "$body" "$REFUSAL_PAGE"; then
+    sent="$(wc -c < "$body")"
     fail "ACTION $1"
     detail "expected the body of nginx/shared/site.conf :: @edge_refusal_page, nginx sent ${sent// /} bytes"
     ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
   fi
   # The file is what the body is compared to, so a page losing either passes that comparison. Its URL carries the
   # link's token, which a referer to the icon or the start page would hand on.
-  if ! probe grep grep -qF '<meta name="referrer" content="no-referrer" />' "$body"; then
+  if ! grep -qF '<meta name="referrer" content="no-referrer" />' "$body"; then
     fail "ACTION $1"
     detail "expected the page to withhold the referrer as every link page does, nginx sent no such meta tag"
     ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
   fi
-  run_tool reader --stdout palette --crash "the edge test's own read of the 429 page's colours failed; Python's account is above." -- \
-    "$EDGE_PY" -c "$PAGE_PALETTE_READ" "$body" "$REPO_ROOT"
+  palette="$("$EDGE_PY" -c "$PAGE_PALETTE_READ" "$body" "$REPO_ROOT")"
   if [[ -n "$palette" ]]; then
     fail "ACTION $1"
     detail "expected the page's colours to be the rebuilt site's tokens: ${palette}"
@@ -893,7 +878,7 @@ LINK_KEPT=$(( 2 * (${#LINK_SPENT[@]} + 2) ))
 for (( _try = 0; _try < 50; _try++ )); do
   read_streams
   # grep's count is 0 where it answers 1, none selected.
-  if probe grep --stdout LINK_LOGGED grep -c "\"user_agent\":\"${LINK_MARKER}\"" "$PROD_ACCESS_LOG" \
+  if LINK_LOGGED="$(grep -c "\"user_agent\":\"${LINK_MARKER}\"" "$PROD_ACCESS_LOG")" \
     && (( LINK_LOGGED >= LINK_KEPT )); then
     break
   fi
@@ -902,7 +887,7 @@ done
 (( ${LINK_LOGGED:-0} >= LINK_KEPT )) \
   || refuse "the edge logged ${LINK_LOGGED:-0} of the ${LINK_KEPT} link-page requests kept whole, so whether a refusal reached the error log was not judged."
 LINK_ERRORS=""
-if probe grep --stdout LINK_ERRORS grep -F "$TOK" "$ERROR_LOG" "$PROD_ERROR_LOG"; then
+if LINK_ERRORS="$(grep -F "$TOK" "$ERROR_LOG" "$PROD_ERROR_LOG")"; then
   fail "ACTION link-log"
   detail "an error line on stderr holds a live token: ${LINK_ERRORS}"
   ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
@@ -1121,7 +1106,7 @@ UPSTREAM_LOGGED=0
 for (( _try = 0; _try < 50; _try++ )); do
   read_streams
   # grep's count is 0 where it answers 1, none selected.
-  if probe grep --stdout UPSTREAM_LOGGED grep -c "\"user_agent\":\"${UPSTREAM_MARKER}\"" "$ACCESS_LOG" \
+  if UPSTREAM_LOGGED="$(grep -c "\"user_agent\":\"${UPSTREAM_MARKER}\"" "$ACCESS_LOG")" \
     && (( UPSTREAM_LOGGED >= ${#UPSTREAM_LABELS[@]} )); then
     break
   fi
@@ -1132,7 +1117,7 @@ done
 [[ "$(<"$ERROR_LOG")" == *"$REFERRED_TOK"* ]] \
   || refuse "the failing frontend's static file wrote no error line holding its Referer, so this run read no error line it could judge the link pages' silence against."
 UPSTREAM_ERRORS=""
-if probe grep --stdout UPSTREAM_ERRORS grep -F "$TOK" "$ERROR_LOG"; then
+if UPSTREAM_ERRORS="$(grep -F "$TOK" "$ERROR_LOG")"; then
   fail "UPSTREAM a link page's failing frontend"
   detail "an error line on stderr holds a live token: ${UPSTREAM_ERRORS}"
   UPSTREAM_FAILURES=$(( UPSTREAM_FAILURES + 1 ))
@@ -1145,7 +1130,7 @@ fi
 # a log beside ours writing the request line whole.
 read_streams
 logged=""
-probe grep --stdout logged grep -h '^{' "$ACCESS_LOG" "$PROD_ACCESS_LOG" \
+logged="$(grep -h '^{' "$ACCESS_LOG" "$PROD_ACCESS_LOG")" \
   || refuse "the edges' stdout holds no access line, so no line was judged."
 mapfile -t LOGGED_LINES <<<"$logged"
 for logged_line in "${LOGGED_LINES[@]}"; do
@@ -1162,7 +1147,7 @@ for logged_line in "${LOGGED_LINES[@]}"; do
   fi
 done
 TOKEN_LINES=""
-if probe grep --stdout TOKEN_LINES grep -F "$TOK" "$ACCESS_LOG" "$PROD_ACCESS_LOG"; then
+if TOKEN_LINES="$(grep -F "$TOK" "$ACCESS_LOG" "$PROD_ACCESS_LOG")"; then
   fail "LINE a live token"
   detail "the edge's stdout holds the token: ${TOKEN_LINES}"
   LINE_FAILURES=$(( LINE_FAILURES + 1 ))

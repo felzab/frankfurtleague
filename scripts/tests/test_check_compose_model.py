@@ -259,7 +259,7 @@ CHECKER_FILES: Final = ("scripts/checks/check_compose_model.py", "scripts/lib/ch
 def run_main(
     production: dict[str, Any], local: dict[str, Any], project: Path, e2e: dict[str, Any] | None = None
 ) -> subprocess.CompletedProcess[str]:
-    """The checker run as the gate runs it, through the kernel's launcher, over three rendered models beside `project`.
+    """The checker run as the gate runs it, over three rendered models beside `project`.
 
     It reads the edge's directories from the checkout it sits in, so `project` holds the checker too,
     and is the checkout their edges mount as well as the directory Compose rendered them in. The
@@ -271,7 +271,7 @@ def run_main(
     models = (("production.json", production), ("local.json", local), ("e2e.json", local if e2e is None else e2e))
     for name, rendered in models:
         (project / name).write_bytes(json.dumps(rendered).encode())
-    command = (sys.executable, str(project / CHECKER_FILES[1]), str(project / CHECKER_FILES[0]), *(str(project / name) for name, _ in models))
+    command = (sys.executable, str(project / CHECKER_FILES[0]), *(str(project / name) for name, _ in models))
     return run_bounded(command)
 
 
