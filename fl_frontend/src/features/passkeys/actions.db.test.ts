@@ -206,7 +206,7 @@ const realClient = productionClient as RealClient;
 closing(() => realClient.close());
 const authDb = () => realClient.db(MONGO_DB_NAME);
 
-signInIndexesForTheFile(authIndexes, () => (productionClient as MongoClient).db(MONGO_DB_NAME));
+signInIndexesForTheFile(authIndexes, () => productionClient as MongoClient);
 
 beforeEach(async () => {
   barrier.disarm();

@@ -63,8 +63,8 @@ async function buildOnce(): Promise<void> {
     [...lanes].map(async ([collection, indexes]) => {
       for (const { key, options } of indexes) {
         try {
-          // Under the client's socket bound like every call: a build outlasting it is logged unbuilt and still
-          // finishes, since the server keeps a build whose connection closed.
+          // Under the client's socket bound like every call: a build outlasting it is logged unbuilt and asked for again
+          // on the next writable heartbeat.
           await database.collection(collection).createIndex(key, options, undefined);
         } catch (failed) {
           logUnbuilt(options.name, failed);
