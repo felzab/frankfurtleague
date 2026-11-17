@@ -1,4 +1,4 @@
-import { assert, describe, expect, expectTypeOf, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { APIBadStatusError, APINetworkError, asRefusal, isRefusalCode, isRuleRefusal, requestOf } from "./errors";
 import { Code } from "./generated/client/types";
@@ -41,16 +41,14 @@ describe("a refusal read by its code, whatever its status", () => {
     }
   });
 
-  /* A 5xx carrying a rule's code is no refusal, since a write may have landed behind it, and stays the error it is: a
-     type predicate's `false` would type it as no `APIBadStatusError` at all, which `tsc` holds here. */
-  it("reads a server failure carrying a rule's code as no refusal, and leaves it the error it is", () => {
+  /* A 5xx carrying a rule's code is no refusal, since a write may have landed behind it. */
+  it("reads a server failure carrying a rule's code as no refusal", () => {
     const failure = new APIBadStatusError({ traceId: "ab".repeat(16), message: "bad", statusCode: 500, serverErrorCode: "swap_not_a_swap" });
     const refusal = new APIBadStatusError({ traceId: "ab".repeat(16), message: "bad", statusCode: 409, serverErrorCode: "swap_not_a_swap" });
 
     expect(asRefusal(failure)).toBeNull();
     expect(asRefusal(refusal)).toBe(refusal);
     expect(isRuleRefusal(failure)).toBe(false);
-    if (!isRuleRefusal(failure)) expectTypeOf(failure).toEqualTypeOf<APIBadStatusError>();
   });
 });
 

@@ -117,8 +117,7 @@ export function isRefusalCode(code: Code | undefined): boolean {
 
 /**
  * The API's refusal of the request, which every mapper reads before the code, `null` for any other error: a 4xx, at
- * whatever status the code's rule answers with. Never a 5xx, after which a write may have landed. Answered as the
- * error rather than as a type predicate, whose `false` would narrow a 5xx out of being an `APIBadStatusError`.
+ * whatever status the code's rule answers with. Never a 5xx, after which a write may have landed.
  */
 export function asRefusal(error: unknown): APIBadStatusError | null {
   return error instanceof APIBadStatusError && error.statusCode >= 400 && error.statusCode < 500 ? error : null;

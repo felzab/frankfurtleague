@@ -12,8 +12,7 @@ const { field, failure } = COPY.shared;
 /** A number schema's bounds as JSON Schema states them, the one public reading that keeps a bound's exclusiveness. */
 type NumberBounds = { minimum?: number; exclusiveMinimum?: number; maximum?: number; exclusiveMaximum?: number };
 
-// A bound at the safe integers' edge is an integer's own range, which `z.int()` holds and no rule sets. Answered as the
-// bound or `undefined` rather than as a type predicate, whose `false` would narrow that edge to `undefined`.
+// A bound at the safe integers' edge is an integer's own range, which `z.int()` holds and no rule sets.
 const ruled = (bound: number | undefined): number | undefined =>
   bound !== undefined && Math.abs(bound) < Number.MAX_SAFE_INTEGER ? bound : undefined;
 

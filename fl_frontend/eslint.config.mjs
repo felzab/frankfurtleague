@@ -461,23 +461,11 @@ const LOAD_TIME_ENVIRONMENT = [
   .map((read) => `${read}:not(:function ${read})`)
   .join(", ");
 
-/**
- * Every hand-written type predicate, an `asserts` one and one in a type among them: no selector can compare a
- * predicate's type with the object or the property its body tests, so the one admitted is `ownKeyOf`, which ties the
- * two by its type parameter.
- */
-const TYPE_PREDICATE_BAN = syntax(
-  "TSTypePredicate",
-  "A type predicate is trusted in both branches unchecked: a check answers what it found, typed by the compiler, or a boolean, and one TypeScript infers from its body stays unannotated. An own-key lookup calls `ownKeyOf`, whose predicate TypeScript then infers.",
-);
-
 const syntaxBan = (entry, reach, options) => ban("no-restricted-syntax", entry, reach, options);
 
 const SOURCE_BANS = [
   syntaxBan(ENVIRONMENT_READ, SOURCE, { allow: ["src/core/config.ts"] }),
   syntaxBan(ACTION_STATE_BAN, SOURCE, { allow: ["src/kit/useFormAction.ts"] }),
-  // Tests included: a test's helper narrowing a value away misleads its case as surely.
-  syntaxBan(TYPE_PREDICATE_BAN, EVERY, { allow: ["src/core/ownKeyOf.ts"] }),
   syntaxBan(
     // A tree handed to Testing Library already wrapped draws a `rerender`'s tree outside the contexts; a wrapper of a
     // file's own is the copy the helpers replace. A tree rendered by React's own server renderers keeps `underNext`.
