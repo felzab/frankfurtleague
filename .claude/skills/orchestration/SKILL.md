@@ -29,14 +29,10 @@ not.
 5. Best practice and lean: official documentation followed, no workaround, no suppression. Before a
    brief designs a mechanism (a check, a helper, a pattern, a data shape), the documented standard way
    is found in the tool's, the database's or the protocol's own documentation and named in the brief;
-   building one's own is the last resort and asked first. A test
-   exists only where a behaviour could regress unnoticed and it is the cheapest guard; the change is
-   the smallest that fully solves the problem; removing an unneeded test, doc or helper is a gain.
-   Before a mechanism is added or kept, the concrete harm it prevents in this project as it is, the
-   harm's likelihood and whether a reader or CI would see it anyway are named; where the harm is
-   unlikely or already seen, nothing is built. "Fix at the cause" is the smallest change at the
-   defect's own lines: a shared mechanism only for three real instances, never a twin because one
-   side has a check.
+   building one's own is the last resort and asked first. A
+   mechanism, a test included, exists only for a likely, otherwise unseen harm, as its
+   cheapest guard; a cause is fixed by the smallest change at the defect's own lines; removing an
+   unneeded test, doc or helper is a gain.
 6. Safe: secrets and privacy.
 7. Documented only where the code cannot speak.
 8. Nothing open.
@@ -139,8 +135,8 @@ independent. Stop once the bar is met.
   `ledger.py bank --from`, which saves it and closes the agent's live row, and a one-line verdict.
   Route or close every row in that command (`--route`, `--close`), at its class and worth
   (`.claude/CLAUDE.md` §3): to a live fixer, a check, or an owner's queue where unsure — never to an
-  unasked issue. A row owed to a fixer
-  not yet briefed stays OPEN, named by its exit 4, until that fixer's `Rows:` line routes it.
+  unasked issue. A row that is optional, or whose harm is unlikely or loud, closes with no fixer.
+  A row owed to an unbriefed fixer stays OPEN until its `Rows:` line routes it.
 - Verify every count, file list and exit code in a report against the agent's branch
   (`git log --stat <session branch>..<branch>`, `git show <branch>:<path>`). Check a finding about a
   file its reporter does not own at `HEAD` before routing it. Pass one agent's conclusion to another
@@ -185,17 +181,12 @@ independent. Stop once the bar is met.
 
 ## The cycle
 
-- Once the session's files stop moving, one lens round reads the whole change: security, data and
-  concurrency, contract, and tests, each lens a fresh reader over a captured diff written to the
-  scratch path. One fix round follows, and the cycle ends on it, never on an audit.
-- Before a row reaches a fixer, the ledger carries its harm and that harm's likelihood. A row marked
-  optional or not established, or one whose harm is unlikely or already loud, you close "NOT A
-  DEFECT (goal: <reason>)" with no fixer; a row whose fix would add a mechanism goes to the "should
-  it exist" reader first.
-- Fresh readers re-read only for a lens that read silently failing behaviour and found something
-  serious there; a driving re-auditor that wrote none of the fixes plants against them. A second fix
-  round, or another reading round, runs only on the owner's word, put to him with what the first
-  fix round added in lines and mechanisms. Decide which lenses are silent before any finding exists.
+- Once the files stop moving, one lens round reads the whole change: security, data and
+  concurrency, contract, tests and "should it exist", each a fresh reader over a captured diff. One
+  fix round follows, and the cycle ends on it unless the owner orders more.
+- Fresh readers re-read only a lens that read silently failing behaviour and found something
+  serious; a re-auditor that wrote none of the fixes plants against them. Decide which lenses are
+  silent before any finding exists.
 - A document is audited once, cold, and you read its fix.
 - A change to what a person sees is reviewed by the owner once, on its area's board. A look ruling
   is a class and binds every surface in flight, and the owner's word on what the owner has looked at
