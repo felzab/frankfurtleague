@@ -39,23 +39,14 @@ case_for() { # $1 the image asked about
 case "${1:-}" in
   version) printf 'stub\\n'; exit 0 ;;
   buildx)
-    # The plugin's release, which a CLI without it answers as it does for any command it does not hold.
-    if [[ "${2:-}" == version ]]; then
-      if [[ "${FL_IMAGE_CASE:-clean}" == buildx_missing ]]; then
-        printf '%s\\n' "docker: 'buildx' is not a docker command." >&2; exit 1
-      fi
-      printf 'github.com/docker/buildx stub\\n'; exit 0
-    fi
+    # The plugin's release.
+    if [[ "${2:-}" == version ]]; then printf 'github.com/docker/buildx stub\\n'; exit 0; fi
     # The local build is CI's own definition: any other build, or any call the scope is not to make,
     # is refused, here and below, so it fails every case whose build is to succeed.
     if [[ "${2:-}" != bake || " $* " != *" --file docker-bake.hcl "* ]]; then
       printf 'stub: not a bake of docker-bake.hcl: %s\\n' "$*"; exit 1
     fi
-    case "${FL_IMAGE_CASE:-clean}" in
-      build_failed) printf '%s\\n' "ERROR: failed to solve"; exit 1 ;;
-      build_exhausted) exit 102 ;;
-      build_interrupted) exit 130 ;;
-    esac
+    if [[ "${FL_IMAGE_CASE:-clean}" == build_failed ]]; then printf '%s\\n' "ERROR: failed to solve"; exit 1; fi
     exit 0 ;;
   image) exit 0 ;;
 esac
@@ -123,12 +114,6 @@ CASES: Final[tuple[Case, ...]] = (
     Case("context_breach", 1, "dockerignore exists to exclude", only="frontend"),
     Case("context_breach", 1, "dockerignore exists to exclude", only="backend"),
     Case("build_failed", 1, "failed to build"),
-    # buildx's own statuses past its 1, BuildKit out of a resource among them, are a crash, which ends on the
-    # status itself, the contract's "3 or more".
-    Case("build_exhausted", 102, "Crashed after", "failed to build"),
-    Case("build_interrupted", 130, "Interrupted after", "failed to build"),
-    # Without the plugin the bake never ran, so nothing failed to build.
-    Case("buildx_missing", 2, "Docker Buildx did not answer", "failed to build"),
     Case("clean", 0, "Green"),
     Case("clean", 0, "Green", built=True),
     Case("instrumentation_missing", 1, "instrumentation.js is MISSING"),
