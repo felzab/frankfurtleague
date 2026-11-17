@@ -189,24 +189,11 @@ const authIndexes = await import("@/core/authIndexes");
 const { MONGO_DB_NAME } = authIndexes;
 const { removePasskeyAction } = await import("./actions");
 
-type Collection = {
-  find: (filter: object) => { toArray: () => Promise<Record<string, unknown>[]> };
-  updateMany: (filter: object, update: object) => Promise<unknown>;
-  deleteMany: (filter: object) => Promise<unknown>;
-};
-type RealClient = {
-  db: (name: string) => {
-    listCollections: (filter: object, options: { nameOnly: true }) => { toArray: () => Promise<{ name: string }[]> };
-    collection: (name: string) => Collection;
-  };
-  close: () => Promise<void>;
-};
-
-const realClient = productionClient as RealClient;
+const realClient = productionClient as MongoClient;
 closing(() => realClient.close());
 const authDb = () => realClient.db(MONGO_DB_NAME);
 
-signInIndexesForTheFile(authIndexes, () => productionClient as MongoClient);
+signInIndexesForTheFile(authIndexes, () => realClient);
 
 beforeEach(async () => {
   barrier.disarm();
