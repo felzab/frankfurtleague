@@ -1492,20 +1492,6 @@ const eslintConfig = defineConfig([
     },
   },
 
-  // A file name the toolchain takes in silence: Tailwind 4 reads no `tailwind.config.*` but through a stylesheet's
-  // `@config`.
-  {
-    files: ["**/tailwind.config.{js,ts,cjs,mjs}"],
-    plugins: { "check-file": checkFile },
-    rules: {
-      "check-file/filename-blocklist": [
-        "error",
-        { "**/tailwind.config.{js,ts,cjs,mjs}": "" },
-        { errorMessage: "Tailwind 4 is configured in CSS: the theme is `@theme` in fl_frontend/src/app/tokens.css and globals.css." },
-      ],
-    },
-  },
-
   // The token file's colours, held to one list and to the contrast each pair's job needs.
   {
     files: ["src/app/tokens.css"],
