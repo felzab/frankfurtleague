@@ -122,7 +122,7 @@ def test_the_judge_of_a_call_refuses_a_misnamed_word_and_passes_a_short_mention(
 
 @pytest.mark.parametrize("page", PAGES, ids=lambda page: f"{page.parent.name}/{page.name}")
 def test_every_tool_call_a_page_names_parses_through_its_tool(page: Path) -> None:
-    """The text and the tools were written on two branches against one spec, and a flag the text named that the tool lacked ran nowhere."""
+    """Every call a page names parses through its tool's own parser, so a flag the text names and the tool lacks fails here."""
     refused = [f"`{call}`: {said}" for call in _calls(page.read_bytes().decode("utf-8")) if (said := _misnamed(call))]
     assert refused == []
 
@@ -177,7 +177,7 @@ def test_a_true_conflict_writes_nothing(ours: str, theirs: str, commit_rows: str
 
 
 # The backend spec's endpoint tables, whose first cell is a method: keyed by it, an agent's added
-# `POST` row matched the session's and was dropped while the landing reported nothing.
+# `POST` row would match the session's and be dropped with nothing reported.
 ENDPOINTS: Final = "| Method | Path |\n| --- | --- |\n| GET | `/spiele` |\n| POST | `/bewerbungen` |\n"
 
 
@@ -312,7 +312,7 @@ def test_the_command_line_takes_its_text_from_stdin_and_stamps_the_minute_it_run
 
 @pytest.mark.parametrize("command", ["append", "resume"])
 def test_text_given_as_arguments_is_refused_naming_the_two_ways(tmp_path: Path, command: str) -> None:
-    """A backtick inside a double-quoted argument ran as a command, and the line kept the words around the gap."""
+    """Text given as arguments is refused, since a shell runs a backtick inside double quotes as a command; `--file` carries it whole."""
     register = _register(tmp_path)
     before = register.read_bytes()
     done = _run("reg", command, str(register), "a", "beside it counts")
@@ -332,9 +332,9 @@ KILLED_HOLDER: Final = (
 
 
 def test_twenty_writers_started_together_each_land_their_line(tmp_path: Path) -> None:
-    """Each writer rewrote the whole register through one shared spare, so a concurrent change vanished while its command exited 0.
+    """Twenty concurrent appends each land their line and leave no spare or lock behind, so no write vanishes while its command exits 0.
 
-    A lock left by a killed writer stopped every later one; twenty finding it at once must break it once.
+    The lock a killed writer leaves stops none of the twenty finding it together, and breaking it lets no two of them write at once.
     """
     register = _register(tmp_path)
     subprocess.run((sys.executable, "-c", KILLED_HOLDER, str(register)), cwd=TOOLS, check=True)
@@ -417,7 +417,7 @@ def test_a_lock_naming_a_running_process_or_none_is_kept_and_named(tmp_path: Pat
 
 
 def test_a_register_written_with_carriage_returns_keeps_them_through_every_writer(tmp_path: Path) -> None:
-    """A rewritten row lost its carriage return, since a row is split into cells and joined again."""
+    """A register's carriage returns survive every writer, a row split into cells and joined again among them."""
     register = tmp_path / "REGISTER-s.md"
     register.write_bytes((RESUME_POINT.format(marker=reg.MARKER) + LIVE + REGISTER.split("{live}")[1]).replace("\n", "\r\n").encode("utf-8"))
     (tmp_path / "A-report.md").write_bytes(b"F1 one\n")
@@ -438,7 +438,7 @@ RESUME_POINT: Final = (
 
 
 def test_resume_rewrites_the_fields_its_text_names_and_no_other(tmp_path: Path) -> None:
-    """The fields read fifteen hours stale beneath 128 newer UPDATE lines, since no command rewrote them."""
+    """`resume` rewrites each field it names in place and logs the rewrite, so the fields keep pace with the UPDATE lines beneath them."""
     register = tmp_path / "REGISTER-s.md"
     register.write_bytes(RESUME_POINT.format(marker=reg.MARKER).encode("utf-8"))
     now = datetime.datetime(2026, 10, 16, 11, 20, tzinfo=datetime.UTC)
@@ -475,8 +475,8 @@ F9 inside a fence is an example, never a finding
 - F1 again, later in the report, adds no row.
 """
 
-# The two shapes reports numbered findings in before the label: the round-1b L6 report's bold
-# numbers, whose eight findings no label caught, and a numbered table row.
+# Findings numbered in two shapes other than the label: bold numbers opening a line, and a numbered
+# table row.
 BOLD_NUMBERED: Final = (
     "## (c) Findings\n\n**1. The stamped words describe a switch.**\n- **Where:** x\n\n**2. Focus drops.**\n\n"
     "| # | Finding |\n| - | ------- |\n| 3 | A third, in a table |\n"
@@ -545,7 +545,7 @@ def test_open_exits_one_while_a_row_is_open_and_zero_once_every_row_is_closed(tm
 
 @pytest.mark.parametrize("tool", ["ledger", "reg"])
 def test_a_character_the_pipes_codepage_lacks_prints_rather_than_failing_after_the_write(tmp_path: Path, tool: str) -> None:
-    """A minus sign failed the print after the row was written, and the encode error read as a refusal."""
+    """A character the stream's codepage lacks still prints, so no encode error after the write reads as a refusal."""
     register = _register(tmp_path)
     report = tmp_path / "A-report.md"
     report.write_bytes("F1 a count \u2212 one\n".encode())
@@ -588,7 +588,7 @@ def _set(register: Path, row: str, held: str, owner: str = "") -> None:
 
 
 def test_open_unclosed_prints_every_row_no_closed_status_ends(tmp_path: Path) -> None:
-    """The ending proved every row closed with `open`, which passes over ROUTED rows."""
+    """`open` passes over ROUTED rows, so the ending proves every row closed with `--unclosed`, which prints each row not closed."""
     register = _banked(tmp_path, ("A-report.md", "F1 one\n\nF3 three\n\nF4 four\n"))
     ledger.route(register, "FIXER", ["A-F1"])
     _set(register, "A-F3", "NOT A DEFECT", "the test drives it")
@@ -605,7 +605,7 @@ def test_open_unclosed_prints_every_row_no_closed_status_ends(tmp_path: Path) ->
     ids=["open", "open --unclosed", "route", "close of another row", "bank"],
 )
 def test_a_status_no_command_knows_is_refused_by_every_command_reading_the_ledger(tmp_path: Path, args: tuple[str, ...]) -> None:
-    """A helper wrote `CLOSED` over finished rows: `open --unclosed` printed them all and `open` read them as closed."""
+    """A status no command knows, such as `CLOSED`, is neither open nor closed, so every reader refuses it, naming `--reclose`."""
     register = _banked(tmp_path, ("A-report.md", "F1 one\n\nF2 two\n"))
     _set(register, "A-F1", "CLOSED", "its evidence")
     (tmp_path / "B-report.md").write_bytes(b"F1 one\n")
@@ -627,7 +627,7 @@ def test_a_status_no_command_knows_is_refused_by_every_command_reading_the_ledge
     ids=["a word a status opens", "a row of six cells"],
 )
 def test_a_status_cell_naming_no_status_whole_is_refused(tmp_path: Path, held: str, said: str, commands: bool) -> None:
-    """Read by its opening letters `OPENED` was OPEN, and a row an unescaped pipe widened was no row at all.
+    """A status is read whole, so `OPENED` is not OPEN, and a row an unescaped pipe widens is refused rather than skipped.
 
     Each refusal names the repair that works for its kind: no command rewrites a row it cannot split.
     """
@@ -657,7 +657,7 @@ def _printed(said: str, kind: str, **filled: str) -> list[str]:
 def test_a_mistyped_status_is_mended_by_either_repair_its_refusal_prints(
     tmp_path: Path, kind: str, filled: dict[str, str], after: list[str]
 ) -> None:
-    """Offered a closing repair alone, a mistyped in-flight row was steered to closed, a finding nobody fixed.
+    """A mistyped status is offered a repair for each kind, so a row still in flight is never steered to closed, a finding nobody fixed.
 
     Each printed line runs whole, from outside the repository, into a register whose path holds a space.
     """
@@ -673,7 +673,7 @@ def test_a_mistyped_status_is_mended_by_either_repair_its_refusal_prints(
 
 
 def test_a_row_has_one_owner_until_it_is_rerouted(tmp_path: Path) -> None:
-    """Two fixers given one finding built opposite designs; the second route is refused and writes nothing."""
+    """A second route of a routed row is refused and writes nothing, so two fixers never build opposite designs for one finding."""
     register = _banked(tmp_path, ("A-report.md", "F1 one\n\nF2 two\n"))
     assert _run("ledger", "route", str(register), "FIXER-1", "A-F1", "A-F2").returncode == 0
     assert _status(register, "A-F1") == ["ROUTED", "FIXER-1"]
@@ -686,7 +686,7 @@ def test_a_row_has_one_owner_until_it_is_rerouted(tmp_path: Path) -> None:
 
 
 def test_a_routed_row_carrying_a_note_routes_to_its_owner_again(tmp_path: Path) -> None:
-    """The note kept beside the owner read as part of the owner's name, so the next send to the same fixer was refused."""
+    """A note beside a row's owner is no part of the owner's name, so routing to the same owner again is no conflict and a reroute keeps it."""
     register = _banked(tmp_path, ("A-report.md", "F1 one\n"))
     _set(register, "A-F1", "OPEN", "L8 owns the wording")
     ledger.route(register, "FIXER", ["A-F1"])
@@ -722,7 +722,7 @@ def _row(register: Path, row: str) -> list[str]:
 
 
 def test_close_sets_open_and_routed_rows_to_a_closing_status_and_its_evidence(tmp_path: Path) -> None:
-    """Rows closed by hand took a word outside the vocabulary; evidence holding a pipe would split its row."""
+    """`close` writes a closing word and its evidence, a pipe in it escaped so it cannot split the row; `--reclose` keeps the earlier close."""
     register = _banked(tmp_path, ("A-report.md", "F1 one\n\nF2 two\n\nF3 three\n"))
     ledger.route(register, "FIXER", ["A-F1"])
     done = _run("ledger", "close", str(register), "NOT A DEFECT", "the test | drives it\nalready", "A-F1", "A-F2")
@@ -760,7 +760,7 @@ LENS_REPEAT: Final = b"F10 (for L8). In `BewerbungAngabenPanel.tsx`, `9cf8a0663`
 
 @pytest.mark.parametrize("held", ["ROUTED", "FIXED (abc1234)"], ids=["an open earlier row", "a closed earlier row"])
 def test_a_finding_several_lenses_reported_is_named_at_its_banking(tmp_path: Path, held: str) -> None:
-    """The round's lenses each banked the comment orphaned above `Leer`, as rows nobody tied together; a closed row is history."""
+    """A finding sharing code spans with a row still open is named as its possible repeat, so lenses reporting one defect are tied together."""
     register = _banked(tmp_path, ("L1-report.md", "F5 (for L8). `9cf8a0663` put two constants between `Leer()` and its comment\n"))
     _set(register, "L1-F5", held, "FIXER")
     report = tmp_path / "L4-report.md"
@@ -793,7 +793,7 @@ def _home(tmp_path: Path) -> dict[str, str]:
 
 
 def test_bank_from_an_agent_saves_its_final_message_and_never_over_another_report(tmp_path: Path) -> None:
-    """Banked findings whose report was never saved left fixers nothing to read; a resumed agent's short reply overwrote a report."""
+    """`--from` saves the agent's final message as the report its rows name, and never over a file holding another report."""
     env = _home(tmp_path)
     _transcript(tmp_path / "home", "a1b2", ("m1", ["an interim note"]), ("m2", ["## Report\n\n", "F1 the \u2212 finding\n"]))
     register, report = _register(tmp_path), tmp_path / "AGENT-report.md"
@@ -809,7 +809,7 @@ def test_bank_from_an_agent_saves_its_final_message_and_never_over_another_repor
 
 
 def test_a_refused_bank_from_an_agent_saves_nothing_so_its_retry_runs(tmp_path: Path) -> None:
-    """Saved before it banked, a report with no label left a file the retry with --none then refused."""
+    """A bank refused for a report with no label saves no file, so its retry with `--none` finds no report in its way."""
     env = _home(tmp_path)
     _transcript(tmp_path / "home", "a1b2", ("m1", ["Nothing to report.\n"]))
     register, report = _register(tmp_path), tmp_path / "AGENT-report.md"
@@ -820,7 +820,7 @@ def test_a_refused_bank_from_an_agent_saves_nothing_so_its_retry_runs(tmp_path: 
 
 
 def test_bank_from_an_agent_saves_the_report_before_its_rows_or_banks_nothing(tmp_path: Path) -> None:
-    """Rows banked before the save named a report a failed save never wrote, and a missing folder failed every save."""
+    """The report is saved before any row is banked, so no row names a report that was never written; a missing folder is created."""
     env = _home(tmp_path)
     _transcript(tmp_path / "home", "a1b2", ("m1", ["F1 the finding\n"]))
     register = _register(tmp_path)
@@ -855,7 +855,7 @@ def _synthetic(home: Path, agent: str) -> None:
 
 
 def test_bank_from_an_agent_skips_the_quota_stop_and_sets_its_live_row_done(tmp_path: Path) -> None:
-    """The quota message banked as the report, so the report was saved by hand; and 108 finished agents read RUNNING."""
+    """The quota stop the harness appends after a report is skipped, so the agent's own message is banked; its live row is set DONE."""
     env = _home(tmp_path)
     _transcript(tmp_path / "home", "a1b2c3", ("m1", ["F1 the real finding\n"]))
     _synthetic(tmp_path / "home", "a1b2c3")
@@ -887,7 +887,7 @@ AFTER_AN_INTERRUPTION: Final = (
 def test_bank_from_an_agent_stopped_mid_task_banks_and_saves_nothing(
     tmp_path: Path, after: dict[str, object], said: str, flags: tuple[str, ...]
 ) -> None:
-    """A stopped agent's last text was an interim note written beside its next call, and `--none` saved it as the report."""
+    """A stopped agent's last text is an interim note beside its next call, so its bank is refused, `--none` included, and saves nothing."""
     env = _home(tmp_path)
     _transcript(tmp_path / "home", "a1b2c3", ("m1", ["F1 looks real; checking the merge next.\n"]))
     path = tmp_path / "home" / ".claude" / "projects" / "proj" / "session" / "subagents" / "agent-a1b2c3.jsonl"
@@ -901,7 +901,7 @@ def test_bank_from_an_agent_stopped_mid_task_banks_and_saves_nothing(
 
 
 def test_bank_routes_and_closes_in_its_own_write_and_names_each_row_left_open(tmp_path: Path) -> None:
-    """Implementer and research rows were banked and never routed: 555 of them sat OPEN at once."""
+    """`--route` and `--close` apply in the bank's own write, and each row they leave OPEN is named, so no banked row sits unowned unseen."""
     register = _register(tmp_path)
     report = tmp_path / "A-report.md"
     report.write_bytes(b"F1 one\n\nF2 two\n\nF3 three\n\nF4 four\n")
@@ -927,7 +927,7 @@ def test_a_bank_whose_routes_or_closes_cannot_all_apply_writes_nothing(tmp_path:
 
 
 def test_a_route_to_an_owner_neither_live_nor_a_queue_is_refused_naming_the_queues(tmp_path: Path) -> None:
-    """180 rows sat with 21 names that never became agents, seven of them spellings of the owner's queues."""
+    """A route names a live agent or an owner's queue, so no row waits on a name that never becomes an agent; the refusal lists the queues."""
     register = _banked(tmp_path, ("A-report.md", "F1 one\n\nF2 two\n"))
     before = register.read_bytes()
     done = _run("ledger", "route", str(register), "owner-pass", "A-F1")
@@ -944,7 +944,7 @@ FIXER_REPORT: Final = (
 
 
 def test_a_number_a_table_row_and_a_prose_line_both_label_banks_the_prose() -> None:
-    """S9-AUTH-r6's F1 to F9 were banked from its acceptance table, and its real findings never reached the ledger.
+    """A number a table row and a prose line both label banks the prose, so a fixer's acceptance table never stands in for its findings.
 
     A number only that table labels, above the report's own F1, banks nothing until it is cited or named.
     """
@@ -966,7 +966,7 @@ INDEXED_REPORT: Final = (
 
 
 def test_a_number_an_index_list_repeats_is_refused_until_its_line_is_named() -> None:
-    """An index item listed first was banked as the finding, and the longest paragraph that replaced it picked evidence lines.
+    """A number two prose lines label, as an index item and its finding, is refused until `--line` names one, rather than guessed.
 
     A closing ranked table repeats every finding by design and refuses nothing.
     """
@@ -985,8 +985,8 @@ def test_a_number_an_index_list_repeats_is_refused_until_its_line_is_named() -> 
     assert sorted(ledger.bankable(cold).chosen) == [1, 2, 3] and ledger.bankable(cold).said == []
 
 
-# SKILL-FIX-TOOLS-2's report, its labels kept and its prose cut: its acceptance section labels the audit's
-# findings bare, F23 among them, and its own findings follow from F1.
+# A fixer's report citing an audit: its acceptance section labels the audit's findings bare, F23
+# among them, and its own findings follow from F1.
 CITING_REPORT: Final = (
     "## (c) Acceptance\n\n**Item 1: the audit's F1 to F3.**\n\n"
     "- **F1 (`expect` and generic lines).** `expect` no longer writes a row for a job's verdict-only line.\n"
@@ -1002,7 +1002,7 @@ CITING_REPORT: Final = (
 
 
 def test_a_report_labelling_a_number_twice_or_citing_one_bare_banks_nothing_until_each_is_named(tmp_path: Path) -> None:
-    """Its F1 to F3 were banked from bullets citing the audit, and its bare F23 became a row for a finding it never made."""
+    """A number labelled twice, or cited bare above the report's own F1, banks nothing until settled, so no row is an audit's finding."""
     register = _register(tmp_path)
     report = tmp_path / "SKILL-FIX-TOOLS-2-report.md"
     report.write_bytes(CITING_REPORT.encode())
@@ -1028,7 +1028,7 @@ def test_a_report_labelling_a_number_twice_or_citing_one_bare_banks_nothing_unti
 
 
 def test_show_prints_a_rows_whole_finding_from_its_saved_report(tmp_path: Path) -> None:
-    """Over half the ledger's rows end cut at 160 characters, and a driver barred from the report worked from the half."""
+    """A ledger row holds a cut summary, so `show` prints each row's whole finding from its saved report and names a row the ledger lacks."""
     reports = tmp_path / "reports"
     reports.mkdir()
     register = _register(tmp_path)
@@ -1041,13 +1041,13 @@ def test_show_prints_a_rows_whole_finding_from_its_saved_report(tmp_path: Path) 
     shown = done.stdout.replace("\r\n", "\n").split("\n\n")
     assert shown[0].splitlines()[1:] == ["F1 — correction for the commit body.", "It names the wrong file."]
     assert shown[1].splitlines()[1:] == ["| F2 | the case drives it |"]
-    # A row banked from the table before prose won prints the line it holds, not the prose beside it.
+    # A row holding the table line's text prints that line, not the prose beside it.
     register.write_bytes(register.read_bytes().replace(b"| correction for the commit body. |", b"| `tsc` 0, the plant red |"))
     assert _run("ledger", "show", str(register), "A-F1").stdout.splitlines()[1:] == ["| F1 | `tsc` 0, the plant red |"]
 
 
 def test_open_names_a_running_agent_whose_report_was_saved_after_its_stamp(tmp_path: Path) -> None:
-    """The live-agent table read 108 finished agents RUNNING; an agent resumed after its first report is RUNNING again rightly."""
+    """`open` names each RUNNING agent whose report postdates its stamp, so no finished agent reads RUNNING; a resumed one rightly does."""
     briefs, reports = tmp_path / "briefs", tmp_path / "reports"
     briefs.mkdir()
     reports.mkdir()
@@ -1066,7 +1066,7 @@ def test_open_names_a_running_agent_whose_report_was_saved_after_its_stamp(tmp_p
         when = saved.timestamp() if saved else 0
         os.utime(reports / "FIXER-report.md", (when, when))
         assert any(line.startswith("FIXER is") for line in _run("ledger", "open", str(register)).stderr.splitlines()) is flags, saved
-    # Read after the rows print, an undatable stamp once turned the exit the ending loops on into a refusal.
+    # Read after the rows print, an undatable stamp is named and leaves the exit the ending loops on as it is.
     register.write_bytes(register.read_bytes().replace(b"RUNNING (2020-01-01 10:00)", b"RUNNING (2020-13-45 10:00)"))
     undated = _run("ledger", "open", str(register))
     assert undated.returncode == 0 and "FIXER's stamp `2020-13-45 10:00` is no date" in undated.stderr, undated.stderr
