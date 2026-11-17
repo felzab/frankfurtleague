@@ -103,7 +103,6 @@ function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktRolle; floor: n
         label={COPY.signIn.address}
         description={bewerbung.ownAddress}
         kind="email"
-        autofill="email"
         isRequired={required.email}
         maxLength={maxLength.email}
       />
