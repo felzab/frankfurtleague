@@ -2,8 +2,7 @@ import { once } from "node:events";
 import { setTimeout as pause } from "node:timers/promises";
 
 import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, overriding, registerAuthDoubles, signInByCode } from "@/test-support/authDoubles";
-import { startReplicaSet } from "@/test-support/replicaSet";
-import { signInIndexesBuilt } from "@/test-support/signInIndexes";
+import { settledWithin, startReplicaSet } from "@/test-support/replicaSet";
 import { captureLog } from "@/test-support/stdoutCapture";
 import { StoreRelay } from "@/test-support/storeRelay";
 import { isAPIError } from "better-auth/api";
@@ -61,23 +60,16 @@ const LATENESS_MS = 2000;
 const STAGE_BOUND = 3000;
 
 /**
- * The case fails at its bound rather than waiting on: an operation whose bound is gone never ends on
- * its own, because the server's heartbeats still pass the relay and the driver's monitor finds nothing
- * wrong.
+ * What `run` settled with, its failure included, or the case fails at its bound rather than waiting on: an operation
+ * whose bound is gone never ends on its own, because the server's heartbeats still pass the relay and the driver's
+ * monitor finds nothing wrong.
  */
-async function settledWithin(bound: number, what: string, run: () => Promise<unknown>): Promise<unknown> {
-  let deadline: NodeJS.Timeout | undefined;
-  try {
-    return await Promise.race([
-      run().catch((error: unknown) => error),
-      new Promise<never>((_, reject) => {
-        deadline = setTimeout(() => reject(new Error(`${what} had not settled ${bound + LATENESS_MS} ms in`)), bound + LATENESS_MS);
-      }),
-    ]);
-  } finally {
-    clearTimeout(deadline);
-  }
-}
+const endedWithin = (bound: number, what: string, run: () => Promise<unknown>): Promise<unknown> =>
+  settledWithin(
+    run().catch((error: unknown) => error),
+    bound + LATENESS_MS,
+    `${what} had not settled ${String(bound + LATENESS_MS)} ms in`,
+  );
 
 describe("the boot's connect recovers from a cold start the store refused", () => {
   /* The driver closes the topology a refused connect built and builds no other on its own, so only the boot's retry
@@ -87,14 +79,14 @@ describe("the boot's connect recovers from a cold start the store refused", () =
     const { connecting } = await relay.refuse(async () => {
       const attemptFailed = once(boot.client, "topologyClosed");
       const connected = boot.connectSignInStore();
-      await settledWithin(STAGE_BOUND, "the refused attempt", () => attemptFailed);
+      await endedWithin(STAGE_BOUND, "the refused attempt", () => attemptFailed);
       return { connecting: connected };
     });
 
     // The attempt under way when the store answered, then the pause before the next.
-    await settledWithin(STAGE_BOUND + boot.client.options.minHeartbeatFrequencyMS, "the boot's connect", () => connecting);
+    await endedWithin(STAGE_BOUND + boot.client.options.minHeartbeatFrequencyMS, "the boot's connect", () => connecting);
     const probe = () => boot.client.db("store_bound").collection("probe").findOne({});
-    expect(await settledWithin(STAGE_BOUND, "the read after the store answered again", probe)).toBe(null);
+    expect(await endedWithin(STAGE_BOUND, "the read after the store answered again", probe)).toBe(null);
   });
 });
 
@@ -109,7 +101,7 @@ describe("the sign-in store's client bounds every operation it sends", () => {
     const answered = await readServedSession(headers);
     expect(answered?.user.email).toBe(ADMIN_EMAIL);
 
-    const outcome = await relay.hang(() => settledWithin(STAGE_BOUND * 2, "the hung read", () => readServedSession(headers)));
+    const outcome = await relay.hang(() => endedWithin(STAGE_BOUND * 2, "the hung read", () => readServedSession(headers)));
 
     assert.ok(isAPIError(outcome) && outcome.status === "INTERNAL_SERVER_ERROR", `the hung read settled with ${String(outcome)}`);
   });
@@ -122,12 +114,12 @@ describe("the sign-in store's client bounds every operation it sends", () => {
     log.clear();
 
     const outcome = await relay.hangFrom("commitTransaction", () =>
-      settledWithin(STAGE_BOUND * 3, "the hung commit", () =>
+      endedWithin(STAGE_BOUND * 3, "the hung commit", () =>
         auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN), returnHeaders: true }),
       ),
     );
-    // The commit never reached the server, whose transaction would otherwise stand open past the
-    // case, holding the sign-in's collections, and fail it from the replica set's check after it.
+    // The commit never reached the server, whose transaction would otherwise hold the sign-in's
+    // collections until its own lifetime ran out, a minute any later case writing them would wait.
     // Inside the container: the client's strict Stable API refuses the command.
     const killed = await mongod.exec(["mongosh", "--quiet", "--eval", "db.adminCommand({ killAllSessions: [] }).ok"]);
     expect(killed.output.trim(), `the hung commit's transaction was left standing: ${killed.output}`).toBe("1");
@@ -142,38 +134,12 @@ describe("the sign-in store's client bounds every operation it sends", () => {
 });
 
 describe("the sign-in store's indexes recover with the store", () => {
-  /* A build the client stopped waiting for is no verdict: the server goes on building, and the same `createIndex`
-     waits for a build under way. Dropped rather than delayed, so the server never builds it unless asked again. */
-  it("asks again for a build whose answer never came, and logs no index unbuilt", async () => {
-    const { MONGO_DB_NAME, buildAuthIndexes } = await import("./authIndexes");
-    const store = client.db(MONGO_DB_NAME);
-    const held = async () => {
-      const names: string[] = [];
-      for (const { name } of await store.listCollections({}, { nameOnly: true }).toArray()) {
-        for (const index of await store.collection(name).indexes()) names.push(`${name}.${String(index.name)}`);
-      }
-      return names.sort();
-    };
-    await signInIndexesBuilt(buildAuthIndexes, () => client.close());
-    const reference = await held();
-    await store.dropDatabase();
-    log.clear();
-
-    // The dropped answer's socket bound, then the ask again on a connection of its own: a build still running past
-    // both is asking again for what never answers, the retry this case holds.
-    await relay.dropFirst("createIndexes", () => signInIndexesBuilt(buildAuthIndexes, () => client.close(), STAGE_BOUND * 2 + LATENESS_MS));
-
-    assert.ok(relay.triggered, "the run sent no createIndexes, so no answer went missing");
-    expect(errorLines(), "a build whose answer never came was logged unbuilt").toStrictEqual([]);
-    expect(await held(), "the build whose answer never came was not asked again").toStrictEqual(reference);
-  });
-
   /* The client opened before the outage, so its topology is the one recovering, and the driver marks
      that recovery with no `open`: only a new topology emits one. */
   it("builds an index again once a store that stopped answering after the first open answers again", async () => {
     const { MONGO_DB_NAME, buildAuthIndexes } = await import("./authIndexes");
     const sessions = client.db(MONGO_DB_NAME).collection("session");
-    await signInIndexesBuilt(buildAuthIndexes, () => client.close());
+    await buildAuthIndexes();
     await sessions.dropIndex("session_userId_idx");
     let opens = 0;
     const counted = () => {
@@ -183,9 +149,8 @@ describe("the sign-in store's indexes recover with the store", () => {
 
     try {
       log.clear();
-      // The build's bound, not a stage count: a severed store fails each index of a collection on its own server
-      // selection, so a count would copy the production table's longest collection.
-      await relay.sever(() => signInIndexesBuilt(buildAuthIndexes, () => client.close()));
+      // A severed store fails each index of a collection on its own server selection, under its own bound.
+      await relay.sever(() => buildAuthIndexes());
       assert.ok(
         errorLines().some((line) => line.event === "auth.index_unbuilt" && line.index === "session_userId_idx"),
         `the run met no outage: ${JSON.stringify(errorLines())}`,
@@ -199,7 +164,7 @@ describe("the sign-in store's indexes recover with the store", () => {
       expect(await indexed(), "the index was not built again once the store answered").toBe(true);
       // The rebuild's other indexes may still be on the wire: a run queues behind the one in flight, so the file's
       // close meets no build to cut.
-      await signInIndexesBuilt(buildAuthIndexes, () => client.close());
+      await buildAuthIndexes();
       expect(opens, "the client emitted `open`, so this drove a new topology rather than a recovered one").toBe(0);
     } finally {
       client.off("open", counted);

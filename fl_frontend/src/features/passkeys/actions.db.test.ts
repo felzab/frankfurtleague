@@ -18,6 +18,8 @@ import { signInIndexesForTheFile } from "@/test-support/signInIndexes";
 import { captureLog } from "@/test-support/stdoutCapture";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { MongoClient } from "mongodb";
+
 // A replica set: the property under test is a transaction's.
 const { mongod, closing } = await startReplicaSet();
 
@@ -183,7 +185,8 @@ let signingOut: () => Promise<unknown> = async () => undefined;
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { auth } = await import("@/core/auth/library");
-const { buildAuthIndexes, MONGO_DB_NAME } = await import("@/core/authIndexes");
+const authIndexes = await import("@/core/authIndexes");
+const { MONGO_DB_NAME } = authIndexes;
 const { removePasskeyAction } = await import("./actions");
 
 type Collection = {
@@ -203,7 +206,7 @@ const realClient = productionClient as RealClient;
 closing(() => realClient.close());
 const authDb = () => realClient.db(MONGO_DB_NAME);
 
-signInIndexesForTheFile(buildAuthIndexes, () => realClient.close(), log);
+signInIndexesForTheFile(authIndexes, () => (productionClient as MongoClient).db(MONGO_DB_NAME));
 
 beforeEach(async () => {
   barrier.disarm();

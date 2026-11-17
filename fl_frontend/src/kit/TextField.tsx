@@ -50,11 +50,12 @@ type Shared = {
 type Autofill = "name" | "given-name" | "family-name" | "organization" | "street-address" | "postal-code" | "address-level2";
 
 /**
- * What an address field is filled as: the person's address; where the address signs in, the account's name, under
- * which a password manager files what it keeps for the site; or nothing, `off`, where an administrator types somebody
- * else's, which would otherwise stay in the browser and be offered to the next form.
+ * What an address field is filled as, only where the person types their own: their address, or, where the address
+ * signs in, the account's name, under which a password manager files what it keeps for the site. Every other address
+ * field is filled with nothing, since an address typed for somebody else would stay in the browser and be offered to
+ * the next form.
  */
-type EmailAutofill = "email" | "username" | "off";
+type EmailAutofill = "email" | "username";
 
 /** A single line's keyboard, set by `kind`; a URL and a minute name the example their message shows. */
 type Kind =
@@ -91,8 +92,7 @@ export type TextFieldProps = Shared & (Short | Standard | Paragraph);
 
 /**
  * What each kind sets on the input: its type, the keyboard a phone opens, what the browser offers to fill.
- * A text or digits field is filled only where its `autofill` names what it asks for; an address field's
- * `autofill` replaces its own.
+ * A text, digits or address field is filled only where its `autofill` names what it asks for.
  */
 const KINDS = {
   text: { type: "text", inputMode: undefined, autoComplete: undefined, pattern: undefined },
@@ -103,7 +103,7 @@ const KINDS = {
   // The phone pad, which carries the plus beside the digits where `numeric`'s pad carries none; a plain text field
   // under it, so a keyboard whose pad lacks the plus still types one. The pattern is the caller's.
   minute: { type: "text", inputMode: "tel", autoComplete: undefined, pattern: undefined },
-  email: { type: "email", inputMode: undefined, autoComplete: "email", pattern: undefined },
+  email: { type: "email", inputMode: undefined, autoComplete: "off", pattern: undefined },
   tel: { type: "tel", inputMode: undefined, autoComplete: "tel", pattern: undefined },
   url: { type: "url", inputMode: undefined, autoComplete: "url", pattern: undefined },
 } as const;

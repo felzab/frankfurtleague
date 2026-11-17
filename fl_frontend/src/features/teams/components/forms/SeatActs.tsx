@@ -109,7 +109,6 @@ export function SeatActs<Key>({
           label={COPY.signIn.address}
           name="email"
           kind="email"
-          autofill="off"
           isRequired={required.email}
           maxLength={max.email}
           defaultValue={person?.email}

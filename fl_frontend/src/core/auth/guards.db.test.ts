@@ -3,7 +3,6 @@ import { beginRenderPass, serveServerReact } from "@/test-support/cacheScope";
 import { emptyStore } from "@/test-support/emptyStore";
 import { replicaSetUrl, startReplicaSet } from "@/test-support/replicaSet";
 import { signInIndexesForTheFile } from "@/test-support/signInIndexes";
-import { captureLog } from "@/test-support/stdoutCapture";
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
 import type { MongoClient } from "mongodb";
@@ -16,9 +15,6 @@ let requestHeaders: Headers | undefined;
 // The real `fl_frontend/src/core/db.ts`, which the auth doubles replace by default: the client
 // under test is the one it builds.
 const PRODUCTION_DB = "@/core/db";
-
-/** Every line the real logger writes, the index build's failures among them. */
-const log = captureLog();
 
 registerAuthDoubles({
   core: {
@@ -43,12 +39,13 @@ closing(() => client.close());
 const { auth } = await import("@/core/auth/library");
 const { getAccountSession, getAdminSession } = await import("@/core/auth/guards");
 const { getPasskeyStep } = await import("@/core/auth/landing");
-const { buildAuthIndexes, MONGO_DB_NAME } = await import("@/core/authIndexes");
+const authIndexes = await import("@/core/authIndexes");
+const { MONGO_DB_NAME } = authIndexes;
 const { getSubjectSession } = await import("@/core/subject");
 const { devicesOf } = await import("@/features/account/security");
 const { heldPasskeysOf } = await import("@/features/passkeys/held");
 
-signInIndexesForTheFile(buildAuthIndexes, () => client.close(), log);
+signInIndexesForTheFile(authIndexes, () => client.db(MONGO_DB_NAME));
 
 // Each case signs the administrator in afresh.
 beforeEach(() => emptyStore(client.db(MONGO_DB_NAME)));

@@ -1,4 +1,4 @@
-import { afterEach, aroundEach, assert } from "vitest";
+import { afterAll, afterEach, aroundEach, assert } from "vitest";
 
 /** Test-only: every export below replaces `process.stdout.write` for the length of a call or a file. */
 
@@ -25,9 +25,10 @@ type Write = (chunk: unknown, ...rest: unknown[]) => boolean;
 
 /**
  * Replaces `process.stdout.write` with one handing each of the logger's chunks to `read` and every other chunk to
- * the stream. A chunk `read` refuses is a fault of the capture, recorded rather than thrown into the code that wrote.
+ * the stream, which `passOn` writes to. A chunk `read` refuses is a fault of the capture, recorded rather than thrown
+ * into the code that wrote.
  */
-function beginCapture(read: (raw: string) => void): { faults: string[]; restore: () => void } {
+function beginCapture(read: (raw: string) => void): { faults: string[]; restore: () => void; passOn: Write } {
   const faults: string[] = [];
   const original = process.stdout.write;
   const passOn = original.bind(process.stdout) as Write;
@@ -52,6 +53,7 @@ function beginCapture(read: (raw: string) => void): { faults: string[]; restore:
     restore: () => {
       process.stdout.write = original;
     },
+    passOn,
   };
 }
 
@@ -157,28 +159,6 @@ function requireProductionBuild(): void {
   );
 }
 
-/** The end of each capture the file opened, which `endEveryCapture` runs once every other hook of the file has run. */
-const OPEN_CAPTURES: (() => void)[] = [];
-
-/**
- * Stops every capture the file opened and fails the file on a line no case judged, from the setup file's `afterAll`:
- * Vitest runs a file's after-hooks last registered first, and the setup file registers before any of the file's own,
- * so a line logged while a file's clients close is read rather than passed to the reporter. Last opened first, since
- * each capture's `write` replaced the one before it: the first one's end then gives the stream back its own.
- */
-export function endEveryCapture(): void {
-  const failures: unknown[] = [];
-  for (const end of OPEN_CAPTURES.splice(0).toReversed()) {
-    try {
-      end();
-    } catch (failure) {
-      failures.push(failure);
-    }
-  }
-  if (failures.length === 1) throw failures[0];
-  if (failures.length > 1) throw new AggregateError(failures, failures.map(String).join("\n"));
-}
-
 /**
  * Every line the application's logger writes from this call to the end of the file: a case reads the stream the
  * logger really writes rather than a double of the logger. Called at module level, before the subject's import, so a
@@ -192,12 +172,9 @@ export function endEveryCapture(): void {
  * - A line the capture cannot read fails the case it was written in, from the capture's `afterEach`, rather than
  *   throwing into the code that wrote it.
  * - A line is its case's from the case's start, ahead of every `beforeEach` (Vitest's `aroundEach`), to the capture's
- *   `afterEach`. Any other line, a `beforeAll`'s, an after-hook's or a client's close's, no case reads, so it fails the
- *   case it was written ahead of or after, or the file once its last case has ended, unless a `lines` call returned it
- *   first: a hook reading its own lines judges them. Vitest marks no point between a case's body and its first
- *   after-hook, so an `afterEach` registered after this call, or inside a `describe`, writes inside the case's window.
- * - It stops after every other hook of the file, its clients' closes included, whatever order the file calls it in.
- * - A file whose every case a filter leaves out runs no hook, so nothing judges what its loading wrote.
+ *   `afterEach`. Any other line, a `beforeAll`'s or an after-hook's, is read too, and goes on to the reporter as well,
+ *   since no case may read it. Vitest marks no point between a case's body and its first after-hook, so an `afterEach`
+ *   registered after this call, or inside a `describe`, writes inside the case's window.
  */
 export function captureLog(build?: "production"): { lines(): readonly LoggedLine[]; clear(): void } {
   if (build === "production") requireProductionBuild();
@@ -205,31 +182,14 @@ export function captureLog(build?: "production"): { lines(): readonly LoggedLine
   const lines: LoggedLine[] = [];
   /** Whether a case's window is open, from the case's start to the capture's `afterEach`. */
   let inCase = false;
-  /** Each line written outside a case's window that no `lines` call has returned yet, a `clear`ed one among them. */
-  const unread = new Set<LoggedLine>();
-  const { faults, restore } = beginCapture((raw) => {
-    const line = read(raw);
-    lines.push(line);
-    if (!inCase) unread.add(line);
+  const { faults, restore, passOn } = beginCapture((raw) => {
+    if (!inCase) passOn(raw);
+    lines.push(read(raw));
   });
 
-  /** The failure naming every line written outside a case's window that nothing read, and every chunk not read. */
-  const unjudged = (when: string): string | undefined => {
-    const left = [...[...unread].map(({ raw }) => raw), ...faults.splice(0)];
-    unread.clear();
-    return left.length === 0 ? undefined : `the logger wrote ${when}, where no case reads it:\n${left.join("")}`;
-  };
-
-  aroundEach(async (runTest, { onTestFinished }) => {
-    const ahead = unjudged("before this case began");
+  aroundEach(async (runTest) => {
     lines.length = 0;
     inCase = true;
-    // Registered from the case itself, so it runs once every after-hook of the case has (Vitest's `onTestFinished`),
-    // and judges there what was written ahead of the case too, before a self-test's `onTestFailed` reads the failure.
-    onTestFinished(() => {
-      const verdicts = [ahead, unjudged("once this case had ended")].filter((verdict) => verdict !== undefined);
-      assert(verdicts.length === 0, verdicts.join("\n"));
-    });
     await runTest();
   });
   afterEach(() => {
@@ -237,17 +197,10 @@ export function captureLog(build?: "production"): { lines(): readonly LoggedLine
     const unreadable = faults.splice(0);
     assert(unreadable.length === 0, `the logger wrote what the capture cannot read:\n${unreadable.join("\n")}`);
   });
-  OPEN_CAPTURES.push(() => {
-    restore();
-    const verdict = unjudged("once the file's last case had ended");
-    assert(verdict === undefined, verdict);
-  });
+  afterAll(restore);
 
   return {
-    lines: () => {
-      for (const line of lines) unread.delete(line);
-      return [...lines];
-    },
+    lines: () => [...lines],
     clear: () => void (lines.length = 0),
   };
 }

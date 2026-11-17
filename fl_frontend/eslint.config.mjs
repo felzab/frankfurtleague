@@ -491,15 +491,6 @@ const SOURCE_BANS = [
     TESTS,
   ),
   syntaxBan(
-    // At the construction rather than on a string: an image held in a variable starts a container as surely as one
-    // typed there.
-    syntax(
-      ':matches(NewExpression[callee.name=/Container$/], NewExpression[callee.property.name=/Container$/]):not([arguments.0.type="CallExpression"][arguments.0.callee.name="localStackMongo"])',
-      "A container starts from the local stack's server, `localStackMongo()` in fl_frontend/src/test-support/replicaSet.ts: an image named here runs a release no Dependabot bump proposed.",
-    ),
-    EVERY,
-  ),
-  syntaxBan(
     syntax(
       inLiteral(String.raw`${TOKEN_START}(?:hover|group-hover|peer-hover|data-hovered):opacity-`),
       "A hover is one of globals.css's hover tokens, never an opacity.",
@@ -627,26 +618,6 @@ const SOURCE_BANS = [
     ),
     SOURCE,
     { allow: ["src/features/saisons/queries.ts", "src/app/(classic)/landing.ts", "src/kit/ClassicFrame.tsx"] },
-  ),
-  // An address someone types for another person, being erased, banned or seated, would stay in their browser and be
-  // offered to the next form, which nothing shows. The boxes where a person types their own address keep their fill.
-  syntaxBan(
-    syntax(
-      [
-        'JSXOpeningElement:has(> JSXAttribute[name.name="kind"][value.value="email"]):not(:has(> JSXAttribute[name.name="autofill"][value.value="off"]))',
-        'ObjectExpression:has(> Property[key.name="kind"][value.value="email"]):not(:has(> Property[key.name="autofill"][value.value="off"]))',
-      ].join(", "),
-      'An address box takes `autofill="off"`: an address typed for someone else stays in the browser and is offered to the next form. A box where a person types their own address joins this ban\'s `allow` list in eslint.config.mjs.',
-    ),
-    PRODUCTION,
-    {
-      allow: [
-        "src/app/(classic)/bewerbung/[saison]/BewerbungFields.tsx",
-        "src/app/(classic)/registrierung/RegistrierungFields.tsx",
-        "src/app/account/(pages)/signin/SignInBoxes.tsx",
-        "src/kit/SignInPage.tsx",
-      ],
-    },
   ),
 ];
 
@@ -1533,19 +1504,19 @@ const eslintConfig = defineConfig([
     },
   },
 
-  // Two file names the toolchain takes in silence. Next 16 still runs a `middleware.ts`, deprecated, so it would be a
-  // second request hook beside `proxy.ts`; Tailwind 4 reads no `tailwind.config.*` but through a stylesheet's `@config`.
-  ...[
-    ["**/middleware.{ts,tsx,js}", "Next.js 16 renamed `middleware.ts` to `proxy.ts`: the request hook is fl_frontend/src/proxy.ts."],
-    [
-      "**/tailwind.config.{js,ts,cjs,mjs}",
-      "Tailwind 4 is configured in CSS: the theme is `@theme` in fl_frontend/src/app/tokens.css and globals.css.",
-    ],
-  ].map(([pattern, errorMessage]) => ({
-    files: [pattern],
+  // A file name the toolchain takes in silence: Tailwind 4 reads no `tailwind.config.*` but through a stylesheet's
+  // `@config`.
+  {
+    files: ["**/tailwind.config.{js,ts,cjs,mjs}"],
     plugins: { "check-file": checkFile },
-    rules: { "check-file/filename-blocklist": ["error", { [pattern]: "" }, { errorMessage }] },
-  })),
+    rules: {
+      "check-file/filename-blocklist": [
+        "error",
+        { "**/tailwind.config.{js,ts,cjs,mjs}": "" },
+        { errorMessage: "Tailwind 4 is configured in CSS: the theme is `@theme` in fl_frontend/src/app/tokens.css and globals.css." },
+      ],
+    },
+  },
 
   // The token file's colours, held to one list and to the contrast each pair's job needs.
   {

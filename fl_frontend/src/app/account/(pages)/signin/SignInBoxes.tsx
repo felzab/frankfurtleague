@@ -62,6 +62,7 @@ export function SignInBoxes({
             label={COPY.account.address.new}
             name="email"
             kind="email"
+            autofill="email"
             isRequired={addressRequired}
           />
         </AccountBox>

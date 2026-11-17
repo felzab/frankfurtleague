@@ -22,6 +22,7 @@ import { MongoServerError } from "mongodb";
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
 import type { LookupFixture } from "@/test-support/subjectFixtures";
+import type { MongoClient } from "mongodb";
 
 // A replica set.
 const { mongod, closing } = await startReplicaSet();
@@ -189,7 +190,8 @@ const { toNextJsHandler } = await import("better-auth/next-js");
 const { auth } = await import("./auth/library");
 const { carryAccount, deleteAccountFor, deleteOwnAccount, requestAccountDeletion } = await import("./auth/accounts");
 const { endSessionsOfAddress } = await import("./auth/accountSessions");
-const { buildAuthIndexes, MONGO_DB_NAME } = await import("./authIndexes");
+const authIndexes = await import("./authIndexes");
+const { MONGO_DB_NAME } = authIndexes;
 
 type Collection = {
   find: (filter: object) => { toArray: () => Promise<Record<string, unknown>[]> };
@@ -208,7 +210,7 @@ const realClient = productionClient as RealClient;
 closing(() => realClient.close());
 const authDb = () => realClient.db(MONGO_DB_NAME);
 
-signInIndexesForTheFile(buildAuthIndexes, () => realClient.close(), log);
+signInIndexesForTheFile(authIndexes, () => (productionClient as MongoClient).db(MONGO_DB_NAME));
 
 beforeEach(async () => {
   gateAnswer = { seats: [], barred: false, account: false };

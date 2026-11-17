@@ -14,9 +14,7 @@ export class StoreRelay {
   private refusing = false;
   /** The command whose first request hangs the relay, as its name opens a BSON key. */
   private trigger: Buffer | null = null;
-  /** The command whose first request alone is never passed on, in the same form. */
-  private dropped: Buffer | null = null;
-  /** Whether `hangFrom`'s or `dropFirst`'s command was ever sent, without which its case proves nothing. */
+  /** Whether `hangFrom`'s command was ever sent, without which its case proves nothing. */
   triggered = false;
   private readonly sockets = new Set<Socket>();
   /**
@@ -37,12 +35,6 @@ export class StoreRelay {
       socket.on("error", () => undefined);
     }
     inbound.on("data", (chunk: Buffer) => {
-      if (this.dropped !== null && chunk.includes(this.dropped)) {
-        this.dropped = null;
-        this.triggered = true;
-        this.stranded.add(inbound);
-        return;
-      }
       if (this.trigger !== null && chunk.includes(this.trigger)) {
         this.hung = true;
         this.triggered = true;
@@ -84,21 +76,6 @@ export class StoreRelay {
       return await body();
     } finally {
       this.resume();
-    }
-  }
-
-  /**
-   * Runs `body` with the first request carrying `command` never passed on, and every other request answered: one
-   * answer the client waits for and never gets, as a store too slow for its bound meets it.
-   */
-  async dropFirst<T>(command: string, body: () => Promise<T>): Promise<T> {
-    this.triggered = false;
-    this.dropped = Buffer.from(`${command}\0`);
-    try {
-      return await body();
-    } finally {
-      this.dropped = null;
-      this.endStranded();
     }
   }
 

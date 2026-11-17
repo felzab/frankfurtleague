@@ -1362,35 +1362,24 @@ publication consents withdrawn again above.
 
 **Every production boot of the frontend builds them, and serves the site whether or not each is
 built** (`fl_frontend/src/core/authIndexes.ts :: AUTH_INDEXES`). An index the boot could not build
-is one `auth.index_unbuilt` line naming it. Only a line with no `code`, or a role change's, is
-built again before the next boot, on the first heartbeat the store answers as a writable server.
-Each run ends with one
-`auth.indexes_settled` line counting the indexes `built` and `unbuilt`, written once every index
-is built or logged. So after every deploy ([section 1](#1-deploying-a-build-and-going-back-to-an-earlier-one))
-and every restart, wait for that line, then read the run's lines. A restart keeps the container and
-its earlier log, so both commands read only from the container's own start:
+is one `auth.index_unbuilt` line naming it, and only a line with no `code` is built again before
+the next boot, on the first heartbeat the store answers as a writable server. An index the store
+already holds builds nothing and succeeds, so only a release changing the list can leave one
+unbuilt. In such a release, once the deploy
+([section 1](#1-deploying-a-build-and-going-back-to-an-earlier-one)) ends, read the frontend's log
+for that event:
 
 ```bash
-since="$(docker inspect -f '{{.State.StartedAt}}' "$(docker compose ps -q frontend)")"
-timeout 300 bash -c "until docker compose logs --since '$since' frontend | grep -q auth.indexes_settled; do sleep 5; done"
-docker compose logs --since "$since" frontend | grep -E 'auth\.(index_unbuilt|indexes_settled)'
+docker compose logs frontend | grep auth.index_unbuilt
 ```
 
-**Five minutes outlasts any run the boot starts.** A run asks again for an unanswered build for
-three minutes (`fl_frontend/src/core/authIndexes.ts :: ANSWERED_WITHIN_MS`), counted from the boot,
-which comes before a deploy ends. Past the three minutes, the ask under way finishes, and each later
-index of the same collection is asked once. That is at most three asks, for `session`'s three
-indexes, and each waits at most nine seconds: the client's selection, checkout and socket bounds
-of three seconds each, its connect bound counted inside the checkout (`fl_frontend/src/core/db.ts`). A wait that ends in exit 124 means the frontend has written no
-verdict since it started: read its whole log.
-
-| The line's `code`                           | What stands                                                                 | What to do                                                                                                                                                               |
-| ------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `85`                                        | An index on the same key under another name, which keeps serving            | Give the list's entry the name the Atlas console shows, in a release                                                                                                     |
-| `11000`                                     | Rows sharing a value the index keeps unique; no index on that key           | Group the collection on the key in the Atlas console to find them. Which row stays is a judgement about those accounts, and the next boot builds the index once one does |
-| `13`                                        | Nothing: the sign-in store's database user may not build an index           | Grant that user `readWrite` on `auth` in the Atlas console, which carries `createIndex`, then restart the frontend (below)                                               |
-| A role change's, such as `10107` or `11602` | Nothing: the store was changing its primary, or shutting one down           | Nothing: the frontend builds them again on the first heartbeat of a writable primary                                                                                     |
-| none                                        | Nothing: the store did not answer, or answered slower than the client waits | Nothing: the frontend builds them again on the store's next heartbeat, and logs `auth.index_unbuilt` again for any still refused or still slow                           |
+| The line's `code` | What stands                                                                 | What to do                                                                                                                                                               |
+| ----------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `85`              | An index on the same key under another name, which keeps serving            | Give the list's entry the name the Atlas console shows, in a release                                                                                                     |
+| `11000`           | Rows sharing a value the index keeps unique; no index on that key           | Group the collection on the key in the Atlas console to find them. Which row stays is a judgement about those accounts, and the next boot builds the index once one does |
+| `13`              | Nothing: the sign-in store's database user may not build an index           | Grant that user `readWrite` on `auth` in the Atlas console, which carries `createIndex`, then restart the frontend (below)                                               |
+| Any other         | Nothing: the store refused it for a reason of its own, such as an election  | Restart the frontend (below), which builds it again                                                                                                                      |
+| none              | Nothing: the store did not answer, or answered slower than the client waits | Nothing: the frontend builds them again on the store's next heartbeat, and logs `auth.index_unbuilt` again for any still refused or still slow                           |
 
 **A name in the list is the one production's index carries.** Three of them — the `passkey`
 collection's unique `credentialID` and both expiry indexes — were made in the Atlas console before
@@ -1422,7 +1411,7 @@ cookie comes back. With an expiry-after of zero seconds the stored value is the 
 
 **A Better Auth release that declares an index of its own on a key the list covers throws on every
 write to that collection**, its adapter building the library's name where the list's already
-stands. The frontend's sign-in db suites build the list before each case, so such an upgrade fails
+stands. The frontend's sign-in db suites build the list for each file, so such an upgrade fails
 them before it ships; the repair is the list's entry taking the library's name.
 
 ## 15. When a sign-in code does not arrive

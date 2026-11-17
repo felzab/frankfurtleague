@@ -1,6 +1,5 @@
 import { defineConfig } from "vitest/config";
 
-import { DB_TIER } from "./src/test-support/dbTier.mts";
 import { TEST_ENVIRONMENT } from "./src/test-support/testEnvironment.mts";
 
 /**
@@ -29,8 +28,8 @@ export default defineConfig({
       // focus scope calls as a dialog unmounts.
       jsdom: { url: "http://localhost/", pretendToBeVisual: true },
     },
-    // Each project's name opens with its tier's, `unit` or `db`: the scripts in `package.json` the gate runs select a
-    // tier by that prefix, so a project named otherwise would run nowhere. Each inherits the options above, `extends`
+    // A db project's name opens with `db`: `package.json`'s `test:db` selects those projects and `test` every other
+    // (`--project='!db*'`), so each project runs in exactly one tier. Each inherits the options above, `extends`
     // defaulting to `true` (https://vitest.dev/guide/projects).
     projects: [
       {
@@ -53,7 +52,16 @@ export default defineConfig({
         test: { name: "unit-production", include: PRODUCTION_BUILD, env: { NODE_ENV: "production" } },
       },
       {
-        test: { name: "db", include: ["src/**/*.db.test.ts"], ...DB_TIER },
+        test: {
+          name: "db",
+          include: ["src/**/*.db.test.ts"],
+          // A case here waits on a replica set in a container, past Vitest's five seconds. The tier's usual run is inside
+          // the whole gate, beside every other scope, where a case that takes a second alone took up to 30 s (2026-11-17):
+          // sized for that run, so a case slow only from the gate's load passes and one that hangs still fails by name.
+          // The replica set's start is bounded apart: each file awaits it at module level, where neither bound reaches.
+          testTimeout: 60_000,
+          hookTimeout: 60_000,
+        },
       },
     ],
   },

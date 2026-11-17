@@ -31,24 +31,11 @@ Each fails silently. The ratified decisions for this surface are in `docs/decisi
   one-shot form (`fl_frontend/src/kit/usePasskeyTouch.ts`). A touch fired from an effect, or behind
   anything slower than the sign-in client's own request, has lost the press Safari asks of WebAuthn:
   `tsc` and every unit test pass, and the passkey journeys run in Chromium alone.
-- A journey looks up a dialog, a sheet, a question, a menu or a list's options through
-  `fl_frontend/e2e/support/controls.ts` alone, whose helpers answer one only once it has entered,
-  and presses a control inside it through the overlay a helper answered. A press on an overlay still
-  entering fails Playwright's stability check, and its retry scrolls the control into view, which
-  closes a rising sheet or a combo box's list: the press lands on an overlay already leaving, and
-  only a journeys leg in CI shows it, now and then. The lint refuses a lookup of those roles anywhere
-  else in `e2e/`, not a control found by its own role off the page, a button's or a text box's, so a
-  press inside an overlay reached that way passes it. A new kind of overlay takes a helper there.
+- A journey presses a control inside an overlay through the overlay a helper of
+  `fl_frontend/e2e/support/controls.ts` answered, never by the control's own role off the page, a
+  button's or a text box's, which the lint's ban on looking up an overlay's role passes. Found that
+  way, the press can land on an overlay still entering: it fails Playwright's stability check, and
+  the retry scrolls the control into view, which closes a rising sheet or a combo box's list, and
+  only a journeys leg in CI shows it, now and then.
 - Grep for render props before deleting a `"use client"`. A Server Component may not pass a function
   to a Client Component, and neither `tsc` nor the build catches it on a dynamic route.
-- A domain check is never a type predicate. `tsc` trusts a hand-written `x is T` in both branches
-  without checking either, so a guard testing more than the type answers `false` for a value that
-  is a `T` and narrows it away: a contact seat on another team typed as no seat, a 5xx typed as no
-  `APIBadStatusError`, and `tsc` and every test pass. Such a check answers what it found, typed by
-  the compiler: the matching seats (`fl_frontend/src/core/roles.ts :: seatsAt`), the refusal or
-  `null` (`fl_frontend/src/core/errors.ts :: asRefusal`), or a boolean. A predicate TypeScript
-  infers from the body is left unannotated, so the compiler checks it. The one it cannot infer, an
-  own-key lookup, calls `fl_frontend/src/core/ownKeyOf.ts :: ownKeyOf`, whose type parameter ties
-  the keys it asserts to the object it tests, and a predicate calling it is inferred. The lint
-  refuses every hand-written `x is T` outside that file, an `asserts` one and one in a type
-  included.
