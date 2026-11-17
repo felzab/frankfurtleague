@@ -44,11 +44,10 @@ jobs:
           # The token is not needed after checkout. Leaving it in .git/config would expose it to
           # every later step, including anything a dependency's install script decides to run.
           persist-credentials: false
-      # pytest with xdist, ruff and pyright alone: no script or test of the scope imports another package.
+      # No script or test of the scope imports the application.
       - uses: ./.github/actions/backend-toolchain
         with:
           application: false
-          group: checks
       - name: Run the scripts scope
         run: ./scripts/gate/verify.sh --scripts
 
@@ -162,7 +161,6 @@ jobs:
       - uses: ./.github/actions/backend-toolchain
         with:
           application: false
-          group: zizmor
       - name: Run the ops scope
         # zizmor runs its online audits here alone, reading GitHub's API with the job's read-only
         # token.

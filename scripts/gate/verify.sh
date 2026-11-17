@@ -501,7 +501,7 @@ or name production code knip cannot see in fl_frontend/knip.production.json." \
 OPS_SCRATCH=""
 cleanup_ops() { if [[ -n "$OPS_SCRATCH" ]]; then rm -rf "$OPS_SCRATCH" || true; fi; }
 
-# The release is the backend lockfile's, from the `zizmor` dependency group. Its wheel installs the
+# The release is the backend lockfile's, from its dev group. Its wheel installs the
 # program alone, with no module `-m` could run, so it runs from beside the interpreter.
 # zizmor answers 11 to 14 for findings by their highest severity, and 1 for an error during the audit
 # (its usage page, "Exit codes").

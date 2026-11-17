@@ -262,12 +262,6 @@ dependencies = [
 ]
 
 [package.dev-dependencies]
-checks = [
-    { name = "pyright", extra = ["nodejs"] },
-    { name = "pytest" },
-    { name = "pytest-xdist" },
-    { name = "ruff" },
-]
 dev = [
     { name = "deptry" },
     { name = "httpx2" },
@@ -277,9 +271,6 @@ dev = [
     { name = "pytest-xdist" },
     { name = "ruff" },
     { name = "testcontainers", extra = ["mongodb"] },
-    { name = "zizmor" },
-]
-zizmor = [
     { name = "zizmor" },
 ]
 
@@ -298,12 +289,6 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-checks = [
-    { name = "pyright", extras = ["nodejs"], specifier = ">=1.1.414" },
-    { name = "pytest", specifier = ">=9.2.0" },
-    { name = "pytest-xdist", specifier = ">=3.8.0" },
-    { name = "ruff", specifier = ">=0.17.4" },
-]
 dev = [
     { name = "deptry", specifier = ">=0.25.1" },
     { name = "httpx2", specifier = ">=2.16.0" },
@@ -315,7 +300,6 @@ dev = [
     { name = "testcontainers", extras = ["mongodb"], specifier = ">=4.15.0" },
     { name = "zizmor", specifier = ">=1.32.0" },
 ]
-zizmor = [{ name = "zizmor", specifier = ">=1.32.0" }]
 
 [[package]]
 name = "h11"
