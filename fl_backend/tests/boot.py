@@ -13,7 +13,7 @@ import os
 import re
 import sys
 from collections.abc import AsyncGenerator, Mapping
-from contextlib import asynccontextmanager
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
@@ -21,7 +21,7 @@ from typing import Any, Final
 from app.core.concurrency import concurrently
 from app.core.db import SERVER_SELECTION_TIMEOUT_MS
 from tests.database import CASE_BOUND_S
-from tests.processes import stopped, to_its_exit
+from tests.processes import READ_AFTER_ITS_END_S, running
 
 BACKEND_ROOT: Final = Path(__file__).resolve().parents[1]
 DOCKERFILE: Final = BACKEND_ROOT / "Dockerfile"
@@ -34,11 +34,13 @@ BOOT_BOUND_S: Final = SERVER_SELECTION_TIMEOUT_MS / 1000 + 45
 # and under the case's own bound, so a boot that never starts fails as one.
 SERVING_BOUND_S: Final = 20.0
 
-# How long a boot asked to stop gets before it is killed. uvicorn defers a SIGTERM until its lifespan's startup ends, so
-# a boot stuck there, the one `SERVING_BOUND_S` cuts, ends only when killed.
+# How long a boot asked to stop gets before it is ended with every process it started. uvicorn defers a SIGTERM until
+# its lifespan's startup ends, so a boot stuck there, the one `SERVING_BOUND_S` cuts, ends only once its tree is ended.
 STOP_GRACE_S: Final = 5.0
 
-assert SERVING_BOUND_S + STOP_GRACE_S < CASE_BOUND_S, "a boot held inside a case must time out and stop before the case does"
+assert SERVING_BOUND_S + STOP_GRACE_S + READ_AFTER_ITS_END_S < CASE_BOUND_S, (
+    "a boot held inside a case must time out and stop before the case does"
+)
 
 # The shape of the application's own log message (`app/core/logging.py`), which carries no value; uvicorn's lines and a
 # traceback's do not take it.
@@ -137,30 +139,33 @@ class Boot:
         return sorted(name for name, value in values.items() if value in self.output)
 
 
-async def _started(directory: Path, files: Mapping[str, str], variables: Mapping[str, str]) -> asyncio.subprocess.Process:
-    """The boot started from `directory`, with `files` as its secrets and `variables` as its whole environment."""
+def _boot(directory: Path, files: Mapping[str, str], variables: Mapping[str, str]) -> AbstractAsyncContextManager[asyncio.subprocess.Process]:
+    """The boot started from `directory`, with `files` as its secrets and `variables` as its whole environment, held running.
 
-    return await asyncio.create_subprocess_exec(
-        *boot_command(),
+    Stopped as the block leaves, by any path a sibling's failure included, and ended with every process it started.
+    """
+
+    return running(
+        boot_command(),
         cwd=directory,
         env=_environment(_secrets_folder(directory, files), variables),
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.STDOUT,
+        merged=True,
+        grace_s=STOP_GRACE_S,
     )
 
 
 async def _to_its_exit(directory: Path, files: Mapping[str, str], variables: Mapping[str, str]) -> Boot:
-    # In a thread of its own, so the boots still run at once.
-    ended = await asyncio.to_thread(
-        to_its_exit,
-        boot_command(),
-        bound_s=BOOT_BOUND_S,
-        cwd=directory,
-        env=_environment(_secrets_folder(directory, files), variables),
-        merged=True,
-    )
+    async with _boot(directory, files, variables) as process:
+        bound = asyncio.timeout(BOOT_BOUND_S)
+        try:
+            async with bound:
+                output, _ = await process.communicate()
+        except TimeoutError as timeout:
+            if bound.expired():
+                raise TimeoutError(f"the boot ran past its {BOOT_BOUND_S:g} s bound") from timeout
+            raise
 
-    return Boot(ended.returncode, ended.stdout)
+    return Boot(process.returncode, output.decode("utf-8", errors="replace"))
 
 
 Booting = tuple[Path, Mapping[str, str], Mapping[str, str]]
@@ -182,11 +187,10 @@ async def booted(boots: Mapping[str, Booting]) -> dict[str, Boot]:
 async def serving(directory: Path, files: Mapping[str, str], variables: Mapping[str, str], *, until: str) -> AsyncGenerator[Boot]:
     """The boot, held running from the line `until` names until the block leaves; what it logged by then, or by its exit."""
 
-    process = await _started(directory, files, variables)
-    assert process.stdout is not None
-    lines: list[bytes] = []
-    reading = asyncio.timeout(SERVING_BOUND_S)
-    try:
+    async with _boot(directory, files, variables) as process:
+        assert process.stdout is not None
+        lines: list[bytes] = []
+        reading = asyncio.timeout(SERVING_BOUND_S)
         try:
             async with reading:
                 while line := await process.stdout.readline():
@@ -198,8 +202,6 @@ async def serving(directory: Path, files: Mapping[str, str], variables: Mapping[
                 raise TimeoutError(f"the boot logged no `{until}` within {SERVING_BOUND_S:.0f} s") from timeout
             raise
         yield Boot(process.returncode, b"".join(lines).decode("utf-8", errors="replace"))
-    finally:
-        await stopped(process, grace_s=STOP_GRACE_S)
 
 
 def names(sentence: str | None, opening: str) -> set[str]:
