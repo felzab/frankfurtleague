@@ -10,6 +10,7 @@ import { COPY } from "./copy";
 import { asSignInIdentifier, KONTAKT_EMAIL_MAX_LENGTH } from "./emailAddress";
 import { APIBadStatusError, loggedByBackend, requestOf } from "./errors";
 import { logger } from "./logging";
+import { ownKeyOf } from "./ownKeyOf";
 import { logRefused } from "./refused";
 import { getRequestActor, requestWriteMayStand } from "./requestScope";
 import { rolesOf, seatsAt } from "./roles";
@@ -330,9 +331,9 @@ const TURNED_AWAY: Readonly<Record<AdminRefusal, Copy>> = {
 
 const UNEXPECTED = { ok: false, reason: COPY.shared.failure.unexpected } as const;
 
-const isWorded = (code: Code): code is Code & keyof typeof SERVER_COPY.refusal => Object.hasOwn(SERVER_COPY.refusal, code);
+const isWorded = (code: Code) => ownKeyOf(SERVER_COPY.refusal, code);
 
-const isLined = (code: Code): code is Code & keyof typeof SERVER_COPY.refusalLine => Object.hasOwn(SERVER_COPY.refusalLine, code);
+const isLined = (code: Code) => ownKeyOf(SERVER_COPY.refusalLine, code);
 
 // The backend's own strip, Python's `str.strip`: Unicode's White_Space and U+001C to U+001F, from both ends. A field
 // stripped by Pydantic's `strip_whitespace` keeps those four, which is safe, since the stripped text is what is sent.

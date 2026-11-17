@@ -1,6 +1,7 @@
 import { COPY } from "@/core/copy";
 import { ERASED_ACTOR_MARKER } from "@/core/erasedActor";
 import { formatInstantShort } from "@/core/format";
+import { ownKeyOf } from "@/core/ownKeyOf";
 import { SERVER_COPY } from "@/core/serverCopy";
 
 import { actorWords } from "./filters";
@@ -11,7 +12,7 @@ import type { TableRow } from "@/kit/Table";
 
 const WORDS = COPY.admin.actionLog;
 
-const isPass = (action: FLAction): action is keyof typeof WORDS.passNoun => Object.hasOwn(WORDS.passNoun, action);
+const isPass = (action: FLAction) => ownKeyOf(WORDS.passNoun, action);
 
 /**
  * What the act was about: a pass's count of what it took, an admission's of the other pending registrations it deleted

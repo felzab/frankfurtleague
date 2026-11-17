@@ -5,6 +5,7 @@ import { COPY } from "./copy";
 import { bornBy } from "./dayArithmetic";
 import { dayIn, dayOf } from "./format";
 import { saisonsPatchSaisonBodyRulesDrawPointsMin, saisonsPatchSaisonBodyRulesLossPointsMin } from "./generated/zod/inputs";
+import { ownKeyOf } from "./ownKeyOf";
 import { SERVER_COPY } from "./serverCopy";
 
 import type { Copy } from "./copy";
@@ -89,8 +90,8 @@ const PATTERNED = {
  */
 export type WordedRule = keyof typeof PATTERNED | keyof typeof SERVER_COPY.ruleLine;
 
-const isPatterned = (kind: string): kind is keyof typeof PATTERNED => Object.hasOwn(PATTERNED, kind);
-const isLined = (kind: string): kind is keyof typeof SERVER_COPY.ruleLine => Object.hasOwn(SERVER_COPY.ruleLine, kind);
+const isPatterned = (kind: string) => ownKeyOf(PATTERNED, kind);
+const isLined = (kind: string) => ownKeyOf(SERVER_COPY.ruleLine, kind);
 
 /** Whether the catalogue words this rule, so a screen may place it. */
 export const isWordedRule = (kind: string) => isPatterned(kind) || isLined(kind);

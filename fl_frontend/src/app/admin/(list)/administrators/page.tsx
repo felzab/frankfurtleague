@@ -58,8 +58,6 @@ type Access = {
   changes: readonly WaitingChange[];
 };
 
-const isWaitingChange = (change: FLAddressChangeAdminOpen): change is WaitingChange => change.effective_from !== null;
-
 /**
  * Who holds access and what waits. A future `effective_from` is an addition no session holds yet; a holder's change is
  * a running change the server marks a holder's with its date set, which it answers to the owner alone, and never the
@@ -78,7 +76,10 @@ async function readAccess(): Promise<Access> {
     active: [...owner, ...inEffect.filter((grant) => grant.admin_tier !== "owner")],
     additions: grants.filter((grant) => !inEffect.includes(grant)),
     handover: grants.find((grant) => grant.owner_from !== null),
-    changes: changes.filter(isWaitingChange).filter((change) => change.holder !== null),
+    // Each answered anew with its date, which the compiler then types as set, where a filter would leave it nullable.
+    changes: changes.flatMap(({ effective_from, ...change }) =>
+      effective_from === null || change.holder === null ? [] : [{ ...change, effective_from }],
+    ),
   };
 }
 

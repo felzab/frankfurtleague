@@ -17,13 +17,11 @@ import type { EndState, OneShotActs } from "./OneShot";
 /** The options the form's check rendered Cloudflare's widget with, whose callbacks the case calls as Cloudflare would. */
 let widget: Record<string, unknown> | undefined;
 
-const isCallback = (value: unknown): value is (...args: unknown[]) => unknown => typeof value === "function";
-
 /** Cloudflare's callback of that name, as the widget was handed it. */
 const cloudflare = (name: string) => {
   const callback = widget?.[name];
-  if (!isCallback(callback)) throw new Error(`the widget was rendered without its ${name}`);
-  return (...args: unknown[]) => act(() => void callback(...args));
+  if (typeof callback !== "function") throw new Error(`the widget was rendered without its ${name}`);
+  return (...args: unknown[]) => act(() => void Reflect.apply(callback, undefined, args));
 };
 
 // Cloudflare's script, loaded before the form mounts: jsdom fetches no script, and the check renders its widget through
