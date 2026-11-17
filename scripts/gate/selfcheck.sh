@@ -7,7 +7,7 @@
 #   ./scripts/gate/selfcheck.sh
 #   ./scripts/gate/selfcheck.sh --help
 
-source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh" || exit 3
 
 for arg in "$@"; do
   case "$arg" in
@@ -24,6 +24,8 @@ UNRUN=()
 # Asked of the tree rather than written down, so a script landing anywhere is checked. `--others`, so
 # a script is covered the moment it exists.
 SHELL_FILES=()
+listed=""
+run_tool utility --stdout listed --crash "git could not list the tree's files." -- git ls-files --cached --others --exclude-standard
 while IFS= read -r f; do
   # git lists what the index holds, which a deleted-but-unstaged path outlives.
   [[ -f "$f" ]] || continue
@@ -35,7 +37,7 @@ while IFS= read -r f; do
           [[ "$shebang" =~ ^#!.*(/|[[:space:]])(ba)?sh([[:space:]]|$) ]] || continue ;;
   esac
   SHELL_FILES+=("$f")
-done < <(git ls-files --cached --others --exclude-standard)
+done <<<"$listed"
 if (( ${#SHELL_FILES[@]} == 0 )); then
   refuse "git named no shell script in this repository, so there was nothing to check"
 fi
@@ -43,43 +45,51 @@ fi
 step "1. Executable bit is set in git"
 # The mode git records, not the filesystem's: on Windows `core.fileMode` is false, so `chmod +x` is
 # cosmetic and the script reaches the Linux server non-executable. `scripts/lib/` is sourced, never run.
+modes=""
+run_tool utility --stdout modes --crash "git could not name the modes of the shell scripts." -- git ls-files -s -- "${SHELL_FILES[@]}"
 while IFS=$'\t' read -r meta path; do
   if [[ "$path" == scripts/* && "$path" != scripts/lib/* && "${meta%% *}" != 100755 ]]; then
     note_fail "${path} is mode ${meta%% *} in git, not 100755. Fix:  git update-index --chmod=+x ${path}"
   fi
-done < <(git ls-files -s -- "${SHELL_FILES[@]}")
+done <<<"$modes"
 
-# A linter's status through its own table, Docker's ahead of it: what it found is a finding, a linter
-# that could not read a file it was handed judged nothing, and Docker's own 125, which a flag it does
-# not hold answers as well as a pull that failed, is a crash.
-linted() { # $1 the linter · $2 its status · $3 the line it ran on
-  local class=0
-  settle "docker+$1" "$2" "$3" "docker run of $1" || class=$?
-  case "$class" in
-    1) note_fail "$1 reported the findings above (exit $2)" ;;
-    2) UNRUN+=("$1 judged nothing it was handed (exit $2): its own words, or Docker's, are above") ;;
+# A linter's class, read off its status through its own table, Docker's ahead of it: what it found is a
+# finding, a linter that could not read a file it was handed judged nothing, and Docker's own 125, which
+# a flag it does not hold answers as well as a pull that failed, is a crash, which `settle` ends the run on.
+linted() { # $1 the linter · $2 its class · $3 its status
+  case "$2" in
+    1) note_fail "$1 reported the findings above (exit $3)" ;;
+    2) UNRUN+=("$1 judged nothing it was handed (exit $3): its own words, or Docker's, are above") ;;
   esac
 }
 
 # Each linter is the image its stage names in the tools file (`tool_image`), so a release reaches the
-# gate by a named bump alone and runs the same on every machine.
+# gate by a named bump alone and runs the same on every machine. Docker not answering is no guard's
+# refusal here, since a finding of the first step outranks it.
 sc_rc=0
 al_rc=0
-if ! docker version >/dev/null 2>&1; then
+if ! answered docker docker version >/dev/null 2>&1; then
   UNRUN+=("Docker is not responding, so no script and no workflow was linted")
 elif ! SHELLCHECK_IMAGE="$(tool_image shellcheck)" || ! ACTIONLINT_IMAGE="$(tool_image actionlint)"; then
   note_fail "${TOOLS_FILE} names no single FROM line for shellcheck and actionlint each, so neither ran"
 else
+  checkout=""
+  run_tool utility --stdout checkout --crash "cygpath could not spell the checkout as a mount source." -- mount_source
+
   step "2. shellcheck"
   # SC1091 throughout: shellcheck cannot follow the sourced library. A script that does not parse is
   # one of its errors. MSYS_NO_PATHCONV stops Git Bash rewriting the container path into a Windows one.
-  MSYS_NO_PATHCONV=1 docker run --rm -v "$(mount_source):/mnt:ro" -w /mnt \
+  MSYS_NO_PATHCONV=1 docker run --rm -v "${checkout}:/mnt:ro" -w /mnt \
     "$SHELLCHECK_IMAGE" -e SC1091 "${SHELL_FILES[@]}" || sc_rc=$?
-  linted shellcheck "$sc_rc" "$LINENO"
+  class=0
+  settle docker+shellcheck "$sc_rc" "$LINENO" "docker run of shellcheck" || class=$?
+  linted shellcheck "$class" "$sc_rc"
 
   step "3. actionlint on the workflows"
-  MSYS_NO_PATHCONV=1 docker run --rm -v "$(mount_source):/repo:ro" -w /repo "$ACTIONLINT_IMAGE" || al_rc=$?
-  linted actionlint "$al_rc" "$LINENO"
+  MSYS_NO_PATHCONV=1 docker run --rm -v "${checkout}:/repo:ro" -w /repo "$ACTIONLINT_IMAGE" || al_rc=$?
+  class=0
+  settle docker+actionlint "$al_rc" "$LINENO" "docker run of actionlint" || class=$?
+  linted actionlint "$class" "$al_rc"
 fi
 
 printf '\n'

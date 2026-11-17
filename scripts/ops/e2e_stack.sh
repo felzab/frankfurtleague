@@ -13,7 +13,7 @@
 # that does not build and a service that never came up healthy among them; 2 refused, the seed's refusal among them; 130
 # interrupted; 3 or more a step that crashed, the seed's own status kept, and a Compose call judging nothing that failed.
 
-source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh" || exit 3
 
 PHASE=""; BUILD=0
 for arg in "$@"; do

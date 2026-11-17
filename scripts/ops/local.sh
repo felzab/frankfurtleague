@@ -25,7 +25,7 @@
 #                                    --e2e, stop the end-to-end stack and delete all it holds
 #   ./scripts/ops/local.sh --help
 
-source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh" || exit 3
 
 # docker-compose.local.yml merged over docker-compose.yml, named for every call below by Compose's
 # own variable.
@@ -298,7 +298,13 @@ if (( class == 0 )); then
   detail "${CLOSING[@]}"
 else
   fail "The stack came up unhealthy, and compose's own account is above."
-  docker compose ps --all 2>&1 | detail || true
+  # An account of a failure already counted, so a listing compose cannot give is said and passed.
+  listing=""
+  if answered compose --stdout listing docker compose ps --all; then
+    detail <<<"$listing"
+  else
+    detail "compose could not list the services; its own account is above."
+  fi
   detail "If you see 'Invalid environment variables', fix those names in the .env files — that is" \
          "the startup gate doing its job." \
          "'Invalid secret files: <FILES>' or 'Unreadable secret files: <PATH> (<ERRNO>)' names a" \

@@ -150,13 +150,16 @@ def _gate(
     answers: dict[str, str],
     tools: str | None = None,
     backend_tests: dict[str, str] | None = None,
-    committed: bool = False,
+    committed: bool | None = None,
 ) -> tuple[int, str]:
     """`verify.sh` run once over `scopes` behind the stand-ins, its exit code and both streams.
 
-    `backend_tests` are test modules written into the fixture's `fl_backend/`, which the real pytest collects.
-    `committed` makes the tree a repository with a contract its stand-in generators write again.
+    `backend_tests` are test modules written into the fixture's `fl_backend/`, which the real pytest collects. The
+    tree holds a contract its stand-in generators write again, and is a repository holding it where `committed`, by
+    default for the scopes asking git about the tree, the db scope and a run of every scope.
     """
+    if committed is None:
+        committed = not scopes or "--db" in scopes
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
     root = new_root("fl-gate-endings-")
     for path in COPIED:
@@ -167,12 +170,11 @@ def _gate(
     (root / "scripts" / "checks").mkdir()
     write_shell(root / "scripts" / "checks" / "edge_test.sh", EDGE)
     write_shell(root / "scripts" / "gate" / "selfcheck.sh", SELFCHECK)
-    if committed:
-        (root / "fl_frontend" / "src" / "core" / "generated").mkdir(parents=True)
-        write_shell(root / "fl_frontend" / "src" / "core" / "generated" / "client.ts", "export {};\n")
-        (root / "fl_backend").mkdir()
-        write_shell(root / "fl_backend" / "openapi.json", "{}\n")
-        answers = {"FL_CONTRACT": "written", "VERIFY_IMAGES_BUILT": "1"} | answers
+    (root / "fl_frontend" / "src" / "core" / "generated").mkdir(parents=True)
+    write_shell(root / "fl_frontend" / "src" / "core" / "generated" / "client.ts", "export {};\n")
+    (root / "fl_backend").mkdir()
+    write_shell(root / "fl_backend" / "openapi.json", "{}\n")
+    answers = {"FL_CONTRACT": "written", "VERIFY_IMAGES_BUILT": "1"} | answers
     if committed:
         _committed(root)
     venv = root / "fl_backend" / ".venv" / "bin"
@@ -276,7 +278,7 @@ CRASHED: Final = "exit status "
             "--frontend", {"FL_PNPM_typecheck_only": "1:NO_SCRIPT"}, 3, CRASHED, TSC, id="a-typecheck-script-the-manifest-lacks-is-a-crash"
         ),
         # The db scope's three runs side by side: a generator that answered 0 and wrote nothing reached no verdict.
-        pytest.param("--db", {}, 3, "was not generated", CONTRACT, id="a-contract-generated-to-nowhere-is-a-crash"),
+        pytest.param("--db", {"FL_CONTRACT": "none"}, 3, "was not generated", CONTRACT, id="a-contract-generated-to-nowhere-is-a-crash"),
         # Under `--fail-on-warnings` Orval's 1 is a warning on the document and its every error alike.
         pytest.param("--db", {"FL_PNPM_exec_orval": "1"}, 1, CONTRACT, CRASHED, id="an-orval-warning-is-a-finding"),
     ],
@@ -375,6 +377,16 @@ def test_a_script_annotating_its_own_ending_raises_one_annotation_under_actions(
     wrong = _wrong(exited, output, code, "::error::", "no verdict")
     if len(annotations) != 1:
         wrong.append(f"raised {len(annotations)} annotations, where the one ending raises one: {annotations}")
+    assert not wrong, "\n".join(wrong) + "\n" + output
+
+
+def test_a_contract_check_git_cannot_answer_is_a_crash() -> None:
+    """Outside a repository git answers 128 for the untracked files it was asked, and the check ends as that crash.
+
+    A bare read inside the check, run where bash suspends the error trap, passed it as none untracked.
+    """
+    exited, output = _gate("--db", answers={}, committed=False)
+    wrong = _wrong(exited, output, 3, "fatal: not a git repository", CONTRACT)
     assert not wrong, "\n".join(wrong) + "\n" + output
 
 

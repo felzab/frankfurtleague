@@ -47,7 +47,16 @@ case "$1" in
   config)
     if [[ "$unread" == config-fails ]]; then printf '%s\n' 'service "backend" refers to undefined secret' >&2; exit 1; fi
     if [[ "$unread" != config-empty ]]; then printf '%s\n' frontend backend nginx cloudflared; fi ;;
-  exec) if [[ " $* " == *" nginx -t "* ]]; then exit "$(cat "$d/nginx-t")"; fi ;;
+  exec)
+    if [[ " $* " == *" nginx -t "* ]]; then
+      code="$(cat "$d/nginx-t")"
+      # nginx's own refusal, as nginx 1.x writes it; compose's own failure to run the exec writes neither line.
+      if [[ "$code" == 1 && ! -f "$d/exec-fails" ]]; then
+        printf '%s\n' 'nginx: [emerg] unknown directive "limit_reqq" in /etc/nginx/conf.d/site.conf:3' \
+          'nginx: configuration file /etc/nginx/nginx.conf test failed' >&2
+      fi
+      exit "$code"
+    fi ;;
   logs) if [[ " $* " == *" --since "* ]]; then cat "$d/reload-log"; fi ;;
   ps)
     if [[ "$unread" == ps-fails ]]; then printf '%s\n' 'Cannot connect to the Docker daemon' >&2; exit 1; fi
@@ -89,6 +98,8 @@ def deploy(
     pull: int = 0,
     deployed: str | None = NEW,
     compose_version: int = 0,
+    exec_fails: bool = False,
+    unwritable_pin: bool = False,
 ) -> tuple[int, str, str, list[str], str | None]:
     """One run deploying `NEW` over a stack whose `.env` pins `pin`, or with no `.env` for None.
 
@@ -114,6 +125,11 @@ def deploy(
     (engine / "reload-log").write_bytes(reload_log.encode())
     (engine / "pull").write_bytes(str(pull).encode())
     (engine / "compose-version").write_bytes(str(compose_version).encode())
+    if exec_fails:
+        (engine / "exec-fails").write_bytes(b"")
+    # A directory where the pin's second file goes, which no write can replace.
+    if unwritable_pin:
+        (root / ".env.next").mkdir()
     if one_offs:
         (engine / "one-offs").write_bytes(one_offs.encode())
     for tag, read in (unread or {}).items():
@@ -301,6 +317,35 @@ def test_a_pull_that_failed_is_a_crash_with_the_stack_unchanged():
 
     assert code == 3, out + err
     assert "The stack has not changed." in err, err
+    assert not any(call.startswith("compose up ") for call in calls), calls
+    assert pinned == f"TAG={PREVIOUS}\n", pinned
+
+
+def test_an_nginx_test_compose_could_not_run_is_a_crash_not_a_refused_configuration():
+    """Compose answers its own failure to run the exec 1, as nginx answers a refused configuration: nginx's line tells them apart."""
+    code, out, err, calls, pinned = deploy(nginx_t=1, exec_fails=True)
+
+    assert code == 3, out + err
+    assert "still holds the configuration nginx refused" not in err, err
+    assert not went_back(calls), calls
+    assert not reloaded_nginx(calls), calls
+    assert pinned == f"TAG={PREVIOUS}\n", pinned
+
+
+def test_a_wait_compose_answered_outside_its_row_is_a_crash():
+    """`up --wait`'s row reads its 1 as a start that failed; any other status no row names says nothing of the build."""
+    code, out, err, calls, pinned = deploy(new_up=2)
+
+    assert code == 3, out + err
+    assert not went_back(calls), calls
+    assert pinned == f"TAG={PREVIOUS}\n", pinned
+
+
+def test_a_pin_that_cannot_be_written_is_a_crash_before_the_build_starts():
+    code, out, err, calls, pinned = deploy("--no-rollback", unwritable_pin=True)
+
+    assert code == 3, out + err
+    assert "the .env could not be written, so" in err, err
     assert not any(call.startswith("compose up ") for call in calls), calls
     assert pinned == f"TAG={PREVIOUS}\n", pinned
 

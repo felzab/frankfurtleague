@@ -15,7 +15,7 @@
 # its settings or read the database; 130 interrupted; 3 or more a step that crashed, its own status kept where it is 3
 # or more, a Compose call that failed and a 1 without its closing line among them.
 
-source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh" || exit 3
 
 GIVEN=0; LANDING=""
 for arg in "$@"; do

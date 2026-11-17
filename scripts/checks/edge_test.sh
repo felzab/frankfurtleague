@@ -30,7 +30,7 @@
 #   ./scripts/checks/edge_test.sh --verbose   print the access line every case was graded on
 #   ./scripts/checks/edge_test.sh --help
 
-source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh" || exit 3
 
 # Parsed before any environmental check, so a typo fails instantly instead of demanding Docker.
 # shellcheck disable=SC2034  # the --verbose arm assigns VERBOSE for _lib.sh's `verbose`
