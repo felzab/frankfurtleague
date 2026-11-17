@@ -111,7 +111,13 @@ async def _main() -> int:
     except EnvironmentValidationError as refusal:
         print(f"The settings could not be loaded: {refusal}")
         return UNJUDGED
-    client = new_client(config.mongodb_uri.get_secret_value())
+    try:
+        client = new_client(config.mongodb_uri.get_secret_value())
+    # A URI the settings' scheme check passes and the driver's parser refuses, a port out of range among them, which
+    # it answers with a `ValueError`; the type alone, as below.
+    except (PyMongoError, ValueError) as failure:
+        print(f"The database could not be read ({type(failure).__name__}).")
+        return UNJUDGED
     try:
         return await read_back(client, config.db_base_name)
     # The type alone: the driver's message names the host it resolved out of the secret.

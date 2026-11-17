@@ -50,7 +50,7 @@ async def app_client(
     now: datetime | None = None,
     app: FastAPI | None = None,
 ) -> AsyncGenerator[AsyncClient]:
-    """No `serverSelectionTimeoutMS`: inside a request the app's own deadline replaces it.
+    """The app served through the tier's shared client, whose 15 s server selection a request's own deadline cuts short.
 
     So a server that never answers is bounded by that deadline, or by a shorter `pymongo.timeout` the caller holds around the request.
     """
