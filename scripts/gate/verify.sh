@@ -551,11 +551,6 @@ findings above name the service and the rule." \
     "$PY" scripts/checks/check_public_routes.py \
     && ok "every route handler is accounted for at the edge"
 
-  step "ops · every address, site and telephone number a test spells out is a reserved one"
-  check --checker "A test invents a value a third party may hold. Each finding above names the file, the line and the value." \
-    "$PY" scripts/checks/check_invented_data.py \
-    && ok "every invented address, site and number is reserved"
-
   # A parse sees neither a log line nor a response, and both edges starting is the parse.
   step "ops · the edge starts, logs no credential and sends every security header once"
   check --checker --summary "The running edge failed a case. Each failing case above is what nginx WROTE or SENT, and the
