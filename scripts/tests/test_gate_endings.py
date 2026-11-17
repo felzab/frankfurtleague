@@ -19,15 +19,17 @@ from pathlib import Path
 from typing import Final
 
 import pytest
-from conftest import BASH, REPO_ROOT, base_env, new_root, run_shell, write_shell
+from conftest import BASH, REPO_ROOT, base_env, new_root, run_bounded, run_shell, write_shell
 
 # `version` is the engine's, which every case answers. `compose version` is the plugin's, which the
 # missing case answers as the CLI does for a command it does not hold, and every other `compose` call
 # is a render, which the broken case fails with a parse error, answering 1 as Compose 5.7.0 does, and the
-# interrupted case ends with a cancel's 130. `run` is the docs scope's lychee.
+# interrupted case ends with a cancel's 130. `run` is the docs scope's lychee, and the images scope's probes, each
+# answering as a clean image does: its context lists nothing, and its user is no root.
 DOCKER: Final = r"""#!/usr/bin/env bash
 case "${1:-}" in
   version) printf 'stub\n'; exit 0 ;;
+  buildx) printf 'github.com/docker/buildx stub\n'; exit 0 ;;
   compose)
     if [[ "${FL_COMPOSE:-}" == missing ]]; then
       printf '%s\n' "docker: 'compose' is not a docker command." >&2; exit 1
@@ -38,33 +40,53 @@ case "${1:-}" in
     fi
     if [[ "${FL_COMPOSE:-}" == interrupted ]]; then exit 130; fi
     exit 0 ;;
-  run) printf 'stub: lychee answered %s\n' "${FL_LYCHEE_EXIT:-0}"; exit "${FL_LYCHEE_EXIT:-0}" ;;
+  run)
+    if [[ " $* " == *" find /app "* ]]; then exit 0; fi
+    if [[ " $* " == *" id -u "* ]]; then printf '1001\n'; exit 0; fi
+    printf 'stub: lychee answered %s\n' "${FL_LYCHEE_EXIT:-0}"; exit "${FL_LYCHEE_EXIT:-0}" ;;
 esac
 printf 'stub: no answer for docker %s\n' "$*" >&2
 exit 1
 """
 
 
-# pnpm answering each command as `FL_PNPM_<command>` says, as pnpm 11.28.9 prints, driven: `<status>` a script's
-# own, which pnpm closes on its `[ELIFECYCLE]` line; `<status>:<code>` pnpm's own error, opening a line
-# `[ERR_PNPM_<code>]`; `<status>:ERROR` a codeless error of its own; `<status>:quote` a script's finding quoting a
-# pnpm code inside its own line; `<status>:tsc` tsc's error at a file's line and column. A script it runs is named by
-# the script, `lint:only` as `FL_PNPM_lint_only`.
+# pnpm answering each command as `FL_PNPM_<command>` says, and a program it runs as `FL_PNPM_exec_<program>`, as pnpm
+# 11.28.9 prints, driven: `<status>` a script's own, which pnpm closes on its `[ELIFECYCLE]` line; `<status>:<code>`
+# pnpm's own error, opening a line `[ERR_PNPM_<code>]`; `<status>:ERROR` a codeless error of its own;
+# `<status>:node-<code>` a code Node set, which pnpm prints as it found it; `<status>:quote` a script's finding quoting a
+# pnpm code inside its own line; `<status>:tsc` tsc's error at a file's line and column. Under `FORCE_COLOR` each
+# reporter line is coloured as pnpm's `formatErrorSummary` colours it. A script it runs is named by the script,
+# `lint:only` as `FL_PNPM_lint_only`. Under `FL_CONTRACT=written`, Orval writes the committed client where the contract
+# check asks.
 PNPM: Final = r"""#!/usr/bin/env bash
+if [[ "$1" == --dir ]]; then cd "$2" || exit 1; shift 2; fi
 command="$1"
-if [[ "$command" == exec || "$command" == --dir ]]; then exit 0; fi
+# A program `pnpm exec` runs answers for itself, and pnpm prints nothing of its own over it.
+if [[ "$command" == exec ]]; then
+  if [[ "${2:-}" == orval && "${FL_CONTRACT:-}" == written ]]; then cp -r src/core/generated "${CONTRACT_SCRATCH}/generated"; fi
+  variable="FL_PNPM_exec_${2//[^A-Za-z]/_}"
+  exit "${!variable:-0}"
+fi
 variable="FL_PNPM_${command//[^A-Za-z]/_}"
 answer="${!variable:-0}"
 status="${answer%%:*}"
+reported() { # $1 the code · $2 the message
+  if [[ -n "${FORCE_COLOR:-}" ]]; then
+    printf '\e[41m\e[31m[\e[39m\e[49m\e[41m\e[30m%s\e[39m\e[49m\e[41m\e[31m]\e[39m\e[49m \e[31m%s\e[39m\n' "$1" "$2" >&2
+  else
+    printf '[%s] %s\n' "$1" "$2" >&2
+  fi
+}
 case "$answer" in
   *:quote) printf '%s\n' "src/core/x.ts: a finding quoting [ERR_PNPM_META_FETCH_FAIL] in its own words" ;;
   *:tsc) printf '%s\n' "src/app/page.tsx(3,7): error TS2322: Type 'string' is not assignable to type 'number'." ;;
-  *:ERROR) printf '%s\n' "[ERROR] Bad escaped character in JSON at position 172" >&2 ;;
-  *:*) printf '[ERR_PNPM_%s] stub: pnpm %s\n' "${answer#*:}" "$*" >&2 ;;
+  *:ERROR) reported ERROR "Bad escaped character in JSON at position 172" ;;
+  *:node-*) reported "${answer#*:node-}" "stub: pnpm $*" ;;
+  *:*) reported "ERR_PNPM_${answer#*:}" "stub: pnpm $*" ;;
 esac
 # A script that failed under pnpm, which pnpm's own errors are not.
 if [[ "$answer" != *:* || "$answer" == *:quote || "$answer" == *:tsc ]] && (( status )); then
-  printf '[ELIFECYCLE] Command failed with exit code %s.\n' "$status" >&2
+  reported ELIFECYCLE "Command failed with exit code ${status}."
 fi
 exit "$status"
 """
@@ -76,9 +98,11 @@ def _answers(variable: str) -> str:
 
 
 # The virtualenv's interpreter: pytest is the real one where a case names an interpreter in `FL_REAL_PYTHON`,
-# and every other module answers `FL_CHECKER_EXIT`.
+# and every other module answers `FL_CHECKER_EXIT`. Under `FL_CONTRACT=written` the document generator writes the
+# committed document.
 PYTHON: Final = r"""#!/usr/bin/env bash
 if [[ -n "${FL_REAL_PYTHON:-}" && "${1:-} ${2:-}" == "-m pytest" ]]; then exec "$FL_REAL_PYTHON" "$@"; fi
+if [[ "${1:-} ${2:-}" == "-m app.openapi_document" && "${FL_CONTRACT:-}" == written ]]; then cp openapi.json "$3"; fi
 exit "${FL_CHECKER_EXIT:-0}"
 """
 
@@ -93,6 +117,12 @@ esac
 ok "the edge passed"
 """
 
+# The self-check, a script on the library too, passing.
+SELFCHECK: Final = r"""#!/usr/bin/env bash
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
+ok "the scripts passed"
+"""
+
 TOOLS_FILE: Final = "scripts/gate/tools.Dockerfile"
 COPIED: Final = (
     "scripts/gate/verify.sh",
@@ -104,11 +134,32 @@ COPIED: Final = (
 )
 
 
-def _gate(*scopes: str, answers: dict[str, str], tools: str | None = None, backend_tests: dict[str, str] | None = None) -> tuple[int, str]:
+def _committed(root: Path) -> None:
+    """The fixture tree as a repository holding its every file, which the format and db scopes ask git about."""
+    for command in (
+        ("git", "init", "--quiet"),
+        ("git", "add", "--all"),
+        ("git", "-c", "user.name=fixture", "-c", "user.email=fixture@example.com", "commit", "--quiet", "--message=fixture"),
+    ):
+        done = run_bounded(command, cwd=root)
+        assert done.returncode == 0, done.stdout + done.stderr
+
+
+def _gate(
+    *scopes: str,
+    answers: dict[str, str],
+    tools: str | None = None,
+    backend_tests: dict[str, str] | None = None,
+    committed: bool | None = None,
+) -> tuple[int, str]:
     """`verify.sh` run once over `scopes` behind the stand-ins, its exit code and both streams.
 
-    `backend_tests` are test modules written into the fixture's `fl_backend/`, which the real pytest collects.
+    `backend_tests` are test modules written into the fixture's `fl_backend/`, which the real pytest collects. The
+    tree holds a contract its stand-in generators write again, and is a repository holding it where `committed`, by
+    default for the scopes asking git about the tree, the db scope and a run of every scope.
     """
+    if committed is None:
+        committed = not scopes or "--db" in scopes
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
     root = new_root("fl-gate-endings-")
     for path in COPIED:
@@ -118,6 +169,14 @@ def _gate(*scopes: str, answers: dict[str, str], tools: str | None = None, backe
         write_shell(root / TOOLS_FILE, tools)
     (root / "scripts" / "checks").mkdir()
     write_shell(root / "scripts" / "checks" / "edge_test.sh", EDGE)
+    write_shell(root / "scripts" / "gate" / "selfcheck.sh", SELFCHECK)
+    (root / "fl_frontend" / "src" / "core" / "generated").mkdir(parents=True)
+    write_shell(root / "fl_frontend" / "src" / "core" / "generated" / "client.ts", "export {};\n")
+    (root / "fl_backend").mkdir()
+    write_shell(root / "fl_backend" / "openapi.json", "{}\n")
+    answers = {"FL_CONTRACT": "written", "VERIFY_IMAGES_BUILT": "1"} | answers
+    if committed:
+        _committed(root)
     venv = root / "fl_backend" / ".venv" / "bin"
     venv.mkdir(parents=True)
     os.chmod(write_shell(venv / "python", PYTHON), 0o755)
@@ -188,6 +247,20 @@ CRASHED: Final = "exit status "
             "--frontend", {"FL_PNPM_lint_only": "1:quote"}, 1, ESLINT, JUDGED_NOTHING, id="a-finding-quoting-a-pnpm-code-stays-a-finding"
         ),
         pytest.param("--frontend", {"FL_PNPM_lint_only": "1:ERROR"}, 3, CRASHED, ESLINT, id="a-codeless-error-of-pnpm-s-own-is-a-crash"),
+        # pnpm prints a code Node set as it found it, before the script runs.
+        pytest.param("--frontend", {"FL_PNPM_lint_only": "1:node-EACCES"}, 3, CRASHED, ESLINT, id="a-code-node-set-is-a-crash"),
+        # A developer's `FORCE_COLOR` reaches pnpm's reporter, which colours a code's brackets.
+        pytest.param(
+            "--frontend",
+            {"FL_PNPM_dedupe": "1:DEDUPE_CHECK_ISSUES", "FORCE_COLOR": "1"},
+            1,
+            DEDUPE,
+            CRASHED,
+            id="a-coloured-pnpm-code-reads-as-its-code",
+        ),
+        pytest.param(
+            "--frontend", {"FL_PNPM_lint_only": "1", "FORCE_COLOR": "1"}, 1, ESLINT, CRASHED, id="a-coloured-script-failure-stays-the-tool-s"
+        ),
         # The supply-chain policies refuse an entry wherever pnpm verifies the lockfile, in words of their own.
         pytest.param(
             "--frontend",
@@ -205,7 +278,9 @@ CRASHED: Final = "exit status "
             "--frontend", {"FL_PNPM_typecheck_only": "1:NO_SCRIPT"}, 3, CRASHED, TSC, id="a-typecheck-script-the-manifest-lacks-is-a-crash"
         ),
         # The db scope's three runs side by side: a generator that answered 0 and wrote nothing reached no verdict.
-        pytest.param("--db", {}, 3, "was not generated", CONTRACT, id="a-contract-generated-to-nowhere-is-a-crash"),
+        pytest.param("--db", {"FL_CONTRACT": "none"}, 3, "was not generated", CONTRACT, id="a-contract-generated-to-nowhere-is-a-crash"),
+        # Under `--fail-on-warnings` Orval's 1 is a warning on the document and its every error alike.
+        pytest.param("--db", {"FL_PNPM_exec_orval": "1"}, 1, CONTRACT, CRASHED, id="an-orval-warning-is-a-finding"),
     ],
 )
 def test_each_tool_s_status_ends_the_scope_as_its_table_reads_it(scope: str, answers: dict[str, str], code: int, says: str, never: str) -> None:
@@ -243,6 +318,42 @@ def test_a_run_beside_others_ends_on_the_class_its_scope_ended_on(lychee: str, c
     assert not wrong, "\n".join(wrong) + "\n" + output
 
 
+# The scopes as the gate lists them, which a run naming none runs every one of.
+(_LISTED,) = re.findall(r"(?m)^SCOPES=\(([^)]*)\)$", (REPO_ROOT / "scripts" / "gate" / "verify.sh").read_text(encoding="utf-8"))
+SCOPES: Final = tuple(_LISTED.split())
+SAFE: Final = "Safe to merge."
+
+
+@pytest.mark.parametrize(
+    ("flags", "answers", "code", "closes"),
+    [
+        pytest.param((), {}, 0, "Green — every scope, no findings, ", id="every-scope-green"),
+        pytest.param((), {"FL_ZIZMOR_EXIT": "13"}, 1, "finding(s) in this run", id="every-scope-one-finding"),
+        pytest.param((), {"FL_EDGE": "refusal"}, 2, "Refused after", id="every-scope-one-refusal"),
+        pytest.param((), {"FL_ZIZMOR_EXIT": "1"}, 3, "Crashed after", id="every-scope-one-crash"),
+        pytest.param(("--quick",), {}, 0, "Green — 3 scopes, no findings, ", id="quick"),
+        # Each largest proper subset: the gate's test is a count, so a run of fewer scopes passes it wherever these do.
+        *(
+            pytest.param(
+                tuple(f"--{scope}" for scope in SCOPES if scope != left), {}, 0, "Green — 8 scopes, no findings, ", id=f"all-but-{left}"
+            )
+            for left in SCOPES
+        ),
+    ],
+)
+def test_only_a_green_run_of_every_scope_is_safe_to_merge(flags: tuple[str, ...], answers: dict[str, str], code: int, closes: str) -> None:
+    """A run naming fewer scopes, or one a scope did not pass, closes on its own class's line and never as safe to merge."""
+    assert len(SCOPES) == 9, f"verify.sh lists {SCOPES}, and the subsets here are of nine"
+    exited, output = _gate(*flags, answers=answers, committed=True)
+    safe = not flags and code == 0
+    wrong = _wrong(exited, output, code, closes, "no verdict")
+    if safe and SAFE not in output:
+        wrong.append("a green run of every scope did not call itself safe to merge")
+    if not safe and SAFE in output:
+        wrong.append("the run called itself safe to merge, which only a green run of every scope is")
+    assert not wrong, "\n".join(wrong) + "\n" + output
+
+
 # zizmor's finding is counted, and the compose checker then refuses its input.
 COUNTED_THEN_REFUSED: Final = {"FL_ZIZMOR_EXIT": "13", "FL_CHECKER_EXIT": "2"}
 
@@ -266,6 +377,16 @@ def test_a_script_annotating_its_own_ending_raises_one_annotation_under_actions(
     wrong = _wrong(exited, output, code, "::error::", "no verdict")
     if len(annotations) != 1:
         wrong.append(f"raised {len(annotations)} annotations, where the one ending raises one: {annotations}")
+    assert not wrong, "\n".join(wrong) + "\n" + output
+
+
+def test_a_contract_check_git_cannot_answer_is_a_crash() -> None:
+    """Outside a repository git answers 128 for the untracked files it was asked, and the check ends as that crash.
+
+    A bare read inside the check, run where bash suspends the error trap, passed it as none untracked.
+    """
+    exited, output = _gate("--db", answers={}, committed=False)
+    wrong = _wrong(exited, output, 3, "fatal: not a git repository", CONTRACT)
     assert not wrong, "\n".join(wrong) + "\n" + output
 
 
@@ -328,6 +449,30 @@ def test_no_row_reads_a_tool_s_nonzero_status_as_clean_or_its_zero_as_anything_e
     inverted = {table: tables["EXIT_CODES"].get(table) for table in INVERTED}
     if inverted != INVERTED:
         wrong.append(f"the inverted rows read {inverted}, where git-grep(1) documents {INVERTED}")
+    assert not wrong, "\n".join(wrong)
+
+
+# The shell's own for a command it could not run (126) or find (127), which `verify.sh :: in_dir` answers too for a
+# directory it cannot enter, as POSIX's `env` and `nohup` answer a command they could not invoke, and `env`'s and
+# `docker run`'s own failure (125).
+NO_COMMAND_RAN: Final = ("125", "126", "127")
+
+
+def test_no_row_reads_a_command_that_never_ran_as_anything_but_a_crash() -> None:
+    """A row reading 126 as its tool's refusal would read a directory the gate could not enter as the tool's verdict."""
+    tables = _tables()
+    wrong = [
+        f"EXIT_CODES[{table}]={row!r} reads {status} as {read}"
+        for table, row in tables["EXIT_CODES"].items()
+        for status, read in (pair.split(":") for pair in row.split(" "))
+        if status in NO_COMMAND_RAN and read != "3"
+    ]
+    wrong += [
+        f"EXIT_LINES[{table}]={row!r} reads {status} by the tool's words"
+        for table, row in tables["EXIT_LINES"].items()
+        for status in row.split(" ", 1)[0].split(",")
+        if status in NO_COMMAND_RAN
+    ]
     assert not wrong, "\n".join(wrong)
 
 

@@ -160,9 +160,9 @@ updates:
       - dependency-name: python
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
 
-  # The gate's linters: this folder's Dockerfile is never built, and its `FROM` lines are the one
-  # place shellcheck, actionlint and lychee are pinned. A major stays its own pull request, since a
-  # linter's major is where new findings arrive.
+  # The gate's linters and its shell parser: this folder's Dockerfile is never built, and its `FROM`
+  # lines are the one place shellcheck, actionlint, lychee and shfmt are pinned. A major stays its own
+  # pull request, since a linter's major is where new findings arrive.
   - package-ecosystem: docker
     directory: /scripts/gate
     schedule:

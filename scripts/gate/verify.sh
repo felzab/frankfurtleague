@@ -7,11 +7,11 @@
 #
 #   ./scripts/gate/verify.sh                   every scope, side by side — the run a pull request is called ready to merge on
 #   ./scripts/gate/verify.sh --scripts --docs --backend --format --frontend-units --frontend --ops --db --images
-#   ./scripts/gate/verify.sh --quick           the scripts, backend and frontend scopes alone, the scripts scope needing Docker for shellcheck and actionlint
+#   ./scripts/gate/verify.sh --quick           the scripts, backend and frontend scopes alone, the scripts scope needing Docker for shellcheck, actionlint and shfmt
 #   ./scripts/gate/verify.sh --verbose         stream each tool's own output instead of capturing it
 #   ./scripts/gate/verify.sh --help
 
-source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh" || exit 3
 
 SCOPES=(scripts docs backend format frontend-units frontend ops db images)
 declare -A RUN=() KNOWN=()
@@ -63,7 +63,8 @@ if (( ${#SELECTED[@]} > 1 )); then
   # pnpm writes and deletes a probe file in its store's directory, which the format scope's walk can
   # list and then fail to read; handed its store, pnpm writes none. Where pnpm cannot name it, no store
   # is handed on, and the format scope's own start-up guard, which asks pnpm to start, gives the verdict.
-  if [[ -n "${RUN[format]:-}" ]] && store="$(pnpm --dir fl_frontend store path 2>/dev/null)"; then
+  store=""
+  if [[ -n "${RUN[format]:-}" ]] && answered pnpm --stdout store pnpm --dir fl_frontend store path 2>/dev/null; then
     export pnpm_config_store_dir="$store"
   fi
 
@@ -190,16 +191,20 @@ annotate_cases() {
   return "$found"
 }
 
+# A directory it cannot enter answers 126, as POSIX's `env` and `nohup` answer a command they could not invoke,
+# which every row reads as a crash: cd's own 1 would read as the tool's finding.
 in_dir() { # $1 the directory · the command
   local dir="$1"
   shift
-  ( cd "$dir" && "$@" )
+  ( cd -- "$dir" || exit 126; "$@" )
 }
 
+# Both ruff runs under the one row, the format check only once the lint has passed.
 ruff_both() { # $1 the directory · the paths
   local dir="$1"
   shift
-  ( cd "$dir" && "$PY" -m ruff check "$@" && "$PY" -m ruff format --check "$@" )
+  in_dir "$dir" "$PY" -m ruff check "$@" || return
+  in_dir "$dir" "$PY" -m ruff format --check "$@"
 }
 
 # A command run beside others, its output kept in `$1.log` and its status, with the milliseconds it
@@ -233,10 +238,10 @@ beside_verdict() { # $1 its files · [--exits <tables>] [--summary | --annotated
   verdict "${@:1:$#-1}" "$rc" "${BASH_LINENO[0]}" "${!#}"
 }
 
-# By file, so a module's fixtures stay on one worker; a stalled case's stack is dumped inside every CI
-# job's timeout. Under pytest-xdist a test module that does not collect is a failure, where pytest alone
-# answers it with its interrupt's 2. Each `--maxprocesses` below is its suite's optimum on 16 cores.
-PYTEST_SPREAD=(-n auto --dist loadfile -o faulthandler_timeout=180)
+# A stalled case's stack is dumped inside every CI job's timeout. Each suite's own configuration keeps a
+# file on one worker. Under pytest-xdist a test module that does not collect is a failure, where pytest
+# alone answers it with its interrupt's 2. Each `--maxprocesses` below is its suite's optimum on 16 cores.
+PYTEST_SPREAD=(-n auto -o faulthandler_timeout=180)
 
 case "$SCOPE" in
   docs|ops|db|images) require_docker ;;
@@ -283,18 +288,20 @@ scope_scripts() {
 
 # Offline, every link and fragment inside the repository, through the pinned image with no network;
 # links leaving it are no part of this gate.
-check_links() { # $1 the image
-  MSYS_NO_PATHCONV=1 docker run --rm --network none -v "$(mount_source):/input:ro" -w /input \
+check_links() { # $1 the image · $2 the checkout as a mount source
+  MSYS_NO_PATHCONV=1 docker run --rm --network none -v "${2}:/input:ro" -w /input \
     "$1" --config lychee.toml --no-progress .
 }
 
 scope_docs() {
-  local image
+  local image checkout=""
   section docs
   step "docs · every link and fragment inside the repository resolves"
   image="$(tool_image lychee)" \
     || die "${TOOLS_FILE} names no single FROM line for lychee, so no link was checked."
-  check --exits docker+lychee "lychee names each broken link or fragment above, with the file it stands in." check_links "$image" \
+  run_tool utility --stdout checkout --crash "cygpath could not spell the checkout as a mount source." -- mount_source
+  check --exits docker+lychee "lychee names each broken link or fragment above, with the file it stands in." \
+    check_links "$image" "$checkout" \
     && ok "every link inside the repository resolves"
   return 0
 }
@@ -349,8 +356,10 @@ scope_format() {
   # The empty tree against the working tree: every tracked file is read whole, and a shallow clone
   # needs no history for it.
   step "format · no conflict marker or whitespace error in any tracked file"
+  local empty=""
+  run_tool utility --stdout empty --crash "git could not name the empty tree." -- git hash-object -t tree /dev/null
   check --exits git-diff-check "A tracked file above carries a conflict marker or a whitespace error, each named by its line." \
-    git diff --check "$(git hash-object -t tree /dev/null)" \
+    git diff --check "$empty" \
     && ok "no conflict marker or whitespace error"
 
   # Every tracked text file, for the zero-width, bidirectional and line-separator characters that hide
@@ -553,9 +562,10 @@ contract_check() {
   tool_class utility rm -rf "$CONTRACT_SCRATCH" || return
   tool_class utility mkdir "$CONTRACT_SCRATCH" || return
   tool_class generator in_dir fl_backend "$PY" -m app.openapi_document "../${CONTRACT_SCRATCH}/openapi.json" || return
-  tool_class pnpm+generator quietly env CONTRACT_SCRATCH="../${CONTRACT_SCRATCH}" pnpm --dir fl_frontend exec orval --fail-on-warnings \
+  tool_class pnpm+orval quietly env CONTRACT_SCRATCH="../${CONTRACT_SCRATCH}" pnpm --dir fl_frontend exec orval --fail-on-warnings \
     || return
-  untracked="$(git ls-files --others --exclude-standard -- "${CONTRACT_PATHS[@]}")"
+  untracked=""
+  tool_class utility --stdout untracked git ls-files --others --exclude-standard -- "${CONTRACT_PATHS[@]}" || return
   if [[ -n "$untracked" ]]; then printf 'Not committed:\n%s\n' "$untracked"; rc=1; fi
   for (( i = 0; i < ${#compared[@]}; i += 2 )); do
     # git answers a path it cannot access with a difference's 1: a regenerated one missing is the
@@ -583,8 +593,6 @@ scope_db() {
   # This scope because it alone has both the backend's virtualenv and the frontend's install.
   ( run_beside "${DB_TIERS}/contract" contract_check ) &
   contract=$!
-  # `loadfile` for isolation too: the commit fail points' cases set the server's one
-  # `failCommand`, so they run one after another on one worker.
   ( run_beside "${DB_TIERS}/backend" in_dir fl_backend "$PY" -m pytest -m db "${PYTEST_SPREAD[@]}" --maxprocesses 6 ) &
   backend=$!
   # Each file starts its own replica set through `@testcontainers/mongodb`.
@@ -595,8 +603,9 @@ scope_db() {
   wait "$frontend" || true
 
   step "db · the contract and its generated client match the code they are built from"
-  beside_verdict "${DB_TIERS}/contract" --exits contract "The committed contract no longer matches the code it is generated from; the diff above names each file.
-Fix with:  (cd fl_frontend && pnpm run contract)  -- then commit both." "contract_check" \
+  beside_verdict "${DB_TIERS}/contract" --exits contract "The committed contract no longer matches the code it is generated from, or Orval warned on the
+regenerated document; the diff or Orval's own lines above name each. Fix with:  (cd fl_frontend && pnpm run contract)
+-- then commit both." "contract_check" \
     && ok "the contract and the client are current"
 
   step "db · pytest -m db, distributed over one shared replica set"

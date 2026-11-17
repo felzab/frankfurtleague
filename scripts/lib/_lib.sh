@@ -8,20 +8,25 @@
 set -Eeuo pipefail
 IFS=$'\n\t'
 
+# Until the ERR trap below is installed, a failing step here would exit with its own status, 1 among
+# them, which the exit contract spells findings: each step's failure is the crash it is, spelled out.
+
 # Two levels: this file sits in `scripts/lib/`, so one `..` would root every script at
 # `scripts/` and leave every relative path inside them one directory short.
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)" || exit 3
 
 # Resolved before the `cd`: `--help` reads a script's own header back off this path. The
 # ${x-default} form (no colon) survives `set -u` on an absent array element.
+# One substitution to an assignment: the assignment answers the status of its last one alone.
 _caller="${BASH_SOURCE[1]-${BASH_SOURCE[0]-$0}}"
-SELF="$(cd "$(dirname "$_caller")" && pwd)/$(basename "$_caller")"
-unset _caller
+_caller_dir="$(cd "$(dirname "$_caller")" && pwd)" || exit 3
+SELF="${_caller_dir}/${_caller##*/}"
+unset _caller _caller_dir
 
 # `BASH_SOURCE` keeps a path as it was given, so a relative one names a file from here: every script
 # and this file are entered before the `cd` below, and a file sourced after it takes an absolute path.
 _STARTED_IN="$PWD"
-cd "$REPO_ROOT"
+cd "$REPO_ROOT" || exit 3
 
 # --- Output ----------------------------------------------------------------------------------------
 
@@ -172,11 +177,12 @@ ok() {
   _STEP_MS0=""
 }
 
-# Six spaces, the continuation indent every verb's later lines take.
+# Six spaces, the continuation indent every verb's later lines take. Read line by line in bash, so the
+# verb has no command of its own to fail: it runs in the middle of every other verdict.
 detail() {
-  if (( $# )); then printf '      %s\n' "$@"
-  else sed 's/^/      /'
-  fi
+  local line
+  if (( $# )); then printf '      %s\n' "$@"; return 0; fi
+  while IFS= read -r line || [[ -n "$line" ]]; do printf '      %s\n' "$line"; done
 }
 
 # Readable because a caller grades a failure by the tool's own words, and re-running the tool to
@@ -184,6 +190,16 @@ detail() {
 QUIETLY_OUTPUT=""
 # The streaming arm's copy while its command runs, so an interrupt can reclaim it.
 _QUIETLY_CAPTURE=""
+
+# Each line of stdin to stdout and to the file `$1`, by bash itself, so the copy has no command of its own
+# whose failure the caller would have to read.
+_kept() { # $1 the file
+  local line
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    printf '%s\n' "$line"
+    printf '%s\n' "$line" >&3
+  done 3> "$1"
+}
 
 # `--exits` reads the status through `exit_class`, so a tool whose clean answer is not 0 replays only
 # where its class is not clean.
@@ -195,13 +211,14 @@ quietly() { # [--exits <tables>] the command
   if (( VERBOSE )); then
     # Kept as well as streamed, or a caller grading by the output grades this form differently. A
     # file rather than `/dev/fd/1`, which Linux reopens: a redirected log would lose its start.
-    _QUIETLY_CAPTURE="$(mktemp)"
-    # `PIPESTATUS`, not the pipeline's status, which is `tee`'s without `pipefail`. Left of `||`, so
-    # neither `set -e` nor the ERR trap acts on the tool's own failure.
-    { "$@" 2>&1 | tee "$_QUIETLY_CAPTURE"; piped=("${PIPESTATUS[@]}"); } || :
+    _QUIETLY_CAPTURE="$(mktemp)" || crash "mktemp could not make the file a command's output is kept in"
+    # `PIPESTATUS`, not the pipeline's status, which is the copy's without `pipefail`. Left of `||`, so
+    # neither `set -e` nor the ERR trap acts on the tool's own failure, which its row reads.
+    { "$@" 2>&1 | _kept "$_QUIETLY_CAPTURE"; piped=("${PIPESTATUS[@]}"); } || :
     rc="${piped[0]}"
+    if (( piped[1] )); then crash "the output of a command could not be kept in ${_QUIETLY_CAPTURE}"; fi
     out="$(<"$_QUIETLY_CAPTURE")"
-    rm -f -- "$_QUIETLY_CAPTURE"
+    rm -f -- "$_QUIETLY_CAPTURE" || crash "the kept output ${_QUIETLY_CAPTURE} could not be removed"
     _QUIETLY_CAPTURE=""
   else
     out="$("$@" 2>&1)" || rc=$?
@@ -513,13 +530,22 @@ trap on_interrupt INT TERM HUP
 # --- The exit contract -------------------------------------------------------------------------------
 
 # A command a script runs reaches the contract one of three ways, and only these:
-# - run bare, where any status but 0 is a crash, through the ERR trap;
-# - through `run_tool` or `tool_class`, or the gate's own `check` and `beside_verdict` built on
-#   `settle`, where the command's row below decides;
+# - run bare, where any status but 0 is a crash, through the ERR trap; or, where bash suspends that
+#   trap, as `cmd || crash "<the sentence>"`;
+# - through a runner, `run_tool`, `tool_class`, `answered` or `probe`, or the gate's own `check` and
+#   `beside_verdict` built on `settle`, where the command's row below decides;
 # - inside a guard, a function of the Guards section below, each asking one question of the machine,
 #   whose every failure is a refusal: it says the check cannot run here, never what the change is.
-# Never `cmd || die`, `|| refuse` or `|| return <n>` beside a command outside a guard, nor a `case` on a
-# status a function captured: each reads the status by a rule no row holds.
+# Bash suspends `set -e` and the ERR trap for every command inside a function or a list run as a
+# condition, on either side but the last of `&&` and `||`, or after `!` (the manual's `set -e`), and
+# every runner runs its command so: there, a bare command's failure is no crash, and nothing reads it.
+# So a runner runs one command, or a function whose own last command carries its status, every other
+# command in it reaching the contract through a route; a condition reads a command's answer through
+# `probe` alone; and nothing reads a status beside the command by a rule of its own, `|| die`,
+# `|| refuse`, `|| true` or a `case` on a captured status among them. A status a substitution or a `&`
+# holds reaches nothing, so no command whose failure matters runs in one unread, and a `&` runs only
+# where a `wait` reads it. A verb run in a subshell writes its count into the subshell alone, so none
+# runs in one.
 #
 # Each tool's own exit statuses, read into the contract every script here answers on: 0 clean,
 # 1 findings, 2 refused, 3 crashed. Each row names where its tool writes them down, its documentation
@@ -534,6 +560,8 @@ trap on_interrupt INT TERM HUP
 # - where the tool gives the status for what it found to a failure of its own as well, and documents
 #   no way to tell the two apart, that status is a finding, and the row names what else answers it.
 # A status no row names is 3, and 130, the shell's for a command a SIGINT ended, is 130 in every row.
+# No row reads 126 or 127 as anything but a crash: the shell answers them for a command it could not run
+# or find, and a wrapper of ours, as POSIX's `env` and `nohup` do, 126 for a command it could not invoke.
 # No row is a default: a call site names the row of the tool it runs. A row a tool's status alone
 # cannot decide is read further by its words, in `EXIT_LINES` below.
 declare -grA EXIT_CODES=(
@@ -543,13 +571,32 @@ declare -grA EXIT_CODES=(
   # which answers its own errors 1 as well: each one's 1 is read by its closing line, in `EXIT_LINES`.
   [made-up-seed]="0:0 2:2"
   [readback]="0:0 2:2"
-  # A program of ours that writes a file and judges nothing, app.openapi_document and Orval under
-  # `--fail-on-warnings`, whose 1 answers a warning and an error alike: any status but 0 a crash.
+  # A program of ours that writes a file and judges nothing, app.openapi_document: any status but 0 a crash.
   [generator]="0:0"
+  # Orval 8.48.0 names no status. Its CLI (dist/bin/orval.mjs) answers 1 under `--fail-on-warnings` for a warning
+  # it met in the document, after the line `Process exited with <n> warning(s) due to --fail-on-warnings flag`, and
+  # 1 for every error alike, a document it cannot generate from and its own configuration or formatter failing among
+  # them, which no status or line tells apart.
+  [orval]="0:0 1:1"
   # A shell test run as a probe inside an image: 1 the condition does not hold.
   [shell-test]="0:0 1:1"
-  # A utility of the system's, mkdir, rm, chmod, openssl or cygpath, which answers every error with a
-  # status above 0, so any one is a crash.
+  # Each a probe's, by POSIX's "EXIT STATUS": grep 0 a line selected and 1 none, cmp 0 the files the
+  # same and 1 different, each above 1 an error, a file it could not read among them.
+  [grep]="0:0 1:1"
+  [cmp]="0:0 1:1"
+  # curl's manual, "EXIT CODES", read for a request a check sends and grades by what curl wrote: 0 an
+  # answer, whatever its HTTP status; the class 1 no answer from the server, which curl writes as the
+  # status 000: 7 a connection refused, 28 the time out, 52 an empty reply, 55 and 56 a connection broken
+  # sending or receiving; every other code our invocation or curl itself failing.
+  [curl]="0:0 7:1 28:1 52:1 55:1 56:1"
+  # A reader of ours, a program the backend's interpreter runs inline over a file the script wrote, which
+  # prints what it read and judges nothing: any status but 0 a crash.
+  [reader]="0:0"
+  # nginx -t run in the edge's container by `docker compose exec`, which answers nginx's own status and its
+  # own errors 1 as well: nginx's 1 is read by its closing line, in `EXIT_LINES`.
+  [nginx-test]="0:0"
+  # A utility of the system's, mkdir, rm, chmod, mv, openssl, cygpath, or git asked for what it holds
+  # (`rev-parse`, `ls-files`), which answers every error with a status above 0, so any one is a crash.
   [utility]="0:0"
   # A query of scripts/lib/nginx_conf.py through the kernel's launcher: 0 its answer, 2 a file that does not
   # say what was asked. A query finds nothing, so it has no 1.
@@ -623,8 +670,10 @@ declare -grA EXIT_CODES=(
   [compose-config]="0:0 1:1"
   [compose-build]="0:0 1:1"
   [compose-wait]="0:0 1:1"
-  # Every other verb, `ps`, `exec`, `stop`, `down`, `pull` and an `up` that does not wait, judges
-  # nothing, so its 1 is any error at all, our invocation among them: a crash.
+  # Every other verb, `ps`, `stop`, `down`, `pull` and an `up` that does not wait, judges nothing, so its 1
+  # is any error at all, our invocation among them: a crash. `exec` answers with the status of the command it
+  # ran and its own errors with 1, so under this row, read for a command of ours that judges nothing too, any
+  # status but 0 is a crash; a program judging something run by it takes that program's row.
   [compose]="0:0"
   # buildx names no status, and the repository pins no release of it. The source of v0.38.1
   # (cmd/buildx/main.go) answers 1 for any error, a build that fails and a registry it cannot reach
@@ -675,18 +724,36 @@ declare -grA PNPM_SAID=(
   [MISSING_TARBALL_INTEGRITY]="$_PNPM_POLICY_SAID" [MISSING_NAMED_REGISTRY]="$_PNPM_POLICY_SAID"
 )
 
-# The line pnpm's reporter writes for an error of its own, a code's or a codeless one's, or for a script
-# that failed under it, each opening a line; a tool's output quoting one inside a line is no such line.
-_PNPM_REPORTED='^\[(ERR_PNPM_[A-Z0-9_]+|ELIFECYCLE|ERROR)\]( |$)'
+# A colour or cursor sequence, which a tool writes into a line under `FORCE_COLOR` as a terminal would read it:
+# pnpm's reporter wraps a code's brackets in chalk's, and chalk honours that variable whatever pnpm's `color` says.
+_ESCAPE=$'\e''\[[0-9;?]*[A-Za-z]'
 
-# The code pnpm's last reporter line names in `$1`, the command's output, or nothing where that line is
-# a script's failure, a codeless error of pnpm's own (`ERROR`), or there is none.
-pnpm_code() { # $1 the command's output
-  local line last=""
+# The lines of `$1` as their words read, into `_LINES`: each without its colour sequences, and without the carriage
+# return a Windows tool ends it with. The one reader of a tool's words, so no pattern meets another spelling of a line.
+_LINES=()
+_plain_lines() { # $1 the output
+  local line
+  _LINES=()
   while IFS= read -r line; do
     line="${line%$'\r'}"
-    if [[ "$line" =~ $_PNPM_REPORTED ]]; then last="${BASH_REMATCH[1]}"; fi
+    while [[ "$line" =~ $_ESCAPE ]]; do line="${line/"${BASH_REMATCH[0]}"/}"; done
+    _LINES+=("$line")
   done <<<"${1-}"
+}
+
+# A line pnpm's reporter writes, opening on the code in brackets: `ERR_PNPM_<code>` an error of pnpm's own,
+# `ELIFECYCLE` a script that failed under it, `ERROR` a codeless one, and any other a code Node or a library set,
+# `EACCES` or `EPERM` among them, which pnpm prints as it found it. A tool's output quoting one inside a line is
+# no such line, and neither is a lower-case tag such as Prettier's `[warn]`.
+_PNPM_REPORTED='^\[([A-Z][A-Z0-9_]*)\]( |$)'
+
+# The code pnpm's last reporter line names in `$1`, the command's output, or nothing where there is none.
+pnpm_code() { # $1 the command's output
+  local line last=""
+  _plain_lines "${1-}"
+  for line in "${_LINES[@]}"; do
+    if [[ "$line" =~ $_PNPM_REPORTED ]]; then last="${BASH_REMATCH[1]}"; fi
+  done
   printf '%s' "$last"
 }
 
@@ -710,22 +777,25 @@ declare -grA EXIT_LINES=(
   [made-up-seed]='1 1 ^An insert was refused: '
   # fl_backend/app/readback.py :: CLOSING_LINE with a document refused, the one 1 of the read-back's own.
   [readback]='1 1 ^[0-9]+ documents read, [1-9][0-9]* refused\.$'
+  # nginx's own last line for a configuration `nginx -t` refused, after the `[emerg]` line naming why.
+  [nginx-test]='1 1 ^nginx: configuration file .* test failed$'
 )
 
-# Whether a line of `$2` matches the ERE `$1`, a carriage return a Windows tool ends it with aside.
+# Whether a line of `$2`, as `_plain_lines` reads it, matches the ERE `$1`.
 _said() { # $1 the ERE · $2 the output
   local line
-  while IFS= read -r line; do
-    if [[ "${line%$'\r'}" =~ $1 ]]; then return 0; fi
-  done <<<"${2-}"
+  _plain_lines "${2-}"
+  for line in "${_LINES[@]}"; do
+    if [[ "$line" =~ $1 ]]; then return 0; fi
+  done
   return 1
 }
 
 # The class `$2` reads as through the tables `$1` names, joined by `+`, the first naming the status
 # deciding, answered as this function's own status: call it as `exit_class docker+lychee "$rc" ||
-# class=$?`. Where the first table is `pnpm` and the status is not 0, a code pnpm's last reporter line in
-# `$3`, the command's output, names decides first, a codeless error of pnpm's own is a crash, and a
-# script's failure under it, or no such line, leaves the status to the tables after it. A table whose
+# class=$?`. Where the first table is `pnpm` and the status is not 0, the code pnpm's last reporter line in
+# `$3`, the command's output, names decides first: a code of pnpm's own by `PNPM_ERRORS`, a script's failure
+# under it, or no such line, by the tables after it, and any other code a crash. A table whose
 # `EXIT_LINES` entry names the status is read by its words. A table list naming no row is a defect of the
 # caller, so it crashes rather than reading as 1, every name checked before any decides: a misspelt one
 # crashes on the first run, not the first failure.
@@ -740,10 +810,11 @@ exit_class() { # $1 the tables · $2 the status · $3 the command's output
   if [[ "${1%%+*}" == pnpm && "$status" != 0 ]]; then
     code="$(pnpm_code "${3-}")"
     case "$code" in
+      "" | ELIFECYCLE) ;;
       ERR_PNPM_*) code="${code#ERR_PNPM_}"
                   if [[ -n "${PNPM_ERRORS[$code]+set}" ]]; then return "${PNPM_ERRORS[$code]}"; fi
                   return 3 ;;
-      ERROR) return 3 ;;
+      *) return 3 ;;
     esac
   fi
   for table in $1; do
@@ -788,10 +859,10 @@ settle() { # [--summary] $1 the tables · $2 the status · $3 the caller's line 
 _into() { # $1 the variable · the command
   local _into_name="$1" _into_file _into_rc=0
   shift
-  _into_file="$(mktemp)"
+  _into_file="$(mktemp)" || crash "mktemp could not make the file a command's stdout is kept in"
   "$@" > "$_into_file" || _into_rc=$?
   printf -v "$_into_name" '%s' "$(<"$_into_file")"
-  rm -f -- "$_into_file"
+  rm -f -- "$_into_file" || crash "the kept stdout ${_into_file} could not be removed"
   return "$_into_rc"
 }
 
@@ -800,8 +871,11 @@ _into() { # $1 the variable · the command
 # `die` on `--finding`'s sentence, a refusal through `refuse` on `--refusal`'s, and a crash, or a class the
 # site named no sentence for, through `on_error` naming `--crash`'s sentence or the command. `--stdout`
 # keeps the command's stdout in the variable it names. A command run as `quietly …` hands the rows its output.
-run_tool() { # $1 the rows · [--stdout <name>] [--finding <s>] [--refusal <s>] [--crash <s>] -- the command
+# `--annotated` is for a script on this library, which annotates its own finding, refusal and crash under Actions,
+# so the ending restating it raises none again, as the gate's `check --annotated` does.
+run_tool() { # $1 the rows · [--stdout <name>] [--finding <s>] [--refusal <s>] [--crash <s>] [--annotated] -- the command
   local _rt_rows="$1" _rt_into="" _rt_finding="" _rt_refusal="" _rt_crash="" _rt_rc=0 _rt_class=0 _rt_said="" _rt_command
+  local -a _rt_summary=()
   shift
   while [[ "${1-}" != -- ]]; do
     case "${1-}" in
@@ -809,6 +883,7 @@ run_tool() { # $1 the rows · [--stdout <name>] [--finding <s>] [--refusal <s>] 
       --finding) _rt_finding="$2" ;;
       --refusal) _rt_refusal="$2" ;;
       --crash) _rt_crash="$2" ;;
+      --annotated) _rt_summary=(--summary); shift; continue ;;
       *) on_error 3 "${BASH_LINENO[0]}" "run_tool: no option named '${1-}'" "${BASH_SOURCE[1]}" ;;
     esac
     shift 2
@@ -819,13 +894,13 @@ run_tool() { # $1 the rows · [--stdout <name>] [--finding <s>] [--refusal <s>] 
   _rt_command="${_rt_crash:-${_rt_command% }}"
   if [[ -n "$_rt_into" ]]; then _into "$_rt_into" "$@" || _rt_rc=$?; else "$@" || _rt_rc=$?; fi
   if [[ "$1" == quietly ]]; then _rt_said="$QUIETLY_OUTPUT"; fi
-  settle "$_rt_rows" "$_rt_rc" "${BASH_LINENO[0]}" "$_rt_command" "$_rt_said" || _rt_class=$?
+  settle "${_rt_summary[@]}" "$_rt_rows" "$_rt_rc" "${BASH_LINENO[0]}" "$_rt_command" "$_rt_said" || _rt_class=$?
   case "$_rt_class" in
     0) return 0 ;;
-    1) if [[ -n "$_rt_finding" ]]; then die "$_rt_finding"; fi ;;
-    2) if [[ -n "$_rt_refusal" ]]; then refuse "$_rt_refusal"; fi ;;
+    1) if [[ -n "$_rt_finding" ]]; then die "${_rt_summary[@]}" "$_rt_finding"; fi ;;
+    2) if [[ -n "$_rt_refusal" ]]; then refuse "${_rt_summary[@]}" "$_rt_refusal"; fi ;;
   esac
-  on_error "$_rt_rc" "${BASH_LINENO[0]}" "$_rt_command" "${BASH_SOURCE[1]}"
+  on_error "${_rt_summary[@]}" "$_rt_rc" "${BASH_LINENO[0]}" "$_rt_command" "${BASH_SOURCE[1]}"
 }
 
 # Whether a command answered, its status read through the rows `$1` names: 0 for the class 0, an interrupt
@@ -854,6 +929,26 @@ tool_class() { # $1 the rows · [--stdout <name>] · the command
   if [[ "$1" == quietly ]]; then _tc_said="$QUIETLY_OUTPUT"; fi
   exit_class "$_tc_rows" "$_tc_rc" "$_tc_said" || _tc_class=$?
   return "$_tc_class"
+}
+
+# Whether what a command asks holds, its status read through the rows `$1` names: 0 for the class 0, and 1 for the
+# class 1, the answer no; a refusal ends the run through `refuse`, and a crash or an interrupt through `settle`.
+# The one way a script reads a command's status as a condition, in an `if` or beside `!`, `&&` or `||`, since bash
+# reads it there by no row. `--stdout` keeps the command's stdout in the variable it names, as `run_tool`'s does.
+probe() { # $1 the rows · [--stdout <name>] · the command
+  local _pr_rows="$1" _pr_into="" _pr_rc=0 _pr_said="" _pr_class=0 _pr_command
+  shift
+  if [[ "${1-}" == --stdout ]]; then _pr_into="$2"; shift 2; fi
+  # Joined on spaces here: `$*` joins on the repository's IFS, a newline.
+  printf -v _pr_command '%s ' "$@"
+  if [[ -n "$_pr_into" ]]; then _into "$_pr_into" "$@" || _pr_rc=$?; else "$@" || _pr_rc=$?; fi
+  if [[ "$1" == quietly ]]; then _pr_said="$QUIETLY_OUTPUT"; fi
+  settle "$_pr_rows" "$_pr_rc" "${BASH_LINENO[0]}" "${_pr_command% }" "$_pr_said" || _pr_class=$?
+  if (( _pr_class == 2 )); then
+    refuse "${_pr_command% } could not judge its input, so nothing here stands as a verdict on the change. Its own
+reason is above (exit status ${_pr_rc})."
+  fi
+  return "$_pr_class"
 }
 
 # --- Guards ----------------------------------------------------------------------------------------
@@ -918,6 +1013,11 @@ require_platform() {
 See scripts/README.md for which script belongs to which environment."
 }
 
+require_dir()  { [[ -d "$1" ]] || refuse "Missing required directory: $1${2:+
+$2}"; }
+
+# --- Paths and images --------------------------------------------------------------------------------
+
 # The venv layout differs by platform, and the gate runs on both. Returns 1 rather than dying: every
 # caller reads it through `$( )`, where a `die` exits the subshell alone and the ERR trap prints a
 # stack block over the message.
@@ -930,25 +1030,29 @@ venv_python() {
   fi
 }
 
-require_dir()  { [[ -d "$1" ]] || refuse "Missing required directory: $1${2:+
-$2}"; }
-
 # A path as a `docker run -v` source, the checkout where none is given, in Windows' own spelling under
 # Git Bash: Git Bash mounts %TEMP% at /tmp, so a checkout there spelled `/tmp/...` binds an unrelated
-# directory of the engine's.
+# directory of the engine's. Git Bash is told by its `cygpath`, never by cygpath failing, so its failure
+# answers for a caller's `utility` row. Run as `run_tool utility --stdout <name> -- mount_source`.
 mount_source() { # [$1 the path]
   local path="${1:-$REPO_ROOT}"
-  cygpath -w "$path" 2>/dev/null || printf '/%s' "$path"
+  if command -v cygpath > /dev/null; then cygpath -w "$path"; else printf '/%s' "$path"; fi
 }
 
 # The image the gate runs a linter from, read off the line its stage name marks in the tools file,
 # since Dependabot moves a `FROM` line and no image typed in a shell string. Answers 1 where the file
-# holds no single such line.
+# holds no single such line. Read by bash, so a caller's condition reads no command's failure.
 TOOLS_FILE="scripts/gate/tools.Dockerfile"
 tool_image() { # $1 the stage naming the tool
-  local image
-  image="$(sed -nE "s/^FROM ([^ ]+) AS ${1}\$/\1/p" "$TOOLS_FILE")"
-  if [[ -z "$image" || "$image" == *$'\n'* ]]; then return 1; fi
+  local line image="" found=0
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line%$'\r'}"
+    if [[ "$line" =~ ^FROM\ ([^ ]+)\ AS\ (.+)$ && "${BASH_REMATCH[2]}" == "$1" ]]; then
+      image="${BASH_REMATCH[1]}"
+      found=$(( found + 1 ))
+    fi
+  done < "$TOOLS_FILE"
+  if (( found != 1 )); then return 1; fi
   printf '%s' "$image"
 }
 

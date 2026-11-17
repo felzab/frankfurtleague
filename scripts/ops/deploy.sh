@@ -13,12 +13,13 @@
 # Exit 0 deployed; 1 failed, and the last line says whether the stack went back; 2 refused, with
 # the stack unchanged; 130 interrupted, the stack as far as compose took it; 3 or more a step that
 # crashed, its own status kept where it is 3 or more, a failed pull or a HEAD git could not name
-# among them, which leave the stack unchanged. The last build judged
+# among them, which leave the stack unchanged, and an .env it could not write, whose last line says
+# where the stack stands. The last build judged
 # healthy is pinned as TAG= in the .env beside the compose file, which compose reads for every
 # command, so `docker compose ps` and `logs` typed by hand reach the stack, and a later run that
 # fails goes back to it.
 
-source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh" || exit 3
 
 # The tag CI pushes a build under: docker/metadata-action's `type=sha`, seven hex digits by default.
 TAG_RE='^sha-[0-9a-f]{7}$'
@@ -52,6 +53,8 @@ fi
 # On a development machine the base file alone is production's stack, which `up --remove-orphans`
 # would put in place of the local one's containers.
 require_platform linux
+require_docker
+require_compose
 
 # The last build judged healthy, which only this script writes. A first run finds none and rolls
 # nothing back: the build it replaces is then the one from before this script, which never runs again.
@@ -70,7 +73,8 @@ export TAG="$tag"
 # container references, so this keeps the running build. The one this run replaces then stays on
 # this host until the next deploy, and going back to it by hand needs no registry.
 step "Images nothing runs"
-if quietly docker image prune -af; then ok "removed"; else warn "the prune failed, and its account is above."; fi
+# An advisory whatever stopped it, an interrupt aside: the images it would remove decide nothing the deploy does.
+if answered docker quietly docker image prune -af; then ok "removed"; else warn "the prune failed, and its account is above."; fi
 
 # `missing`, because every image this stack names is one build for good: a sha- tag is one commit's,
 # and the edge's images are pinned by digest. A build already on this host is taken as it is.
@@ -79,8 +83,12 @@ run_tool compose --crash "the pull failed, and compose's own account is above: a
 host's network. The stack has not changed." -- quietly docker compose pull --policy missing
 ok "every image is on this host"
 
-# Through a second file and a rename, so the pin is never half written.
-pin() { printf 'TAG=%s\n' "$1" > .env.next && mv -f .env.next .env; }
+# Through a second file and a rename, so the pin is never half written. Run under the `utility` row, each step's
+# failure the crash it names.
+pin() {
+  printf 'TAG=%s\n' "$1" > .env.next || return
+  mv -f .env.next .env
+}
 
 # Every service the compose file defines that is not running and healthy, into FAILING, a health of
 # `starting` included. `up --wait` judges each service once, so one can turn unhealthy while it waits
@@ -117,12 +125,23 @@ read_states() {
 # The services' own healthchecks decide, and their last lines say why.
 show_failure() {
   local IFS=' '
-  info "compose's own account of each service:"
-  docker compose ps --all 2>&1 | detail || true
+  local listed="" lines=""
+  # Each read is an account of a failure already decided, so one compose cannot give is said and passed:
+  # ending the run there would leave the stack where it stands rather than going back.
+  if answered compose --stdout listed docker compose ps --all; then
+    info "compose's own account of each service:"
+    detail <<<"$listed"
+  else
+    info "compose could not list the services; its own account is above."
+  fi
   read_states || true
   if (( ${#FAILING[@]} )); then
-    info "the last 60 lines of ${FAILING[*]}:"
-    docker compose logs --tail=60 "${FAILING[@]}" 2>&1 | detail || true
+    if answered compose --stdout lines docker compose logs --tail=60 "${FAILING[@]}"; then
+      info "the last 60 lines of ${FAILING[*]}:"
+      detail <<<"$lines"
+    else
+      info "compose could not read the lines of ${FAILING[*]}; its own account is above."
+    fi
   fi
 }
 
@@ -139,26 +158,55 @@ up() { quietly docker compose up -d --wait --wait-timeout "$WAIT_S" --remove-orp
 nginx_said() { # $1 the moment its lines are read from
   docker compose logs --no-log-prefix --since "$1" nginx 2>&1
 }
+# nginx's error log lines, `<date> <time> [<level>] <pid>#<connection>: <message>`.
+NGINX_LINE='^[0-9/]+ [0-9:]+ \[([a-z]+)\] ([0-9]+)#[0-9]+: (.*)$'
+# The master's verdict on the reload in the log `$1`: 0 its new workers started, 1 it refused, its refusing
+# lines into REFUSED, and 2 neither yet. Read by bash, line by line, so nothing reads a tool's status.
+REFUSED=""
+master_said() { # $1 nginx's output
+  local line master=""
+  local -a lines=()
+  mapfile -t lines <<<"$1"
+  # The last master to reconfigure is the one this reload reached.
+  for line in "${lines[@]}"; do
+    if [[ "$line" =~ $NGINX_LINE && "${BASH_REMATCH[1]}" == notice && "${BASH_REMATCH[3]}" == reconfiguring ]]; then
+      master="${BASH_REMATCH[2]}"
+    fi
+  done
+  REFUSED=""
+  if [[ -z "$master" ]]; then return 2; fi
+  for line in "${lines[@]}"; do
+    if [[ "$line" =~ $NGINX_LINE && "${BASH_REMATCH[2]}" == "$master" ]]; then
+      case "${BASH_REMATCH[1]}" in emerg|alert|crit) REFUSED+="${line}"$'\n' ;; esac
+    fi
+  done
+  if [[ -n "$REFUSED" ]]; then return 1; fi
+  for line in "${lines[@]}"; do
+    if [[ "$line" =~ $NGINX_LINE && "${BASH_REMATCH[2]}" == "$master" && "${BASH_REMATCH[3]}" == "start worker processes" ]]; then
+      return 0
+    fi
+  done
+  return 2
+}
 reload_nginx() {
-  local since="${EPOCHREALTIME/,/.}" refusal="$failure" said master refused i
+  local since="${EPOCHREALTIME/,/.}" refusal="$failure" said i verdict
   # A reload that was never sent is one nginx did not take, so the run goes back.
   answered compose quietly docker compose exec -T nginx nginx -s reload || return 1
   failure="nginx was sent this checkout's configuration and confirmed neither taking nor refusing it"
   for (( i = 0; i < 15; i++ )); do
-    sleep 1
+    sleep 1 || crash "sleep did not wait between the reads of nginx's output"
     answered compose --stdout said nginx_said "$since" \
       || { info "compose could not read nginx's output:"; detail <<<"$said"; return 1; }
-    master="$(sed -nE 's/^[0-9/]+ [0-9:]+ \[notice\] ([0-9]+)#[0-9]+: reconfiguring$/\1/p' <<<"$said" | tail -n 1)"
-    if [[ -z "$master" ]]; then continue; fi
-    refused="$(grep -E "^[0-9/]+ [0-9:]+ \[(emerg|alert|crit)\] ${master}#[0-9]+: " <<<"$said" || true)"
-    if [[ -n "$refused" ]]; then
+    verdict=0
+    master_said "$said" || verdict=$?
+    if (( verdict == 0 )); then return 0; fi
+    if (( verdict == 1 )); then
       failure="$refusal"
       info "nginx's running master refused the configuration nginx -t passed, which a restart of nginx, a
 reboot included, loads afresh:"
-      detail <<<"$refused"
+      detail <<<"${REFUSED%$'\n'}"
       return 1
     fi
-    if grep -Eq "^[0-9/]+ [0-9:]+ \[notice\] ${master}#[0-9]+: start worker processes$" <<<"$said"; then return 0; fi
   done
   info "nginx logged neither new workers nor a refusal within 15 seconds of the reload."
   return 1
@@ -167,11 +215,12 @@ reboot included, loads afresh:"
 # Moved by a healthy verdict alone, so a run ending without one, an interrupt included, leaves it on
 # the last build that came up. --no-rollback's build retires the one before as it starts.
 if (( ! ROLLBACK )); then
-  pin "$tag" || refuse "the .env could not be written, so ${tag} was not started. The stack has not changed."
+  run_tool utility --crash "the .env could not be written, so ${tag} was not started. The stack has not changed." -- pin "$tag"
 fi
 step "Starting ${tag}"
 failure="${tag} did not come up"
-if up; then
+# Compose's 1 is a service that never came up healthy, and its own errors alike, so either goes back.
+if probe compose-wait up; then
   # What `up` answered and nothing more: the read below judges each service.
   ok "compose's wait ended without a failure"
   # Before nginx is reloaded, so a run this read fails goes back with nginx on the configuration it had.
@@ -183,14 +232,14 @@ if up; then
     # A mounted configuration loads only on a reload. Tested first, so a refused one is named by nginx -t.
     step "nginx's configuration"
     failure="nginx did not take this checkout's configuration and still runs the one it had"
-    if ! quietly docker compose exec -T nginx nginx -t; then
+    if ! probe nginx-test quietly docker compose exec -T nginx nginx -t; then
       # Going back moves the images alone, and nginx reads the checkout's files at any restart.
       warn "this checkout's nginx/ still holds the configuration nginx refused, which a restart of nginx, a
 reboot included, loads and fails on. Pull a commit whose configuration nginx takes and deploy it."
     elif reload_nginx; then
       ok "tested, and its new workers started"
-      pin "$tag" || die "${tag} is live, but the .env could not be written and still pins ${prev:-no build}.
-Write TAG=${tag} into it, or the next failed run goes back past ${tag}."
+      run_tool utility --crash "${tag} is live, but the .env could not be written and still pins ${prev:-no build}.
+Write TAG=${tag} into it, or the next failed run goes back past ${tag}." -- pin "$tag"
       ok "${tag} is live.${prev:+ The build before it was ${prev}.}"
       exit 0
     fi
@@ -218,7 +267,7 @@ fi
 step "Going back to ${prev}"
 export TAG="$prev"
 back_rc=1
-if up; then
+if probe compose-wait up; then
   back_rc=0
   read_states || back_rc=$?
 fi

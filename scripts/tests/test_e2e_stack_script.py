@@ -40,6 +40,7 @@ d="$FL_STACK_DIR"
 printf '%s | %s | %s\n' "${COMPOSE_FILE-}" "${COMPOSE_PROJECT_NAME-}" "$*" >> "$d/calls"
 answer() { cat "$d/$1" 2>/dev/null || printf 0; }
 case " $* " in
+  *" compose version "*) exit "$(answer version)" ;;
   *" compose down "*) exit "$(answer down)" ;;
   *" compose build "*) exit "$(answer build)" ;;
   *" compose up "*" --wait "*" mongo backend ") exit "$(answer wait)" ;;
@@ -65,6 +66,7 @@ def kind(call: str) -> str:
             return "start"
         return "wait" if padded.endswith(" mongo backend ") else "rest"
     for needle, name in (
+        (" compose version ", "version"),
         (" compose down ", "down"),
         (" compose build", "build"),
         (" compose ps --all --format ", "states"),
@@ -84,11 +86,13 @@ def stack(
     script: str = "scripts/ops/e2e_stack.sh",
     reaches: tuple[str, str] = (E2E_FILES, E2E_PROJECT),
     caller: str = LOCAL_PROJECT,
+    extra: Mapping[str, str] = MappingProxyType({}),
 ) -> tuple[int, str, list[str]]:
     """One run of `script` in `root`, each kind of call in `codes` answering with its code, 0 otherwise.
 
     Every compose call must reach the files and the project `reaches` names, whatever project `caller`, the caller's own
-    variable, names. Returns the exit code, the output and the kinds of engine call made, in order.
+    variable, names, and each script asks the plugin's release before any other compose call of its own. Returns the
+    exit code, the output and the kinds of engine call made, in order, the release asked aside.
     """
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
     engine = new_root("fl-stack-engine-")
@@ -104,13 +108,17 @@ def stack(
         "FL_STACK_DIR": engine.as_posix(),
         "COMPOSE_FILE": "docker-compose.yml;docker-compose.local.yml",
         "COMPOSE_PROJECT_NAME": caller,
+        **extra,
     }
     done = run_shell(BASH, root / script, *args, env=environment, cwd=root)
     calls = (engine / "calls").read_bytes().decode().splitlines() if (engine / "calls").exists() else []
     compose = [call.split(" | ", 2) for call in calls if " | compose " in call]
     # By either separator: local.sh spells Windows' own, and e2e_stack.sh the one it sets.
     assert all(re.split("[:;]", files) == reaches[0].split(":") and project == reaches[1] for files, project, _ in compose), compose
-    return done.returncode, done.stdout + done.stderr, [kind(arguments) for _, _, arguments in compose]
+    kinds = [kind(arguments) for _, _, arguments in compose]
+    # Without the plugin, Docker answers 1 for a command it does not hold, which a verb's row would read as its finding.
+    assert not kinds or kinds[0] == "version", kinds
+    return done.returncode, done.stdout + done.stderr, [named for named in kinds if named != "version"]
 
 
 def checkout() -> Path:
@@ -181,6 +189,45 @@ def test_local_sh_keeps_the_stack_s_verdict(codes: dict[str, int], expected: int
     assert code == expected, said
     assert kinds[:3] == ["down", "build", "start"], kinds
     assert "rest" not in kinds, kinds
+
+
+@pytest.mark.parametrize(
+    ("script", "args", "codes", "expected"),
+    [
+        ("scripts/ops/e2e_stack.sh", ("serve",), {"seed": 1}, 1),
+        ("scripts/ops/e2e_stack.sh", ("serve",), {"readback": 2}, 2),
+        ("scripts/ops/e2e_stack.sh", ("serve",), {"seed": 137}, 137),
+        ("scripts/ops/local.sh", ("--e2e",), {"seed": 1}, 1),
+    ],
+    ids=["seed-fails", "read-back-refuses", "seed-crashes", "local-e2e-seed-fails"],
+)
+def test_an_ending_the_seed_annotated_raises_one_annotation_under_actions(
+    script: str, args: tuple[str, ...], codes: dict[str, int], expected: int
+) -> None:
+    """The seed script annotates its own ending, so each script restating it raises none, as the gate's own `check` does."""
+    code, said, _ = stack(checkout(), *args, codes=codes, script=script, extra={"GITHUB_ACTIONS": "true"})
+    annotations = [line for line in said.splitlines() if line.lstrip().startswith("::error::")]
+    assert code == expected, said
+    assert len(annotations) == 1, annotations
+
+
+@pytest.mark.parametrize(
+    ("script", "args"),
+    [
+        ("scripts/ops/e2e_stack.sh", ("start", "--build")),
+        ("scripts/ops/e2e_stack.sh", ("serve",)),
+        ("scripts/ops/local.sh", ()),
+        ("scripts/ops/local.sh", ("--e2e",)),
+    ],
+    ids=["e2e-start", "e2e-serve", "local", "local-e2e"],
+)
+def test_a_missing_compose_plugin_is_a_refusal_before_any_compose_verb(script: str, args: tuple[str, ...]) -> None:
+    """Docker answers 1 for a plugin it does not hold, which the build's and the wait's rows read as their finding."""
+    reaches = (E2E_FILES, E2E_PROJECT) if script.endswith("e2e_stack.sh") or "--e2e" in args else (LOCAL_FILES, LOCAL_PROJECT)
+    code, said, kinds = stack(checkout(), *args, codes={"version": 1}, script=script, reaches=reaches)
+    assert code == 2, said
+    assert "Docker Compose did not answer" in said, said
+    assert kinds == [], kinds
 
 
 def test_local_sh_deletes_the_end_to_end_stack_s_volume_alone() -> None:

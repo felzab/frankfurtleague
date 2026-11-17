@@ -25,7 +25,7 @@
 #                                    --e2e, stop the end-to-end stack and delete all it holds
 #   ./scripts/ops/local.sh --help
 
-source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh" || exit 3
 
 # docker-compose.local.yml merged over docker-compose.yml, named for every call below by Compose's
 # own variable.
@@ -91,11 +91,11 @@ BY_HAND="COMPOSE_FILE='${COMPOSE_FILE}' TAG=${TAG} docker compose"
 E2E_DIR="${REPO_ROOT}/.tmp-e2e"
 
 # The made-up league loaded into the running backend's database and read back; `--landing` hands its
-# state on. The script's own account is shown only on a failure.
+# state on. The script's own account is shown only on a failure, and it annotates its own ending.
 load_made_up_seed() {
   local landing=()
   if (( RESEED )); then landing=("--landing=${LANDING}"); fi
-  run_tool contract \
+  run_tool contract --annotated \
     --finding "the made-up seed failed, and the lines above name what to correct.
 The frontend has not been started or recreated." \
     --refusal "the made-up seed was refused, and the lines above say why.
@@ -105,9 +105,9 @@ The frontend has not been started or recreated." -- \
 }
 
 # The script CI's journeys raise the stack with, its steps shown as they run and its verdict kept: a
-# refusal stays 2, an interrupt 130 and a crash its own status.
+# refusal stays 2, an interrupt 130 and a crash its own status, each annotated by the script itself.
 e2e_stack() {
-  run_tool contract \
+  run_tool contract --annotated \
     --finding "the end-to-end stack did not come up, and the lines above name what to correct.
 Each service's own lines:  ${BY_HAND} logs <service>
 Stop what is left:  ${STOP_COMMAND}" \
@@ -123,6 +123,7 @@ holds_line() { # $1 the line · $2 the text
 
 require_platform windows
 require_docker
+require_compose
 
 if (( DOWN )); then
   section "down"
@@ -297,7 +298,13 @@ if (( class == 0 )); then
   detail "${CLOSING[@]}"
 else
   fail "The stack came up unhealthy, and compose's own account is above."
-  docker compose ps --all 2>&1 | detail || true
+  # An account of a failure already counted, so a listing compose cannot give is said and passed.
+  listing=""
+  if answered compose --stdout listing docker compose ps --all; then
+    detail <<<"$listing"
+  else
+    detail "compose could not list the services; its own account is above."
+  fi
   detail "If you see 'Invalid environment variables', fix those names in the .env files — that is" \
          "the startup gate doing its job." \
          "'Invalid secret files: <FILES>' or 'Unreadable secret files: <PATH> (<ERRNO>)' names a" \

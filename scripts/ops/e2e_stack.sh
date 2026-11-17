@@ -13,7 +13,7 @@
 # that does not build and a service that never came up healthy among them; 2 refused, the seed's refusal among them; 130
 # interrupted; 3 or more a step that crashed, the seed's own status kept, and a Compose call judging nothing that failed.
 
-source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh" || exit 3
 
 PHASE=""; BUILD=0
 for arg in "$@"; do
@@ -62,6 +62,7 @@ write_keys() {
 }
 
 require_docker
+require_compose
 
 if [[ "$PHASE" == start ]]; then
   # First, so every file docker-compose.e2e.yml names exists before compose is asked anything. Written over a stack
@@ -105,8 +106,9 @@ run_tool compose-wait --finding "the database and the backend did not both come 
   quietly docker compose up -d --no-build --wait --wait-timeout 180 mongo backend
 ok "database and backend up"
 
-# Before the frontend's start, so no page renders, and no cache keeps, a read of a database still filling.
-run_tool contract \
+# Before the frontend's start, so no page renders, and no cache keeps, a read of a database still filling. The seed
+# script annotates its own ending.
+run_tool contract --annotated \
   --finding "the made-up seed failed, and the lines above name what to correct. The frontend and nginx have not been started." \
   --refusal "the made-up seed was refused, and the lines above say why. The frontend and nginx have not been started." -- \
   "${REPO_ROOT}/scripts/ops/made_up_seed.sh"

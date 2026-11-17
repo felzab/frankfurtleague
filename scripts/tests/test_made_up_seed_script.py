@@ -33,6 +33,7 @@ printf '%s\n' "$*" >> "$d/calls"
 answer() { cat "$d/$1" 2>/dev/null || printf 0; }
 case " $* " in
   " version "*) exit "$(answer version)" ;;
+  *" compose version "*) exit "$(answer compose)" ;;
   *" compose ps --all --format "*) cat "$d/states"; exit "$(answer ps)" ;;
   *" sh -c "*) target="${*##* }"; cat > "$d/handed.${target##*/}"; exit "$(answer hand)" ;;
   *" tests.made_up_seed "*) cat "$d/seed.said" >&2 2>/dev/null; exit "$(answer seed)" ;;
@@ -50,8 +51,8 @@ def seed(
 ) -> tuple[int, str, list[str], set[str]]:
     """One run of the script: its exit code, its output, the engine calls and the files it handed in.
 
-    `states` is what `compose ps` lists; `codes` gives the code each kind of call answers with (`version`, `ps`, `hand`,
-    `seed`, `readback`), 0 otherwise, and `said` what the seed and the read-back print.
+    `states` is what `compose ps` lists; `codes` gives the code each kind of call answers with (`version`, `compose`
+    for the plugin's own version, `ps`, `hand`, `seed`, `readback`), 0 otherwise, and `said` what the seed and the read-back print.
     """
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
     root = new_root("fl-seed-")
@@ -168,6 +169,8 @@ def test_a_listing_compose_could_not_give_is_a_crash_and_reaches_no_container() 
     [
         (PRODUCTION_STOPPED_FRONTEND, {}, "this one runs no mongo service"),
         (OWN, {"version": 1}, "Docker is not responding"),
+        # Docker answers 1 for a command it does not hold, a plugin that is not installed among them.
+        (OWN, {"compose": 1}, "Docker Compose did not answer"),
         ("mongo running False\nbackend exited False\n", {}, "the stack's backend is not running"),
         # A one-off container lists under its service's name, and runs none of the service's work.
         ("mongo running False\nbackend exited False\nbackend running True\n", {}, "the stack's backend is not running"),
@@ -179,6 +182,7 @@ def test_a_listing_compose_could_not_give_is_a_crash_and_reaches_no_container() 
     ids=[
         "production-stack",
         "no-engine",
+        "no-compose-plugin",
         "no-backend-running",
         "a-one-off-backend-alone",
         "a-one-off-mongo-alone",
