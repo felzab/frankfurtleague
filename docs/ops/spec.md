@@ -740,12 +740,14 @@ and for that table alike.
 **pnpm's own failures are read by their code, never their status**: pnpm answers 1 for each of
 them and for a finding alike, and [its error reference](https://pnpm.io/errors) gives the code as
 what a script matches on (`scripts/lib/_lib.sh :: PNPM_ERRORS`). The code is read off the last line
-pnpm's own reporter opens with `[ERR_PNPM_<code>]`, never a line of a tool's output quoting one. A
-lockfile out of date, a copy a dedupe would remove or an entry the supply-chain policies refuse is a
-finding, the policies' in a sentence of their own (`PNPM_SAID`); a registry it could not reach or
-one answering 429 or a server's error a refusal; and a script the manifest does not declare, or an
-error of pnpm's own with no code, a crash. A script pnpm runs answers with its own status, which
-pnpm closes on its `[ELIFECYCLE]` line, read through its tool's row.
+pnpm's own reporter opens with a code in brackets, never a line of a tool's output quoting one, and
+with the colour sequences it writes under `FORCE_COLOR` stripped, as every tool's line is read
+(`_lib.sh :: _plain_lines`). A lockfile out of date, a copy a dedupe would remove or an entry the
+supply-chain policies refuse is a finding, the policies' in a sentence of their own (`PNPM_SAID`); a
+registry it could not reach or one answering 429 or a server's error a refusal; and a script the
+manifest does not declare, an error of pnpm's own with no code, or a code Node set (`EACCES`,
+`EPERM`), a crash. A script pnpm runs answers with its own status, which pnpm closes on its
+`[ELIFECYCLE]` line, read through its tool's row.
 
 The checkers answer on the same scale: `scripts/lib/checker_kernel.py` fixes 0 for a pass, 1 for
 findings, 2 for a check that could not judge its input and 3 or more for a broken environment, in
