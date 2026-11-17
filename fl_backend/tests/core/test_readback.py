@@ -15,7 +15,6 @@ import sys
 from pathlib import Path
 
 from app.readback import CLOSING_LINE, UNJUDGED
-from tests.processes import to_its_exit
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 LIBRARY = BACKEND_ROOT.parent / "scripts" / "lib" / "_lib.sh"
@@ -29,11 +28,15 @@ def _read_back(environment: dict[str, str]) -> subprocess.CompletedProcess[str]:
     # Windows' sockets cannot load their providers without it, so `asyncio` fails at its import (WinError 10106).
     system = {"SYSTEMROOT": os.environ["SYSTEMROOT"]} if "SYSTEMROOT" in os.environ else {}
 
-    return to_its_exit(
+    return subprocess.run(
         [sys.executable, "-m", "app.readback"],
-        bound_s=READ_BACK_BOUND_S,
         cwd=BACKEND_ROOT,
         env={**system, **environment},
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=READ_BACK_BOUND_S,
+        check=False,
     )
 
 
@@ -56,7 +59,14 @@ def _class_of(status: int, output: str) -> str:
     bash = shutil.which("bash")
     assert bash is not None, "no bash on PATH, which every script under scripts/ needs"
     read = 'source "$1"; class=0; exit_class readback "$2" "$3" || class=$?; printf "%s" "$class"'
-    ran = to_its_exit([bash, "-c", read, "bash", LIBRARY.as_posix(), str(status), output], bound_s=READ_BACK_BOUND_S, cwd=BACKEND_ROOT)
+    ran = subprocess.run(
+        [bash, "-c", read, "bash", LIBRARY.as_posix(), str(status), output],
+        cwd=BACKEND_ROOT,
+        capture_output=True,
+        encoding="utf-8",
+        timeout=READ_BACK_BOUND_S,
+        check=False,
+    )
     assert ran.returncode == 0, ran.stdout + ran.stderr
     return ran.stdout
 

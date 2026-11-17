@@ -41,7 +41,6 @@ from app.core.exceptions import WriteRefusal
 from tests.boot import BACKEND_ROOT, Withheld
 from tests.database import a_clean_database
 from tests.made_up_seed import AS_WRITTEN, INSERT_REFUSED, LANDING_STATES, UNJUDGED, MadeUpLeague, Season, is_local_server, write
-from tests.processes import to_its_exit
 from tests.worker import worker_database
 
 LIBRARY: Final = BACKEND_ROOT.parent / "scripts" / "lib" / "_lib.sh"
@@ -103,7 +102,16 @@ def run_seed(directory: Path, settings: dict[str, str]) -> subprocess.CompletedP
     # Windows' sockets cannot load their providers without it, so `asyncio` fails at its import (WinError 10106).
     if "SYSTEMROOT" in os.environ:
         environment["SYSTEMROOT"] = os.environ["SYSTEMROOT"]
-    return to_its_exit((sys.executable, "-m", "tests.made_up_seed"), bound_s=SEED_BOUND_S, cwd=directory, env=environment)
+    return subprocess.run(
+        (sys.executable, "-m", "tests.made_up_seed"),
+        cwd=directory,
+        env=environment,
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=SEED_BOUND_S,
+        check=False,
+    )
 
 
 @pytest.mark.parametrize("uri", ELSEWHERE.values(), ids=ELSEWHERE.keys())
@@ -165,7 +173,14 @@ def class_of(status: int, output: str) -> str:
     bash = shutil.which("bash")
     assert bash is not None, "no bash on PATH, which every script under scripts/ needs"
     read = 'source "$1"; class=0; exit_class made-up-seed "$2" "$3" || class=$?; printf "%s" "$class"'
-    ran = to_its_exit([bash, "-c", read, "bash", LIBRARY.as_posix(), str(status), output], bound_s=SEED_BOUND_S, cwd=BACKEND_ROOT)
+    ran = subprocess.run(
+        [bash, "-c", read, "bash", LIBRARY.as_posix(), str(status), output],
+        cwd=BACKEND_ROOT,
+        capture_output=True,
+        encoding="utf-8",
+        timeout=SEED_BOUND_S,
+        check=False,
+    )
     assert ran.returncode == 0, ran.stdout + ran.stderr
     return ran.stdout
 
