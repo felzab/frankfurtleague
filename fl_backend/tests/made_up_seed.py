@@ -1667,8 +1667,7 @@ async def write(client: AsyncMongoClient, database_name: str, league: MadeUpLeag
 
 
 # The one server the seed writes to: the `mongo` service the local and the end-to-end stacks start, at the port it
-# listens on, as `docker-compose.local.yml :: local_mongodb_uri` names it to the backend. Production starts no such
-# service, and `scripts/checks/check_compose_model.py :: LOCAL_DATABASE_SERVICE` holds that config to it.
+# listens on, as the local stack's Compose file names it to the backend. Production starts no such service.
 LOCAL_SERVER: Final = [("mongo", 27017)]
 
 

@@ -1366,14 +1366,21 @@ publication consents withdrawn again above.
 built** (`fl_frontend/src/core/authIndexes.ts :: AUTH_INDEXES`). An index the boot could not build
 is one `auth.index_unbuilt` line naming it, and only a line with no `code` is built again before
 the next boot, on the first heartbeat the store answers as a writable server. An index the store
-already holds builds nothing and succeeds, so only a release changing the list can leave one
-unbuilt. In such a release, once the deploy
-([section 1](#1-deploying-a-build-and-going-back-to-an-earlier-one)) ends, read the frontend's log
-for that event:
+already holds builds nothing and succeeds, so a boot leaves one unbuilt only in a release changing
+the list or after an index was dropped by hand. After such a deploy
+([section 1](#1-deploying-a-build-and-going-back-to-an-earlier-one)), and after every restart below,
+read the frontend's log for that event from the container's own start, since a restart keeps the
+container and the lines it logged before:
 
 ```bash
-docker compose logs frontend | grep auth.index_unbuilt
+since="$(docker inspect -f '{{.State.StartedAt}}' "$(docker compose ps -q frontend)")"
+docker compose logs --since "$since" frontend | grep auth.index_unbuilt
 ```
+
+**Read it once about 30 seconds have passed since that start.** Each build waits at most nine
+seconds, the client's selection, checkout and socket bounds of three seconds each
+(`fl_frontend/src/core/db.ts`), and the `session` collection's three are built one after another,
+so the boot's last line comes within about 27 seconds.
 
 | The line's `code` | What stands                                                                 | What to do                                                                                                                                                               |
 | ----------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

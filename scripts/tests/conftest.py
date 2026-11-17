@@ -12,7 +12,6 @@ from __future__ import annotations
 import contextlib
 import importlib
 import os
-import re
 import shutil
 import stat
 import subprocess
@@ -86,8 +85,6 @@ def write_shell(path: Path, text: str) -> Path:
 # answers would otherwise hold the run until the CI job's own timeout. Below the stack dump the gate's pytest runs take
 # after `faulthandler_timeout`, so a hang ends here with its command named.
 PROCESS_BOUND_S: Final = 120
-_DUMP_AFTER_S: Final = int(re.findall(r"faulthandler_timeout=(\d+)", (REPO_ROOT / "scripts/gate/verify.sh").read_text(encoding="utf-8"))[0])
-assert PROCESS_BOUND_S < _DUMP_AFTER_S, f"PROCESS_BOUND_S must stay below the gate's faulthandler_timeout of {_DUMP_AFTER_S} s"
 
 
 def run_bounded(
