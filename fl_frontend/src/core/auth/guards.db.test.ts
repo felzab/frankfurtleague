@@ -45,7 +45,7 @@ const { getSubjectSession } = await import("@/core/subject");
 const { devicesOf } = await import("@/features/account/security");
 const { heldPasskeysOf } = await import("@/features/passkeys/held");
 
-signInIndexesForTheFile(authIndexes, () => client);
+signInIndexesForTheFile(authIndexes, mongod);
 
 // Each case signs the administrator in afresh.
 beforeEach(() => emptyStore(client.db(MONGO_DB_NAME)));
