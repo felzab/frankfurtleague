@@ -9,6 +9,8 @@ Invariants:
   of the settings it read.
 - Settings it cannot load are a refusal, 2, and its own 1 opens the line the script reads that 1 by, which the script
   holds to: every other 1, Python's own or Compose's, the script reads as a crash.
+- An insert the replica set never acknowledged, a bulk write answered with write-concern errors alone, is a database
+  that could not be written, 2, never a crash.
 - Every state of the landing builds a league whose every document its record model reads, with no database, and that no
   write of the app's refuses: each rule below is the app's own refusal, so a rule the app tightens tightens this one.
 """
@@ -34,10 +36,13 @@ from app.api.spieltage.services import DatedNeighbour, find_spieltag_order_refus
 from app.api.teams.services import find_austritt_refusal
 from app.core import clock
 from app.core.config import MONGODB_URI_FILE, SECRET_FILES
+from app.core.db import new_client
 from app.core.exceptions import WriteRefusal
 from tests.boot import BACKEND_ROOT, Withheld
-from tests.made_up_seed import INSERT_REFUSED, LANDING_STATES, UNJUDGED, MadeUpLeague, Season, is_local_server
+from tests.database import a_clean_database
+from tests.made_up_seed import AS_WRITTEN, INSERT_REFUSED, LANDING_STATES, UNJUDGED, MadeUpLeague, Season, is_local_server, write
 from tests.processes import to_its_exit
+from tests.worker import worker_database
 
 LIBRARY: Final = BACKEND_ROOT.parent / "scripts" / "lib" / "_lib.sh"
 
@@ -120,6 +125,27 @@ def test_settings_that_cannot_load_are_a_refusal(tmp_path: Path) -> None:
     assert (done.returncode, done.stdout) == (UNJUDGED, ""), done.stdout + done.stderr
     # One line, the settings' own refusal as the backend's boot logs it, naming the files missing from the empty directory.
     assert re.fullmatch(r"The settings could not be loaded: [^\n]*Invalid secret files: [^\n]+\n", done.stderr), done.stderr
+
+
+UNACKNOWLEDGED_DATABASE: Final = worker_database("fl_made_up_seed_unacknowledged")
+
+
+@pytest.mark.db
+async def test_an_insert_the_set_never_acknowledged_is_a_database_that_could_not_be_written(
+    mongo_replica_set_url: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Empty, so the seed has nothing to empty first: its first write is the first insert. The clean database's TTL check
+    # stays off, since the seed's documents are dated on the real clock and the case judges the exit code alone.
+    async with a_clean_database(mongo_replica_set_url, UNACKNOWLEDGED_DATABASE, constraints=False):
+        # Two acknowledging members asked of a set of one: the server writes each insert and answers it with a write-concern
+        # error alone, as a majority write the set never acknowledged answers.
+        unacknowledged = new_client(mongo_replica_set_url, w=2)
+        try:
+            code = await write(unacknowledged, UNACKNOWLEDGED_DATABASE, LANDING_STATES[AS_WRITTEN](clock.now()))
+        finally:
+            await unacknowledged.close()
+
+    assert (code, capsys.readouterr().err) == (UNJUDGED, "The database could not be written (BulkWriteError).\n")
 
 
 def test_the_refused_insert_s_line_is_the_one_the_script_reads_a_finding_by() -> None:
