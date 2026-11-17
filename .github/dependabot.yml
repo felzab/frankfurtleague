@@ -75,7 +75,7 @@ updates:
         patterns: ["*"]
         update-types: ["minor", "patch"]
     ignore:
-      # Three majors held by hand; an entry goes when its reason does.
+      # Held by hand: three majors and the sign-in's packages; an entry goes when its reason does.
       # typescript-eslint's peer range ends below TypeScript 7, which ships without the API it reads.
       - dependency-name: typescript
         update-types: ["version-update:semver-major"]
@@ -87,6 +87,13 @@ updates:
       # compiler to the browser, about 14 KB gzip on every page.
       - dependency-name: tailwind-variants
         update-types: ["version-update:semver-major"]
+      # From 1.7.21 the MongoDB adapter builds indexes of its own at start-up, two of them new on
+      # the production sign-in store, so the three move together with the stored-index change and
+      # its migration rather than as a routine update.
+      - dependency-name: better-auth
+        update-types: ["version-update:semver-minor", "version-update:semver-patch"]
+      - dependency-name: "@better-auth/*"
+        update-types: ["version-update:semver-minor", "version-update:semver-patch"]
 
   # --- Backend (uv) ---------------------------------------------------------------------------
 
