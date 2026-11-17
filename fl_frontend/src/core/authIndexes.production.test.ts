@@ -147,8 +147,7 @@ describe("the sign-in store's index build", () => {
 
     await afterHeartbeat();
 
-    // Each index once, however often the failing run asked for it.
-    const names = (from: Build[]) => [...new Set(from.map(({ collection, name }) => `${collection}.${name}`))].sort();
+    const names = (from: Build[]) => from.map(({ collection, name }) => `${collection}.${name}`).sort();
     expect(names(builds.slice(first))).toStrictEqual(names(builds.slice(0, first)));
   });
 

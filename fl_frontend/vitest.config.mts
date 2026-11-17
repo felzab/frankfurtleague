@@ -56,7 +56,7 @@ export default defineConfig({
           name: "db",
           include: ["src/**/*.db.test.ts"],
           // A case here waits on a replica set in a container, past Vitest's five seconds. The tier's usual run is inside
-          // the whole gate, beside every other scope, where a case that takes a second alone took up to 30 s (2026-11-17):
+          // the whole gate, beside every other scope, whose load stretches a case that takes a second alone towards 30 s:
           // sized for that run, so a case slow only from the gate's load passes and one that hangs still fails by name.
           // The replica set's start is bounded apart: each file awaits it at module level, where neither bound reaches.
           testTimeout: 60_000,

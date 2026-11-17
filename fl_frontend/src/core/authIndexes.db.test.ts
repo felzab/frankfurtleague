@@ -10,7 +10,6 @@ import {
 } from "@/test-support/authDoubles";
 import { NEXT_CACHE_DOUBLE } from "@/test-support/nextRequest";
 import { replicaSetUrl, startReplicaSet } from "@/test-support/replicaSet";
-import { HELD_WITHIN_MS } from "@/test-support/signInIndexes";
 import { captureLog } from "@/test-support/stdoutCapture";
 import { ObjectId } from "mongodb";
 import { assert, beforeEach, describe, expect, it } from "vitest";
@@ -74,6 +73,12 @@ beforeEach(async () => {
   await store().dropDatabase();
 });
 
+/**
+ * How long a case waits for the store to hold the indexes a build asked for: past the client's three-second bound a
+ * call is logged unbuilt and asked for again on the next writable heartbeat, the driver's ten seconds apart.
+ */
+const HELD_WITHIN_MS = 30_000;
+
 /** Every index the four collections hold, by collection, as `listIndexes` answers them. */
 async function heldIndexes(): Promise<Record<string, Record<string, unknown>[]>> {
   const held: Record<string, Record<string, unknown>[]> = {};
@@ -115,7 +120,7 @@ describe("the index build against a real store", () => {
     await buildAuthIndexes();
 
     // The store's verdicts alone: a build the client stopped waiting for on a loaded machine is logged with no code, and
-    // the server goes on with it.
+    // asked for again on the next writable heartbeat.
     expect(errorLines().filter(({ fields }) => fields["code"] !== undefined)).toStrictEqual([
       {
         event: "auth.index_unbuilt",

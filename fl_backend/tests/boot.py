@@ -21,7 +21,6 @@ from typing import Any, Final
 
 from app.core.concurrency import concurrently
 from app.core.db import SERVER_SELECTION_TIMEOUT_MS
-from tests.database import CASE_BOUND_S
 
 BACKEND_ROOT: Final = Path(__file__).resolve().parents[1]
 DOCKERFILE: Final = BACKEND_ROOT / "Dockerfile"
@@ -29,16 +28,6 @@ DOCKERFILE: Final = BACKEND_ROOT / "Dockerfile"
 # Far past the longest boot run to its exit, one waiting out the driver's server selection, so only a boot that hangs
 # reaches it. `booted` runs in a module fixture, outside any case's bound.
 BOOT_BOUND_S: Final = SERVER_SELECTION_TIMEOUT_MS / 1000 + 45
-
-# A boot `serving` holds, which runs inside a case: past the few seconds an import takes against a server that answers,
-# and under the case's own bound, so a boot that never starts fails as one.
-SERVING_BOUND_S: Final = 20.0
-
-# How long a boot asked to stop gets before it is killed. uvicorn defers a SIGTERM until its lifespan's startup ends, so
-# a boot stuck there, the one `SERVING_BOUND_S` cuts, ends only once it is killed.
-STOP_GRACE_S: Final = 5.0
-
-assert SERVING_BOUND_S + STOP_GRACE_S < CASE_BOUND_S, "a boot held inside a case must time out and stop before the case does"
 
 # The shape of the application's own log message (`app/core/logging.py`), which carries no value; uvicorn's lines and a
 # traceback's do not take it.
@@ -144,8 +133,8 @@ class Boot:
 async def _boot(directory: Path, files: Mapping[str, str], variables: Mapping[str, str]) -> AsyncIterator[asyncio.subprocess.Process]:
     """The boot started from `directory`, with `files` as its secrets and `variables` as its whole environment, held running.
 
-    Both streams in one, as the container log holds them. Asked to stop as the block leaves, by any path a sibling's
-    failure included, and killed once `STOP_GRACE_S` has passed, or at once where the wait is cancelled.
+    Both streams in one, as the container log holds them. Killed and reaped as the block leaves, by any path a sibling's
+    failure included: no case reads anything a boot does after its block.
     """
 
     process = await asyncio.create_subprocess_exec(
@@ -158,30 +147,16 @@ async def _boot(directory: Path, files: Mapping[str, str], variables: Mapping[st
     try:
         yield process
     finally:
-        # The ask, which on Windows is already a kill. A process that has just exited is no error.
+        # A process that has just exited is no error.
         with contextlib.suppress(ProcessLookupError):
-            process.terminate()
-        try:
-            await asyncio.wait_for(process.wait(), STOP_GRACE_S)
-        except TimeoutError:
             process.kill()
-            await process.wait()
-        except BaseException:
-            # Cancelled while it waited, so no grace is left to wait out.
-            process.kill()
-            raise
+        await process.wait()
 
 
 async def _to_its_exit(directory: Path, files: Mapping[str, str], variables: Mapping[str, str]) -> Boot:
     async with _boot(directory, files, variables) as process:
-        bound = asyncio.timeout(BOOT_BOUND_S)
-        try:
-            async with bound:
-                output, _ = await process.communicate()
-        except TimeoutError as timeout:
-            if bound.expired():
-                raise TimeoutError(f"the boot ran past its {BOOT_BOUND_S:g} s bound") from timeout
-            raise
+        async with asyncio.timeout(BOOT_BOUND_S):
+            output, _ = await process.communicate()
 
     return Boot(process.returncode, output.decode("utf-8", errors="replace"))
 
@@ -208,17 +183,11 @@ async def serving(directory: Path, files: Mapping[str, str], variables: Mapping[
     async with _boot(directory, files, variables) as process:
         assert process.stdout is not None
         lines: list[bytes] = []
-        reading = asyncio.timeout(SERVING_BOUND_S)
-        try:
-            async with reading:
-                while line := await process.stdout.readline():
-                    lines.append(line)
-                    if Boot(None, line.decode("utf-8", errors="replace")).events == [until]:
-                        break
-        except TimeoutError as timeout:
-            if reading.expired():
-                raise TimeoutError(f"the boot logged no `{until}` within {SERVING_BOUND_S:.0f} s") from timeout
-            raise
+        # Under the case's bound, inside which every caller holds it.
+        while line := await process.stdout.readline():
+            lines.append(line)
+            if Boot(None, line.decode("utf-8", errors="replace")).events == [until]:
+                break
         yield Boot(process.returncode, b"".join(lines).decode("utf-8", errors="replace"))
 
 

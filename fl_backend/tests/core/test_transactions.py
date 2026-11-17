@@ -660,20 +660,6 @@ class _AnsweringSession(_TransactedSession):
         self.sent.append(command)
 
 
-class _AnswerHeldSession(_TransactedSession):
-    """A session whose client takes a command and answers it only once the case lets it."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.asked = asyncio.Event()
-        self.answer = asyncio.Event()
-
-    async def _command(self, command: dict[str, Any], **_: Any) -> None:
-        self.asked.set()
-        await self.answer.wait()
-        self.sent.append(command)
-
-
 class _AnsweringClient:
     def __init__(self) -> None:
         self.session = _AnsweringSession()
@@ -758,32 +744,6 @@ class TestACancelledRequestStillAbortsItsTransaction:
         await cancel(served, inside)
 
         assert client.session.sent == [{"abortTransaction": 1, "txnNumber": 3, "autocommit": False}]
-
-    async def test_the_abort_is_answered_though_a_second_cancel_lands_while_it_is_in_flight(self):
-        """A native cancel the shield does not hold, as a task group sends a child again or a case's bound sends mid-abort."""
-
-        session = _AnswerHeldSession()
-        inside = asyncio.Event()
-
-        async def held_inside_a_session() -> None:
-            async with transaction_session(cast(AsyncMongoClient, _TransactingClient(session))):
-                inside.set()
-                await anyio.sleep_forever()
-
-        served = create_shell()
-        served.add_api_route(_HELD, held_inside_a_session)
-
-        async with asyncio.TaskGroup() as group:
-            serving = group.create_task(served(_SCOPE, _never_disconnects, _discarded))
-            await inside.wait()
-            serving.cancel()
-            await session.asked.wait()
-            serving.cancel()
-            session.answer.set()
-
-        # Raised once the abort has ended, so the task still ends cancelled.
-        assert serving.cancelled()
-        assert session.sent == [{"abortTransaction": 1, "txnNumber": 3, "autocommit": False}]
 
 
 class TestTheRouteRunsInTheServersTask:

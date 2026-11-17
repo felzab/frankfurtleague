@@ -92,32 +92,19 @@ async def _abort_on_the_server(session: AsyncClientSession) -> None:
             await session.client.admin.command({"abortTransaction": 1, "txnNumber": transaction_number, "autocommit": False}, session=session)
 
     started = time.monotonic()
-    # A context of its own: `pymongo.timeout` only narrows the deadline it is entered under, and the
-    # request's may have passed.
-    aborting = asyncio.create_task(abort(), context=contextvars.Context())
-    cancellation: asyncio.CancelledError | None = None
     try:
         # Shielded: inside an anyio cancel scope a cancelled request is cancelled again at every await,
-        # so this abort would be cancelled unsent; `pymongo.timeout` still bounds it. The shield holds
-        # only anyio's own scopes, so a native cancel landing meanwhile, a task group's or an
-        # `asyncio.timeout`'s, is held off by `asyncio.wait`, which never cancels the task it waits on,
-        # and raised once the abort has ended.
+        # so this abort would be cancelled unsent; `pymongo.timeout` still bounds it.
         with anyio.CancelScope(shield=True):
-            while not aborting.done():
-                try:
-                    await asyncio.wait([aborting])
-                except asyncio.CancelledError as landed:
-                    cancellation = cancellation or landed
-        aborting.result()
+            # A context of its own: `pymongo.timeout` only narrows the deadline it is entered under,
+            # and the request's may have passed.
+            await asyncio.create_task(abort(), context=contextvars.Context())
     except PyMongoError as failure:
         code = failure.code if isinstance(failure, OperationFailure) else None
         if code not in NOTHING_LEFT_OPEN:
             _log_left_open(f"its abort failed ({type(failure).__name__}, code {code})")
     finally:
         _spent_aborting(started)
-
-    if cancellation is not None:
-        raise cancellation
 
 
 @asynccontextmanager
