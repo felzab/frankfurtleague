@@ -122,7 +122,7 @@ def test_the_judge_of_a_call_refuses_a_misnamed_word_and_passes_a_short_mention(
 
 @pytest.mark.parametrize("page", PAGES, ids=lambda page: f"{page.parent.name}/{page.name}")
 def test_every_tool_call_a_page_names_parses_through_its_tool(page: Path) -> None:
-    """The text and the tools were written on two branches against one spec, and a flag the text named that the tool lacked ran nowhere."""
+    """Every call a page names parses through its tool's own parser, so a flag the text names and the tool lacks fails here."""
     refused = [f"`{call}`: {said}" for call in _calls(page.read_bytes().decode("utf-8")) if (said := _misnamed(call))]
     assert refused == []
 
@@ -177,7 +177,7 @@ def test_a_true_conflict_writes_nothing(ours: str, theirs: str, commit_rows: str
 
 
 # The backend spec's endpoint tables, whose first cell is a method: keyed by it, an agent's added
-# `POST` row matched the session's and was dropped while the landing reported nothing.
+# `POST` row would match the session's and be dropped with nothing reported.
 ENDPOINTS: Final = "| Method | Path |\n| --- | --- |\n| GET | `/spiele` |\n| POST | `/bewerbungen` |\n"
 
 
@@ -312,7 +312,7 @@ def test_the_command_line_takes_its_text_from_stdin_and_stamps_the_minute_it_run
 
 @pytest.mark.parametrize("command", ["append", "resume"])
 def test_text_given_as_arguments_is_refused_naming_the_two_ways(tmp_path: Path, command: str) -> None:
-    """A backtick inside a double-quoted argument ran as a command, and the line kept the words around the gap."""
+    """Text given as arguments is refused, since a shell runs a backtick inside double quotes as a command; `--file` carries it whole."""
     register = _register(tmp_path)
     before = register.read_bytes()
     done = _run("reg", command, str(register), "a", "beside it counts")
@@ -332,9 +332,9 @@ KILLED_HOLDER: Final = (
 
 
 def test_twenty_writers_started_together_each_land_their_line(tmp_path: Path) -> None:
-    """Each writer rewrote the whole register through one shared spare, so a concurrent change vanished while its command exited 0.
+    """Twenty concurrent appends each land their line and leave no spare or lock behind, so no write vanishes while its command exits 0.
 
-    A lock left by a killed writer stopped every later one; twenty finding it at once must break it once.
+    The lock a killed writer leaves stops none of the twenty finding it together, and breaking it lets no two of them write at once.
     """
     register = _register(tmp_path)
     subprocess.run((sys.executable, "-c", KILLED_HOLDER, str(register)), cwd=TOOLS, check=True)
@@ -417,7 +417,7 @@ def test_a_lock_naming_a_running_process_or_none_is_kept_and_named(tmp_path: Pat
 
 
 def test_a_register_written_with_carriage_returns_keeps_them_through_every_writer(tmp_path: Path) -> None:
-    """A rewritten row lost its carriage return, since a row is split into cells and joined again."""
+    """A register's carriage returns survive every writer, a row split into cells and joined again among them."""
     register = tmp_path / "REGISTER-s.md"
     register.write_bytes((RESUME_POINT.format(marker=reg.MARKER) + LIVE + REGISTER.split("{live}")[1]).replace("\n", "\r\n").encode("utf-8"))
     (tmp_path / "A-report.md").write_bytes(b"F1 one\n")
@@ -438,7 +438,7 @@ RESUME_POINT: Final = (
 
 
 def test_resume_rewrites_the_fields_its_text_names_and_no_other(tmp_path: Path) -> None:
-    """The fields read fifteen hours stale beneath 128 newer UPDATE lines, since no command rewrote them."""
+    """`resume` rewrites each field it names in place and logs the rewrite, so the fields keep pace with the UPDATE lines beneath them."""
     register = tmp_path / "REGISTER-s.md"
     register.write_bytes(RESUME_POINT.format(marker=reg.MARKER).encode("utf-8"))
     now = datetime.datetime(2026, 10, 16, 11, 20, tzinfo=datetime.UTC)
@@ -475,8 +475,8 @@ F9 inside a fence is an example, never a finding
 - F1 again, later in the report, adds no row.
 """
 
-# The two shapes reports numbered findings in before the label: the round-1b L6 report's bold
-# numbers, whose eight findings no label caught, and a numbered table row.
+# Findings numbered in two shapes other than the label: bold numbers opening a line, and a numbered
+# table row.
 BOLD_NUMBERED: Final = (
     "## (c) Findings\n\n**1. The stamped words describe a switch.**\n- **Where:** x\n\n**2. Focus drops.**\n\n"
     "| # | Finding |\n| - | ------- |\n| 3 | A third, in a table |\n"
@@ -545,7 +545,7 @@ def test_open_exits_one_while_a_row_is_open_and_zero_once_every_row_is_closed(tm
 
 @pytest.mark.parametrize("tool", ["ledger", "reg"])
 def test_a_character_the_pipes_codepage_lacks_prints_rather_than_failing_after_the_write(tmp_path: Path, tool: str) -> None:
-    """A minus sign failed the print after the row was written, and the encode error read as a refusal."""
+    """A character the stream's codepage lacks still prints, so no encode error after the write reads as a refusal."""
     register = _register(tmp_path)
     report = tmp_path / "A-report.md"
     report.write_bytes("F1 a count \u2212 one\n".encode())
@@ -588,7 +588,7 @@ def _set(register: Path, row: str, held: str, owner: str = "") -> None:
 
 
 def test_open_unclosed_prints_every_row_no_closed_status_ends(tmp_path: Path) -> None:
-    """The ending proved every row closed with `open`, which passes over ROUTED rows."""
+    """`open` passes over ROUTED rows, so the ending proves every row closed with `--unclosed`, which prints each row not closed."""
     register = _banked(tmp_path, ("A-report.md", "F1 one\n\nF3 three\n\nF4 four\n"))
     ledger.route(register, "FIXER", ["A-F1"])
     _set(register, "A-F3", "NOT A DEFECT", "the test drives it")
@@ -605,7 +605,7 @@ def test_open_unclosed_prints_every_row_no_closed_status_ends(tmp_path: Path) ->
     ids=["open", "open --unclosed", "route", "close of another row", "bank"],
 )
 def test_a_status_no_command_knows_is_refused_by_every_command_reading_the_ledger(tmp_path: Path, args: tuple[str, ...]) -> None:
-    """A helper wrote `CLOSED` over finished rows: `open --unclosed` printed them all and `open` read them as closed."""
+    """A status no command knows, such as `CLOSED`, is neither open nor closed, so every reader refuses it, naming `--reclose`."""
     register = _banked(tmp_path, ("A-report.md", "F1 one\n\nF2 two\n"))
     _set(register, "A-F1", "CLOSED", "its evidence")
     (tmp_path / "B-report.md").write_bytes(b"F1 one\n")
@@ -627,7 +627,7 @@ def test_a_status_no_command_knows_is_refused_by_every_command_reading_the_ledge
     ids=["a word a status opens", "a row of six cells"],
 )
 def test_a_status_cell_naming_no_status_whole_is_refused(tmp_path: Path, held: str, said: str, commands: bool) -> None:
-    """Read by its opening letters `OPENED` was OPEN, and a row an unescaped pipe widened was no row at all.
+    """A status is read whole, so `OPENED` is not OPEN, and a row an unescaped pipe widens is refused rather than skipped.
 
     Each refusal names the repair that works for its kind: no command rewrites a row it cannot split.
     """
@@ -657,7 +657,7 @@ def _printed(said: str, kind: str, **filled: str) -> list[str]:
 def test_a_mistyped_status_is_mended_by_either_repair_its_refusal_prints(
     tmp_path: Path, kind: str, filled: dict[str, str], after: list[str]
 ) -> None:
-    """Offered a closing repair alone, a mistyped in-flight row was steered to closed, a finding nobody fixed.
+    """A mistyped status is offered a repair for each kind, so a row still in flight is never steered to closed, a finding nobody fixed.
 
     Each printed line runs whole, from outside the repository, into a register whose path holds a space.
     """
@@ -673,7 +673,7 @@ def test_a_mistyped_status_is_mended_by_either_repair_its_refusal_prints(
 
 
 def test_a_row_has_one_owner_until_it_is_rerouted(tmp_path: Path) -> None:
-    """Two fixers given one finding built opposite designs; the second route is refused and writes nothing."""
+    """A second route of a routed row is refused and writes nothing, so two fixers never build opposite designs for one finding."""
     register = _banked(tmp_path, ("A-report.md", "F1 one\n\nF2 two\n"))
     assert _run("ledger", "route", str(register), "FIXER-1", "A-F1", "A-F2").returncode == 0
     assert _status(register, "A-F1") == ["ROUTED", "FIXER-1"]
@@ -686,7 +686,7 @@ def test_a_row_has_one_owner_until_it_is_rerouted(tmp_path: Path) -> None:
 
 
 def test_a_routed_row_carrying_a_note_routes_to_its_owner_again(tmp_path: Path) -> None:
-    """The note kept beside the owner read as part of the owner's name, so the next send to the same fixer was refused."""
+    """A note beside a row's owner is no part of the owner's name, so routing to the same owner again is no conflict and a reroute keeps it."""
     register = _banked(tmp_path, ("A-report.md", "F1 one\n"))
     _set(register, "A-F1", "OPEN", "L8 owns the wording")
     ledger.route(register, "FIXER", ["A-F1"])
@@ -722,7 +722,7 @@ def _row(register: Path, row: str) -> list[str]:
 
 
 def test_close_sets_open_and_routed_rows_to_a_closing_status_and_its_evidence(tmp_path: Path) -> None:
-    """Rows closed by hand took a word outside the vocabulary; evidence holding a pipe would split its row."""
+    """`close` writes a closing word and its evidence, a pipe in it escaped so it cannot split the row; `--reclose` keeps the earlier close."""
     register = _banked(tmp_path, ("A-report.md", "F1 one\n\nF2 two\n\nF3 three\n"))
     ledger.route(register, "FIXER", ["A-F1"])
     done = _run("ledger", "close", str(register), "NOT A DEFECT", "the test | drives it\nalready", "A-F1", "A-F2")
@@ -760,7 +760,7 @@ LENS_REPEAT: Final = b"F10 (for L8). In `BewerbungAngabenPanel.tsx`, `9cf8a0663`
 
 @pytest.mark.parametrize("held", ["ROUTED", "FIXED (abc1234)"], ids=["an open earlier row", "a closed earlier row"])
 def test_a_finding_several_lenses_reported_is_named_at_its_banking(tmp_path: Path, held: str) -> None:
-    """The round's lenses each banked the comment orphaned above `Leer`, as rows nobody tied together; a closed row is history."""
+    """A finding sharing code spans with a row still open is named as its possible repeat, so lenses reporting one defect are tied together."""
     register = _banked(tmp_path, ("L1-report.md", "F5 (for L8). `9cf8a0663` put two constants between `Leer()` and its comment\n"))
     _set(register, "L1-F5", held, "FIXER")
     report = tmp_path / "L4-report.md"
@@ -793,7 +793,7 @@ def _home(tmp_path: Path) -> dict[str, str]:
 
 
 def test_bank_from_an_agent_saves_its_final_message_and_never_over_another_report(tmp_path: Path) -> None:
-    """Banked findings whose report was never saved left fixers nothing to read; a resumed agent's short reply overwrote a report."""
+    """`--from` saves the agent's final message as the report its rows name, and never over a file holding another report."""
     env = _home(tmp_path)
     _transcript(tmp_path / "home", "a1b2", ("m1", ["an interim note"]), ("m2", ["## Report\n\n", "F1 the \u2212 finding\n"]))
     register, report = _register(tmp_path), tmp_path / "AGENT-report.md"
@@ -809,7 +809,7 @@ def test_bank_from_an_agent_saves_its_final_message_and_never_over_another_repor
 
 
 def test_a_refused_bank_from_an_agent_saves_nothing_so_its_retry_runs(tmp_path: Path) -> None:
-    """Saved before it banked, a report with no label left a file the retry with --none then refused."""
+    """A bank refused for a report with no label saves no file, so its retry with `--none` finds no report in its way."""
     env = _home(tmp_path)
     _transcript(tmp_path / "home", "a1b2", ("m1", ["Nothing to report.\n"]))
     register, report = _register(tmp_path), tmp_path / "AGENT-report.md"
@@ -820,7 +820,7 @@ def test_a_refused_bank_from_an_agent_saves_nothing_so_its_retry_runs(tmp_path: 
 
 
 def test_bank_from_an_agent_saves_the_report_before_its_rows_or_banks_nothing(tmp_path: Path) -> None:
-    """Rows banked before the save named a report a failed save never wrote, and a missing folder failed every save."""
+    """The report is saved before any row is banked, so no row names a report that was never written; a missing folder is created."""
     env = _home(tmp_path)
     _transcript(tmp_path / "home", "a1b2", ("m1", ["F1 the finding\n"]))
     register = _register(tmp_path)
@@ -855,7 +855,7 @@ def _synthetic(home: Path, agent: str) -> None:
 
 
 def test_bank_from_an_agent_skips_the_quota_stop_and_sets_its_live_row_done(tmp_path: Path) -> None:
-    """The quota message banked as the report, so the report was saved by hand; and 108 finished agents read RUNNING."""
+    """The quota stop the harness appends after a report is skipped, so the agent's own message is banked; its live row is set DONE."""
     env = _home(tmp_path)
     _transcript(tmp_path / "home", "a1b2c3", ("m1", ["F1 the real finding\n"]))
     _synthetic(tmp_path / "home", "a1b2c3")
@@ -887,7 +887,7 @@ AFTER_AN_INTERRUPTION: Final = (
 def test_bank_from_an_agent_stopped_mid_task_banks_and_saves_nothing(
     tmp_path: Path, after: dict[str, object], said: str, flags: tuple[str, ...]
 ) -> None:
-    """A stopped agent's last text was an interim note written beside its next call, and `--none` saved it as the report."""
+    """A stopped agent's last text is an interim note beside its next call, so its bank is refused, `--none` included, and saves nothing."""
     env = _home(tmp_path)
     _transcript(tmp_path / "home", "a1b2c3", ("m1", ["F1 looks real; checking the merge next.\n"]))
     path = tmp_path / "home" / ".claude" / "projects" / "proj" / "session" / "subagents" / "agent-a1b2c3.jsonl"
@@ -901,7 +901,7 @@ def test_bank_from_an_agent_stopped_mid_task_banks_and_saves_nothing(
 
 
 def test_bank_routes_and_closes_in_its_own_write_and_names_each_row_left_open(tmp_path: Path) -> None:
-    """Implementer and research rows were banked and never routed: 555 of them sat OPEN at once."""
+    """`--route` and `--close` apply in the bank's own write, and each row they leave OPEN is named, so no banked row sits unowned unseen."""
     register = _register(tmp_path)
     report = tmp_path / "A-report.md"
     report.write_bytes(b"F1 one\n\nF2 two\n\nF3 three\n\nF4 four\n")
@@ -927,7 +927,7 @@ def test_a_bank_whose_routes_or_closes_cannot_all_apply_writes_nothing(tmp_path:
 
 
 def test_a_route_to_an_owner_neither_live_nor_a_queue_is_refused_naming_the_queues(tmp_path: Path) -> None:
-    """180 rows sat with 21 names that never became agents, seven of them spellings of the owner's queues."""
+    """A route names a live agent or an owner's queue, so no row waits on a name that never becomes an agent; the refusal lists the queues."""
     register = _banked(tmp_path, ("A-report.md", "F1 one\n\nF2 two\n"))
     before = register.read_bytes()
     done = _run("ledger", "route", str(register), "owner-pass", "A-F1")
@@ -944,7 +944,7 @@ FIXER_REPORT: Final = (
 
 
 def test_a_number_a_table_row_and_a_prose_line_both_label_banks_the_prose() -> None:
-    """S9-AUTH-r6's F1 to F9 were banked from its acceptance table, and its real findings never reached the ledger.
+    """A number a table row and a prose line both label banks the prose, so a fixer's acceptance table never stands in for its findings.
 
     A number only that table labels, above the report's own F1, banks nothing until it is cited or named.
     """
@@ -966,7 +966,7 @@ INDEXED_REPORT: Final = (
 
 
 def test_a_number_an_index_list_repeats_is_refused_until_its_line_is_named() -> None:
-    """An index item listed first was banked as the finding, and the longest paragraph that replaced it picked evidence lines.
+    """A number two prose lines label, as an index item and its finding, is refused until `--line` names one, rather than guessed.
 
     A closing ranked table repeats every finding by design and refuses nothing.
     """
@@ -985,8 +985,8 @@ def test_a_number_an_index_list_repeats_is_refused_until_its_line_is_named() -> 
     assert sorted(ledger.bankable(cold).chosen) == [1, 2, 3] and ledger.bankable(cold).said == []
 
 
-# SKILL-FIX-TOOLS-2's report, its labels kept and its prose cut: its acceptance section labels the audit's
-# findings bare, F23 among them, and its own findings follow from F1.
+# A fixer's report citing an audit: its acceptance section labels the audit's findings bare, F23
+# among them, and its own findings follow from F1.
 CITING_REPORT: Final = (
     "## (c) Acceptance\n\n**Item 1: the audit's F1 to F3.**\n\n"
     "- **F1 (`expect` and generic lines).** `expect` no longer writes a row for a job's verdict-only line.\n"
@@ -1002,7 +1002,7 @@ CITING_REPORT: Final = (
 
 
 def test_a_report_labelling_a_number_twice_or_citing_one_bare_banks_nothing_until_each_is_named(tmp_path: Path) -> None:
-    """Its F1 to F3 were banked from bullets citing the audit, and its bare F23 became a row for a finding it never made."""
+    """A number labelled twice, or cited bare above the report's own F1, banks nothing until settled, so no row is an audit's finding."""
     register = _register(tmp_path)
     report = tmp_path / "SKILL-FIX-TOOLS-2-report.md"
     report.write_bytes(CITING_REPORT.encode())
@@ -1028,7 +1028,7 @@ def test_a_report_labelling_a_number_twice_or_citing_one_bare_banks_nothing_unti
 
 
 def test_show_prints_a_rows_whole_finding_from_its_saved_report(tmp_path: Path) -> None:
-    """Over half the ledger's rows end cut at 160 characters, and a driver barred from the report worked from the half."""
+    """A ledger row holds a cut summary, so `show` prints each row's whole finding from its saved report and names a row the ledger lacks."""
     reports = tmp_path / "reports"
     reports.mkdir()
     register = _register(tmp_path)
@@ -1041,13 +1041,13 @@ def test_show_prints_a_rows_whole_finding_from_its_saved_report(tmp_path: Path) 
     shown = done.stdout.replace("\r\n", "\n").split("\n\n")
     assert shown[0].splitlines()[1:] == ["F1 — correction for the commit body.", "It names the wrong file."]
     assert shown[1].splitlines()[1:] == ["| F2 | the case drives it |"]
-    # A row banked from the table before prose won prints the line it holds, not the prose beside it.
+    # A row holding the table line's text prints that line, not the prose beside it.
     register.write_bytes(register.read_bytes().replace(b"| correction for the commit body. |", b"| `tsc` 0, the plant red |"))
     assert _run("ledger", "show", str(register), "A-F1").stdout.splitlines()[1:] == ["| F1 | `tsc` 0, the plant red |"]
 
 
 def test_open_names_a_running_agent_whose_report_was_saved_after_its_stamp(tmp_path: Path) -> None:
-    """The live-agent table read 108 finished agents RUNNING; an agent resumed after its first report is RUNNING again rightly."""
+    """`open` names each RUNNING agent whose report postdates its stamp, so no finished agent reads RUNNING; a resumed one rightly does."""
     briefs, reports = tmp_path / "briefs", tmp_path / "reports"
     briefs.mkdir()
     reports.mkdir()
@@ -1066,7 +1066,7 @@ def test_open_names_a_running_agent_whose_report_was_saved_after_its_stamp(tmp_p
         when = saved.timestamp() if saved else 0
         os.utime(reports / "FIXER-report.md", (when, when))
         assert any(line.startswith("FIXER is") for line in _run("ledger", "open", str(register)).stderr.splitlines()) is flags, saved
-    # Read after the rows print, an undatable stamp once turned the exit the ending loops on into a refusal.
+    # Read after the rows print, an undatable stamp is named and leaves the exit the ending loops on as it is.
     register.write_bytes(register.read_bytes().replace(b"RUNNING (2020-01-01 10:00)", b"RUNNING (2020-13-45 10:00)"))
     undated = _run("ledger", "open", str(register))
     assert undated.returncode == 0 and "FIXER's stamp `2020-13-45 10:00` is no date" in undated.stderr, undated.stderr
@@ -1095,7 +1095,7 @@ def _sent(to: str, text: str, **extra: object) -> dict[str, object]:
 
 @pytest.mark.parametrize("to", ["WORKER", "a1b2c3"], ids=["by name", "by id"])
 def test_a_sent_message_is_written_to_its_agents_file_and_routes_its_rows(tmp_path: Path, to: str) -> None:
-    """An order appended by hand, its send forgotten, never reached the agent: the record follows the send."""
+    """The send itself writes the message to its agent's file and routes its rows, so no order is recorded that was never sent."""
     plans, register, messages = _fleet(tmp_path)
     now = datetime.datetime(2026, 10, 6, 19, 5, tzinfo=datetime.UTC)
     text = 'Fix both.\r\nRows: A-F1, A-F2\nPath C:\\Users\\x stays as typed, and so does "agent_id": in a brief.'
@@ -1137,7 +1137,7 @@ def test_a_send_that_is_no_coordinators_order_writes_nothing_and_says_nothing(tm
 def test_a_coordinators_send_it_cannot_record_is_told_rather_than_dropped(
     tmp_path: Path, to: str, messages_file: bool, briefs_line: bool, said: str
 ) -> None:
-    """Every agent missing from a stale live-agent table was skipped in silence; whatever is not recorded is now said."""
+    """A coordinator's send that reaches no messages file is told, naming why, rather than skipped in silence."""
     plans, _, messages = _fleet(tmp_path, messages_file=messages_file, briefs_line=briefs_line)
     before = messages.read_bytes() if messages.exists() else None
     told = reg.record(_sent(to, "x"), plans)
@@ -1155,7 +1155,7 @@ def test_rows_routed_elsewhere_are_told_and_the_message_still_recorded(tmp_path:
 
 
 def test_the_hook_command_answers_a_notice_and_a_failure_as_hook_json(tmp_path: Path) -> None:
-    """A failure inside the hook was swallowed by the shell's exit 0, reading exactly like a recorded send."""
+    """The hook answers a notice and its own failure alike as hook JSON, so a failure behind the shell's exit 0 reaches the coordinator."""
     plans, register, _ = _fleet(tmp_path, messages_file=False)
     (plans / "other" / "REGISTER-x.md").parent.mkdir()
     (plans / "other" / "REGISTER-x.md").write_bytes(b"\xff not this session's, and not utf-8\n")
@@ -1172,7 +1172,7 @@ def test_the_hook_command_answers_a_notice_and_a_failure_as_hook_json(tmp_path: 
 
 
 def test_the_messages_hook_says_a_lock_it_cannot_take_inside_its_timeout(tmp_path: Path) -> None:
-    """The hook waited on a held lock as long as its own timeout, so the harness killed it and the coordinator heard nothing.
+    """The hook gives up on a held lock inside its own timeout and says so, rather than being killed by the harness with nothing told.
 
     The record's whole wait is held to at most half the timeout `.claude/settings.json` gives the hook.
     """
@@ -1197,7 +1197,7 @@ def test_the_messages_hook_says_a_lock_it_cannot_take_inside_its_timeout(tmp_pat
 
 
 def test_the_writer_tools_hook_refuses_an_implementers_mcp_call() -> None:
-    """The hook lets through whatever it cannot read, so a renamed input field turned it off with nothing failing.
+    """The hook lets through whatever it cannot read, so a renamed input field would turn it off with nothing failing.
 
     The payload is a PreToolUse input as the hooks reference documents it, `agent_type` among the
     common fields a subagent's call carries.
@@ -1226,7 +1226,7 @@ def test_the_writer_tools_hook_refuses_an_implementers_mcp_call() -> None:
 
 
 def test_dispatch_writes_the_messages_file_and_the_row_a_send_resolves_through(tmp_path: Path) -> None:
-    """The first dispatch after the landing made no messages file and no live-agent row, so its sends had nowhere to go."""
+    """`dispatch` writes the messages file and the live-agent row a send resolves through, by the agent's name and by an id given later."""
     plans, register, _ = _fleet(tmp_path)
     briefs = tmp_path / "plans" / "prog" / "scratch" / "briefs"
     first = _run("reg", "dispatch", str(register), "NEWBIE", "--question", "the new work")
@@ -1249,7 +1249,7 @@ def test_dispatch_refuses_a_register_naming_no_briefs_directory(tmp_path: Path) 
 
 
 def test_a_sent_rows_line_routes_each_row_it_can_and_names_each_it_cannot(tmp_path: Path) -> None:
-    """One refused row in a `Rows:` line once dropped the eight beside it, the route being all or none."""
+    """A `Rows:` line routes each row it can and names each it cannot, so one refused row never holds back the rest."""
     plans, register, _ = _fleet(tmp_path)
     ledger.route(register, "OTHER", ["A-F2"])
     said = reg.record(_sent("WORKER", "Fix them.\nRows: A-F1, A-F2, A-F9."), plans)
@@ -1272,7 +1272,7 @@ def _brief(tmp_path: Path, name: str, rows: str) -> Path:
 
 
 def test_dispatch_routes_its_briefs_rows_one_by_one_and_takes_a_queues_rows(tmp_path: Path) -> None:
-    """A brief is a file and its dispatch no SendMessage, so the rows a brief named reached no hook and stayed OPEN."""
+    """A brief is a file and its dispatch no SendMessage, so `dispatch --brief` routes the rows it names itself, through no hook."""
     _, register, _ = _fleet(tmp_path)
     ledger.route(register, "OTHER", ["A-F2"])
     brief = _brief(tmp_path, "NEWBIE", "Rows: A-F1, A-F2.")
@@ -1311,7 +1311,7 @@ def test_dispatch_with_an_id_sets_a_finished_agents_row_running_again(tmp_path: 
 
 @pytest.mark.parametrize("name", ["NEWBIE", "OTHER"], ids=["a new row", "another agent's row"])
 def test_dispatch_refuses_an_id_another_live_row_names(tmp_path: Path, name: str) -> None:
-    """Two rows naming one id left every later write to either row refused, and a send by that id in no messages file."""
+    """An id another live row names is refused, writing nothing, since two rows naming one id would refuse every later write to either."""
     _, register, _ = _fleet(tmp_path)
     briefs = tmp_path / "plans" / "prog" / "scratch" / "briefs"
     before = register.read_bytes()
@@ -1322,7 +1322,7 @@ def test_dispatch_refuses_an_id_another_live_row_names(tmp_path: Path, name: str
 
 
 def test_a_queued_standing_action_is_ticked_by_the_dispatch_of_its_brief(tmp_path: Path) -> None:
-    """Standing actions lived in UPDATE text, where nothing read them, and the four rows of the table stayed `no`."""
+    """A standing action is queued as a row of its table, which the dispatch of its brief ticks, naming the dispatch."""
     _, register, _ = _fleet(tmp_path)
     register.write_bytes(register.read_bytes().replace(b"## Findings ledger", (STANDING + "## Findings ledger").encode()))
     brief = _brief(tmp_path, "NEWBIE", "")
@@ -1347,7 +1347,7 @@ def _live_status(register: Path, name: str) -> str:
 
 
 def test_a_paused_agent_is_counted_apart_and_a_message_resumes_it(tmp_path: Path) -> None:
-    """An agent paused under /pace read RUNNING, so the gauge counted it and the width it bounds was wrong."""
+    """A paused agent is counted apart from the RUNNING gauge, so the width the gauge bounds stays right; a message resumes it."""
     plans, register, _ = _fleet(tmp_path)
     assert _run("reg", "pause", str(register), "WORKER").returncode == 0
     assert re.fullmatch(r"PAUSED \d{4}-\d\d-\d\d \d\d:\d\d", _live_status(register, "WORKER"))
@@ -1362,7 +1362,7 @@ def test_a_paused_agent_is_counted_apart_and_a_message_resumes_it(tmp_path: Path
 
 
 def test_a_message_to_a_finished_agent_sets_its_row_running(tmp_path: Path) -> None:
-    """A finished agent resumed by a message stayed DONE, so the gauge and the pacing count missed it."""
+    """A message to a finished agent sets its row RUNNING, so the gauge and the pacing count include the agent it resumes."""
     plans, register, _ = _fleet(tmp_path)
     register.write_bytes(register.read_bytes().replace(b"| the work | x | RUNNING |", b"| the work | x | DONE 2026-10-16 10:00 W.md |"))
     now = datetime.datetime(2026, 10, 16, 15, 1, tzinfo=datetime.UTC)
@@ -1372,7 +1372,7 @@ def test_a_message_to_a_finished_agent_sets_its_row_running(tmp_path: Path) -> N
 
 
 def test_a_register_write_failing_after_the_record_says_the_message_is_recorded(tmp_path: Path) -> None:
-    """The hook said a message was in no messages file after writing it there, and the coordinator sent it twice.
+    """A register write failing after the record still says the message is recorded, so the coordinator never sends it twice.
 
     The register's lock names a running process, so the wake and the route each fail after the record.
     """
@@ -1409,7 +1409,7 @@ def test_dispatch_takes_a_finished_agents_rows_and_never_a_paused_ones(tmp_path:
 
 
 def test_context_reads_the_last_calls_context_and_counts_the_calls(tmp_path: Path) -> None:
-    """Agents resumed for a new round at 950,000 tokens of context cost a fresh agent's quota many times over."""
+    """`context` reads an agent's context at its last call and counts its calls: a resume at a large context costs many fresh agents' quota."""
     env = _home(tmp_path)
     folder = tmp_path / "home" / ".claude" / "projects" / "proj" / "session" / "subagents"
     folder.mkdir(parents=True)
@@ -1447,9 +1447,8 @@ FAILED_RUN: Final = _log(
     ("docs", "^[[31m   \u2717^[[0m  The documentation gate failed. Each finding above opens with what it judged"),
     ("docs", "##[error]Process completed with exit code 1."),
     # Vitest's summary as the gate replays it, Vitest's raised annotation repeating the case's error, and the
-    # gate's verdict, which raises none of its own. The frame is a real job's log; no run on Actions has
-    # failed a Vitest case, so Vitest's own lines are copied from a planted local run under CI=true
-    # GITHUB_ACTIONS=true.
+    # gate's verdict, which raises none of its own. The frame is a real job's log, and Vitest's own
+    # lines are a planted local run's under CI=true GITHUB_ACTIONS=true.
     ("frontend-units", "      \u23af\u23af\u23af\u23af\u23af\u23af\u23af Failed Tests 1 \u23af\u23af\u23af\u23af\u23af\u23af\u23af"),
     ("frontend-units", f"       FAIL  |unit| {MIRROR_CASE}"),
     ("frontend-units", "      AssertionError: These backend components have no Zod mirror and no recorded reason:"),
@@ -1485,7 +1484,7 @@ def _report(log: bytes, red: str = EXPECTED_RED) -> tuple[list[str], list[str], 
 
 
 def test_ci_names_every_finding_of_every_failed_job_expected_or_new() -> None:
-    """A job holding an expected red was read as wholly expected while a second, unlisted finding sat in it."""
+    """Every finding of a failed job is named, expected or new, so a job holding an expected red never hides a second, unlisted one."""
     said, new, flagged = _report(FAILED_RUN)
     assert flagged
     assert new == [
@@ -1537,7 +1536,7 @@ def _vitest_run(annotation: str) -> bytes:
 
 
 def test_ci_names_each_failing_vitest_case_and_reads_vitests_annotation_as_its_repeat() -> None:
-    """Vitest's failures read as their errors' messages and the step's verdict, no case named: only node:test's section was parsed."""
+    """Each failing Vitest case is named as its own new line, and Vitest's annotation of it is read as its repeat, no second finding."""
     # The runner trims a line's leading space before it reads a workflow command, so Vitest's
     # annotation the gate replays indented is raised, and logged as its message.
     said, new, flagged = _report(_vitest_run("##[error]{text}"))
@@ -1550,7 +1549,7 @@ def test_ci_names_each_failing_vitest_case_and_reads_vitests_annotation_as_its_r
 
 
 def test_ci_prints_every_new_line_last_and_the_count_after_them() -> None:
-    """A `tail -8` of a read printing NEW lines first showed two of its four, and none where the expected blocks ran long."""
+    """NEW lines print last and their count after them, so a `tail` of a read shows each new finding however long the expected blocks run."""
     said, _, _ = _report(FAILED_RUN)
     first_new = next(k for k, line in enumerate(said) if line.startswith("NEW"))
     assert all(line.startswith(("NEW", " ")) for line in said[first_new:-1]), said
@@ -1561,7 +1560,7 @@ def test_ci_prints_every_new_line_last_and_the_count_after_them() -> None:
 
 
 def test_a_red_row_whose_recorded_job_passed_is_cleared_and_one_with_no_job_stays() -> None:
-    """A row its job's passing had cleared stayed RED until someone wrote CLEARED by hand, a job the row never named."""
+    """A RED row naming its job is cleared when that job passes, and a row naming another job, or none, stays RED."""
     red = EXPECTED_RED.replace("| `refusalCoverage` | | mapper |", "| `refusalCoverage` | | `frontend` job: NEW in run 1 |")
     reading = ci.report(FAILED_RUN.decode("utf-8"), red, passed=frozenset({"frontend"}))
     assert [row.matches for row in reading.cleared] == ["refusalCoverage"]
@@ -1677,7 +1676,7 @@ def _gh(tmp_path: Path, run: Mapping[str, object], log: bytes = b"", code: int =
 def test_ci_reads_a_run_through_gh_only_once_it_concluded(
     tmp_path: Path, status: str, conclusion: str, log: bytes, code: int, exit_code: int, said: str
 ) -> None:
-    """A pipe from gh hid gh's own failure behind ci.py's exit, and nothing checked the run had concluded."""
+    """`ci.py` runs gh itself, so gh's own failure is its exit rather than hidden behind a pipe, and a run not yet concluded is refused."""
     root, sha = _pushed(tmp_path)
     env = _gh(tmp_path, {"status": status, "conclusion": conclusion, "workflowName": "verify", "headSha": sha}, log, code)
     register = tmp_path / "REGISTER-s.md"
@@ -1693,7 +1692,7 @@ def test_ci_reads_a_run_through_gh_only_once_it_concluded(
     ids=["workflow", "commit"],
 )
 def test_ci_refuses_a_run_of_another_workflow_or_another_commit(tmp_path: Path, workflow: str, head: bool, said: str) -> None:
-    """The coordinator handed it the pr-body run, "the newest on the branch", and the read judged a run that tests nothing."""
+    """A run of another workflow, such as pr-body, or of another commit is refused and writes nothing, since it tests nothing of the head."""
     root, sha = _pushed(tmp_path)
     env = _gh(tmp_path, {"status": "completed", "conclusion": "success", "workflowName": workflow, "headSha": sha if head else "0" * 40})
     register = tmp_path / "REGISTER-s.md"
@@ -1705,7 +1704,7 @@ def test_ci_refuses_a_run_of_another_workflow_or_another_commit(tmp_path: Path, 
 
 
 def test_a_read_writes_cleared_on_each_red_row_its_run_passed(tmp_path: Path) -> None:
-    """The register's rows were turned CLEARED by hand, one of them from a detail line no read ever matched."""
+    """A read writes CLEARED, with the commit and the run, on each RED row whose job passed, and on every row when the whole run passes."""
     root, sha = _pushed(tmp_path)
     jobs = [{"name": "frontend", "conclusion": "success"}, {"name": "docs", "conclusion": "failure"}]
     run = {"status": "completed", "conclusion": "failure", "workflowName": "verify", "headSha": sha, "jobs": jobs}
@@ -1724,7 +1723,7 @@ def test_a_read_writes_cleared_on_each_red_row_its_run_passed(tmp_path: Path) ->
 
 
 def test_expect_writes_a_red_row_per_new_line_that_the_next_read_expects(tmp_path: Path) -> None:
-    """Rows were written by heredoc scripts, one matching a detail line the read never takes, so the next run read NEW again."""
+    """`expect` writes a RED row for each NEW line, escaped and matched as the read takes it, so the next read of that log expects it."""
     root, sha = _pushed(tmp_path)
     log = _log(("frontend-units", "##[error]`db` | a pipe took 155 s"), ("docs", "##[error]`is neither an invariant nor a header` here"))
     env = _gh(tmp_path, {"status": "completed", "conclusion": "failure", "workflowName": "verify", "headSha": sha}, log)
@@ -1750,7 +1749,7 @@ def _failed(sha: str, **extra: object) -> dict[str, object]:
 
 
 def test_expect_writes_no_row_for_a_jobs_summary_and_a_relay_is_no_finding(tmp_path: Path) -> None:
-    """A row matching a job's placeholder expected every later failure of that job, so the read could not fail."""
+    """No row is written for a job's summary, which would expect every later failure of that job and leave the read unable to fail."""
     root, sha = _pushed(tmp_path)
     log = _log(
         ("images", "##[error]Process completed with exit code 1."), ("verify", "##[error]A scope job failed -- its own log has the findings.")
@@ -1772,7 +1771,7 @@ def test_expect_writes_no_row_for_a_jobs_summary_and_a_relay_is_no_finding(tmp_p
 
 
 def test_expect_keeps_a_lines_spacing_so_the_next_read_matches_it(tmp_path: Path) -> None:
-    """Spaces were collapsed in the row's literal, so the line it was written for read NEW again."""
+    """A row's literal keeps its line's spaces and tabs, so the next read matches the line it is written for."""
     root, sha = _pushed(tmp_path)
     log = _log(("docs", "##[error]two  spaces\tand a tab"))
     env = _gh(tmp_path, _failed(sha), log)
@@ -1808,7 +1807,7 @@ def test_ci_names_a_cancelled_run_rather_than_reading_its_log(tmp_path: Path) ->
 
 
 def test_ci_reads_another_commits_run_with_commit_and_writes_no_row(tmp_path: Path) -> None:
-    """Every run of another commit was refused, main's among them, and such a run says nothing of the pushed head's rows."""
+    """`--commit` reads a run of another commit, main's among them, and writes no row, since it says nothing of the pushed head's rows."""
     root, sha = _pushed(tmp_path)
     head = git(root, "rev-parse", "HEAD")
     jobs = [{"name": "frontend", "conclusion": "success"}]
@@ -1981,7 +1980,7 @@ STANDING: Final = (
 
 @pytest.mark.parametrize("folder", ["fleet", "a fleet"], ids=["a plain path", "a register path holding a space"])
 def test_a_landing_closes_only_the_rows_routed_to_its_agent_that_a_rows_fixed_line_names(tmp_path: Path, folder: str) -> None:
-    """Routes went out by message and the ledger fell hundreds of rows behind; a bare mention or another fixer's row closed nothing."""
+    """A landing closes each row routed to its agent that a `Rows fixed:` line names; a bare mention or another fixer's row closes nothing."""
     tmp_path = tmp_path / folder
     tmp_path.mkdir()
     branch = "worktree-agent-a1b2c3"
@@ -1997,17 +1996,17 @@ def test_a_landing_closes_only_the_rows_routed_to_its_agent_that_a_rows_fixed_li
     merge = git(root, "rev-parse", "--short", "HEAD")
     assert f"FIXED A-F11 by {merge}" in done.stdout
     assert "not ROUTED to WORKER, a1b2c3, so left as they stand: A-F2" in done.stdout
-    # An OPEN row a body names was never routed: the landing prints its close and leaves it OPEN.
+    # An OPEN row a body names is routed to nobody: the landing prints its close and leaves it OPEN.
     said = done.stdout.splitlines()
     opened = said.index("named fixed by the merged commits while OPEN; run the line of each row the merge fixed:")
     assert shlex.split(said[opened + 1])[-1] == "A-F3" and _status(register, "A-F3")[0] == "OPEN"
-    # A fixer's body naming finding numbers rather than rows left its rows ROUTED with nothing said.
+    # Each row routed to the agent that no `Rows fixed:` line names is said to stay ROUTED.
     said = done.stdout.splitlines()
     assert "still ROUTED to WORKER, a1b2c3 with no `Rows fixed:` line closing them: A-F1, A-F4" in said
     assert _status(register, "A-F11") == [f"FIXED ({merge})", "was WORKER"]
     assert [_status(register, row)[0] for row in ("A-F1", "A-F2", "A-F3", "A-F4")] == ["ROUTED", "ROUTED", "OPEN", "ROUTED"]
-    # One printed line per row, each run whole as printed and from outside the repository: a single
-    # command over every row closed as FIXED the one this merge left for a later round.
+    # One printed line per row, each run whole as printed and from outside the repository, so closing
+    # the row this merge fixed leaves the one it left for a later round routed.
     lines = said[said.index("  run only the line of each row this merge fixed; the rest stay routed:") + 1 :][:2]
     assert [shlex.split(line)[-1] for line in lines] == ["A-F1", "A-F4"]
     fixed = subprocess.run(shlex.split(lines[0]), cwd=tmp_path.parent, capture_output=True, check=False)
@@ -2018,7 +2017,7 @@ def test_a_landing_closes_only_the_rows_routed_to_its_agent_that_a_rows_fixed_li
 
 
 def test_a_rows_fixed_line_wrapped_like_its_body_names_every_row() -> None:
-    """A fixer wrapped its line at 76 characters and the landing read the first line alone, leaving 8 of 11 rows routed."""
+    """A `Rows fixed:` line wrapped at the body's width names the rows on its continuation lines too, and a bare mention names none."""
     body = (
         "Frontend: A note\n\nThe journeys read the built page.\n\n"
         "Rows fixed: JOURNEY-LENS-F23, JOURNEY-LENS-F24,\nJOURNEY-LENS-F25, AUTH-PRIVACY-2-F6.\n\n"
@@ -2069,7 +2068,7 @@ def test_a_spec_table_conflict_lands_merged_by_row_key(tmp_path: Path) -> None:
 
 
 def test_a_conflict_outside_a_table_aborts_the_merge_naming_who_else_changes_the_path(tmp_path: Path) -> None:
-    """Six landings stopped on a conflict, and the next branch over the same file was found only by its own landing."""
+    """The aborted merge names every other branch changing the path, so the next branch over the same file is known before its landing."""
     root = _repo(tmp_path)
     _agent_commit(root, "Docs: A note", {"notes.txt": "agent\n"})
     git(root, "branch", "worktree-agent-d4e5f6")
@@ -2133,7 +2132,7 @@ def test_a_merge_failing_a_touched_packages_type_check_aborts_the_merge(tmp_path
 
 
 def test_a_type_failure_already_at_head_is_its_own_outcome(tmp_path: Path) -> None:
-    """While the session branch held a type error, every landing touching the package was sent back to an agent no rebase could help."""
+    """A type error the session branch already holds is its own exit, so no landing is sent back to an agent no rebase can help."""
     root = _repo(tmp_path)
     _agent_commit(root, "Backend: A clean module", {"fl_backend/app/fine.py": "def g(x: int) -> int:\n    return x\n"})
     _session_commit(root, "Backend: A red module", {"fl_backend/app/bad.py": 'x: int = "not a number"\n'})
@@ -2169,7 +2168,7 @@ INDEX_BREAKER: Final = '#!/bin/sh\nprintf broken > "$(git rev-parse --git-dir)/i
 
 
 def test_git_failing_in_the_cleanup_of_a_refused_merge_keeps_the_refusals_exit(tmp_path: Path) -> None:
-    """A `git status` failing after the hooks refused the merge commit replaced exit 6 with exit 2, "refused before the merge"."""
+    """A `git status` failing after the hooks refuse the merge commit keeps exit 6, never exit 2, which says it was refused before the merge."""
     root = _repo(tmp_path)
     _agent_commit(root, "Docs: A note", NOTE)
     write_shell(tmp_path / "hooks" / "pre-commit", INDEX_BREAKER).chmod(0o755)
@@ -2257,7 +2256,7 @@ def test_git_failing_during_the_merge_is_its_own_exit(tmp_path: Path) -> None:
 
 
 def test_a_landing_credits_every_agent_whose_branch_it_brought_in(tmp_path: Path) -> None:
-    """A merge agent's landing carried a fixer's commits, and the fixer's named rows stayed ROUTED to be closed by hand."""
+    """A landing closes the named rows of every agent whose commits it brings in, a fixer's carried on a merge agent's branch among them."""
     root = _repo(tmp_path, branch="worktree-agent-a1b2c3")
     register = _banked(tmp_path, ("A-report.md", "F1 one\n\nF2 two\n"))
     ledger.route(register, "WORKER", ["A-F1"])
@@ -2273,7 +2272,7 @@ def test_a_landing_credits_every_agent_whose_branch_it_brought_in(tmp_path: Path
 
 @pytest.mark.parametrize(("status", "code"), [("completed", 9), ("in_progress", 0)], ids=["the window open", "its run still going"])
 def test_a_landing_waits_while_a_standing_action_waits_on_the_open_window(tmp_path: Path, status: str, code: int) -> None:
-    """Three times the writers queued for a concluded window went out only after the next landing had closed it."""
+    """A landing waits while a standing action waits on a concluded window, so the writers queued for it go out before a landing closes it."""
     root = _repo(tmp_path)
     _agent_commit(root, "Docs: A note", NOTE)
     register, brief = _register(tmp_path), tmp_path / "NEXT.md"
@@ -2327,7 +2326,7 @@ def test_a_landing_credits_no_agent_whose_branch_had_landed_before_it(tmp_path: 
 
 
 def test_bookkeeping_that_fails_after_the_merge_is_its_own_exit(tmp_path: Path) -> None:
-    """Two live rows naming one id raised a traceback after the merge commit, and a git failure there read as refused before it."""
+    """A bookkeeping failure after the merge commit, such as two live rows naming one id, is exit 10 naming the merge, never a traceback."""
     branch = "worktree-agent-a1b2c3"
     root = _repo(tmp_path, branch=branch)
     _register(tmp_path, live=LIVE.replace("| OTHER `d4e5f6` |", "| OTHER `a1b2c3` |"))
@@ -2339,7 +2338,7 @@ def test_bookkeeping_that_fails_after_the_merge_is_its_own_exit(tmp_path: Path) 
 
 
 def test_git_failing_in_the_bookkeeping_after_the_merge_is_not_a_refusal(tmp_path: Path) -> None:
-    """A git failure reading the carried branches stopped as exit 2, "refused before the merge", with the merge commit made.
+    """A git failure reading the carried branches after the merge commit is exit 10, never exit 2, which says nothing was merged.
 
     A post-commit hook deletes the merged tip's object, so the bookkeeping's first read of the merged commits fails.
     """
@@ -2355,7 +2354,7 @@ def test_git_failing_in_the_bookkeeping_after_the_merge_is_not_a_refusal(tmp_pat
 
 
 def test_queue_names_a_row_queued_already_and_done_ticks_it(tmp_path: Path) -> None:
-    """A message's standing action, ticked by nothing, held back every later landing in a concluded window."""
+    """`queue --done` ticks a standing action no dispatch ticks, such as one sent by message, so it holds back no later landing."""
     _, register, _ = _fleet(tmp_path)
     register.write_bytes(register.read_bytes().replace(b"## Findings ledger", (STANDING + "## Findings ledger").encode()))
     brief = _brief(tmp_path, "LATER", "")
@@ -2376,7 +2375,7 @@ def _agents(tmp_path: Path, *rows: str) -> Path:
 
 
 def test_prune_removes_a_finished_agents_merged_clean_worktree_and_branch_alone(tmp_path: Path) -> None:
-    """58 worktrees took 4.9 GB, 56 of them merged, while the worktree table stayed empty."""
+    """`prune` removes a finished agent's merged, clean worktree and its branch, and names why it keeps or leaves each other one."""
     root = _repo(tmp_path, branch="worktree-agent-a1b2c3")
     for agent in ("d4e5f6", "f00d", "beef"):
         git(root, "branch", f"worktree-agent-{agent}")
@@ -2419,7 +2418,7 @@ def _transcribed(tmp_path: Path, agent: str, *, ended: bool = True, written: flo
 
 
 def test_prune_keeps_a_finished_agent_that_works_again_holds_rows_or_holds_ignored_files(tmp_path: Path) -> None:
-    """A resumed writer passed every guard between its resume and its first edit, and its tree went with every file git ignores."""
+    """A finished agent's tree stays while it works again, holds ROUTED rows or holds ignored files no install or build writes again."""
     agents = {"a1b2c3": "WORKER", "d4e5f6": "OTHER", "f00d": "SAVER", "beef": "KEEPER", "cafe": "CLEAN"}
     root = _repo(tmp_path, branch="worktree-agent-a1b2c3")
     (root / ".git" / "info").mkdir(exist_ok=True)
@@ -2454,7 +2453,7 @@ def test_prune_keeps_a_finished_agent_that_works_again_holds_rows_or_holds_ignor
 
 
 def test_prune_names_every_worktree_it_leaves_and_prunes_one_whose_folder_is_gone(tmp_path: Path) -> None:
-    """After a prune the text read every worktree left as a live agent's, while a detached tree and a stale row's tree stayed unnamed."""
+    """`prune` names every worktree it leaves and why, a detached tree among them, and prunes one whose folder is gone with its branch."""
     root = _repo(tmp_path, branch="worktree-agent-a1b2c3")
     git(root, "branch", "worktree-agent-d4e5f6")
     git(root, "branch", "elsewhere")
@@ -2485,7 +2484,7 @@ def test_prune_exits_one_naming_each_removal_git_refuses(tmp_path: Path) -> None
 
 
 def test_prune_removes_a_tree_holding_a_path_past_windows_limit(tmp_path: Path) -> None:
-    """At the path limit git unregistered the tree, failed to delete it, and the next prune called it removed while the folder stayed."""
+    """A tree holding a path past Windows' limit is removed with its folder, rather than unregistered by git and left on disk."""
     root = _repo(tmp_path, branch="worktree-agent-a1b2c3")
     (root / ".git" / "info").mkdir(exist_ok=True)
     with (root / ".git" / "info" / "exclude").open("ab") as excluded:
@@ -2503,7 +2502,7 @@ def test_prune_removes_a_tree_holding_a_path_past_windows_limit(tmp_path: Path) 
 
 
 def test_prune_names_a_folder_a_removal_left_until_it_is_gone(tmp_path: Path) -> None:
-    """A tree git unregistered and could not delete was named once, then pruned as having no worktree while its folder stayed."""
+    """A folder a removal left on disk is named by every prune until it is gone, and only then is its branch removed."""
     root = _repo(tmp_path, branch="worktree-agent-a1b2c3")
     left = root / reg.AGENT_TREES / "agent-a1b2c3"
     git(root, "worktree", "add", "-q", str(left), "worktree-agent-a1b2c3")
@@ -2521,7 +2520,7 @@ def test_prune_names_a_folder_a_removal_left_until_it_is_gone(tmp_path: Path) ->
 
 
 def test_overlap_names_each_path_a_live_worktree_changes_by_commit_or_by_edit(tmp_path: Path) -> None:
-    """Briefs were diffed path by path against nothing, so six overlaps surfaced as landing conflicts."""
+    """`overlap` names each path a live worktree changes, by commit or by edit, so a brief's overlap is found before it is a conflict."""
     root = _repo(tmp_path, branch="worktree-agent-a1b2c3")
     _agent_commit(root, "Docs: A row", {"docs/spec.md": TABLE_HEAD + "| I2 | two |\n"}, branch="worktree-agent-a1b2c3")
     git(root, "worktree", "add", "-q", str(tmp_path / "tree"), "worktree-agent-a1b2c3")
@@ -2537,7 +2536,7 @@ def test_overlap_names_each_path_a_live_worktree_changes_by_commit_or_by_edit(tm
 
 
 def test_overlap_reads_a_briefs_owns_lines_and_names_a_path_no_file_answers(tmp_path: Path) -> None:
-    """Read from the OWNERSHIP prose, a path written relative to its package matched nothing, and overlap answered none."""
+    """`--brief` reads the `Owns:` lines alone and names a path no tracked file answers, so a path written wrong never reads as no overlap."""
     root = _repo(tmp_path, branch="worktree-agent-a1b2c3")
     git(root, "worktree", "add", "-q", str(tmp_path / "tree"), "worktree-agent-a1b2c3")
     write(tmp_path / "tree", "fl_backend/app/schema.txt", '"a": 9')
@@ -2557,7 +2556,7 @@ def test_overlap_reads_a_briefs_owns_lines_and_names_a_path_no_file_answers(tmp_
 
 
 def test_overlap_reads_a_route_folders_brackets_as_written(tmp_path: Path) -> None:
-    """`[saison]` was read as a character class, so a brief naming a route's file matched none and named no overlap."""
+    """Brackets in a path are read as written, so a route folder such as `[saison]` matches its own files, not a character class."""
     root = _repo(tmp_path, branch="worktree-agent-a1b2c3")
     _agent_commit(root, "Frontend: A page", {"app/[saison]/page.tsx": "a\n"}, branch="worktree-agent-a1b2c3")
     git(root, "worktree", "add", "-q", str(tmp_path / "tree"), "worktree-agent-a1b2c3")
