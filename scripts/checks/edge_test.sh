@@ -23,9 +23,11 @@
 # - Every body cap takes its figure and refuses a byte past it.
 #
 # A Docker call that fails, creating the network, starting a container or its relay, reading its
-# streams or its port, is a crash through `EXIT_CODES`'s `docker` row, since Docker gives our
-# invocation going wrong the same status as its own failure; nginx refusing the configuration it was
-# handed, read off a container that stopped, is the finding.
+# streams, its port or its state, is a crash through `EXIT_CODES`'s `docker` row, since Docker gives
+# our invocation going wrong the same status as its own failure; nginx refusing the configuration it
+# was handed, read off a container that stopped, is the finding. A request a case sends is read through
+# curl's row, one the edge did not answer graded by the 000 curl wrote for it, and a search of a log or
+# a body through grep's or cmp's, whose error is a crash.
 #
 #   ./scripts/checks/edge_test.sh --verbose   print the access line every case was graded on
 #   ./scripts/checks/edge_test.sh --help
@@ -90,6 +92,18 @@ conf_query() { # $1 the file the answer goes to · the query and its arguments, 
   settle query "$rc" "${BASH_LINENO[0]}" "nginx_conf.py $*"
 }
 
+# One curl run whose answers the cases grade by what it wrote: a transfer the edge did not answer writes
+# 000, which its case grades as the edge's, and curl's own failure, a flag or a file it could not write,
+# ends the run as the crash it is.
+requested() { # [--stdout <name>] the curl command
+  probe curl "$@" || return 0
+}
+
+# A path as a mount source, into the variable `$1` names, through the `utility` row.
+mounted() { # $1 the variable · $2 the path
+  run_tool utility --stdout "$1" --crash "cygpath could not spell ${2} as a mount source." -- mount_source "$2"
+}
+
 # Each header's name and value off the file the set is written in, so a location restating the set
 # with a different value fails as surely as one dropping it. A value naming a variable is the default of
 # the http-level map setting it, which every page but a link page is sent.
@@ -150,9 +164,11 @@ RECORD
 # mount would refuse. The empty tmpfs under them hides the image's own `default.conf`, as the
 # stacks' directory mount does.
 LOCAL_MOUNTS=( --tmpfs /etc/nginx/conf.d )
+conf_source=""
 for conf in "${REPO_ROOT}"/nginx/local/*.conf; do
   [[ -f "$conf" ]] || continue
-  LOCAL_MOUNTS+=( -v "$(mount_source "$conf"):/etc/nginx/conf.d/${conf##*/}:ro" )
+  mounted conf_source "$conf"
+  LOCAL_MOUNTS+=( -v "${conf_source}:/etc/nginx/conf.d/${conf##*/}:ro" )
 done
 (( ${#LOCAL_MOUNTS[@]} > 2 )) || refuse "nginx/local/ holds no *.conf, so there is no edge to serve."
 
@@ -176,8 +192,10 @@ EDGE_IMAGE=""
 # The capabilities and options the model starts nginx with, on both edges below: a master refused a
 # capability it needs never starts.
 EDGE_PRIVILEGES=()
-mapfile -t EDGE_MODEL < <("$EDGE_PY" -c "$EDGE_MODEL_READ" "${SCRATCH}/model/local.json" \
-  || echo "unread")
+edge_model=""
+run_tool reader --stdout edge_model --crash "the edge test's own read of the local stack's model failed; Python's account is above." -- \
+  "$EDGE_PY" -c "$EDGE_MODEL_READ" "${SCRATCH}/model/local.json"
+mapfile -t EDGE_MODEL <<<"$edge_model"
 for model_line in "${EDGE_MODEL[@]}"; do
   model_line="${model_line%$'\r'}"
   case "$model_line" in
@@ -193,11 +211,16 @@ if verbose; then info "the model starts ${EDGE_IMAGE} with: ${EDGE_PRIVILEGES[*]
 
 run_tool docker --crash "the edge test's network ${NETWORK} could not be created; Docker's own reason is above." -- \
   quietly docker network create "$NETWORK"
+STUB_SOURCE="" SHARED_SOURCE="" RELAY_SOURCE="" PROD_SOURCE=""
+mounted STUB_SOURCE "${SCRATCH}/zz-upstream-stub.conf"
+mounted SHARED_SOURCE "${REPO_ROOT}/nginx/shared"
+mounted RELAY_SOURCE "${SCRATCH}/relay-record.sh"
+mounted PROD_SOURCE "${REPO_ROOT}/nginx/prod"
 # Before either edge, as compose orders the pair before nginx: a configuration resolving its upstreams
 # at load still starts, and fails only the case aimed at it.
 run_tool docker --stdout _started --crash "the stub answering as backend could not be started; Docker's own reason is above." -- \
   env MSYS_NO_PATHCONV=1 docker run -d --name "$BACKEND_STUB" --network "$NETWORK" --network-alias backend \
-  -v "$(mount_source "${SCRATCH}/zz-upstream-stub.conf"):/etc/nginx/conf.d/zz-upstream-stub.conf:ro" \
+  -v "${STUB_SOURCE}:/etc/nginx/conf.d/zz-upstream-stub.conf:ro" \
   "$EDGE_IMAGE"
 
 run_tool docker --stdout _started --crash "the pinned nginx for the edge test could not be started; Docker's own reason is above." -- \
@@ -206,16 +229,17 @@ run_tool docker --stdout _started --crash "the pinned nginx for the edge test co
   --network "$NETWORK" --network-alias frontend \
   "${LOCAL_MOUNTS[@]}" \
   "${EDGE_PRIVILEGES[@]}" \
-  -v "$(mount_source "${REPO_ROOT}/nginx/shared"):/etc/nginx/shared:ro" \
-  -v "$(mount_source "${SCRATCH}/zz-upstream-stub.conf"):/etc/nginx/conf.d/zz-upstream-stub.conf:ro" \
-  -v "$(mount_source "${SCRATCH}/relay-record.sh"):/relay-record.sh:ro" \
+  -v "${SHARED_SOURCE}:/etc/nginx/shared:ro" \
+  -v "${STUB_SOURCE}:/etc/nginx/conf.d/zz-upstream-stub.conf:ro" \
+  -v "${RELAY_SOURCE}:/relay-record.sh:ro" \
   "$EDGE_IMAGE"
 
 # A container stopped as it started is nginx refusing the configuration it was handed, in its own words
 # in the container's log: a finding about the change, never a run that judged nothing.
 judge_start() { # $1 the container, $2 the directory it serves; returns where the container still runs
-  local running
-  running="$(docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null || true)"
+  local running=""
+  run_tool docker --stdout running --crash "Docker could not say whether the edge over ${2} is running." -- \
+    docker inspect -f '{{.State.Running}}' "$1"
   [[ "${running%$'\r'}" == false ]] || return 0
   docker logs "$1" 2>&1 | detail
   die "nginx refused to start over ${2}: its own words are above."
@@ -261,8 +285,9 @@ BASE="http://${ADDR}"
 # Any status is an answer: an edge answering 502 everywhere is a configuration defect the cases below
 # name, exit 1, where waiting for a 200 would refuse it as no verdict.
 _up=0
-for _ in $(seq 1 50); do
-  _status="$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 -H "Host: localhost" "${BASE}/healthprobe" 2>/dev/null || true)"
+_status=""
+for (( _try = 0; _try < 50; _try++ )); do
+  requested --stdout _status curl -s -o /dev/null -w '%{http_code}' --max-time 2 -H "Host: localhost" "${BASE}/healthprobe"
   if [[ -n "$_status" && "$_status" != 000 ]]; then _up=1; break; fi
   sleep 0.2
 done
@@ -276,14 +301,14 @@ run_tool docker --stdout _started --crash "the pinned nginx over nginx/prod/ cou
   -p 127.0.0.1:0:80 \
   --network "$NETWORK" \
   "${EDGE_PRIVILEGES[@]}" \
-  -v "$(mount_source "${REPO_ROOT}/nginx/prod"):/etc/nginx/conf.d:ro" \
-  -v "$(mount_source "${REPO_ROOT}/nginx/shared"):/etc/nginx/shared:ro" \
+  -v "${PROD_SOURCE}:/etc/nginx/conf.d:ro" \
+  -v "${SHARED_SOURCE}:/etc/nginx/shared:ro" \
   "$EDGE_IMAGE"
 port_of "$PROD_CONTAINER" nginx/prod/ PROD_ADDR
 PROD_BASE="http://${PROD_ADDR}"
 _up=0
-for _ in $(seq 1 50); do
-  if curl -s -o /dev/null --max-time 2 -H "Host: www.frankfurtleague.de" "${PROD_BASE}/probe" 2>/dev/null; then _up=1; break; fi
+for (( _try = 0; _try < 50; _try++ )); do
+  if probe curl curl -s -o /dev/null --max-time 2 -H "Host: www.frankfurtleague.de" "${PROD_BASE}/probe"; then _up=1; break; fi
   sleep 0.2
 done
 (( _up )) || { judge_start "$PROD_CONTAINER" nginx/prod/; refuse "the nginx/prod/ edge never answered on ${PROD_ADDR}."; }
@@ -295,18 +320,19 @@ done
 # token reaches the stream with it.
 MARKER="fl-mailed-link"
 LINE_FAILURES=0
-CURL_RC=0
-curl -s -o /dev/null --max-time 5 -H "Host: localhost" -A "$MARKER" "${BASE}/confirm/kontakt?token=${TOK}" || CURL_RC=$?
+UNANSWERED=""
+if ! probe curl curl -s -o /dev/null --max-time 5 -H "Host: localhost" -A "$MARKER" "${BASE}/confirm/kontakt?token=${TOK}"; then
+  UNANSWERED=", which the edge did not answer"
+fi
 # Docker carries a line to its log after curl already has the response, so one read races it.
 MAILED_LINE=""
-for _ in $(seq 1 50); do
+for (( _try = 0; _try < 50; _try++ )); do
   read_streams
-  MAILED_LINE="$({ grep -F "\"user_agent\":\"${MARKER}\"" "$ACCESS_LOG" || true; })"
-  [[ -z "$MAILED_LINE" ]] || break
+  if probe grep --stdout MAILED_LINE grep -F "\"user_agent\":\"${MARKER}\"" "$ACCESS_LOG"; then break; fi
   sleep 0.2
 done
 # `refuse`, not `die`: nothing was judged, and a 1 here would read as a leak nobody observed.
-[[ -n "$MAILED_LINE" ]] || refuse "the edge logged no line for the mailed link's request on its stdout, curl having exited ${CURL_RC}.
+[[ -n "$MAILED_LINE" ]] || refuse "the edge logged no line for the mailed link's request${UNANSWERED} on its stdout.
 No access line was judged."
 if [[ "$MAILED_LINE" != *'"path":"/confirm/kontakt",'* ]]; then
   fail "LINE the mailed link's path"
@@ -408,7 +434,7 @@ for _i in "${!HEADER_PATHS[@]}"; do
     -H "X-Forwarded-Proto: https"
     -H "Next-Action: ${CLIENT_ACTION}" "${BASE}${HEADER_PATHS[_i]}" )
 done
-curl "${HEADER_REQUESTS[@]}" || true
+requested curl "${HEADER_REQUESTS[@]}"
 for _i in "${!HEADER_PATHS[@]}"; do
   read_headers "${SCRATCH}/headers-${_i}"
   grade_security_headers "${HEADER_PATHS[_i]}" "${HEADER_LINK[$_i]:-}"
@@ -436,7 +462,9 @@ done
 
 # nginx answers a prefix location's path without its slash with a redirect to it, and Next redirects
 # that slash away again, so a typed `/confirm` loops unless it reaches Next itself.
-CONFIRM_STATUS="$(curl -s -o /dev/null -D "${SCRATCH}/headers-confirm" -w '%{http_code}' --max-time 5 -H "Host: localhost" "${BASE}/confirm" || true)"
+CONFIRM_STATUS=""
+requested --stdout CONFIRM_STATUS curl -s -o /dev/null -D "${SCRATCH}/headers-confirm" -w '%{http_code}' --max-time 5 \
+  -H "Host: localhost" "${BASE}/confirm"
 read_headers "${SCRATCH}/headers-confirm"
 if [[ "$CONFIRM_STATUS" != 200 || -z "${SENT_VALUE[x-seen-traceparent]:-}" ]]; then
   fail "UPSTREAM /confirm"
@@ -461,14 +489,16 @@ relay_seen() { # $1 the variable · the curl options naming the transfer's heade
     env MSYS_NO_PATHCONV=1 docker exec -d "$CONTAINER" sh -c "rm -f /tmp/relay-seen; exec nc -l -p 3001 -e sh /relay-record.sh"
   # A 502 alone is retried, the relay's answer before the listener is up: the listener takes one
   # connection, so a retry after a timeout that reached it reads a 502 and judges nothing.
-  for _k in $(seq 1 25); do
-    status="$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 -H "Host: localhost" "$@" "${BASE}/next-action-relay" || true)"
+  for (( _k = 0; _k < 25; _k++ )); do
+    requested --stdout status curl -s -o /dev/null -w '%{http_code}' --max-time 2 -H "Host: localhost" "$@" "${BASE}/next-action-relay"
     [[ "$status" == 502 ]] || break
     sleep 0.2
   done
-  # The `.` keeps the head's closing newline, which the substitution would strip: a bodiless
+  # What the listener recorded, nothing where no request reached it, so Docker's own failure alone is
+  # one: a crash. The `.` keeps the head's closing newline, which the capture would strip: a bodiless
   # request ends on its blank line, so without it no whole head ever matches.
-  seen="$(MSYS_NO_PATHCONV=1 docker exec "$CONTAINER" cat /tmp/relay-seen 2>/dev/null || true; printf .)"
+  run_tool docker --stdout seen --crash "the relay's record could not be read out of ${CONTAINER}; Docker's own reason is above." -- \
+    env MSYS_NO_PATHCONV=1 docker exec "$CONTAINER" sh -c 'if [ -f /tmp/relay-seen ]; then cat /tmp/relay-seen; fi; printf .'
   seen="${seen%.}"
   # A capture cut before its blank line can lack the very header the empty case looks for, which
   # would read as the edge having dropped it.
@@ -482,12 +512,12 @@ if [[ "$RELAY_SENT" != *"GET /next-action-relay "* || "$RELAY_EMPTY" != *"GET /n
 It listens with the image's own busybox nc: ask it with  docker exec ${CONTAINER} nc -h"
 fi
 # The control: a relay dropping every Next-Action would pass the empty case below unasked.
-if ! grep -qiE "^next-action: ${CLIENT_ACTION}$" <<< "$RELAY_SENT"; then
+if ! probe grep grep -qiE "^next-action: ${CLIENT_ACTION}$" <<< "$RELAY_SENT"; then
   fail "UPSTREAM /next-action-relay"
   detail "expected Next-Action ${CLIENT_ACTION} at the relay, it recorded: ${RELAY_SENT}"
   HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
 fi
-if grep -qi "^next-action:" <<< "$RELAY_EMPTY"; then
+if probe grep grep -qi "^next-action:" <<< "$RELAY_EMPTY"; then
   fail "UPSTREAM an empty Next-Action"
   detail "the edge handed Next an empty Next-Action, which Next runs as a server action and the action meter reads as none: ${RELAY_EMPTY}"
   HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
@@ -506,7 +536,7 @@ ACTION_ID="7f3c0ffee7f3c0ffee7f3c0ffee7f3c0ffee7f3c0f"
 # `*/*`, as an in-page navigation's and a prefetch's fetch does, naming no type of its own.
 ACTION_ACCEPT="text/x-component"
 NAVIGATION_ACCEPT="text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-# Every transfer of this pass goes to one curl as lines of a config read from stdin (`curl -K -`), not
+# Every transfer of this pass goes to one curl as lines of a config file it reads (`curl -K`), not
 # as arguments: a pass grows with the bursts it floods past, and Windows caps one command line at
 # 32,767 characters. Nothing rewrites a config line as MSYS rewrites an argument, so each file this
 # pass writes is named relative to the repository root, where the library leaves the working
@@ -559,7 +589,7 @@ ACTION_CONFIG=()
 # as actions, and a request that is no action is never metered. Thirty past the burst, inside the same
 # seconds: the burst and the second or two of refill are spent.
 burst_of ACTION_BURST / action
-for _ in $(seq 0 $(( ACTION_BURST + 30 ))); do
+for (( _n = 0; _n <= ACTION_BURST + 30; _n++ )); do
   action_request action-flood -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" \
     --data '[]' "${BASE}/"
 done
@@ -589,7 +619,7 @@ LIMIT_HOST="frankfurtleague.de"
 # The form zone, its two locations on one key: crash reports spend it, and the code check, metered on
 # it rather than on the library's prefix five times as loose, is refused once they have.
 burst_of FORM_BURST "= /api/client-error" form
-for _ in $(seq 0 $(( FORM_BURST + 5 ))); do
+for (( _n = 0; _n <= FORM_BURST + 5; _n++ )); do
   action_request form-flood -X POST -H "Content-Type: application/json" --data '{}' "${PROD_BASE}/api/client-error"
 done
 spent_request form-code -X POST -H "Content-Type: application/json" --data '{}' "${PROD_BASE}/api/auth/sign-in/email-otp"
@@ -597,7 +627,7 @@ spent_request form-code -X POST -H "Content-Type: application/json" --data '{}' 
 # The sign-in library's zone, on every method, and the landing, the readiness probe and the code check,
 # asked with a GET the form zone's key leaves out, on the same key.
 burst_of AUTH_BURST /api/auth authapi
-for _ in $(seq 0 $(( AUTH_BURST + 10 ))); do
+for (( _n = 0; _n <= AUTH_BURST + 10; _n++ )); do
   action_request auth-flood "${PROD_BASE}/api/auth/probe"
 done
 spent_request auth-landing -H "Accept: ${NAVIGATION_ACCEPT}" "${PROD_BASE}/signin/continue"
@@ -607,7 +637,7 @@ spent_request auth-code "${PROD_BASE}/api/auth/sign-in/email-otp"
 # The link pages' zone, every request it meters a page render or the proxy's redirect into one, with
 # twenty past the burst for the refill the run takes.
 burst_of LINK_BURST /confirm/ linkpage
-for _ in $(seq 0 $(( LINK_BURST + 20 ))); do
+for (( _n = 0; _n <= LINK_BURST + 20; _n++ )); do
   action_request link-flood "${PROD_BASE}/confirm/kontakt?token=${TOK}"
 done
 # The key spent: every link page's block, each answer kept whole, since a block declaring its own
@@ -627,7 +657,10 @@ spent_request link-json -A "$LINK_MARKER" -X POST -H "Content-Type: application/
 spent_request link-head -A "$LINK_MARKER" -H "Accept: ${NAVIGATION_ACCEPT}" --head "${PROD_BASE}/confirm/kontakt?token=${TOK}"
 
 # A transfer curl never answered reads as `none`.
-mapfile -t ACTION_STATUSES < <(printf '%s\n' "${ACTION_CONFIG[@]}" | curl -K - || true)
+printf '%s\n' "${ACTION_CONFIG[@]}" > "${SCRATCH}/action.curlrc"
+action_statuses=""
+requested --stdout action_statuses curl -K "${SCRATCH}/action.curlrc"
+mapfile -t ACTION_STATUSES <<<"$action_statuses"
 expect_action() { # $1 label, $2 the status every transfer of it must answer, or "some:<status>"
   local label="$1" wanted="$2" _j _status found=0 all=1 answered=""
   for _j in "${!ACTION_LABELS[@]}"; do
@@ -654,6 +687,9 @@ expect_action refusal some:429
 conf_query "${SCRATCH}/refusal-sentence" returned nginx/shared/site.conf @edge_refusal 429 \
   || refuse "nginx/shared/site.conf returns no 429 sentence this test can read; the parser's reason is above."
 REFUSAL_WRITTEN="$(<"${SCRATCH}/refusal-sentence")"
+# The sentence as the bytes a body must hold, with no newline after it, for `cmp`.
+REFUSAL_WRITTEN_FILE="${SCRATCH}/refusal-written"
+printf '%s' "$REFUSAL_WRITTEN" > "$REFUSAL_WRITTEN_FILE"
 # "link" for a transfer to a link page, each of whose labels opens with `link-`.
 link_label() { # $1 the transfer's label
   if [[ "$1" == link-* ]]; then printf 'link'; fi
@@ -667,9 +703,15 @@ grade_refusal() { # $1 the transfer's label, its files named for it
     ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
   fi
   # Bytes, not a text read: an appended newline or a byte outside ASCII changes what the frontend compares.
-  if ! cmp -s "${SCRATCH}/$1.body" <(printf '%s' "$REFUSAL_WRITTEN") || LC_ALL=C grep -q '[^ -~]' "${SCRATCH}/$1.body"; then
+  # A body curl never wrote is one nginx never sent, so the comparison meets two files that exist.
+  if [[ ! -f "${SCRATCH}/$1.body" ]]; then
     fail "ACTION $1"
-    detail "expected the body '${REFUSAL_WRITTEN}' in ASCII alone, nginx sent '$(cat "${SCRATCH}/$1.body" 2>/dev/null)'"
+    detail "expected the body '${REFUSAL_WRITTEN}' in ASCII alone, nginx sent none"
+    ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
+  elif ! probe cmp cmp -s "${SCRATCH}/$1.body" "$REFUSAL_WRITTEN_FILE" \
+    || probe grep env LC_ALL=C grep -q '[^ -~]' "${SCRATCH}/$1.body"; then
+    fail "ACTION $1"
+    detail "expected the body '${REFUSAL_WRITTEN}' in ASCII alone, nginx sent '$(<"${SCRATCH}/$1.body")'"
     ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
   fi
   grade_security_headers "the edge's own 429, $1" "$(link_label "$1")"
@@ -731,8 +773,8 @@ for element, wanted in (("body", "var(--bg)"), ("main", "var(--bg-card)")):
     painted = re.findall(r"(?<![\w-])background(?:-color)?\s*:\s*([^;]+?)\s*;", rule)
     if painted != [wanted]:
         problems.append(f"{element} paints {painted or None}, wanted {wanted}")
+# Printed and never judged here: the shell grades what this prints, so a status but 0 is this read failing.
 print("; ".join(problems))
-sys.exit(1 if problems else 0)
 '
 grade_page() { # $1 the transfer's label, its files named for it; $2 "head" where no body is sent
   read_headers "${SCRATCH}/$1.headers"
@@ -742,25 +784,38 @@ grade_page() { # $1 the transfer's label, its files named for it; $2 "head" wher
     detail "expected Content-Type: text/html; charset=utf-8, nginx sent '${SENT_VALUE[content-type]:-}'"
     ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
   fi
-  if [[ "${2:-}" != head ]] && ! cmp -s "${SCRATCH}/$1.body" "$REFUSAL_PAGE"; then
+  if [[ "${2:-}" != head ]]; then grade_page_body "$1"; fi
+  grade_security_headers "the edge's own 429 page, $1" "$(link_label "$1")"
+}
+grade_page_body() { # $1 the transfer's label, its files named for it
+  local body="${SCRATCH}/$1.body" palette="" sent=""
+  # A body curl never wrote is one nginx never sent, so the comparisons below meet two files that exist.
+  if [[ ! -f "$body" ]]; then
     fail "ACTION $1"
-    detail "expected the body of nginx/shared/site.conf :: @edge_refusal_page, nginx sent $(wc -c < "${SCRATCH}/$1.body" 2>/dev/null || echo no) bytes"
+    detail "expected the body of nginx/shared/site.conf :: @edge_refusal_page, nginx sent none"
+    ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
+    return 0
+  fi
+  if ! probe cmp cmp -s "$body" "$REFUSAL_PAGE"; then
+    run_tool utility --stdout sent -- wc -c < "$body"
+    fail "ACTION $1"
+    detail "expected the body of nginx/shared/site.conf :: @edge_refusal_page, nginx sent ${sent// /} bytes"
     ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
   fi
   # The file is what the body is compared to, so a page losing either passes that comparison. Its URL carries the
   # link's token, which a referer to the icon or the start page would hand on.
-  local palette
-  if [[ "${2:-}" != head ]] && ! grep -qF '<meta name="referrer" content="no-referrer" />' "${SCRATCH}/$1.body"; then
+  if ! probe grep grep -qF '<meta name="referrer" content="no-referrer" />' "$body"; then
     fail "ACTION $1"
     detail "expected the page to withhold the referrer as every link page does, nginx sent no such meta tag"
     ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
   fi
-  if [[ "${2:-}" != head ]] && ! palette="$("$EDGE_PY" -c "$PAGE_PALETTE_READ" "${SCRATCH}/$1.body" "$REPO_ROOT" 2>&1)"; then
+  run_tool reader --stdout palette --crash "the edge test's own read of the 429 page's colours failed; Python's account is above." -- \
+    "$EDGE_PY" -c "$PAGE_PALETTE_READ" "$body" "$REPO_ROOT"
+  if [[ -n "$palette" ]]; then
     fail "ACTION $1"
     detail "expected the page's colours to be the rebuilt site's tokens: ${palette}"
     ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
   fi
-  grade_security_headers "the edge's own 429 page, $1" "$(link_label "$1")"
 }
 grade_spent() { # $1 a `spent_request` label: graded on the half the edge refused, where one was; $2 "page" or "head"
   local _j half=a
@@ -814,10 +869,12 @@ conf_query "${SCRATCH}/ceiling" figure nginx/shared/site.conf / limit_conn conn 
   || refuse "nginx/shared/site.conf's 'location /' declares no connection ceiling this test can read; the parser's reason is above."
 CONN_CEILING="$(<"${SCRATCH}/ceiling")"
 CONN_REQUESTS=( --parallel --parallel-immediate --parallel-max $(( CONN_CEILING + 1 )) )
-for _ in $(seq 0 "$CONN_CEILING"); do
+for (( _n = 0; _n <= CONN_CEILING; _n++ )); do
   CONN_REQUESTS+=( -s -o /dev/null -w '%{http_code}\n' --max-time 15 -H "Host: frankfurtleague.de" "${PROD_BASE}/held" )
 done
-mapfile -t CONN_STATUSES < <(curl "${CONN_REQUESTS[@]}" || true)
+conn_statuses=""
+requested --stdout conn_statuses curl "${CONN_REQUESTS[@]}"
+mapfile -t CONN_STATUSES <<<"$conn_statuses"
 CONN_REFUSED=0
 for _status in "${CONN_STATUSES[@]}"; do
   if [[ "${_status%$'\r'}" == 429 ]]; then CONN_REFUSED=$(( CONN_REFUSED + 1 )); fi
@@ -833,16 +890,19 @@ fi
 LINK_LOGGED=0
 # Every spent link pair is marked, each sending two.
 LINK_KEPT=$(( 2 * (${#LINK_SPENT[@]} + 2) ))
-for _ in $(seq 1 50); do
+for (( _try = 0; _try < 50; _try++ )); do
   read_streams
-  LINK_LOGGED="$({ grep -c "\"user_agent\":\"${LINK_MARKER}\"" "$PROD_ACCESS_LOG" 2>/dev/null || true; })"
-  if (( ${LINK_LOGGED:-0} >= LINK_KEPT )); then break; fi
+  # grep's count is 0 where it answers 1, none selected.
+  if probe grep --stdout LINK_LOGGED grep -c "\"user_agent\":\"${LINK_MARKER}\"" "$PROD_ACCESS_LOG" \
+    && (( LINK_LOGGED >= LINK_KEPT )); then
+    break
+  fi
   sleep 0.2
 done
 (( ${LINK_LOGGED:-0} >= LINK_KEPT )) \
   || refuse "the edge logged ${LINK_LOGGED:-0} of the ${LINK_KEPT} link-page requests kept whole, so whether a refusal reached the error log was not judged."
-LINK_ERRORS="$({ grep -F "$TOK" "$ERROR_LOG" "$PROD_ERROR_LOG" 2>/dev/null || true; })"
-if [[ -n "$LINK_ERRORS" ]]; then
+LINK_ERRORS=""
+if probe grep --stdout LINK_ERRORS grep -F "$TOK" "$ERROR_LOG" "$PROD_ERROR_LOG"; then
   fail "ACTION link-log"
   detail "an error line on stderr holds a live token: ${LINK_ERRORS}"
   ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
@@ -888,7 +948,9 @@ for case_line in "${BODY_CASES[@]}"; do
       -H "Content-Type: application/octet-stream" --data-binary "@${SCRATCH_NAME}/body-${body_size}" "${BASE}${body_path}" )
   done
 done
-mapfile -t BODY_STATUSES < <(curl "${BODY_REQUESTS[@]}" || true)
+body_statuses=""
+requested --stdout body_statuses curl "${BODY_REQUESTS[@]}"
+mapfile -t BODY_STATUSES <<<"$body_statuses"
 for _j in "${!BODY_LABELS[@]}"; do
   _status="${BODY_STATUSES[_j]:-none}"; _status="${_status%$'\r'}"
   if [[ "$_status" != "${BODY_WANTED[_j]}" ]]; then
@@ -902,7 +964,9 @@ done
 
 # The www redirect is the one block outside `nginx/shared/site.conf` that includes the header set, and
 # the catch-all the one that answers a name nobody configured.
-WWW_STATUS="$(curl -s -o /dev/null -D "${SCRATCH}/headers-www" -w '%{http_code}' --max-time 5 -H "Host: www.frankfurtleague.de" "${PROD_BASE}/probe" || true)"
+WWW_STATUS=""
+requested --stdout WWW_STATUS curl -s -o /dev/null -D "${SCRATCH}/headers-www" -w '%{http_code}' --max-time 5 \
+  -H "Host: www.frankfurtleague.de" "${PROD_BASE}/probe"
 read_headers "${SCRATCH}/headers-www"
 if [[ "$WWW_STATUS" != 301 || "${SENT_VALUE[location]:-}" != "https://frankfurtleague.de/probe" ]]; then
   fail "REDIRECT www.frankfurtleague.de"
@@ -911,7 +975,8 @@ if [[ "$WWW_STATUS" != 301 || "${SENT_VALUE[location]:-}" != "https://frankfurtl
 fi
 grade_security_headers "www.frankfurtleague.de"
 # A Host no block names, which must reach neither the frontend nor a redirect.
-UNKNOWN_STATUS="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 -H "Host: unrecognised.invalid" "${PROD_BASE}/" || true)"
+UNKNOWN_STATUS=""
+requested --stdout UNKNOWN_STATUS curl -s -o /dev/null -w '%{http_code}' --max-time 5 -H "Host: unrecognised.invalid" "${PROD_BASE}/"
 if [[ "$UNKNOWN_STATUS" != 421 ]]; then
   fail "CATCH-ALL nginx/prod/"
   detail "expected 421 for a Host no block names, nginx answered ${UNKNOWN_STATUS}"
@@ -996,8 +1061,9 @@ done <<< "$CONF_DIRECTIVES"
 
 # The production block reaching the frontend: a `resolver` of its own there replaces the shared one
 # for every location it wraps, and a public one finds no `frontend`.
-PROD_STATUS="$(curl -s -o /dev/null -D "${SCRATCH}/headers-prod-site" -w '%{http_code}' --max-time 10 \
-  -H "Host: frankfurtleague.de" "${PROD_BASE}/" || true)"
+PROD_STATUS=""
+requested --stdout PROD_STATUS curl -s -o /dev/null -D "${SCRATCH}/headers-prod-site" -w '%{http_code}' --max-time 10 \
+  -H "Host: frankfurtleague.de" "${PROD_BASE}/"
 read_headers "${SCRATCH}/headers-prod-site"
 if [[ "$PROD_STATUS" != 200 || -z "${SENT_VALUE[x-seen-traceparent]:-}" ]]; then
   fail "UPSTREAM frankfurtleague.de/"
@@ -1040,7 +1106,9 @@ for _i in "${!LINK_ACTION_PATHS[@]}"; do
 done
 upstream_request "a static file a link page asked for" -H "Referer: http://localhost/confirm/kontakt?token=${REFERRED_TOK}" \
   "${BASE}/_next/static/chunks/referred.js?upstream=fail"
-mapfile -t UPSTREAM_STATUSES < <(curl "${UPSTREAM_REQUESTS[@]}" || true)
+upstream_statuses=""
+requested --stdout upstream_statuses curl "${UPSTREAM_REQUESTS[@]}"
+mapfile -t UPSTREAM_STATUSES <<<"$upstream_statuses"
 # A request a zone refused, or one the stub answered, never met the failure, and judging the log after
 # it would call a silence nobody caused a pass.
 for _j in "${!UPSTREAM_LABELS[@]}"; do
@@ -1050,18 +1118,21 @@ for _j in "${!UPSTREAM_LABELS[@]}"; do
 done
 # Read once every one's access line is written, which comes after its error line.
 UPSTREAM_LOGGED=0
-for _ in $(seq 1 50); do
+for (( _try = 0; _try < 50; _try++ )); do
   read_streams
-  UPSTREAM_LOGGED="$({ grep -c "\"user_agent\":\"${UPSTREAM_MARKER}\"" "$ACCESS_LOG" 2>/dev/null || true; })"
-  if (( ${UPSTREAM_LOGGED:-0} >= ${#UPSTREAM_LABELS[@]} )); then break; fi
+  # grep's count is 0 where it answers 1, none selected.
+  if probe grep --stdout UPSTREAM_LOGGED grep -c "\"user_agent\":\"${UPSTREAM_MARKER}\"" "$ACCESS_LOG" \
+    && (( UPSTREAM_LOGGED >= ${#UPSTREAM_LABELS[@]} )); then
+    break
+  fi
   sleep 0.2
 done
 (( ${UPSTREAM_LOGGED:-0} >= ${#UPSTREAM_LABELS[@]} )) \
   || refuse "the edge logged ${UPSTREAM_LOGGED:-0} of the ${#UPSTREAM_LABELS[@]} requests its failing frontend answered, so whether an error line holds a token was not judged."
 [[ "$(<"$ERROR_LOG")" == *"$REFERRED_TOK"* ]] \
   || refuse "the failing frontend's static file wrote no error line holding its Referer, so this run read no error line it could judge the link pages' silence against."
-UPSTREAM_ERRORS="$({ grep -F "$TOK" "$ERROR_LOG" || true; })"
-if [[ -n "$UPSTREAM_ERRORS" ]]; then
+UPSTREAM_ERRORS=""
+if probe grep --stdout UPSTREAM_ERRORS grep -F "$TOK" "$ERROR_LOG"; then
   fail "UPSTREAM a link page's failing frontend"
   detail "an error line on stderr holds a live token: ${UPSTREAM_ERRORS}"
   UPSTREAM_FAILURES=$(( UPSTREAM_FAILURES + 1 ))
@@ -1073,8 +1144,10 @@ fi
 # join it on and a path with no query; and the token on no line of stdout at all, which also catches
 # a log beside ours writing the request line whole.
 read_streams
-mapfile -t LOGGED_LINES < <({ grep -h '^{' "$ACCESS_LOG" "$PROD_ACCESS_LOG" || true; })
-(( ${#LOGGED_LINES[@]} > 0 )) || refuse "the edges' stdout holds no access line, so no line was judged."
+logged=""
+probe grep --stdout logged grep -h '^{' "$ACCESS_LOG" "$PROD_ACCESS_LOG" \
+  || refuse "the edges' stdout holds no access line, so no line was judged."
+mapfile -t LOGGED_LINES <<<"$logged"
 for logged_line in "${LOGGED_LINES[@]}"; do
   if [[ ! "$logged_line" =~ \"trace_id\":\"[0-9a-f]{32}\", ]]; then
     fail "LINE trace id"
@@ -1088,8 +1161,8 @@ for logged_line in "${LOGGED_LINES[@]}"; do
     LINE_FAILURES=$(( LINE_FAILURES + 1 ))
   fi
 done
-TOKEN_LINES="$({ grep -F "$TOK" "$ACCESS_LOG" "$PROD_ACCESS_LOG" || true; })"
-if [[ -n "$TOKEN_LINES" ]]; then
+TOKEN_LINES=""
+if probe grep --stdout TOKEN_LINES grep -F "$TOK" "$ACCESS_LOG" "$PROD_ACCESS_LOG"; then
   fail "LINE a live token"
   detail "the edge's stdout holds the token: ${TOKEN_LINES}"
   LINE_FAILURES=$(( LINE_FAILURES + 1 ))
