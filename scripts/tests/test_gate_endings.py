@@ -452,6 +452,30 @@ def test_no_row_reads_a_tool_s_nonzero_status_as_clean_or_its_zero_as_anything_e
     assert not wrong, "\n".join(wrong)
 
 
+# The shell's own for a command it could not run (126) or find (127), which `verify.sh :: in_dir` answers too for a
+# directory it cannot enter, as POSIX's `env` and `nohup` answer a command they could not invoke, and `env`'s and
+# `docker run`'s own failure (125).
+NO_COMMAND_RAN: Final = ("125", "126", "127")
+
+
+def test_no_row_reads_a_command_that_never_ran_as_anything_but_a_crash() -> None:
+    """A row reading 126 as its tool's refusal would read a directory the gate could not enter as the tool's verdict."""
+    tables = _tables()
+    wrong = [
+        f"EXIT_CODES[{table}]={row!r} reads {status} as {read}"
+        for table, row in tables["EXIT_CODES"].items()
+        for status, read in (pair.split(":") for pair in row.split(" "))
+        if status in NO_COMMAND_RAN and read != "3"
+    ]
+    wrong += [
+        f"EXIT_LINES[{table}]={row!r} reads {status} by the tool's words"
+        for table, row in tables["EXIT_LINES"].items()
+        for status in row.split(" ", 1)[0].split(",")
+        if status in NO_COMMAND_RAN
+    ]
+    assert not wrong, "\n".join(wrong)
+
+
 KEPT: Final = "def test_kept() -> None:\n    pass\n"
 
 

@@ -197,8 +197,13 @@ def test_every_backend_container_starts_from_the_local_stack_s_pin() -> None:
     assert unpinned == [], f"a container started from anything but {BACKEND_PIN}:\n" + "\n".join(unpinned)
 
 
-# The gate's linters, each pinned in the tools file alone: its stage name is what a caller reads.
-GATE_TOOLS: Final = {"shellcheck": "koalaman/shellcheck", "actionlint": "rhysd/actionlint", "lychee": "lycheeverse/lychee"}
+# The gate's linters and its shell parser, each pinned in the tools file alone: its stage name is what a caller reads.
+GATE_TOOLS: Final = {
+    "shellcheck": "koalaman/shellcheck",
+    "actionlint": "rhysd/actionlint",
+    "lychee": "lycheeverse/lychee",
+    "shfmt": "mvdan/shfmt",
+}
 # Where a caller of one could type a copy: the gate, the checkers, the operations scripts and CI.
 TOOL_CALLERS: Final = (REPO_ROOT / "scripts", REPO_ROOT / ".github")
 
