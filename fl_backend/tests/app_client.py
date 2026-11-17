@@ -75,7 +75,7 @@ async def app_client(
         undo.callback(actor_var.reset, actor_var.set(None))
         if now is not None:
             served.dependency_overrides[get_germany_now] = lambda: now
-        served.state.db_client = await shared_client(url)
+        served.state.db_client = shared_client(url)
         undo.callback(delattr, served.state, "db_client")
 
         yield await undo.enter_async_context(

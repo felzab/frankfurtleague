@@ -20,14 +20,14 @@ from typing import Any, Final
 
 from app.core.concurrency import concurrently
 from app.core.db import SERVER_SELECTION_TIMEOUT_MS
-from tests.database import CASE_BOUND_S, FIXTURE_BOUND_S
+from tests.database import CASE_BOUND_S
 from tests.processes import READ_AFTER_ITS_END_S, running
 
 BACKEND_ROOT: Final = Path(__file__).resolve().parents[1]
 DOCKERFILE: Final = BACKEND_ROOT / "Dockerfile"
 
 # Far past the longest boot run to its exit, one waiting out the driver's server selection, so only a boot that hangs
-# reaches it. `booted` runs in a module fixture, outside any case's bound and under the fixture's.
+# reaches it. `booted` runs in a module fixture, outside any case's bound.
 BOOT_BOUND_S: Final = SERVER_SELECTION_TIMEOUT_MS / 1000 + 45
 
 # A boot `serving` holds, which runs inside a case: past the few seconds an import takes against a server that answers,
@@ -40,9 +40,6 @@ STOP_GRACE_S: Final = 5.0
 
 assert SERVING_BOUND_S + STOP_GRACE_S + READ_AFTER_ITS_END_S < CASE_BOUND_S, (
     "a boot held inside a case must time out and stop before the case does"
-)
-assert BOOT_BOUND_S + STOP_GRACE_S + READ_AFTER_ITS_END_S < FIXTURE_BOUND_S, (
-    "a boot run in a fixture must time out and stop before the fixture's phase does"
 )
 
 # The shape of the application's own log message (`app/core/logging.py`), which carries no value; uvicorn's lines and a

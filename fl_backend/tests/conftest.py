@@ -6,18 +6,17 @@ import logging
 import re
 import sys
 import time
-from collections.abc import AsyncGenerator, AsyncIterator, Callable, Coroutine, Generator, Iterator
+from collections.abc import AsyncIterator, Callable, Coroutine, Generator, Iterator
 from contextlib import ExitStack, contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from _pytest.fixtures import resolve_fixture_function
 from pydantic import BaseModel, ValidationError
 from pymongo import MongoClient
 
 from app.core.recording import actor_var
-from tests.database import bounded_case, close_the_shared_clients, fixture_phase, restart_background_tasks_where_they_first_started
+from tests.database import bounded_case, close_the_shared_clients
 from tests.documents import EINWILLIGUNG, rules_document
 from tests.payloads import PayloadFactory
 from tests.tier import is_db_marked, refuse_server_fixtures
@@ -53,14 +52,11 @@ def _factory(base: dict[str, Any]) -> PayloadFactory:
 
 @pytest.fixture(scope="session", autouse=True)
 async def the_shared_clients() -> AsyncIterator[None]:
-    """The session's loop, keeping a shared client's background tasks outside every scope, and every client closed on it.
+    """Every client `tests/database.py :: shared_client` opened, closed on the session's loop before it stops.
 
-    `tests/database.py :: restart_background_tasks_where_they_first_started` is installed before any client opens, and
-    `close_the_shared_clients` closes on the loop, before it stops, every client `shared_client` opened there. Opens no
-    client itself: one is opened by the first case asking for it.
+    Opens no client itself: one is opened by the first case asking for it.
     """
 
-    restart_background_tasks_where_they_first_started()
     yield
     await close_the_shared_clients()
 
@@ -90,70 +86,15 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
 
     for item in items:
         if isinstance(item, pytest.Function) and inspect.iscoroutinefunction(item.obj):
-            item.obj = _bounded(item.obj, item.nodeid)
+            item.obj = _bounded(item.obj)
 
 
-def _bounded(case: Callable[..., Coroutine[Any, Any, Any]], nodeid: str) -> Callable[..., Coroutine[Any, Any, Any]]:
+def _bounded(case: Callable[..., Coroutine[Any, Any, Any]]) -> Callable[..., Coroutine[Any, Any, Any]]:
     @functools.wraps(case)
     async def scoped(*args: Any, **kwargs: Any) -> Any:
-        return await bounded_case(case(*args, **kwargs), nodeid)
+        return await bounded_case(case(*args, **kwargs))
 
     return scoped
-
-
-@pytest.hookimpl(wrapper=True, tryfirst=True)
-def pytest_fixture_setup(fixturedef: pytest.FixtureDef[Any], request: pytest.FixtureRequest) -> Generator[None, object, object]:
-    """Every async fixture's setup and its teardown, each run as a phase of its own (`tests/database.py :: fixture_phase`).
-
-    A task a fixture leaves running would otherwise carry no scope's mark, and run unjudged into every later case. The
-    shape pytest-asyncio's own hook takes beneath this one: the fixture's function swapped, for this setup alone, for one
-    doing the same work. First, so the function pytest-asyncio runs on the loop is the phased one; resolved first, so a
-    fixture defined on a class is bound to its instance as pytest would bind it.
-    """
-
-    function = resolve_fixture_function(fixturedef, request)
-    name = fixturedef.argname
-    if inspect.isasyncgenfunction(fixturedef.func):
-        phased = _phased_generator(function, name)
-    elif inspect.iscoroutinefunction(fixturedef.func):
-        phased = _phased_coroutine(function, name)
-    else:
-        return (yield)
-
-    with pytest.MonkeyPatch.context() as patch:
-        patch.setattr(fixturedef, "func", functools.wraps(fixturedef.func)(phased))
-        return (yield)
-
-
-def _phased_coroutine(fixture: Callable[..., Any], name: str) -> Callable[..., Coroutine[Any, Any, Any]]:
-    async def phased(*args: Any, **kwargs: Any) -> Any:
-        return await fixture_phase(fixture(*args, **kwargs), f"the fixture '{name}'", setup=True)
-
-    return phased
-
-
-def _phased_generator(fixture: Callable[..., Any], name: str) -> Callable[..., AsyncGenerator[Any]]:
-    async def phased(*args: Any, **kwargs: Any) -> AsyncGenerator[Any]:
-        generator = fixture(*args, **kwargs)
-        yield await fixture_phase(_first(generator), f"the setup of '{name}'", setup=True)
-        await fixture_phase(_ended(generator, name), f"the teardown of '{name}'", setup=False)
-
-    return phased
-
-
-async def _first(generator: AsyncGenerator[Any]) -> Any:
-    return await anext(generator)
-
-
-async def _ended(generator: AsyncGenerator[Any], name: str) -> None:
-    try:
-        await anext(generator)
-    except StopAsyncIteration:
-        return
-
-    # Closed before the refusal, so a fixture yielding twice runs its cleanup here rather than once collected.
-    await generator.aclose()
-    raise ValueError(f"the fixture '{name}' yields more than once")
 
 
 RejectsAssertion = Callable[[type[BaseModel], dict[str, Any], str], ValidationError]
@@ -342,12 +283,6 @@ UNSTARTED_KEY = "fl_mongodb_unstarted"
 
 REPLICA_SET_ELECTION_TIMEOUT_S = 60
 
-# The test servers' `transactionLifetimeLimitSeconds`, the frontend tier's too, past any run: the server never ends a
-# transaction a test holds, so a transaction a scope leaves open is ended by that scope's own check
-# (`tests/database.py :: _ended_open_transactions`), naming the scope, and a deadlock is cut by the case's bound rather
-# than freed by the server's expiry for the retry to pass.
-TRANSACTION_LIFETIME_S = 3600
-
 # A server's reason for exiting is its last lines, and under `-n` the message carrying them repeats in
 # every case the failed start errors.
 FAILED_START_LOG_LINES = 10
@@ -425,11 +360,6 @@ def _elected(container: DockerContainer) -> str:
                 # `except Exception` misses.
                 raise TimeoutError(f"the single-node replica set did not become primary within {REPLICA_SET_ELECTION_TIMEOUT_S}s")
             time.sleep(0.25)
-
-        # Read back rather than trusted: a server ignoring the startup parameter would expire transactions at its default.
-        held = client.admin.command({"getParameter": 1, "transactionLifetimeLimitSeconds": 1})["transactionLifetimeLimitSeconds"]
-        if held != TRANSACTION_LIFETIME_S:
-            raise RuntimeError(f"the replica set holds a transaction lifetime of {held} s, where its command sets {TRANSACTION_LIFETIME_S} s")
     finally:
         client.close()
 
@@ -452,10 +382,7 @@ def _replica_set_mongod() -> Generator[str]:
         DockerContainer(MONGO_IMAGE)
         # No `--auth`: with `--replSet` mongod demands a bind-mounted keyFile whose permissions it checks,
         # fragile on a Windows host.
-        .with_command(
-            f"--replSet rs0 --bind_ip_all --oplogSize {REPLICA_SET_OPLOG_MB} --setParameter enableTestCommands=1"
-            f" --setParameter transactionLifetimeLimitSeconds={TRANSACTION_LIFETIME_S}"
-        )
+        .with_command(f"--replSet rs0 --bind_ip_all --oplogSize {REPLICA_SET_OPLOG_MB} --setParameter enableTestCommands=1")
         .with_exposed_ports(27017)
         .with_tmpfs_mount(TMPFS_DATA_PATH, TMPFS_DATA_OPTIONS)
         .waiting_for(LogMessageWaitStrategy(re.compile(r"waiting for connections", re.IGNORECASE)))

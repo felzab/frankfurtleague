@@ -101,7 +101,7 @@ async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
 
 
 async def on_a_league(url: str, body: Body) -> Any:
-    return await body((await shared_client(url))[DATABASE_NAME])
+    return await body(shared_client(url)[DATABASE_NAME])
 
 
 async def read_saison_teams(database: AsyncDatabase, saison_id: str = SAISON) -> Any:

@@ -103,7 +103,7 @@ class TestTheSquadPipelineAnswersTheSameTable:
 
     async def _rows(self, url: str) -> list[Mapping[str, Any]]:
         return await aggregate_many_from_db(
-            collection=(await shared_client(url))[DATABASE_NAME].saison_spieler,
+            collection=shared_client(url)[DATABASE_NAME].saison_spieler,
             pipeline=build_spieler_pipeline(team_id=TEAM_OID, saison_id=SAISON),
         )
 
@@ -125,7 +125,7 @@ class TestTheRefereeJoinAnswersTheSameTable:
 
     async def _verdicts(self, url: str) -> dict[ObjectId, Any]:
         spiele = await aggregate_many_from_db(
-            collection=(await shared_client(url))[DATABASE_NAME].spiele, pipeline=build_spiele_pipeline(db_filter={"saison_id": SAISON})
+            collection=shared_client(url)[DATABASE_NAME].spiele, pipeline=build_spiele_pipeline(db_filter={"saison_id": SAISON})
         )
 
         return {spiel["schiedsrichter"]["schiedsrichter_id"]: spiel["schiedsrichter"]["name_is_public"] for spiel in spiele}
