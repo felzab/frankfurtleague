@@ -215,7 +215,8 @@ prints each refused document's collection, id and error location and never a val
 every document validates, 1 when any is refused, 2 when its settings could not be loaded or the
 database could not be read, and 3 when it crashed, naming the error's type and the line that raised
 it and never its message. Its last line counts the documents read and refused; a 1 without that line
-is Python's own, a module missing from the image, say, and judged no document.
+is Python's own, a module missing from the image, say, or Compose's own, a container that is not
+running, and judged no document.
 
 **It reads only the collections `RECORD_MODELS` names**, so a collection left behind under an old
 name is read by nothing, and the new name, never written, reads as an empty collection with nothing
