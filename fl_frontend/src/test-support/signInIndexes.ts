@@ -8,9 +8,10 @@ import type { LoggedLine } from "@/test-support/stdoutCapture";
  * How long a db file waits for the sign-in store's indexes, inside the hook or the case that builds them. The build
  * asks again for any index the store answers past the client's socket bound, for as long as a boot's run allows, which
  * outlasts either: a store that slow fails here, naming the build, before Vitest's bound names only the hook or the
- * case.
+ * case. Inside the whole gate a store answers past that socket bound and is asked again, so the wait is sized for
+ * those asks rather than for a store answering alone.
  */
-const BUILT_WITHIN_MS = 20_000;
+const BUILT_WITHIN_MS = 45_000;
 
 /**
  * How long an overdue build takes to stop once its client is closed: the close fails the operation in flight and every
