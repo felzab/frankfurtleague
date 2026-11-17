@@ -238,10 +238,10 @@ beside_verdict() { # $1 its files · [--exits <tables>] [--summary | --annotated
   verdict "${@:1:$#-1}" "$rc" "${BASH_LINENO[0]}" "${!#}"
 }
 
-# By file, so a module's fixtures stay on one worker; a stalled case's stack is dumped inside every CI
-# job's timeout. Under pytest-xdist a test module that does not collect is a failure, where pytest alone
-# answers it with its interrupt's 2. Each `--maxprocesses` below is its suite's optimum on 16 cores.
-PYTEST_SPREAD=(-n auto --dist loadfile -o faulthandler_timeout=180)
+# A stalled case's stack is dumped inside every CI job's timeout. Each suite's own configuration keeps a
+# file on one worker. Under pytest-xdist a test module that does not collect is a failure, where pytest
+# alone answers it with its interrupt's 2. Each `--maxprocesses` below is its suite's optimum on 16 cores.
+PYTEST_SPREAD=(-n auto -o faulthandler_timeout=180)
 
 case "$SCOPE" in
   docs|ops|db|images) require_docker ;;
@@ -593,8 +593,6 @@ scope_db() {
   # This scope because it alone has both the backend's virtualenv and the frontend's install.
   ( run_beside "${DB_TIERS}/contract" contract_check ) &
   contract=$!
-  # `loadfile` for isolation too: the commit fail points' cases set the server's one
-  # `failCommand`, so they run one after another on one worker.
   ( run_beside "${DB_TIERS}/backend" in_dir fl_backend "$PY" -m pytest -m db "${PYTEST_SPREAD[@]}" --maxprocesses 6 ) &
   backend=$!
   # Each file starts its own replica set through `@testcontainers/mongodb`.
