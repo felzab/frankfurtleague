@@ -28,3 +28,9 @@ Each fails silently. The ratified decisions for the seams are in `docs/decisions
   save sends the admin to a retry the same rule refuses again. A bound the backend moves without
   naming it in the rule's context or the refusal's bounds is a frontend line that goes stale in silence. `fl_backend/openapi.json` lists every code once and names none per
   endpoint, so which codes an endpoint answers is read from the service that raises them.
+- A test invents an address, a site or a telephone number only from values set aside for it: a
+  domain under `example.com`, `example.net` or `example.org`, the top-level `.example`, `.test` or
+  `.invalid` (RFC 2606), `localhost` (RFC 6761), or the league's own domain; a German number inside a
+  range the Bundesnetzagentur keeps for media productions, (0)69 90009 000 to 999, (0)171 39200 00 to
+  99 or (0)176 040690 00 to 99. A domain anyone may register, or a number a carrier may assign, names
+  a stranger in a log line, a stored row and this public repository.
