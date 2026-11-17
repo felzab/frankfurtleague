@@ -208,7 +208,7 @@ const realClient = productionClient as RealClient;
 closing(() => realClient.close());
 const authDb = () => realClient.db(MONGO_DB_NAME);
 
-signInIndexesForTheFile(buildAuthIndexes, log);
+signInIndexesForTheFile(buildAuthIndexes, () => realClient.close(), log);
 
 beforeEach(async () => {
   gateAnswer = { seats: [], barred: false, account: false };

@@ -41,6 +41,8 @@ describe("the admin lane", () => {
   });
 
   it("answers any other throw as the unexpected failure, logging its name alone, and clears the tag", async () => {
+    // The file's visitor was signed in before the case, on a line of its own.
+    log.clear();
     const answer = await create({ name: "Nord" });
 
     expect(answer).toStrictEqual({ ok: false, reason: COPY.shared.failure.unexpected });

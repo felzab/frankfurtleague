@@ -6,10 +6,6 @@ import { useLayoutEffect, useRef } from "react";
 /** A native control whose value React owns. */
 type Control = HTMLInputElement | HTMLTextAreaElement;
 
-// The guard names the two types as well: a control it refuses may still be an input, an address box among them.
-const isToggle = (control: Control): control is HTMLInputElement & { type: "checkbox" | "radio" } =>
-  control.type === "checkbox" || control.type === "radio";
-
 /** The server's value as the browser shows it: folding a textarea's `\r\n` or trimming an address is no edit of a person's. */
 function drawnText(control: Control) {
   const drawn = control.cloneNode() as Control;
@@ -25,7 +21,7 @@ function drawnText(control: Control) {
  */
 function owedChange(control: Control) {
   if (control.disabled) return null;
-  if (isToggle(control)) {
+  if (control instanceof HTMLInputElement && (control.type === "checkbox" || control.type === "radio")) {
     const { checked } = control;
     if (checked === control.defaultChecked || (control.type === "radio" && !checked)) return null;
     return () => {

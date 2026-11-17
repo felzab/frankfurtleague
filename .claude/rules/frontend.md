@@ -47,7 +47,8 @@ Each fails silently. The ratified decisions for this surface are in `docs/decisi
   `APIBadStatusError`, and `tsc` and every test pass. Such a check answers what it found, typed by
   the compiler: the matching seats (`fl_frontend/src/core/roles.ts :: seatsAt`), the refusal or
   `null` (`fl_frontend/src/core/errors.ts :: asRefusal`), or a boolean. A predicate TypeScript
-  infers from the body is left unannotated, so the compiler checks it; one is written by hand only
-  where it cannot infer it, as an arrow whose body is an own-key lookup through `Object.hasOwn` or
-  an exact refinement, a property or a `typeof` compared with a literal. The lint refuses every
-  other hand-written `x is T`, an `asserts` one and one in a type included.
+  infers from the body is left unannotated, so the compiler checks it. The one it cannot infer, an
+  own-key lookup, calls `fl_frontend/src/core/ownKeyOf.ts :: ownKeyOf`, whose type parameter ties
+  the keys it asserts to the object it tests, and a predicate calling it is inferred. The lint
+  refuses every hand-written `x is T` outside that file, an `asserts` one and one in a type
+  included.

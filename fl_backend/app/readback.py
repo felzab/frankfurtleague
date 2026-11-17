@@ -37,7 +37,7 @@ from app.api.teams.schemas import FLSaisonTeamRecord, FLTeamRecord
 from app.core.collections import EDITED_COLLECTIONS, Collection
 from app.core.config import EnvironmentValidationError, get_config  # noqa: TID251
 from app.core.crud import VERSION_FIELD
-from app.core.db import SERVER_SELECTION_TIMEOUT_MS
+from app.core.db import new_client
 
 # The exit contract the scripts read: 0 clean, 1 a document to correct, 2 could not judge, 3 crashed.
 REFUSED: Final = 1
@@ -116,7 +116,7 @@ async def _main() -> int:
     except EnvironmentValidationError as refusal:
         print(f"The settings could not be loaded: {refusal}")
         return UNJUDGED
-    client = AsyncMongoClient(host=config.mongodb_uri.get_secret_value(), serverSelectionTimeoutMS=SERVER_SELECTION_TIMEOUT_MS)
+    client = new_client(config.mongodb_uri.get_secret_value())
     try:
         return await read_back(client, config.db_base_name)
     # The type alone: the driver's message names the host it resolved out of the secret.
