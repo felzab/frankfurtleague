@@ -5,7 +5,7 @@
 #   ./scripts/ops/e2e_stack.sh start [--build]  new keys, an empty stack and mail sink, with --build its images built
 #                                               from source, then the database and the backend started without a wait
 #   ./scripts/ops/e2e_stack.sh serve            the database and the backend waited for, the made-up league loaded
-#                                               and read back (scripts/ops/made_up_seed.sh), then the rest started
+#                                               (scripts/ops/made_up_seed.sh), then the rest started
 #   ./scripts/ops/e2e_stack.sh --help
 #
 # Two calls, so a caller can run something of its own while the database and the backend start. Without --build, the

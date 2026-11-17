@@ -33,9 +33,9 @@ LOCAL_PROJECT: Final = "frankfurtleague"
 
 # Each call as `<COMPOSE_FILE> | <COMPOSE_PROJECT_NAME> | <arguments>`. The kinds: `down`, `build`, `start` (the `up`
 # without a wait), `wait` (the database and the backend waited for), `rest` (the whole stack waited for), and the seed's
-# four: `states`, its look at the stack, listing the case's `states` file as `<service> <state> <one-off label>`, then
-# `hand`, `seed` and `readback`. An `up` is told by whether it waits and which services it names, never by its timeout,
-# which the script may retune.
+# three: `states`, its look at the stack, listing the case's `states` file as `<service> <state> <one-off label>`, then
+# `hand` and `seed`. An `up` is told by whether it waits and which services it names, never by its timeout, which the
+# script may retune.
 DOCKER: Final = r"""#!/usr/bin/env bash
 d="$FL_STACK_DIR"
 printf '%s | %s | %s\n' "${COMPOSE_FILE-}" "${COMPOSE_PROJECT_NAME-}" "$*" >> "$d/calls"
@@ -50,7 +50,6 @@ case " $* " in
   *" compose ps "*) cat "$d/states"; exit 0 ;;
   *" sh -c "*) cat > /dev/null; exit "$(answer hand)" ;;
   *" tests.made_up_seed "*) exit "$(answer seed)" ;;
-  *" app.readback "*) exit "$(answer readback)" ;;
 esac
 exit 0
 """
@@ -73,7 +72,6 @@ def kind(call: str) -> str:
         (" compose ps ", "states"),
         (" sh -c ", "hand"),
         ("tests.made_up_seed", "seed"),
-        ("app.readback", "readback"),
     ):
         if needle in padded:
             return name
@@ -157,13 +155,13 @@ def test_a_start_runs_on_new_keys_over_an_empty_stack_and_mail_sink_and_serves_o
 
     code, said, kinds = stack(root, "serve")
     assert code == 0, said
-    assert kinds == ["wait", "states", "hand", "hand", "hand", "seed", "readback", "rest"], kinds
+    assert kinds == ["wait", "states", "hand", "hand", "hand", "seed", "rest"], kinds
 
 
 @pytest.mark.parametrize(
     ("states", "codes", "last"),
     [
-        pytest.param(SEEDABLE, {"readback": 2}, "readback", id="read-back-refusal-stays-refused"),
+        pytest.param(SEEDABLE, {"seed": 2}, "seed", id="seed-refusal-stays-refused"),
         # Production with its frontend stopped, whichever files the checkout's Compose reads: the seed empties every
         # collection of the database it reaches.
         pytest.param("backend running False\nfrontend exited False\n", {}, "states", id="no-mongo"),
@@ -181,7 +179,7 @@ def test_a_refusal_starts_nothing_after_it_and_stays_a_refusal(states: str, code
 
 
 def test_local_sh_keeps_the_stack_s_refusal() -> None:
-    code, said, kinds = stack(checkout(), "--e2e", codes={"readback": 2}, script="scripts/ops/local.sh")
+    code, said, kinds = stack(checkout(), "--e2e", codes={"seed": 2}, script="scripts/ops/local.sh")
     assert code == 2, said
     assert kinds[:3] == ["down", "build", "start"], kinds
     assert "rest" not in kinds, kinds

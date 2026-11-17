@@ -39,10 +39,10 @@ loaded or it could not write the database, and 3 when the seed itself failed.
 
 Run by `./scripts/ops/local.sh --e2e`, `--e2e --landing=<state>` and `--seed-made-up`, and by the journeys' CI job, as
 `python -m tests.made_up_seed` inside the stack's backend container, copied there beside the tests' builders: it reads the
-settings the read-back reads, and refuses, exit 2, before any client exists unless they name the local stack's own server
+settings the backend reads, and refuses, exit 2, before any client exists unless they name the local stack's own server
 (`LOCAL_SERVER`), which the end-to-end stack starts as well and production lacks. No image holds it, the tests being kept out of
-every build. The backend has booted first, so every index is in place, and `python -m app.readback`
-judges every document afterwards; the frontend starts, or with `--landing` restarts, only once it has passed.
+every build. The backend has booted first, so every index is in place; the frontend starts, or with `--landing` restarts,
+only once the seed has passed.
 
 Invariants:
 - Every date is relative to today in Germany, so "today's matchday" is today whenever it runs.

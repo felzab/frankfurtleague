@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# SCRIPTS · load the made-up league into a running stack's database, then read every document of it back.
+# SCRIPTS · load the made-up league into a running stack's database.
 #
 #   ./scripts/ops/made_up_seed.sh                    seed fl_backend/tests/made_up_seed.py as written, inside the
 #                                                    running backend container, into the database its settings name
@@ -9,11 +9,11 @@
 #
 # Compose reaches the stack through the caller's COMPOSE_FILE and TAG, and only the local and the end-to-end stacks are
 # seeded: the script refuses any stack not running the mongo service, and the seed any server but that one.
-# Exit 0 seeded, and every document reads back through its record model; 1 a seed or a document to correct, each named
-# by the seed's or the read-back's own account; 2 refused, Docker not responding, no backend running, another stack, a
-# frontend not stopped, another server, a state the seed does not hold, or a seed or a read-back that could not load
-# its settings or read the database; 130 interrupted; 3 or more a step that crashed, its own status kept where it is 3
-# or more.
+# The seed reads every document through its record model before it empties anything. Exit 0 seeded; 1 an insert the
+# database refused, named by the seed's own account; 2 refused, Docker not responding, no backend running, another stack,
+# a frontend not stopped, another server, a state the seed does not hold, or a seed that could not load its settings or
+# write the database; 130 interrupted; 3 or more a step that crashed, a document its model refuses among them, its own
+# status kept where it is 3 or more.
 
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh" || exit 3
 
@@ -75,11 +75,3 @@ fl_backend/tests/made_up_seed.py." \
   "the made-up seed refused, and its own account above says why." \
   docker compose exec -T "${state[@]}" backend env "PYTHONPATH=${SEED_ROOT}" python -m tests.made_up_seed
 ok "seeded the made-up league"
-
-step "The backend's check of what the seed wrote"
-run_contract \
-  "the made-up seed holds a document its model refuses, and the lines above name it: correct
-fl_backend/tests/made_up_seed.py." \
-  "the backend could not read what the seed wrote, so nothing of it was judged; its own account is above." \
-  docker compose exec -T backend python -m app.readback
-ok "every document the seed wrote reads back through its model"

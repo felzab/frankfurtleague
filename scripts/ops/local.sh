@@ -89,7 +89,7 @@ BY_HAND="COMPOSE_FILE='${COMPOSE_FILE}' TAG=${TAG} docker compose"
 # `.tmp-*/` is gitignored.
 E2E_DIR="${REPO_ROOT}/.tmp-e2e"
 
-# The made-up league loaded into the running backend's database and read back; `--landing` hands its
+# The made-up league loaded into the running backend's database; `--landing` hands its
 # state on. The script's own account is shown only on a failure, and it annotates its own ending.
 load_made_up_seed() {
   local landing=()
@@ -100,7 +100,7 @@ The frontend has not been started or recreated." \
     "the made-up seed was refused, and the lines above say why.
 The frontend has not been started or recreated." \
     quietly "${REPO_ROOT}/scripts/ops/made_up_seed.sh" "${landing[@]}"
-  ok "seeded the made-up league, and every document it wrote reads back through its model"
+  ok "seeded the made-up league"
 }
 
 # The script CI's journeys raise the stack with, its steps shown as they run and its verdict kept: a
@@ -174,7 +174,7 @@ Start the stack with ./scripts/ops/local.sh --e2e first."
   quietly docker compose stop frontend
   ok "stopped"
 
-  step "The made-up league, the landing ${LANDING}, and the backend's check of it"
+  step "The made-up league, the landing ${LANDING}"
   load_made_up_seed
 
   step "The frontend, recreated"

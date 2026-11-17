@@ -464,9 +464,9 @@ database service the local and the end-to-end stacks each start and production l
 seed refuses any server its settings name but that one, before it connects. **It writes a database
 nothing else writes**: the frontend is the one other writer, the backend running no pass of its
 own, so the script refuses a stack whose frontend is not stopped, and `local.sh` stops the frontend
-before each seed it loads. It loads once the backend's boot has built every index, and
-`python -m app.readback` then reads every document it wrote back through its record model; only
-then do the frontend and nginx start.
+before each seed it loads. It reads every document through its record model before it empties
+anything, and loads once the backend's boot has built every index; only then do the frontend and
+nginx start.
 
 **The local stack starts with an empty `auth`, and a sign-in builds it.** The grants deciding which
 administrator may sign in arrive with the made-up seed, so a `--fresh` stack admits nobody until
@@ -499,11 +499,11 @@ naming that folder (`fl_frontend/e2e/support/journey.ts :: E2E_DIR`).
 
 **`--e2e --landing=<state>` re-seeds the running end-to-end stack with the landing in that state**,
 one of `fl_backend/tests/made_up_seed.py :: LANDING_STATES`, the seed refusing any other: the seed
-runs again with `SEED_LANDING` in the backend container's environment, the read-back judges it, and
-the frontend alone is recreated, so no read of the earlier state stays cached. It builds nothing and
-keeps the stack's keys, its sign-in store and its images, so sessions and passkeys survive it. It
-refuses with no end-to-end stack running. The stack's name is every checkout's, and the frontend it
-recreates takes the keys, the mail folder and the compose files of the checkout it runs in.
+runs again with `SEED_LANDING` in the backend container's environment, and the frontend alone is
+recreated, so no read of the earlier state stays cached. It builds nothing and keeps the stack's
+keys, its sign-in store and its images, so sessions and passkeys survive it. It refuses with no
+end-to-end stack running. The stack's name is every checkout's, and the frontend it recreates takes
+the keys, the mail folder and the compose files of the checkout it runs in.
 
 **The checkers are Python, and one kernel makes their answers comparable**,
 `scripts/lib/checker_kernel.py` (§1.7). Each runs in the backend's virtualenv, the gate's and the
@@ -686,8 +686,8 @@ judge, on `scripts/lib/checker_kernel.py`'s scale, which fixes 0, 1, 2 and 3 in 
 an exception escaping a checker 3; the gate reads that 2 as a refusal only where a step names the
 program on this contract (`check --checker`), and a script calling another reads it through
 `run_contract`. A checker that fails to import answers Python's own 1, a finding with its traceback
-on screen, and the run is red either way. The made-up seed and the backend's read-back answer on the
-same scale, and so does `docker compose exec`, which runs them and answers its own failure 1.
+on screen, and the run is red either way. The made-up seed answers on the same scale, and so does
+`docker compose exec`, which runs it and answers its own failure 1.
 
 **A command run bare is plain bash under strict mode**: any status but 0 is a crash through the
 error trap, which names the line. Bash suspends `set -e` and that trap for every command a function
