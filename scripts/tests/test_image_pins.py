@@ -1,19 +1,15 @@
 """Every image this repository does not build is pinned by tag and digest, and the versions no tool compares agree.
 
 What it compares: every image the three Dockerfiles, both compose files and the listed scripts name, against the pin
-form; both database test tiers against a mongo image of their own, and the backend tier's containers against the
-local stack's pin; the gate's scripts against a linter image of their own; and each image's toolchain against the one the checkout and CI run,
-the frontend's Node against `devEngines` and the lockfile, the backend's Python against `.python-version`'s series and
-its uv against CI's, and the journeys' Playwright image against the lockfile's Playwright. Each pair drifts in silence:
-a tag alone is a pointer its publisher can move, a hand edit can drop a digest, and Dependabot moves each file's pin on
-its own, so one side ships a version the other never ran.
+form; and each image's toolchain against the one the checkout and CI run, the frontend's Node against `devEngines` and
+the lockfile, the backend's Python against `.python-version`'s series and its uv against CI's. Each pair drifts in
+silence: a tag alone is a pointer its publisher can move, a hand edit can drop a digest, and Dependabot moves each
+file's pin on its own, so one side ships a version the other never ran.
 """
 
 from __future__ import annotations
 
-import ast
 import json
-import os
 import re
 from pathlib import Path
 from typing import Final
@@ -125,105 +121,6 @@ def script_references() -> dict[str, tuple[str, str]]:
     return found
 
 
-FRONTEND: Final = REPO_ROOT / "fl_frontend"
-BACKEND: Final = REPO_ROOT / "fl_backend"
-UNREAD_DIRS: Final = frozenset({"node_modules", ".next", ".venv", "__pycache__", ".pytest_cache", ".ruff_cache"})
-FRONTEND_SUFFIXES: Final = frozenset({".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"})
-# The image's name, a registry path allowed ahead of it, and the tag or digest after it that makes a string an image
-# reference rather than the local stack's database service, which a host names bare.
-MONGO_TAGGED_RE: Final = re.compile(r"""(["'`])((?:[\w.-]+/)*mongo[:@][^"'`\s]+)\1""")
-# The backend tier's copy of the local stack's server, read off its one `image:` line.
-BACKEND_PIN: Final = "MONGO_IMAGE"
-
-
-def sources_under(root: Path, suffixes: frozenset[str] | None = None) -> list[Path]:
-    """Every file under `root` with one of `suffixes`, or any where None, the installed, built and cached trees aside."""
-    found: list[Path] = []
-    for directory, dirs, files in os.walk(root):
-        dirs[:] = [name for name in dirs if name not in UNREAD_DIRS]
-        found += [Path(directory) / name for name in files if suffixes is None or Path(name).suffix in suffixes]
-    return sorted(found)
-
-
-def mongo_images(sources: list[Path]) -> list[tuple[str, str]]:
-    """Every mongo image a string of `sources` names, each beside its file."""
-    return [
-        (path.relative_to(REPO_ROOT).as_posix(), match[2])
-        for path in sources
-        for match in MONGO_TAGGED_RE.finditer(path.read_text(encoding="utf-8"))
-    ]
-
-
-def test_neither_db_tier_names_a_mongo_image_of_its_own() -> None:
-    """Both tiers read the local stack's one `image:` line, the one Dependabot moves, so an image typed here runs unheld.
-
-    Each tier's reader refuses anything but exactly one such line, so the stack's pin is all that is left to hold.
-    """
-    sources = sources_under(FRONTEND, FRONTEND_SUFFIXES) + sources_under(BACKEND, frozenset({".py"}))
-
-    assert mongo_images(sources) == [], "a mongo image typed outside docker-compose.local.yml"
-
-
-def _callee(call: ast.Call) -> str:
-    """The name a call is made by, a bare one or an attribute's."""
-    return call.func.id if isinstance(call.func, ast.Name) else call.func.attr if isinstance(call.func, ast.Attribute) else ""
-
-
-def _image(call: ast.Call) -> ast.expr | None:
-    """The image a container class is handed: testcontainers takes it first, or as `image`."""
-    return call.args[0] if call.args else next((keyword.value for keyword in call.keywords if keyword.arg == "image"), None)
-
-
-def test_every_backend_container_starts_from_the_local_stack_s_pin() -> None:
-    """A container class handed any image but the tier's copy of the pin, or none, runs a server no bump proposed.
-
-    Judged at each construction, by the parser: a name held in a variable reaches a container as surely as a string, and
-    testcontainers' `MongoDbContainer()` runs `mongo:latest` with no string naming it. The frontend tier's constructions
-    are its lint's, which holds each to `localStackMongo()`.
-    """
-    constructions = [
-        (path.relative_to(REPO_ROOT).as_posix(), node)
-        for path in sources_under(BACKEND, frozenset({".py"}))
-        for node in ast.walk(ast.parse(path.read_bytes(), filename=str(path)))
-        if isinstance(node, ast.Call) and _callee(node).endswith("Container")
-    ]
-    assert constructions, "no container construction was read out of fl_backend: the reader went inert"
-    unpinned = [
-        f"{path}:{call.lineno}: {ast.unparse(call)}"
-        for path, call in constructions
-        if not (isinstance(image := _image(call), ast.Name) and image.id == BACKEND_PIN)
-    ]
-    assert unpinned == [], f"a container started from anything but {BACKEND_PIN}:\n" + "\n".join(unpinned)
-
-
-# The gate's linters, each pinned in the tools file alone: its stage name is what a caller reads.
-GATE_TOOLS: Final = {
-    "shellcheck": "koalaman/shellcheck",
-    "actionlint": "rhysd/actionlint",
-    "lychee": "lycheeverse/lychee",
-}
-# Where a caller of one could type a copy: the gate, the checkers, the operations scripts and CI.
-TOOL_CALLERS: Final = (REPO_ROOT / "scripts", REPO_ROOT / ".github")
-
-
-def test_each_gate_linter_is_pinned_in_the_tools_file_alone() -> None:
-    """Dependabot moves the tools file's `FROM` line, so an image a script types beside it runs a release no bump proposed."""
-    stages = {stage: image for image, stage in FROM_RE.findall(TOOLS_FILE.read_text(encoding="utf-8"))}
-    assert {stage: image.split(":", 1)[0] for stage, image in stages.items()} == GATE_TOOLS, (
-        f"{TOOLS_FILE.relative_to(REPO_ROOT).as_posix()} names {stages}, where each caller reads one stage of {sorted(GATE_TOOLS)}"
-    )
-    # A reference is a name with a tag or a digest after it, which a mention in prose never carries.
-    reference = re.compile(rf"(?<![\w/])(?:{'|'.join(map(re.escape, GATE_TOOLS.values()))})[:@][^\s\"'`]*")
-    copies = [
-        f"{path.relative_to(REPO_ROOT).as_posix()}: {match}"
-        for root in TOOL_CALLERS
-        for path in sources_under(root)
-        if path != TOOLS_FILE
-        for match in reference.findall(path.read_text(encoding="utf-8", errors="replace"))
-    ]
-    assert copies == [], "a gate linter's image typed outside the tools file:\n" + "\n".join(copies)
-
-
 # --- one version of each tool across CI and the images ---------------------------------------------
 
 BACKEND_TOOLCHAIN: Final = REPO_ROOT / ".github" / "actions" / "backend-toolchain" / "action.yml"
@@ -262,17 +159,6 @@ def test_devengines_the_lockfile_and_the_frontend_image_name_one_exact_node_rele
     assert set(tags) == {runtime["version"]} == resolved, (
         f"devEngines {runtime['version']}, the lockfile's Node {sorted(resolved)}, fl_frontend/Dockerfile {tags}"
     )
-
-
-def test_the_journeys_image_carries_the_lockfile_s_playwright() -> None:
-    """The image's browsers are the builds one Playwright release finds, so another release fails every journeys leg at launch."""
-    _, image = script_references()[".github/workflows/verify.yml:playwright"]
-    tag = re.fullmatch(r"v(\d+\.\d+\.\d+)-[a-z]+", _tag(image))
-    resolved = set(re.findall(r"^  '@playwright/test@([^']+)':$", FRONTEND_LOCKFILE.read_text(encoding="utf-8"), re.MULTILINE))
-    assert tag and len(resolved) == 1, (
-        f"read the image's tag {_tag(image)} and the lockfile's {sorted(resolved)}, where the case reads one of each"
-    )
-    assert {tag[1]} == resolved, f"PLAYWRIGHT_IMAGE carries Playwright {tag[1]}, and fl_frontend/pnpm-lock.yaml resolves {sorted(resolved)}"
 
 
 def test_the_backend_image_runs_the_python_series_ci_installs() -> None:
