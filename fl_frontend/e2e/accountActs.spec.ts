@@ -1,16 +1,16 @@
 /**
- * E2E · J8, a person's account acts, under each project: the address change through its two mailed links, the address
- * on file asked first, then the new mailbox; then the deletion through its mailed link, opened signed out and carried
+ * E2E · a person's account acts, under each project: the address change through its two mailed links, the address on
+ * file asked first, then the new mailbox; then the deletion through its mailed link, opened signed out and carried
  * through the sign-in, its action leading to the page that needs no session. Before them „Alle anderen abmelden“ with a
- * second device, whose cookie no person would see still admitted. Konto's steps are named by the words
- * Konto's pages are built to. The passkeys are `desktop/accountPasskeys.spec.ts`'s.
+ * second device, whose cookie no person would see still admitted. Konto's steps are named by the words Konto's pages
+ * are built to. The passkeys run in a desktop journey of their own.
  *
  * Each journey signs in as a person of its own, the project's `twoDevices`, `mover` and `leaver`, whom no other journey
  * signs in as: each writes what another would read, the sessions it ends, the records it moves, the account it erases.
  */
 import { expect } from "@playwright/test";
 
-import { typeInto } from "./support/controls";
+import { enteredQuestion, typeInto } from "./support/controls";
 import { test } from "./support/journey";
 import { filedMessages, mailedLink } from "./support/mailSink";
 import { declinePasskeyOffer, expectAccountPageOf, PERSON_LANDING, sessionCookies, signInWithCode, signInWithCodeHere } from "./support/signIn";
@@ -24,7 +24,6 @@ async function signIn(page: Page, address: string): Promise<void> {
 }
 
 test("„Alle anderen abmelden“ ends a second device's session and keeps this one", async ({ page, secondDevice, baseURL, twoDevices }) => {
-  // A second device, signed in first.
   await signIn(secondDevice, twoDevices);
   await signIn(page, twoDevices);
 
@@ -33,8 +32,7 @@ test("„Alle anderen abmelden“ ends a second device's session and keeps this 
   // Both sessions alive before the press, so the press is seen ending one rather than finding one already gone.
   await expect(page.getByRole("main").getByText("Du bist auf 2 Geräten angemeldet.")).toBeVisible();
   await page.getByRole("button", { name: "Alle anderen abmelden" }).click();
-  // The question is named: the toast an act answers in is an `alertdialog` too.
-  await page.getByRole("alertdialog", { name: "Alle anderen abmelden?" }).getByRole("button", { name: "Abmelden" }).click();
+  await (await enteredQuestion(page, "Alle anderen abmelden?")).getByRole("button", { name: "Abmelden" }).click();
   // The press's end: the count names this device alone, where it named two before.
   await expect(page.getByRole("main").getByText("Du bist auf 1 Gerät angemeldet.")).toBeVisible();
   // The page's own guard sends the ended session to the sign-in. Judged on the whole path, since `/account/signin`
@@ -100,7 +98,7 @@ test("the person deletes their account from the mailed link, signed out when it 
   await page.goto("/account/signin");
   const before = await filedMessages();
   await page.getByRole("button", { name: "Konto löschen" }).click();
-  await page.getByRole("alertdialog", { name: "Konto löschen?" }).getByRole("button", { name: "Löschen" }).click();
+  await (await enteredQuestion(page, "Konto löschen?")).getByRole("button", { name: "Löschen" }).click();
   const link = await mailedLink(leaver, "Konto löschen", before);
 
   // Opened signed out, the link leads through the sign-in and back to itself.

@@ -5,7 +5,7 @@ import { MongoError, MongoServerError } from "mongodb";
 import { signInStore } from "./db";
 import { logger } from "./logging";
 
-import type { IndexOptions, IndexSpecification, TopologyDescriptionChangedEvent } from "mongodb";
+import type { IndexOptions, IndexSpecification, ServerHeartbeatSucceededEvent } from "mongodb";
 
 // Named for what the database holds rather than for the library that writes it, so the next swap
 // inherits a name it does not have to migrate.
@@ -22,7 +22,7 @@ type AuthIndex = {
  * One index per query the library and this application send to the sign-in store.
  * The library declares none of them at table level, so its adapter builds none.
  */
-const AUTH_INDEXES: readonly AuthIndex[] = [
+export const AUTH_INDEXES: readonly AuthIndex[] = [
   // The cookie's own value, read by every guard.
   { collection: "session", key: { token: 1 }, options: { name: "session_token_uidx", unique: true } },
   { collection: "session", key: { userId: 1 }, options: { name: "session_userId_idx" } },
@@ -63,12 +63,13 @@ async function buildOnce(): Promise<void> {
     [...lanes].map(async ([collection, indexes]) => {
       for (const { key, options } of indexes) {
         try {
-          // Under the client's socket bound like every call: a build outlasting it is logged unbuilt
-          // and still finishes, since the server keeps a build whose connection closed.
+          // Under the client's socket bound like every call: a build outlasting it is logged unbuilt and asked for again
+          // on the next writable heartbeat.
           await database.collection(collection).createIndex(key, options, undefined);
         } catch (failed) {
           logUnbuilt(options.name, failed);
-          // No server code is a store that did not answer, which a restart would only meet again.
+          // No server code is a store that did not answer, or answered slower than the client waits, which judged no
+          // index; a server code is the store's verdict, which asking again only repeats.
           if (!(failed instanceof MongoServerError)) rebuildOnRecovery();
         }
       }
@@ -77,22 +78,26 @@ async function buildOnce(): Promise<void> {
 }
 
 /**
- * The client reconnects on its own once the store answers, and the
- * build runs again on the first topology holding a writable server, rather than waiting for the next boot.
+ * The build runs again on the next heartbeat a writable server answers, rather than waiting for the next boot
+ * (`serverHeartbeatSucceeded`, https://www.mongodb.com/docs/drivers/node/current/monitoring-and-logging/monitoring/).
+ * A store that did not answer fails its heartbeats until it is back, and the client reconnects on its own. A store that
+ * stayed writable but timed out answers its next one, within the client's heartbeat interval: "If there is a network
+ * timeout on the connection after the handshake completes, the client MUST NOT mark the server Unknown"
+ * (https://github.com/mongodb/specifications/blob/master/source/server-discovery-and-monitoring/server-discovery-and-monitoring.md#network-error-when-reading-or-writing),
+ * so its topology never changes. While a store stays that slow, each run ends in its lines and the next heartbeat
+ * starts another, until it answers.
  */
 function rebuildOnRecovery(): void {
   if (rebuildArmed) return;
   rebuildArmed = true;
   const store = signInStore();
-  // Never `open`, which the driver emits for a new topology alone: one recovering after its first open
-  // emits none, and the rebuild would wait for the next boot.
-  const recovered = ({ newDescription }: TopologyDescriptionChangedEvent): void => {
-    if (![...newDescription.servers.values()].some((server) => server.isWritable)) return;
-    store.off("topologyDescriptionChanged", recovered);
+  const recovered = ({ reply }: ServerHeartbeatSucceededEvent): void => {
+    if (reply["isWritablePrimary"] !== true) return;
+    store.off("serverHeartbeatSucceeded", recovered);
     rebuildArmed = false;
     void buildAuthIndexes();
   };
-  store.on("topologyDescriptionChanged", recovered);
+  store.on("serverHeartbeatSucceeded", recovered);
 }
 
 /**

@@ -2,7 +2,8 @@
 
 No case can run the script against a real engine, which is the server's alone. Each copies it with
 `_lib.sh` into a fixture tree of its own, where it `cd`s and writes `.env`, and puts a stand-in
-`docker` and `uname` first on PATH. The stand-in answers `docker compose ps` as Docker documents it
+`docker`, `uname` and `sleep` first on PATH, and for one case an `mv` the filesystem refuses. The stand-in
+answers `docker compose ps` as Docker documents it
 (https://docs.docker.com/reference/cli/docker/compose/ps/): only running containers by default, and
 with `--all` the stopped ones too, a one-off container `docker compose run` left among them. Its
 nginx answers each case's `nginx -t` and error log after the reload, the same at every read, so it
@@ -31,7 +32,9 @@ WORKER_ALERT: Final = "2026/11/12 08:46:11 [alert] 31#31: 1024 worker_connection
 
 # Every engine call the script makes, logged one per line with the tag it ran under. `ps` reads the
 # containers of the tag the script exported, `service state health` a line, and prints the stopped
-# ones and the one-offs only under `--all`. `unread.<tag>` names the read that fails under a tag.
+# ones and the one-offs only under `--all`. `unread.<tag>` names the read that fails under a tag. A
+# `config` that fails answers 1, as Compose 5.7.0 does for a service naming a secret nobody declared:
+# its source hands such an error to the CLI's plugin runner, which answers 1.
 DOCKER: Final = r"""#!/usr/bin/env bash
 d="$FL_DEPLOY_DIR"
 printf '%s TAG=%s\n' "$*" "${TAG-}" >> "$d/calls"
@@ -39,11 +42,22 @@ printf '%s TAG=%s\n' "$*" "${TAG-}" >> "$d/calls"
 shift
 unread="$(cat "$d/unread.${TAG-}" 2>/dev/null)"
 case "$1" in
+  version) exit "$(cat "$d/compose-version")" ;;
   up) exit "$(cat "$d/up.$TAG" 2>/dev/null || printf 0)" ;;
+  pull) exit "$(cat "$d/pull" 2>/dev/null || printf 0)" ;;
   config)
-    if [[ "$unread" == config-fails ]]; then printf '%s\n' 'service "backend" refers to undefined secret' >&2; exit 15; fi
+    if [[ "$unread" == config-fails ]]; then printf '%s\n' 'service "backend" refers to undefined secret' >&2; exit 1; fi
     if [[ "$unread" != config-empty ]]; then printf '%s\n' frontend backend nginx cloudflared; fi ;;
-  exec) if [[ " $* " == *" nginx -t "* ]]; then exit "$(cat "$d/nginx-t")"; fi ;;
+  exec)
+    if [[ " $* " == *" nginx -t "* ]]; then
+      code="$(cat "$d/nginx-t")"
+      # nginx's own refusal, as nginx 1.x writes it; compose's own failure to run the exec writes neither line.
+      if [[ "$code" == 1 && ! -f "$d/exec-fails" ]]; then
+        printf '%s\n' 'nginx: [emerg] unknown directive "limit_reqq" in /etc/nginx/conf.d/site.conf:3' \
+          'nginx: configuration file /etc/nginx/nginx.conf test failed' >&2
+      fi
+      exit "$code"
+    fi ;;
   logs) if [[ " $* " == *" --since "* ]]; then cat "$d/reload-log"; fi ;;
   ps)
     if [[ "$unread" == ps-fails ]]; then printf '%s\n' 'Cannot connect to the Docker daemon' >&2; exit 1; fi
@@ -61,6 +75,9 @@ exit 0
 """
 
 UNAME: Final = "#!/usr/bin/env bash\nprintf '%s\\n' Linux\n"
+# The clock, faked: each reload read follows a second's wait, and the stand-in's log is the same at every read.
+SLEEP: Final = "#!/usr/bin/env bash\nexit 0\n"
+FAILING_MV: Final = "#!/usr/bin/env bash\nprintf '%s\\n' 'mv: cannot move: Read-only file system' >&2\nexit 1\n"
 
 
 def containers(**states: str | None) -> str:
@@ -80,6 +97,12 @@ def deploy(
     nginx_t: int = 0,
     reload_log: str = RECONFIGURING + NEW_WORKERS,
     pin: str | None = PREVIOUS,
+    pull: int = 0,
+    deployed: str | None = NEW,
+    compose_version: int = 0,
+    exec_fails: bool = False,
+    unwritable_pin: bool = False,
+    unrenamed_pin: bool = False,
 ) -> tuple[int, str, str, list[str], str | None]:
     """One run deploying `NEW` over a stack whose `.env` pins `pin`, or with no `.env` for None.
 
@@ -95,22 +118,32 @@ def deploy(
     engine = new_root("fl-deploy-engine-")
     stubs = engine / "stubs"
     stubs.mkdir()
-    for name, text in (("docker", DOCKER), ("uname", UNAME)):
+    for name, text in (("docker", DOCKER), ("uname", UNAME), ("sleep", SLEEP)):
         os.chmod(write_shell(stubs / name, text), 0o755)
+    # A rename the filesystem refuses, the pin's second file already written.
+    if unrenamed_pin:
+        os.chmod(write_shell(stubs / "mv", FAILING_MV), 0o755)
     (engine / f"containers.{NEW}").write_bytes(new.encode())
     (engine / f"containers.{PREVIOUS}").write_bytes(previous.encode())
     (engine / f"up.{NEW}").write_bytes(str(new_up).encode())
     (engine / f"up.{PREVIOUS}").write_bytes(str(previous_up).encode())
     (engine / "nginx-t").write_bytes(str(nginx_t).encode())
     (engine / "reload-log").write_bytes(reload_log.encode())
+    (engine / "pull").write_bytes(str(pull).encode())
+    (engine / "compose-version").write_bytes(str(compose_version).encode())
+    if exec_fails:
+        (engine / "exec-fails").write_bytes(b"")
+    # A directory where the pin's second file goes, which no write can replace.
+    if unwritable_pin:
+        (root / ".env.next").mkdir()
     if one_offs:
         (engine / "one-offs").write_bytes(one_offs.encode())
     for tag, read in (unread or {}).items():
         (engine / f"unread.{tag}").write_bytes(read.encode())
     environment = base_env() | {"PATH": str(stubs) + os.pathsep + os.environ["PATH"], "FL_DEPLOY_DIR": engine.as_posix()}
     environment.pop("TAG", None)
-    done = run_shell(BASH, root / "scripts/ops/deploy.sh", NEW, *args, env=environment, cwd=root)
-    calls = (engine / "calls").read_bytes().decode().splitlines()
+    done = run_shell(BASH, root / "scripts/ops/deploy.sh", *([deployed] if deployed else []), *args, env=environment, cwd=root)
+    calls = (engine / "calls").read_bytes().decode().splitlines() if (engine / "calls").exists() else []
     env = root / ".env"
     return done.returncode, done.stdout, done.stderr, calls, env.read_bytes().decode() if env.exists() else None
 
@@ -242,7 +275,7 @@ def test_a_workers_alert_beside_the_new_workers_is_no_refusal():
 
 
 def test_a_reload_nginx_confirms_neither_way_goes_back_saying_so():
-    """The run waits out its 15 seconds: a worker's alert is not the master refusing."""
+    """The run waits out its 15 reads: a worker's alert is not the master refusing."""
     code, out, err, calls, pinned = deploy(reload_log=RECONFIGURING + WORKER_ALERT)
 
     assert code == 1, out + err
@@ -282,3 +315,73 @@ def test_a_failed_run_with_no_other_build_pinned_goes_back_to_none(pin: str | No
     starts = [call for call in calls if call.startswith("compose up ")]
     assert len(starts) == 1 and starts[0].endswith(f"TAG={NEW}"), calls
     assert pinned == (None if pin is None else f"TAG={pin}\n")
+
+
+def test_a_pull_that_failed_is_a_crash_with_the_stack_unchanged():
+    """Compose answers any error of a pull with its 1, a wrong flag of ours among them, so nothing was judged."""
+    code, out, err, calls, pinned = deploy(pull=1)
+
+    assert code == 3, out + err
+    assert "The stack has not changed." in err, err
+    assert not any(call.startswith("compose up ") for call in calls), calls
+    assert pinned == f"TAG={PREVIOUS}\n", pinned
+
+
+@pytest.mark.parametrize(
+    ("new_up", "exec_fails", "failure"),
+    [
+        # Compose answers its own failure to run the exec 1, as nginx answers a refused configuration.
+        pytest.param(0, True, "nginx did not take this checkout's configuration", id="nginx-t-unrun"),
+        pytest.param(137, False, f"{NEW} did not come up", id="wait-killed"),
+    ],
+)
+def test_any_failure_before_the_pin_goes_back(new_up: int, exec_fails: bool, failure: str):
+    """Past the start the stack is half moved, so no failure there ends the run where it stands."""
+    code, out, err, calls, pinned = deploy(new_up=new_up, nginx_t=1 if exec_fails else 0, exec_fails=exec_fails)
+
+    assert code == 1, out + err
+    assert went_back(calls), calls
+    assert pinned == f"TAG={PREVIOUS}\n", pinned
+    said = last_line(err)
+    assert failure in said and f"so the stack went back to {PREVIOUS}, which is live." in said, err
+
+
+def test_a_pin_rename_that_fails_after_the_reload_leaves_the_new_build_live():
+    """Going back would put the build before under the configuration nginx has just loaded."""
+    code, out, err, calls, pinned = deploy(unrenamed_pin=True)
+
+    assert code == 1, out + err
+    assert reloaded_nginx(calls), calls
+    assert not went_back(calls), calls
+    assert pinned == f"TAG={PREVIOUS}\n", pinned
+    assert f"printf 'TAG=%s\\n' {NEW} > .env" in last_line(err), err
+    assert f"{NEW} is live and healthy" in err, err
+
+
+@pytest.mark.parametrize("args", [pytest.param((), id="rollback"), pytest.param(("--no-rollback",), id="no-rollback")])
+def test_a_pin_that_cannot_be_written_is_a_crash_before_the_build_starts(args: tuple[str, ...]):
+    code, out, err, calls, pinned = deploy(*args, unwritable_pin=True)
+
+    assert code == 3, out + err
+    assert "the .env could not be written, so" in err, err
+    assert not any(call.startswith("compose up ") for call in calls), calls
+    assert pinned == f"TAG={PREVIOUS}\n", pinned
+
+
+def test_a_missing_compose_plugin_is_a_refusal_with_the_stack_unchanged():
+    """Docker answers 1 for a plugin it does not hold, which the wait's row would read as a build that never came up."""
+    code, out, err, calls, pinned = deploy(compose_version=1)
+
+    assert code == 2, out + err
+    assert "Docker Compose did not answer" in err, err
+    assert [call for call in calls if not call.startswith(("version ", "compose version "))] == [], calls
+    assert pinned == f"TAG={PREVIOUS}\n", pinned
+
+
+def test_a_head_git_cannot_name_is_a_crash_before_compose_is_asked():
+    code, out, err, calls, pinned = deploy(deployed=None)
+
+    assert code == 3, out + err
+    assert "git could not name the checkout's HEAD" in err, err
+    assert not any(call.startswith("compose ") for call in calls), calls
+    assert pinned == f"TAG={PREVIOUS}\n", pinned

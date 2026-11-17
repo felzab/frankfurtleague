@@ -1,10 +1,10 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
-import { configDouble } from "@/test-support/authDoubles.ts";
-import { serveBackend, serveHost } from "@/test-support/backend.ts";
+import { configDouble } from "@/test-support/authDoubles";
+import { serveBackend, serveHost } from "@/test-support/backend";
 import { beforeEach, expect, it, vi } from "vitest";
 
-import type { FLOutboxHandout } from "./generated/client/types.ts";
+import type { FLOutboxHandout } from "./generated/client/types";
 
 /**
  * The restore's hold, which a case sets, under the production deployment holding the provider's key: only that one
@@ -54,14 +54,14 @@ const provided = serveHost("https://api.resend.com", ({ method, url }) =>
   method === "POST" && url.pathname === "/emails" ? { id: "re-1" } : undefined,
 );
 
-vi.doMock("@/core/config.ts", () => CONFIG);
+vi.doMock("@/core/config", () => CONFIG);
 vi.doMock("next/server", async () => ({
   ...(await vi.importActual<object>("next/server")),
   after: (task: () => Promise<void>) => void scheduled.push(AsyncLocalStorage.bind(task)),
 }));
 
-const { drainSoon } = await import("./afterResponse.ts");
-const { runWithRequestScope } = await import("./requestScope.ts");
+const { drainSoon } = await import("./afterResponse");
+const { runWithRequestScope } = await import("./requestScope");
 
 beforeEach(() => {
   scheduled.length = 0;

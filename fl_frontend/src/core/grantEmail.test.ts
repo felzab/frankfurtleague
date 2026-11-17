@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import type { FLGrantData } from "./generated/client/types.ts";
+import type { FLGrantData } from "./generated/client/types";
 
-const { mailFor } = await import("./mailKinds.ts");
-const { renderMail } = await import("./emailShell.ts");
-const { SERVER_COPY } = await import("./serverCopy.ts");
+const { mailFor } = await import("./mailKinds");
+const { renderMail } = await import("./emailShell");
+const { SERVER_COPY } = await import("./serverCopy");
 
 const WORDS = SERVER_COPY.mail.grant;
-const ADDRESS = "nora.neu@beispielschule.de";
+const ADDRESS = "nora.neu@beispielschule.example.org";
 const FROM = "2126-04-08T10:30:00+00:00";
 
 const facts = (fields: Partial<FLGrantData>): FLGrantData => ({
@@ -52,9 +52,17 @@ describe("a grant notice", () => {
   /* The completed change's lead takes the builder's stand-ins for an erased side, a subject's and a dative's, so its
      sentence has to read with either one in either place. */
   it.each([
-    { previous: ADDRESS, next: "nora.neu@zweitschule.de", lead: "nora.neu@beispielschule.de ist jetzt zu nora.neu@zweitschule.de gewechselt." },
-    { previous: null, next: "nora.neu@zweitschule.de", lead: "Eine nicht genannte Adresse ist jetzt zu nora.neu@zweitschule.de gewechselt." },
-    { previous: ADDRESS, next: null, lead: "nora.neu@beispielschule.de ist jetzt zu einer nicht genannten Adresse gewechselt." },
+    {
+      previous: ADDRESS,
+      next: "nora.neu@zweitschule.example.org",
+      lead: "nora.neu@beispielschule.example.org ist jetzt zu nora.neu@zweitschule.example.org gewechselt.",
+    },
+    {
+      previous: null,
+      next: "nora.neu@zweitschule.example.org",
+      lead: "Eine nicht genannte Adresse ist jetzt zu nora.neu@zweitschule.example.org gewechselt.",
+    },
+    { previous: ADDRESS, next: null, lead: "nora.neu@beispielschule.example.org ist jetzt zu einer nicht genannten Adresse gewechselt." },
     { previous: null, next: null, lead: "Eine nicht genannte Adresse ist jetzt zu einer nicht genannten Adresse gewechselt." },
   ])("reads the completed address change as a sentence from $previous to $next", ({ previous, next, lead }) => {
     expect(rendered({ change: "address", stage: "completed", address: previous, new_address: next })).toContain(lead);

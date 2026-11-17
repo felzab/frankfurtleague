@@ -39,24 +39,29 @@ dependencies = [
 dev = [
     "pytest>=9.2.0",
     "ruff>=0.17.4",
+    # `[nodejs]`: the wrapper takes nodejs-wheel's Node ahead of a PATH node or a nodeenv download,
+    # so the lockfile pins the Node pyright runs on. Why the gate runs pyright at all: `[tool.pyright]`.
+    "pyright[nodejs]>=1.1.414",
+    # Distributes the `db` tier (`scripts/gate/verify.sh`'s db scope) and the gate's other suites.
+    # `tests/conftest.py :: pytest_configure_node` carries `optionalhook` so a venv without this
+    # plugin still collects.
+    "pytest-xdist>=3.8.0",
     # `starlette.testclient` imports `httpx2` and reaches `httpx` only under
     # `StarletteDeprecationWarning`. The API tests import both that client and this package's own
     # `ASGITransport`, so they fail at collection without it. No module in app/ touches it.
     "httpx2>=2.16.0",
-    # `[nodejs]`: the wrapper takes nodejs-wheel's Node ahead of a PATH node or a nodeenv download,
-    # so the lockfile pins the Node pyright runs on. Why the gate runs pyright at all: `[tool.pyright]`.
-    "pyright[nodejs]>=1.1.414",
     # Starts a real mongod for the `db`-marked tests. Only those tests import it, and
     # they are deselected by default, so a normal `pytest` run never loads it or touches Docker.
     "testcontainers[mongodb]>=4.15.0",
-    # Distributes the `db` tier (`scripts/gate/verify.sh`'s db scope).
-    # `tests/conftest.py :: pytest_configure_node` carries `optionalhook` so a venv without this
-    # plugin still collects.
-    "pytest-xdist>=3.8.0",
     # Holds `dependencies` to what `app/` imports: an import reaching a package only through
     # another's requirements, or a package there nothing imports, fails the backend scope. This group
     # is outside the unused-package rule (DEP002), which deptry applies to `dependencies` alone.
     "deptry>=0.25.1",
+    # Runs the `async def` cases, each as a task of its own in a copy of pytest's context, on one
+    # loop the session shares (`asyncio_default_test_loop_scope` below).
+    "pytest-asyncio>=1.5.0",
+    # The ops scope's audit of `.github/`.
+    "zizmor>=1.32.0",
 ]
 
 [tool.deptry.per_rule_ignores]
@@ -64,19 +69,22 @@ dev = [
 DEP002 = ["tzdata", "uvicorn"]
 
 [tool.uv]
-# The floor stays at or below the uv Dependabot relocks with (0.12.18, read 2026-10-15), which fails
-# outside this range; the ceiling stops before the next minor release, the only kind that may change
-# the lockfile's schema.
+# The floor stays at or below the uv Dependabot relocks with, which fails outside this range; the
+# ceiling stops before the next minor release, the only kind that may change the lockfile's schema.
 required-version = ">=0.12.18,<0.14"
-# A release younger than a day is left out of every resolution, the day `.github/dependabot.yml`'s
-# cooldown waits. Relative, so it moves with the clock rather than freezing the graph at a date.
+# A release younger than a day is left out of every resolution, the day Dependabot's cooldown waits.
+# Relative, so it moves with the clock rather than freezing the graph at a date.
 exclude-newer = "1 day"
+# zizmor from a wheel alone: its sdist builds with a Rust toolchain and a build backend no hash in
+# the lockfile covers.
+no-build-package = ["zizmor"]
 
 [tool.ruff]
 line-length = 144
 # The packages below `app`, the test tree and the gate's three script folders carry no `__init__.py`
 # (pytest's importlib mode needs none), and ruff judges a module's name (N999) only inside a package it
-# can see. Paths resolve from this file, which `scripts/ruff.toml` extends.
+# can see. Paths resolve from this file, for every configuration extending it too (the scripts' and the
+# orchestration tools'), but `src`, which each resolves from its own.
 namespace-packages = ["app", "tests", "../scripts/checks", "../scripts/lib", "../scripts/tests"]
 
 [tool.ruff.lint]
@@ -86,15 +94,14 @@ select = [
     "F",  # pyflakes
     "I",  # isort
     "B",  # flake8-bugbear
-    # Fixes with no judgment in them -- `re.I` spelled `re.IGNORECASE` is the motivating case.
-    # Stable subset only: ruff holds part of FURB behind `preview`, and turning that on moves every
-    # other family too.
+    # Fixes with no judgment in them. Stable subset only: ruff holds part of FURB behind `preview`,
+    # and turning that on moves every other family too.
     "FURB",  # refurb — mechanical modernisations
     # One pass over the whole package rather than per module: a tree half on `collections.abc` and
     # half on `typing` reads as an unfinished rename, and the next writer copies whichever module
     # they opened.
     "UP",  # pyupgrade
-    # Docstring FORMATTING only. Deliberately NOT the D1xx missing-docstring family: requiring a
+    # Docstring formatting only, never the D1xx missing-docstring family: requiring a
     # docstring on every symbol manufactures boilerplate, and prose belongs where there is a reason
     # to record, not coverage for its own sake.
     "D200",  # one-line docstring should fit on one line
@@ -103,21 +110,23 @@ select = [
     "D210",  # no surrounding whitespace in docstrings
     "D419",  # docstring is empty
     # A `noqa` that suppresses nothing still reads as a reason the line needs one, and the reason
-    # written beside it is then untrue. `scripts/ruff.toml` extends this list, so both trees carry it.
+    # written beside it is then untrue.
     "RUF100",  # unused noqa directive
     "TID251",  # banned-api, the list below
-    # A log message is a constant `<slice>.<event>` with its values in `extra=` fields
-    # (`app/core/logging.py`): G004 refuses a value formatted into the message.
+    # A log message is a constant `<slice>.<event>` with its values in `extra=` fields: G004 refuses
+    # a value formatted into the message.
     "G",  # flake8-logging-format
     # Characters a reviewer cannot see in a diff: a bidirectional control reorders the line around
-    # it (PEP 672), and a raw control or zero-width space in a string changes its value unseen.
+    # it, and a raw control or zero-width space in a string changes its value unseen. PLE2502 and
+    # PLE2515 find nothing the gate's invisible-character grep misses, and stay for the editor,
+    # where ruff warns as the character is typed.
     "PLE2502",  # bidirectional-unicode
     "PLE2510",  # invalid-character-backspace
     "PLE2512",  # invalid-character-sub
     "PLE2513",  # invalid-character-esc
     "PLE2514",  # invalid-character-nul
     "PLE2515",  # invalid-character-zero-width-space
-    # A module or package name is snake_case (PEP 8), the one case `docs/writing.md` gives Python files.
+    # A module or package name is snake_case, the one case a Python file's name takes here.
     "N999",  # invalid-module-name
 ]
 # The `G` rules read only a call on a receiver they know to be a logger, and `fl_logger.info(f"…")`
@@ -125,11 +134,8 @@ select = [
 logger-objects = ["app.core.logging.fl_logger"]
 
 [tool.ruff.lint.per-file-ignores]
-# `scripts/ruff.toml` extends this file, and the gate's tooling there reads its own environment by
-# design: every entry in the banned list guards the backend alone.
-"../scripts/**" = ["TID251"]
-# Every entry guards the application, and a test reads both freely: it stages stored instants against
-# the wall clock it runs under, and it builds settings from the environment to judge them.
+# Every entry guards the application, and a test reads the clock and the environment freely: it stages stored
+# instants against the wall clock it runs under, and it builds settings from the environment to judge them.
 "tests/**" = ["TID251"]
 
 # FastAPI reads a `Depends(...)` default as a declaration and calls the dependency per request, so the
@@ -155,6 +161,13 @@ extend-immutable-calls = ["fastapi.Depends"]
 "datetime.datetime.today".msg = "Read the clock through `app.core.clock.now`, or in a request through `get_germany_now`."
 "datetime.datetime.utcnow".msg = "Read the clock through `app.core.clock.now`, or in a request through `get_germany_now`."
 "time.time".msg = "Read the clock through `app.core.clock.now`, or in a request through `get_germany_now`."
+# `gather` leaves the other awaitables running once one raises, so a refused read outlives its request.
+"asyncio.gather".msg = "Run awaitables together through `app.core.concurrency.concurrently`, which stops the rest when one raises."
+# `EmailStr` never turns `allow_smtputf8` off, so a field typed with it stores a Unicode local part
+# the league's rule refuses, and a ban keyed on that address misses its folded twin. Both spellings,
+# since the ban matches the path an import names.
+"pydantic.EmailStr".msg = "Type an address `app.shared.schemas.kontakt.CustomEmail`, which runs the league's address rule."
+"pydantic.networks.EmailStr".msg = "Type an address `app.shared.schemas.kontakt.CustomEmail`, which runs the league's address rule."
 
 [tool.pytest.ini_options]
 # importlib is pytest's recommended import mode for new suites: no sys.path manipulation, and test
@@ -167,8 +180,13 @@ extend-immutable-calls = ["fastapi.Depends"]
 # and this suite is fast enough that verbosity costs nothing.
 #
 # -m "not db" keeps the default suite off the container tier, and a command-line -m overrides it
+#
+# --dist loadfile keeps each file on one xdist worker wherever a run passes -n, a bare one included:
+# MongoDB holds one configuration of a fail point for the whole server the workers share, so the cases
+# of tests/api/test_commit_fail_points.py spread over workers take each other's. Without -n it changes
+# nothing, xdist reading the mode only where it starts workers.
 
-addopts = "--import-mode=importlib --strict-markers --strict-config -ra --showlocals -m \"not db\""
+addopts = "--import-mode=importlib --strict-markers --strict-config -ra --showlocals -m \"not db\" --dist loadfile"
 testpaths = ["tests"]
 pythonpath = ["."]
 # --strict-markers turns an unregistered marker into an error, so this line is what makes
@@ -179,6 +197,11 @@ markers = [
 # pytest's default is `skip`, so a parametrize list whose discovery found nothing passes as one
 # silent skip and takes its whole guarantee with it.
 empty_parameter_set_mark = "fail_at_collect"
+# pytest-asyncio runs every `async def` case and fixture without a mark on each. Both on the session's
+# loop, since a client of `tests/database.py :: shared_client` belongs to the loop that opened it.
+asyncio_mode = "auto"
+asyncio_default_test_loop_scope = "session"
+asyncio_default_fixture_loop_scope = "session"
 
 [tool.pyright]
 # The type checker the EDITOR already runs. ruff lints and pytest executes and neither checks a

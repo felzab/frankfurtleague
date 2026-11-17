@@ -79,7 +79,7 @@ class TestAFullPageIsRunAgain:
             pytest.param([(PAGE + 1, 4), (PAGE + 1, 4), (0, 0)], id="two past the bound, then an empty one"),
         ],
     )
-    def test_the_pages_run_until_one_is_no_longer_than_the_bound(self, pages: list[tuple[int, int]]):
+    async def test_the_pages_run_until_one_is_no_longer_than_the_bound(self, pages: list[tuple[int, int]]):
         """The first case is the load-bearing one.
 
         A page of exactly the bound is whole, and one its clock leaves standing would be read for ever.
@@ -93,14 +93,12 @@ class TestAFullPageIsRunAgain:
             handed.append(session)
             return pages[len(handed) - 1]
 
-        erased, _ = asyncio.run(
-            drain(
-                db=cast(AsyncMongoClient, client),
-                page_of=erase_a_page,
-                page=PAGE,
-                what="Row",
-                clock="test",
-            )
+        erased, _ = await drain(
+            db=cast(AsyncMongoClient, client),
+            page_of=erase_a_page,
+            page=PAGE,
+            what="Row",
+            clock="test",
         )
 
         assert handed == client.sessions
@@ -156,17 +154,15 @@ class _Rows:
         return len(rows), len(rows)
 
 
-def _isolated(rows: _Rows, *, owes: bool = False) -> tuple[list[tuple[int, int]], list[Any]]:
-    return asyncio.run(
-        run_isolated(
-            db=cast(AsyncMongoClient, _Client()),
-            batch=Batch(),
-            attempt=rows.erase,
-            moved=lambda page: page[1],
-            owes=owes,
-            what="Row",
-            clock="test",
-        )
+async def _isolated(rows: _Rows, *, owes: bool = False) -> tuple[list[tuple[int, int]], list[Any]]:
+    return await run_isolated(
+        db=cast(AsyncMongoClient, _Client()),
+        batch=Batch(),
+        attempt=rows.erase,
+        moved=lambda page: page[1],
+        owes=owes,
+        what="Row",
+        clock="test",
     )
 
 
@@ -218,20 +214,18 @@ class TestARowFailingAloneIsPassedOver:
             ),
         ],
     )
-    def test_the_rest_of_its_page_goes_and_no_later_page_reads_it_again(
+    async def test_the_rest_of_its_page_goes_and_no_later_page_reads_it_again(
         self, caplog: pytest.LogCaptureFixture, failure: Callable[[], Exception], code: str, diagnosis: str
     ):
         rows = _Rows(2 * PAGE + 1, lambda read: failure() if 1 in read else None)
 
         with caplog.at_level(logging.ERROR, logger=fl_logger.name):
-            erased, passed = asyncio.run(
-                drain(
-                    db=cast(AsyncMongoClient, _Client()),
-                    page_of=rows.erase,
-                    page=PAGE,
-                    what="Row",
-                    clock="test",
-                )
+            erased, passed = await drain(
+                db=cast(AsyncMongoClient, _Client()),
+                page_of=rows.erase,
+                page=PAGE,
+                what="Row",
+                clock="test",
             )
 
         assert (erased, rows.standing, passed) == (2 * PAGE, [1], [1])
@@ -245,25 +239,23 @@ class TestARowFailingAloneIsPassedOver:
         # The record's value reaches no line: a line about an erasure would outlive it.
         assert A_STORED_VALUE not in line
 
-    def test_a_row_failing_on_a_page_after_a_committed_one_is_passed_over_alone_too(self):
+    async def test_a_row_failing_on_a_page_after_a_committed_one_is_passed_over_alone_too(self):
         """The first page commits whole before row 5 fails: a drain taking apart only its first page raises the whole pass here."""
 
         rows = _Rows(2 * PAGE + 1, lambda read: _FailedInTheCallback() if 5 in read else None)
 
-        erased, passed = asyncio.run(
-            drain(
-                db=cast(AsyncMongoClient, _Client()),
-                page_of=rows.erase,
-                page=PAGE,
-                what="Row",
-                clock="test",
-            )
+        erased, passed = await drain(
+            db=cast(AsyncMongoClient, _Client()),
+            page_of=rows.erase,
+            page=PAGE,
+            what="Row",
+            clock="test",
         )
 
         assert (rows.read[0], erased, rows.standing, passed) == ([0, 1, 2, 3], 2 * PAGE, [5], [5])
 
     @pytest.mark.parametrize("owes", [True, False], ids=("owing a message", "owing none"))
-    def test_a_deadline_is_never_halved_and_is_answered_only_where_a_committed_half_owes_a_message(self, owes: bool):
+    async def test_a_deadline_is_never_halved_and_is_answered_only_where_a_committed_half_owes_a_message(self, owes: bool):
         """Row 1 fails alone; whatever reads row 2 meets the deadline, which every half of `[2, 3]` would meet too."""
 
         def raises(read: list[int]) -> Exception | None:
@@ -274,14 +266,14 @@ class TestARowFailingAloneIsPassedOver:
         rows = _Rows(4, raises)
 
         if owes:
-            assert _isolated(rows, owes=owes) == ([(1, 1)], [1])
+            assert await _isolated(rows, owes=owes) == ([(1, 1)], [1])
         else:
             with pytest.raises(ExecutionTimeout):
-                _isolated(rows, owes=owes)
+                await _isolated(rows, owes=owes)
 
         assert rows.read == [[0, 1, 2, 3], [0, 1], [0], [1], [2, 3]]
 
-    def test_a_commit_the_deadline_leaves_unanswered_names_the_rows_it_may_have_written(self, caplog: pytest.LogCaptureFixture):
+    async def test_a_commit_the_deadline_leaves_unanswered_names_the_rows_it_may_have_written(self, caplog: pytest.LogCaptureFixture):
         """As the driver raises one, a timeout keeping the label: read as "the rest stay due", written rows whose message is lost go unnamed."""
 
         def raises(read: list[int]) -> Exception | None:
@@ -291,7 +283,7 @@ class TestARowFailingAloneIsPassedOver:
             return unanswered if 2 in read else None
 
         with caplog.at_level(logging.WARNING, logger=fl_logger.name):
-            answered = _isolated(_Rows(4, raises), owes=True)
+            answered = await _isolated(_Rows(4, raises), owes=True)
 
         assert answered == ([(1, 1)], [1])
         assert [
@@ -300,7 +292,7 @@ class TestARowFailingAloneIsPassedOver:
             if record.levelname == "WARNING"
         ] == [(Code.UNKNOWN_OUTCOME, "transactions.isolation_commit_unanswered", "Row", ["2", "3"])]
 
-    def test_a_failure_before_any_row_was_read_is_raised_rather_than_halved(self):
+    async def test_a_failure_before_any_row_was_read_is_raised_rather_than_halved(self):
         """No row to halve, so taking it apart would answer an empty success over a read that failed."""
 
         attempts: list[Batch] = []
@@ -310,31 +302,29 @@ class TestARowFailingAloneIsPassedOver:
             raise _FailedInTheCallback
 
         with pytest.raises(_FailedInTheCallback):
-            asyncio.run(
-                run_isolated(
-                    db=cast(AsyncMongoClient, _Client()),
-                    batch=Batch(),
-                    attempt=unread,
-                    moved=lambda page: page[1],
-                    owes=True,
-                    what="Row",
-                    clock="test",
-                )
+            await run_isolated(
+                db=cast(AsyncMongoClient, _Client()),
+                batch=Batch(),
+                attempt=unread,
+                moved=lambda page: page[1],
+                owes=True,
+                what="Row",
+                clock="test",
             )
 
         assert len(attempts) == 1
 
-    def test_a_stalled_page_is_raised_rather_than_halved(self):
+    async def test_a_stalled_page_is_raised_rather_than_halved(self):
         """Its halves read under the page, so taking it apart would hide the stall `refuse_a_stalled_page` declares."""
 
         rows = _Rows(PAGE + 1, lambda read: StalledPage("stalled"))
 
         with pytest.raises(StalledPage):
-            _isolated(rows)
+            await _isolated(rows)
 
         assert rows.read == [[0, 1, 2, 3]]
 
-    def test_a_retry_whose_read_fails_is_raised_rather_than_halved_over_the_read_before_it(self):
+    async def test_a_retry_whose_read_fails_is_raised_rather_than_halved_over_the_read_before_it(self):
         """The driver runs the callback again on a transient error: the rows the first attempt read carry no failure of the second's read."""
 
         reads: list[int] = []
@@ -350,16 +340,14 @@ class TestARowFailingAloneIsPassedOver:
             return len(rows), 0
 
         with pytest.raises(_FailedInTheCallback):
-            asyncio.run(
-                run_isolated(
-                    db=cast(AsyncMongoClient, _Client(attempts=2)),
-                    batch=Batch(),
-                    attempt=read,
-                    moved=lambda page: page[1],
-                    owes=False,
-                    what="Row",
-                    clock="test",
-                )
+            await run_isolated(
+                db=cast(AsyncMongoClient, _Client(attempts=2)),
+                batch=Batch(),
+                attempt=read,
+                moved=lambda page: page[1],
+                owes=False,
+                what="Row",
+                clock="test",
             )
 
         assert reads == [0, 1]
@@ -371,7 +359,7 @@ class TestARowFailingAloneIsPassedOver:
             pytest.param({1}, ([[0, 1, 2, 3]], []), id="on the first attempt alone"),
         ],
     )
-    def test_a_retry_passes_over_only_the_rows_it_refused_itself(
+    async def test_a_retry_passes_over_only_the_rows_it_refused_itself(
         self, caplog: pytest.LogCaptureFixture, refused_on: set[int], answered: tuple[list[list[int]], list[int]]
     ):
         """The second case is load-bearing: kept from the attempt before, a refusal the retry did not repeat counts and logs a written row."""
@@ -379,28 +367,26 @@ class TestARowFailingAloneIsPassedOver:
         clock = _RefusedOnSomeAttempts(refused_on)
 
         with caplog.at_level(logging.ERROR, logger=fl_logger.name):
-            result = asyncio.run(
-                run_isolated(
-                    db=cast(AsyncMongoClient, _Client(attempts=2)),
-                    batch=Batch(share=PAGE + 1),
-                    attempt=clock.remind,
-                    moved=len,
-                    owes=True,
-                    what="Row",
-                    clock="test",
-                )
+            result = await run_isolated(
+                db=cast(AsyncMongoClient, _Client(attempts=2)),
+                batch=Batch(share=PAGE + 1),
+                attempt=clock.remind,
+                moved=len,
+                owes=True,
+                what="Row",
+                clock="test",
             )
 
         assert (result, len(caplog.records)) == (answered, len(answered[1]))
 
-    def test_a_refusal_the_request_answers_is_raised_rather_than_halved(self):
+    async def test_a_refusal_the_request_answers_is_raised_rather_than_halved(self):
         """Every half meets it too: halved, the call would answer 200 for a request it refuses."""
 
         refusal = APIError(HTTPStatus.FORBIDDEN, Code.ACTOR_NOT_ADMIN)
         rows = _Rows(PAGE + 1, lambda read: refusal)
 
         with pytest.raises(APIError):
-            _isolated(rows)
+            await _isolated(rows)
 
         assert rows.read == [[0, 1, 2, 3]]
 
@@ -438,63 +424,61 @@ class _Share:
             raise _FailedInTheCallback
 
 
-def _a_share(clock: _Share, *, share: int, owes: bool = True) -> tuple[list[list[int]], list[Any]]:
-    return asyncio.run(
-        run_isolated(
-            db=cast(AsyncMongoClient, _Client()),
-            batch=Batch(share=share),
-            attempt=clock.remind,
-            moved=len,
-            owes=owes,
-            what="Row",
-            clock="test",
-        )
+async def _a_share(clock: _Share, *, share: int, owes: bool = True) -> tuple[list[list[int]], list[Any]]:
+    return await run_isolated(
+        db=cast(AsyncMongoClient, _Client()),
+        batch=Batch(share=share),
+        attempt=clock.remind,
+        moved=len,
+        owes=owes,
+        what="Row",
+        clock="test",
     )
 
 
 class TestAShareIsTakenApartOverTheRowsItTook:
     """Halving its whole read would re-read the page past the share, at its share's cost."""
 
-    def test_the_halves_read_no_row_passed_over_in_place_or_left_past_the_share(self, caplog: pytest.LogCaptureFixture):
+    async def test_the_halves_read_no_row_passed_over_in_place_or_left_past_the_share(self, caplog: pytest.LogCaptureFixture):
         """Row 0 is passed over in place, rows 1 and 2 are the share, row 3 is past it, and writing row 2 fails."""
 
         clock = _Share(PAGE + 1, refused=0, failing=2)
 
         with caplog.at_level(logging.ERROR, logger=fl_logger.name):
-            answered = _a_share(clock, share=2)
+            answered = await _a_share(clock, share=2)
 
         assert answered == ([[1]], [0, 2])
         assert clock.read == [[0, 1, 2, 3], [1], [2]]
         # Each logged once, the row passed over in place by the attempt that judged it.
         assert sorted(str(getattr(record, "row_id", "")) for record in caplog.records) == ["0", "2"]
 
-    def test_a_row_passed_over_in_place_is_answered_beside_a_committed_share(self):
-        assert _a_share(_Share(3, refused=1, failing=-1), share=4) == ([[0, 2]], [1])
+    async def test_a_row_passed_over_in_place_is_answered_beside_a_committed_share(self):
+        assert await _a_share(_Share(3, refused=1, failing=-1), share=4) == ([[0, 2]], [1])
 
 
 class TestAnIsolationOwingAMessageStopsWithinTheDeadline:
     """Once a half owing a message has committed, the call answers it whatever stops the rest."""
 
     @staticmethod
-    def _owing(rows: _Rows, *, deadline_s: float | None) -> tuple[list[tuple[int, int]], list[Any]]:
+    async def _owing(rows: _Rows, *, deadline_s: float | None) -> tuple[list[tuple[int, int]], list[Any]]:
         token = request_deadline_var.set(None if deadline_s is None else RequestDeadline(time.monotonic() + deadline_s))
         try:
-            return _isolated(rows, owes=True)
+            return await _isolated(rows, owes=True)
         finally:
             request_deadline_var.reset(token)
 
-    def test_no_attempt_starts_that_the_deadline_left_cannot_hold(self, caplog: pytest.LogCaptureFixture):
+    async def test_no_attempt_starts_that_the_deadline_left_cannot_hold(self, caplog: pytest.LogCaptureFixture):
         """Started anyway, the deadline cuts it, and a cut commit may land with its answer lost."""
 
         rows = _Rows(4, lambda read: OperationFailure("refused", 121) if 3 in read else None)
 
         with caplog.at_level(logging.WARNING, logger=fl_logger.name):
-            answered = self._owing(rows, deadline_s=-1.0)
+            answered = await self._owing(rows, deadline_s=-1.0)
 
         assert (answered, rows.read) == (([(2, 2)], []), [[0, 1, 2, 3], [0, 1]])
         assert [(record.levelname, getattr(record, "error_code", None)) for record in caplog.records] == [("WARNING", Code.DATABASE_FAILED)]
 
-    def test_a_failure_no_row_carries_after_a_committed_half_is_answered_rather_than_raised(self, caplog: pytest.LogCaptureFixture):
+    async def test_a_failure_no_row_carries_after_a_committed_half_is_answered_rather_than_raised(self, caplog: pytest.LogCaptureFixture):
         """Raised, the call would answer an error in place of the messages the committed half owes."""
 
         refusal = APIError(HTTPStatus.FORBIDDEN, Code.ACTOR_NOT_ADMIN)
@@ -505,7 +489,7 @@ class TestAnIsolationOwingAMessageStopsWithinTheDeadline:
             return refusal if 2 in read else None
 
         with caplog.at_level(logging.WARNING, logger=fl_logger.name):
-            answered = self._owing(_Rows(4, raises), deadline_s=None)
+            answered = await self._owing(_Rows(4, raises), deadline_s=None)
 
         assert answered == ([(2, 2)], [])
         assert [getattr(record, "error_code", None) for record in caplog.records] == [Code.UNHANDLED_CRASH]
@@ -553,7 +537,7 @@ class _TransactingClient:
         return self.session
 
 
-def _aborts_sent_in_turn(
+async def _aborts_sent_in_turn(
     *,
     deadline: RequestDeadline | None,
     sessions: Sequence[_TransactedSession],
@@ -568,53 +552,50 @@ def _aborts_sent_in_turn(
     session meets the deadline as far ahead as the case says.
     """
 
-    async def run() -> None:
-        if deadline is not None and deadline_after_s is not None:
-            deadline.at = time.monotonic() + deadline_after_s
-        token = request_deadline_var.set(deadline)
-        try:
-            for index, session in enumerate(sessions):
-                if index:
-                    await asyncio.sleep(between_s)
-                try:
-                    async with transaction_session(cast(AsyncMongoClient, _TransactingClient(session))):
-                        if fails:
-                            raise RuntimeError("the work inside the session failed")
-                except RuntimeError:
-                    pass
-        finally:
-            request_deadline_var.reset(token)
-
-    asyncio.run(run())
+    if deadline is not None and deadline_after_s is not None:
+        deadline.at = time.monotonic() + deadline_after_s
+    token = request_deadline_var.set(deadline)
+    try:
+        for index, session in enumerate(sessions):
+            if index:
+                await asyncio.sleep(between_s)
+            try:
+                async with transaction_session(cast(AsyncMongoClient, _TransactingClient(session))):
+                    if fails:
+                        raise RuntimeError("the work inside the session failed")
+            except RuntimeError:
+                pass
+    finally:
+        request_deadline_var.reset(token)
 
     return [session.sent for session in sessions]
 
 
-def _aborts_sent(*, fails: bool, deadline: RequestDeadline | None, session: _TransactedSession | None = None) -> list[dict[str, Any]]:
+async def _aborts_sent(*, fails: bool, deadline: RequestDeadline | None, session: _TransactedSession | None = None) -> list[dict[str, Any]]:
     """What one session's client is sent once the work inside it fails or finishes, under the request deadline `deadline`."""
 
-    [sent] = _aborts_sent_in_turn(deadline=deadline, sessions=[session or _TransactedSession()], fails=fails)
+    [sent] = await _aborts_sent_in_turn(deadline=deadline, sessions=[session or _TransactedSession()], fails=fails)
 
     return sent
 
 
 class TestAFailedSessionAbortsInsideItsGrace:
-    def test_a_failure_reached_long_after_the_deadline_still_sends_the_abort(self):
+    async def test_a_failure_reached_long_after_the_deadline_still_sends_the_abort(self):
         """The request meets its deadline only at its next database operation, however long after the deadline that falls.
 
         A grace counted from the deadline would leave this abort nothing, and the transaction's documents
         locked until the server's lifetime limit.
         """
 
-        assert _aborts_sent(fails=True, deadline=RequestDeadline(time.monotonic() - ABORT_GRACE_S - 1)) == [
+        assert await _aborts_sent(fails=True, deadline=RequestDeadline(time.monotonic() - ABORT_GRACE_S - 1)) == [
             {"abortTransaction": 1, "txnNumber": 3, "autocommit": False}
         ]
 
-    def test_a_failure_past_the_grace_sends_nothing_and_says_so(self, caplog: pytest.LogCaptureFixture):
+    async def test_a_failure_past_the_grace_sends_nothing_and_says_so(self, caplog: pytest.LogCaptureFixture):
         """Load-bearing: pymongo reads a deadline of zero as none, so a spent grace handed on would wait without bound."""
 
         with caplog.at_level(logging.ERROR, logger=fl_logger.name):
-            sent = _aborts_sent(fails=True, deadline=RequestDeadline(time.monotonic() - 1, aborting_s=ABORT_GRACE_S))
+            sent = await _aborts_sent(fails=True, deadline=RequestDeadline(time.monotonic() - 1, aborting_s=ABORT_GRACE_S))
 
         assert sent == []
         assert [getattr(record, "error_code", None) for record in caplog.records] == [Code.DATABASE_FAILED]
@@ -623,12 +604,12 @@ class TestAFailedSessionAbortsInsideItsGrace:
         ("deadline_in_s", "charged"),
         [pytest.param(-1.0, True, id="an abort past the deadline"), pytest.param(10.0, False, id="an abort inside the deadline")],
     )
-    def test_an_abort_charges_the_grace_with_its_time_past_the_deadline(self, deadline_in_s: float, charged: bool):
+    async def test_an_abort_charges_the_grace_with_its_time_past_the_deadline(self, deadline_in_s: float, charged: bool):
         """Uncharged, a loop of cut transactions against a server that never answers waits out a whole grace apiece."""
 
         deadline = RequestDeadline(time.monotonic() + deadline_in_s)
 
-        _aborts_sent(fails=True, deadline=deadline, session=_SlowlyAnsweredSession())
+        await _aborts_sent(fails=True, deadline=deadline, session=_SlowlyAnsweredSession())
 
         if charged:
             # Above zero rather than above the answer's wait: asyncio may end a sleep up to one clock tick early.
@@ -642,7 +623,7 @@ PAST_BY_S = 0.1
 
 
 class TestARequestsAbortsShareOneGrace:
-    def test_an_abort_begun_inside_the_deadline_charges_what_it_ran_past_it(self, caplog: pytest.LogCaptureFixture):
+    async def test_an_abort_begun_inside_the_deadline_charges_what_it_ran_past_it(self, caplog: pytest.LogCaptureFixture):
         """Uncharged, the next abort would open a second whole grace, against a server that answers neither."""
 
         # Placed once the loop runs, `PAST_BY_S` ahead of the first abort.
@@ -651,18 +632,20 @@ class TestARequestsAbortsShareOneGrace:
         unanswered = _SlowlyAnsweredSession(after_s=PAST_BY_S + ABORT_GRACE_S + PAST_BY_S)
 
         with caplog.at_level(logging.ERROR, logger=fl_logger.name):
-            first, second = _aborts_sent_in_turn(deadline=deadline, sessions=[unanswered, _TransactedSession()], deadline_after_s=PAST_BY_S)
+            first, second = await _aborts_sent_in_turn(
+                deadline=deadline, sessions=[unanswered, _TransactedSession()], deadline_after_s=PAST_BY_S
+            )
 
         assert unanswered.sent_at is not None and unanswered.sent_at < deadline.at, "the first abort began past the deadline"
         assert (len(first), second) == (1, [])
         assert [getattr(record, "error_code", None) for record in caplog.records] == [Code.DATABASE_FAILED]
 
-    def test_work_between_two_cut_transactions_leaves_the_second_abort_its_share(self):
+    async def test_work_between_two_cut_transactions_leaves_the_second_abort_its_share(self):
         """Charged to the grace, the request's work without the database between two cut transactions would leave the second abort nothing."""
 
         deadline = RequestDeadline(time.monotonic() - PAST_BY_S)
 
-        sent = _aborts_sent_in_turn(
+        sent = await _aborts_sent_in_turn(
             deadline=deadline, sessions=[_TransactedSession(), _TransactedSession()], between_s=ABORT_GRACE_S + PAST_BY_S
         )
 
@@ -714,11 +697,14 @@ async def _discarded(_message: Message) -> None:
 async def _cancelled_by_the_server(served: FastAPI, inside: asyncio.Event) -> None:
     """What uvicorn does to a request still running when its shutdown grace runs out: one cancel of the task serving it."""
 
-    serving = asyncio.create_task(served(_SCOPE, _never_disconnects, _discarded))
-    await inside.wait()
-    serving.cancel()
-    with pytest.raises(asyncio.CancelledError):
-        await serving
+    # In a group, so a request failing before it is inside fails the case at once, and one the case leaves is drained.
+    async with asyncio.TaskGroup() as group:
+        serving = group.create_task(served(_SCOPE, _never_disconnects, _discarded))
+        await inside.wait()
+        serving.cancel()
+
+    # Propagated rather than swallowed: the app answers the cancel by ending, as uvicorn expects of it.
+    assert serving.cancelled()
 
 
 async def _cancelled_by_a_scope(served: FastAPI, inside: asyncio.Event) -> None:
@@ -738,7 +724,7 @@ class TestACancelledRequestStillAbortsItsTransaction:
             pytest.param(_cancelled_by_a_scope, id="an anyio cancel scope around the request"),
         ],
     )
-    def test_the_abort_is_answered(self, cancel: Callable[[FastAPI, asyncio.Event], Awaitable[None]]):
+    async def test_the_abort_is_answered(self, cancel: Callable[[FastAPI, asyncio.Event], Awaitable[None]]):
         """Through the app's own middleware stack, which decides whether a cancellation arrives once or at every await.
 
         The scope's case holds the abort's shield; the server's holds `transaction_session` catching a cancellation at all.
@@ -755,13 +741,13 @@ class TestACancelledRequestStillAbortsItsTransaction:
         served = create_shell()
         served.add_api_route(_HELD, held_inside_a_session)
 
-        asyncio.run(cancel(served, inside))
+        await cancel(served, inside)
 
         assert client.session.sent == [{"abortTransaction": 1, "txnNumber": 3, "autocommit": False}]
 
 
 class TestTheRouteRunsInTheServersTask:
-    def test_no_layer_moves_it_into_a_task_of_its_own(self):
+    async def test_no_layer_moves_it_into_a_task_of_its_own(self):
         """`app/core/middlewares.py :: TraceContextMiddleware`'s reason: a task group around the app cancels it at every await.
 
         The shield holds the helper's abort there, so only this case fails for pymongo's own cleanup awaits.
@@ -779,4 +765,4 @@ class TestTheRouteRunsInTheServersTask:
             await served(_SCOPE, _never_disconnects, _discarded)
             return asyncio.current_task()
 
-        assert ran_in == [asyncio.run(serve())]
+        assert ran_in == [await serve()]

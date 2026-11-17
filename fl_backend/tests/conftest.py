@@ -1,11 +1,14 @@
 import copy
+import functools
+import inspect
 import io
 import logging
 import re
 import sys
 import time
-from collections.abc import Callable, Generator, Iterator
+from collections.abc import AsyncIterator, Callable, Coroutine, Generator, Iterator
 from contextlib import ExitStack, contextmanager
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -13,7 +16,9 @@ from pydantic import BaseModel, ValidationError
 from pymongo import MongoClient
 
 from app.core.recording import actor_var
+from tests.database import bounded_case, close_the_shared_clients
 from tests.documents import EINWILLIGUNG, rules_document
+from tests.payloads import PayloadFactory
 from tests.tier import is_db_marked, refuse_server_fixtures
 from tests.worker import guard_every_database, release_every_database
 
@@ -33,8 +38,6 @@ SPIELORT_ID = "6890a1b2c3d4e5f607182933"
 SCHIEDSRICHTER_ID = "6890a1b2c3d4e5f607182934"
 SPIELER_ID = "6890a1b2c3d4e5f607182935"
 
-PayloadFactory = Callable[..., dict[str, Any]]
-
 
 def _factory(base: dict[str, Any]) -> PayloadFactory:
     """`deepcopy`, not shallow: several bases nest dicts, and two calls in one test would share the inner object."""
@@ -47,17 +50,51 @@ def _factory(base: dict[str, Any]) -> PayloadFactory:
     return make
 
 
+@pytest.fixture(scope="session", autouse=True)
+async def the_shared_clients() -> AsyncIterator[None]:
+    """Every client `tests/database.py :: shared_client` opened, closed on the session's loop before it stops.
+
+    Opens no client itself: one is opened by the first case asking for it.
+    """
+
+    yield
+    await close_the_shared_clients()
+
+
 @pytest.fixture(autouse=True)
 def an_administrator_bound() -> Iterator[None]:
     """What `bind_actor` binds on a request, for the suite's direct calls of an admin handler, which `record_act` reads.
 
-    Set in the test's own context, which `tests/database.py :: on_the_seed_loop` copies into a seed's task, and bound to
-    nobody again for what `tests/app_client.py :: app_client` serves.
+    Set in the test's own context, which pytest-asyncio copies for each async case, and bound to nobody again for what
+    `tests/app_client.py :: app_client` serves.
     """
 
     token = actor_var.set("admin@frankfurtleague.de")
-    yield
-    actor_var.reset(token)
+    try:
+        yield
+    finally:
+        actor_var.reset(token)
+
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Every async case runs under `tests/database.py :: bounded_case`, in its own task, where an expiry fails it by name.
+
+    Wrapped at collection, in `obj`, which pytest's `pytest_pyfunc_call` calls and pytest-asyncio's `runtest` takes the
+    case from. A deadline around a fixture's `yield` cannot stand in for it: pytest-asyncio runs the setup and the
+    teardown as two tasks. `tests/core/test_case_scope.py` fails if a case runs unwrapped.
+    """
+
+    for item in items:
+        if isinstance(item, pytest.Function) and inspect.iscoroutinefunction(item.obj):
+            item.obj = _bounded(item.obj)
+
+
+def _bounded(case: Callable[..., Coroutine[Any, Any, Any]]) -> Callable[..., Coroutine[Any, Any, Any]]:
+    @functools.wraps(case)
+    async def scoped(*args: Any, **kwargs: Any) -> Any:
+        return await bounded_case(case(*args, **kwargs))
+
+    return scoped
 
 
 RejectsAssertion = Callable[[type[BaseModel], dict[str, Any], str], ValidationError]
@@ -94,7 +131,7 @@ def address() -> PayloadFactory:
 
 @pytest.fixture
 def kontakt() -> PayloadFactory:
-    return _factory({"phone": "+49 69 1234567", "email": "kontakt@example.com"})
+    return _factory({"phone": "+49 69 90009123", "email": "kontakt@example.com"})
 
 
 @pytest.fixture
@@ -126,7 +163,7 @@ def team(address: PayloadFactory, statistik: PayloadFactory) -> PayloadFactory:
             "description": "",
             "schulform": "gymnasium_g9",
             "full_name": "Carl-Schurz-Schule",
-            "website_url": "https://carl-schurz-schule.de",
+            "website_url": "https://carl-schurz-schule.example.org",
             "address": address(),
             "inactive_since": None,
         }
@@ -206,9 +243,21 @@ def saison() -> PayloadFactory:
     )
 
 
-# The container's image, by tag and digest (`docs/ops/spec.md` §1.1): the local stack's server, with
-# its full version, which `scripts/tests/test_image_pins.py` holds to that form.
-MONGO_IMAGE = "mongo:8.3.13@sha256:e16e606f792ea89d2b4907b54e5e31eb86a7a23e27231dce3a982cc8f2d73cd2"
+def _the_local_stack_s_mongo() -> str:
+    """The local stack's server, read from the one line of `docker-compose.local.yml` that types it.
+
+    That line is the one Dependabot moves, so a copy here would run a server it never proposed. A
+    line read rather than YAML: no parser is a dependency of ours, and a second mongo image or a
+    reshaped line fails here rather than starting a server nothing names.
+    """
+    stack = Path(__file__).resolve().parents[2] / "docker-compose.local.yml"
+    images = re.findall(r"^    image: (mongo:\S+)$", stack.read_text(encoding="utf-8"), re.MULTILINE)
+    if len(images) != 1:
+        raise RuntimeError(f"{stack} names the mongo image {images}, where this reader takes exactly one `    image: mongo:…` line")
+    return images[0]
+
+
+MONGO_IMAGE = _the_local_stack_s_mongo()
 
 # A majority write's acknowledgement waits on the oplog entry reaching the journal, and this
 # container's data is discarded at session end, so the disk buys nothing the tier needs.
@@ -325,8 +374,10 @@ def _replica_set_mongod() -> Generator[str]:
     from testcontainers.core.wait_strategies import LogMessageWaitStrategy
 
     # `enableTestCommands` admits `configureFailPoint`, the one way to land a commit inside one server
-    # command. A fail point is one setting every worker shares, so its cases sit in one module, which
-    # `--dist loadfile` keeps on one worker.
+    # command. MongoDB holds one configuration of a fail point for the whole server, which every worker
+    # shares, so every case configuring one sits in `tests/api/test_commit_fail_points.py`, which
+    # `--dist loadfile` keeps on one worker: `fl_backend/pyproject.toml :: addopts` passes it to every
+    # run, so a bare `-n` distributes by file too.
     container = (
         DockerContainer(MONGO_IMAGE)
         # No `--auth`: with `--replSet` mongod demands a bind-mounted keyFile whose permissions it checks,

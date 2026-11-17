@@ -8,27 +8,25 @@ selections and predicates, so each case also holds the set to what the seed mean
 both sides alike would leave the two equal.
 """
 
-import functools
 from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identity.crud import find_own_entries
 from app.api.registrierungen.services import compose_decline_update
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.main import create_app
 from app.shared.einwilligung_evidence import TextVersions
 from app.shared.folding import sign_in_identifier
-from tests.app_client import app_client
+from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_KEY
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.documents import (
+    AUSTRITT,
     SCHIEDSRICHTER_TEXT_VERSIONS,
     SPIELER_TEXT_VERSIONS,
     bewerbung_document,
@@ -48,38 +46,20 @@ from tests.records import record_collections
 from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
 
-from .conftest import AUSTRITT, config_for
-
 DATABASE_NAME = worker_database("fl_account_entries_test")
-
-CONFIG = config_for(DATABASE_NAME)
 
 ACCOUNT_PATH = f"/api/v{API_VERSION}/account/einwilligungen"
 
 NOW = datetime(2026, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 
 
-@functools.cache
-def _app() -> FastAPI:
-    """One build for every case here, all on one configuration: `tests/app_client.py :: app_client` hands each the app as it came."""
-
-    return create_app(CONFIG)
-
-
-@pytest.fixture(scope="module", autouse=True)
-def _built_before_any_case() -> None:
-    """Never inside a case: a build re-runs the logging `dictConfig`, which strips the handler `caplog` reads that case's records from."""
-
-    _app()
-
-
 PAST, ACTIVE = "2025", "2026"
 
 # One address holding every kind, several records of some and every state of each.
-WILTRUDIS = "wiltrudis.ehrenpreis@schule.de"
+WILTRUDIS = "wiltrudis.ehrenpreis@schule.example.org"
 # Asked with its domain in capitals, stored folded.
-KAETHE = "kaethe@XN--MLLER-KVA.DE"
-NOBODY = "niemand@schule.de"
+KAETHE = "kaethe@XN--MLLER-KVA.EXAMPLE.ORG"
+NOBODY = "niemand@schule.example.org"
 
 TEAMS = [ObjectId(f"6890a1b2c3d4e5f6078600{n:02d}") for n in range(1, 6)]
 
@@ -137,7 +117,7 @@ def _seat(email: str, *, confirmed_at: str | None = "2026-09-03") -> dict[str, A
         "Wiltrudis",
         confirmed_at=confirmed_at,
         email=email,
-        phone="+49 69 5550101",
+        phone="+49 69 90009101",
         birth_date="2000-05-09",
         einwilligung={"date": "2026-09-01", "media": True},
     )
@@ -196,7 +176,7 @@ async def _seed(database: AsyncDatabase) -> None:
             _referee(REFEREE_LIVE, WILTRUDIS, "Wiltrudis Ehrenpreis"),
             _referee(REFEREE_RETIRED, WILTRUDIS, "Wiltrudis E.", inactive_since="2026-07-01"),
             _referee(REFEREE_UNCONFIRMED, WILTRUDIS, "W. Ehrenpreis", einwilligung=None),
-            _referee(REFEREE_KAETHE, "kaethe@xn--mller-kva.de", "Käthe Müller"),
+            _referee(REFEREE_KAETHE, "kaethe@xn--mller-kva.example.org", "Käthe Müller"),
         ]
     )
     await database[Collection.SAISON_TEAMS].insert_many(
@@ -228,7 +208,7 @@ async def _seed(database: AsyncDatabase) -> None:
             _registrierung(REGISTRIERUNG_NEW, WILTRUDIS),
             _registrierung(REGISTRIERUNG_UNCONFIRMED, WILTRUDIS, answered=False),
             declined,
-            _registrierung(REGISTRIERUNG_KAETHE, "kaethe@xn--mller-kva.de", first_name="Käthe"),
+            _registrierung(REGISTRIERUNG_KAETHE, "kaethe@xn--mller-kva.example.org", first_name="Käthe"),
         ]
     )
 
@@ -253,34 +233,28 @@ def _counted(entries: frozenset[tuple[str, Any]]) -> set[tuple[str, str]]:
 
 @pytest.mark.db
 @pytest.mark.parametrize("address", list(EXPECTED), ids=["every kind and state", "a domain asked in capitals", "nothing held"])
-def test_the_gate_counts_exactly_what_the_account_page_serves(mongo_replica_set_url: str, address: str):
-    async def run() -> tuple[set[tuple[str, str]], set[tuple[str, str]]]:
-        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True) as (_client, database):
-            await _seed(database)
-            _subject, entries = await find_own_entries(sign_in_identifier(address), record_collections(database))
-            async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
-                response = await http.get(ACCOUNT_PATH, headers=_person(address))
-                assert response.status_code == 200, response.text
+async def test_the_gate_counts_exactly_what_the_account_page_serves(mongo_replica_set_url: str, address: str):
+    async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True) as (_client, database):
+        await _seed(database)
+        _subject, entries = await find_own_entries(sign_in_identifier(address), record_collections(database))
+        async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
+            response = await http.get(ACCOUNT_PATH, headers=_person(address))
+            assert response.status_code == 200, response.text
 
-            return _counted(entries), _served(response.json())
-
-    counted, served = on_the_seed_loop(run())
+        counted, served = _counted(entries), _served(response.json())
 
     assert served == counted
     assert served == EXPECTED[address]
 
 
 @pytest.mark.db
-def test_the_account_page_serves_a_registration_as_its_pupil_stored_it(mongo_replica_set_url: str):
+async def test_the_account_page_serves_a_registration_as_its_pupil_stored_it(mongo_replica_set_url: str):
     """The stored fields the box names its pupil by, and the words' fill read today."""
 
-    async def run() -> Any:
-        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True) as (_client, database):
-            await _seed(database)
-            async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
-                return await http.get(ACCOUNT_PATH, headers=_person(WILTRUDIS))
-
-    response = on_the_seed_loop(run())
+    async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True) as (_client, database):
+        await _seed(database)
+        async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
+            response = await http.get(ACCOUNT_PATH, headers=_person(WILTRUDIS))
 
     assert response.status_code == 200, response.text
     [entry] = [entry for entry in response.json()["registrierungen"] if entry["registrierung_id"] == str(REGISTRIERUNG_NEW)]

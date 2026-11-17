@@ -14,6 +14,7 @@ import { notifyAccountDeleted } from "./mails";
 import { SESSIONS_ENDED_FIELD } from "./sessionStamps";
 import { DELETE_TOKEN_ROW_PREFIX, deleteSignInRowsOf, DUPLICATE_KEY, EVERY_ROW, RemovalOutsideTransaction } from "./signInRows";
 
+import type { User } from "better-auth";
 import type { DeletionPress } from "./library";
 
 /** The library's answer to a link its `deleteUserCallback` completed, its one answer that deletes. */
@@ -56,11 +57,14 @@ export async function carryAccount(previous: string, next: string): Promise<Acco
   try {
     // The stamp rides the same write, so no session opened at the replaced address is served at the new one; the
     // library's revocations each end only the requesting session, which no caller here holds.
-    const account = await internalAdapter.updateUserByEmail(asSignInIdentifier(previous), {
+    // Declared `Promise<User & T>`, yet `null` where no account holds the address or a hook refuses the write
+    // (better-auth's `updateWithHooks`, dist/db/with-hooks.mjs). Widened by `as`: an annotation would be narrowed
+    // straight back to the declared type by the assignment.
+    const account = (await internalAdapter.updateUserByEmail(asSignInIdentifier(previous), {
       email: asSignInIdentifier(next),
       emailVerified: true,
       [SESSIONS_ENDED_FIELD]: now(),
-    });
+    })) as User | null;
     if (account === null) return "none";
 
     await deleteEndedSessions(adapter, account.id);
@@ -148,8 +152,9 @@ export async function deleteOwnAccount(token: string, requestHeaders: Headers): 
  * the league holds nothing of the address, erased or unreferenced.
  */
 export async function deleteAccountFor(identifier: string): Promise<boolean> {
-  // Set once the callback has returned: a throw after it came from the commit, whose outcome may be unknown.
-  let committing = false;
+  // Set once the callback has returned: a throw after it came from the commit, whose outcome may be unknown. Typed
+  // `boolean`, since TypeScript's narrowing does not follow the callback's writes.
+  let committing = false as boolean;
   let deleted: boolean;
 
   try {

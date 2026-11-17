@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from "@testing-library/react";
+import { renderUnderNext } from "@/test-support/nextContexts";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -11,15 +12,15 @@ import { BerichtEditor } from "./BerichtEditor";
 
 import type { ActionAnswer } from "@/core/action";
 import type { EditorSave } from "@/kit/useEditor";
+import type { NextContexts } from "@/test-support/nextContexts";
 import type { BerichtValues } from "./berichtValues";
 
 const SPIEL_ID = "64b000000000000000000001";
 
-vi.mock("next/navigation", () => ({
-  usePathname: () => `/area/schiedsrichter/2027/spielbericht/${SPIEL_ID}`,
-  useParams: () => ({ saison: "2027", spiel: SPIEL_ID }),
-  useRouter: () => ({ push: () => undefined, replace: () => undefined }),
-}));
+const AT_ADDRESS: NextContexts = {
+  pathname: `/area/schiedsrichter/2027/spielbericht/${SPIEL_ID}`,
+  params: { saison: "2027", spiel: SPIEL_ID },
+};
 
 /** The empty first report as the page opens it on a match the league holds Weide's no-show for. */
 const OPENED: BerichtValues = { sonderereignis: "nichtantreten_team2", shootOut1: "", shootOut2: "", scorers: [], cards: [], remarks: "" };
@@ -29,7 +30,7 @@ const OPENED: BerichtValues = { sonderereignis: "nichtantreten_team2", shootOut1
 describe("a first report opened at the league's no-show", () => {
   it("sends the no-show with the report, though the referee saved the form untouched", async () => {
     const save = vi.fn(async (_sent: EditorSave<BerichtValues, number | null>): Promise<ActionAnswer<number>> => ({ ok: true, value: 1 }));
-    render(
+    renderUnderNext(
       <BerichtEditor
         title={{ record: "Birke vs. Weide" }}
         lead={COPY.spielplan.when(null, null)}
@@ -46,6 +47,7 @@ describe("a first report opened at the league's no-show", () => {
         eigentor={SERVER_COPY.season.spiel.eigentor}
         remarksMax={500}
       />,
+      AT_ADDRESS,
     );
 
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));

@@ -83,6 +83,7 @@ const EVERY = () => true;
 /** Production source and the tests' support folder. */
 const SOURCE = (zone) => zone.kind !== "test";
 const PRODUCTION = (zone) => zone.kind !== "test" && zone.kind !== "support";
+const TESTS = (zone) => zone.kind === "test";
 const OUTSIDE_KIT = (zone) => PRODUCTION(zone) && zone.kind !== "kit";
 const KIT = (zone) => zone.kind === "kit";
 const PAGE_CODE = (zone) => zone.kind === "page";
@@ -443,9 +444,6 @@ const TRANSITION_REWRAP = syntax(
 /** Every read of `name` off a module's namespace: a member, or a destructured key. */
 const readsOff = (name) => [`MemberExpression[property.name=${name}]`, `ObjectPattern > Property[key.name=${name}]`].join(", ");
 
-/** The names the image's builder stage sets, which a module may read while it loads. */
-const PROVIDED_WHILE_BUILDING = "CI|NEXT_RUNTIME|NEXT_TELEMETRY_DISABLED|NODE_ENV|NODE_VERSION|PATH|PNPM_HOME|SKIP_ENV_VALIDATION";
-
 /** Every secret's reader, whose call returns what the builder leaves undefined. */
 const SECRET_READER_NAMES = Object.values(SECRET_READERS).flatMap(({ importNames }) => importNames);
 
@@ -456,7 +454,7 @@ const SECRET_READER_NAMES = Object.values(SECRET_READERS).flatMap(({ importNames
  * excepted, and the builder sets both.
  */
 const LOAD_TIME_ENVIRONMENT = [
-  `MemberExpression[object.name="frontend_config"]:not([property.name=/^(?:${PROVIDED_WHILE_BUILDING})$/])`,
+  `MemberExpression[object.name="frontend_config"]`,
   `VariableDeclarator[init.name="frontend_config"]`,
   `CallExpression[callee.name=/^(?:${SECRET_READER_NAMES.join("|")})$/]`,
 ]
@@ -468,6 +466,18 @@ const syntaxBan = (entry, reach, options) => ban("no-restricted-syntax", entry, 
 const SOURCE_BANS = [
   syntaxBan(ENVIRONMENT_READ, SOURCE, { allow: ["src/core/config.ts"] }),
   syntaxBan(ACTION_STATE_BAN, SOURCE, { allow: ["src/kit/useFormAction.ts"] }),
+  syntaxBan(
+    // A tree handed to Testing Library already wrapped draws a `rerender`'s tree outside the contexts; a wrapper of a
+    // file's own is the copy the helpers replace. A tree rendered by React's own server renderers keeps `underNext`.
+    syntax(
+      [
+        ':matches(CallExpression[callee.name="render"], CallExpression[callee.name="rerender"]) > CallExpression.arguments[callee.name="underNext"]',
+        'CallExpression[callee.name="underNext"][arguments.0.type="Identifier"][arguments.0.name="children"]',
+      ].join(", "),
+      "Render under Next's contexts through `renderUnderNext` or `renderHookUnderNext` in fl_frontend/src/test-support/nextContexts.ts, Testing Library's custom render, whose wrapper keeps a `rerender` under them.",
+    ),
+    TESTS,
+  ),
   syntaxBan(
     syntax(
       inLiteral(String.raw`${TOKEN_START}(?:hover|group-hover|peer-hover|data-hovered):opacity-`),
@@ -1241,7 +1251,8 @@ const BAN_BLOCKS = [
   ...fileBlocks(),
 ];
 
-const JS_FILES = ["**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx}"];
+/** The files `eslint-config-next` registers its plugins for: one of their rules set on a `.cjs` file stops the lint whole. */
+const JS_FILES = ["**/*.{js,jsx,mjs,ts,tsx,mts,cts}"];
 
 /** The rules of `eslint-rules/`, one plugin: flat config refuses a plugin's name registered twice with two objects. */
 const OWN_RULES = { rules: { "server-action": serverAction, "no-own-module-double": noOwnModuleDouble } };
@@ -1256,9 +1267,19 @@ const ROUTE_FOLDER_CASE = String.raw`@(${KEBAB}|\[${PARAM}\]|\[...${CAMEL}\]|\($
 /** A module after its main export, a component after its component. */
 const MODULE_FILE_CASE = `@(${CAMEL}|${PASCAL})`;
 
+/** The roles React Aria's overlays and what they hold carry, as a selector's regular expression on a role's whole name. */
+const OVERLAY_ROLES = "alertdialog|dialog|menu|menuitem|listbox|option";
+const OVERLAY_ROLE = `/^(?:${OVERLAY_ROLES})$/`;
+/** One of them named in a selector string, a CSS `[role=…]` or Playwright's `role=` and `internal:role=` engines. */
+const OVERLAY_ROLE_SELECTOR = String.raw`/role\W*(?:${OVERLAY_ROLES})\b/`;
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  // A rule is set here alone: a directive in a comment, `eslint-disable` among them, is reported rather than obeyed,
+  // so no file switches a rule off for itself. A `@ts-` comment is typescript-eslint's `ban-ts-comment`, which the
+  // recommended set above refuses but for an `@ts-expect-error` saying why.
+  { linterOptions: { noInlineConfig: true } },
   // React's rules of hooks hold React code, which lives in `src/`: elsewhere a call named `use`, a
   // Playwright fixture's callback among them, is no hook.
   {
@@ -1318,6 +1339,9 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-unsafe-call": "error",
       "@typescript-eslint/no-unsafe-member-access": "error",
       "@typescript-eslint/no-unsafe-return": "error",
+      // A check its types say cannot fail is a dead branch, or a type narrower than what the runtime hands over,
+      // which is widened where the value enters rather than the check dropped.
+      "@typescript-eslint/no-unnecessary-condition": "error",
     },
   },
 
@@ -1401,6 +1425,14 @@ const eslintConfig = defineConfig([
     rules: { "fl/no-own-module-double": ["error", { edges: EDGE_MODULES }] },
   },
 
+  // A test imports a module as the source does, without its `.ts` or `.tsx` suffix, a test of the lint's own rules
+  // included. Every other file keeps its own: a `.mts` one, which TypeScript's bundler resolution does not add, a
+  // stylesheet or an image, an `.mjs` module, and a package's deep path.
+  {
+    files: [...TEST_FILES, "src/test-support/**/*.{ts,tsx,mts}", "eslint-rules/**/*.test.mjs"],
+    rules: { "import/extensions": ["error", "always", { ignorePackages: true, pattern: { ts: "never", tsx: "never" } }] },
+  },
+
   // The a11y rule set. Only the rules are taken from the plugin: `eslint-config-next` already
   // registers it, and registering it twice is a flat-config error.
   {
@@ -1432,6 +1464,30 @@ const eslintConfig = defineConfig([
         "error",
         { "src/**/!(not-found).{ts,tsx}": MODULE_FILE_CASE, "e2e/**/*.ts": MODULE_FILE_CASE },
         { ignoreMiddleExtensions: true },
+      ],
+    },
+  },
+
+  // A journey looks up a dialog, a question, a menu or a list's options through `e2e/support/controls.ts` alone, whose
+  // helpers answer one only once it has entered: a press on an overlay still entering is retried behind a scroll,
+  // which closes a rising sheet or a combo box's list. A role a journey computes is looked up there too, where no such
+  // role can hide in it. A control looked up by its own role passes, an overlay's among them.
+  {
+    files: ["e2e/**/*.ts"],
+    ignores: ["e2e/support/controls.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        ...[
+          `CallExpression[callee.property.name="getByRole"][arguments.0.value=${OVERLAY_ROLE}]`,
+          `CallExpression[callee.property.name="getByRole"][arguments.0.type!="Literal"]`,
+          `Literal[value=${OVERLAY_ROLE_SELECTOR}]`,
+          `TemplateElement[value.raw=${OVERLAY_ROLE_SELECTOR}]`,
+        ].map((selector) => ({
+          selector,
+          message:
+            "An overlay is reached once it has entered, through e2e/support/controls.ts: enteredDialog, enteredQuestion, toast, expectNoDialog, comboOptions, choose or pressRowAct.",
+        })),
       ],
     },
   },

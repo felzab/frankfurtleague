@@ -17,7 +17,7 @@ import stat
 import subprocess
 import sys
 import tempfile
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from types import ModuleType
 from typing import Final
@@ -67,7 +67,6 @@ def base_env() -> dict[str, str]:
     env.pop("GITHUB_ACTIONS", None)
     env.pop("VERBOSE", None)
     env["FL_GATE_COLOR"] = "0"
-    env["NO_SPINNER"] = "1"
     return env
 
 
@@ -82,25 +81,32 @@ def write_shell(path: Path, text: str) -> Path:
     return path
 
 
-def run_shell(
-    bash: str, script: Path, *args: str, env: dict[str, str] | None = None, cwd: Path | None = None
-) -> subprocess.CompletedProcess[str]:
-    """One shell script run to its end, its streams decoded as utf-8.
+# The longest a process a case drives may run before it is ended, and the case fails naming it: a stand-in that never
+# answers would otherwise hold the run until the CI job's own timeout. Below the stack dump the gate's pytest runs take
+# after `faulthandler_timeout`, so a hang ends here with its command named.
+PROCESS_BOUND_S: Final = 120
 
-    `text=True` alone would decode with the machine locale, which is cp1252 on Windows, where a
-    verdict carrying an em dash does not survive.
+
+def run_bounded(
+    command: Sequence[str], *, env: Mapping[str, str] | None = None, cwd: Path | None = None, bound_s: float = PROCESS_BOUND_S
+) -> subprocess.CompletedProcess[str]:
+    """The one way a case runs a process, its streams decoded as utf-8, to its end or to `bound_s`.
+
+    At the bound the case fails on `subprocess.TimeoutExpired`, which names the command. `text=True` alone would decode
+    with the machine locale, which is cp1252 on Windows, where a verdict carrying an em dash does not survive.
     """
     # `errors="replace"`: a byte outside utf-8 belongs in the output being asserted on rather than
     # in a decode error that says nothing about the run.
     return subprocess.run(
-        (bash, script.as_posix(), *args),
-        capture_output=True,
-        encoding="utf-8",
-        errors="replace",
-        env=env,
-        cwd=cwd,
-        check=False,
+        tuple(command), capture_output=True, encoding="utf-8", errors="replace", env=env, cwd=cwd, timeout=bound_s, check=False
     )
+
+
+def run_shell(
+    bash: str, script: Path, *args: str, env: dict[str, str] | None = None, cwd: Path | None = None
+) -> subprocess.CompletedProcess[str]:
+    """One shell script run through `run_bounded`."""
+    return run_bounded((bash, script.as_posix(), *args), env=env, cwd=cwd)
 
 
 def new_root(prefix: str) -> Path:

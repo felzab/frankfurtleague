@@ -1,0 +1,100 @@
+{
+  "seasons": { "finished": "2026", "running": "2027", "planned": "2028" },
+  "venues": { "edited": "Sporthalle Birkenallee", "longest": "Bezirkssportanlage Frankfurt-Nieder-Eschbach Nord" },
+  "owner": "inhaber@example.com",
+  "administrators": {
+    "editor": "admin.editor@example.com",
+    "setup": "admin@example.com",
+    "waiting": "admin.wartet@example.com",
+    "successor": "admin.nachfolge@example.com",
+    "moving": "admin.umzug@example.com",
+    "banning": "admin.sperre@example.com",
+    "access": "admin.zugang@example.com"
+  },
+  "projects": {
+    "desktop": {
+      "administrator": "admin.desktop@example.com",
+      "twoDevices": { "first_name": "Frieda", "last_name": "Falk", "address": "frieda.falk@example.com" },
+      "mover": { "first_name": "Clara", "last_name": "Kranz", "address": "clara.kranz@example.com" },
+      "leaver": { "first_name": "Hanna", "last_name": "Hahn", "address": "hanna.hahn@example.com" },
+      "applicants": { "declined": "Ahorn" },
+      "departing": { "club": "Linde", "fixture": "Birke vs. Linde" },
+      "entered": { "club": "Kastanie" },
+      "squadded": "Jonas",
+      "contact": {
+        "club": "Ahorn",
+        "fixture": "Ahorn vs. Eiche",
+        "trainer": { "first_name": "Achim", "last_name": "Aust", "address": "achim.aust@example.com" },
+        "pupil": { "first_name": "Hedda", "last_name": "Holm" }
+      },
+      "registering": {
+        "club": "Kastanie",
+        "token": "made-up-kastanie-invitation",
+        "admitter": { "first_name": "Katja", "last_name": "Kraus", "address": "katja.kraus@example.com" }
+      },
+      "booked": {
+        "referee": { "first_name": "Selma", "last_name": "Seidel", "address": "selma.seidel@example.com" },
+        "played": "Eiche vs. Ulme",
+        "coming": "Ahorn vs. Eiche"
+      }
+    },
+    "phone": {
+      "administrator": "admin.telefon@example.com",
+      "twoDevices": { "first_name": "Gustav", "last_name": "Gerber", "address": "gustav.gerber@example.com" },
+      "mover": { "first_name": "Dora", "last_name": "Dahl", "address": "dora.dahl@example.com" },
+      "leaver": { "first_name": "Ingo", "last_name": "Imhof", "address": "ingo.imhof@example.com" },
+      "applicants": { "declined": "Birke" },
+      "departing": { "club": "Esche", "fixture": "Esche vs. Birke" },
+      "entered": { "club": "Weide" },
+      "squadded": "Lena",
+      "contact": {
+        "club": "Ulme",
+        "fixture": "Ulme vs. Kastanie",
+        "trainer": { "first_name": "Uta", "last_name": "Uhlig", "address": "uta.uhlig@example.com" },
+        "pupil": { "first_name": "Juna", "last_name": "Jost" }
+      },
+      "registering": {
+        "club": "Eiche",
+        "token": "made-up-eiche-invitation",
+        "admitter": { "first_name": "Edgar", "last_name": "Eckert", "address": "edgar.eckert@example.com" }
+      },
+      "booked": {
+        "referee": { "first_name": "Tobias", "last_name": "Thiel", "address": "tobias.thiel@example.com" },
+        "played": "Ulme vs. Ahorn",
+        "coming": "Ulme vs. Kastanie"
+      }
+    }
+  },
+  "passkeys": {
+    "remover": { "first_name": "Emil", "last_name": "Ernst", "address": "emil.ernst@example.com" },
+    "holder": { "first_name": "Jana", "last_name": "Jansen", "address": "jana.jansen@example.com" }
+  },
+  "access": {
+    "banned": { "first_name": "Paula", "last_name": "Paul", "address": "paula.paul@example.com" },
+    "mover": { "first_name": "Marta", "last_name": "Moos", "address": "marta.moos@example.com" },
+    "erased": { "first_name": "Olga", "last_name": "Ott", "address": "olga.ott@example.com" },
+    "changing": { "first_name": "Nina", "last_name": "Noll", "address": "nina.noll@example.com" },
+    "ban": "gesperrte.person.mit.langer.adresse@example.com",
+    "loggedTeam": "Birke"
+  },
+  "others": {
+    "pupil": { "first_name": "Mia", "last_name": "Ahornberg", "address": "mia.ahornberg@schule.example" },
+    "referee": { "first_name": "Anna", "last_name": "Ahrens", "address": "anna.ahrens@example.com" },
+    "contact": { "first_name": "Konrad", "last_name": "Kuhn", "address": "konrad.kuhn@example.com" },
+    "newcomer": { "first_name": "Carla", "last_name": "Conrad", "address": "carla.conrad@example.com" }
+  },
+  "firstPass": {
+    "referee": { "first_name": "Ben", "last_name": "Brandt", "address": "ben.brandt@example.com" },
+    "erased": { "first_name": "Lea", "last_name": "Lehmann", "address": "lea.lehmann@example.com" },
+    "applications": { "lapsed": "Lärche", "left": "Espe" },
+    "lifted": "Esche vs. Weide"
+  },
+  "spielplan": { "opened": "Ahorn vs. Kastanie", "ergebnis": "2:1" },
+  "matchEditor": { "rescheduled": "Kastanie vs. Eiche" },
+  "austritt": {
+    "opponent": { "first_name": "Berta", "last_name": "Birkner", "address": "berta.birkner@example.com" }
+  },
+  "administration": {
+    "registration": { "first_name": "Ole", "last_name": "Sommer" }
+  }
+}

@@ -4,14 +4,12 @@
  */
 import { expect } from "@playwright/test";
 
-import { box, labelOf, save, typeInto } from "./support/controls";
+import { box, comboOptions, labelOf, save, typeInto, valueOf } from "./support/controls";
 import { test } from "./support/journey";
+import { RUNNING } from "./support/madeUpLeague";
 import { declinePasskeyOffer, signInWithCode } from "./support/signIn";
 
 import type { Locator, Page } from "@playwright/test";
-
-/** The running season of the made-up seed, in which both games stand. */
-const SAISON = "2027";
 
 /**
  * A game's row on the Übersicht, by the link its name is: the row is the kit's, which holds its chip and its acts beside
@@ -31,7 +29,7 @@ function gameRow(page: Page, game: string): Locator {
 async function pickPupil(page: Page, row: Locator): Promise<string> {
   await row.getByRole("combobox", { name: "Spieler" }).click();
   await page.keyboard.press("ArrowDown");
-  const pupil = page.getByRole("option").filter({ hasNotText: "Anonym" }).first();
+  const pupil = (await comboOptions(page)).filter({ hasNotText: "Anonym" }).first();
   const words = (await pupil.innerText()).trim();
   await pupil.click();
   return words;
@@ -57,7 +55,7 @@ test("a referee answers the coming game, saves the played game's report, and rea
   const playedRow = gameRow(page, played);
   await expect(playedRow.getByText("Spielbericht fehlt", { exact: true })).toBeVisible();
   await playedRow.getByRole("link", { name: played, exact: true }).click();
-  await expect(page).toHaveURL((url) => url.pathname.startsWith(`/area/schiedsrichter/${SAISON}/spielbericht/`));
+  await expect(page).toHaveURL((url) => url.pathname.startsWith(`/area/schiedsrichter/${RUNNING}/spielbericht/`));
   await expect(page.getByRole("heading", { level: 1, name: played })).toBeVisible();
 
   // The second club of each project's played game fields a squad in the seed, so its pupils are there to pick.
@@ -93,16 +91,11 @@ test("a referee answers the coming game, saves the played game's report, and rea
   await expect(card.getByRole("radio", { name: "Gelb", exact: true })).toBeChecked();
 
   // The Übersicht's row says the report is in.
-  await page.goto(`/area/schiedsrichter/${SAISON}`);
+  await page.goto(`/area/schiedsrichter/${RUNNING}`);
   await expect(gameRow(page, played).getByText("Spielbericht eingetragen", { exact: true })).toBeVisible();
 
   // Konto's referee box holds the fee the league pays them.
   await page.goto("/account/entries");
   const entry = box(page, "Schiedsrichter");
-  // The definition after its term: ARIA prohibits naming either, so a screen reader reads the two in order.
-  const fee = entry
-    .getByRole("term")
-    .filter({ hasText: /^Honorar$/ })
-    .locator("xpath=following-sibling::dd[1]");
-  await expect(fee).toHaveText(/^\d+,\d{2}\s€$/);
+  await expect(valueOf(entry, "Honorar")).toHaveText(/^\d+,\d{2}\s€$/);
 });

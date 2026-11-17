@@ -1,10 +1,9 @@
-from collections.abc import Iterator, Mapping
+from collections.abc import AsyncIterator, Mapping
 from typing import Any
 
 import pytest
 from bson import ObjectId
-from pymongo import MongoClient
-from pymongo.database import Database
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.spiele.schemas import FLSpiel
@@ -13,9 +12,9 @@ from app.api.teams.services import ZERO_STATISTIK, build_statistik_by_team, buil
 from app.core.collections import Collection
 from app.shared.schemas.literals import FLSonderereignis, FLSpielerStufe
 from tests import documents
+from tests.database import held_corpus
+from tests.documents import AUSTRITT
 from tests.worker import worker_database
-
-from .conftest import AUSTRITT
 
 DATABASE_NAME = worker_database("fl_standings_test")
 
@@ -204,26 +203,26 @@ class TestEachBranchOfTheCountingRule:
 
 
 @pytest.fixture(scope="module")
-def seeded(mongo_replica_set_url: str) -> Iterator[Database]:
-    """A database of this module's own, built once for its reads and dropped on the way out."""
+async def seeded(mongo_replica_set_url: str) -> AsyncIterator[AsyncDatabase]:
+    """A database of this module's own, seeded once for its reads, which no case writes."""
 
-    client = MongoClient(mongo_replica_set_url)
-    try:
-        client.drop_database(DATABASE_NAME)
-        database = client[DATABASE_NAME]
+    async def seed(database: AsyncDatabase) -> AsyncDatabase:
+        await database[Collection.TEAMS].insert_many([team_document(team_id) for team_id in NAMES])
+        await database[Collection.SAISON_TEAMS].insert_many([junction(team_id) for team_id in NAMES if team_id != EXTERN])
+        await database[Collection.SPIELE].insert_many(spiel_documents())
 
-        database[Collection.TEAMS].insert_many([team_document(team_id) for team_id in NAMES])
-        database[Collection.SAISON_TEAMS].insert_many([junction(team_id) for team_id in NAMES if team_id != EXTERN])
-        database[Collection.SPIELE].insert_many(spiel_documents())
+        return database
 
+    async with held_corpus(
+        mongo_replica_set_url, DATABASE_NAME, seed, stores_a_refused_shape="Anna's season row holds stale figures past its record model"
+    ) as database:
         yield database
-    finally:
-        client.drop_database(DATABASE_NAME)
-        client.close()
 
 
-def standings(database: Database, **scope: Any) -> dict[str, Mapping[str, Any]]:
-    return {row["name"]: row for row in database[Collection.TEAMS].aggregate(build_team_pipeline(saison_id=SAISON_ID, rules=RULES, **scope))}
+async def standings(database: AsyncDatabase, **scope: Any) -> dict[str, Mapping[str, Any]]:
+    pipeline = build_team_pipeline(saison_id=SAISON_ID, rules=RULES, **scope)
+
+    return {row["name"]: row for row in await (await database[Collection.TEAMS].aggregate(pipeline)).to_list(length=None)}
 
 
 @pytest.mark.db
@@ -239,10 +238,10 @@ class TestTheTwoDerivationsAgree:
             pytest.param("gruppenphase", {}, id="the default"),
         ],
     )
-    def test_the_figures_match_the_pipelines_over_the_same_spiele(
-        self, seeded: Database, scope: FLTeamStatistikScope, pipeline_scope: dict[str, Any]
+    async def test_the_figures_match_the_pipelines_over_the_same_spiele(
+        self, seeded: AsyncDatabase, scope: FLTeamStatistikScope, pipeline_scope: dict[str, Any]
     ):
-        rows = standings(seeded, **pipeline_scope)
+        rows = await standings(seeded, **pipeline_scope)
 
         derived = build_statistik_by_team(season_in_scope(scope), RULES)
 
@@ -254,10 +253,10 @@ class TestTheTwoDerivationsAgree:
             expected = derived.get(row["_id"], ZERO_STATISTIK)
             assert row["statistik"] == dict(expected), f"the two derivations disagree about {row['name']}"
 
-    def test_the_season_row_supplies_the_name_the_gruppe_and_the_whole_austritt(self, seeded: Database):
+    async def test_the_season_row_supplies_the_name_the_gruppe_and_the_whole_austritt(self, seeded: AsyncDatabase):
         """The club's own name is one it took later; the record travels whole, as a flag would pass a presence check."""
 
-        rows = standings(seeded)
+        rows = await standings(seeded)
 
         assert "Anna-Schule" not in rows
         assert (rows["Dirk"]["gruppe"], rows["Dirk"]["austritt"]) == ("B", AUSTRITT)

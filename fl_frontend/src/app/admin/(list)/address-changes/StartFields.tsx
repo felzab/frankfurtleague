@@ -31,7 +31,6 @@ export function StartFields({
         label={COPY.account.address.current}
         name="address"
         kind="email"
-        autofill="off"
         isRequired={required.address}
         maxLength={addressMax}
         onChange={setTyped}
@@ -46,7 +45,6 @@ export function StartFields({
         label={COPY.account.address.new}
         name="email"
         kind="email"
-        autofill="off"
         isRequired={required.email}
         maxLength={addressMax}
       />

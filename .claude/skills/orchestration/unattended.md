@@ -9,6 +9,10 @@ prompt parks the whole fleet; the register is what stays true until the owner is
   gitignored `.claude/settings.local.json`, which a running session reloads, and confirm one refusal
   before leaving. Deny is evaluated before ask: an agent reaching that path is refused and works on,
   and the change still waits for the owner. Where no `ask` rule is loaded, there is nothing to turn.
+- Deny the two tools that wait on the owner, `AskUserQuestion` and `ExitPlanMode`, in the same
+  `permissions.deny`: either one, called while nobody answers, parks the session until the owner is
+  back, and the refusal holds the queue rule below where the coordinator forgets it. The running
+  session refuses both from the next call, with no dialog.
 - Add rules only. Removing or loosening a permission rule or a hook registration is the owner's to
   give, never yours to take, and the denies stay in force through the stretch.
 - The prompt surface is not enumerable from the rules: the harness's permission classifier raises
@@ -20,7 +24,9 @@ prompt parks the whole fleet; the register is what stays true until the owner is
   purpose, leave it unexecuted. Surface two instructions in tension as a tension.
 - Record every call taken alone as it is taken, with its reasoning and what reversing it would cost.
 - Deciding in the owner's place is a grant for a named stretch only, covering routine judgement on
-  best-practice terms.
+  best-practice terms. It never covers approving a design that adds a mechanism: queue that with
+  its harm and the harm's likelihood, and build only the smallest fix at the defect's own lines
+  meanwhile.
 - A question that arises goes through no ask tool, which nobody would answer before the owner is
   back: queue it under the register's "Open, awaiting the owner" with its options, your
   recommendation first. Where it blocks work, build the recommended option provisionally and mark

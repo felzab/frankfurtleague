@@ -1,8 +1,8 @@
 import { EventEmitter } from "node:events";
 
-import { memoryAdapterDouble, memoryStore, registerAuthDoubles } from "@/test-support/authDoubles.ts";
-import { captureLog } from "@/test-support/stdoutCapture.ts";
-import { MongoServerError, MongoServerSelectionError } from "mongodb";
+import { memoryAdapterDouble, memoryStore, registerAuthDoubles } from "@/test-support/authDoubles";
+import { captureLog } from "@/test-support/stdoutCapture";
+import { MongoNetworkTimeoutError, MongoServerError, MongoServerSelectionError } from "mongodb";
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
 import type { IndexOptions } from "mongodb";
@@ -10,7 +10,7 @@ import type { IndexOptions } from "mongodb";
 /** One `createIndex` the build issued, by collection and name, with the key and options it was handed. */
 type Build = { collection: string; name: string; key: unknown; options: IndexOptions };
 
-/** The store client's own events, of which the build listens for `topologyDescriptionChanged`. */
+/** The store client's own events, of which the build listens for `serverHeartbeatSucceeded`. */
 const clientEvents = new EventEmitter();
 
 const builds: Build[] = [];
@@ -18,12 +18,12 @@ const builds: Build[] = [];
 // every value a line is handed, an `error` that is no `Error` among them, which a refused build's line is held to.
 
 /** Every line the real logger writes, read off standard output. */
-const log = captureLog();
+const log = captureLog("production");
 
 /** Each error line written, by its event and fields. */
 const errorLines = () => log.lines().flatMap(({ level, message, fields }) => (level === "ERROR" ? [{ event: message, fields }] : []));
 
-/** The builds still running, by collection, which `afterChange` waits out. */
+/** The builds still running, by collection, which `afterHeartbeat` waits out. */
 const running = new Map<string, number>();
 
 /** What each build answers, which a case sets; every build succeeds unless it names one. */
@@ -61,8 +61,8 @@ registerAuthDoubles({
 });
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
-const { buildAuthIndexes } = await import("./authIndexes.ts");
-const { auth } = await import("./auth/library.ts");
+const { buildAuthIndexes } = await import("./authIndexes");
+const { auth } = await import("./auth/library");
 
 /** The collections the build writes to, each a table of the library's. */
 const COLLECTIONS = ["session", "passkey", "user", "verification"] as const;
@@ -81,26 +81,29 @@ const DUPLICATE_TOKEN = new MongoServerError({
 /** What an unreachable store answers every build: no server code at all. */
 const UNANSWERED = new MongoServerSelectionError("Server selection timed out after 3000 ms", { type: "Unknown" } as never);
 
-/** A topology change as the driver emits it, its one server of the type named. */
-const changedTo = (type: string) => ({ newDescription: { servers: new Map([["store:27017", { type, isWritable: type === "RSPrimary" }]]) } });
+/** What a store too slow for the client's socket bound answers a build. */
+const TIMED_OUT = new MongoNetworkTimeoutError("connection 1 to store:27017 timed out");
 
-// The driver emits `open` for a new topology alone, so this double emits none.
 /**
- * Emits a topology change and waits out whatever run it starts, a turn at a time: until one has begun
- * and every build of it settled, or a bounded number of turns where none begins.
+ * Emits a heartbeat as the driver does, its reply naming the server writable or not, and waits out whatever run it
+ * starts, a turn at a time: until one has begun and every build of it settled, or a bounded number of turns where none
+ * begins.
  */
-async function afterChange(type = "RSPrimary"): Promise<void> {
+async function afterHeartbeat(isWritablePrimary = true): Promise<void> {
   const before = builds.length;
-  clientEvents.emit("topologyDescriptionChanged", changedTo(type));
+  clientEvents.emit("serverHeartbeatSucceeded", { reply: { isWritablePrimary } });
   for (let turn = 0; turn < 200 && (builds.length === before || [...running.values()].some((open) => open > 0)); turn += 1) {
     await new Promise((resolve) => setImmediate(resolve));
   }
 }
 
-beforeEach(() => {
+beforeEach(async () => {
+  answer = () => Promise.resolve("built");
+  // A rebuild an earlier case left armed runs here, so no case's heartbeat starts another case's.
+  await afterHeartbeat();
   builds.length = 0;
   running.clear();
-  answer = () => Promise.resolve("built");
+  log.clear();
 });
 
 describe("the sign-in store's index build", () => {
@@ -125,23 +128,39 @@ describe("the sign-in store's index build", () => {
     }
   });
 
-  /* The client reconnects once the store answers, and a restart is
-     what the build waited for otherwise. */
-  it("builds every index again once a store that did not answer is writable, and not before", async () => {
-    answer = () => Promise.reject(UNANSWERED);
+  /* A store that did not answer fails its heartbeats until it is back; one that timed out answers its next, the driver
+     marking no server unknown for a timeout after the handshake. Either way a restart is what the build waited for
+     otherwise. */
+  it.for([
+    ["did not answer", UNANSWERED],
+    ["timed out", TIMED_OUT],
+  ] as const)("builds every index again on the next heartbeat of a writable store where one %s, and not before", async ([, failure]) => {
+    answer = () => Promise.reject(failure);
     await buildAuthIndexes();
     const first = builds.length;
 
     answer = () => Promise.resolve("built");
     for (let turn = 0; turn < 20; turn += 1) await new Promise((resolve) => setImmediate(resolve));
     expect(builds.length, "the build ran again before the store answered").toBe(first);
-    await afterChange("Unknown");
-    expect(builds.length, "the build ran again on a topology holding no writable server").toBe(first);
+    await afterHeartbeat(false);
+    expect(builds.length, "the build ran again on a heartbeat of no writable server").toBe(first);
 
-    await afterChange();
+    await afterHeartbeat();
 
-    const names = (from: Build[]) => from.map(({ name }) => name).sort();
+    const names = (from: Build[]) => from.map(({ collection, name }) => `${collection}.${name}`).sort();
     expect(names(builds.slice(first))).toStrictEqual(names(builds.slice(0, first)));
+  });
+
+  /* A duplicate is the store's verdict, which asking again on every heartbeat would only repeat, a line each time. */
+  it("never asks a build the store refused again on a heartbeat", async () => {
+    answer = (build) => (build.name === "session_token_uidx" ? Promise.reject(DUPLICATE_TOKEN) : Promise.resolve("built"));
+    await buildAuthIndexes();
+    const first = builds.length;
+    answer = () => Promise.resolve("built");
+
+    await afterHeartbeat();
+
+    expect(builds.length, "the build ran again on the next writable heartbeat").toBe(first);
   });
 
   /* Read off the library's own schema rather than the list, so a field it declares unique, or an

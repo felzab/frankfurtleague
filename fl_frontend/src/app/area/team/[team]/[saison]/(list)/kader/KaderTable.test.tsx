@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { ListQueryScope } from "@/kit/ListTable";
-import { render, screen, within } from "@testing-library/react";
+import { renderUnderNext } from "@/test-support/nextContexts";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -15,7 +16,6 @@ vi.mock("./kaderRowActs", () => ({
   saveKaderRow: vi.fn(() => Promise.resolve({ ok: true, value: undefined })),
   deregisterKaderRow: vi.fn(() => Promise.resolve({ ok: true, value: undefined })),
 }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => undefined }) }));
 
 const TEAM = "6af32ed4205642a3fd5ee7e1";
 const SAISON = "2027";
@@ -38,7 +38,7 @@ const row = (spieler_id: string, first_name: string, nummer: string | null, roll
 const KADER = [row("64b000000000000000000001", "Anna", "11", "kapitaen", 3), row("64b000000000000000000002", "Ben", "4", null, 7)];
 
 function drawn() {
-  return render(
+  return renderUnderNext(
     <ListQueryScope>
       <KaderTable
         head={{ nameLabel: COPY.shared.name, columns: [] }}

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { renderUnderNext } from "@/test-support/nextContexts";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -9,17 +10,14 @@ import { LINEUP_WORDS } from "@/features/aufstellungen/players";
 import { TeamAufstellung } from "./TeamAufstellung";
 
 import type { LineupPlayer } from "@/kit/Lineup";
+import type { NextContexts } from "@/test-support/nextContexts";
 
 const TEAM = "6890a1b2c3d4e5f607250011";
 const SPIEL = "6890a1b2c3d4e5f607250021";
 
 const state = vi.hoisted(() => ({ sent: [] as unknown[] }));
 
-vi.mock("next/navigation", () => ({
-  usePathname: () => "/area/team/aho/2027/spiele/spiel",
-  useParams: () => ({}),
-  useRouter: () => ({ push: () => undefined, replace: () => undefined, refresh: () => undefined }),
-}));
+const AT_ADDRESS: NextContexts = { pathname: "/area/team/aho/2027/spiele/spiel", params: {} };
 vi.mock("./saveAufstellung", () => ({
   saveAufstellung: async (input: unknown) => {
     state.sent.push(input);
@@ -35,7 +33,7 @@ beforeEach(() => {
 
 /** The editor at the team's address over a stored line-up naming pupils 1 to 3, the first two starting. */
 function renderEditor() {
-  render(
+  renderUnderNext(
     <TeamAufstellung
       team={TEAM}
       saison="2027"
@@ -55,6 +53,7 @@ function renderEditor() {
       players={[player(1), player(2), player(3), player(4)]}
       words={LINEUP_WORDS}
     />,
+    AT_ADDRESS,
   );
 }
 

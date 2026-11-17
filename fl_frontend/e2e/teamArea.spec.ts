@@ -4,14 +4,12 @@
  */
 import { expect } from "@playwright/test";
 
-import { box, labelOf, save, saveBar } from "./support/controls";
+import { box, enteredDialog, labelOf, save, saveBar, toast } from "./support/controls";
 import { test } from "./support/journey";
+import { RUNNING } from "./support/madeUpLeague";
 import { declinePasskeyOffer, signInWithCode } from "./support/signIn";
 
 import type { Locator, Page } from "@playwright/test";
-
-/** The running season of the made-up seed, which every seat of the journeys holds. */
-const RUNNING = "2027";
 
 /** A lone seat's landing, its team's Übersicht, under the team's id, which the seed mints anew on every run. */
 const TEAM_LANDING = new RegExp(`^/area/team/[0-9a-f]{24}/${RUNNING}$`);
@@ -36,13 +34,10 @@ async function openPage(page: Page, name: string): Promise<void> {
   if (await entry.isVisible()) await entry.click();
   else {
     await more.click();
-    await page.getByRole("dialog", { name: "Mehr" }).getByRole("link", { name, exact: true }).click();
+    await (await enteredDialog(page, "Mehr")).getByRole("link", { name, exact: true }).click();
   }
   await expect(titleOf(page, name)).toBeVisible();
 }
-
-/** The toast an act at once answers with, by its title. */
-const toast = (page: Page, title: string): Locator => page.getByRole("alertdialog", { name: title });
 
 test("a contact answers the date, admits the pupil and enters the line-up", async ({ page, contact: { address, fixture, pupil } }) => {
   await signInWithCode(page, address);
@@ -69,7 +64,7 @@ test("a contact answers the date, admits the pupil and enters the line-up", asyn
   await openPage(page, "Registrierungen");
   const registration = page.getByRole("main").getByRole("row").filter({ hasText: pupil });
   await registration.getByRole("button", { name: pupil, exact: true }).click();
-  await page.getByRole("dialog", { name: pupil }).getByRole("button", { name: "Aufnehmen", exact: true }).click();
+  await (await enteredDialog(page, pupil)).getByRole("button", { name: "Aufnehmen", exact: true }).click();
   await expect(toast(page, "Aufgenommen")).toBeVisible();
   await expect(registration).toHaveCount(0);
 
@@ -78,7 +73,7 @@ test("a contact answers the date, admits the pupil and enters the line-up", asyn
   await expect(page.getByRole("main").getByRole("row").filter({ hasText: pupil })).toContainText("Nachnominiert");
 
   // The answered date leaves the line-up as the one thing the match still needs from the club. A match row's link is
-  // named by everything it shows, its two clubs among it, as `spielplan.spec.ts` finds one.
+  // named by everything it shows, its two clubs among it.
   await openPage(page, "Spiele");
   const match = page.getByRole("main").getByRole("link", { name: new RegExp(fixture.replace(" vs. ", ".*")) });
   await expect(match).toContainText("Aufstellung fehlt");

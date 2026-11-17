@@ -9,24 +9,9 @@ from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpielListAdapter
 from app.api.spiele.services import find_wiring_refusal
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
-from tests.payloads import spiel_patch_body
+from tests.payloads import PayloadFactory, SpielFactory, gruppenplatz, sieger, spiel_patch_body, verlierer
 
 MATCH_ID = "6890a1b2c3d4e5f60720{:04d}"
-
-PayloadFactory = Callable[..., dict[str, Any]]
-SpielFactory = Callable[..., dict[str, Any]]
-
-
-def sieger(spiel_nr: int) -> dict[str, Any]:
-    return {"type": "spiel", "spiel_nr": spiel_nr, "ausgang": "sieger"}
-
-
-def verlierer(spiel_nr: int) -> dict[str, Any]:
-    return {"type": "spiel", "spiel_nr": spiel_nr, "ausgang": "verlierer"}
-
-
-def gruppenplatz(gruppe: str, platz: int) -> dict[str, Any]:
-    return {"type": "gruppe", "gruppe": gruppe, "platz": platz}
 
 
 @pytest.fixture

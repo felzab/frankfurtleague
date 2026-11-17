@@ -1,30 +1,28 @@
 /**
- * E2E · J10, a club leaving mid-season, under each project, where no lower tier sees the opponent still to play it left
- * untold at the write. The booked referee, told by the scheduler, is `first-pass/firstPass.spec.ts`'s.
+ * E2E · a club leaving mid-season, under each project, where no lower tier sees the opponent still to play it left
+ * untold at the write. The scheduler tells the booked referee, in the first pass's journey.
  */
 import { expect } from "@playwright/test";
 
-import { typeInto } from "./support/controls";
+import { enteredDialog, typeInto } from "./support/controls";
 import { ADMINISTRATOR_STATE, test } from "./support/journey";
+import { PEOPLE, RUNNING } from "./support/madeUpLeague";
 import { filedMessages, mailedMessage } from "./support/mailSink";
 
 test.use({ storageState: ADMINISTRATOR_STATE });
 
-/** The running season of the made-up seed. */
-const SAISON = "2027";
-
-/** The Trainer of the one opponent holding a contact (`scripts/ops/seed/seed.js`). */
-const OPPONENT = "berta.birkner@example.com";
+/** The Trainer of the one opponent holding a contact. */
+const OPPONENT = PEOPLE.austritt.opponent.address;
 
 test("a club leaves the season, and its opponent is told at once", async ({ page, departing: { club, fixture } }) => {
-  await page.goto(`/admin/saisons/${SAISON}/teams`);
+  await page.goto(`/admin/saisons/${RUNNING}/teams`);
   await page.getByRole("main").getByRole("link", { name: club }).click();
   await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: club })).toBeVisible();
 
   // The dialog opens on a withdrawal from today: the reason is what it cannot know.
   const before = await filedMessages();
   await page.getByRole("main").getByRole("button", { name: "Entfernen" }).click();
-  const dialog = page.getByRole("dialog", { name: "Aus der Saison nehmen" });
+  const dialog = await enteredDialog(page, "Aus der Saison nehmen");
   await typeInto(dialog.getByRole("textbox", { name: /^Grund/ }), "Das Team tritt nicht mehr an.");
   await dialog.getByRole("button", { name: "Entfernen" }).click();
   await expect(dialog).toBeHidden();

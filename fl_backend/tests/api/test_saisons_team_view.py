@@ -1,4 +1,4 @@
-from collections.abc import Awaitable, Callable, Iterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any
 
 import pytest
@@ -8,10 +8,8 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.saisons.public_router import get_team, get_teams
 from app.core.collections import Collection
 from tests import documents
-from tests.database import a_clean_database, on_the_seed_loop, shared_client
+from tests.database import held_corpus, shared_client
 from tests.worker import worker_database
-
-from .conftest import unwritten
 
 DATABASE_NAME = worker_database("fl_saisons_team_view_test")
 
@@ -46,50 +44,42 @@ def pupil(first_name: str) -> dict[str, Any]:
 
 
 @pytest.fixture(scope="module")
-def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
+async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
     """One group of three this season, the second disqualified; a fourth club entered last season alone."""
 
     maxim, nadja = pupil("Maxim"), pupil("Nadja")
 
-    async def _seed() -> None:
-        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
-            await database[Collection.SAISONS].insert_many(
-                [documents.saison_document(SAISON, "active"), documents.saison_document(EARLIER, "past")]
-            )
-            await database[Collection.TEAMS].insert_many([documents.team_document(oid, name, name[:3].upper()) for name, oid in CLUBS.items()])
-            await database[Collection.SAISON_TEAMS].insert_many(
-                [
-                    documents.saison_team_document(SAISON, CLUBS["Alpha"], "Alpha", "ALP"),
-                    documents.saison_team_document(SAISON, CLUBS["Beta"], "Beta", "BET", austritt=dict(DISQUALIFIED)),
-                    documents.saison_team_document(SAISON, CLUBS["Delta"], "Delta", "DEL"),
-                    documents.saison_team_document(EARLIER, CLUBS["Gamma"], "Gamma", "GAM"),
-                ]
-            )
-            await database[Collection.SPIELTAGE].insert_one(
-                {"_id": SPIELTAG, "start": None, "end": None, "position": 2, "saison_phase": "gruppenphase", "saison_id": SAISON, "version": 0}
-            )
-            await database[Collection.SPIELE].insert_many(
-                [spiel(1, "Alpha", "Beta", "2:1"), spiel(2, "Beta", "Delta", "0:1"), spiel(3, "Delta", "Alpha")]
-            )
-            await database[Collection.SPIELER].insert_many([maxim, nadja])
-            await database[Collection.SAISON_SPIELER].insert_many(
-                [
-                    documents.saison_spieler_document(maxim["_id"], SAISON, CLUBS["Alpha"], nummer="7", stufe="Q3"),
-                    documents.saison_spieler_document(nadja["_id"], SAISON, CLUBS["Delta"], nummer="9", stufe="Q3"),
-                ]
-            )
+    async def seed(database: AsyncDatabase) -> None:
+        await database[Collection.SAISONS].insert_many(
+            [documents.saison_document(SAISON, "active"), documents.saison_document(EARLIER, "past")]
+        )
+        await database[Collection.TEAMS].insert_many([documents.team_document(oid, name, name[:3].upper()) for name, oid in CLUBS.items()])
+        await database[Collection.SAISON_TEAMS].insert_many(
+            [
+                documents.saison_team_document(SAISON, CLUBS["Alpha"], "Alpha", "ALP"),
+                documents.saison_team_document(SAISON, CLUBS["Beta"], "Beta", "BET", austritt=dict(DISQUALIFIED)),
+                documents.saison_team_document(SAISON, CLUBS["Delta"], "Delta", "DEL"),
+                documents.saison_team_document(EARLIER, CLUBS["Gamma"], "Gamma", "GAM"),
+            ]
+        )
+        await database[Collection.SPIELTAGE].insert_one(documents.spieltag_document(SPIELTAG, SAISON, 2))
+        await database[Collection.SPIELE].insert_many(
+            [spiel(1, "Alpha", "Beta", "2:1"), spiel(2, "Beta", "Delta", "0:1"), spiel(3, "Delta", "Alpha")]
+        )
+        await database[Collection.SPIELER].insert_many([maxim, nadja])
+        await database[Collection.SAISON_SPIELER].insert_many(
+            [
+                documents.saison_spieler_document(maxim["_id"], SAISON, CLUBS["Alpha"], nummer="7", stufe="Q3"),
+                documents.saison_spieler_document(nadja["_id"], SAISON, CLUBS["Delta"], nummer="9", stufe="Q3"),
+            ]
+        )
 
-    on_the_seed_loop(_seed())
-
-    with unwritten(mongo_replica_set_url, DATABASE_NAME):
+    async with held_corpus(mongo_replica_set_url, DATABASE_NAME, seed):
         yield mongo_replica_set_url
 
 
-def on_a_league(url: str, body: Callable[[AsyncDatabase], Awaitable[Any]]) -> Any:
-    async def _run() -> Any:
-        return await body(shared_client(url)[DATABASE_NAME])
-
-    return on_the_seed_loop(_run())
+async def on_a_league(url: str, body: Callable[[AsyncDatabase], Awaitable[Any]]) -> Any:
+    return await body(shared_client(url)[DATABASE_NAME])
 
 
 def page_of(club: str) -> Callable[[AsyncDatabase], Awaitable[Any]]:
@@ -107,18 +97,18 @@ def page_of(club: str) -> Callable[[AsyncDatabase], Awaitable[Any]]:
 
 
 @pytest.mark.db
-def test_the_teams_page_lists_the_season_s_clubs_by_name_each_departure_marked(seeded_url: str):
+async def test_the_teams_page_lists_the_season_s_clubs_by_name_each_departure_marked(seeded_url: str):
     async def body(database: AsyncDatabase) -> Any:
         return await get_teams(saison_id=SAISON, saisons_collection=database[Collection.SAISONS], teams_collection=database[Collection.TEAMS])
 
-    response = on_a_league(seeded_url, body)
+    response = await on_a_league(seeded_url, body)
 
     assert [(team.name, team.austritt_type) for team in response.teams] == [("Alpha", None), ("Beta", "disqualifikation"), ("Delta", None)]
 
 
 @pytest.mark.db
-def test_the_club_page_holds_its_own_row_matches_and_squad(seeded_url: str):
-    response = on_a_league(seeded_url, page_of("Delta"))
+async def test_the_club_page_holds_its_own_row_matches_and_squad(seeded_url: str):
+    response = await on_a_league(seeded_url, page_of("Delta"))
 
     assert response.standing is not None
     assert (response.team.name, response.standing.id, response.standing.platz) == ("Delta", CLUBS["Delta"], 2)

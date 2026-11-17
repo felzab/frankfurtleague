@@ -5,6 +5,8 @@ from typing import Any
 from pymongo import AsyncMongoClient, monitoring
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.core.db import new_client
+
 Call = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
@@ -31,7 +33,7 @@ async def commands_by_name(url: str, database_name: str, call: Call) -> tuple[An
     """
 
     listener = _ByName()
-    counting = AsyncMongoClient(url, event_listeners=[listener])
+    counting = new_client(url, event_listeners=[listener])
     try:
         return await call(counting[database_name], counting), Counter(listener.names)
     finally:

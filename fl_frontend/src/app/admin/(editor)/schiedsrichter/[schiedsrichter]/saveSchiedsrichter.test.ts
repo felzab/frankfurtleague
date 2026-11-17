@@ -15,7 +15,7 @@ const STORED = {
     id: SCHIEDSRICHTER_ID,
     name: "Erika Muster",
     schule: "Goethe-Gymnasium",
-    kontakt: { email: "erika@example.de", phone: "069 1234567" },
+    kontakt: { email: "erika@example.net", phone: "069 90009123" },
     default_payment: 25,
     version: 9,
   },
@@ -53,7 +53,7 @@ describe("a referee's save", () => {
         body: {
           name: "Erika Neu",
           schule: "Goethe-Gymnasium",
-          kontakt: { email: "erika@example.de", phone: "069 1234567" },
+          kontakt: { email: "erika@example.net", phone: "069 90009123" },
           default_payment: 25,
           version: EDITOR_VERSION,
         },

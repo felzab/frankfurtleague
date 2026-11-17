@@ -1,13 +1,13 @@
 import { randomBytes } from "node:crypto";
 import { inspect } from "node:util";
 
-import { configDouble } from "@/test-support/authDoubles.ts";
-import { networkFailure, refusal, serveBackend } from "@/test-support/backend.ts";
-import { doubleNextRequest } from "@/test-support/nextRequest.ts";
-import { captureLog } from "@/test-support/stdoutCapture.ts";
+import { configDouble } from "@/test-support/authDoubles";
+import { networkFailure, refusal, serveBackend } from "@/test-support/backend";
+import { doubleNextRequest } from "@/test-support/nextRequest";
+import { captureLog } from "@/test-support/stdoutCapture";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Code, FLOutboxEventPayload } from "@/core/generated/client/types.ts";
+import type { Code, FLOutboxEventPayload } from "@/core/generated/client/types";
 
 /** Its own throwaway, minted per run: this file signs the events it verifies. */
 const webhookSecret = `whsec_${randomBytes(24).toString("base64")}`;
@@ -28,16 +28,16 @@ const backend = serveBackend(({ method, path }) => (method === "POST" && path ==
 const forwarded = (): FLOutboxEventPayload[] => backend.sent.map(({ body }) => body as FLOutboxEventPayload);
 
 // Varied per case: whether the deployment holds the webhook's key.
-vi.doMock("@/core/config.ts", () => configDouble({}, { resendWebhookSecret: () => heldSecret }));
+vi.doMock("@/core/config", () => configDouble({}, { resendWebhookSecret: () => heldSecret }));
 // The request's headers, which the real trace scope reads.
 doubleNextRequest();
 
-const { POST } = await import("./route.ts");
+const { POST } = await import("./route");
 const { NextRequest } = await import("next/server");
 const { Webhook } = await import("svix");
 
 const ROW_ID = `${"b".repeat(23)}2`;
-const ADDRESS = "erika@schule.de";
+const ADDRESS = "erika@schule.example.org";
 
 /** The envelope's own instant, which orders events; `data.created_at` is the message's and repeats. */
 const EVENT_AT = "2026-09-08T10:15:00.000Z";

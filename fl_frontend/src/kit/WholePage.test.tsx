@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import { startTransition } from "react";
 
-import { underNext } from "@/test-support/nextContexts";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { renderUnderNext } from "@/test-support/nextContexts";
+import { act, fireEvent, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { NavigationBar, NavigationLink, PageContent, WholePages } from "./WholePage";
 
+import type { NextContexts } from "@/test-support/nextContexts";
 import type NextLink from "next/link";
 import type { ComponentProps, ReactNode } from "react";
 
@@ -33,7 +34,7 @@ vi.mock("next/link", async (original) => ({
   },
 }));
 
-type Router = NonNullable<NonNullable<Parameters<typeof underNext>[1]>["router"]>;
+type Router = NonNullable<NextContexts["router"]>;
 
 /**
  * The navigations under way, each until its page arrives. React entangles every pending action app-wide, so one left
@@ -73,14 +74,12 @@ function heldRouter() {
 
 /** A page under `WholePages`, its content and the frame's bar beside it, as a frame places them. */
 function page(router: Router, content: ReactNode) {
-  return render(
-    underNext(
-      <WholePages>
-        <NavigationBar placement="rail" />
-        <PageContent>{content}</PageContent>
-      </WholePages>,
-      { router },
-    ),
+  return renderUnderNext(
+    <WholePages>
+      <NavigationBar placement="rail" />
+      <PageContent>{content}</PageContent>
+    </WholePages>,
+    { router },
   );
 }
 
@@ -163,26 +162,24 @@ describe("a navigation under `WholePages`", () => {
 
   // The harm: a prefetched sign-in is drawn for a signed-in person, whom the proxy, skipping a prefetch, never sends on.
   it("never prefetches the sign-in or an address under it, whatever the link asks", () => {
-    render(
-      underNext(
-        <>
-          <NavigationLink
-            href="/signin?return=%2Farea"
-            prefetch>
-            Konto
-          </NavigationLink>
-          <NavigationLink
-            href="/signin/passkey"
-            prefetch>
-            Passkey
-          </NavigationLink>
-          <NavigationLink
-            href="/signing-off"
-            prefetch>
-            Elsewhere
-          </NavigationLink>
-        </>,
-      ),
+    renderUnderNext(
+      <>
+        <NavigationLink
+          href="/signin?return=%2Farea"
+          prefetch>
+          Konto
+        </NavigationLink>
+        <NavigationLink
+          href="/signin/passkey"
+          prefetch>
+          Passkey
+        </NavigationLink>
+        <NavigationLink
+          href="/signing-off"
+          prefetch>
+          Elsewhere
+        </NavigationLink>
+      </>,
     );
 
     expect(prefetched.get("/signin?return=%2Farea")).toBe(false);

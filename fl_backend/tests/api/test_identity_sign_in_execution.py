@@ -1,46 +1,37 @@
-import asyncio
-import functools
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
 from typing import Any
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from httpx2 import Response
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identity import crud as identity_crud
 from app.api.identity.crud import roles_from
-from app.api.identity.schemas import FLSignInResponse, FLSubjectPayload
+from app.api.identity.schemas import FLSignInResponse
 from app.api.identity.services import own_entries, seat_saisons
-from app.api.identity.system_router import get_sign_in
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.main import create_app
 from app.shared.folding import sign_in_identifier
-from tests.app_client import app_client
+from tests.app_client import app_client, app_under_test
 from tests.config import SYSTEM_AUTH
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.documents import (
-    SCHIEDSRICHTER_TEXT_VERSIONS,
-    SPIELER_TEXT_VERSIONS,
+    AUSTRITT,
     ban_document,
     bewerbung_document,
+    confirmed_referee_document,
     kontakte_document,
     kontaktperson_document,
     new_schule_document,
-    own_einwilligung_document,
-    registrierung_document,
+    pupils_registrierung_document,
     saison_document,
     saison_team_document,
-    schiedsrichter_document,
     spieler_document,
 )
-from tests.records import record_collections
+from tests.records import call_sign_in, record_collections
 from tests.worker import worker_database
-
-from .conftest import AUSTRITT, config_for
 
 DATABASE_NAME = worker_database("fl_identity_sign_in_test")
 
@@ -51,26 +42,25 @@ ACTIVE_SAISON = "2526"
 STAMP = "2026-01-20"
 
 # One mailbox per case, each spelled so that a hit in the corpus cannot be a coincidence.
-SEAT_ACTIVE = "sitz.aktiv@schule.de"
-SEAT_PAST = "sitz.vergangen@schule.de"
-SEAT_EXITED = "sitz.ausgetreten@schule.de"
-SEAT_OPEN = "sitz.offen@schule.de"
-SEAT_EXITED_OPEN = "sitz.ausgetreten.offen@schule.de"
-BEWERBUNG_OPEN = "bewerbung.offen@schule.de"
-BEWERBUNG_DECIDED = "bewerbung.entschieden@schule.de"
-BEWERBUNG_UNCONFIRMED = "bewerbung.unbestaetigt@schule.de"
-SPIELER_ACTIVE = "spieler.aktiv@schule.de"
-SCHIEDSRICHTER_ACTIVE = "pfeife.aktiv@schule.de"
-SCHIEDSRICHTER_RETIRED = "pfeife.ruhestand@schule.de"
-SCHIEDSRICHTER_OPEN = "pfeife.offen@schule.de"
-SCHIEDSRICHTER_RETIRED_OPEN = "pfeife.ruhestand.offen@schule.de"
-# A registration stored as every payload stores an address, folded, and asked in another spelling.
-REGISTERED = "rita.registriert@schule.de"
-REGISTERED_STORED = REGISTERED
-REGISTERED_DECLINED = "rita.abgelehnt@schule.de"
-REGISTERED_OPEN = "rita.offen@schule.de"
-BARRED = "gerda.gesperrt@schule.de"
-ADMIN = "verena.verwaltung@schule.de"
+SEAT_ACTIVE = "sitz.aktiv@schule.example.org"
+SEAT_PAST = "sitz.vergangen@schule.example.org"
+SEAT_EXITED = "sitz.ausgetreten@schule.example.org"
+SEAT_OPEN = "sitz.offen@schule.example.org"
+SEAT_EXITED_OPEN = "sitz.ausgetreten.offen@schule.example.org"
+BEWERBUNG_OPEN = "bewerbung.offen@schule.example.org"
+BEWERBUNG_DECIDED = "bewerbung.entschieden@schule.example.org"
+BEWERBUNG_UNCONFIRMED = "bewerbung.unbestaetigt@schule.example.org"
+SPIELER_ACTIVE = "spieler.aktiv@schule.example.org"
+SCHIEDSRICHTER_ACTIVE = "pfeife.aktiv@schule.example.org"
+SCHIEDSRICHTER_RETIRED = "pfeife.ruhestand@schule.example.org"
+SCHIEDSRICHTER_OPEN = "pfeife.offen@schule.example.org"
+SCHIEDSRICHTER_RETIRED_OPEN = "pfeife.ruhestand.offen@schule.example.org"
+# A registration's address, stored folded as every payload stores one, and asked in another spelling.
+REGISTERED = "rita.registriert@schule.example.org"
+REGISTERED_DECLINED = "rita.abgelehnt@schule.example.org"
+REGISTERED_OPEN = "rita.offen@schule.example.org"
+BARRED = "gerda.gesperrt@schule.example.org"
+ADMIN = "verena.verwaltung@schule.example.org"
 NOBODY = "niemand.hierverzeichnet@example.com"
 
 TEAM_OIDS = [ObjectId(f"6890a1b2c3d4e5f6078600{n:02d}") for n in range(1, 8)]
@@ -95,12 +85,8 @@ def _seat(email: str, *, confirmed_at: str | None = STAMP) -> dict[str, Any]:
     return kontaktperson_document("Anna", confirmed_at=confirmed_at, email=email)
 
 
-def _kontakte(**seats: Any) -> dict[str, Any]:
-    return kontakte_document(**seats)
-
-
 def _row(team_id: ObjectId, saison_id: str, shorthand: str, *, austritt: Mapping[str, Any] | None = None, **seats: Any) -> dict[str, Any]:
-    return saison_team_document(saison_id, team_id, f"Schule {shorthand}", shorthand, austritt=austritt, kontakte=_kontakte(**seats))
+    return saison_team_document(saison_id, team_id, f"Schule {shorthand}", shorthand, austritt=austritt, kontakte=kontakte_document(**seats))
 
 
 def _bewerbung(oid: ObjectId, *, status: str, trainer: Mapping[str, Any]) -> dict[str, Any]:
@@ -110,50 +96,10 @@ def _bewerbung(oid: ObjectId, *, status: str, trainer: Mapping[str, Any]) -> dic
         oid,
         ACTIVE_SAISON,
         status,
-        kontakte=_kontakte(trainer=dict(trainer)),
+        kontakte=kontakte_document(trainer=dict(trainer)),
         submitted_at="2026-01-01",
         confirmation_deadline="2026-01-15",
         schule=new_schule_document(f"Bewerberschule {oid}"),
-    )
-
-
-def _referee(oid: Any, email: str, name: str, **fields: Any) -> dict[str, Any]:
-    return schiedsrichter_document(
-        oid,
-        email=email,
-        name=name,
-        default_payment=20,
-        **{"einwilligung": own_einwilligung_document(text_versions=SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at=STAMP), **fields},
-    )
-
-
-def _registrierung(oid: ObjectId, email: str, *, confirmed: bool = True, **fields: Any) -> dict[str, Any]:
-    """A registration as the submission and, where `confirmed`, the pupil's own confirmation leave it."""
-
-    return registrierung_document(
-        oid,
-        email,
-        saison_id=ACTIVE_SAISON,
-        team_id=TEAM_OIDS[0],
-        first_name="Rita",
-        last_name="Registriert",
-        token=str(oid),
-        submitted_at="2026-01-02",
-        deadline="2026-01-09",
-        position="Mittelfeld",
-        nummer="17",
-        stufe="Q1",
-        confirmed=None
-        if not confirmed
-        else {
-            "birth_date": "2009-05-04",
-            "scope": "internal",
-            "media": False,
-            "text_versions": SPIELER_TEXT_VERSIONS,
-            "today": "2026-01-03",
-            "at": "2026-01-03T08:00:00+00:00",
-        },
-        **fields,
     )
 
 
@@ -187,13 +133,16 @@ async def _seed(database: AsyncDatabase) -> None:
     )
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [
-            _referee(SCHIEDSRICHTER_ACTIVE_OID, SCHIEDSRICHTER_ACTIVE, "A. Aktiv"),
-            _referee(SCHIEDSRICHTER_RETIRED_OID, SCHIEDSRICHTER_RETIRED, "B. Ruhestand", inactive_since="2026-03-01"),
-            _referee(SCHIEDSRICHTER_OPEN_OID, SCHIEDSRICHTER_OPEN, "C. Offen", einwilligung=None),
-            _referee(
+            confirmed_referee_document(SCHIEDSRICHTER_ACTIVE_OID, SCHIEDSRICHTER_ACTIVE, "A. Aktiv", confirmed_at=STAMP),
+            confirmed_referee_document(
+                SCHIEDSRICHTER_RETIRED_OID, SCHIEDSRICHTER_RETIRED, "B. Ruhestand", confirmed_at=STAMP, inactive_since="2026-03-01"
+            ),
+            confirmed_referee_document(SCHIEDSRICHTER_OPEN_OID, SCHIEDSRICHTER_OPEN, "C. Offen", confirmed_at=STAMP, einwilligung=None),
+            confirmed_referee_document(
                 SCHIEDSRICHTER_RETIRED_OPEN_OID,
                 SCHIEDSRICHTER_RETIRED_OPEN,
                 "E. Ruhestand-Offen",
+                confirmed_at=STAMP,
                 inactive_since="2026-03-01",
                 einwilligung=None,
             ),
@@ -201,9 +150,26 @@ async def _seed(database: AsyncDatabase) -> None:
     )
     await database[Collection.REGISTRIERUNGEN].insert_many(
         [
-            _registrierung(REGISTRIERUNG_OID, REGISTERED_STORED),
-            _registrierung(REGISTRIERUNG_DECLINED_OID, REGISTERED_DECLINED, status="declined"),
-            _registrierung(REGISTRIERUNG_OPEN_OID, REGISTERED_OPEN, confirmed=False),
+            pupils_registrierung_document(
+                REGISTRIERUNG_OID, REGISTERED, saison_id=ACTIVE_SAISON, team_id=TEAM_OIDS[0], token=str(REGISTRIERUNG_OID), confirmed=True
+            ),
+            pupils_registrierung_document(
+                REGISTRIERUNG_DECLINED_OID,
+                REGISTERED_DECLINED,
+                saison_id=ACTIVE_SAISON,
+                team_id=TEAM_OIDS[0],
+                token=str(REGISTRIERUNG_DECLINED_OID),
+                confirmed=True,
+                status="declined",
+            ),
+            pupils_registrierung_document(
+                REGISTRIERUNG_OPEN_OID,
+                REGISTERED_OPEN,
+                saison_id=ACTIVE_SAISON,
+                team_id=TEAM_OIDS[0],
+                token=str(REGISTRIERUNG_OPEN_OID),
+                confirmed=False,
+            ),
         ]
     )
     await database[Collection.BAN_LIST].insert_one(ban_document(BARRED, until=ACTIVE_SAISON))
@@ -220,41 +186,26 @@ async def _seed(database: AsyncDatabase) -> None:
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Body) -> Any:
+async def on_a_league(url: str, body: Body) -> Any:
     """The shipped indexes, so every seeded row meets the constraints a real one meets."""
 
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
-            await _seed(database)
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
+        await _seed(database)
 
-            return await body(database)
-
-    return on_the_seed_loop(_run())
+        return await body(database)
 
 
-async def call_sign_in(database: AsyncDatabase, email: str) -> FLSignInResponse:
-    async with database.client.start_session(snapshot=True) as session:
-        return await get_sign_in(
-            sign_in_data=FLSubjectPayload(email=email),
-            records=record_collections(database),
-            ban_list_collection=database[Collection.BAN_LIST],
-            grants_collection=database[Collection.GRANTS],
-            session=session,
-            germany_now=datetime(2026, 6, 1, tzinfo=UTC),
-        )
+async def answered(url: str, email: str) -> FLSignInResponse:
+    return await on_a_league(url, lambda database: call_sign_in(database, email, germany_now=datetime(2026, 6, 1, tzinfo=UTC)))
 
 
-def answered(url: str, email: str) -> FLSignInResponse:
-    return on_a_league(url, lambda database: call_sign_in(database, email))
-
-
-def own_records(url: str, email: str) -> frozenset[tuple[str, Any]]:
+async def own_records(url: str, email: str) -> frozenset[tuple[str, Any]]:
     async def body(database: AsyncDatabase) -> frozenset[tuple[str, Any]]:
         _, entries = await identity_crud.find_own_entries(sign_in_identifier(email), record_collections(database))
 
         return entries
 
-    return on_a_league(url, body)
+    return await on_a_league(url, body)
 
 
 @pytest.mark.db
@@ -274,11 +225,11 @@ class TestWhatCountsAsAnOwnRecord:
             pytest.param(REGISTERED, ("registrierungen", REGISTRIERUNG_OID), id="a confirmed registration"),
         ],
     )
-    def test_a_confirmed_record_is_the_mailbox_s_own_and_admits_it(self, mongo_replica_set_url: str, email: str, entry: tuple[str, Any]):
+    async def test_a_confirmed_record_is_the_mailbox_s_own_and_admits_it(self, mongo_replica_set_url: str, email: str, entry: tuple[str, Any]):
         """The whole set, so a case naming the right record beside a wrong one fails too."""
 
-        assert own_records(mongo_replica_set_url, email) == {entry}
-        assert answered(mongo_replica_set_url, email).account is True
+        assert await own_records(mongo_replica_set_url, email) == {entry}
+        assert (await answered(mongo_replica_set_url, email)).account is True
 
     @pytest.mark.parametrize(
         "email",
@@ -288,37 +239,40 @@ class TestWhatCountsAsAnOwnRecord:
             pytest.param(BEWERBUNG_UNCONFIRMED, id="an unconfirmed seat on a pending application"),
             pytest.param(SCHIEDSRICHTER_OPEN, id="an unconfirmed referee"),
             pytest.param(SCHIEDSRICHTER_RETIRED_OPEN, id="an unconfirmed retired referee"),
-            pytest.param(SCHIEDSRICHTER_ACTIVE.replace("@schule.de", "@anderswo.de"), id="a confirmed referee's local part at another domain"),
+            pytest.param(
+                SCHIEDSRICHTER_ACTIVE.replace("@schule.example.org", "@anderswo.example.org"),
+                id="a confirmed referee's local part at another domain",
+            ),
             pytest.param(SEAT_EXITED_OPEN, id="an unconfirmed seat on a withdrawn team's row"),
             pytest.param(REGISTERED_DECLINED, id="a declined registration"),
             pytest.param(REGISTERED_OPEN, id="an unconfirmed registration"),
             pytest.param(NOBODY, id="nothing at all"),
         ],
     )
-    def test_a_record_holding_no_consent_of_its_own_person_admits_nothing(self, mongo_replica_set_url: str, email: str):
-        assert own_records(mongo_replica_set_url, email) == frozenset()
-        assert answered(mongo_replica_set_url, email).account is False
+    async def test_a_record_holding_no_consent_of_its_own_person_admits_nothing(self, mongo_replica_set_url: str, email: str):
+        assert await own_records(mongo_replica_set_url, email) == frozenset()
+        assert (await answered(mongo_replica_set_url, email)).account is False
 
 
 @pytest.mark.db
 class TestTheFlagsBesideIt:
-    def test_records_awaiting_confirmation_raise_the_subject_s_flag_and_admit_nothing_else(self, mongo_replica_set_url: str):
+    async def test_records_awaiting_confirmation_raise_the_subject_s_flag_and_admit_nothing_else(self, mongo_replica_set_url: str):
         """The flag is `POST /identity/subject`'s own; only the records granting a panel raise it."""
 
-        assert [(answered(mongo_replica_set_url, email).unconfirmed) for email in (SEAT_OPEN, BEWERBUNG_UNCONFIRMED)] == [
+        assert [((await answered(mongo_replica_set_url, email)).unconfirmed) for email in (SEAT_OPEN, BEWERBUNG_UNCONFIRMED)] == [
             True,
             False,
         ]
 
-    def test_a_barred_address_is_flagged_and_still_counted(self, mongo_replica_set_url: str):
+    async def test_a_barred_address_is_flagged_and_still_counted(self, mongo_replica_set_url: str):
         """The ban narrows nothing beside it: refusing the barred holder is the gate's own decision."""
 
-        answer = answered(mongo_replica_set_url, BARRED)
+        answer = await answered(mongo_replica_set_url, BARRED)
 
         assert (answer.barred, answer.account) == (True, True)
 
-    def test_a_grant_is_answered_beside_records_it_does_not_need(self, mongo_replica_set_url: str):
-        answer = answered(mongo_replica_set_url, ADMIN)
+    async def test_a_grant_is_answered_beside_records_it_does_not_need(self, mongo_replica_set_url: str):
+        answer = await answered(mongo_replica_set_url, ADMIN)
 
         assert (answer.admin_tier, answer.account, answer.barred) == ("administration", False, False)
 
@@ -338,7 +292,7 @@ def test_every_role_list_is_drawn_from_the_own_records():
     are pure over the rows the subject's reads hand them, so the rows are given as those reads leave them.
     """
 
-    identifier = "ortrud.zwiebelmayer@schule.de"
+    identifier = "ortrud.zwiebelmayer@schule.example.org"
     seat_rows: list[Mapping[str, Any]] = [
         {
             **_row(TEAM_OIDS[4], ACTIVE_SAISON, "OZX", trainer=_seat(identifier), ansprechperson=_seat(identifier, confirmed_at=None)),
@@ -346,7 +300,9 @@ def test_every_role_list_is_drawn_from_the_own_records():
             "saison": [{"status": "active", "start_date": "2026-01-01", "end_date": "2026-12-31"}],
         }
     ]
-    referee_rows: list[Mapping[str, Any]] = [_referee(ObjectId(), identifier, "O. Zwiebelmayer", einwilligung=None)]
+    referee_rows: list[Mapping[str, Any]] = [
+        confirmed_referee_document(ObjectId(), identifier, "O. Zwiebelmayer", confirmed_at=STAMP, einwilligung=None)
+    ]
     pupil_rows: list[Mapping[str, Any]] = [spieler_document(ObjectId(), "Ortrud", "Zwiebelmayer", email=identifier)]
 
     subject = roles_from(identifier, seat_rows=seat_rows, referee_rows=referee_rows, pupil_rows=pupil_rows)
@@ -361,25 +317,20 @@ def test_every_role_list_is_drawn_from_the_own_records():
     assert subject.schiedsrichter == []
 
 
-@functools.cache
-def _served() -> FastAPI:
-    return create_app(config_for(DATABASE_NAME))
-
-
 @pytest.mark.db
-def test_the_mounted_route_answers_the_four_flags_and_nothing_else(mongo_replica_set_url: str):
+async def test_the_mounted_route_answers_the_four_flags_and_nothing_else(mongo_replica_set_url: str):
     """The whole body through the mounted route: a lookup bound to the wrong handle answers a flag false, which no keyword call can tell."""
 
     async def _no_body(_: AsyncDatabase) -> None:
         return None
 
-    on_a_league(mongo_replica_set_url, _no_body)
+    await on_a_league(mongo_replica_set_url, _no_body)
 
     async def _answered() -> Response:
-        async with app_client(mongo_replica_set_url, app=_served()) as http:
-            return await http.post(PATH, headers=SYSTEM_AUTH, json={"email": REGISTERED_STORED.upper()})
+        async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME)) as http:
+            return await http.post(PATH, headers=SYSTEM_AUTH, json={"email": REGISTERED.upper()})
 
-    response = asyncio.run(_answered())
+    response = await _answered()
 
     assert response.status_code == 200
     assert response.json() == {"unconfirmed": False, "account": True, "barred": False, "admin_tier": None}

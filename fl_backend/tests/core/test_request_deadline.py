@@ -1,21 +1,22 @@
 import asyncio
 import enum
 import functools
+import json
 import logging
 import re
 import time
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from contextvars import ContextVar
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import Any, Final, NamedTuple
 
 import pytest
 from bson import ObjectId
 from fastapi import FastAPI
 from httpx2 import ASGITransport, AsyncClient
-from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
+from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import ExecutionTimeout
 
 from app.core import middlewares
@@ -23,7 +24,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import post_one_to_db
-from app.core.db import CLOSE_TIMEOUT_S, collection_dependency
+from app.core.db import CLOSE_TIMEOUT_S, collection_dependency, new_client
 from app.core.logging import fl_logger
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.core.transactions import ABORT_GRACE_S, transaction_session
@@ -31,23 +32,25 @@ from app.main import create_app, create_shell
 from app.shared.tokens import hash_token
 from tests.boot import image_command
 from tests.config import ADMIN_KEY, TEST_BASE_URL, build_test_config, grants_for_the_suite
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import LONGEST_WAIT_S, a_clean_database, held_corpus
 from tests.documents import kontaktperson_document, rules_document, saison_document, saison_team_document
 from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 
-FETCH_CEILING = re.compile(r"const FETCH_TIMEOUT_MS = (\d+);")
-FRONTEND_API = BACKEND_ROOT.parent / "fl_frontend" / "src" / "core" / "api.ts"
+# The frontend's bound on each call to this API, which the frontend's suite holds `FETCH_TIMEOUT_MS` to.
+FETCH_TIMEOUT_MS: Final[int] = json.loads((BACKEND_ROOT / "tests" / "shared" / "drain_bounds.json").read_bytes())["fetch_timeout_ms"]
 
 # Far under the stall's 60 s, what the case below would wait with no deadline, so an answer in time can
 # only be the deadline's doing.
-ANSWERED_WITHIN_S = REQUEST_DEADLINE_S + 10
+ANSWERED_WITHIN_S = LONGEST_WAIT_S
 
 ADMIN_HEADERS = StampedHeaders("admin@frankfurtleague.de", ADMIN_KEY)
 
 DATABASE_NAME = worker_database("fl_request_deadline_test")
+# The cuts' own, held for the module that reads what they answered while its other cases clear `DATABASE_NAME`.
+CUTS_DATABASE_NAME = worker_database("fl_request_deadline_cuts_test")
 
 
 class TestTheDeadlinesTheApplicationSets:
@@ -57,12 +60,9 @@ class TestTheDeadlinesTheApplicationSets:
         Those run one grace between them, as `app/core/middlewares.py :: RequestDeadline` counts it.
         """
 
-        ceiling = FETCH_CEILING.search(FRONTEND_API.read_text(encoding="utf-8"))
-        assert ceiling is not None, f"{FRONTEND_API} no longer declares `FETCH_TIMEOUT_MS` where `FETCH_CEILING` looks"
-
         # Positive, because pymongo reads a zero deadline as none at all.
-        assert 0 < REQUEST_DEADLINE_S < int(ceiling[1]) / 1000
-        assert 0 < ABORT_GRACE_S < int(ceiling[1]) / 1000 - REQUEST_DEADLINE_S
+        assert 0 < REQUEST_DEADLINE_S < FETCH_TIMEOUT_MS / 1000
+        assert 0 < ABORT_GRACE_S < FETCH_TIMEOUT_MS / 1000 - REQUEST_DEADLINE_S
 
 
 COMPOSE_FILE = BACKEND_ROOT.parent / "docker-compose.yml"
@@ -99,6 +99,8 @@ def _backend_stop_grace() -> int:
     return int(grace[0])
 
 
+# Reads the compose file and the Dockerfile as text, where a test keeps to its own surface: the budgets
+# live in three files of three parts, so wherever this check stood it would read two of them as text.
 class TestAStoppedContainerOutlastsEveryRequest:
     """Four budgets nested, each inside the next, or the outer one cuts what the inner one allows."""
 
@@ -160,7 +162,7 @@ class _Transacted(NamedTuple):
 async def _transactions_held(url: str, session_ids: list[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
     """Through a client of its own: the route's would hand this read the session it asks about, then listed as this read rather than idle."""
 
-    async with AsyncMongoClient(url) as probe:
+    async with new_client(url) as probe:
         listed = await probe.admin.aggregate(
             [
                 {"$currentOp": {"allUsers": True, "idleSessions": True}},
@@ -199,8 +201,8 @@ async def _transacted(url: str, cut: _Cut) -> _Transacted:
     On a client of its own, whose sessions no other cut's transaction can be handed once this one ends.
     """
 
-    async with AsyncMongoClient(url) as client:
-        written = client[DATABASE_NAME][Collection.ACTION_LOG]
+    async with new_client(url) as client:
+        written = client[CUTS_DATABASE_NAME][Collection.ACTION_LOG]
         mark = {"cut": cut.value}
 
         sessions: list[Mapping[str, Any]] = []
@@ -221,10 +223,13 @@ async def _transacted(url: str, cut: _Cut) -> _Transacted:
             async with transaction_session(client) as session:
                 await session.with_transaction(write_then_wait)
 
-        _TRANSACTION.set(transacting)
-        transport = ASGITransport(app=_served(), raise_app_exceptions=False)
-        async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-            response = await http.post("/transacting")
+        token = _TRANSACTION.set(transacting)
+        try:
+            transport = ASGITransport(app=_served(), raise_app_exceptions=False)
+            async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
+                response = await http.post("/transacting")
+        finally:
+            _TRANSACTION.reset(token)
 
         held = await _transactions_held(url, sessions)
         error_code = None if response.status_code == 200 else response.json()["error_code"]
@@ -232,17 +237,18 @@ async def _transacted(url: str, cut: _Cut) -> _Transacted:
 
 
 @pytest.fixture(scope="module")
-def cut_transactions(mongo_replica_set_url: str) -> Mapping[_Cut, _Transacted]:
+async def cut_transactions(mongo_replica_set_url: str) -> AsyncIterator[Mapping[_Cut, _Transacted]]:
     """Every cut at once, each in a request of its own: each waits out the whole deadline, and together they wait it once."""
 
-    async def body() -> dict[_Cut, _Transacted]:
-        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=False):
-            cuts = list(_Cut)
-            transacted = await asyncio.gather(*(_transacted(mongo_replica_set_url, cut) for cut in cuts))
+    async def cut_each(_: AsyncDatabase) -> dict[_Cut, _Transacted]:
+        # A group rather than a gather, which leaves the other cuts running once one raises.
+        async with asyncio.TaskGroup() as group:
+            running = {cut: group.create_task(_transacted(mongo_replica_set_url, cut)) for cut in _Cut}
 
-            return dict(zip(cuts, transacted, strict=True))
+        return {cut: task.result() for cut, task in running.items()}
 
-    return on_the_seed_loop(body())
+    async with held_corpus(mongo_replica_set_url, CUTS_DATABASE_NAME, cut_each, constraints=False) as transacted:
+        yield transacted
 
 
 @pytest.mark.db
@@ -288,7 +294,7 @@ def _seeded_link(team_id: ObjectId) -> dict[str, Any]:
 
 
 def _junction_row(team_id: ObjectId) -> dict[str, Any]:
-    trainer = kontaktperson_document(TEAM_NAMES[team_id], confirmed_at="2026-03-20", last_name="Mustermann", phone="+49 69 1234567")
+    trainer = kontaktperson_document(TEAM_NAMES[team_id], confirmed_at="2026-03-20", last_name="Mustermann", phone="+49 69 90009123")
 
     return saison_team_document(
         SAISON_ID,
@@ -353,7 +359,7 @@ def pressing_app() -> FastAPI:
     return create_app(build_test_config().model_copy(update={"db_base_name": DATABASE_NAME}))
 
 
-def _pressed(served: FastAPI, url: str, stand_in: Callable[[AsyncCollection], Any]) -> Pressed:
+async def _pressed(served: FastAPI, url: str, stand_in: Callable[[AsyncCollection], Any]) -> Pressed:
     """One press over ASGI, the route handed `stand_in` for its `invitations` collection.
 
     Answers the status, the time, the press's three counts, each team's live links and its seeded link.
@@ -361,58 +367,55 @@ def _pressed(served: FastAPI, url: str, stand_in: Callable[[AsyncCollection], An
 
     seeded = {team_id: _seeded_link(team_id) for team_id in TEAM_NAMES}
 
-    async def body() -> Pressed:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            await database[Collection.SAISONS].insert_one(
-                saison_document(
-                    SAISON_ID,
-                    "active",
-                    rules=rules_document(number_of_gruppen=2, max_kader_size=50, allowed_stufen=["E1"]),
-                    registrierung={"open": True, "end": "2026-04-30"},
-                )
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+        await database[Collection.SAISONS].insert_one(
+            saison_document(
+                SAISON_ID,
+                "active",
+                rules=rules_document(number_of_gruppen=2, max_kader_size=50, allowed_stufen=["E1"]),
+                registrierung={"open": True, "end": "2026-04-30"},
             )
-            await database[Collection.SAISON_TEAMS].insert_many([_junction_row(team_id) for team_id in TEAM_NAMES])
-            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
-            await database[Collection.INVITATIONS].insert_many(list(seeded.values()))
+        )
+        await database[Collection.SAISON_TEAMS].insert_many([_junction_row(team_id) for team_id in TEAM_NAMES])
+        await database[Collection.GRANTS].insert_many(grants_for_the_suite())
+        await database[Collection.INVITATIONS].insert_many(list(seeded.values()))
 
-            # The tier's shared client: closing it belongs to `tests/database.py :: _release`.
-            served.state.db_client = client
-            invitations = collection_dependency(Collection.INVITATIONS)
-            served.dependency_overrides[invitations] = lambda: stand_in(database[Collection.INVITATIONS])
+        # The tier's shared client: closing it belongs to `tests/database.py :: close_the_shared_clients`.
+        served.state.db_client = client
+        invitations = collection_dependency(Collection.INVITATIONS)
+        served.dependency_overrides[invitations] = lambda: stand_in(database[Collection.INVITATIONS])
 
-            try:
-                transport = ASGITransport(app=served, raise_app_exceptions=False)
-                async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                    started = time.monotonic()
-                    response = await http.post(DISPATCH_PATH, headers=ADMIN_HEADERS)
-                    elapsed = time.monotonic() - started
-            finally:
-                # The app outlives the case, so the stand-in goes with it.
-                del served.dependency_overrides[invitations]
+        try:
+            transport = ASGITransport(app=served, raise_app_exceptions=False)
+            async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
+                started = time.monotonic()
+                response = await http.post(DISPATCH_PATH, headers=ADMIN_HEADERS)
+                elapsed = time.monotonic() - started
+        finally:
+            # The app outlives the case, so the stand-in goes with it.
+            del served.dependency_overrides[invitations]
 
-            answer = response.json()
-            live = {
-                team_id: [row["_id"] async for row in database[Collection.INVITATIONS].find({"team_id": team_id, "revoked_at": None})]
-                for team_id in TEAM_NAMES
-            }
+        answer = response.json()
+        live = {
+            team_id: [row["_id"] async for row in database[Collection.INVITATIONS].find({"team_id": team_id, "revoked_at": None})]
+            for team_id in TEAM_NAMES
+        }
 
-            return (
-                response.status_code,
-                elapsed,
-                (answer["mailed"], answer["skipped"], answer["failed"]),
-                live,
-                {team_id: row["_id"] for team_id, row in seeded.items()},
-            )
-
-    return on_the_seed_loop(body())
+        return (
+            response.status_code,
+            elapsed,
+            (answer["mailed"], answer["skipped"], answer["failed"]),
+            live,
+            {team_id: row["_id"] for team_id, row in seeded.items()},
+        )
 
 
 @pytest.mark.db
 class TestTheSendPastItsDeadline:
-    def test_no_team_is_revoked_after_the_page_has_stopped_waiting(self, pressing_app: FastAPI, mongo_replica_set_url: str):
+    async def test_no_team_is_revoked_after_the_page_has_stopped_waiting(self, pressing_app: FastAPI, mongo_replica_set_url: str):
         """The press whose database stops answering mid-loop: a link revoked after the deadline is one whose replacement nobody receives."""
 
-        status, elapsed, counts, live, seeded = _pressed(pressing_app, mongo_replica_set_url, _StallsOneTeam)
+        status, elapsed, counts, live, seeded = await _pressed(pressing_app, mongo_replica_set_url, _StallsOneTeam)
 
         assert status == 200
         assert elapsed < ANSWERED_WITHIN_S
@@ -422,13 +425,13 @@ class TestTheSendPastItsDeadline:
         assert live[STALLED] == [seeded[STALLED]]
         assert live[AFTER_THE_DEADLINE] == [seeded[AFTER_THE_DEADLINE]]
 
-    def test_a_commit_of_unknown_outcome_is_logged_as_unknown(
+    async def test_a_commit_of_unknown_outcome_is_logged_as_unknown(
         self, pressing_app: FastAPI, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
     ):
         """Never as failed: that line tells the operator the earlier link still opens, where the commit may have revoked it."""
 
         with caplog.at_level(logging.ERROR, logger=fl_logger.name):
-            status, _, counts, _, _ = _pressed(pressing_app, mongo_replica_set_url, _CommitOfUnknownOutcomeForOneTeam)
+            status, _, counts, _, _ = await _pressed(pressing_app, mongo_replica_set_url, _CommitOfUnknownOutcomeForOneTeam)
 
         assert status == 200
         assert counts == (2, 0, 1)

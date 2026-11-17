@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { serveBackend } from "@/test-support/backend";
+import { renderUnderNext } from "@/test-support/nextContexts";
 import { signedInRequest } from "@/test-support/session";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -9,6 +10,7 @@ import { COPY } from "@/core/copy";
 import { LINEUP_WORDS } from "@/features/aufstellungen/players";
 
 import type { FLAufstellungResponse } from "@/core/generated/client/types";
+import type { NextContexts } from "@/test-support/nextContexts";
 
 const TEAM = "6890a1b2c3d4e5f607250012";
 const OTHER_TEAM = "6890a1b2c3d4e5f607250011";
@@ -17,14 +19,7 @@ const PUPIL = "6890a1b2c3d4e5f607250031";
 
 const state = vi.hoisted(() => ({ sent: [] as unknown[] }));
 
-vi.mock("next/navigation", () => ({
-  notFound: () => {
-    throw new Error("not found");
-  },
-  usePathname: () => "/admin/saisons/2027/spiele/spiel/aufstellung/team",
-  useParams: () => ({}),
-  useRouter: () => ({ push: () => undefined, replace: () => undefined, refresh: () => undefined }),
-}));
+const AT_ADDRESS: NextContexts = { pathname: "/admin/saisons/2027/spiele/spiel/aufstellung/team", params: {} };
 // The save is a server function, which the editor calls over the network as a client: what it was handed is the outcome.
 vi.mock("./saveAufstellung", () => ({
   saveAufstellung: async (input: unknown) => {
@@ -67,11 +62,12 @@ describe("a club's line-up at the league's address", () => {
   // The harm: a save sent for the other club of the match, or another match, which writes that line-up unseen and
   // answers „Gespeichert“; past the team's lock, too, the league's editor stands open.
   it("saves for the match and the club the page read, on the version it read, the team's lock past", async () => {
-    render(
+    renderUnderNext(
       await AdminAufstellungPage({
         params: Promise.resolve({ saison: "2027", spiel: SPIEL, team: TEAM }),
         searchParams: Promise.resolve({}),
       }),
+      AT_ADDRESS,
     );
 
     // The squad's one pupil: „Aufstellen“ is that pupil's alone.

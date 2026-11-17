@@ -33,6 +33,15 @@ async def outcome_of(call: Awaitable[Any]) -> str:
     return COMMITTED
 
 
+async def refused_code(call: Awaitable[Any]) -> str:
+    """The code of the refusal `call` must meet, failing the case where it lands instead."""
+
+    with pytest.raises(APIError) as refused:
+        await call
+
+    return str(refused.value.error_code)
+
+
 class InterleavedCollection:
     """A collection one write reaches through, running a rival write inside it once, at one operation.
 
@@ -89,3 +98,23 @@ class InterleavedCollection:
         if self._rival is not None:
             rival, self._rival = self._rival, None
             await rival()
+
+
+class GrantsRunningARivalAfterTheFirstRead(InterleavedCollection):
+    """The grants a judging transaction reads, a rival write run once after that read and before its anchor.
+
+    So only the anchor can make the two conflict.
+    """
+
+    def __init__(self, collection: Any, rival: Rival) -> None:
+        async def reported() -> None:
+            self.rival_outcome = await outcome_of(rival())
+
+        super().__init__(collection, reported)
+        self.rival_outcome: str | None = None
+
+    async def aggregate(self, *args: Any, **kwargs: Any) -> Any:
+        cursor = await self._collection.aggregate(*args, **kwargs)
+        await self.run_the_rival()
+
+        return cursor

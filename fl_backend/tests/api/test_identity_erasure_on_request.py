@@ -1,20 +1,17 @@
 """
 API · an administrator's erasure on a mailed request, held against the person's own erasure's whole-database seed
 
-The seed is `tests/api/test_identity_erasure_execution.py`'s, one address holding every kind of record, beside
+The seed is `tests/erasure_corpus.py`'s, one address holding every kind of record, beside
 the suite's grants an administrator signs in through. Every case asks what the database holds after
 the request, so a step, a refusal or a reset missing from the route fails here.
 """
 
-import asyncio
-import functools
 import logging
 from collections.abc import Awaitable, Callable, Iterator, Mapping
 from typing import Any, cast
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from httpx2 import AsyncClient, Response
 from pydantic import ValidationError
 from pymongo import AsyncMongoClient
@@ -29,20 +26,13 @@ from app.core.config import API_VERSION
 from app.core.crud import ANCHOR_FIELD
 from app.core.db import collection_dependency
 from app.core.exceptions import APIError
-from app.core.recording import actor_var
-from app.main import create_app
-from tests.app_client import app_client
+from tests.acts import journal_records
+from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_KEY, ADMINISTRATORS, grants_for_the_suite
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.documents import address_change_document, spiel_document, spieler_document
-from tests.erasure import erasure_collections, what_the_erasure_took
-from tests.isolation import InterleavedCollection
-from tests.session_headers import StampedHeaders
-from tests.whole_database import where_held
-from tests.worker import worker_database
-
-from .conftest import config_for
-from .test_identity_erasure_execution import (
+from tests.erasure import erased_on_request, what_the_erasure_took
+from tests.erasure_corpus import (
     FIRST_NAME,
     IDENTIFIER,
     LAST_NAME,
@@ -60,13 +50,14 @@ from .test_identity_erasure_execution import (
     a_person_holding_everything,
     as_person,
     everything_in,
-    journal_records,
 )
-from .test_identity_erasure_execution import PATH as OWN_ERASURE_PATH
+from tests.erasure_corpus import PATH as OWN_ERASURE_PATH
+from tests.isolation import InterleavedCollection
+from tests.session_headers import StampedHeaders
+from tests.whole_database import where_held
+from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_erasure_on_request_test")
-
-CONFIG = config_for(DATABASE_NAME)
 
 PATH = f"/api/v{API_VERSION}/identity/erasure"
 VIEW_PATH = f"{PATH}/view"
@@ -84,45 +75,27 @@ REASON = "Mail vom 30.03.2026, Betreff: Bitte löscht alle meine Daten"
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-@functools.cache
-def _app() -> FastAPI:
-    return create_app(CONFIG)
-
-
-@pytest.fixture(scope="module", autouse=True)
-def _built_before_any_case() -> None:
-    """Never inside a case: a build re-runs the logging `dictConfig`, which strips the handler `caplog` reads that case's records from."""
-
-    _app()
-
-
-def on_a_league(url: str, body: Body) -> Any:
+async def on_a_league(url: str, body: Body) -> Any:
     """The person holding everything, beside the suite's grants, on the shipped indexes."""
 
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
-            await a_person_holding_everything(database)
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+        await database[Collection.GRANTS].insert_many(grants_for_the_suite())
+        await a_person_holding_everything(database)
 
-            return await body(database, client)
-
-    return on_the_seed_loop(_run())
+        return await body(database, client)
 
 
-def on_a_league_of_its_own(url: str, body: Body) -> Any:
+async def on_a_league_of_its_own(url: str, body: Body) -> Any:
     """The suite's grants alone, the body seeding what else it needs."""
 
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+        await database[Collection.GRANTS].insert_many(grants_for_the_suite())
 
-            return await body(database, client)
-
-    return on_the_seed_loop(_run())
+        return await body(database, client)
 
 
 async def posted(url: str, path: str, body: Mapping[str, Any], *, by: str = OPERATOR) -> Response:
-    async with app_client(url, app=_app(), now=NOW) as http:
+    async with app_client(url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
         return await http.post(path, json=dict(body), headers=StampedHeaders(by, ADMIN_KEY))
 
 
@@ -139,17 +112,7 @@ async def erased_by_the_handler(
 ) -> None:
     """The route's own function outside a request, as `OPERATOR`, for a case driving the driver itself."""
 
-    token = actor_var.set(OPERATOR)
-    try:
-        await post_erasure(
-            erasure_data=FLErasurePayload(email=email, reason=reason),
-            **erasure_collections(database, **replaced),
-            db=client,
-            operator=OPERATOR,
-            germany_now=NOW,
-        )
-    finally:
-        actor_var.reset(token)
+    await erased_on_request(database, client, email=email, reason=reason, by=OPERATOR, germany_now=NOW, **replaced)
 
 
 def _object_ids(value: Any) -> Iterator[ObjectId]:
@@ -190,20 +153,20 @@ def what_is_left(collections: Mapping[str, list[Any]]) -> Any:
 class TestTheRegistryRunsWhole:
     """The person's whole data on one pass, with no precondition about their state."""
 
-    def test_the_persons_own_route_leaves_the_same_database(self, mongo_replica_set_url: str):
+    async def test_the_persons_own_route_leaves_the_same_database(self, mongo_replica_set_url: str):
         """Fails where the two routes ever run different scopes or steps; the log's one row, who acted, is all that differs."""
 
-        def after(request: Callable[[AsyncClient], Awaitable[Response]]) -> Any:
+        async def after(request: Callable[[AsyncClient], Awaitable[Response]]) -> Any:
             async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-                async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
+                async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
                     status = (await request(http)).status_code
 
                 return status, what_is_left(await everything_in(database))
 
-            return on_a_league(mongo_replica_set_url, body)
+            return await on_a_league(mongo_replica_set_url, body)
 
-        by_the_administrator = after(lambda http: http.post(PATH, json=erasure_of(), headers=StampedHeaders(OPERATOR, ADMIN_KEY)))
-        by_the_person = after(lambda http: http.post(OWN_ERASURE_PATH, headers=as_person(TYPED)))
+        by_the_administrator = await after(lambda http: http.post(PATH, json=erasure_of(), headers=StampedHeaders(OPERATOR, ADMIN_KEY)))
+        by_the_person = await after(lambda http: http.post(OWN_ERASURE_PATH, headers=as_person(TYPED)))
 
         assert (by_the_administrator[0], by_the_person[0]) == (204, 204)
         assert by_the_administrator[1] == by_the_person[1]
@@ -262,9 +225,9 @@ class TestTheirOwnAddress:
     """
 
     @pytest.mark.parametrize("handler", [counted_by_the_handler, erased_by_the_handler_alone], ids=["the counts", "the erasure"])
-    def test_it_is_refused_in_other_capitals_and_between_spaces_before_anything_is_read(self, handler: Callable[[str], Awaitable[Any]]):
+    async def test_it_is_refused_in_other_capitals_and_between_spaces_before_anything_is_read(self, handler: Callable[[str], Awaitable[Any]]):
         with pytest.raises(APIError) as refused:
-            asyncio.run(handler(f"  {OPERATOR.upper()} "))
+            await handler(f"  {OPERATOR.upper()} ")
 
         assert (refused.value.status_code, refused.value.error_code) == (403, Code.OWN_ADDRESS)
 
@@ -284,7 +247,7 @@ class TestAGrantHoldersAddress:
             "the erasure of an administrator",
         ],
     )
-    def test_an_administrator_holding_no_owners_power_is_refused_and_nothing_is_written(
+    async def test_an_administrator_holding_no_owners_power_is_refused_and_nothing_is_written(
         self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture, path: str, body: Callable[[str], dict[str, str]], address: str
     ):
         async def run(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -294,12 +257,12 @@ class TestAGrantHoldersAddress:
             return response, before == await everything_in(database)
 
         with caplog.at_level(logging.INFO):
-            response, untouched = on_a_league(mongo_replica_set_url, run)
+            response, untouched = await on_a_league(mongo_replica_set_url, run)
 
         assert (response.status_code, response.json()["error_code"], untouched) == (403, Code.ADMIN_ADDRESS, True)
         assert journal_records(caplog) == []
 
-    def test_a_grant_landing_inside_the_erasure_is_refused_by_its_retry(self, mongo_replica_set_url: str):
+    async def test_a_grant_landing_inside_the_erasure_is_refused_by_its_retry(self, mongo_replica_set_url: str):
         """The rival adds the address after the first attempt's judgement and before its first write.
 
         Judged once ahead of the transaction instead, the retry ends a grant this administrator could not revoke. The person
@@ -313,7 +276,7 @@ class TestAGrantHoldersAddress:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPIELER].insert_one(spieler_document(PUPIL_OID, FIRST_NAME, LAST_NAME, email=IDENTIFIER))
             held = await where_held(database, *THEIR_VALUES)
-            served = _app()
+            served = app_under_test(DATABASE_NAME)
             async with app_client(mongo_replica_set_url, app=served, now=NOW) as http:
 
                 async def grant() -> None:
@@ -335,7 +298,7 @@ class TestAGrantHoldersAddress:
                 await database[Collection.GRANTS].find_one({"address": IDENTIFIER}),
             )
 
-        response, held, left, row = on_a_league_of_its_own(mongo_replica_set_url, body)
+        response, held, left, row = await on_a_league_of_its_own(mongo_replica_set_url, body)
 
         assert (response.status_code, response.json().get("error_code"), granted) == (403, Code.ADMIN_ADDRESS, [201])
         assert row is not None and row["admin_tier"] == "administration"
@@ -349,7 +312,7 @@ class TestAGrantHoldersAddress:
 class TestTheCounts:
     """What the person's erasure removes or empties, by its own selections, counted, named nowhere and stored nowhere."""
 
-    def test_they_count_what_the_erasure_then_takes_and_name_nobody(self, mongo_replica_set_url: str):
+    async def test_they_count_what_the_erasure_then_takes_and_name_nobody(self, mongo_replica_set_url: str):
         """Read against the stored data the erasure takes, so a kind counted short is caught whatever the seed holds."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -378,7 +341,7 @@ class TestTheCounts:
 
             return view, untouched, erasure.status_code, what_the_erasure_took(before, await everything_in(database))
 
-        view, untouched, status, taken = on_a_league(mongo_replica_set_url, body)
+        view, untouched, status, taken = await on_a_league(mongo_replica_set_url, body)
         counts = view.json()
 
         assert view.status_code == 200, counts
@@ -398,16 +361,16 @@ CHANGING_HOLDER_GRANT_OID = ObjectId("6890a1b2c3d4e5f607e00003")
 class TestAGrantHoldersPendingChange:
     """A grant holder's change naming the address is shown and ended only where the tool would open it."""
 
-    def test_the_counts_leave_it_out_for_an_administrator_without_an_owners_power(self, mongo_replica_set_url: str):
+    async def test_the_counts_leave_it_out_for_an_administrator_without_an_owners_power(self, mongo_replica_set_url: str):
         """Counted, it would answer whether a typed address is that change's new one, which the administrators page withholds."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, CHANGING_HOLDER_GRANT_OID, CHANGING_HOLDER, "administration")
             return [(await posted(mongo_replica_set_url, VIEW_PATH, view_of(), by=by)).json()["address_change"] for by in (OPERATOR, OWNER)]
 
-        assert on_a_league(mongo_replica_set_url, body) == [1, 2]
+        assert await on_a_league(mongo_replica_set_url, body) == [1, 2]
 
-    def test_the_erasure_ending_it_is_the_owners(self, mongo_replica_set_url: str):
+    async def test_the_erasure_ending_it_is_the_owners(self, mongo_replica_set_url: str):
         """Ending it is a discard, which only the owner makes of an administrator's change."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -419,7 +382,7 @@ class TestAGrantHoldersPendingChange:
             ended = await database[Collection.ADDRESS_CHANGES].find_one({"_id": OTHER_REFEREE_CHANGE_OID})
             return by_operator, untouched, by_owner.status_code, ended
 
-        by_operator, untouched, owners_status, ended = on_a_league(mongo_replica_set_url, body)
+        by_operator, untouched, owners_status, ended = await on_a_league(mongo_replica_set_url, body)
 
         assert (by_operator.status_code, by_operator.json()["error_code"], untouched) == (403, Code.FOREIGN_ADDRESS_CHANGE, True)
         assert owners_status == 204
@@ -428,7 +391,7 @@ class TestAGrantHoldersPendingChange:
 
 @pytest.mark.db
 class TestTheReference:
-    def test_the_erasures_one_row_holds_it_stripped_and_names_the_administrator(self, mongo_replica_set_url: str):
+    async def test_the_erasures_one_row_holds_it_stripped_and_names_the_administrator(self, mongo_replica_set_url: str):
         """Catches the row left out, or written under the erased person: it is the one record of an erasure past the mail thread."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -436,7 +399,7 @@ class TestTheReference:
 
             return response.status_code, await database[Collection.ACTION_LOG].find({"action": "erasure.on_request"}).to_list(length=None)
 
-        status, rows = on_a_league(mongo_replica_set_url, body)
+        status, rows = await on_a_league(mongo_replica_set_url, body)
 
         assert status == 204
         assert [(row["by"], row["label"], row["record_id"]) for row in rows] == [(OPERATOR, REASON, None)]
@@ -483,7 +446,7 @@ class TestADomainIsRefusedBeyondAscii:
     @pytest.mark.parametrize(
         ("payload", "body"),
         [
-            pytest.param(FLErasurePayload, erasure_of("anna@müller.de"), id="the erasure"),
+            pytest.param(FLErasurePayload, erasure_of("anna@müller.example.org"), id="the erasure"),
         ],
     )
     def test_the_address_rule_s_own_refusal_names_the_box(self, payload: type[FLErasureAddressPayload], body: dict[str, str]):

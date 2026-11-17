@@ -1,11 +1,11 @@
 [
-  { "case": "an address after a line break", "text": "an:\nanna@schule.de", "scrubbed": "an:\n[address]" },
-  { "case": "an umlaut domain", "text": "an käthe@müller-schule.de", "scrubbed": "an [address]" },
+  { "case": "an address after a line break", "text": "an:\nanna@schule.example.org", "scrubbed": "an:\n[address]" },
+  { "case": "an umlaut domain", "text": "an käthe@müller-schule.example.org", "scrubbed": "an [address]" },
   { "case": "a local part holding what RFC 5322 allows", "text": "an o'brien+liga@example.com", "scrubbed": "an [address]" },
-  { "case": "a punycode top-level domain", "text": "an ada@schule.xn--p1ai", "scrubbed": "an [address]" },
+  { "case": "a punycode top-level domain", "text": "an ada@schule.xn--zckzah", "scrubbed": "an [address]" },
   {
     "case": "a duplicate key's report",
-    "text": "dup key: { email: \"Anna@Schule.DE\" }",
+    "text": "dup key: { email: \"Anna@Schule.EXAMPLE.ORG\" }",
     "scrubbed": "dup key: { email: \"[address]\" }"
   },
   {

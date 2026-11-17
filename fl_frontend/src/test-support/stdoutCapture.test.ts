@@ -1,20 +1,29 @@
 // The log capture's own guarantee, which every suite reading the logger's lines relies on and none tests: it reads
-// the logger's chunks alone, each case from an empty record, and a line it cannot read fails the case, not the writer.
-import { captureLog } from "@/test-support/stdoutCapture.ts";
-import { afterEach, describe, expect, it } from "vitest";
+// the logger's chunks alone, each case from an empty record, a line it cannot read fails the case, not the writer, and
+// a line outside every case reaches the stream.
+import { caseFailures } from "@/test-support/caseFailures";
+import { captureLog, documentsWrittenByAsync } from "@/test-support/stdoutCapture";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+/** Every chunk the capture passes on, recorded on its way to the stream's own `write`. */
+const reached: string[] = [];
+const streamWrite = process.stdout.write;
+const toStream = streamWrite.bind(process.stdout) as (chunk: unknown, ...rest: unknown[]) => boolean;
+process.stdout.write = ((chunk: unknown, ...rest: unknown[]) => {
+  reached.push(String(chunk));
+  return toStream(chunk, ...rest);
+}) as typeof process.stdout.write;
+// Registered ahead of the capture, so it runs after the capture's own end.
+afterAll(() => {
+  process.stdout.write = streamWrite;
+});
 
 const log = captureLog();
 
 // Imported after the capture, as a suite's subject is.
-const { logger } = await import("@/core/logging.ts");
+const { logger } = await import("@/core/logging");
 
-/** Each case's failure messages, read once every hook of the case has run. */
-const failures = new Map<string, string>();
-afterEach(({ task, onTestFinished: finished }) => {
-  finished(() => {
-    failures.set(task.name, (task.result?.errors ?? []).map(({ message }) => String(message)).join("\n"));
-  });
-});
+const { failsNaming } = caseFailures();
 
 describe("the capture", () => {
   it("reads the logger's line", () => {
@@ -43,13 +52,45 @@ describe("the capture", () => {
     expect(log.lines()).toStrictEqual([]);
   });
 
-  it.fails("fails the case on a line it cannot read, never the code that wrote it", () => {
-    // A message holding a newline splits the plain line before its fields.
-    logger.info("split\nacross two lines");
+  it("passes on a chunk written by what the logger calls, which is not the logger's", () => {
+    // Written while the logger turns a field into JSON, the logger's frame further down the stack.
+    const field = {
+      toJSON: () => {
+        process.stdout.write('INFO not.the.logger {"written":"inside the logger\'s call"}\n');
+        return "read";
+      },
+    };
+    logger.info("capture.inner", { field });
+
+    expect(log.lines().map(({ message, fields }) => [message, fields])).toStrictEqual([["capture.inner", { field: "read" }]]);
   });
-  it("fails the case on a line it cannot read: the failure names it", () => {
-    expect(failures.get("fails the case on a line it cannot read, never the code that wrote it")).toMatch(
-      /^the logger wrote what the capture cannot read:\na plain log line without its fields: INFO split/,
-    );
+
+  failsNaming(
+    "fails the case on a line it cannot read, never the code that wrote it",
+    /^the logger wrote what the capture cannot read:\na plain log line without its fields: INFO split/,
+    () => {
+      // A message holding a newline splits the plain line before its fields.
+      logger.info("split\nacross two lines");
+    },
+  );
+
+  /* Outside a production build the logger writes the plain line, which carries no trace and no `error`: a suite reading
+     the document there would prove its absences on lines that never carry them, so both readers of it refuse to start. */
+  it("refuses to read the production document outside a production build", async () => {
+    expect(() => captureLog("production")).toThrow("NODE_ENV test");
+    await expect(documentsWrittenByAsync(() => Promise.resolve())).rejects.toThrow("NODE_ENV test");
+  });
+});
+
+// The harm: a line written outside every case's body is swallowed from the reporter, and no case reads it.
+describe("a line outside every case", () => {
+  beforeAll(() => {
+    logger.info("capture.before_all");
+  });
+
+  it("reaches the stream, where a case's own line does not", () => {
+    logger.info("capture.in_the_case");
+
+    expect(reached.filter((chunk) => chunk.includes("capture."))).toStrictEqual(["INFO capture.before_all {}\n"]);
   });
 });

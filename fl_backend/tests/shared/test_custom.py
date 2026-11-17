@@ -62,7 +62,7 @@ def test_rejects_times_without_seconds_or_out_of_range(value):
         "ftp://example.com",
         "example.com",
         "https://nodot",
-        "javascript:fetch('https://evil.co/x')",
+        "javascript:fetch('https://evil.example/x')",
         "data:text/html,<a href=https://a.bc>",
         "https://a.bc <script>alert(1)</script>",
         "https://1.2.3.4",
@@ -76,7 +76,7 @@ def test_rejects_times_without_seconds_or_out_of_range(value):
         "https://example.com:notaport/",
         # Undecodable punycode: passes `DOMAIN_REGEX` yet `new URL` rejects it, so the round-trip
         # check is what keeps the two ends in agreement.
-        "https://xn--kthe-kollwitz-schule-5nb.de",
+        "https://xn--kthe-kollwitz-schule-5nb.example.org",
         "https://",
         "//example.com",
         # Userinfo: `hostname` excludes it, so every host check below passed while the URL resolved

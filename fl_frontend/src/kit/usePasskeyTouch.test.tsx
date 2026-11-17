@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { renderUnderNext } from "@/test-support/nextContexts";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
@@ -21,7 +22,6 @@ const DONE: ActionAnswer = { ok: true, value: undefined };
 
 const passkey = vi.hoisted(() => ({ prompt: vi.fn() }));
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => undefined }) }));
 vi.mock("@/core/auth/browserClient", () => ({
   loadAuthClient: async () => ({ signIn: { passkey: passkey.prompt } }),
   usePreloadedAuthClient: () => undefined,
@@ -37,7 +37,7 @@ afterEach(() => {
 
 /** What a case draws, with the frame's toast region beside it. */
 const renderWithToasts = (drawn: ReactElement) =>
-  render(
+  renderUnderNext(
     <>
       {drawn}
       <ToastRegion frame="rail" />
@@ -125,6 +125,8 @@ describe("a question behind the passkey touch", () => {
     await pressIn(await screen.findByRole("alertdialog", { name: QUESTION }), VERB);
 
     expect(await toasted(COPY.signIn.refusal.unverified)).toBe("refused");
+    // The toast queue commits outside the act's transition, so the toast stands a render before the trigger leaves busy.
+    await waitFor(() => expect(isBusy(trigger)).toBe(false));
     expect([onConfirm.mock.calls.length, screen.queryByRole("alertdialog", { name: QUESTION }), isBusy(trigger)]).toStrictEqual([
       0,
       null,
@@ -152,6 +154,8 @@ describe("a dialog of inputs behind the passkey touch", () => {
 
     await pressIn(dialog, ENTER);
     expect(await toasted(COPY.signIn.refusal.unverified)).toBe("refused");
+    // As the question's: the toast stands a render before the trigger leaves busy.
+    await waitFor(() => expect(isBusy(trigger)).toBe(false));
     expect([action.mock.calls.length, screen.queryByRole("dialog"), isBusy(trigger)]).toStrictEqual([0, null, false]);
 
     await userEvent.click(trigger);
@@ -203,7 +207,7 @@ describe("the browser's passkey prompt after a dialog", () => {
       return new Promise((resolve) => (answer = resolve));
     });
     const onConfirm = vi.fn(async () => DONE);
-    render(draw(onConfirm));
+    renderUnderNext(draw(onConfirm));
 
     await userEvent.click(screen.getByRole("button", { name: VERB }));
     const asked = await screen.findByRole(role);

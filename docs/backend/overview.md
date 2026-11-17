@@ -66,7 +66,7 @@ wrong reasons.
 (`fl_backend/app/core/db.py :: lifespan`, `fl_backend/app/core/constraints.py`). Nothing in the
 database refuses a document's shape: each collection's record model states it
 (`fl_backend/app/readback.py :: RECORD_MODELS`), and `python -m app.readback` reads every
-stored document back through it after a migration paste.
+stored document back through it after a migration has run.
 
 **Every write that records a domain fact goes through the helpers in
 `fl_backend/app/core/crud.py`**, while a router may read through the driver directly. The helpers

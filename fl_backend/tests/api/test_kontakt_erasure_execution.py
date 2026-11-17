@@ -25,7 +25,7 @@ from app.shared.folding import sign_in_identifier
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
 from tests import documents
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.documents import confirmed_kenntnisnahme, minted_confirmations
 from tests.erasure import erased, seats_cleared
 from tests.worker import worker_database
@@ -50,20 +50,20 @@ LATER_SAISON = "2526"
 # Deliberately unusual, so a hit in the whole-database sweep below cannot be a coincidence: no
 # fixture, no other suite and no seeded default anywhere spells any of these.
 ERASED_EMAIL = "wiltrudis.quastenflosser@example.com"
-ERASED_PHONE = "+49 69 5550101"
-ERASED_FORMER_PHONE = "+49 69 5559901"
+ERASED_PHONE = "+49 69 90009101"
+ERASED_FORMER_PHONE = "+49 69 90009901"
 ERASED_LAST_NAME = "Quastenflosser"
 
 # The person beside them in the SAME block, whose record must survive untouched.
 BYSTANDER_EMAIL = "ortwinia.pfeffernuss@example.com"
-BYSTANDER_PHONE = "+49 69 5550202"
-BYSTANDER_FORMER_PHONE = "+49 69 5559902"
+BYSTANDER_PHONE = "+49 69 90009202"
+BYSTANDER_FORMER_PHONE = "+49 69 90009902"
 BYSTANDER_LAST_NAME = "Pfeffernuss"
 
 # The third slot, and the whole of the row that must not be reached at all.
 UNREACHED_EMAIL = "baldur.krautzberger@example.com"
-UNREACHED_PHONE = "+49 69 5550303"
-UNREACHED_FORMER_PHONE = "+49 69 5559903"
+UNREACHED_PHONE = "+49 69 90009303"
+UNREACHED_FORMER_PHONE = "+49 69 90009903"
 UNREACHED_LAST_NAME = "Krautzberger"
 
 # An address stored nowhere, for the no-op case.
@@ -85,7 +85,7 @@ CASE_VARIANTS: tuple[str, ...] = (
 
 # Addresses the same request must leave standing. The pattern reads those at another domain, the fold
 # refusing them; unanchored, or with the `.` unescaped, it reads the other local parts too.
-OTHER_DOMAINS: tuple[str, ...] = ("wiltrudis.quastenflosser@example.org", "wiltrudis.quastenflosser@example.community")
+OTHER_DOMAINS: tuple[str, ...] = ("wiltrudis.quastenflosser@example.org", "wiltrudis.quastenflosser@example.com.example")
 OTHER_LOCAL_PARTS: tuple[str, ...] = ("nichtwiltrudis.quastenflosser@example.com", "wiltrudisXquastenflosser@example.com")
 NEAR_MISSES: tuple[str, ...] = (*OTHER_DOMAINS, *OTHER_LOCAL_PARTS)
 
@@ -241,35 +241,32 @@ async def a_bewerbung_with_a_history(database: AsyncDatabase, row_id: ObjectId) 
     )
 
 
-def on_a_league(url: str, body: Body, *, mutates_schema: bool = False, stores_a_refused_shape: str | None = None) -> Any:
+async def on_a_league(url: str, body: Body, *, mutates_schema: bool = False, stores_a_refused_shape: str | None = None) -> Any:
     """The shipped support indexes, so a namespace a transaction cannot create is there.
 
     `mutates_schema=True` where the body plants a validator of its own to make one write fail, and `stores_a_refused_shape`
     where it stores an address no fold holds.
     """
 
-    async def _run() -> Any:
-        async with a_clean_database(
-            url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema, stores_a_refused_shape=stores_a_refused_shape
-        ) as (client, database):
-            await database[Collection.SAISON_TEAMS].insert_many(
-                [
-                    saison_team_document(ROW_A_EARLIER_OID, EARLIER_SAISON, TEAM_A_OID),
-                    saison_team_document(ROW_A_LATER_OID, LATER_SAISON, TEAM_A_OID),
-                    saison_team_document(ROW_B_OID, EARLIER_SAISON, TEAM_B_OID),
-                ]
-            )
-            await database[Collection.BEWERBUNGEN].insert_many(
-                [bewerbung_document(BEWERBUNG_OID, TEAM_A_OID), bewerbung_document(OTHER_BEWERBUNG_OID, TEAM_B_OID)]
-            )
-            for row_id in SAISON_TEAM_OIDS:
-                await a_row_with_a_history(database, Collection.SAISON_TEAMS, row_id)
-            for row_id in BEWERBUNG_OIDS:
-                await a_bewerbung_with_a_history(database, row_id)
+    async with a_clean_database(
+        url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema, stores_a_refused_shape=stores_a_refused_shape
+    ) as (client, database):
+        await database[Collection.SAISON_TEAMS].insert_many(
+            [
+                saison_team_document(ROW_A_EARLIER_OID, EARLIER_SAISON, TEAM_A_OID),
+                saison_team_document(ROW_A_LATER_OID, LATER_SAISON, TEAM_A_OID),
+                saison_team_document(ROW_B_OID, EARLIER_SAISON, TEAM_B_OID),
+            ]
+        )
+        await database[Collection.BEWERBUNGEN].insert_many(
+            [bewerbung_document(BEWERBUNG_OID, TEAM_A_OID), bewerbung_document(OTHER_BEWERBUNG_OID, TEAM_B_OID)]
+        )
+        for row_id in SAISON_TEAM_OIDS:
+            await a_row_with_a_history(database, Collection.SAISON_TEAMS, row_id)
+        for row_id in BEWERBUNG_OIDS:
+            await a_bewerbung_with_a_history(database, row_id)
 
-            return await body(database, client)
-
-    return on_the_seed_loop(_run())
+        return await body(database, client)
 
 
 async def call_erasure(database: AsyncDatabase, client: AsyncMongoClient, email: str = ERASED_EMAIL) -> None:
@@ -334,7 +331,7 @@ def a_row_naming(row_id: ObjectId, email: str) -> dict[str, Any]:
     return {**row, "kontakte": {**row["kontakte"], "trainer": {**row["kontakte"]["trainer"], "email": email}}}
 
 
-def after_erase_the_near_misses(url: str) -> Snapshot:
+async def after_erase_the_near_misses(url: str) -> Snapshot:
     """The seeded league plus the stored mailbox and its near misses, erased with an unfolded spelling of the mailbox."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -346,10 +343,10 @@ def after_erase_the_near_misses(url: str) -> Snapshot:
 
         return before, await stored_rows(database)
 
-    return on_a_league(url, body, stores_a_refused_shape=UNFOLDED_ON_PURPOSE)
+    return await on_a_league(url, body, stores_a_refused_shape=UNFOLDED_ON_PURPOSE)
 
 
-def after_erasure(url: str, email: str = ERASED_EMAIL) -> Snapshot:
+async def after_erasure(url: str, email: str = ERASED_EMAIL) -> Snapshot:
     """Both collections before and after: one seeded database serves both."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -358,7 +355,7 @@ def after_erasure(url: str, email: str = ERASED_EMAIL) -> Snapshot:
 
         return before, await stored_rows(database)
 
-    return on_a_league(url, body)
+    return await on_a_league(url, body)
 
 
 class TestTheSlotsAreReadOffTheModel:
@@ -373,10 +370,10 @@ class TestTheSlotsAreReadOffTheModel:
 
 
 @pytest.mark.db
-def test_the_erased_seats_link_goes_with_the_person_and_no_other_seats_does(mongo_replica_set_url: str):
+async def test_the_erased_seats_link_goes_with_the_person_and_no_other_seats_does(mongo_replica_set_url: str):
     """Kills an erasure stopping at `kontakte`: a live link would outlive the person and confirm a slot naming nobody."""
 
-    _, rows = after_erasure(mongo_replica_set_url)
+    _, rows = await after_erasure(mongo_replica_set_url)
     block = rows[BEWERBUNG_OID]["confirmations"]
 
     assert block["ansprechperson"] is None
@@ -390,7 +387,9 @@ def test_the_erased_seats_link_goes_with_the_person_and_no_other_seats_does(mong
     ("their_day", "announced"),
     [pytest.param("2026-04-02", None, id="the earliest day goes with them"), pytest.param("2026-04-04", "2026-03-30", id="a later day")],
 )
-def test_an_erasure_takes_the_notice_back_only_where_the_day_it_named_moves(mongo_replica_set_url: str, their_day: str, announced: str | None):
+async def test_an_erasure_takes_the_notice_back_only_where_the_day_it_named_moves(
+    mongo_replica_set_url: str, their_day: str, announced: str | None
+):
     """A person told a day that has since moved is told again; a second notice for a day that stands announces one deletion twice."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -410,14 +409,14 @@ def test_an_erasure_takes_the_notice_back_only_where_the_day_it_named_moves(mong
 
         return (await stored_rows(database))[BEWERBUNG_OID]
 
-    assert on_a_league(mongo_replica_set_url, body)["erasure_announced_at"] == announced
+    assert (await on_a_league(mongo_replica_set_url, body))["erasure_announced_at"] == announced
 
 
 @pytest.mark.db
-def test_a_junction_row_gains_no_bookkeeping_block(mongo_replica_set_url: str):
+async def test_a_junction_row_gains_no_bookkeeping_block(mongo_replica_set_url: str):
     """Kills a clearing that nulls the seat's bookkeeping unconditionally: a dotted `$set` into an absent block creates one."""
 
-    _, rows = after_erasure(mongo_replica_set_url)
+    _, rows = await after_erasure(mongo_replica_set_url)
 
     assert all("confirmations" not in rows[row_id] for row_id in SAISON_TEAM_OIDS)
 
@@ -430,10 +429,10 @@ def test_the_clearing_names_the_bookkeeping_only_where_told_to():
 
 
 @pytest.mark.db
-def test_the_two_people_beside_them_are_untouched(mongo_replica_set_url: str):
+async def test_the_two_people_beside_them_are_untouched(mongo_replica_set_url: str):
     """The over-breadth floor. Kills nulling the whole `kontakte` block, which would destroy two records nobody asked about."""
 
-    _, rows = after_erasure(mongo_replica_set_url)
+    _, rows = await after_erasure(mongo_replica_set_url)
     kontakte = rows[ROW_A_EARLIER_OID]["kontakte"]
 
     assert kontakte["ansprechperson"] == LIVE_BLOCKS[ROW_A_EARLIER_OID]["ansprechperson"]
@@ -443,7 +442,7 @@ def test_the_two_people_beside_them_are_untouched(mongo_replica_set_url: str):
 
 
 @pytest.mark.db
-def test_a_spelling_handed_in_unfolded_still_clears(mongo_replica_set_url: str):
+async def test_a_spelling_handed_in_unfolded_still_clears(mongo_replica_set_url: str):
     """Drop the fold at the erasure's entry and this fails: both callers read rows on the fold, and the variant handed on matches no seat."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -472,14 +471,14 @@ def test_a_spelling_handed_in_unfolded_still_clears(mongo_replica_set_url: str):
 
         return seats_cleared(before.values(), (await stored_rows(database)).values())
 
-    assert on_a_league(mongo_replica_set_url, body) == sum(EXPECTED_SLOTS.values())
+    assert await on_a_league(mongo_replica_set_url, body) == sum(EXPECTED_SLOTS.values())
 
 
 @pytest.mark.db
-def test_no_value_of_theirs_survives_anywhere_in_the_database(mongo_replica_set_url: str):
+async def test_no_value_of_theirs_survives_anywhere_in_the_database(mongo_replica_set_url: str):
     """Every seat and application row swept as text, not the seats a filter named; a bystander's number is the floor."""
 
-    _, rows = after_erasure(mongo_replica_set_url)
+    _, rows = await after_erasure(mongo_replica_set_url)
     rendered = str(sorted(rows.items(), key=lambda pair: str(pair[0])))
 
     assert [value for value in (ERASED_EMAIL, ERASED_PHONE, ERASED_LAST_NAME) if value in rendered] == []
@@ -487,23 +486,23 @@ def test_no_value_of_theirs_survives_anywhere_in_the_database(mongo_replica_set_
 
 
 @pytest.mark.db
-def test_an_address_naming_nobody_is_a_clean_no_op(mongo_replica_set_url: str):
+async def test_an_address_naming_nobody_is_a_clean_no_op(mongo_replica_set_url: str):
     """Kills an erasure overwriting what the fold never judged."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         await call_erasure(database, client, UNKNOWN_EMAIL)
         return await stored_rows(database)
 
-    rows = on_a_league(mongo_replica_set_url, body)
+    rows = await on_a_league(mongo_replica_set_url, body)
 
     assert all(rows[row_id]["kontakte"] == LIVE_BLOCKS[row_id] for row_id in (*SAISON_TEAM_OIDS, *BEWERBUNG_OIDS))
 
 
 @pytest.mark.db
-def test_an_address_asked_unfolded_clears_its_stored_fold_and_no_near_miss(mongo_replica_set_url: str):
+async def test_an_address_asked_unfolded_clears_its_stored_fold_and_no_near_miss(mongo_replica_set_url: str):
     """Another mailbox keeps its seat and adds nothing to the count; the asked spelling's fold is what meets the stored one."""
 
-    before, rows = after_erase_the_near_misses(mongo_replica_set_url)
+    before, rows = await after_erase_the_near_misses(mongo_replica_set_url)
     cleared = [email for email, row_id in NEAR_ROW_OIDS.items() if rows[row_id]["kontakte"]["trainer"] is None]
 
     assert cleared == [], "the match reached an address that is not this person"
@@ -529,7 +528,9 @@ PADDED_SPELLINGS: tuple[str, ...] = (f"{chr(0x20)}{ERASED_EMAIL}", f"{ERASED_EMA
         pytest.param(VARIANT_REQUEST_EMAIL, (*CASE_VARIANTS, *PADDED_SPELLINGS), NEAR_MISSES, id="one spelling"),
         # Both ends are anchored; one anchor alone takes the start's or the end's near miss.
         pytest.param(NO_AT_IDENTIFIER, NO_AT_CLAIMED, NO_AT_UNCLAIMED, id="no @"),
-        pytest.param("@x.de", ("@x.de", "@X.DE"), ("x@x.de", "@x.dex"), id="an empty local part"),
+        pytest.param(
+            "@x.example.org", ("@x.example.org", "@X.EXAMPLE.ORG"), ("x@x.example.org", "@x.example.org.example"), id="an empty local part"
+        ),
         # Padded or blank as stored, which a pattern built off that spelling reads less of than its fold claims.
         pytest.param(
             f"{chr(0x20)}{VARIANT_REQUEST_EMAIL}{chr(0xA0)}", (*CASE_VARIANTS, *PADDED_SPELLINGS), OTHER_LOCAL_PARTS, id="a padded spelling"
@@ -559,22 +560,58 @@ SERVER_CORPUS: tuple[str, ...] = (
     *("", chr(0x20), chr(0x20) * 3, chr(0xA0), f"{chr(0x20)}{chr(0xA0)}{chr(0x09)}", chr(0x3000), chr(0xFEFF), chr(0x85)),
     *(f"{chr(0xFEFF)}no-at{chr(0x3000)}", f"{chr(0x85)}no-at", *NO_AT_CLAIMED, *NO_AT_UNCLAIMED),
     *("kein-at@", "KEIN-AT@", f"{chr(0x20)}kein-at@{chr(0xA0)}", "kein-at@@", "kein-at@x@y"),
-    *("a@b@c", "A@B@C", f"{chr(0x20)}a@b@C{chr(0xA0)}", "a@b@cx", "a@b@x.de", "a@bx@c"),
-    *("@x.de", f"@{chr(0xFF58)}.de", "@X.DE", "x@x.de", "@", "@@"),
+    *("a@b@c", "A@B@C", f"{chr(0x20)}a@b@C{chr(0xA0)}", "a@b@cx", "a@b@x.example.org", "a@bx@c"),
+    *("@x.example.org", f"@{chr(0xFF58)}.example.org", "@X.EXAMPLE.ORG", "x@x.example.org", "@", "@@"),
     *("someone@example.org", f"{chr(0x017F)}omeone@example.org", f"{chr(0x212A)}im@example.org", "kim@example.org"),
-    *("a.b@x.de", "axb@x.de", "a+b@x.de", "aab@x.de", "a(b)@x.de", "a\\b@x.de", "a[b]@x.de", "a$b@x.de", "a^b@x.de"),
-    *("a|b@x.de", "a{2}@x.de", "aa@x.de", "a?b@x.de", "a*b@x.de", "ab@x.de", "b@x.de", "a\x00b@x.de"),
+    *(
+        "a.b@x.example.org",
+        "axb@x.example.org",
+        "a+b@x.example.org",
+        "aab@x.example.org",
+        "a(b)@x.example.org",
+        "a\\b@x.example.org",
+        "a[b]@x.example.org",
+        "a$b@x.example.org",
+        "a^b@x.example.org",
+    ),
+    *(
+        "a|b@x.example.org",
+        "a{2}@x.example.org",
+        "aa@x.example.org",
+        "a?b@x.example.org",
+        "a*b@x.example.org",
+        "ab@x.example.org",
+        "b@x.example.org",
+        "a\x00b@x.example.org",
+    ),
     *("wiltrudis.quastenflosser@example.com", "Wiltrudis.Quastenflosser@EXAMPLE.COM", "wiltrudisXquastenflosser@example.com"),
 )
 SERVER_IDENTIFIERS: tuple[str, ...] = (
-    *(NO_AT_IDENTIFIER, "kein-at@", "KEIN-AT@", "a@b@c", chr(0x20) * 3, "", f"{chr(0xA0)}{chr(0x09)}", "@x.de", "@", "@@"),
-    *("someone@example.org", "kim@example.org", "a.b@x.de", "a+b@x.de", "a(b)@x.de", "a\\b@x.de", "a[b]@x.de", "a$b@x.de"),
-    *("a^b@x.de", "a|b@x.de", "a{2}@x.de", "a?b@x.de", "a*b@x.de", "a\x00b@x.de", "Wiltrudis.Quastenflosser@EXAMPLE.COM"),
+    *(NO_AT_IDENTIFIER, "kein-at@", "KEIN-AT@", "a@b@c", chr(0x20) * 3, "", f"{chr(0xA0)}{chr(0x09)}", "@x.example.org", "@", "@@"),
+    *(
+        "someone@example.org",
+        "kim@example.org",
+        "a.b@x.example.org",
+        "a+b@x.example.org",
+        "a(b)@x.example.org",
+        "a\\b@x.example.org",
+        "a[b]@x.example.org",
+        "a$b@x.example.org",
+    ),
+    *(
+        "a^b@x.example.org",
+        "a|b@x.example.org",
+        "a{2}@x.example.org",
+        "a?b@x.example.org",
+        "a*b@x.example.org",
+        "a\x00b@x.example.org",
+        "Wiltrudis.Quastenflosser@EXAMPLE.COM",
+    ),
 )
 
 
 @pytest.mark.db
-def test_the_server_reads_each_pattern_as_python_does_and_misses_nothing_the_fold_claims(mongo_replica_set_url: str):
+async def test_the_server_reads_each_pattern_as_python_does_and_misses_nothing_the_fold_claims(mongo_replica_set_url: str):
     """The case above's `re` held to the server's own engine, which reads `\\s` as ASCII alone: a no-break space it would miss."""
 
     row_ids = {value: ObjectId(f"6890a1b2c3d4e5f60783{index:04d}") for index, value in enumerate(SERVER_CORPUS)}
@@ -591,7 +628,7 @@ def test_the_server_reads_each_pattern_as_python_does_and_misses_nothing_the_fol
 
         return read
 
-    read = on_a_league(mongo_replica_set_url, body, stores_a_refused_shape=UNFOLDED_ON_PURPOSE)
+    read = await on_a_league(mongo_replica_set_url, body, stores_a_refused_shape=UNFOLDED_ON_PURPOSE)
     parted: dict[str, Any] = {}
     for identifier in SERVER_IDENTIFIERS:
         pattern = same_address(identifier)
@@ -614,15 +651,15 @@ def test_the_server_reads_each_pattern_as_python_does_and_misses_nothing_the_fol
 
 
 # Two domains to the sign-in fold, so two people an application may seat side by side.
-SHARP_S_EMAIL = "wiltrudis.quastenflosser@straße.de"
-DOUBLE_S_EMAIL = "wiltrudis.quastenflosser@strasse.de"
+SHARP_S_EMAIL = "wiltrudis.quastenflosser@straße.example.org"
+DOUBLE_S_EMAIL = "wiltrudis.quastenflosser@strasse.example.org"
 SHARP_S_ROW_OID = ObjectId("6890a1b2c3d4e5f607816001")
 
 HAND_EDITED_ROW_OID = ObjectId("6890a1b2c3d4e5f607816002")
 
 
 @pytest.mark.db
-def test_erase_one_of_two_people_parted_by_sharp_s_leaves_the_other_seated(mongo_replica_set_url: str):
+async def test_erase_one_of_two_people_parted_by_sharp_s_leaves_the_other_seated(mongo_replica_set_url: str):
     """A fold wider than sign-in's clears the second person's seat on the first person's request."""
 
     block = {
@@ -636,7 +673,7 @@ def test_erase_one_of_two_people_parted_by_sharp_s_leaves_the_other_seated(mongo
 
         return (await stored_rows(database))[SHARP_S_ROW_OID]["kontakte"]
 
-    kontakte = on_a_league(mongo_replica_set_url, body)
+    kontakte = await on_a_league(mongo_replica_set_url, body)
 
     assert (kontakte["trainer"] is not None, kontakte["ansprechperson"]) == (True, None)
 
@@ -645,13 +682,13 @@ def test_erase_one_of_two_people_parted_by_sharp_s_leaves_the_other_seated(mongo
 @pytest.mark.parametrize(
     "stored",
     [
-        pytest.param("jürgen@schule.de", id="an umlaut in the local part"),
+        pytest.param("jürgen@schule.example.org", id="an umlaut in the local part"),
         # Built from its code point: it renders like the ASCII stop.
-        pytest.param(f"anna{chr(0xFF0E)}@schule.de", id="a full-width stop in the local part"),
-        pytest.param("anna..mueller@schule.de", id="an address the installed EmailStr refuses"),
+        pytest.param(f"anna{chr(0xFF0E)}@schule.example.org", id="a full-width stop in the local part"),
+        pytest.param("anna..mueller@schule.example.org", id="an address the installed EmailStr refuses"),
     ],
 )
-def test_a_seat_stored_under_an_address_no_payload_takes_now_is_erased(mongo_replica_set_url: str, stored: str):
+async def test_a_seat_stored_under_an_address_no_payload_takes_now_is_erased(mongo_replica_set_url: str, stored: str):
     """GDPR Art. 17: a row edited by hand past the address rule still names a person, so the lookup holds the request to no rule."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -660,11 +697,11 @@ def test_a_seat_stored_under_an_address_no_payload_takes_now_is_erased(mongo_rep
 
         return (await stored_rows(database))[HAND_EDITED_ROW_OID]["kontakte"]["trainer"]
 
-    assert on_a_league(mongo_replica_set_url, body) is None
+    assert await on_a_league(mongo_replica_set_url, body) is None
 
 
 @pytest.mark.db
-def test_the_reveal_lists_exactly_the_seats_the_erasure_then_clears(mongo_replica_set_url: str):
+async def test_the_reveal_lists_exactly_the_seats_the_erasure_then_clears(mongo_replica_set_url: str):
     """What one matcher buys: a confirmation naming a different set from the one the write reaches is worse than none."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -672,7 +709,7 @@ def test_the_reveal_lists_exactly_the_seats_the_erasure_then_clears(mongo_replic
         await call_erasure(database, client)
         return view, seats_cleared(before.values(), (await stored_rows(database)).values())
 
-    view, cleared = on_a_league(mongo_replica_set_url, body)
+    view, cleared = await on_a_league(mongo_replica_set_url, body)
     named = view.kontakt_seats + view.bewerbung_seats
 
     # Against the table above as well as the count: two figures agreeing on zero agree on nothing.

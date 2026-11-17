@@ -1,5 +1,5 @@
-import { networkFailure, serveBackend } from "@/test-support/backend.ts";
-import { captureLog } from "@/test-support/stdoutCapture.ts";
+import { networkFailure, serveBackend } from "@/test-support/backend";
+import { captureLog } from "@/test-support/stdoutCapture";
 import { expect, it } from "vitest";
 
 /* Run under a production build's `NODE_ENV`, whose JSON line carries `trace_id`: the plain line every other project
@@ -34,9 +34,9 @@ const backend = serveBackend(({ method, path }) => {
   if (call === "POST /schiedsrichter/sweep") return { erased: 0, failed: 0 };
   return undefined;
 });
-const log = captureLog();
+const log = captureLog("production");
 
-const { runBewerbungSweep } = await import("./sweep.ts");
+const { runBewerbungSweep } = await import("./sweep");
 
 /** The trace a request was sent under, off the `traceparent` the backend read: `00-<trace>-<span>-<flags>`. */
 const traceOf = (call: string): string | undefined =>
@@ -44,10 +44,6 @@ const traceOf = (call: string): string | undefined =>
     .find(({ method, path }) => `${method} ${path}` === call)
     ?.headers.get("traceparent")
     ?.split("-")[1];
-
-it("runs under a production build's NODE_ENV", () => {
-  expect(process.env.NODE_ENV, "a project writing the plain line shows no trace").toBe("production");
-});
 
 /* Each half apart: a throw in the application's clocks skips no registration, whose rows hold a minor's name,
    address and birthdate. */

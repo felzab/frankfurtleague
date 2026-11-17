@@ -31,7 +31,7 @@ BEFORE_THE_CLOCK_FALLS_BACK = datetime(2026, 10, 25, 2, 59, 30, tzinfo=clock.GER
 
 MAIL = OwedMail(
     key="ban/1",
-    to="nora.neu@beispielschule.de",
+    to="nora.neu@beispielschule.example.org",
     data=FLBanData(kind="ban", ban_reason="Falsches Geburtsdatum", barred_until_saison_id="2027"),
     reference=None,
     link=None,
@@ -40,7 +40,7 @@ MAIL = OwedMail(
 
 SAISON_ID = "2026"
 OWN, OPPONENT = ObjectId("6890a1b2c3d4e5f607f40001"), ObjectId("6890a1b2c3d4e5f607f40002")
-SEATED = {"trainer": {"email": "theo@beispielschule.de", "einwilligung": {"confirmed_at": "2026-03-01"}}}
+SEATED = {"trainer": {"email": "theo@beispielschule.example.org", "einwilligung": {"confirmed_at": "2026-03-01"}}}
 
 
 def test_every_mail_to_a_club_s_seats_names_the_club_it_goes_to():
@@ -104,9 +104,11 @@ def test_each_span_runs_its_whole_length_across_a_clock_change():
 def test_a_recipient_read_off_a_row_stored_unfolded_is_owed_in_the_fold():
     """A grant pasted by hand in capitals owes its holder's notices: stored as read, every lookup by address misses the row."""
 
-    row = row_of(replace(MAIL, to=f" Nora.Neu@BeispielSchule.de{chr(0xA0)}"), now=BEFORE_THE_CLOCK_FALLS_BACK, secret=None, valid_until=None)
+    row = row_of(
+        replace(MAIL, to=f" Nora.Neu@BeispielSchule.example.org{chr(0xA0)}"), now=BEFORE_THE_CLOCK_FALLS_BACK, secret=None, valid_until=None
+    )
 
-    assert row["to"] == "nora.neu@beispielschule.de"
+    assert row["to"] == "nora.neu@beispielschule.example.org"
 
 
 # The frontend drain's two bounds: one on each call to this API, one on each send to the provider.

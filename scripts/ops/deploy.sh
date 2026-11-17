@@ -10,13 +10,18 @@
 #                                            pinned before it starts, so no later run goes back past it
 #   ./scripts/ops/deploy.sh --help
 #
-# Exit 0 deployed; 1 failed, and the last line says whether the stack went back; 2 refused, with
-# the stack unchanged; 130 interrupted, the stack as far as compose took it. The last build judged
-# healthy is pinned as TAG= in the .env beside the compose file, which compose reads for every
-# command, so `docker compose ps` and `logs` typed by hand reach the stack, and a later run that
-# fails goes back to it.
+# Exit 0 deployed; 1 failed, and the last line says whether the stack went back: once the start has
+# begun, every failure, of the start, of the read after it and of nginx's test and reload, goes back
+# to the build before, and a pin that could not be renamed into place after the reload leaves the
+# new build live, the last line naming the hand step; 2 refused, a wrong argument, a machine that is
+# not Linux, or Docker or its Compose plugin not answering, with the stack unchanged; 130
+# interrupted, the stack as far as compose took it; 3 or more a step before the start that crashed,
+# a HEAD git could not name, a failed pull or a pin it could not write, each leaving the stack
+# unchanged and its sentence saying so. The last build judged healthy is pinned as TAG= in the .env
+# beside the compose file, which compose reads for every command, so `docker compose ps` and `logs`
+# typed by hand reach the stack, and a later run that fails goes back to it.
 
-source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh" || exit 3
 
 # The tag CI pushes a build under: docker/metadata-action's `type=sha`, seven hex digits by default.
 TAG_RE='^sha-[0-9a-f]{7}$'
@@ -40,7 +45,7 @@ done
 
 # `cut` rather than `git rev-parse --short`, which lengthens a prefix another object shares.
 if [[ -z "$tag" ]]; then
-  head="$(git rev-parse HEAD)" || refuse "git could not name the checkout's HEAD, so there is no tag to deploy.
+  head="$(git rev-parse HEAD)" || crash "git could not name the checkout's HEAD, so there is no tag to deploy.
 Name one:  ./scripts/ops/deploy.sh sha-1a2b3c4"
   tag="sha-$(printf '%s' "$head" | cut -c1-7)"
 fi
@@ -49,6 +54,8 @@ fi
 # On a development machine the base file alone is production's stack, which `up --remove-orphans`
 # would put in place of the local one's containers.
 require_platform linux
+require_docker
+require_compose
 
 # The last build judged healthy, which only this script writes. A first run finds none and rolls
 # nothing back: the build it replaces is then the one from before this script, which never runs again.
@@ -73,21 +80,21 @@ if quietly docker image prune -af; then ok "removed"; else warn "the prune faile
 # and the edge's images are pinned by digest. A build already on this host is taken as it is.
 step "Pulling every image ${tag} runs with"
 quietly docker compose pull --policy missing \
-  || refuse "the pull failed, and compose's own account is above: a tag CI never pushed, the registry, or this
+  || crash "the pull failed, and compose's own account is above: a tag CI never pushed, the registry, or this
 host's network. The stack has not changed."
 ok "every image is on this host"
 
-# Through a second file and a rename, so the pin is never half written.
-pin() { printf 'TAG=%s\n' "$1" > .env.next && mv -f .env.next .env; }
+# Through a second file and a rename, so the pin is never half written. The file is written before the start, where a
+# full disk or a permission leaves the stack unchanged, so only the rename is left once the build is live.
+stage_pin() { printf 'TAG=%s\n' "$1" > .env.next; }
+pin() { mv -f .env.next .env; }
 
-# Every service the compose file defines that is not running and healthy, into FAILING: one with no
-# running container, and one whose health is anything but none or `healthy`, `starting` included.
-# `up --wait` judges each service once, so one can turn unhealthy while it waits on another, and some
-# Compose releases answer 0 at the timeout with one still starting. `ps` without `--all` lists only
-# the project's running containers and no one-off container `docker compose run` left
-# (https://docs.docker.com/reference/cli/docker/compose/ps/), which `--all` lists under its service's
-# name. Answers 0 for none, 1 for some, and 2 where compose could not answer either read or named no
-# service, of which a read can find none failing.
+# Every service the compose file defines that is not running and healthy, into FAILING, a health of
+# `starting` included. `up --wait` judges each service once, so one can turn unhealthy while it waits
+# on another, and some Compose releases answer 0 at the timeout with one still starting. `ps` without
+# `--all` lists the project's running containers alone, never a one-off container `docker compose
+# run` left, which `--all` lists under its service's name. Answers 0 for none, 1 for some, and 2
+# where compose could not answer either read or named no service, which would read as none failing.
 FAILING=()
 read_states() {
   local defined listed service state health
@@ -112,7 +119,9 @@ read_states() {
   (( ${#FAILING[@]} == 0 ))
 }
 
-# The services' own healthchecks decide, and their last lines say why.
+# The services' own healthchecks decide, and their last lines say why. Each read is an account of a
+# failure already decided, so one compose cannot give is shown and passed: ending the run there would
+# leave the stack where it stands rather than going back.
 show_failure() {
   local IFS=' '
   info "compose's own account of each service:"
@@ -128,12 +137,12 @@ show_failure() {
 up() { quietly docker compose up -d --wait --wait-timeout "$WAIT_S" --remove-orphans; }
 
 # `nginx -s reload` answers 0 once the signal is sent. The running master then starts new workers or
-# keeps its old configuration (https://nginx.org/en/docs/control.html), refusing some a fresh
-# `nginx -t` passes, such as a zone keyed anew under its old name. Its error log, the container's
-# output, says which, each line naming the pid that wrote it. The master logs `reconfiguring`, then
-# the reason it refuses or `start worker processes` at notice, the image's nginx.conf level. Only the
-# master's lines are read: a worker's request can log an alert of its own, such as its connections
-# running out, which bears no connection number either.
+# keeps its old configuration, refusing some a fresh `nginx -t` passes, such as a zone keyed anew
+# under its old name. Its error log, the container's output, says which, each line naming the pid
+# that wrote it. The master logs `reconfiguring`, then the reason it refuses or `start worker
+# processes` at notice, the image's nginx.conf level. Only the master's lines are read: a worker's
+# request can log an alert of its own, such as its connections running out, which bears no
+# connection number either. Run as a condition, so any step of it that fails goes back.
 reload_nginx() {
   local since="${EPOCHREALTIME/,/.}" refusal="$failure" said master refused i
   quietly docker compose exec -T nginx nginx -s reload || return 1
@@ -160,11 +169,13 @@ reboot included, loads afresh:"
 
 # Moved by a healthy verdict alone, so a run ending without one, an interrupt included, leaves it on
 # the last build that came up. --no-rollback's build retires the one before as it starts.
+stage_pin "$tag" || crash "the .env could not be written, so ${tag} was not started. The stack has not changed."
 if (( ! ROLLBACK )); then
-  pin "$tag" || refuse "the .env could not be written, so ${tag} was not started. The stack has not changed."
+  pin || crash "the .env could not be written, so ${tag} was not started. The stack has not changed."
 fi
 step "Starting ${tag}"
 failure="${tag} did not come up"
+# From here every failure before the pin goes back, so each step runs as a condition and none ends the run.
 if up; then
   # What `up` answered and nothing more: the read below judges each service.
   ok "compose's wait ended without a failure"
@@ -179,12 +190,19 @@ if up; then
     failure="nginx did not take this checkout's configuration and still runs the one it had"
     if ! quietly docker compose exec -T nginx nginx -t; then
       # Going back moves the images alone, and nginx reads the checkout's files at any restart.
-      warn "this checkout's nginx/ still holds the configuration nginx refused, which a restart of nginx, a
-reboot included, loads and fails on. Pull a commit whose configuration nginx takes and deploy it."
+      warn "nginx -t did not pass this checkout's nginx/, its own account above. Where nginx refused it, the
+checkout still holds the configuration nginx refused, which a restart of nginx, a reboot included,
+loads and fails on. Pull a commit whose configuration nginx takes and deploy it."
     elif reload_nginx; then
       ok "tested, and its new workers started"
-      pin "$tag" || die "${tag} is live, but the .env could not be written and still pins ${prev:-no build}.
-Write TAG=${tag} into it, or the next failed run goes back past ${tag}."
+      if (( ROLLBACK )); then
+        step "Pinning ${tag}"
+        # Not gone back: the build is live and whole under the configuration nginx has just loaded, which going
+        # back would leave the build before it to run under.
+        pin || die "${tag} is live and healthy under this checkout's nginx configuration, but the pin could not be
+renamed into .env, which still pins ${prev:-no build}, the build a later failing run would go back to. Pin ${tag}
+by hand:  printf 'TAG=%s\n' ${tag} > .env"
+      fi
       ok "${tag} is live.${prev:+ The build before it was ${prev}.}"
       exit 0
     fi

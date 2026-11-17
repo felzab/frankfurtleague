@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { serveBackend } from "@/test-support/backend";
+import { renderUnderNext, underNext } from "@/test-support/nextContexts";
 import { signedInRequest } from "@/test-support/session";
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderToReadableStream } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -17,8 +18,6 @@ const ID = "65f0a0a0a0a0a0a0a0a0a0a0";
 /** The application the backend serves at the address's id. */
 const state = { read: null as unknown };
 
-vi.mock("next/navigation", async (original) => ({ ...(await original<object>()), useRouter: () => ({ refresh: () => undefined }) }));
-
 // The page's one read, of the application its address names, through the real guard, query and generated call.
 serveBackend(({ method, path }) => (method === "GET" && path === `/bewerbungen/${ID}` ? state.read : undefined));
 // An administrator's session, made by passkey, which the page's guard admits.
@@ -29,7 +28,7 @@ const { default: BewerbungPage } = await import("./page");
 const person = {
   first_name: "Anke",
   last_name: "Koerner",
-  email: "a@example.de",
+  email: "a@example.net",
   phone: "069 1",
   einwilligung: { confirmed_at: null },
 } as FLKontaktperson;
@@ -90,7 +89,7 @@ async function seatRows(): Promise<readonly SeatRow[]> {
 /** The words of the page's strip, as the server sends it once the record is read. */
 async function stripOf(read: unknown): Promise<string | null | undefined> {
   state.read = read;
-  const stream = await renderToReadableStream(<BewerbungPage {...PARAMS} />);
+  const stream = await renderToReadableStream(underNext(<BewerbungPage {...PARAMS} />));
   await stream.allReady;
   const page = document.createElement("div");
   page.innerHTML = await new Response(stream).text();
@@ -111,7 +110,7 @@ describe("a seat the submission never mailed", () => {
     // A rail's width, where a menu opens as a popover: jsdom has none of the observers the phone's sheet uses.
     vi.spyOn(window, "matchMedia").mockImplementation((media) => Object.assign(new EventTarget(), { media, matches: true }) as MediaQueryList);
     const row = (await seatRows()).find(({ id }) => id === "trainer");
-    render(<>{row?.acts}</>);
+    renderUnderNext(<>{row?.acts}</>);
 
     expect(row?.chips).toContainEqual({ tone: "warn", label: COPY.admin.saison.linkNotSent });
     // A seat's acts stand in its row's „⋯“.

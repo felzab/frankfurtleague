@@ -8,22 +8,25 @@ case, so a secret value, a made-up one included, never sits in one.
 """
 
 import asyncio
+import contextlib
 import json
 import os
 import re
 import sys
-from collections.abc import AsyncGenerator, Mapping
+from collections.abc import AsyncGenerator, AsyncIterator, Mapping
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
 
+from app.core.concurrency import concurrently
 from app.core.db import SERVER_SELECTION_TIMEOUT_MS
 
 BACKEND_ROOT: Final = Path(__file__).resolve().parents[1]
 DOCKERFILE: Final = BACKEND_ROOT / "Dockerfile"
 
-# Far past the longest boot a case waits out, the driver's server selection, so only a boot that hangs reaches it.
+# Far past the longest boot run to its exit, one waiting out the driver's server selection, so only a boot that hangs
+# reaches it. `booted` runs in a module fixture, outside any case's bound.
 BOOT_BOUND_S: Final = SERVER_SELECTION_TIMEOUT_MS / 1000 + 45
 
 # The shape of the application's own log message (`app/core/logging.py`), which carries no value; uvicorn's lines and a
@@ -62,8 +65,11 @@ def boot_command() -> list[str]:
     return [sys.executable, "-m", "uvicorn", *arguments, "--app-dir", str(BACKEND_ROOT)]
 
 
-def _environment(secrets: Path, variables: Mapping[str, str]) -> Withheld:
-    """`variables` and the secrets folder, with the image's own `ENV` and nothing of this machine's but one name."""
+def environment(secrets: Path, variables: Mapping[str, str]) -> Withheld:
+    """`variables` and the secrets folder, with the image's own `ENV` and nothing of this machine's but one name.
+
+    Every process a case starts from the backend runs over one: a developer's environment can name a real deployment.
+    """
 
     environment = Withheld({"PYTHONUNBUFFERED": "1", "SECRETS_DIR": str(secrets), **variables})
     # Windows' sockets cannot load their providers without it, so `asyncio` fails at its import (WinError 10106); it
@@ -74,7 +80,7 @@ def _environment(secrets: Path, variables: Mapping[str, str]) -> Withheld:
     return environment
 
 
-def _secrets_folder(directory: Path, files: Mapping[str, str]) -> Path:
+def secrets_folder(directory: Path, files: Mapping[str, str]) -> Path:
     secrets = directory / "run-secrets"
     secrets.mkdir()
     for name, value in files.items():
@@ -123,27 +129,34 @@ class Boot:
         return sorted(name for name, value in values.items() if value in self.output)
 
 
-async def _started(directory: Path, files: Mapping[str, str], variables: Mapping[str, str]) -> asyncio.subprocess.Process:
-    """The boot started from `directory`, with `files` as its secrets and `variables` as its whole environment."""
+@asynccontextmanager
+async def _boot(directory: Path, files: Mapping[str, str], variables: Mapping[str, str]) -> AsyncIterator[asyncio.subprocess.Process]:
+    """The boot started from `directory`, with `files` as its secrets and `variables` as its whole environment, held running.
 
-    return await asyncio.create_subprocess_exec(
+    Both streams in one, as the container log holds them. Killed and reaped as the block leaves, by any path a sibling's
+    failure included: no case reads anything a boot does after its block.
+    """
+
+    process = await asyncio.create_subprocess_exec(
         *boot_command(),
         cwd=directory,
-        env=_environment(_secrets_folder(directory, files), variables),
+        env=environment(secrets_folder(directory, files), variables),
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
     )
+    try:
+        yield process
+    finally:
+        # A process that has just exited is no error.
+        with contextlib.suppress(ProcessLookupError):
+            process.kill()
+        await process.wait()
 
 
 async def _to_its_exit(directory: Path, files: Mapping[str, str], variables: Mapping[str, str]) -> Boot:
-    process = await _started(directory, files, variables)
-    try:
+    async with _boot(directory, files, variables) as process:
         async with asyncio.timeout(BOOT_BOUND_S):
             output, _ = await process.communicate()
-    finally:
-        if process.returncode is None:
-            process.kill()
-            await process.wait()
 
     return Boot(process.returncode, output.decode("utf-8", errors="replace"))
 
@@ -151,39 +164,31 @@ async def _to_its_exit(directory: Path, files: Mapping[str, str], variables: Map
 Booting = tuple[Path, Mapping[str, str], Mapping[str, str]]
 
 
-def booted(boots: Mapping[str, Booting]) -> dict[str, Boot]:
+async def booted(boots: Mapping[str, Booting]) -> dict[str, Boot]:
     """Each boot, from its directory with its secrets and its variables, run to its exit, all at once.
 
     At once, since most of a boot is a wait: an import, or the driver's server selection.
     """
 
-    async def every() -> dict[str, Boot]:
-        names = list(boots)
-        ended = await asyncio.gather(*(_to_its_exit(*boots[name]) for name in names))
+    names = list(boots)
+    ended = await concurrently(*(_to_its_exit(*boots[name]) for name in names))
 
-        return dict(zip(names, ended, strict=True))
-
-    return asyncio.run(every())
+    return dict(zip(names, ended, strict=True))
 
 
 @asynccontextmanager
 async def serving(directory: Path, files: Mapping[str, str], variables: Mapping[str, str], *, until: str) -> AsyncGenerator[Boot]:
     """The boot, held running from the line `until` names until the block leaves; what it logged by then, or by its exit."""
 
-    process = await _started(directory, files, variables)
-    assert process.stdout is not None
-    lines: list[bytes] = []
-    try:
-        async with asyncio.timeout(BOOT_BOUND_S):
-            while line := await process.stdout.readline():
-                lines.append(line)
-                if Boot(None, line.decode("utf-8", errors="replace")).events == [until]:
-                    break
+    async with _boot(directory, files, variables) as process:
+        assert process.stdout is not None
+        lines: list[bytes] = []
+        # Under the case's bound, inside which every caller holds it.
+        while line := await process.stdout.readline():
+            lines.append(line)
+            if Boot(None, line.decode("utf-8", errors="replace")).events == [until]:
+                break
         yield Boot(process.returncode, b"".join(lines).decode("utf-8", errors="replace"))
-    finally:
-        if process.returncode is None:
-            process.terminate()
-        await process.wait()
 
 
 def names(sentence: str | None, opening: str) -> set[str]:

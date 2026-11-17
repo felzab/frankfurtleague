@@ -6,7 +6,6 @@ read is all most cases meet; one db case boots over a real collection, so the li
 is asserted as well as run.
 """
 
-import asyncio
 import logging
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
@@ -15,11 +14,11 @@ from typing import Any, cast
 import pytest
 from fastapi import FastAPI
 from pydantic import SecretStr
-from pymongo import MongoClient
+from pymongo import AsyncMongoClient
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.core.collections import Collection
-from app.core.db import NO_GRANT, NO_OWNER, lifespan, warn_about_the_grants
+from app.core.db import NO_GRANT, NO_OWNER, lifespan, new_client, warn_about_the_grants
 from app.core.logging import FL_LOGGER_NAME
 from tests.config import build_test_config
 from tests.worker import worker_database
@@ -41,9 +40,9 @@ class _Grants:
         return _Cursor(self._rows)
 
 
-def warned(rows: Sequence[Mapping[str, Any]], caplog: pytest.LogCaptureFixture) -> list[str]:
+async def warned(rows: Sequence[Mapping[str, Any]], caplog: pytest.LogCaptureFixture) -> list[str]:
     with caplog.at_level(logging.WARNING, logger=FL_LOGGER_NAME):
-        asyncio.run(warn_about_the_grants(cast(AsyncCollection, _Grants(rows))))
+        await warn_about_the_grants(cast(AsyncCollection, _Grants(rows)))
 
     return [record.getMessage() for record in caplog.records]
 
@@ -52,33 +51,30 @@ OWNER = {"address": "inhaberin@frankfurtleague.de", "admin_tier": "owner"}
 ADMINISTRATOR = {"address": "anna@frankfurtleague.de", "admin_tier": "administration"}
 
 
-def test_a_list_with_no_owner_is_named(caplog):
-    assert warned([ADMINISTRATOR], caplog) == [NO_OWNER]
+async def test_a_list_with_no_owner_is_named(caplog):
+    assert await warned([ADMINISTRATOR], caplog) == [NO_OWNER]
 
 
-def booted_over(grants: Sequence[Mapping[str, Any]], mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture) -> set[str]:
+async def booted_over(grants: Sequence[Mapping[str, Any]], mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture) -> set[str]:
     """The lifespan entered and left over a database holding these grants; the grant warnings it logged."""
 
     name = worker_database("fl_boot_grants")
     config = build_test_config().model_copy(update={"mongodb_uri": SecretStr(mongo_replica_set_url), "db_base_name": name})
-    client: MongoClient = MongoClient(mongo_replica_set_url)
-
-    async def enter() -> None:
-        app = FastAPI()
-        app.state.config = config
-        async with lifespan(app):
-            pass
+    client: AsyncMongoClient = new_client(mongo_replica_set_url)
 
     try:
-        client.drop_database(name)
+        await client.drop_database(name)
         if grants:
             stamped = {"effective_from": datetime(2026, 1, 1, tzinfo=UTC)}
-            client[name][Collection.GRANTS].insert_many([{**grant, **stamped} for grant in grants])
+            await client[name][Collection.GRANTS].insert_many([{**grant, **stamped} for grant in grants])
+        app = FastAPI()
+        app.state.config = config
         with caplog.at_level(logging.WARNING, logger=FL_LOGGER_NAME):
-            asyncio.run(enter())
+            async with lifespan(app):
+                pass
     finally:
-        client.drop_database(name)
-        client.close()
+        await client.drop_database(name)
+        await client.close()
 
     return {record.getMessage() for record in caplog.records} & {NO_GRANT, NO_OWNER}
 
@@ -87,5 +83,5 @@ def booted_over(grants: Sequence[Mapping[str, Any]], mongo_replica_set_url: str,
 class TestTheBootWarnsAboutTheGrantsItFinds:
     """The lifespan's own call, over a real collection: a boot that stopped asking would leave the operator warned of nothing."""
 
-    def test_an_empty_list_is_named_at_boot(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        assert booted_over([], mongo_replica_set_url, caplog) == {NO_GRANT}
+    async def test_an_empty_list_is_named_at_boot(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        assert await booted_over([], mongo_replica_set_url, caplog) == {NO_GRANT}

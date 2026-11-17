@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-const { mailFor } = await import("./mailKinds.ts");
-const { OBJECTION } = await import("./emailShell.ts");
+const { mailFor } = await import("./mailKinds");
+const { OBJECTION } = await import("./emailShell");
 
 describe("a ban's notice", () => {
   /* Art. 21 (4): separate from the rest and at the first communication, which is this mail, and no other part of it says so. */

@@ -1,26 +1,27 @@
 /**
- * E2E · J6's part in the area: an administrator starts a change for a person who lost their mailbox and discards it,
- * erases an address on request, and reads each act back in the Protokoll, every act behind the administrator's real
- * touch. The touch asks the test's own context, so the journey signs in and sets up its passkey there: the session
- * `../support/administrator.setup.ts` saves carries cookies and no authenticator. Desktop alone, for the reason
- * `fl_frontend/playwright.config.ts` gives at its projects; `../phone/access.spec.ts` reads the lists on a phone.
+ * E2E · the administration's access pages: an administrator starts a change for a person who lost their mailbox and
+ * discards it, erases an address on request, and reads each act back in the Protokoll, every act behind the
+ * administrator's real touch. The touch asks the test's own context, so the journey signs in and sets up its passkey
+ * there: the shared administrator's session carries cookies and no authenticator. Desktop alone, since Playwright's
+ * WebKit holds no authenticator; the phone reads the lists in a journey of its own.
  */
 import { expect } from "@playwright/test";
 
 import { chooseWho } from "../support/actionLog";
-import { chip, pressRowAct, typeInto } from "../support/controls";
+import { chip, enteredDialog, enteredQuestion, pressRowAct, typeInto } from "../support/controls";
 import { test } from "../support/journey";
+import { PEOPLE } from "../support/madeUpLeague";
 import { filedMessages, mailedMessage } from "../support/mailSink";
 import { assertionsSigned, enrolPasskey, signInWithCode } from "../support/signIn";
 
-/** The administrator these acts are done by (`scripts/ops/seed/seed.js`), whom no other journey signs in as. */
-const ADMINISTRATOR = "admin.zugang@example.com";
+/** The administrator these acts are done by, whom no other journey signs in as. */
+const ADMINISTRATOR = PEOPLE.administrators.access;
 
 /** The person whose address the change starts on. */
-const MOVER = "marta.moos@example.com";
+const MOVER = PEOPLE.access.mover.address;
 
 /** The person this journey erases. */
-const ERASED = "olga.ott@example.com";
+const ERASED = PEOPLE.access.erased.address;
 
 /** The request's reference, the erasure's one word in the log. */
 const REFERENCE = "Anfrage 17";
@@ -36,7 +37,7 @@ test("an administrator's acts on Adressänderungen and Löschungen take the touc
   const newAddress = MOVER.replace("@", ".neu@");
   await page.goto("/admin/address-changes");
   await page.getByRole("button", { name: "Änderung eintragen" }).click();
-  const dialog = page.getByRole("dialog", { name: "Änderung eintragen" });
+  const dialog = await enteredDialog(page, "Änderung eintragen");
   await typeInto(dialog.getByRole("textbox", { name: /^Bisherige E-Mail-Adresse/ }), MOVER);
   await typeInto(dialog.getByRole("textbox", { name: /^Neue E-Mail-Adresse/ }), newAddress);
   await dialog.getByRole("button", { name: "Änderung eintragen" }).click();
@@ -47,9 +48,8 @@ test("an administrator's acts on Adressänderungen and Löschungen take the touc
   await expect(chip(row, "Neue offen")).toBeVisible();
   await mailedMessage(newAddress, "E-Mail-Adresse bestätigen", before);
 
-  // A question is named: the toast each act answers in is an `alertdialog` too.
   await pressRowAct(row, "Verwerfen");
-  const discard = page.getByRole("alertdialog", { name: "Änderung verwerfen?" });
+  const discard = await enteredQuestion(page, "Änderung verwerfen?");
   await discard.getByRole("button", { name: "Verwerfen" }).click();
   await expect(discard).toBeHidden();
   await expect(row).toHaveCount(0);
@@ -63,7 +63,7 @@ test("an administrator's acts on Adressänderungen and Löschungen take the touc
   await main.getByRole("button", { name: "Löschen" }).click();
 
   // The counts the press read, and no name: the person's one record is a referee's.
-  const question = page.getByRole("alertdialog", { name: "Daten löschen?" });
+  const question = await enteredQuestion(page, "Daten löschen?");
   await expect(question).toContainText("Schiedsrichter");
   await question.getByRole("button", { name: "Löschen" }).click();
   await expect(question).toBeHidden();

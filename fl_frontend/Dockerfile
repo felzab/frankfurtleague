@@ -3,7 +3,7 @@
 
 # The tag names the Node `devEngines` pins in package.json, and Dependabot moves it together with
 # the digest.
-FROM node:26.13.0-trixie-slim@sha256:5adad64f9a1fca2d51972caa65983634c8a774eb300d72b20f7f2a0f60368072 AS base
+FROM node:26.13.1-trixie-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc AS base
 
 # tini as PID 1, as Node's Docker guidance asks: node there ignores every signal it registered no
 # handler for and reaps no orphaned child
@@ -90,8 +90,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 USER nextjs
 EXPOSE 3000
 
-# The version the deploy stamps on the image (`.github/workflows/verify.yml`'s build argument, the tag its
-# `org.opencontainers.image.version` label carries), which the start-up line logs. Last, so a new value per commit
+# The version CI builds the image with, as a build argument, its `sha-<commit>` tag and the value its
+# `org.opencontainers.image.version` label carries, which the start-up line logs. Last, so a new value per commit
 # rebuilds no layer above it. A build handed none sets the variable to the empty string, since an `ENV` cannot
 # leave it unset, and the settings read an empty variable as unset, so that build logs it as null.
 ARG APP_VERSION

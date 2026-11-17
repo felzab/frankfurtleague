@@ -1,4 +1,3 @@
-import functools
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
@@ -6,21 +5,18 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from httpx2 import AsyncClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.spieler.admin_router import get_spieler_saison, patch_spieler_saison
+from app.api.spieler.admin_router import get_spieler_saison
 from app.api.spieler.schemas import FLPatchSpielerSaisonPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.recording import actor_var
-from app.main import create_app
 from app.shared.einwilligung_evidence import EVIDENCE, evidence_state_of
-from tests.app_client import app_client
-from tests.config import ADMIN_KEY
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.app_client import app_client, app_under_test
+from tests.config import ADMIN_KEY, grants_for_the_suite
+from tests.database import a_clean_database
 from tests.documents import (
     SPIELER_TEXT_VERSIONS,
     aufstellung_document,
@@ -30,16 +26,13 @@ from tests.documents import (
     saison_team_document,
     spiel_document,
     spieler_document,
+    spieltag_document,
     team_document,
 )
 from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
 
-from .conftest import config_for
-
 DATABASE_NAME = worker_database("fl_spieler_self_test")
-
-CONFIG = config_for(DATABASE_NAME)
 
 PATCH_PATH = f"/api/v{API_VERSION}/spieler/account/einwilligung"
 # The account page's read, which serves the consent and the evidence a press echoes.
@@ -51,10 +44,10 @@ PAST_SAISON = "2025"
 ACTIVE_SAISON = "2026"
 
 # Stored folded, as every pupil row stores its address.
-IDENTIFIER = "ortrud.zwiebelmayer@schule.de"
-YOUNG = "jonas.jungspund@schule.de"
+IDENTIFIER = "ortrud.zwiebelmayer@schule.example.org"
+YOUNG = "jonas.jungspund@schule.example.org"
 BYSTANDER = "baldur.krautzberger@example.com"
-NOBODY = "niemand@schule.de"
+NOBODY = "niemand@schule.example.org"
 # The administrator saving the Spieler editor.
 EDITOR = "admin@frankfurtleague.de"
 
@@ -171,30 +164,13 @@ async def _seed(database: AsyncDatabase) -> None:
     )
 
 
-@functools.cache
-def _app() -> FastAPI:
-    """Built once for the module: a build per case would be about half of what a case here costs."""
-
-    return create_app(CONFIG)
-
-
-@pytest.fixture(scope="module", autouse=True)
-def _built_before_any_case() -> None:
-    """Never inside a case: a build re-runs the logging `dictConfig`, which strips the handler `caplog` reads that case's records from."""
-
-    _app()
-
-
-def served[T](url: str, steps: Callable[[AsyncClient, AsyncDatabase], Awaitable[T]]) -> T:
+async def served[T](url: str, steps: Callable[[AsyncClient, AsyncDatabase], Awaitable[T]]) -> T:
     """`steps` against a freshly seeded database, served on the clock `NOW` reads."""
 
-    async def _run() -> T:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_client, database):
-            await _seed(database)
-            async with app_client(url, app=_app(), now=NOW) as http:
-                return await steps(http, database)
-
-    return on_the_seed_loop(_run())
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_client, database):
+        await _seed(database)
+        async with app_client(url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
+            return await steps(http, database)
 
 
 async def _records(database: AsyncDatabase) -> dict[Any, Any]:
@@ -256,18 +232,7 @@ async def _seed_the_season(database: AsyncDatabase) -> None:
     """The matchdays and the fixtures the one-season read serves, with the line-ups it reads `starts` off."""
 
     await database[Collection.SPIELTAGE].insert_many(
-        [
-            {
-                "_id": oid,
-                "start": None,
-                "end": None,
-                "position": position,
-                "saison_phase": "gruppenphase",
-                "saison_id": ACTIVE_SAISON,
-                "version": 0,
-            }
-            for oid, position in ((SPIELTAG_1_OID, 1), (SPIELTAG_2_OID, 2))
-        ]
+        [spieltag_document(oid, ACTIVE_SAISON, position) for oid, position in ((SPIELTAG_1_OID, 1), (SPIELTAG_2_OID, 2))]
     )
     await database[Collection.SPIELE].insert_many([BENCHED, UNNAMED, NONE_STORED, NOT_THE_CLUBS])
     await database[Collection.AUFSTELLUNGEN].insert_many(
@@ -292,16 +257,16 @@ def _read_after_seeding(email: str, *, path: str) -> Callable[[AsyncClient, Asyn
 @pytest.mark.db
 class TestTheOwnSeasons:
     @pytest.mark.parametrize("path", [SAISONS_PATH, _saison_path(ACTIVE_SAISON)], ids=["saisons", "saison"])
-    def test_an_address_holding_no_record_is_refused(self, mongo_replica_set_url: str, path: str):
-        response = served(mongo_replica_set_url, _read(NOBODY, path=path))
+    async def test_an_address_holding_no_record_is_refused(self, mongo_replica_set_url: str, path: str):
+        response = await served(mongo_replica_set_url, _read(NOBODY, path=path))
 
         assert (response.status_code, response.json()["error_code"]) == (403, Code.ROLE_NOT_HELD)
 
 
 @pytest.mark.db
 class TestTheOwnSeason:
-    def test_the_row_and_the_clubs_fixtures_each_with_where_its_line_up_puts_the_pupil(self, mongo_replica_set_url: str):
-        response = served(mongo_replica_set_url, _read_after_seeding(IDENTIFIER, path=_saison_path(ACTIVE_SAISON)))
+    async def test_the_row_and_the_clubs_fixtures_each_with_where_its_line_up_puts_the_pupil(self, mongo_replica_set_url: str):
+        response = await served(mongo_replica_set_url, _read_after_seeding(IDENTIFIER, path=_saison_path(ACTIVE_SAISON)))
 
         assert response.status_code == 200, response.text
         body = response.json()
@@ -318,10 +283,10 @@ class TestTheOwnSeason:
 
 @pytest.mark.db
 class TestTheTwoChoices:
-    def test_moving_the_scope_moves_this_record_alone_and_leaves_the_media_answer(self, mongo_replica_set_url: str):
+    async def test_moving_the_scope_moves_this_record_alone_and_leaves_the_media_answer(self, mongo_replica_set_url: str):
         """With the next case, the pair that goes red the day the handler writes the payload wholesale."""
 
-        response, before, after, spiele = served(mongo_replica_set_url, _press(IDENTIFIER, _payload(scope="internal")))
+        response, before, after, spiele = await served(mongo_replica_set_url, _press(IDENTIFIER, _payload(scope="internal")))
 
         assert response.status_code == 204, response.text
         assert _block(after[PUPIL_OID]["einwilligung"]) == {**_block(before[PUPIL_OID]["einwilligung"]), "scope": "internal"}
@@ -331,10 +296,10 @@ class TestTheTwoChoices:
         # No copy of the verdict on any fixture, the seeded one held byte for byte.
         assert spiele == [SPIEL]
 
-    def test_moving_the_media_answer_leaves_the_scope_and_the_confirmation(self, mongo_replica_set_url: str):
+    async def test_moving_the_media_answer_leaves_the_scope_and_the_confirmation(self, mongo_replica_set_url: str):
         """The confirmation day is what the panel and the publication mask read."""
 
-        response, before, after, _ = served(mongo_replica_set_url, _press(IDENTIFIER, _payload(media=True)))
+        response, before, after, _ = await served(mongo_replica_set_url, _press(IDENTIFIER, _payload(media=True)))
 
         assert response.status_code == 204, response.text
         assert _block(after[PUPIL_OID]["einwilligung"]) == {**_block(before[PUPIL_OID]["einwilligung"]), "media": True}
@@ -342,7 +307,7 @@ class TestTheTwoChoices:
 
 @pytest.mark.db
 class TestAnEditorReadBeforeThePress:
-    def test_the_editors_save_lands_and_the_press_stands(self, mongo_replica_set_url: str):
+    async def test_the_editors_save_lands_and_the_press_stands(self, mongo_replica_set_url: str):
         """The press moves no field the Spieler editor saves, so a count it raised would refuse that editor's next save for nothing."""
 
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
@@ -355,52 +320,45 @@ class TestAnEditorReadBeforeThePress:
                 saisons_collection=database[Collection.SAISONS],
             )
             pressed = await http.patch(PATCH_PATH, json=_payload(scope="internal"), headers=_person(IDENTIFIER))
-            # The administrator `bind_actor` would bind, since the editor's save is called here rather than served.
-            token = actor_var.set(EDITOR)
-            try:
-                await patch_spieler_saison(
-                    spieler_id=PUPIL_OID,
-                    saison_id=ACTIVE_SAISON,
-                    spieler_data=FLPatchSpielerSaisonPayload(
-                        first_name="Ortrun",
-                        last_name="Zwiebelmayer",
-                        birth_date=ADULT_BIRTHDATE,
-                        nummer="07",
-                        position=None,
-                        stufe=None,
-                        rolle="kapitaen",
-                        version=read.version,
-                    ),
-                    spieler_collection=database[Collection.SPIELER],
-                    saison_spieler_collection=database[Collection.SAISON_SPIELER],
-                    saisons_collection=database[Collection.SAISONS],
-                    db=database.client,
-                )
-            finally:
-                actor_var.reset(token)
-            return pressed, await database[Collection.SPIELER].find_one({"_id": PUPIL_OID})
+            # The editor's save as its page sends it, by an administrator the suite's grants hold, on the read's version.
+            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
+            saved = await http.patch(
+                f"/api/v{API_VERSION}/spieler/{PUPIL_OID}/saisons/{ACTIVE_SAISON}/admin",
+                json=FLPatchSpielerSaisonPayload(
+                    first_name="Ortrun",
+                    last_name="Zwiebelmayer",
+                    birth_date=ADULT_BIRTHDATE,
+                    nummer="07",
+                    position=None,
+                    stufe=None,
+                    rolle="kapitaen",
+                    version=read.version,
+                ).model_dump(mode="json"),
+                headers=StampedHeaders(EDITOR, ADMIN_KEY),
+            )
+            return pressed, saved, await database[Collection.SPIELER].find_one({"_id": PUPIL_OID})
 
-        pressed, stored = served(mongo_replica_set_url, steps)
+        pressed, saved, stored = await served(mongo_replica_set_url, steps)
 
-        assert pressed.status_code == 204, pressed.text
+        assert (pressed.status_code, saved.status_code) == (204, 200), (pressed.text, saved.text)
         assert (stored["first_name"], stored["einwilligung"]["scope"]) == ("Ortrun", "internal")
 
 
 @pytest.mark.db
 class TestTheMediaAge:
-    def test_a_media_consent_below_the_floor_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
-        response, before, after, _ = served(mongo_replica_set_url, _press(YOUNG, _payload(media=True)))
+    async def test_a_media_consent_below_the_floor_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
+        response, before, after, _ = await served(mongo_replica_set_url, _press(YOUNG, _payload(media=True)))
 
         assert (response.status_code, response.json()["error_code"]) == (422, Code.MEDIA_AGE)
         assert after == before
 
-    def test_a_stored_media_consent_resent_unchanged_lets_the_scope_move(self, mongo_replica_set_url: str):
+    async def test_a_stored_media_consent_resent_unchanged_lets_the_scope_move(self, mongo_replica_set_url: str):
         """A record stamped while the switch was offered from sixteen: judging the unchanged answer would lock the other switch."""
 
         async def granted_under_an_earlier_label(database: AsyncDatabase) -> None:
             await database[Collection.SPIELER].update_one({"_id": YOUNG_OID}, {"$set": {"einwilligung.media": True}})
 
-        response, _, after, _ = served(
+        response, _, after, _ = await served(
             mongo_replica_set_url,
             _press(YOUNG, _payload(scope="internal", media=True, state=MEDIA_GRANTED_STATE), before=granted_under_an_earlier_label),
         )
@@ -417,10 +375,10 @@ class TestTheEvidence:
     async def _earlier_evidence(database: AsyncDatabase) -> None:
         await database[Collection.SPIELER].update_one({"_id": PUPIL_OID}, {"$set": {"einwilligung.evidence": EARLIER_EVIDENCE}})
 
-    def test_a_withdrawal_keeps_the_grant_it_ended_and_leaves_the_other_choices_evidence(self, mongo_replica_set_url: str):
+    async def test_a_withdrawal_keeps_the_grant_it_ended_and_leaves_the_other_choices_evidence(self, mongo_replica_set_url: str):
         """The case that goes red the day a write sets the block, or its evidence, whole."""
 
-        response, _, after, _ = served(
+        response, _, after, _ = await served(
             mongo_replica_set_url, _press(IDENTIFIER, _payload(scope="internal", state=EARLIER_STATE), before=self._earlier_evidence)
         )
 
@@ -430,7 +388,7 @@ class TestTheEvidence:
             "media": EARLIER_EVIDENCE["media"],
         }
 
-    def test_a_grant_after_a_withdrawal_is_its_own_evidence(self, mongo_replica_set_url: str):
+    async def test_a_grant_after_a_withdrawal_is_its_own_evidence(self, mongo_replica_set_url: str):
         """Seeded with evidence, so the withdrawal names the grant it ended and the re-grant is seen to drop it."""
 
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
@@ -441,7 +399,7 @@ class TestTheEvidence:
             granted = await http.patch(PATCH_PATH, json=_payload(scope="kader_public", state=served_state), headers=_person(IDENTIFIER))
             return withdrawn, between, granted, await _records(database)
 
-        withdrawn, between, granted, after = served(mongo_replica_set_url, steps)
+        withdrawn, between, granted, after = await served(mongo_replica_set_url, steps)
 
         assert (withdrawn.status_code, granted.status_code) == (204, 204), granted.text
         assert between["given_before"] == EARLIER_EVIDENCE["scope"], "the withdrawal named no earlier grant, so this case proves nothing"
@@ -452,8 +410,10 @@ class TestTheEvidence:
         }
         assert _block(after[PUPIL_OID]["einwilligung"]) == _block(_einwilligung())
 
-    def test_a_press_moving_nothing_restamps_nothing(self, mongo_replica_set_url: str):
-        response, _, after, _ = served(mongo_replica_set_url, _press(IDENTIFIER, _payload(state=EARLIER_STATE), before=self._earlier_evidence))
+    async def test_a_press_moving_nothing_restamps_nothing(self, mongo_replica_set_url: str):
+        response, _, after, _ = await served(
+            mongo_replica_set_url, _press(IDENTIFIER, _payload(state=EARLIER_STATE), before=self._earlier_evidence)
+        )
 
         assert response.status_code == 204, response.text
         assert after[PUPIL_OID]["einwilligung"][EVIDENCE] == EARLIER_EVIDENCE
@@ -463,7 +423,7 @@ class TestTheEvidence:
 class TestAStalePage:
     """`choices_stale`: a press answers the evidence its page was served, or is refused and writes nothing."""
 
-    def test_a_page_served_before_a_withdrawal_elsewhere_cannot_re_grant_it(self, mongo_replica_set_url: str):
+    async def test_a_page_served_before_a_withdrawal_elsewhere_cannot_re_grant_it(self, mongo_replica_set_url: str):
         """Two tabs: the second withdraws the media consent, then the first, still showing it on, narrows the scope."""
 
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
@@ -476,14 +436,14 @@ class TestAStalePage:
             )
             return withdrawn, stale, before, await _records(database)
 
-        withdrawn, stale, before, after = served(mongo_replica_set_url, steps)
+        withdrawn, stale, before, after = await served(mongo_replica_set_url, steps)
 
         assert withdrawn.status_code == 204, withdrawn.text
         assert (stale.status_code, stale.json()["error_code"]) == (409, Code.CHOICES_STALE)
         assert after == before
         assert after[PUPIL_OID]["einwilligung"]["media"] is False
 
-    def test_two_acts_in_one_second_leave_no_state_a_stale_press_can_echo(self, mongo_replica_set_url: str):
+    async def test_two_acts_in_one_second_leave_no_state_a_stale_press_can_echo(self, mongo_replica_set_url: str):
         """The clock is frozen, so both acts stamp one instant: a tab served between them undoes the second unseen, but for content."""
 
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
@@ -494,7 +454,7 @@ class TestAStalePage:
             stale = await http.patch(PATCH_PATH, json=_payload(scope="internal", state=between), headers=_person(IDENTIFIER))
             return withdrawn, granted, stale, before, await _records(database)
 
-        withdrawn, granted, stale, before, after = served(mongo_replica_set_url, steps)
+        withdrawn, granted, stale, before, after = await served(mongo_replica_set_url, steps)
 
         assert (withdrawn.status_code, granted.status_code) == (204, 204), granted.text
         assert (stale.status_code, stale.json()["error_code"]) == (409, Code.CHOICES_STALE)

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { renderUnderNext } from "@/test-support/nextContexts";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -8,8 +9,6 @@ import { COPY } from "@/core/copy";
 import { AccountBox, AccountRows } from "./AccountBox";
 
 import type { ActionAnswer } from "@/core/action";
-
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => undefined, push: () => undefined }) }));
 
 const PASSKEY = COPY.account.passkeys.title;
 const REFUSAL = COPY.shared.failure.stale;
@@ -28,7 +27,7 @@ describe("a Konto box's act behind a question", () => {
       .fn<() => Promise<ActionAnswer<unknown>>>()
       .mockResolvedValueOnce({ ok: false, reason: REFUSAL })
       .mockResolvedValueOnce({ ok: true, value: undefined, note: NOTE });
-    render(
+    renderUnderNext(
       <AccountBox
         title={PASSKEY}
         description={COPY.account.passkeys.description}
@@ -54,7 +53,7 @@ describe("a locked Konto box", () => {
   // The harm: a locked button is no submit button, and a form without one still submits on Enter from a lone field.
   it("runs nothing on Enter from its field", async () => {
     const run = vi.fn<() => Promise<ActionAnswer<unknown>>>();
-    render(
+    renderUnderNext(
       <AccountBox
         title={PASSKEY}
         description={COPY.account.passkeys.description}
@@ -72,7 +71,7 @@ describe("a locked Konto box", () => {
 
   // The harm: a dialog's trigger around the locked button would open the question behind the reason.
   it("answers a press with its reason, never the question", async () => {
-    render(
+    renderUnderNext(
       <AccountBox
         title={PASSKEY}
         description={COPY.account.passkeys.description}
@@ -97,7 +96,7 @@ describe("a Konto row's removal", () => {
       .fn<() => Promise<ActionAnswer<unknown>>>()
       .mockResolvedValueOnce({ ok: false, reason: REFUSAL })
       .mockResolvedValueOnce({ ok: true, value: undefined });
-    render(
+    renderUnderNext(
       <AccountRows
         rows={[
           {

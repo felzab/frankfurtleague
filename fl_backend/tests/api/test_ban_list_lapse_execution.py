@@ -18,11 +18,11 @@ from app.api.saisons.admin_router import activate_saison
 from app.api.saisons.crud import pull_governing_saison_id
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError
 from tests import documents
 from tests.bans import ban_through_the_route
 from tests.config import grants_for_the_suite
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
+from tests.isolation import refused_code
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -33,8 +33,8 @@ TODAY = "2026-04-01"
 
 ADMIN = "admin@frankfurtleague.de"
 
-BANNED = "Zorbanax@Beispielschule.de"
-OTHER = "quillhilde@beispielschule.de"
+BANNED = "Zorbanax@Beispielschule.example.org"
+OTHER = "quillhilde@beispielschule.example.org"
 
 BAN_REASON = "Falsches Geburtsdatum bei der Anmeldung"
 
@@ -76,19 +76,16 @@ async def a_drawn_target(database: AsyncDatabase, saison_id: str) -> None:
     )
 
 
-def on_a_league(url: str, seasons: list[dict[str, Any]], body: Body) -> Any:
+async def on_a_league(url: str, seasons: list[dict[str, Any]], body: Body) -> Any:
     """The shipped unique index, so a duplicate production would refuse fails here too."""
 
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            # The ban re-judges its actor's grant inside its transaction.
-            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
-            if seasons:
-                await database[Collection.SAISONS].insert_many(seasons)
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+        # The ban re-judges its actor's grant inside its transaction.
+        await database[Collection.GRANTS].insert_many(grants_for_the_suite())
+        if seasons:
+            await database[Collection.SAISONS].insert_many(seasons)
 
-            return await body(database, client)
-
-    return on_the_seed_loop(_run())
+        return await body(database, client)
 
 
 async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = BANNED) -> Any:
@@ -107,7 +104,7 @@ async def activate(database: AsyncDatabase, client: AsyncMongoClient, saison_id:
 
 
 class TestTheSeasonTheBanIsCountedFrom:
-    def test_the_running_season_is_read_through_the_session(self, mongo_replica_set_url: str):
+    async def test_the_running_season_is_read_through_the_session(self, mongo_replica_set_url: str):
         """A season the transaction wrote is seen through its session alone, so the helper answers it only when handed that session."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str | None]:
@@ -126,7 +123,7 @@ class TestTheSeasonTheBanIsCountedFrom:
 
         seasons = [saison_document(ENTERED_UNDER, "past"), saison_document("2027", "future")]
 
-        assert on_a_league(mongo_replica_set_url, seasons, body) == ("2028", None)
+        assert await on_a_league(mongo_replica_set_url, seasons, body) == ("2028", None)
 
 
 class TestALeagueWithNoSeasonRunning:
@@ -137,22 +134,19 @@ class TestALeagueWithNoSeasonRunning:
             pytest.param([saison_document(ENTERED_UNDER, "past")], id="holding only an ended season"),
         ],
     )
-    def test_the_ban_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str, seasons: list[dict[str, Any]]):
+    async def test_the_ban_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str, seasons: list[dict[str, Any]]):
         """Driven through the endpoint, so the refusal is shown to stand before the insert rather than beside it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
-            with pytest.raises(APIError) as raised:
-                await ban(database, client)
-
-            assert raised.value.error_code == Code.BAN_LIST_NO_SAISON
+            assert await refused_code(ban(database, client)) == Code.BAN_LIST_NO_SAISON
 
             return await database[Collection.BAN_LIST].count_documents({})
 
-        assert on_a_league(mongo_replica_set_url, seasons, body) == 0
+        assert await on_a_league(mongo_replica_set_url, seasons, body) == 0
 
 
 class TestTheSweepAtAnActivation:
-    def test_a_lapsed_ban_goes_and_a_covered_one_stands(self, mongo_replica_set_url: str):
+    async def test_a_lapsed_ban_goes_and_a_covered_one_stands(self, mongo_replica_set_url: str):
         """Both rows through one activation: a sweep taking the collection passes a case asserting only that the lapsed row went."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[str]:
@@ -170,7 +164,7 @@ class TestTheSweepAtAnActivation:
 
             return [str(row["barred_until_saison_id"]) async for row in database[Collection.BAN_LIST].find()]
 
-        assert on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body) == [FIRST_CLEAR]
+        assert await on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body) == [FIRST_CLEAR]
 
     @pytest.mark.parametrize(
         ("target", "recorded"),
@@ -179,7 +173,7 @@ class TestTheSweepAtAnActivation:
             pytest.param(LAST_COVERED, [], id="an activation lapsing nothing"),
         ],
     )
-    def test_a_lapse_writes_one_nameless_row_counting_what_it_took(self, mongo_replica_set_url: str, target: str, recorded: list[Any]):
+    async def test_a_lapse_writes_one_nameless_row_counting_what_it_took(self, mongo_replica_set_url: str, target: str, recorded: list[Any]):
         """No deletion stands without its row, and the row names no one."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Any]:
@@ -192,4 +186,4 @@ class TestTheSweepAtAnActivation:
 
             return [(row["by"], row["label"], row["count"], row["record_id"]) async for row in rows]
 
-        assert on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body) == recorded
+        assert await on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body) == recorded

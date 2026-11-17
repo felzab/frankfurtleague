@@ -1,9 +1,9 @@
-import { faultingAdapter, insertOrderedAdapter, memoryStore, registerAuthDoubles } from "@/test-support/authDoubles.ts";
-import { networkFailure, refusal, serveBackend } from "@/test-support/backend.ts";
-import { captureLog } from "@/test-support/stdoutCapture.ts";
+import { faultingAdapter, insertOrderedAdapter, memoryStore, registerAuthDoubles } from "@/test-support/authDoubles";
+import { networkFailure, refusal, serveBackend } from "@/test-support/backend";
+import { captureLog } from "@/test-support/stdoutCapture";
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
-import type { FLReferencesPayload, FLReferencesResponse } from "@/core/generated/client/types.ts";
+import type { FLReferencesPayload, FLReferencesResponse } from "@/core/generated/client/types";
 import type { MemoryDB } from "better-auth/adapters/memory";
 
 /* Run under a production build's `NODE_ENV`, whose JSON line carries `trace_id` and every `error` handed the logger:
@@ -11,25 +11,19 @@ import type { MemoryDB } from "better-auth/adapters/memory";
    which trace a line carries, or that a value never reached a line, reads the JSON. */
 
 /** The sign-in store under the real library: its own in-memory one, emptied before every case. */
-const store = memoryStore("__flAccountSweepProductionStore");
+const store = memoryStore("__flAccountSweepStore");
 
-/** The address each transaction's read of a user row fails for, as a failed transaction's driver error names it. */
-let failingAt: string | undefined;
+/** Set by a case to make the store fail the operations it names, as a store gone away or a failed transaction does. */
+let failing:
+  ((operation: string, query: { model?: string; where?: readonly { field: string; value: unknown }[] }) => Error | undefined) | undefined;
 
-/**
- * A read of the account at `failingAt` refused, as a failed transaction's driver error names it: the store's own
- * failure, at the database's edge.
- */
-const failingRead = (operation: string, { where }: { where?: readonly { field: string; value: unknown }[] }): Error | undefined => {
-  const address = where?.find(({ field }) => field === "email")?.value;
-  return operation === "findOne" && address !== undefined && address === failingAt
-    ? new TypeError(`no transaction for ${String(address)}`)
-    : undefined;
-};
+/** The address an operation reads a user row by, where it reads one so. */
+const addressOf = (query: { where?: readonly { field: string; value: unknown }[] }): unknown =>
+  query.where?.find(({ field }) => field === "email")?.value;
 
 const ADAPTER = {
   mongodbAdapter: () => (options: Parameters<ReturnType<typeof insertOrderedAdapter>>[0]) =>
-    faultingAdapter(insertOrderedAdapter(store as unknown as MemoryDB)(options), failingRead),
+    faultingAdapter(insertOrderedAdapter(store as unknown as MemoryDB)(options), (operation, query) => failing?.(operation, query)),
 };
 
 /** Which of `identifiers` the backend answers unreferenced, handed the batch alone or an address re-asked alone. */
@@ -42,10 +36,10 @@ const backend = serveBackend(({ method, path, body }) => {
   return answer instanceof Response ? answer : ({ unreferenced: [...answer] } satisfies FLReferencesResponse);
 });
 const { owed } = registerAuthDoubles({ specifiers: { "@better-auth/mongo-adapter": ADAPTER } });
-const log = captureLog();
+const log = captureLog("production");
 
-const { auth } = await import("@/core/auth/library.ts");
-const { REFERENCES_ADDRESSES_MAX, runAccountSweep } = await import("./sweep.ts");
+const { auth } = await import("@/core/auth/library");
+const { REFERENCES_ADDRESSES_MAX, runAccountSweep } = await import("./sweep");
 
 /** Opens an account at each address, as a sign-in leaves one. */
 async function seed(addresses: readonly string[]): Promise<void> {
@@ -58,6 +52,26 @@ async function seed(addresses: readonly string[]): Promise<void> {
 /** The addresses the store still holds an account at, in the order opened. */
 const standing = (): string[] => store.user.map(({ email }) => email);
 
+/** The addresses each references read asked about, in the order sent. */
+const asked = (): string[][] => backend.sent.map(({ body }) => (body as FLReferencesPayload).identifiers);
+
+/** `count` distinct addresses, as the store folds them. */
+const adressen = (count: number, prefix = "person"): string[] =>
+  Array.from({ length: count }, (_, at) => `${prefix}${String(at)}@schule.example.org`);
+
+/** Every address but those in `referenced` answered unreferenced, wherever it is asked. */
+const unreferencedBut =
+  (...referenced: string[]) =>
+  (identifiers: readonly string[]): readonly string[] =>
+    identifiers.filter((identifier) => !referenced.includes(identifier));
+
+/** Each ERROR line's event and its fields. */
+const errorFields = () =>
+  log
+    .lines()
+    .filter(({ level }) => level === "ERROR")
+    .map(({ message, fields }) => ({ message, fields }));
+
 /** Every ERROR line as the production build wrote it, its time, service and level set aside, its error where it has one. */
 const failures = (): Record<string, unknown>[] =>
   log
@@ -65,30 +79,106 @@ const failures = (): Record<string, unknown>[] =>
     .filter(({ level }) => level === "ERROR")
     .map((line) => ({ trace_id: line.traceId, message: line.message, ...line.fields, ...("error" in line ? { error: line.error } : {}) }));
 
-/** `count` distinct addresses, as the store folds them. */
-const adressen = (count: number, prefix = "person"): string[] => Array.from({ length: count }, (_, at) => `${prefix}${String(at)}@schule.de`);
+/** A transaction's read of the account at `address` refused, as a failed transaction's driver error names it. */
+const readFailingAt =
+  (address: string) =>
+  (operation: string, query: { where?: readonly { field: string; value: unknown }[] }): Error | undefined =>
+    operation === "findOne" && addressOf(query) === address ? new TypeError(`no transaction for ${address}`) : undefined;
 
 beforeEach(() => {
   for (const rows of Object.values(store)) rows.length = 0;
-  failingAt = undefined;
+  failing = undefined;
   references = () => [];
 });
 
-it("runs under a production build's NODE_ENV", () => {
-  expect(process.env.NODE_ENV, "a project writing the plain line shows neither the trace nor a non-Error `error`").toBe("production");
+describe("which accounts a pass deletes", () => {
+  it("deletes an account answered unreferenced in the batch and again alone, and never one the read does not answer", async () => {
+    await seed(["erika@schule.example.org", "max@schule.example.org"]);
+    references = unreferencedBut("max@schule.example.org");
+
+    await runAccountSweep();
+
+    expect(standing()).toStrictEqual(["max@schule.example.org"]);
+  });
+
+  /* The record can arrive between the batch's answer and the delete: asked again alone, just before
+     it, the race narrows to the seconds between that answer and the delete. */
+  it("keeps an account the batch answered unreferenced and the second ask no longer does", async () => {
+    await seed(["erika@schule.example.org", "neu@schule.example.org"]);
+    references = (identifiers) => (identifiers.length > 1 ? identifiers : unreferencedBut("neu@schule.example.org")(identifiers));
+
+    await runAccountSweep();
+
+    expect(standing()).toStrictEqual(["neu@schule.example.org"]);
+    expect(asked().slice(1), "each unreferenced address is asked again, alone, before its delete").toStrictEqual([
+      ["erika@schule.example.org"],
+      ["neu@schule.example.org"],
+    ]);
+  });
+});
+
+describe("the batches a pass asks in", () => {
+  /* The read refuses a batch past its ceiling whole, every pass alike, so a pass sending one would
+     delete nothing ever after behind one failure line an hour. */
+  it("asks one more account than the ceiling in two batches, none past it, each address once", async () => {
+    const accounts = adressen(REFERENCES_ADDRESSES_MAX + 1);
+    await seed(accounts);
+
+    await runAccountSweep();
+
+    expect(asked().map((batch) => batch.length)).toStrictEqual([REFERENCES_ADDRESSES_MAX, 1]);
+    expect(asked().flat(), "an address was asked twice, or not at all").toStrictEqual(accounts);
+  });
 });
 
 describe("a pass meeting a failure", () => {
+  it("deletes nothing a failed batch asked about, still deletes from the next, and writes one failure line", async () => {
+    const accounts = adressen(REFERENCES_ADDRESSES_MAX + 2);
+    await seed(accounts);
+    references = (identifiers) => (identifiers.length === REFERENCES_ADDRESSES_MAX ? networkFailure() : identifiers);
+
+    // The batch it could not judge is what the pass left, which the heartbeat names.
+    expect((await runAccountSweep()).open).toBe(REFERENCES_ADDRESSES_MAX);
+
+    expect(standing()).toStrictEqual(accounts.slice(0, REFERENCES_ADDRESSES_MAX));
+    expect(errorFields()).toStrictEqual([
+      { message: "account.references_failed", fields: { name: "APINetworkError", count: REFERENCES_ADDRESSES_MAX } },
+    ]);
+  });
+
+  it("keeps an account whose second ask fails, and goes on to the next", async () => {
+    await seed(["a@schule.example.org", "b@schule.example.org", "c@schule.example.org"]);
+    references = (identifiers) => (identifiers.length === 1 && identifiers[0] === "b@schule.example.org" ? networkFailure() : identifiers);
+
+    await runAccountSweep();
+
+    expect(standing()).toStrictEqual(["b@schule.example.org"]);
+    expect(errorFields()).toStrictEqual([{ message: "account.delete_failed", fields: { name: "APINetworkError" } }]);
+  });
+
+  /* The store unreachable: the scheduler's heartbeat names the job only where it rejects, and a completion line would
+     say a pass ran that listed nothing. */
+  it("rejects a pass whose store cannot be listed, asking the backend nothing and writing no line", async () => {
+    await seed(["a@schule.example.org"]);
+    failing = (operation, { model }) => (operation === "findMany" && model === "user" ? new TypeError("no connection") : undefined);
+
+    await expect(runAccountSweep()).rejects.toThrow("no connection");
+
+    expect(backend.sent, "the pass asked the backend").toStrictEqual([]);
+    expect(backend.served, "the pass owed a mail").toStrictEqual([]);
+    expect(log.lines()).toStrictEqual([]);
+  });
+
   it("deletes the rest past one throwing delete, logging that one by the error's name alone", async () => {
-    const accounts = ["a@schule.de", "b@schule.de", "c@schule.de"];
+    const accounts = ["a@schule.example.org", "b@schule.example.org", "c@schule.example.org"];
     await seed(accounts);
     references = (identifiers) => identifiers;
-    failingAt = "b@schule.de";
+    failing = readFailingAt("b@schule.example.org");
 
     await runAccountSweep();
 
     // The account whose delete failed stands; the ones past it went.
-    expect(standing()).toStrictEqual(["b@schule.de"]);
+    expect(standing()).toStrictEqual(["b@schule.example.org"]);
     // No `error` on the line at all: the failure's message and cause name the address.
     expect(failures()).toStrictEqual([{ trace_id: "SYSTEM", message: "account.delete_failed", name: "RolledBackError" }]);
   });
@@ -96,12 +186,12 @@ describe("a pass meeting a failure", () => {
   /* The backend refuses the read whole where the grants it reads hold no live owner: an empty or wrong
      database would otherwise answer every address unreferenced, twice. */
   it("deletes nothing the backend's fail-safe refuses, and files the refusal on one failure line", async () => {
-    await seed(["a@schule.de", "b@schule.de"]);
+    await seed(["a@schule.example.org", "b@schule.example.org"]);
     references = () => refusal("no_owner");
 
     await runAccountSweep();
 
-    expect(standing()).toStrictEqual(["a@schule.de", "b@schule.de"]);
+    expect(standing()).toStrictEqual(["a@schule.example.org", "b@schule.example.org"]);
     // The refusal's trace, which joins this line to the backend's own for that request.
     const trace = backend.sent[0]?.headers.get("traceparent")?.split("-")[1];
     assert.ok(trace !== undefined, "the read carried no trace, so the case compares nothing");
@@ -122,10 +212,10 @@ describe("a pass meeting a failure", () => {
      deleted, as every deletion of an account does, and nothing else; the Postausgang's drain is the scheduler's, after
      every job. */
   it("names no address on any line, and owes no mail but each deleted account's notice", async () => {
-    const accounts = [...adressen(REFERENCES_ADDRESSES_MAX + 1, "batch"), "geloescht@schule.de", "fehler@schule.de"];
+    const accounts = [...adressen(REFERENCES_ADDRESSES_MAX + 1, "batch"), "geloescht@schule.example.org", "fehler@schule.example.org"];
     await seed(accounts);
     references = (identifiers) => (identifiers.length === REFERENCES_ADDRESSES_MAX ? networkFailure() : identifiers);
-    failingAt = "fehler@schule.de";
+    failing = readFailingAt("fehler@schule.example.org");
 
     await runAccountSweep();
 
@@ -136,12 +226,44 @@ describe("a pass meeting a failure", () => {
       assert.ok(!raw.includes("@") && !raw.includes("[address]"), `a line carries an address: ${raw}`);
     }
     expect(owed.map(({ to, data }) => ({ to, data }))).toStrictEqual(
-      [`batch${String(REFERENCES_ADDRESSES_MAX)}@schule.de`, "geloescht@schule.de"].map((to) => ({
+      [`batch${String(REFERENCES_ADDRESSES_MAX)}@schule.example.org`, "geloescht@schule.example.org"].map((to) => ({
         to,
         data: { kind: "deletion_notice", saison_id: null },
       })),
     );
     // The references read alone, and no drain of the Postausgang: a drain's handout would be a request of its own.
     expect(new Set(backend.sent.map(({ method, path }) => `${method} ${path}`))).toStrictEqual(new Set(["POST /identity/references"]));
+  });
+});
+
+describe("what a completed pass answers", () => {
+  /* Nothing is stored, so these counts on the scheduler's pass line are the whole record of what the sweep did, and
+     the failed ones what the heartbeat names as left. */
+  it("counts what was answered unreferenced, deleted, already gone and failed", async () => {
+    await seed([
+      "geloescht@schule.example.org",
+      "fort@schule.example.org",
+      "referenziert@schule.example.org",
+      "neu@schule.example.org",
+      "fehler@schule.example.org",
+    ]);
+    references = (identifiers) => {
+      // Deleted by another hand between the batch's answer and the re-ask before its own delete.
+      if (identifiers.length === 1 && identifiers[0] === "fort@schule.example.org")
+        store.user.splice(standing().indexOf("fort@schule.example.org"), 1);
+      return identifiers.length > 1
+        ? unreferencedBut("referenziert@schule.example.org")(identifiers)
+        : unreferencedBut("neu@schule.example.org")(identifiers);
+    };
+    failing = readFailingAt("fehler@schule.example.org");
+
+    expect(await runAccountSweep()).toStrictEqual({
+      count: { unreferenced: 4, deleted: 1, already_deleted: 1, failed: 1 },
+      open: 1,
+    });
+    // The one account deleted is told it went; the one already gone, and the one that failed, are owed nothing.
+    expect(owed.map(({ to, data }) => ({ to, data }))).toStrictEqual([
+      { to: "geloescht@schule.example.org", data: { kind: "deletion_notice", saison_id: null } },
+    ]);
   });
 });

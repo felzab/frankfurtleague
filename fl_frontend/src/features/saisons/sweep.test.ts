@@ -1,7 +1,7 @@
-import { refusal, serveBackend } from "@/test-support/backend.ts";
+import { refusal, serveBackend } from "@/test-support/backend";
 import { describe, expect, it } from "vitest";
 
-import { APIBadStatusError } from "@/core/errors.ts";
+import { APIBadStatusError } from "@/core/errors";
 
 const RUN = "/identity/erasure/sweep";
 
@@ -23,7 +23,7 @@ const ran = (spieler: number, remaining: number, after: string | null = null) =>
 // The deletion's call and nothing else: any other request fails the case.
 const backend = serveBackend(({ method, path, search }) => (method === "POST" && path === RUN ? runAnswer(search.get("after")) : undefined));
 
-const { runErasureSweep } = await import("./sweep.ts");
+const { runErasureSweep } = await import("./sweep");
 
 /** The query each deletion call carried, in the order sent. */
 const carried = (): Record<string, string>[] => backend.sent.map(({ search }) => Object.fromEntries(search));

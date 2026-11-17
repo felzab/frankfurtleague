@@ -1,13 +1,14 @@
 /**
- * E2E · the area on a phone: the four lists read under the session `../support/administrator.setup.ts` saved, an
- * administrator's and no owner's. Reads alone: every act here takes the passkey touch, which WebKit cannot answer, so
- * the acts are `../desktop/`'s. Each reads rows the seed wrote and no journey changes (`scripts/ops/seed/seed.js`).
+ * E2E · the area on a phone: the four lists read under the shared administrator's session, an administrator's and no
+ * owner's. Reads alone: every act here takes the passkey touch, which WebKit cannot answer, so the acts are desktop's.
+ * Each reads rows the seed wrote and no journey changes.
  */
 import { expect } from "@playwright/test";
 
 import { chooseWho } from "../support/actionLog";
-import { chip } from "../support/controls";
+import { chip, enteredDialog } from "../support/controls";
 import { ADMINISTRATOR_STATE, test } from "../support/journey";
+import { FINISHED, PEOPLE } from "../support/madeUpLeague";
 
 test.use({ storageState: ADMINISTRATOR_STATE });
 
@@ -16,11 +17,13 @@ test("Administratoren reads who holds access and what waits, and shows an admini
   const main = page.getByRole("main");
   await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Administratoren" })).toBeVisible();
 
-  const owner = main.getByRole("row").filter({ hasText: "inhaber@example.com" });
+  const owner = main.getByRole("row").filter({ hasText: PEOPLE.owner });
   await expect(chip(owner, "Leitung")).toBeVisible();
 
   await main.getByRole("button", { name: /^Angekündigt/ }).click();
-  await expect(main.getByRole("row").filter({ hasText: "admin.wartet@example.com" }).filter({ hasText: "Neuer Administrator" })).toBeVisible();
+  await expect(
+    main.getByRole("row").filter({ hasText: PEOPLE.administrators.waiting }).filter({ hasText: "Neuer Administrator" }),
+  ).toBeVisible();
 
   // The owner's acts stand for every administrator, locked with their reason, so the page has one shape for every reader.
   await expect(page.getByRole("button", { name: "Administrator eintragen" })).toHaveAttribute("aria-disabled", "true");
@@ -30,8 +33,8 @@ test("Adressänderungen reads a person's running change, and a holder's for the 
   await page.goto("/admin/address-changes");
   await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Adressänderungen" })).toBeVisible();
   const rows = page.getByRole("main").getByRole("row");
-  await expect(chip(rows.filter({ hasText: "nina.noll@example.com" }), "Neue offen")).toBeVisible();
-  await expect(rows.filter({ hasText: "admin.umzug@example.com" })).toHaveCount(0);
+  await expect(chip(rows.filter({ hasText: PEOPLE.access.changing.address }), "Neue offen")).toBeVisible();
+  await expect(rows.filter({ hasText: PEOPLE.administrators.moving })).toHaveCount(0);
 });
 
 // An address is what tells these rows apart, and a touch cannot reach the `title` a cut one keeps. Measured here because
@@ -43,8 +46,8 @@ test("a list's row shows its whole address at a phone's width", async ({ page })
   for (const width of [profile.width, 360]) {
     await page.setViewportSize({ ...profile, width });
     for (const [list, address] of [
-      ["/admin/address-changes", "nina.noll@example.com"],
-      ["/admin/ban-list", "gesperrte.person.mit.langer.adresse@example.com"],
+      ["/admin/address-changes", PEOPLE.access.changing.address],
+      ["/admin/ban-list", PEOPLE.access.ban],
     ] as const) {
       await page.goto(list);
       const cell = page.getByRole("main").getByRole("row").filter({ hasText: address }).getByText(address, { exact: true });
@@ -56,17 +59,16 @@ test("a list's row shows its whole address at a phone's width", async ({ page })
   }
 });
 
-// One who is enough: „Wer“ offers every one the log holds and reads the chosen back to one value its read filters on
-// (`fl_frontend/src/features/action-log/filters.ts :: byOf`), so another option walks the same path; the desktop's
-// journeys choose an address and „Automatisch“.
+// One who is enough: „Wer“ offers every one the log holds and reads the chosen back to one value its read filters on,
+// so another option walks the same path; the desktop's journeys choose an address and „Automatisch“.
 test("the Protokoll's filter sheet narrows to one who", async ({ page }) => {
   const main = page.getByRole("main");
   const rows = main.getByRole("row");
   // A row of each kind of who the seed wrote, and the one the sheet chooses.
-  const chosen = { option: "Teams", what: "Termin beantwortet · 2026", who: "Kontaktperson · Birke" };
+  const chosen = { option: "Teams", what: `Termin beantwortet · ${FINISHED}`, who: `Kontaktperson · ${PEOPLE.access.loggedTeam}` };
   const others = [
-    "Administrator eingetragen · admin.wartet@example.com",
-    "Spielbericht eingetragen · 2026 / 1",
+    `Administrator eingetragen · ${PEOPLE.administrators.waiting}`,
+    `Spielbericht eingetragen · ${FINISHED} / 1`,
     "Nach Frist gelöscht · Kontaktpersonen: 2",
     "Konto gelöscht",
   ];
@@ -74,10 +76,7 @@ test("the Protokoll's filter sheet narrows to one who", async ({ page }) => {
   await page.goto("/admin/log");
   await main.getByRole("button", { name: "Filter" }).click();
   // A phone's selects stand in a sheet, which stays open over the list until „Fertig“.
-  const sheet = page.getByRole("dialog", { name: "Filter" });
-  // It takes the focus once it has risen. Playwright retries a press on a moving button behind a `scrollIntoView`, which
-  // carries the sheet back down its scroller and the page under it, and React Aria closes a sheet the viewport has lost.
-  await expect(sheet).toBeFocused();
+  const sheet = await enteredDialog(page, "Filter");
   await chooseWho(page, sheet, chosen.option);
   await sheet.getByRole("button", { name: "Fertig" }).click();
   await expect(sheet).toBeHidden();

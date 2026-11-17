@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { Activity } from "react";
 
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { renderUnderNext } from "@/test-support/nextContexts";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -27,7 +28,6 @@ const READ: ActionAnswer<AskedInput<Input>> = {
 
 const acts = vi.hoisted(() => ({ read: vi.fn(), act: vi.fn(), touch: vi.fn() }));
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => undefined }) }));
 vi.mock("@/core/auth/browserClient", () => ({
   loadAuthClient: async () => ({ signIn: { passkey: acts.touch } }),
   usePreloadedAuthClient: () => undefined,
@@ -54,7 +54,7 @@ const QUESTION = COPY.shared.question(COPY.admin.erasure.object, "delete");
 
 /** The form typed and pressed, the frame's toast region beside it. */
 async function press() {
-  render(
+  renderUnderNext(
     <>
       {FORM}
       <ToastRegion frame="rail" />
@@ -102,7 +102,7 @@ describe("a form asking its question over what the press read", () => {
   // The harm: an erasure's done line greeting a later visit, or standing over the next address typed.
   it("clears a done act's line as the next address is typed and once the page hides", async () => {
     acts.act.mockResolvedValue({ ok: true, value: undefined, note: COPY.admin.erased });
-    const { rerender } = render(<Activity mode="visible">{FORM}</Activity>);
+    const { rerender } = renderUnderNext(<Activity mode="visible">{FORM}</Activity>);
     await userEvent.type(box(), ADDRESS);
     await userEvent.click(screen.getByRole("button", { name: VERB }));
     await userEvent.click(within(await screen.findByRole("alertdialog", { name: QUESTION })).getByRole("button", { name: VERB }));
@@ -131,7 +131,13 @@ describe("a form asking its question over what the press read", () => {
     expect(toast.querySelector(".text-danger")).toBeTruthy();
     expect([screen.queryByRole("alertdialog", { name: QUESTION }), box().value]).toStrictEqual([null, ADDRESS]);
 
-    await userEvent.click(screen.getByRole("button", { name: VERB }));
+    // The toast stands as the act answers, ahead of the render ending the press's busy state, which a loaded machine
+    // slices across tasks; React Aria takes no press on a busy button, so the next press waits for the one a person sees.
+    const again = screen.getByRole("button", { name: VERB });
+    await waitFor(() => {
+      expect(again.hasAttribute("data-pending")).toBe(false);
+    });
+    await userEvent.click(again);
     await userEvent.click(within(await screen.findByRole("alertdialog", { name: QUESTION })).getByRole("button", { name: VERB }));
     await waitFor(() => {
       expect(acts.act).toHaveBeenCalledTimes(2);

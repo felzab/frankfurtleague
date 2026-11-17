@@ -1,4 +1,3 @@
-import asyncio
 from collections.abc import Iterable, Mapping
 from typing import Any
 
@@ -21,6 +20,7 @@ from app.api.teams.services import (
     find_shorthand_refusal,
     find_trikot_farbe_refusal,
 )
+from app.core.concurrency import concurrently
 from app.core.crud import (
     GERMAN_COLLATION,
     aggregate_many_from_db,
@@ -293,7 +293,7 @@ async def pull_tabelle(
     statistics counted.
     """
 
-    teams_raw, spiele_raw = await asyncio.gather(
+    teams_raw, spiele_raw = await concurrently(
         aggregate_many_from_db(
             collection=teams_collection,
             pipeline=build_team_pipeline(saison_id=saison_id, rules=rules),

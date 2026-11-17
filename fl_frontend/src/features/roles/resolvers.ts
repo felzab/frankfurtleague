@@ -5,7 +5,7 @@ import { notFound, redirect } from "next/navigation";
 import { withReturnAddress } from "@/core/auth/returnAddress";
 import { APIBadStatusError } from "@/core/errors";
 import { logRefused } from "@/core/refused";
-import { isSeatAt, rolesOf } from "@/core/roles";
+import { rolesOf, seatsAt } from "@/core/roles";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getSubjectSession } from "@/core/subject";
@@ -58,8 +58,8 @@ async function teamSeatsAt<Segments extends { team: string; saison: string }>(
 ): Promise<TeamSeats | null> {
   const segments = await params;
   const subject = await requireSubjectSession(address(segments));
-  // The predicate a person's write is judged by too: a seat on last season's row opens nothing in this one's.
-  const [first, ...rest] = rolesOf(subject).roles.filter((role): role is TeamSeat => isSeatAt(role, segments.team, segments.saison));
+  // The test a person's write is judged by too: a seat on last season's row opens nothing in this one's.
+  const [first, ...rest] = seatsAt(rolesOf(subject).roles, segments.team, segments.saison);
   return first === undefined ? null : [first, ...rest];
 }
 

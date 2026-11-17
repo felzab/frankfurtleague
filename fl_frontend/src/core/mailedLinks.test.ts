@@ -1,13 +1,13 @@
 import path from "node:path";
 
-import { filesUnder } from "@/test-support/treeWalk.ts";
+import { filesUnder } from "@/test-support/treeWalk";
 import { describe, expect, it } from "vitest";
 
-import { ROUTES } from "./routes.ts";
+import { ROUTES } from "./routes";
 
-import type { FLOutboxHandout } from "./generated/client/types.ts";
+import type { FLOutboxHandout } from "./generated/client/types";
 
-const { mailFor } = await import("./mailKinds.ts");
+const { mailFor } = await import("./mailKinds");
 
 const APP = path.resolve(import.meta.dirname, "..", "app");
 

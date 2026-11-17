@@ -1,14 +1,13 @@
 import {
   configDouble,
   cookieHeader,
-  GATE_BACKEND_CONFIG,
   memoryAdapterDouble,
   memoryStore,
   ORIGIN,
   registerAuthDoubles,
   seatEveryAddress,
-} from "@/test-support/authDoubles.ts";
-import { assertionFor, COSE_KEY } from "@/test-support/testAuthenticator.ts";
+} from "@/test-support/authDoubles";
+import { assertionFor, COSE_KEY } from "@/test-support/testAuthenticator";
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
 const STORE = "__flPasskeyLastUseStore";
@@ -19,7 +18,7 @@ const HEADERS_DOUBLE = { headers: () => Promise.resolve(new Headers()) };
 seatEveryAddress();
 
 registerAuthDoubles({
-  core: { config: configDouble(GATE_BACKEND_CONFIG) },
+  core: { config: configDouble() },
   specifiers: { "next/headers": HEADERS_DOUBLE, "@better-auth/mongo-adapter": memoryAdapterDouble(STORE) },
 });
 
@@ -27,7 +26,7 @@ const store = memoryStore(STORE);
 
 // Imported here rather than at the top: a static import resolves before the doubles above exist.
 const { toNextJsHandler } = await import("better-auth/next-js");
-const { auth } = await import("./auth/library.ts");
+const { auth } = await import("./auth/library");
 
 const handler = toNextJsHandler(auth);
 

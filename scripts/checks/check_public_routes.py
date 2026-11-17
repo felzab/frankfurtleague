@@ -10,18 +10,11 @@ the edge meters on no zone deliberately.
 Each rule is a row of `RULES`, which `main` runs whole. A construct this reader cannot place refuses
 rather than answering, and so does a rule that found nothing to judge: either would read as a pass.
 
-The same walk judges the intercepting pages, which no build or test below the journeys sees: Next
-rewrites an intercepted URL by the page the visitor stands on, so two interceptors for one URL compete
-in an order Next documents nowhere, and one under a route group intercepts from pages its group's
-layout never draws.
-
 Invariants:
 - The population is `ROUTE_FILES` and the code-generated metadata conventions `METADATA` places,
   with `PAGE_FILES` joining it for a link page's meter.
 - A reserved metadata name this reader cannot place refuses; an image convention supplied as an
   image file runs no module and stands outside the population.
-- An intercepted URL has one intercepting page, with no route group above its intercepting segment.
-- A link page's `linkpage` burst is the one the largest squad the backend publishes needs at that zone's rate.
 - A link page's location sends every error line it writes to `/dev/null`.
 - A link page's responses withhold the referrer, the map withholding it only as a link page's location matches.
 - A location serving pages writes every meter line of the location it is carved out of, a route handler's own aside.
@@ -30,7 +23,6 @@ Invariants:
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import sys
 from collections.abc import Mapping
@@ -38,8 +30,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-# Every caller runs this as a script, so sys.path opens with THIS directory and `lib/` is a
-# sibling of it rather than in it.
+# Run by hand, a script's sys.path opens with its own directory, and `lib/` is a sibling of it rather
+# than in it.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
 from checker_kernel import (
@@ -50,6 +42,7 @@ from checker_kernel import (
     report_findings,
     run,
 )
+from nginx_conf import Directive, NginxSyntax, read
 
 APP_ROUTER: Final = "fl_frontend/src/app"
 NGINX_CONF: Final = "nginx/shared/site.conf"
@@ -69,35 +62,10 @@ CODE_EXTENSIONS: Final = tuple(Path(name).suffix for name in ROUTE_FILES)
 PAGE_FILES: Final = tuple(f"page{suffix}" for suffix in CODE_EXTENSIONS)
 
 # A link page's own module names `token` and its search parameters, the hook's spelling included, or
-# calls the proxy's mailed-link reader, which takes the token from the cookie the proxy moved it into,
-# or a module mints its link: the minter finds a page reading the token elsewhere, the read a page
-# whose link nothing here mints.
+# calls the proxy's mailed-link reader, which takes the token from the cookie the proxy moved it into.
 LINK_TOKEN_RE: Final = re.compile(r"\btoken\b")
 LINK_QUERY_RE: Final = re.compile(r"searchParams", re.IGNORECASE)
 LINK_COOKIE_RE: Final = re.compile(r"\bmailedLinkToken\s*\(")
-
-# Every minted link carries its token in the query as `?token=`, which the edge's access line leaves
-# unwritten (the frontend's mailed-link tests hold every mail to it), after a template's
-# origin and a page path: its module spells the path, or names the page's row in `ROUTES_MODULE`,
-# read there. Any other `?token=` refuses rather than dropping a page.
-TOKEN_QUERY: Final = "?token="
-MINT_RE: Final = re.compile(
-    r"\$\{[^{}]*\}"
-    r"(?:\$\{ROUTES\.(?P<route>[A-Za-z_$][\w$]*)\.path\(\)\}"
-    r"|\$\{(?P<name>[A-Za-z_$][\w$]*)(?P<key>\[[^\[\]{}]+\])?\}"
-    r"|(?P<path>/[^`$?\s]*))\?token="
-)
-
-# The pages' one table, `ROUTES`, under the source tree `minted` walks.
-ROUTES_MODULE: Final = "core/routes.ts"
-
-# A spread, a computed key or a value that is no literal matches nothing, so a record refuses whole: a
-# value skipped would drop its page.
-RECORD_ENTRY_RE: Final = re.compile(r'\s*(?:[A-Za-z_$][\w$]*|"[^"]*")\s*:\s*"(?P<value>[^"]*)"\s*')
-
-# A test file's spelling under each extension the walk reads: decided for one alone, the other's
-# fixtures read as minters.
-TEST_SUFFIXES: Final = tuple(f".test{suffix}" for suffix in CODE_EXTENSIONS)
 
 # The zone the edge declares for the link pages, metering every request and method,
 # which a link page's own location must name.
@@ -117,16 +85,6 @@ ANCHORED: Final = "~^"
 # A prefix spelled into the anchored regex as written, which only a path free of regex syntax allows.
 PLAIN_PATH_RE: Final = re.compile(r"^[A-Za-z0-9/_-]+$")
 
-# The link pages' own zone is sized for a season's largest squad, every pupil of it behind one school's address in one
-# break, passing within `SIZING_MINUTES` at the zone's own rate, as the `/confirm/` block reasons it: per
-# pupil, the requests every link page's block meters on `linkpage`. The squad is the largest `max_kader_size` the
-# backend publishes, read where it publishes it. The squad's sends ride the action zone at the catch-all's burst, which
-# `loosened` holds every page's block to.
-OPENAPI: Final = "fl_backend/openapi.json"
-SIZED_PER_PUPIL: Final = {"linkpage": 10}
-SIZING_MINUTES: Final = 2
-
-# The prefix of a `limit_req` argument naming its zone.
 ZONE: Final = "zone="
 
 # A prefix location matches on the URI string, so the catch-all covers every handler there is.
@@ -235,11 +193,9 @@ METADATA_IMAGES: Final = ("icon", "apple-icon", "opengraph-image", "twitter-imag
 # A route group is dropped from the URL; a dynamic segment and a catch-all stay, because what they
 # make unmeterable is exactly what this check reports.
 GROUP_RE: Final = re.compile(r"^\([^()/]+\)$")
-# A parallel route's slot is no segment of the URL either
-# (https://nextjs.org/docs/app/api-reference/file-conventions/parallel-routes).
+# A parallel route's slot is no segment of the URL either.
 SLOT_RE: Final = re.compile(r"^@[A-Za-z0-9_-]+$")
-# An intercepting segment on its own level answers the URL of the segment it names
-# (https://nextjs.org/docs/app/api-reference/file-conventions/intercepting-routes). One reaching a
+# An intercepting segment on its own level answers the URL of the segment it names. One reaching a
 # level up or the root, `(..)` or `(...)`, stays unread: no route of the tree has one.
 SAME_LEVEL_RE: Final = re.compile(r"^\(\.\)(.+)$")
 DYNAMIC_RE: Final = re.compile(r"^\[\[?(?:\.\.\.)?[A-Za-z0-9_]+\]?\]$")
@@ -248,22 +204,8 @@ DYNAMIC_RE: Final = re.compile(r"^\[\[?(?:\.\.\.)?[A-Za-z0-9_]+\]?\]$")
 LITERAL_RE: Final = re.compile(r"^[A-Za-z0-9.~-][A-Za-z0-9._~-]*$")
 
 
-class NginxSyntax(Exception):
-    """A construct outside the subset this reader parses, named with the line that carries it."""
-
-
 class RouteShape(Exception):
     """A segment or a reserved file name whose URL this reader cannot derive, named with its file."""
-
-
-@dataclass(frozen=True)
-class Directive:
-    """One nginx directive: its name, its arguments, and the block under it where it opens one."""
-
-    name: str
-    args: tuple[str, ...]
-    block: tuple[Directive, ...] | None
-    line: int
 
 
 @dataclass(frozen=True)
@@ -275,9 +217,7 @@ class Location:
     # The arguments of each `limit_req` line, whose zones a link page is judged by and every other
     # route by whether there is one at all.
     limits: frozenset[tuple[str, ...]]
-    # The arguments of each `limit_conn` line.
     conns: frozenset[tuple[str, ...]]
-    # What `proxy_pass` names, none where the block names no `proxy_pass`.
     upstream: str | None
     # The arguments of each `error_log` line, which replace the inherited log for this block alone.
     error_logs: frozenset[tuple[str, ...]]
@@ -308,104 +248,6 @@ class Handler:
     # prefix location has to cover for the whole handler to be covered.
     head: str
     dynamic: bool
-
-
-def lex(text: str, source: str) -> list[tuple[str, str, int]]:
-    """The configuration as `(kind, value, line)` tokens: a word, or one of `{`, `}` and `;`."""
-    tokens: list[tuple[str, str, int]] = []
-    line = 1
-    index = 0
-    while index < len(text):
-        char = text[index]
-        if char == "\n":
-            line += 1
-            index += 1
-        elif char in " \t\r":
-            index += 1
-        elif char == "#":
-            while index < len(text) and text[index] != "\n":
-                index += 1
-        elif char in "{};":
-            tokens.append((char, char, line))
-            index += 1
-        elif char in "\"'":
-            value, index, line = _quoted(text, index, line, source)
-            tokens.append(("word", value, line))
-        else:
-            start = index
-            while index < len(text) and text[index] not in " \t\r\n{};#":
-                index += 1
-            tokens.append(("word", text[start:index], line))
-    return tokens
-
-
-def _quoted(text: str, index: int, line: int, source: str) -> tuple[str, int, int]:
-    """One quoted string, answering its content and where the scan resumes.
-
-    A `log_format` string spans lines, so the line counter travels with the scan rather than being
-    recovered afterwards.
-    """
-    quote = text[index]
-    opened = line
-    index += 1
-    out: list[str] = []
-    while index < len(text) and text[index] != quote:
-        # The escape is consumed whole, or a `\"` inside a regex would close the string here.
-        if text[index] == "\\" and index + 1 < len(text):
-            out.append(text[index])
-            index += 1
-        if text[index] == "\n":
-            line += 1
-        out.append(text[index])
-        index += 1
-    if index >= len(text):
-        raise NginxSyntax(f"{source}:{opened}: a quoted string that never closes")
-    # The advanced counter, not `opened`: every line the string spanned is a line the scan passed,
-    # and handing back the opening one makes each refusal below it name a line too low.
-    return "".join(out), index + 1, line
-
-
-def parse(text: str, source: str) -> tuple[Directive, ...]:
-    """The configuration as a tree of directives."""
-    tree, _ = _block(lex(text, source), 0, source, top=True)
-    return tree
-
-
-def _block(tokens: list[tuple[str, str, int]], index: int, source: str, *, top: bool) -> tuple[tuple[Directive, ...], int]:
-    """The directives from `index` to the closing brace, and the index of the token after it."""
-    out: list[Directive] = []
-    words: list[str] = []
-    opened = 0
-    while index < len(tokens):
-        kind, value, line = tokens[index]
-        if kind == "word":
-            if not words:
-                opened = line
-            words.append(value)
-            index += 1
-        elif kind == ";":
-            if not words:
-                raise NginxSyntax(f"{source}:{line}: a semicolon with no directive in front of it")
-            out.append(Directive(words[0], tuple(words[1:]), None, opened))
-            words = []
-            index += 1
-        elif kind == "{":
-            if not words:
-                raise NginxSyntax(f"{source}:{line}: a block with no directive naming it")
-            nested, index = _block(tokens, index + 1, source, top=False)
-            out.append(Directive(words[0], tuple(words[1:]), nested, opened))
-            words = []
-        else:
-            if top:
-                raise NginxSyntax(f"{source}:{line}: a block closes without opening")
-            if words:
-                raise NginxSyntax(f"{source}:{opened}: a directive that never ends in a semicolon")
-            return tuple(out), index + 1
-    if not top:
-        raise NginxSyntax(f"{source}: a block that never closes")
-    if words:
-        raise NginxSyntax(f"{source}:{opened}: a directive that never ends in a semicolon")
-    return tuple(out), index
 
 
 def read_location(directive: Directive, source: str, redirected: frozenset[str] = frozenset()) -> Location | None:
@@ -465,7 +307,7 @@ def map_entries(http_path: Path, variable: str) -> tuple[tuple[str, str], ...]:
 
     A key nginx reads as something other than a string or a regex, and an entry taking other than one value, refuse.
     """
-    tree = parse(http_path.read_bytes().decode("utf-8"), http_path.name)
+    tree = read(http_path)
     found = [directive for directive in tree if directive.name == "map" and directive.args[-1:] == (variable,)]
     if not found:
         return ()
@@ -538,8 +380,8 @@ def edge_locations(conf_path: Path) -> tuple[Location, ...]:
     Bytes, so no platform's newline translation reaches a path this reader then compares.
     """
     http_path = conf_path.parent / NGINX_HTTP_CONF
-    maps = map_values(parse(http_path.read_bytes().decode("utf-8"), http_path.name))
-    return locations(parse(conf_path.read_bytes().decode("utf-8"), conf_path.name), conf_path.name, maps)
+    maps = map_values(read(http_path))
+    return locations(read(conf_path), conf_path.name, maps)
 
 
 def _targets(target: str, maps: Mapping[str, frozenset[str]], source: str, line: int) -> frozenset[str]:
@@ -614,73 +456,21 @@ def pages(app_dir: Path) -> tuple[Handler, ...]:
     return tuple(found)
 
 
-def _address(url: str) -> str:
-    """A URL with each dynamic segment reduced to its kind, so `[saison]` and `[id]` read as one address."""
-    return "/".join(
-        ("[[...]]" if part.startswith("[[") else "[...]" if part.startswith("[...") else "[]") if DYNAMIC_RE.match(part) else part
-        for part in url.split("/")
-    )
-
-
 class NothingJudged(Exception):
     """A rule that found nothing to judge, which would otherwise read as a pass."""
 
 
 @dataclass(frozen=True)
 class Accounting:
-    """What every rule reads: the tree's handlers and pages, its link pages, and the edge's locations and zones."""
+    """What every rule reads: the tree's handlers, its link pages, and the edge's locations."""
 
     found: tuple[Handler, ...]
-    paged: tuple[Handler, ...]
     linked: tuple[Handler, ...]
     where: tuple[Location, ...]
-    rates: Mapping[str, int]
-    squad: int
     # The entries of the map naming each response's `Referrer-Policy`, empty where the http level declares none.
     referrer: tuple[tuple[str, str], ...]
-    app_dir: Path
     root: Path
     conf: str
-
-
-def interceptions(judged: Accounting) -> list[Finding]:
-    """Every intercepting page sharing its URL with another, or standing under a route group.
-
-    Next keys an interceptor's rewrite on the page the visitor leaves, read from the interceptor's level, and a route
-    group is no level: a slot of `(classic)` intercepting `(.)saisons` reaches from `/`, so from every page of the site,
-    where the group's layout draws the slot on its own pages alone. Two rewrites for one URL both match from a page
-    under both levels, and the first in the build's order wins.
-    """
-    findings: list[Finding] = []
-    by_address: dict[str, list[Handler]] = {}
-    for page in judged.paged:
-        parts = page.path.parent.relative_to(judged.app_dir).parts
-        at = next((index for index, part in enumerate(parts) if SAME_LEVEL_RE.match(part)), None)
-        if at is None:
-            continue
-        by_address.setdefault(_address(page.url), []).append(page)
-        grouped = [part for part in parts[:at] if GROUP_RE.match(part)]
-        if grouped:
-            findings.append(
-                Finding(
-                    "fail",
-                    f"{shown(page.path, judged.root)} intercepts {page.url} under the route group {grouped[0]}\n"
-                    f"{CONTINUATION}a group is no level of the URL, so the interceptor reaches from every page of its "
-                    f"parent level while the group's layout draws the slot on its own pages alone: "
-                    f"put the slot in the layout every page it intercepts from shares",
-                )
-            )
-    for address, pages_there in sorted(by_address.items()):
-        if len(pages_there) > 1:
-            findings.append(
-                Finding(
-                    "fail",
-                    f"{', '.join(shown(one.path, judged.root) for one in pages_there)} all intercept {address}\n"
-                    f"{CONTINUATION}from a page both levels hold, their rewrites compete in an order Next documents nowhere: "
-                    f"keep one interceptor for the address, in the slot every page it intercepts from shares",
-                )
-            )
-    return findings
 
 
 def link_pages(found: tuple[Handler, ...]) -> tuple[Handler, ...]:
@@ -692,84 +482,6 @@ def link_pages(found: tuple[Handler, ...]) -> tuple[Handler, ...]:
         if (LINK_TOKEN_RE.search(text) and LINK_QUERY_RE.search(text)) or LINK_COOKIE_RE.search(text):
             linked.append(page)
     return tuple(linked)
-
-
-def minted(source: Path) -> tuple[tuple[Path, str], ...]:
-    """Every link a module under `source` mints, as that module and the path its `?token=` follows."""
-    found: list[tuple[Path, str]] = []
-    modules = (one for one in source.rglob("*") if one.suffix in CODE_EXTENSIONS and not one.name.endswith(TEST_SUFFIXES) and one.is_file())
-    for module in sorted(modules):
-        text = module.read_bytes().decode("utf-8")
-        hits = list(MINT_RE.finditer(text))
-        if len(hits) != text.count(TOKEN_QUERY):
-            raise RouteShape(f"{module}: a `{TOKEN_QUERY}` behind no origin and page path this reader can place")
-        for hit in hits:
-            found += ((module, path) for path in _link_paths(hit, text, module, source))
-    return tuple(found)
-
-
-def _route_path(key: str, source: Path, module: Path) -> str:
-    """The fixed path `ROUTES.<key>` answers, read off its row: a row taking segments names no one page a mail opens."""
-    table = source / ROUTES_MODULE
-    text = table.read_bytes().decode("utf-8") if table.is_file() else ""
-    row = re.search(rf"^\s*{re.escape(key)}:\s*\{{\s*path:\s*\(\)\s*=>\s*\"(?P<path>/[^\"]*)\"\s+as\s+const\b", text, re.MULTILINE)
-    if row is None:
-        raise RouteShape(f"{module}: the link path ROUTES.{key}, which no row of {table} answers with one fixed path")
-    return row["path"]
-
-
-def _link_paths(hit: re.Match[str], text: str, module: Path, source: Path) -> tuple[str, ...]:
-    """The page path, or every path a record may hand it, one `MINT_RE` hit places."""
-    if hit["route"] is not None:
-        return (_route_path(hit["route"], source, module),)
-    if hit["path"] is not None:
-        return (hit["path"],)
-    name = re.escape(hit["name"])
-    if hit["key"] is None:
-        declared = re.search(rf"\bconst\s+{name}\s*(?::[^=]*)?=\s*\"([^\"]*)\"", text)
-        if declared is None:
-            raise RouteShape(f"{module}: the link path {hit['name']}, which no string constant of this module declares")
-        return (declared[1],)
-    record = re.search(rf"\bconst\s+{name}\s*(?::[^=]*)?=\s*\{{(?P<body>[^{{}}]*)\}}", text)
-    # A trailing comma leaves one blank part, and nothing else may be blank.
-    parts = [] if record is None else record["body"].split(",")
-    if parts and parts[-1].strip() == "":
-        parts.pop()
-    entries = [RECORD_ENTRY_RE.fullmatch(part) for part in parts]
-    if not entries or None in entries:
-        raise RouteShape(f"{module}: the link path {hit['name']}{hit['key']}, which no record of string literals in this module declares")
-    return tuple(entry["value"] for entry in entries if entry is not None)
-
-
-def linked_pages(paged: tuple[Handler, ...], mints: tuple[tuple[Path, str], ...]) -> tuple[Handler, ...]:
-    """Every page a minted link opens or that reads a link's token itself, in path order.
-
-    A minted link no page answers opens Next's not-found page, which the frontend's mailed-link tests hold every mail
-    to; here it opens no page to meter.
-    """
-    answering = {page.url: page for page in paged if not page.dynamic}
-    opened = {answering[path] for _, path in mints if path in answering}
-    return tuple(sorted(opened | set(link_pages(paged)), key=lambda one: one.path))
-
-
-def kader_size_max(openapi_path: Path) -> int:
-    """The largest `max_kader_size` a season may set, as the published contract states it."""
-    document = json.loads(openapi_path.read_bytes().decode("utf-8"))
-    return int(document["components"]["schemas"]["FLSaisonRules"]["properties"]["max_kader_size"]["maximum"])
-
-
-def zone_rates(http_path: Path) -> dict[str, int]:
-    """Each `limit_req_zone` the http level declares, by name, at its rate in requests a minute."""
-    rates: dict[str, int] = {}
-    for directive in parse(http_path.read_bytes().decode("utf-8"), http_path.name):
-        if directive.name != "limit_req_zone":
-            continue
-        named = next((arg.removeprefix(ZONE).partition(":")[0] for arg in directive.args if arg.startswith(ZONE)), None)
-        rate = next((arg.removeprefix("rate=") for arg in directive.args if arg.startswith("rate=")), None)
-        if named is None or rate is None or not rate.endswith("r/m") or not rate.removesuffix("r/m").isdigit():
-            raise NginxSyntax(f"{http_path.name}:{directive.line}: a limit_req_zone this reader cannot read a per-minute rate from")
-        rates[named] = int(rate.removesuffix("r/m"))
-    return rates
 
 
 def handler_locations(judged: Accounting) -> frozenset[Location]:
@@ -825,45 +537,12 @@ def loosened(judged: Accounting) -> list[Finding]:
         ceiling = any(line.startswith("limit_conn ") for line in owed)
         findings.append(
             Finding(
-                "fail",
                 f"{judged.conf}:{one.line}: `location {'= ' if one.exact else ''}{one.path}` is carved out of `location "
                 f"{wider.path}` and lacks its {', '.join(f'`{line}`' for line in sorted(owed))}\n"
                 f"{CONTINUATION}a request here would otherwise meet that meter: write each line as `location {wider.path}` "
                 f"writes it{', or record why the ceiling does not bound this one at :: UNCEILINGED' if ceiling else ''}",
             )
         )
-    return findings
-
-
-def zone_and_burst(args: tuple[str, ...]) -> tuple[str | None, int]:
-    """The zone one `limit_req` line names and its burst, nginx's default of none where it names none."""
-    zone = next((arg.removeprefix(ZONE) for arg in args if arg.startswith(ZONE)), None)
-    burst = next((arg.removeprefix("burst=") for arg in args if arg.startswith("burst=")), "0")
-    return zone, int(burst) if burst.isdigit() else 0
-
-
-def unsized_links(judged: Accounting) -> list[Finding]:
-    """Every link page's burst on a sized zone that is not the one the squad's pupils need at that zone's rate."""
-    undeclared = sorted(zone for zone in SIZED_PER_PUPIL if zone not in judged.rates)
-    if undeclared:
-        raise NothingJudged(f"{NGINX_HTTP_CONF} declares no {undeclared[0]} zone, so no link page's burst could be sized against its rate")
-    expected = {zone: per_pupil * judged.squad - SIZING_MINUTES * judged.rates[zone] for zone, per_pupil in SIZED_PER_PUPIL.items()}
-    findings: list[Finding] = []
-    for one in judged.where:
-        if not LINK_ZONES <= one.zones:
-            continue
-        for args in sorted(one.limits):
-            zone, burst = zone_and_burst(args)
-            if zone not in expected or burst == expected[zone]:
-                continue
-            findings.append(
-                Finding(
-                    "fail",
-                    f"{judged.conf}:{one.line}: `location {'= ' if one.exact else ''}{one.path}` meters {zone} with "
-                    f"`limit_req {' '.join(args)}`, where a squad of {judged.squad} needs burst={expected[zone]}\n"
-                    f"{CONTINUATION}the link pages are sized for the largest squad {OPENAPI} publishes: size the burst for it",
-                )
-            )
     return findings
 
 
@@ -879,7 +558,7 @@ def answering_location(uri: str, where: tuple[Location, ...]) -> Location | None
 def unmetered_links(judged: Accounting) -> list[Finding]:
     """Every link page whose URL reaches a location not naming `LINK_ZONES`."""
     if not judged.linked:
-        raise NothingJudged(f"no page under {APP_ROUTER} reads a mailed link's token or is opened by a minted link, so none was judged")
+        raise NothingJudged(f"no page under {APP_ROUTER} reads a mailed link's token, so none was judged")
     findings: list[Finding] = []
     for page in judged.linked:
         location = answering_location(page.url, judged.where)
@@ -888,7 +567,6 @@ def unmetered_links(judged: Accounting) -> list[Finding]:
         reached = "no location" if location is None else f"`location {'= ' if location.exact else ''}{location.path}`"
         findings.append(
             Finding(
-                "fail",
                 f"{shown(page.path, judged.root)} reads a link's token, and {page.url} reaches {reached} in {judged.conf}, "
                 f"which does not meter it on {', '.join(sorted(LINK_ZONES))}\n"
                 f"{CONTINUATION}put the page under a prefix carrying that zone, or give it an exact match carrying it",
@@ -905,7 +583,7 @@ def unlogged_links(judged: Accounting) -> list[Finding]:
     `error_log` discards. A location declaring none inherits the server's log.
     """
     if not judged.linked:
-        raise NothingJudged(f"no page under {APP_ROUTER} reads a mailed link's token or is opened by a minted link, so none was judged")
+        raise NothingJudged(f"no page under {APP_ROUTER} reads a mailed link's token, so none was judged")
     findings: list[Finding] = []
     for page in judged.linked:
         location = answering_location(page.url, judged.where)
@@ -914,7 +592,6 @@ def unlogged_links(judged: Accounting) -> list[Finding]:
         reached = "no location" if location is None else f"`location {'= ' if location.exact else ''}{location.path}`"
         findings.append(
             Finding(
-                "fail",
                 f"{shown(page.path, judged.root)} reads a link's token, and {page.url} reaches {reached} in {judged.conf}, "
                 f"whose error lines, each repeating the request line, are not all sent to {DISCARDED_LOG}\n"
                 f"{CONTINUATION}give that location `error_log {DISCARDED_LOG};` as its only error_log",
@@ -931,7 +608,7 @@ def referring_links(judged: Accounting) -> list[Finding]:
     a page outside every link page's block keeps the site's policy.
     """
     if not judged.linked:
-        raise NothingJudged(f"no page under {APP_ROUTER} reads a mailed link's token or is opened by a minted link, so none was judged")
+        raise NothingJudged(f"no page under {APP_ROUTER} reads a mailed link's token, so none was judged")
     if not judged.referrer:
         raise NothingJudged(f"{NGINX_HTTP_CONF} declares no map setting {REFERRER_MAP}, so no link page's referrer policy was judged")
     findings: list[Finding] = []
@@ -941,7 +618,6 @@ def referring_links(judged: Accounting) -> list[Finding]:
             continue
         findings.append(
             Finding(
-                "fail",
                 f"{shown(page.path, judged.root)} reads a link's token, and {NGINX_HTTP_CONF}'s map setting {REFERRER_MAP} gives "
                 f"{page.url} {policy or 'no value'}, which hands the address on in every request the page starts\n"
                 f"{CONTINUATION}give the page's location its entry, valued {LINK_REFERRER_POLICY}",
@@ -959,7 +635,6 @@ def referring_links(judged: Accounting) -> list[Finding]:
             continue
         findings.append(
             Finding(
-                "fail",
                 f"{NGINX_HTTP_CONF}'s map setting {REFERRER_MAP} gives {key!r} {value}, a match no link page's location in "
                 f"{judged.conf} makes\n"
                 f"{CONTINUATION}spell the entry as the link page's location matches, or drop it: every other page keeps the site's policy",
@@ -1031,7 +706,6 @@ def account(judged: Accounting) -> list[Finding]:
             if not match.metered:
                 findings.append(
                     Finding(
-                        "fail",
                         f"{name} answers {handler.url}, whose exact-match location carries no limit_req\n"
                         f"{CONTINUATION}an exact match is where a rate is declared, and {judged.conf} declares none there",
                     )
@@ -1043,7 +717,6 @@ def account(judged: Accounting) -> list[Finding]:
         elif declaring(prefix.path) is None:
             findings.append(
                 Finding(
-                    "fail",
                     f"{name} answers {handler.url}, covered by the prefix location {prefix.path} and by no recorded reason\n"
                     f"{CONTINUATION}meter it with an exact-match location, or record why that prefix is enough at "
                     f"scripts/checks/check_public_routes.py :: REASONS",
@@ -1056,12 +729,10 @@ def _unreached(handler: Handler, name: str, conf: str) -> Finding:
     """The finding for a handler no location but the catch-all reaches."""
     if handler.dynamic:
         return Finding(
-            "fail",
             f"{name} answers {handler.url}, which no exact match can name and no prefix location covers\n"
             f"{CONTINUATION}a dynamic segment is unmeterable without a prefix: give {conf} one, or the whole subtree runs unmetered",
         )
     return Finding(
-        "fail",
         f"{name} answers {handler.url}, and no location in {conf} names it\n"
         f"{CONTINUATION}it reaches Next through `location /`, whose one rate zone meters server actions alone",
     )
@@ -1069,7 +740,7 @@ def _unreached(handler: Handler, name: str, conf: str) -> Finding:
 
 # Every rule `main` runs, each over the whole accounting: a rule written and left out of this table is
 # one nothing runs, which the table makes a reader's to see rather than a sequence of calls to miss.
-RULES: Final = (account, loosened, unmetered_links, unlogged_links, referring_links, unsized_links, interceptions)
+RULES: Final = (account, loosened, unmetered_links, unlogged_links, referring_links)
 
 
 def main() -> int:
@@ -1088,13 +759,10 @@ def main() -> int:
     try:
         found = handlers(app_dir)
         paged = pages(app_dir)
-        # The source tree the App Router tree sits in, `fl_frontend/src`, holds every module minting a link.
-        mints = minted(app_dir.parent)
         served = metadata(app_dir)
         where = edge_locations(conf_path)
-        rates = zone_rates(conf_path.parent / NGINX_HTTP_CONF)
         referrer = map_entries(conf_path.parent / NGINX_HTTP_CONF, REFERRER_MAP)
-        linked = linked_pages(paged, mints)
+        linked = link_pages(paged)
     except (NginxSyntax, RouteShape) as error:
         print(f"      {error}", file=sys.stderr)
         print("      Nothing was accounted for, so this is a refusal rather than a verdict on the routes.", file=sys.stderr)
@@ -1106,16 +774,7 @@ def main() -> int:
         # Input the checker cannot judge, which the kernel's contract calls EXIT_REFUSED.
         # EXIT_CRASH would claim the environment is broken and send a reader to the wrong repair.
         return EXIT_REFUSED
-    # Apart from the reads above, so a programming error in them crashes as one rather than reading as an unreadable
-    # tree: here a `ValueError`, `KeyError` or `TypeError` can only be the published document's shape.
-    try:
-        squad = kader_size_max(REPO_ROOT / OPENAPI)
-    except (OSError, ValueError, KeyError, TypeError) as error:
-        print(f"      {error}", file=sys.stderr)
-        print(f"      Nothing was accounted for: {OPENAPI}'s squad bound has to be readable.", file=sys.stderr)
-        return EXIT_REFUSED
-
-    judged = Accounting(found, paged, linked, where, rates, squad, referrer, app_dir, root, conf_path.name)
+    judged = Accounting(found, linked, where, referrer, root, conf_path.name)
     try:
         findings = [finding for rule in RULES for finding in rule(judged)]
     except NothingJudged as error:
@@ -1129,12 +788,11 @@ def main() -> int:
         print("      exact-match location carrying limit_req, a prefix location with a recorded reason, or")
         print("      recorded at check_public_routes.py :: UNMETERED, and a metadata convention is taken")
         print("      unmetered where :: METADATA says why. A page a link opens sits where :: LINK_ZONES meters")
-        print("      it, its burst sized for the largest squad :: OPENAPI publishes, every error line of its")
-        print("      location goes to :: DISCARDED_LOG, and :: REFERRER_MAP gives it :: LINK_REFERRER_POLICY,")
+        print("      it, every error line of its location goes to :: DISCARDED_LOG, and :: REFERRER_MAP gives")
+        print("      it :: LINK_REFERRER_POLICY,")
         print("      spelled as its location matches. A location serving pages writes every meter line of")
         print("      the location it is carved out of, or :: UNCEILINGED says why the ceiling does not bound it.")
-        print("      The rule is docs/ops/spec.md, section 1.3. An intercepted URL has one intercepting page,")
-        print("      under no route group: :: interceptions says why.")
+        print("      The rule is docs/ops/spec.md, section 1.3.")
         return code
 
     metered = sum(1 for one in where if one.exact and one.metered)

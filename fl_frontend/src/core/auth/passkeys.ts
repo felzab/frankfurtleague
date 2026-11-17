@@ -49,8 +49,9 @@ type PasskeyRemoval = "removed" | "last" | "absent";
  */
 export async function removePasskey(holder: { readonly id: string; readonly isAdmin: boolean }, id: string): Promise<PasskeyRemoval> {
   // Set once the callback has returned. A throw before that aborted a transaction that never
-  // committed, so nothing was written; one after it came from the commit, whose outcome may be unknown.
-  let committing = false;
+  // committed, so nothing was written; one after it came from the commit, whose outcome may be unknown. Typed
+  // `boolean`, since TypeScript's narrowing does not follow the callback's writes.
+  let committing = false as boolean;
 
   try {
     // Inside the `try`: the caller has recorded its write as sent, so a failure

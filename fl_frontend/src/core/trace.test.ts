@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { formatTraceparent, mintTraceId, readTraceparent } from "./trace.ts";
+import { formatTraceparent, mintTraceId, readTraceparent } from "./trace";
 
 /** One table both trace readers refuse; `fl_backend/tests/core/test_logging.py` holds the API's half. */
 const TRACEPARENTS = z

@@ -15,7 +15,7 @@ from app.api.spieler.admin_router import (
 from app.api.spieler.schemas import FLPatchSpielerSaisonPayload
 from app.core.collections import Collection
 from app.core.crud import composite_version
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.documents import (
     aufstellung_document,
     saison_document,
@@ -55,26 +55,23 @@ NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Body) -> Any:
+async def on_a_league(url: str, body: Body) -> Any:
     """The SHIPPED indexes, so a document production would refuse fails here too."""
 
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            # Each season spans its own calendar year, so the two seeded spans do not overlap.
-            await database[Collection.SAISONS].insert_many([saison_document(SAISON_ID, "active"), saison_document(FORMER_SAISON_ID, "past")])
-            # Both clubs in both seasons, so either pupil can be put in a squad in either one. The
-            # season's own copy of each identity is required and never read: this suite is about people.
-            await database[Collection.SAISON_TEAMS].insert_many(
-                [
-                    saison_team_document(saison_id, team_id, name, short, gruppe=gruppe)
-                    for saison_id in (SAISON_ID, FORMER_SAISON_ID)
-                    for team_id, gruppe, name, short in ((HOME_TEAM_OID, "A", "Heim-Schule", "HSX"), (AWAY_TEAM_OID, "B", "Gast-Schule", "GSX"))
-                ]
-            )
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+        # Each season spans its own calendar year, so the two seeded spans do not overlap.
+        await database[Collection.SAISONS].insert_many([saison_document(SAISON_ID, "active"), saison_document(FORMER_SAISON_ID, "past")])
+        # Both clubs in both seasons, so either pupil can be put in a squad in either one. The
+        # season's own copy of each identity is required and never read: this suite is about people.
+        await database[Collection.SAISON_TEAMS].insert_many(
+            [
+                saison_team_document(saison_id, team_id, name, short, gruppe=gruppe)
+                for saison_id in (SAISON_ID, FORMER_SAISON_ID)
+                for team_id, gruppe, name, short in ((HOME_TEAM_OID, "A", "Heim-Schule", "HSX"), (AWAY_TEAM_OID, "B", "Gast-Schule", "GSX"))
+            ]
+        )
 
-            return await body(database, client)
-
-    return on_the_seed_loop(_run())
+        return await body(database, client)
 
 
 def person_row(first_name: str) -> dict[str, Any]:
@@ -166,7 +163,7 @@ async def erase_the_pupil(database: AsyncDatabase, client: AsyncMongoClient, spi
 class TestARetiredPupilIsErasedWhole:
     """Through the endpoint: the person and their squad rows."""
 
-    def test_every_squad_row_they_held_is_gone(self, mongo_replica_set_url: str):
+    async def test_every_squad_row_they_held_is_gone(self, mongo_replica_set_url: str):
         """Catches removing the person alone: the squad read `$lookup`s outward from `spieler`, so an orphan is invisible."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -176,11 +173,11 @@ class TestARetiredPupilIsErasedWhole:
 
             return held, await database[Collection.SAISON_SPIELER].count_documents({"spieler_id": spieler_id})
 
-        held, remaining = on_a_league(mongo_replica_set_url, body)
+        held, remaining = await on_a_league(mongo_replica_set_url, body)
 
         assert (held, remaining) == (2, 0)
 
-    def test_another_pupil_keeps_their_squad_row(self, mongo_replica_set_url: str):
+    async def test_another_pupil_keeps_their_squad_row(self, mongo_replica_set_url: str):
         """The over-breadth floor: catches a removal filtered on the collection rather than on `spieler_id`."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -193,13 +190,13 @@ class TestARetiredPupilIsErasedWhole:
                 await database[Collection.SAISON_SPIELER].count_documents({"spieler_id": other_id}),
             )
 
-        assert on_a_league(mongo_replica_set_url, body) == (1, 2)
+        assert await on_a_league(mongo_replica_set_url, body) == (1, 2)
 
 
 class TestNothingOfTheirsIsLeftAnywhere:
     """The floor under the class above, which asks where the endpoint looked: these ask what is left."""
 
-    def test_no_name_of_theirs_survives_anywhere_in_the_database(self, mongo_replica_set_url: str):
+    async def test_no_name_of_theirs_survives_anywhere_in_the_database(self, mongo_replica_set_url: str):
         """Catches a value left in a collection the erasure never names -- every one of them is read.
 
         The other pupil's surname is asserted present, without which a database emptied wholesale
@@ -213,7 +210,7 @@ class TestNothingOfTheirsIsLeftAnywhere:
 
             return await where_held(database, ERASED_FIRST_NAME, f"{OTHER_FIRST_NAME}-Musterfrau")
 
-        held = on_a_league(mongo_replica_set_url, body)
+        held = await on_a_league(mongo_replica_set_url, body)
 
         # Both surnames carry the given name, so one substring answers for all three of their values.
         assert held[ERASED_FIRST_NAME] == []
@@ -221,7 +218,7 @@ class TestNothingOfTheirsIsLeftAnywhere:
 
 
 class TestAPupilWhoNeverJoinedASquad:
-    def test_their_own_record_is_erased_all_the_same(self, mongo_replica_set_url: str):
+    async def test_their_own_record_is_erased_all_the_same(self, mongo_replica_set_url: str):
         """Catches an erasure that only reaches a person who held a squad row."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -230,7 +227,7 @@ class TestAPupilWhoNeverJoinedASquad:
 
             return await database[Collection.SPIELER].count_documents({"_id": spieler_id}), await where_held(database, LONE_FIRST_NAME)
 
-        remaining, held = on_a_league(mongo_replica_set_url, body)
+        remaining, held = await on_a_league(mongo_replica_set_url, body)
 
         assert remaining == 0
         assert held == {LONE_FIRST_NAME: []}
@@ -256,7 +253,7 @@ def a_report_naming(*, scorers: list[ObjectId | None], carded: list[ObjectId]) -
 class TestTheirEntriesNameNobody:
     """A report is the league's record of the match, so it stays; the entries naming them name nobody instead."""
 
-    def test_no_entry_names_them_and_every_other_entry_and_report_stands(self, mongo_replica_set_url: str):
+    async def test_no_entry_names_them_and_every_other_entry_and_report_stands(self, mongo_replica_set_url: str):
         """Catches an erasure reaching one array alone, every element of one, or a report naming somebody else."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -279,7 +276,7 @@ class TestTheirEntriesNameNobody:
 
             return spieler_id, other_id, [theirs["_id"], elsewhere["_id"], nobody["_id"]], seeded, await reports()
 
-        spieler_id, other_id, (theirs, elsewhere, nobody), seeded, stored = on_a_league(mongo_replica_set_url, body)
+        spieler_id, other_id, (theirs, elsewhere, nobody), seeded, stored = await on_a_league(mongo_replica_set_url, body)
         emptied, before = stored[theirs]["bericht"], seeded[theirs]["bericht"]
 
         assert [entry["spieler_id"] for entry in emptied["scorers"]] == [None, other_id, None, None]
@@ -294,7 +291,7 @@ class TestTheirEntriesNameNobody:
             entry["spieler_id"] for row in stored.values() for entry in [*row["bericht"]["scorers"], *row["bericht"]["cards"]]
         }
 
-    def test_no_line_up_names_them_and_every_other_entry_and_line_up_stands(self, mongo_replica_set_url: str):
+    async def test_no_line_up_names_them_and_every_other_entry_and_line_up_stands(self, mongo_replica_set_url: str):
         """A kicked-off match's line-up records whom the club fielded, so its entry stays and names nobody: emptying every entry fails."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -317,7 +314,7 @@ class TestTheirEntriesNameNobody:
 
             return other_id, stored[theirs["_id"]]["spieler"], (stored[elsewhere["_id"]], elsewhere)
 
-        other_id, entries, (untouched, seeded) = on_a_league(mongo_replica_set_url, body)
+        other_id, entries, (untouched, seeded) = await on_a_league(mongo_replica_set_url, body)
 
         assert entries == [{"spieler_id": other_id, "starts": True}, {"spieler_id": None, "starts": True}]
         assert untouched == seeded

@@ -5,9 +5,3 @@
 # `scripts/ruff.toml` rather than a copy, so the line length, the rule set and the format stay the
 # backend's.
 extend = "../../../scripts/ruff.toml"
-
-[lint]
-# The banned-api list guards how the backend reads its settings; these tools are no part of the
-# backend, and `land.py` hands its own environment to the type checker it runs. The gate's own
-# scripts carry the same exemption in `fl_backend/pyproject.toml`.
-extend-per-file-ignores = { "**/*.py" = ["TID251"] }

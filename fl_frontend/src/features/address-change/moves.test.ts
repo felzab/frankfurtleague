@@ -1,12 +1,12 @@
-import { memoryAdapterDouble, memoryStore, registerAuthDoubles } from "@/test-support/authDoubles.ts";
-import { serveBackend } from "@/test-support/backend.ts";
+import { memoryAdapterDouble, memoryStore, registerAuthDoubles } from "@/test-support/authDoubles";
+import { serveBackend } from "@/test-support/backend";
 import { describe, expect, it } from "vitest";
 
 import type {
   FLAddressChangeMovesDonePayload,
   FLAddressChangeMovesDoneResponse,
   FLAddressChangeMovesResponse,
-} from "@/core/generated/client/types.ts";
+} from "@/core/generated/client/types";
 
 /** The owed carries the backend lists, page after page; a case sets them. */
 let pages: FLAddressChangeMovesResponse["moves"][] = [];
@@ -25,9 +25,13 @@ const STORE = "__flMovesStore";
 registerAuthDoubles({ specifiers: { "@better-auth/mongo-adapter": memoryAdapterDouble(STORE) } });
 const store = memoryStore(STORE);
 
-const { runAddressChangeMoves } = await import("./moves.ts");
+const { runAddressChangeMoves } = await import("./moves");
 
-const move = (n: number) => ({ id: n.toString(16).padStart(24, "0"), old: `alt${String(n)}@schule.de`, new: `neu${String(n)}@schule.de` });
+const move = (n: number) => ({
+  id: n.toString(16).padStart(24, "0"),
+  old: `alt${String(n)}@schule.example.org`,
+  new: `neu${String(n)}@schule.example.org`,
+});
 
 /** The account of each move's replaced address, signed in on one device. */
 function accountsOf(moves: readonly ReturnType<typeof move>[]): void {
@@ -56,7 +60,11 @@ describe("the owed carries", () => {
     await runAddressChangeMoves();
 
     // Each account now signs in at its new address alone, its sessions at the replaced one ended.
-    expect(store.user.map(({ email }) => email)).toStrictEqual(["neu1@schule.de", "neu2@schule.de", "neu3@schule.de"]);
+    expect(store.user.map(({ email }) => email)).toStrictEqual([
+      "neu1@schule.example.org",
+      "neu2@schule.example.org",
+      "neu3@schule.example.org",
+    ]);
     expect(store.session).toStrictEqual([]);
     expect(backend.sent.map(({ method, path, body }) => [`${method} ${path}`, body])).toStrictEqual([
       ["GET /address_change/sweep/moves", undefined],

@@ -10,21 +10,25 @@ import {
   overriding,
   registerAuthDoubles,
   signInByCode,
-} from "@/test-support/authDoubles.ts";
-import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
-import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/test-support/nextRequest.ts";
-import { captureLog } from "@/test-support/stdoutCapture.ts";
+} from "@/test-support/authDoubles";
+import { emptyStore } from "@/test-support/emptyStore";
+import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/test-support/nextRequest";
+import { replicaSetUrl, startReplicaSet } from "@/test-support/replicaSet";
+import { signInIndexesForTheFile } from "@/test-support/signInIndexes";
+import { captureLog } from "@/test-support/stdoutCapture";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { MongoClient } from "mongodb";
+
 // A replica set: the property under test is a transaction's.
-const { mongod, closing } = await startJudgedReplicaSet();
+const { mongod, closing } = await startReplicaSet();
 
 // The set advertises its container-internal address, which topology discovery would follow and find nothing.
 const MONGO_URL = replicaSetUrl(mongod);
 
 // The real `fl_frontend/src/core/db.ts`, which the auth doubles replace by default: the client
 // under test is the one it builds.
-const PRODUCTION_DB = "@/core/db.ts";
+const PRODUCTION_DB = "@/core/db";
 
 type Method = (...args: unknown[]) => unknown;
 
@@ -165,8 +169,12 @@ const OPEN_GATE = { arrive: async () => undefined };
 /** Every line the real logger writes, read off standard output. */
 const log = captureLog();
 
-/** The events of the lines written at `level` since the case began. */
-const eventsAt = (level: "WARNING" | "ERROR"): string[] => log.lines().flatMap((line) => (line.level === level ? [line.message] : []));
+/** The events of the lines written at `level` since the case began, or since the line `from` counts. */
+const eventsAt = (level: "WARNING" | "ERROR", from = 0): string[] =>
+  log
+    .lines()
+    .slice(from)
+    .flatMap((line) => (line.level === level ? [line.message] : []));
 const barrier = new Barrier();
 
 /** Where a removal's in-transaction read of the passkey rows waits: nowhere, unless a case holds it. */
@@ -177,31 +185,21 @@ let signingOut: () => Promise<unknown> = async () => undefined;
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { auth } = await import("@/core/auth/library");
-const { buildAuthIndexes } = await import("@/core/authIndexes");
-const { removePasskeyAction } = await import("./actions.ts");
+const authIndexes = await import("@/core/authIndexes");
+const { MONGO_DB_NAME } = authIndexes;
+const { removePasskeyAction } = await import("./actions");
 
-type Collection = {
-  find: (filter: object) => { toArray: () => Promise<Record<string, unknown>[]> };
-  updateMany: (filter: object, update: object) => Promise<unknown>;
-};
-type RealClient = {
-  db: (name: string) => { dropDatabase: () => Promise<unknown>; collection: (name: string) => Collection };
-  close: () => Promise<void>;
-};
-
-const realClient = productionClient as RealClient;
+const realClient = productionClient as MongoClient;
 closing(() => realClient.close());
-const authDb = () => realClient.db("auth");
+const authDb = () => realClient.db(MONGO_DB_NAME);
+
+signInIndexesForTheFile(authIndexes, mongod);
 
 beforeEach(async () => {
   barrier.disarm();
   signingOut = async () => undefined;
   readGate = OPEN_GATE;
-  await authDb().dropDatabase();
-
-  // Production's indexes under every case, so the library is driven over what it meets there.
-  await buildAuthIndexes();
-  expect(eventsAt("ERROR"), "an index of the sign-in store was left unbuilt").toStrictEqual([]);
+  await emptyStore(authDb());
 });
 
 /** The passkey the acting device signed in with, which `seedPasskeys` writes last unless a case names it. */
@@ -274,7 +272,7 @@ async function removeAtOnce(cookie: string, ids: readonly string[]) {
   };
 }
 
-const { COPY } = await import("@/core/copy.ts");
+const { COPY } = await import("@/core/copy");
 
 const LAST_PASSKEY = COPY.account.passkeys.lastKept;
 

@@ -5,7 +5,6 @@ What each serves of the dates the league asked the team to confirm, of its line-
 whom: every case reads the wire, so a field the model would drop and a key a nested block would smuggle in are both seen.
 """
 
-import functools
 import json
 from collections.abc import Iterator, Mapping
 from datetime import datetime
@@ -14,16 +13,14 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.main import create_app
 from tests import documents
-from tests.app_client import app_client
-from tests.config import ADMIN_KEY, build_test_config
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.app_client import app_client, app_under_test
+from tests.config import ADMIN_KEY
+from tests.database import a_clean_database
 from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
 
@@ -31,7 +28,6 @@ from tests.worker import worker_database
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_team_panel_test")
-WIRE_CONFIG = build_test_config().model_copy(update={"db_base_name": DATABASE_NAME})
 
 SAISON_ID = "2026"
 PAST_SAISON_ID = "2025"
@@ -163,17 +159,7 @@ async def seed(database: AsyncDatabase) -> None:
             documents.saison_team_document(SAISON_ID, LEFT_AWAY_CLUB, "Wraxlington", "WRX", austritt=dict(EXIT)),
         ]
     )
-    await database[Collection.SPIELTAGE].insert_one(
-        {
-            "_id": SPIELTAG,
-            "start": "2026-03-01",
-            "end": "2026-06-30",
-            "position": 1,
-            "saison_id": SAISON_ID,
-            "saison_phase": "gruppenphase",
-            "version": 0,
-        }
-    )
+    await database[Collection.SPIELTAGE].insert_one(documents.spieltag_document(SPIELTAG, SAISON_ID, 1, start="2026-03-01", end="2026-06-30"))
     await database[Collection.SPIELORTE].insert_one(documents.spielort_document(SPIELORT, "Halle Ost", default_mietpreis=40))
     await database[Collection.SPIELE].insert_many([dict(spiel_raw) for spiel_raw in SPIELE])
     await database[Collection.SPIELBESTAETIGUNGEN].insert_many([dict(stored) for stored in ROWS])
@@ -215,24 +201,16 @@ async def seed(database: AsyncDatabase) -> None:
     )
 
 
-@functools.cache
-def _served() -> FastAPI:
-    return create_app(WIRE_CONFIG)
+async def read(url: str, what: str, *, identifier: str = THEO, saison_id: str = SAISON_ID) -> tuple[int, Any]:
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
+        await seed(database)
+        async with app_client(url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
+            response = await http.get(
+                f"/api/v{API_VERSION}/teams/{TEAM}/saisons/{saison_id}/self/{what}",
+                headers=StampedHeaders(identifier, ADMIN_KEY, lane="person"),
+            )
 
-
-def read(url: str, what: str, *, identifier: str = THEO, saison_id: str = SAISON_ID) -> tuple[int, Any]:
-    async def _run() -> tuple[int, Any]:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
-            await seed(database)
-            async with app_client(url, app=_served(), now=NOW) as http:
-                response = await http.get(
-                    f"/api/v{API_VERSION}/teams/{TEAM}/saisons/{saison_id}/self/{what}",
-                    headers=StampedHeaders(identifier, ADMIN_KEY, lane="person"),
-                )
-
-            return response.status_code, response.json()
-
-    return on_the_seed_loop(_run())
+        return response.status_code, response.json()
 
 
 def keys_at_every_depth(value: Any) -> Iterator[str]:
@@ -252,15 +230,15 @@ class TestEachReadAnswersTheTeamsSeatHoldersAlone:
         [(OTTO, SAISON_ID), (ANNA, SAISON_ID), (PAULA, PAST_SAISON_ID), (NORA, SAISON_ID)],
         ids=("another team's seat", "an unconfirmed seat", "the team's past season", "the same team in another season"),
     )
-    def test_a_seat_granting_nothing_here_is_refused(self, mongo_replica_set_url: str, what: str, identifier: str, saison_id: str):
-        status, served = read(mongo_replica_set_url, what, identifier=identifier, saison_id=saison_id)
+    async def test_a_seat_granting_nothing_here_is_refused(self, mongo_replica_set_url: str, what: str, identifier: str, saison_id: str):
+        status, served = await read(mongo_replica_set_url, what, identifier=identifier, saison_id=saison_id)
 
         assert (status, served["error_code"]) == (403, "role_not_held")
 
-    def test_no_address_telephone_birthdate_or_other_clubs_reason_at_any_depth(self, mongo_replica_set_url: str, what: str):
+    async def test_no_address_telephone_birthdate_or_other_clubs_reason_at_any_depth(self, mongo_replica_set_url: str, what: str):
         """Over the serialised body, keys and values both, so a nested block cannot smuggle one in."""
 
-        status, served = read(mongo_replica_set_url, what)
+        status, served = await read(mongo_replica_set_url, what)
 
         # A refused read would pass the scan below with nothing scanned.
         assert status == 200
@@ -270,8 +248,8 @@ class TestEachReadAnswersTheTeamsSeatHoldersAlone:
 
 
 class TestTheOverview:
-    def test_it_lists_the_open_work_and_nothing_settled(self, mongo_replica_set_url: str):
-        status, served = read(mongo_replica_set_url, "overview")
+    async def test_it_lists_the_open_work_and_nothing_settled(self, mongo_replica_set_url: str):
+        status, served = await read(mongo_replica_set_url, "overview")
 
         assert status == 200
         assert (served["name"], served["full_name"], served["rollen"]) == ("Zorbanax", "Zorbanax-Schule", ["trainer"])
@@ -307,8 +285,8 @@ class TestTheOverview:
 
 
 class TestTheTeamsSpiele:
-    def test_each_fixture_carries_its_date_s_state_and_its_line_up_s_marks(self, mongo_replica_set_url: str):
-        status, served = read(mongo_replica_set_url, "spiele")
+    async def test_each_fixture_carries_its_date_s_state_and_its_line_up_s_marks(self, mongo_replica_set_url: str):
+        status, served = await read(mongo_replica_set_url, "spiele")
 
         assert status == 200
         by_spiel = {entry["id"]: entry for entry in served["spiele"]}

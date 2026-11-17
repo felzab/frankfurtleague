@@ -2,8 +2,9 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
+import { renderUnderNext } from "@/test-support/nextContexts";
 import { filesUnder } from "@/test-support/treeWalk";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -23,8 +24,6 @@ import { StepCard } from "./StepCard";
 import { TextField } from "./TextField";
 
 import type { ReactElement } from "react";
-
-vi.mock("next/navigation", async (original) => ({ ...(await original<object>()), useRouter: () => ({ refresh: () => {} }) }));
 
 const FIRST = COPY.shared.firstName;
 const SECOND = COPY.shared.lastName;
@@ -52,7 +51,7 @@ type Parts = Promise<readonly [Element, Element]>;
 
 /** A container drawn around `twoFields`, and its two fields. */
 async function holding(container: ReactElement): Parts {
-  render(container);
+  renderUnderNext(container);
   return [screen.getByRole("textbox", { name: FIRST }), screen.getByRole("textbox", { name: SECOND })];
 }
 
@@ -168,7 +167,7 @@ const CONTAINERS: Readonly<Record<string, ReadonlyArray<readonly [string, () => 
       async () => {
         vi.stubGlobal("IntersectionObserver", NothingInView);
         const filter = (name: string, label: typeof FIRST) => ({ name, label, all: COPY.shared.help, options: [], value: null });
-        render(<Filters filters={[filter("first", FIRST), filter("second", SECOND)]} />);
+        renderUnderNext(<Filters filters={[filter("first", FIRST), filter("second", SECOND)]} />);
         await userEvent.click(screen.getByRole("button", { name: COPY.shared.filter }));
         const sheet = await waitFor(() => {
           const found = document.querySelector<HTMLElement>("[data-sheet-scroll]");
@@ -183,7 +182,7 @@ const CONTAINERS: Readonly<Record<string, ReadonlyArray<readonly [string, () => 
     [
       "the sign-in's address form, its send among its parts",
       async () => {
-        render(
+        renderUnderNext(
           <SignInPage
             view="address"
             title={COPY.signIn.title}

@@ -6,7 +6,7 @@ are incidental: a case reaches for whichever member of the union the mechanism n
 """
 
 import asyncio
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -45,9 +45,10 @@ from app.core import clock
 from app.core.collections import Collection
 from app.core.transactions import transaction_session
 from app.shared.tokens import hash_token
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.documents import ban_document, kontakte_document, kontaktperson_document, registrierung_document, saison_team_document
 from tests.outbox import claimable
+from tests.stored import the_row
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -60,7 +61,7 @@ NOW = datetime(2126, 4, 16, 12, 30, tzinfo=UTC)
 BEFORE_THE_CLOCK_FALLS_BACK = datetime(2126, 10, 27, 2, 55, tzinfo=clock.GERMANY)
 INVITATION = ObjectId("6890a1b2c3d4e5f607f30001")
 REFERENCE = FLOutboxReference(collection=Collection.REGISTRIERUNGEN, id=INVITATION, seat=None)
-NORA = "nora.neu@beispielschule.de"
+NORA = "nora.neu@beispielschule.example.org"
 BAN = FLBanData(kind="ban", ban_reason="Falsches Geburtsdatum", barred_until_saison_id="2127")
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -87,13 +88,10 @@ def seat(email: str, *, confirmed: bool = True) -> dict[str, Any]:
     return kontaktperson_document("Nora", confirmed_at="2126-04-01" if confirmed else None, email=email)
 
 
-def on_a_database(url: str, body: Body, *, stores_a_refused_shape: str | None = None) -> Any:
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, stores_a_refused_shape=stores_a_refused_shape) as (client, database):
-            await database[Collection.REGISTRIERUNGEN].insert_one(a_registration())
-            return await body(database, client)
-
-    return on_the_seed_loop(_run())
+async def on_a_database(url: str, body: Body, *, stores_a_refused_shape: str | None = None) -> Any:
+    async with a_clean_database(url, DATABASE_NAME, stores_a_refused_shape=stores_a_refused_shape) as (client, database):
+        await database[Collection.REGISTRIERUNGEN].insert_one(a_registration())
+        return await body(database, client)
 
 
 def utc(moment: datetime) -> datetime:
@@ -134,10 +132,8 @@ async def owe(
     return (await stored_by_key(database, key))["_id"]
 
 
-async def stored_by_key(database: AsyncDatabase, key: str) -> dict[str, Any]:
-    row = await database[Collection.OUTBOX].find_one({"key": key})
-    assert row is not None
-    return row
+async def stored_by_key(database: AsyncDatabase, key: str) -> Mapping[str, Any]:
+    return await the_row(database, Collection.OUTBOX, {"key": key})
 
 
 async def claimed(database: AsyncDatabase, client: AsyncMongoClient, *, now: datetime = NOW) -> FLOutboxHandoutResponse:
@@ -173,25 +169,23 @@ async def reported(
     )
 
 
-async def stored(database: AsyncDatabase, row_id: ObjectId) -> dict[str, Any]:
-    row = await database[Collection.OUTBOX].find_one({"_id": row_id})
-    assert row is not None
-    return row
+async def stored(database: AsyncDatabase, row_id: ObjectId) -> Mapping[str, Any]:
+    return await the_row(database, Collection.OUTBOX, {"_id": row_id})
 
 
 class TestTheEnqueue:
-    def test_a_replay_of_the_same_write_owes_the_mail_once(self, mongo_replica_set_url: str):
+    async def test_a_replay_of_the_same_write_owes_the_mail_once(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[ObjectId, ObjectId, int]:
             first = await owe(database, client, "ban/1")
             again = await owe(database, client, "ban/1")
 
             return first, again, await database[Collection.OUTBOX].count_documents({})
 
-        first, again, rows = on_a_database(mongo_replica_set_url, body)
+        first, again, rows = await on_a_database(mongo_replica_set_url, body)
 
         assert (again, rows) == (first, 1)
 
-    def test_a_batch_replayed_owes_only_the_mails_its_first_run_did_not(self, mongo_replica_set_url: str):
+    async def test_a_batch_replayed_owes_only_the_mails_its_first_run_did_not(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[str]:
             async def batch(*keys: str) -> None:
                 async def write(session: Any) -> None:
@@ -210,24 +204,26 @@ class TestTheEnqueue:
 
             return sorted(row["key"] for row in await database[Collection.OUTBOX].find({}).to_list())
 
-        assert on_a_database(mongo_replica_set_url, body) == ["ban/1", "ban/2", "ban/3"]
+        assert await on_a_database(mongo_replica_set_url, body) == ["ban/1", "ban/2", "ban/3"]
 
 
 class TestTheDrain:
-    def test_two_concurrent_drains_never_hold_one_row(self, mongo_replica_set_url: str):
+    async def test_two_concurrent_drains_never_hold_one_row(self, mongo_replica_set_url: str):
         """Both claim at once; the rows both read conflict, and the retried claim finds them held."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             owed = {await owe(database, client, f"ban/{position}") for position in range(4)}
-            first, second = await asyncio.gather(claimed(database, client), claimed(database, client))
+            async with asyncio.TaskGroup() as group:
+                drains = [group.create_task(claimed(database, client)) for _ in range(2)]
+            first, second = (drain.result() for drain in drains)
 
             return owed, [mail.id for mail in first.mails], [mail.id for mail in second.mails]
 
-        owed, first, second = on_a_database(mongo_replica_set_url, body)
+        owed, first, second = await on_a_database(mongo_replica_set_url, body)
 
         assert (set(first) & set(second), set(first) | set(second)) == (set(), owed)
 
-    def test_a_lost_report_leaves_the_mail_to_the_drain_after_the_lease_with_a_fresh_link(self, mongo_replica_set_url: str):
+    async def test_a_lost_report_leaves_the_mail_to_the_drain_after_the_lease_with_a_fresh_link(self, mongo_replica_set_url: str):
         """The first drain's report never arrives, so the drain after its lease hands the mail out again.
 
         Inside the lease nobody takes it, and the first drain's late report is ignored. Both links stay valid, and the
@@ -246,7 +242,7 @@ class TestTheDrain:
 
             return lost, inside, after, late, settled, await stored(database, row_id), record, logged
 
-        lost, inside, after, late, settled, row, record, logged = on_a_database(mongo_replica_set_url, body)
+        lost, inside, after, late, settled, row, record, logged = await on_a_database(mongo_replica_set_url, body)
 
         (first,), (second,) = lost.mails, after.mails
         assert (inside.mails, first.attempt, second.attempt) == ([], 1, 2)
@@ -256,7 +252,7 @@ class TestTheDrain:
         assert (row["state"], row["message_id"]) == ("sent", f"msg-{row['_id']}")
         assert logged == 0
 
-    def test_a_lease_runs_its_whole_length_across_a_clock_change(self, mongo_replica_set_url: str):
+    async def test_a_lease_runs_its_whole_length_across_a_clock_change(self, mongo_replica_set_url: str):
         """Added to a Berlin value the ten minutes would be the wall clock's, and a dead drain's mail would wait seventy."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> datetime:
@@ -265,9 +261,9 @@ class TestTheDrain:
 
             return (await stored(database, row_id))["leased_until"]
 
-        assert utc(on_a_database(mongo_replica_set_url, body)) == BEFORE_THE_CLOCK_FALLS_BACK.astimezone(UTC) + LEASE_DURATION
+        assert utc(await on_a_database(mongo_replica_set_url, body)) == BEFORE_THE_CLOCK_FALLS_BACK.astimezone(UTC) + LEASE_DURATION
 
-    def test_a_link_goes_into_every_seat_it_names_and_a_mail_whose_seat_moved_on_since_is_dropped(self, mongo_replica_set_url: str):
+    async def test_a_link_goes_into_every_seat_it_names_and_a_mail_whose_seat_moved_on_since_is_dropped(self, mongo_replica_set_url: str):
         """One link for a person holding two seats, minted into both; a seat emptied or re-addressed since mints nothing.
 
         The emptied seat is the case a write through its null entry would refuse, aborting the claim for every row on it.
@@ -306,7 +302,7 @@ class TestTheDrain:
             empty = await owe(database, client, "seats/2", link=True, reference=reference, spec=spec)
             emptied = await claimed(database, client)
             await database[Collection.SAISON_TEAMS].update_one(
-                {"_id": saison_team}, {"$set": {"kontakte.ansprechperson": seat("nachfolge@beispielschule.de")}}
+                {"_id": saison_team}, {"$set": {"kontakte.ansprechperson": seat("nachfolge@beispielschule.example.org")}}
             )
             continued = await owe(database, client, "seats/3", link=True, reference=reference, spec=spec)
             handed_on = await claimed(database, client)
@@ -314,7 +310,7 @@ class TestTheDrain:
             dropped = [*emptied.mails, *handed_on.mails]
             return minted, first, record, dropped, [(await stored(database, row_id))["state"] for row_id in (empty, continued)]
 
-        minted, first, record, dropped, states = on_a_database(mongo_replica_set_url, body)
+        minted, first, record, dropped, states = await on_a_database(mongo_replica_set_url, body)
 
         (mail,) = first.mails
         assert mail.id == minted and mail.token is not None
@@ -329,12 +325,12 @@ class TestTheDrain:
         [
             ({"ansprechperson": seat(NORA)}, True),
             ({"trainer": seat(NORA, confirmed=False)}, False),
-            ({"trainer": seat("nachfolge@beispielschule.de")}, False),
+            ({"trainer": seat("nachfolge@beispielschule.example.org")}, False),
             (None, False),
         ],
         ids=("a confirmed seat holding it", "an unconfirmed seat holding it", "a seat handed on", "no season row"),
     )
-    def test_a_club_mail_goes_only_while_a_confirmed_seat_of_its_club_holds_its_address(
+    async def test_a_club_mail_goes_only_while_a_confirmed_seat_of_its_club_holds_its_address(
         self, mongo_replica_set_url: str, seats: dict[str, Any] | None, handed: bool
     ):
         """A send that failed is retried for days, and its seat may change hands meanwhile: the mail carries no link to judge.
@@ -357,11 +353,11 @@ class TestTheDrain:
 
             return [mail.id for mail in answer.mails], row_id, (await stored(database, row_id))["state"]
 
-        mails, row_id, state = on_a_database(mongo_replica_set_url, body)
+        mails, row_id, state = await on_a_database(mongo_replica_set_url, body)
 
         assert (mails, state) == (([row_id], "open") if handed else ([], "dropped"))
 
-    def test_a_mail_to_a_barred_address_stops_at_the_hand_out_and_the_bans_own_notice_goes(self, mongo_replica_set_url: str):
+    async def test_a_mail_to_a_barred_address_stops_at_the_hand_out_and_the_bans_own_notice_goes(self, mongo_replica_set_url: str):
         """The second of the ban's two checkpoints, which a ban entered in any spelling holds against the row's folded address."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -378,7 +374,7 @@ class TestTheDrain:
                 await database[Collection.REGISTRIERUNGEN].find_one({"_id": INVITATION}),
             )
 
-        handed, ban, rows, record = on_a_database(mongo_replica_set_url, body)
+        handed, ban, rows, record = await on_a_database(mongo_replica_set_url, body)
 
         assert handed == [ban]
         assert [(row["state"], "data" in row, "secret" in row) for row in rows] == [("barred", False, False)] * 2
@@ -386,7 +382,7 @@ class TestTheDrain:
         assert record is not None
         assert record["confirmation"]["token_hashes"] == []
 
-    def test_a_row_of_an_older_shape_is_given_up_inside_the_claim_and_the_mail_behind_it_goes(self, mongo_replica_set_url: str):
+    async def test_a_row_of_an_older_shape_is_given_up_inside_the_claim_and_the_mail_behind_it_goes(self, mongo_replica_set_url: str):
         """One row left by an earlier release would fail every claim until its deadline, and every mail behind it with it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -397,13 +393,13 @@ class TestTheDrain:
 
             return [mail.id for mail in answer.mails], answer.abandoned, behind, (await stored(database, old))["state"]
 
-        handed, abandoned, behind, state = on_a_database(
+        handed, abandoned, behind, state = await on_a_database(
             mongo_replica_set_url, body, stores_a_refused_shape="a mail row of an earlier release's shape, which the claim gives up"
         )
 
         assert (handed, abandoned, state) == ([behind], 1, "abandoned")
 
-    def test_a_failed_send_waits_and_goes_again_its_refusal_on_the_row_until_a_send_goes(self, mongo_replica_set_url: str):
+    async def test_a_failed_send_waits_and_goes_again_its_refusal_on_the_row_until_a_send_goes(self, mongo_replica_set_url: str):
         """The row is a send's one record, so the provider's name for its refusal is the only answer to why it waited."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -417,12 +413,12 @@ class TestTheDrain:
 
             return failed.repeated, waiting.mails, [mail.id for mail in again.mails], row_id, refused, await stored(database, row_id)
 
-        repeated, waiting, again, row_id, refused, row = on_a_database(mongo_replica_set_url, body)
+        repeated, waiting, again, row_id, refused, row = await on_a_database(mongo_replica_set_url, body)
 
         assert (repeated, waiting, again) == (1, [], [row_id])
         assert (refused, row["state"], row["delivery_reason"]) == ("rate_limit_exceeded", "sent", None)
 
-    def test_a_mail_whose_link_supersedes_drops_the_older_one_still_waiting_to_go_again(self, mongo_replica_set_url: str):
+    async def test_a_mail_whose_link_supersedes_drops_the_older_one_still_waiting_to_go_again(self, mongo_replica_set_url: str):
         """Handed out after the newer mail, the older one would supersede the newer link, and the newest mail opens nothing."""
 
         replacing = FLOutboxLink(paths=["confirmation.token_hashes"], addresses=["email"], replaced=True)
@@ -439,7 +435,7 @@ class TestTheDrain:
 
             return second, later, record, (await stored(database, older))["state"]
 
-        second, later, record, older_state = on_a_database(mongo_replica_set_url, body)
+        second, later, record, older_state = await on_a_database(mongo_replica_set_url, body)
 
         (mail,) = second.mails
         assert mail.token is not None
@@ -448,7 +444,7 @@ class TestTheDrain:
 
 
 class TestTheSignInCode:
-    def test_it_is_handed_out_ahead_of_a_full_page_of_older_league_mail(self, mongo_replica_set_url: str):
+    async def test_it_is_handed_out_ahead_of_a_full_page_of_older_league_mail(self, mongo_replica_set_url: str):
         """It has one attempt inside its lapse, so a queue of league mail ahead of it would spend the drain's deadline."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -459,11 +455,11 @@ class TestTheSignInCode:
 
             return code, [mail.id for mail in answer.mails]
 
-        code, handed = on_a_database(mongo_replica_set_url, body)
+        code, handed = await on_a_database(mongo_replica_set_url, body)
 
         assert (handed[0], len(handed)) == (code, PAGE)
 
-    def test_a_failed_send_gives_it_up_and_its_secret_goes_with_the_final_state(self, mongo_replica_set_url: str):
+    async def test_a_failed_send_gives_it_up_and_its_secret_goes_with_the_final_state(self, mongo_replica_set_url: str):
         """The library repairs a failed code with a fresh one, so the row is tried once; its own lapse stays its delete date."""
 
         valid_until = NOW + timedelta(minutes=10)
@@ -482,7 +478,7 @@ class TestTheSignInCode:
 
             return first, failed, await stored(database, mail.id)
 
-        first, failed, row = on_a_database(mongo_replica_set_url, body)
+        first, failed, row = await on_a_database(mongo_replica_set_url, body)
 
         assert [mail.secret for mail in first.mails] == ["chiffrat"]
         assert (failed.repeated, failed.abandoned) == (0, 1)
@@ -490,23 +486,23 @@ class TestTheSignInCode:
 
 
 class TestTheExpiry:
-    def test_a_settled_row_is_deleted_a_retention_after_its_final_state_and_keeps_no_data(self, mongo_replica_set_url: str):
+    async def test_a_settled_row_is_deleted_a_retention_after_its_final_state_and_keeps_no_data(self, mongo_replica_set_url: str):
         settled_at = NOW + timedelta(hours=1)
 
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> dict[str, Any]:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Mapping[str, Any]:
             row_id = await owe(database, client, "ban/1")
             answer = await claimed(database, client, now=settled_at)
             await reported(database, answer.lease, row_id, "sent", now=settled_at)
 
             return await stored(database, row_id)
 
-        row = on_a_database(mongo_replica_set_url, body)
+        row = await on_a_database(mongo_replica_set_url, body)
 
         assert (utc(row["erase_at"]), "data" in row) == (settled_at + RETENTION, False)
 
 
 class TestTheDeliveryEvent:
-    def test_an_event_finds_its_row_before_the_report_and_a_state_never_moves_back(self, mongo_replica_set_url: str):
+    async def test_an_event_finds_its_row_before_the_report_and_a_state_never_moves_back(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             row_id = await owe(database, client, "ban/1", link=True)
             answer = await claimed(database, client)
@@ -530,7 +526,7 @@ class TestTheDeliveryEvent:
 
             return applied, newest, await stored(database, row_id)
 
-        applied, newest, row = on_a_database(mongo_replica_set_url, body)
+        applied, newest, row = await on_a_database(mongo_replica_set_url, body)
 
         assert applied == [True, False, False, False]
         assert newest is not None and newest.undeliverable

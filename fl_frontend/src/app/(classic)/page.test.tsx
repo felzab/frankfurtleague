@@ -1,18 +1,12 @@
-import { serveBackend } from "@/test-support/backend.ts";
-import { doubleNextRequest } from "@/test-support/nextRequest.ts";
+import { serveBackend } from "@/test-support/backend";
+import { doubleNextRequest } from "@/test-support/nextRequest";
 import { renderToReadableStream } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { dayOf } from "@/core/format";
 import { SERVER_COPY } from "@/core/serverCopy";
 
 import type { FLLandingResponse } from "@/core/generated/client/types";
-import type { ComponentProps } from "react";
-
-vi.mock("next/link", async (original) => ({
-  ...(await original<object>()),
-  default: ({ children, ...props }: ComponentProps<"a">) => <a {...props}>{children}</a>,
-}));
 
 /** The landing's figures: none yet. */
 const COUNTS: FLLandingResponse["counts"] = { count_saisons: 0, count_schulen: 0, count_spiele: 0, count_tore: 0 };

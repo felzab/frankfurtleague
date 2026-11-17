@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 
-import { linkFactsOf } from "./linkFacts.ts";
+import { linkFactsOf } from "./linkFacts";
 
 import type { FLTeamLinkState } from "@/core/generated/client/types";
 

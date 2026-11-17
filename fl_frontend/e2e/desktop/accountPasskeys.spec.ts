@@ -1,41 +1,32 @@
 /**
- * E2E · J8's passkeys on Konto: a person sets one up and removes it behind the passkey touch, which signs this device in
- * by that passkey, so the removal ends the session its own touch made and the page leaves for the sign-in. Then a
- * passkey holder starts an address change and deletes the account, each behind its own touch. Desktop alone, for the
- * reason `fl_frontend/playwright.config.ts` gives at its projects.
+ * E2E · a person's passkeys on Konto: a person sets one up and removes it behind the passkey touch, which signs this
+ * device in by that passkey, so the removal ends the session its own touch made and the page leaves for the sign-in.
+ * Then a passkey holder starts an address change and deletes the account, each behind its own touch. Desktop alone,
+ * since Playwright's WebKit holds no authenticator.
  */
 import { expect } from "@playwright/test";
 
-import { typeInto } from "../support/controls";
+import { enteredQuestion, typeInto } from "../support/controls";
 import { test } from "../support/journey";
+import { PEOPLE } from "../support/madeUpLeague";
 import { filedMessages, mailedLink } from "../support/mailSink";
-import { assertionsSigned, declinePasskeyOffer, PERSON_LANDING, signInWithCode } from "../support/signIn";
+import { assertionsSigned, declinePasskeyOffer, PERSON_LANDING, setUpPasskey, signInWithCode } from "../support/signIn";
 
-/** The person the removal's journey alone signs in as (`scripts/ops/seed/seed.js`). */
-const REMOVER = "emil.ernst@example.com";
+/** The person the removal's journey alone signs in as. */
+const REMOVER = PEOPLE.passkeys.remover.address;
 
 /** The person the touched acts' journey alone signs in as, and the one its last step erases. */
-const HOLDER = "jana.jansen@example.com";
+const HOLDER = PEOPLE.passkeys.holder.address;
 
 test("a person's passkey on Sicherheit: set up, then removed, which ends this device's session", async ({ page, context }) => {
   await signInWithCode(page, REMOVER);
   await declinePasskeyOffer(page, PERSON_LANDING);
-
-  await context.credentials.install();
-  await page.goto("/account/security");
-  // Each row's „Löschen“, in `main`: the confirmation's own „Löschen“ stands outside it, in the dialog, and the open
-  // dialog hides the rows from the accessibility tree, so the count settles only once the dialog has closed.
-  const rows = () => page.getByRole("main").getByRole("button", { name: "Löschen" });
-
-  // The passkey, on the code's fresh session alone: nobody holds one yet, so nothing is touched.
-  await page.getByRole("button", { name: "Passkey einrichten" }).click();
-  await expect(rows()).toHaveCount(1);
+  const rows = await setUpPasskey(page, context);
 
   // Removed on its own touch: this device's session goes with it, and the browser leaves for the sign-in.
   const beforeTheRemoval = await assertionsSigned(context);
-  await rows().first().click();
-  // The question is named: the toast an act answers in is an `alertdialog` too.
-  await page.getByRole("alertdialog", { name: "Passkey löschen?" }).getByRole("button", { name: "Löschen" }).click();
+  await rows.first().click();
+  await (await enteredQuestion(page, "Passkey löschen?")).getByRole("button", { name: "Löschen" }).click();
   await expect(page).toHaveURL((url) => url.pathname === "/signin");
   // The signed-out form's press, which only a request bearing no live session is shown: a session the removal left
   // alive draws the signed-in card under the same „Anmelden“ heading instead.
@@ -46,12 +37,7 @@ test("a person's passkey on Sicherheit: set up, then removed, which ends this de
 test("a passkey holder's address change and deletion each run behind the touch", async ({ page, context }) => {
   await signInWithCode(page, HOLDER);
   await declinePasskeyOffer(page, PERSON_LANDING);
-
-  // A passkey, set up on the code's fresh session: the person holds none yet, so nothing is touched.
-  await context.credentials.install();
-  await page.goto("/account/security");
-  await page.getByRole("button", { name: "Passkey einrichten" }).click();
-  await expect(page.getByRole("main").getByRole("button", { name: "Löschen" })).toHaveCount(1);
+  await setUpPasskey(page, context);
 
   // The change's start asks the touch before it posts, and stands as the pending change its box then shows.
   await page.goto("/account/signin");
@@ -67,7 +53,7 @@ test("a passkey holder's address change and deletion each run behind the touch",
   // The deletion's link, mailed from Konto, and its act behind the touch.
   const before = await filedMessages();
   await page.getByRole("button", { name: "Konto löschen" }).click();
-  await page.getByRole("alertdialog", { name: "Konto löschen?" }).getByRole("button", { name: "Löschen" }).click();
+  await (await enteredQuestion(page, "Konto löschen?")).getByRole("button", { name: "Löschen" }).click();
   const link = await mailedLink(HOLDER, "Konto löschen", before);
   await page.goto(link);
   await expect(page.getByRole("main").getByRole("heading", { name: "Konto löschen" })).toBeVisible();

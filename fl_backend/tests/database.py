@@ -1,19 +1,20 @@
 import asyncio
-import atexit
 import io
-from collections.abc import AsyncGenerator, Coroutine, Generator, Iterable, Mapping, Sequence
-from contextlib import asynccontextmanager, contextmanager, redirect_stdout
+from collections.abc import AsyncGenerator, Awaitable, Callable, Coroutine, Iterable, Mapping, Sequence
+from contextlib import AsyncExitStack, asynccontextmanager, redirect_stdout
+from contextvars import ContextVar
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pymongo
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
-from pymongo.database import Database
-from pymongo.mongo_client import MongoClient
 from pymongo.uri_parser import parse_uri
 
+from app.core.concurrency import concurrently
 from app.core.constraints import TTL_INDEXES, apply_constraints
+from app.core.db import new_client
+from app.core.middlewares import REQUEST_DEADLINE_S
 from app.readback import read_back
 
 # MongoDB's code for a document a `$jsonSchema` refused, which the driver names nowhere: a case forcing a
@@ -34,92 +35,104 @@ _Key = tuple[tuple[tuple[str, int], ...], str]
 # defines, and the tier -- one worker of it, under `-n` -- runs in one process.
 _BUILT: dict[_Key, tuple[bool, Schema]] = {}
 
-# Module globals for `_BUILT`'s reason, torn down by `_release`.
-_LOOP: asyncio.AbstractEventLoop | None = None
+# A module global for `_BUILT`'s reason. A client belongs to the loop it first ran on, and every async case and fixture
+# runs on the session's (`fl_backend/pyproject.toml :: asyncio_default_test_loop_scope`).
 _CLIENTS: dict[str, AsyncMongoClient] = {}
 
-# Bounds each close in `_release`. A serial `pytest -m db` has stopped the containers by the time
-# that runs, so an unbounded close waits pymongo's 30 s selection default per client, after the
-# reporter has already printed.
+# Bounds each close. A serial `pytest -m db` may have stopped the containers by the time the session's loop closes its
+# clients, so a close would otherwise wait pymongo's selection timeout per client.
 _CLOSE_TIMEOUT_S = 2.0
 
+# The longest a case waits on purpose: `tests/core/test_request_deadline.py`'s press waits out a whole request deadline,
+# and its case accepts an answer up to 10 s past it.
+LONGEST_WAIT_S = REQUEST_DEADLINE_S + 10
 
-def _release() -> None:
-    """At interpreter exit, nothing else outliving the tier to close what its seeds share."""
+# MongoDB's default `transactionLifetimeLimitSeconds`, which the test servers keep
+# (https://www.mongodb.com/docs/manual/reference/parameters/#mongodb-parameter-param.transactionLifetimeLimitSeconds).
+SERVER_TRANSACTION_LIFETIME_S = 60
 
-    if _LOOP is None:
-        return
+# Each case's bound, and a module corpus's setup's (`held_corpus`). A rival a case runs inside a write that then waits on
+# that write's own transaction deadlocks until the server aborts the transaction at its lifetime, and the retry that
+# follows passes the case: under that lifetime, the case fails under its own name. Above the longest wait, no case that
+# would finish is cut.
+CASE_BOUND_S = 30.0
 
-    for client in _CLIENTS.values():
+assert LONGEST_WAIT_S < CASE_BOUND_S < SERVER_TRANSACTION_LIFETIME_S, (
+    "the case bound must cut no case that would finish, and a deadlock before the server frees it"
+)
+
+_UNFINISHED = (
+    "{what} ran past {bound:g} s and was cancelled. Where it waits inside a write's transaction, the likely cause is a"
+    " rival run inside that write which waits on the write's own transaction: run the rival before the write it contends"
+    " with."
+)
+
+# Set while a case runs (`tests/conftest.py :: pytest_collection_modifyitems`): the loop time it is cut at.
+_CASE: ContextVar[float | None] = ContextVar("_CASE", default=None)
+
+
+def case_deadline() -> float | None:
+    """The loop time the running case is cut at, or `None` outside a case."""
+
+    return _CASE.get()
+
+
+async def bounded[T](work: Awaitable[T], *, what: str = "this", bound_s: float = CASE_BOUND_S) -> T:
+    """`work` under `bound_s`, failing as cut past it; a `TimeoutError` the work raises itself passes as it was.
+
+    Past the bound the work is cancelled and unwound before this raises, so its sessions abort their transactions here.
+    """
+
+    bound = asyncio.timeout(bound_s)
+    try:
+        async with bound:
+            return await work
+    # Any failure, not the `TimeoutError` alone: work the bound cut can raise something else as it unwinds, a run of
+    # `concurrently` crashing in its cleanup among them, and the cut is still what stopped it.
+    except Exception as raised:
+        if bound.expired():
+            raise TimeoutError(_UNFINISHED.format(what=what, bound=bound_s)) from raised
+        raise
+
+
+async def bounded_case[T](case: Coroutine[Any, Any, T]) -> T:
+    """A case's body under the case's bound, as `tests/conftest.py :: pytest_collection_modifyitems` runs every async one."""
+
+    token = _CASE.set(asyncio.get_running_loop().time() + CASE_BOUND_S)
+    try:
+        return await bounded(case, what="this case")
+    finally:
+        _CASE.reset(token)
+
+
+async def close_the_shared_clients() -> None:
+    """Every client `shared_client` opened, closed on the session's loop before it stops.
+
+    On the loop, not after it: `close` is a coroutine, so a bare call would close nothing and leave a warning where the
+    connections should have gone.
+    """
+
+    while _CLIENTS:
+        _, client = _CLIENTS.popitem()
         # `close` selects a server to end the client's sessions, so a deadline is the only thing
         # bounding it. The error one raises is swallowed inside `close`: an `endSessions` failure
         # is one a driver must ignore.
         with pymongo.timeout(_CLOSE_TIMEOUT_S):
-            # Run on the tier's loop while it is still open: `close` is a coroutine, so a bare call
-            # would close nothing and leave a warning where the connections should have gone.
-            _LOOP.run_until_complete(client.close())
-    _CLIENTS.clear()
-
-    # What a per-call `asyncio.run` does at its own end: an async generator left open is finalised
-    # while the loop it belongs to still runs, rather than at collection with no loop to run on.
-    _LOOP.run_until_complete(_LOOP.shutdown_asyncgens())
-    _LOOP.close()
-
-
-# Each seed's bound. A rival a case runs inside a write that then waits on that write's own transaction deadlocks until
-# MongoDB aborts the transaction at its 60 s lifetime limit, and the retry that follows passes the case. Under that limit,
-# the case fails under its own name; above the slowest seeds of the tier, which wait out a whole request deadline, no
-# seed that would finish is cut.
-SEED_BOUND_S = 30.0
-
-_UNFINISHED = (
-    "this seed ran past {bound:.0f} s and was cancelled. A rival run inside a write that waits on that write's own transaction"
-    " deadlocks until MongoDB aborts it at its lifetime limit: run the rival before the write it contends with."
-)
-
-
-def on_the_seed_loop(seed: Coroutine[Any, Any, Any]) -> Any:
-    """A client's connections belong to the loop that opened them, so ONE lasting loop is what lets every seed share one client.
-
-    `run_until_complete` copies the context into a task the same way, so a `ContextVar` a body sets still reaches no other test.
-    """
-
-    global _LOOP
-
-    if _LOOP is None:
-        _LOOP = asyncio.new_event_loop()
-        atexit.register(_release)
-
-    return _LOOP.run_until_complete(_bounded(seed))
-
-
-async def _bounded(seed: Coroutine[Any, Any, Any]) -> Any:
-    """Past the bound the seed is cancelled and unwound before this raises, so its sessions abort their transactions here."""
-
-    bound = asyncio.timeout(SEED_BOUND_S)
-    try:
-        async with bound:
-            return await seed
-    except TimeoutError as timeout:
-        # A `TimeoutError` the body raised itself passes as it was.
-        if bound.expired():
-            raise TimeoutError(_UNFINISHED.format(bound=SEED_BOUND_S)) from timeout
-        raise
+            await client.close()
 
 
 def shared_client(url: str) -> AsyncMongoClient:
-    """One client per url for the whole tier: a topology handshake costs a client to open, not a seed to run.
+    """One client per url for the whole tier: a topology handshake costs a client to open, not a case to run.
 
-    Public because a module reading a seeded corpus needs that client without `a_clean_database`'s clearing.
+    Public because a module reading a seeded corpus needs that client without `a_clean_database`'s clearing. It connects
+    on its first operation.
     """
 
     client = _CLIENTS.get(url)
     if client is None:
-        # `poll`, the mode the driver picks for a process frozen between calls: `_LOOP` stands still
-        # between seeds, and a streaming check outliving its timeout there clears the pool on resume,
-        # cancelling the next seed's operations.
-        client = AsyncMongoClient(url, serverMonitoringMode="poll")
-        _CLIENTS[url] = client
+        # `poll`, the mode the driver picks for a process frozen between calls: the loop stands still between cases, and
+        # a streaming check outliving its timeout there clears the pool on resume, cancelling the next case's operations.
+        client = _CLIENTS[url] = new_client(url, serverMonitoringMode="poll")
 
     return client
 
@@ -165,7 +178,7 @@ async def _expired_rows(database: AsyncDatabase) -> list[str]:
         found = await (await database[collection].aggregate(_expired_pipeline(key, seconds))).to_list(length=None)
         return _expired_message(database.name, collection, key, found)
 
-    return [message for message in await asyncio.gather(*(expired(ttl.collection, ttl.key, ttl.seconds) for ttl in TTL_INDEXES)) if message]
+    return [message for message in await concurrently(*(expired(ttl.collection, ttl.key, ttl.seconds) for ttl in TTL_INDEXES)) if message]
 
 
 async def _refused_records(client: AsyncMongoClient, name: str) -> str | None:
@@ -219,7 +232,7 @@ def _enforcement(info: Mapping[str, Any], specs: Iterable[Mapping[str, Any]]) ->
 
 
 async def _index_specs(database: AsyncDatabase, name: str) -> Sequence[Mapping[str, Any]]:
-    """`list_indexes` hands its cursor back through a coroutine, so a gather over it needs a call of its own to await twice."""
+    """`list_indexes` hands its cursor back through a coroutine, so a run beside others needs a call of its own to await twice."""
 
     return await (await database[name].list_indexes()).to_list(length=None)
 
@@ -230,7 +243,7 @@ async def _schema(database: AsyncDatabase) -> tuple[Schema, list[str]]:
     listed = await (await database.list_collections()).to_list(length=None)
     infos = _data(listed)
     # Concurrently: one `listIndexes` per collection is the whole added cost of naming the culprit.
-    specs = await asyncio.gather(*(_index_specs(database, info["name"]) for info in infos))
+    specs = await concurrently(*(_index_specs(database, info["name"]) for info in infos))
 
     return {info["name"]: _enforcement(info, found) for info, found in zip(infos, specs, strict=True)}, _foreign(listed)
 
@@ -287,10 +300,7 @@ async def _clear(database: AsyncDatabase, baseline: Schema) -> None:
     """Isolation without rebuilding a schema no test changed: every collection the last call left is emptied."""
 
     # Concurrently: ten sequential round trips is most of what building the schema once saves.
-    # Collected rather than propagated at the first, so no sibling is still running at `client.close()`.
-    for outcome in await asyncio.gather(*(database[name].delete_many({}) for name in baseline), return_exceptions=True):
-        if isinstance(outcome, BaseException):
-            raise outcome
+    await concurrently(*(database[name].delete_many({}) for name in baseline))
 
 
 @asynccontextmanager
@@ -302,7 +312,7 @@ async def a_clean_database(
     mutates_schema: bool = False,
     stores_a_refused_shape: str | None = None,
 ) -> AsyncGenerator[tuple[AsyncMongoClient, AsyncDatabase]]:
-    """The tier's client for this url, and a database emptied for this test on a schema built once.
+    """The tier's client for this url, and a database emptied for this case on a schema built once, judged as it leaves.
 
     `mutates_schema=True` is the opt-out for a body that installs a validator or moves an index: what
     it leaves is recorded nowhere, so the next caller rebuilds. Every document the body leaves is read back through its
@@ -310,8 +320,8 @@ async def a_clean_database(
     schema, a body leaving a row its TTL index has already expired is refused (`_expired_rows`).
     """
 
-    # Shared, and bound to `on_the_seed_loop`'s loop, which every seed runs on; closing it belongs to
-    # `_release` at exit, so a body that raises leaves the next test a client rather than none.
+    # Shared; closing it belongs to `close_the_shared_clients` as the session's loop ends, so a body that raises leaves
+    # the next test a client rather than none.
     client = shared_client(url)
     key = _key(url, name)
     database = client[name]
@@ -344,22 +354,57 @@ async def a_clean_database(
         raise AssertionError("\n".join(expired))
 
 
-@contextmanager
-def a_clean_database_sync(
-    client: MongoClient, url: str, name: str, *, constraints: bool = True, stores_a_refused_shape: str | None = None
-) -> Generator[Database]:
-    """`a_clean_database` for a fixture holding a pymongo client: the database emptied on entry, its checks run on exit.
+# One module's shared corpus: every collection it holds, each as its documents in an order two
+# reads of an untouched database agree on.
+Corpus = dict[str, list[str]]
 
-    A module fixture holds it open while its cases read, so what the module seeded and wrote is judged once they are done.
-    Entered and left on the seed loop, a step at a time, so both share one judgement of a clean database.
+_WROTE = (
+    "'{database}' holds documents its seed did not put there ({moved}). A module sharing one corpus across its tests admits reads"
+    " alone: a body that writes hands the next test a corpus nobody seeded, and fails it somewhere else entirely."
+)
+
+
+async def _corpus(database: AsyncDatabase) -> Corpus:
+    """Views and `system.*` are listed beside real collections and hold nothing a seed put there."""
+
+    names = [info["name"] for info in _data(await (await database.list_collections()).to_list(length=None))]
+    found = await concurrently(*(database[name].find().to_list(length=None) for name in names))
+
+    return {name: sorted(repr(document) for document in documents) for name, documents in zip(names, found, strict=True)}
+
+
+def _moved_documents(seeded: Corpus, present: Corpus) -> list[str]:
+    return sorted(name for name in seeded.keys() | present.keys() if seeded.get(name) != present.get(name))
+
+
+@asynccontextmanager
+async def held_corpus[T](
+    url: str,
+    name: str,
+    seed: Callable[[AsyncDatabase], Coroutine[Any, Any, T]],
+    *,
+    constraints: bool = True,
+    stores_a_refused_shape: str | None = None,
+) -> AsyncGenerator[T]:
+    """A module's corpus, seeded once and held across its fixture's `yield`: what `seed` returns, judged after the cases.
+
+    A module fixture holds it as `async with held_corpus(...): yield ...`. After the module's cases, a case that moved a
+    document fails the module, and then `a_clean_database`'s checks judge the schema, every document's shape and the
+    expired rows the cases left, so the module that moved the schema is the one pytest names. Its setup runs under the
+    case's bound, named by the corpus.
     """
 
-    entered = a_clean_database(url, name, constraints=constraints, stores_a_refused_shape=stores_a_refused_shape)
-    on_the_seed_loop(entered.__aenter__())
-    try:
-        yield client[name]
-    except BaseException as failure:
-        # The failure the body raised, handed in as `async with` would, so the checks are skipped and it surfaces as itself.
-        on_the_seed_loop(entered.__aexit__(type(failure), failure, failure.__traceback__))
-        raise
-    on_the_seed_loop(entered.__aexit__(None, None, None))
+    async with AsyncExitStack() as held:
+
+        async def seeded_once() -> tuple[AsyncDatabase, T, Corpus]:
+            cleaned = a_clean_database(url, name, constraints=constraints, stores_a_refused_shape=stores_a_refused_shape)
+            _, database = await held.enter_async_context(cleaned)
+            result = await seed(database)
+            return database, result, await _corpus(database)
+
+        database, result, seeded = await bounded(seeded_once(), what=f"the setup of the corpus '{name}'")
+
+        yield result
+
+        if moved := _moved_documents(seeded, await _corpus(database)):
+            raise AssertionError(_WROTE.format(database=name, moved=", ".join(moved)))

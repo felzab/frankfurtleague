@@ -1,6 +1,3 @@
-# lychee checks every link in the repository's Markdown files. The gate runs it from the repository
-# root with this file as --config and the root as its one input.
-
 # Local files only, so the result depends on the tree alone and never on a remote server.
 offline = true
 

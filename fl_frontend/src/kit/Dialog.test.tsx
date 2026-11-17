@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { Activity, useState } from "react";
 
-import { act, getDefaultNormalizer, render, screen, waitFor, within } from "@testing-library/react";
+import { renderUnderNext } from "@/test-support/nextContexts";
+import { act, getDefaultNormalizer, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
@@ -16,13 +17,8 @@ import { useEditor } from "./useEditor";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
-import type * as Navigation from "next/navigation";
 import type { ReactElement } from "react";
 import type { EditorSave } from "./useEditor";
-
-// A thrown act reads the page again through Next's router, which no test mounts.
-const router = vi.hoisted(() => ({ refresh: vi.fn() }));
-vi.mock("next/navigation", async (importOriginal) => ({ ...(await importOriginal<typeof Navigation>()), useRouter: () => router }));
 
 type Spielort = { name: string };
 
@@ -92,7 +88,7 @@ describe("the kit's confirmation", () => {
   // The harm: a refused retirement closing its question, the reason it was refused shown nowhere.
   it("stays open on a refused act, its reason in the status line beside the acts", async () => {
     const reason = COPY.shared.failure.stale;
-    render(
+    renderUnderNext(
       <ConfirmDialog
         verb="retire"
         subject={NAME}
@@ -113,7 +109,7 @@ describe("the kit's confirmation", () => {
   it("keeps Escape from closing it while its act runs, and lets it again once the act has answered", async () => {
     const answer = Promise.withResolvers<ActionAnswer>();
     onTestFinished(() => answer.resolve(DONE));
-    render(<RetireQuestion onConfirm={() => answer.promise} />);
+    renderUnderNext(<RetireQuestion onConfirm={() => answer.promise} />);
     await retireThroughTheQuestion();
 
     await userEvent.keyboard("{Escape}");
@@ -177,7 +173,7 @@ function HeldDialog() {
  * in a hidden `Activity`, its state with it, and shows it again on the way back.
  */
 async function leaveAndReturnWithOpen(Page: () => ReactElement) {
-  const { rerender } = render(
+  const { rerender } = renderUnderNext(
     <Activity mode="visible">
       <Page />
     </Activity>,
@@ -199,7 +195,7 @@ describe("a dialog's locked act", () => {
   it("sends nothing on a press", async () => {
     const create = vi.fn(async () => DONE);
     const reason = COPY.shared.failure.stale;
-    render(
+    renderUnderNext(
       <CreateDialog
         create={create}
         locked={reason}
@@ -216,7 +212,7 @@ describe("the kit's dialog", () => {
   it("opened inside an editor's section, runs its own act and never the editor's save", async () => {
     const save = vi.fn(async (): Promise<ActionAnswer<number>> => ({ ok: true, value: 2 }));
     const create = vi.fn(async (_formData: FormData): Promise<ActionAnswer> => DONE);
-    render(
+    renderUnderNext(
       <EditorHoldingDialog
         save={save}
         create={create}
@@ -235,7 +231,7 @@ describe("the kit's dialog", () => {
   /* The note is the one place the person learns the write moved more than the dialog asked, such as other fixtures. */
   it("stays open on a done act noting more than it was asked, the note in its line and its act closed", async () => {
     const note = COPY.admin.spiel.alsoChanged([5, 7]);
-    render(<CreateDialog create={async () => ({ ok: true, value: undefined, note })} />);
+    renderUnderNext(<CreateDialog create={async () => ({ ok: true, value: undefined, note })} />);
 
     await createThroughTheDialog();
 
@@ -248,7 +244,7 @@ describe("the kit's dialog", () => {
   it("stays open while its act runs, however it is asked to close, and shows the answer", async () => {
     const answer = Promise.withResolvers<ActionAnswer>();
     onTestFinished(() => answer.resolve(DONE));
-    render(<CreateDialog create={() => answer.promise} />);
+    renderUnderNext(<CreateDialog create={() => answer.promise} />);
     await createThroughTheDialog();
     const back = screen.getByRole<HTMLButtonElement>("button", { name: COPY.shared.back });
 
@@ -267,7 +263,7 @@ describe("the kit's dialog", () => {
   it.each([["a field's message", { ok: false, fieldErrors: { created: COPY.shared.field.taken } }, COPY.shared.field.taken]] as const)(
     "stays open on a refused act, showing %s",
     async (_shown, refusal: ActionAnswer, words) => {
-      render(<CreateDialog create={async () => refusal} />);
+      renderUnderNext(<CreateDialog create={async () => refusal} />);
 
       await createThroughTheDialog();
 
@@ -323,7 +319,7 @@ describe("a dialog's danger row", () => {
   it("closes its act while the dialog's own runs, and the dialog's own while its question stands", async () => {
     const saved = Promise.withResolvers<ActionAnswer>();
     onTestFinished(() => saved.resolve(DONE));
-    render(
+    renderUnderNext(
       <RecordDialog
         save={() => saved.promise}
         end={async () => DONE}
@@ -345,7 +341,7 @@ describe("a dialog's danger row", () => {
   // The harm: a refused „Austragen“ closing its question, or the dialog under it, its reason shown nowhere.
   it("keeps a refused act's reason in its question, the dialog standing under it", async () => {
     const reason = COPY.shared.failure.stale;
-    render(
+    renderUnderNext(
       <RecordDialog
         save={async () => DONE}
         end={async () => ({ ok: false, reason })}
@@ -393,7 +389,7 @@ function PageUnderRoute({ route }: { route: "none" | "open" | "hidden" }) {
 // The harm: a keyboard reader closing a match's pop-up loses their place in the Spielplan, focus fallen to the page.
 describe("a route's dialog", () => {
   it("gives focus back to what opened it once its route is hidden", async () => {
-    const { rerender } = render(<PageUnderRoute route="none" />);
+    const { rerender } = renderUnderNext(<PageUnderRoute route="none" />);
     const opener = screen.getByRole("button", { name: INPUT });
     act(() => opener.focus());
     await act(async () => rerender(<PageUnderRoute route="open" />));

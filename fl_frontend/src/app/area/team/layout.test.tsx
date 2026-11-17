@@ -2,11 +2,10 @@
 import { Suspense } from "react";
 
 import { serveBackend } from "@/test-support/backend";
-import { underNext } from "@/test-support/nextContexts";
+import { renderUnderNext } from "@/test-support/nextContexts";
 import { signedInRequest } from "@/test-support/session";
 import { seat, SEAT } from "@/test-support/subjectFixtures";
-import { wholeText } from "@/test-support/wholeText";
-import { act, render, screen } from "@testing-library/react";
+import { act, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -15,6 +14,15 @@ import { formatPeriod } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 
 import type { CalendarDay } from "@/core/format";
+
+/**
+ * A Testing Library text matcher for the element holding `text` whole, where the words stand in parts of their own, as
+ * an address standing as a name does (`fl_frontend/src/kit/AddressWords.tsx`): the default matcher reads an element's
+ * own text alone and finds none of them.
+ */
+function wholeText(text: string) {
+  return (_: string, node: Element | null) => node?.textContent === text && ![...node.children].some((part) => part.textContent === text);
+}
 
 const AHORN = "6890a1b2c3d4e5f607250011";
 const WEIDE = "6890a1b2c3d4e5f607250012";
@@ -56,7 +64,7 @@ const { default: TeamLayout } = await import("./layout");
  */
 async function renderAt(path: (team: string, saison: string) => string, team: string, saison: string) {
   const frame = TeamLayout({ children: <p>Seite</p> });
-  await act(async () => render(underNext(<Suspense>{frame}</Suspense>, { pathname: path(team, saison), params: { team, saison } })));
+  await act(async () => renderUnderNext(<Suspense>{frame}</Suspense>, { pathname: path(team, saison), params: { team, saison } }));
   // The frame holds no boundary of its own, so its page shows once every read it waits on is answered: a season
   // button looked for before then is absent for every team.
   await screen.findByText("Seite");

@@ -2,6 +2,8 @@
 import { Activity } from "react";
 import { redirect } from "next/navigation";
 
+import { underNext } from "@/test-support/nextContexts";
+import { thrownRedirect } from "@/test-support/thrownRedirect";
 import { act, renderHook } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -16,9 +18,6 @@ import { answering, statusOf, useFormAction } from "./useFormAction";
 import type { ActionAnswer } from "@/core/action";
 import type { ReactNode } from "react";
 import type { FormStatus } from "./useFormAction";
-
-// The hook reads the page again through Next's router, which no test mounts.
-vi.mock("next/navigation", async (original) => ({ ...(await original<object>()), useRouter: () => ({ refresh: () => {} }) }));
 
 // A press before hydration is the browser's own: without React's holding action, a GET with every field in the URL,
 // which nothing on the page shows until a person reads the address bar or a log keeps the query. Every server-drawn form
@@ -54,7 +53,7 @@ describe("a form's action through the one wrapper", () => {
 
   it("lets Next's redirect through to Next", async () => {
     const answered = answering(async (): Promise<ActionAnswer> => redirect("/area"), vi.fn());
-    await expect(answered(undefined)).rejects.toHaveProperty("digest", expect.stringContaining("NEXT_REDIRECT"));
+    expect((await thrownRedirect(answered(undefined))).address).toBe("/area");
   });
 });
 
@@ -85,7 +84,8 @@ describe("a form's status line", () => {
 /** The hook under Next's `Activity`, which hides a page the person left and shows it again on return. */
 function onAPage(resetOnLeave: boolean) {
   let mode: "visible" | "hidden" = "visible";
-  const wrapper = ({ children }: { children: ReactNode }) => <Activity mode={mode}>{children}</Activity>;
+  // The hook reads the page again through Next's router, which the page stands under.
+  const wrapper = ({ children }: { children: ReactNode }) => underNext(<Activity mode={mode}>{children}</Activity>);
   const view = renderHook(() => useFormAction(async (): Promise<ActionAnswer> => ({ ok: true, value: undefined }), { resetOnLeave }), {
     wrapper,
   });

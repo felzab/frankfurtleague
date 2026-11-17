@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { useState } from "react";
 
-import { render, screen, within } from "@testing-library/react";
+import { renderUnderNext } from "@/test-support/nextContexts";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -10,13 +11,10 @@ import { COPY } from "@/core/copy";
 import { Lineup, lineupValue } from "./Lineup";
 
 import type { Copy } from "@/core/copy";
+import type { NextContexts } from "@/test-support/nextContexts";
 import type { LineupPlayer, LineupValue, LineupWords, NamelessEntry } from "./Lineup";
 
-vi.mock("next/navigation", () => ({
-  usePathname: () => "/area/team/aho/2027/spiele/spiel-1",
-  useParams: () => ({}),
-  useRouter: () => ({ push: () => undefined, replace: () => undefined, refresh: () => undefined }),
-}));
+const AT_ADDRESS: NextContexts = { pathname: "/area/team/aho/2027/spiele/spiel-1", params: {} };
 
 const MAX = 11;
 const WORDS: LineupWords = {
@@ -110,11 +108,12 @@ describe("a line-up", () => {
   // starts, or lists in the order of the presses.
   it("names pupils into one list in shirt-number order, lets eleven start, refuses a twelfth on its row, and takes a row out", async () => {
     const seen = vi.fn();
-    render(
+    renderUnderNext(
       <Held
         players={squad(13)}
         seen={seen}
       />,
+      AT_ADDRESS,
     );
     expect(screen.getByText(COPY.shared.empty.none(COPY.shared.spieler))).toBeTruthy();
 
@@ -155,13 +154,14 @@ describe("a line-up's states", () => {
   // The harm: a press on a closed screen changing the draft, which the save then refuses with the bar's line alone.
   it("closes every act with the reason while it is locked", async () => {
     const seen = vi.fn();
-    render(
+    renderUnderNext(
       <Held
         players={squad(3)}
         start={lineupValue([idOf(1)], [])}
         seen={seen}
         locked={COPY.admin.spiel.departed}
       />,
+      AT_ADDRESS,
     );
 
     expect(tickOf(1).disabled).toBe(true);
@@ -174,12 +174,13 @@ describe("a line-up's states", () => {
   // The harm: a pupil the squad lost offered again once taken out, or a refused entry with no row saying which.
   it("says a refused pupil's reason and a departed pupil's state on their own rows, and offers a departed one no more", async () => {
     const gone: LineupPlayer = { id: "g1", name: { record: nameOf(40) }, nummer: 40, gone: COPY.admin.spiel.departed };
-    render(
+    renderUnderNext(
       <Held
         players={[...squad(2), gone]}
         start={lineupValue([idOf(1), "g1"], [])}
         refusals={{ [idOf(1)]: COPY.shared.failure.stale }}
       />,
+      AT_ADDRESS,
     );
 
     expect(within(rowOf(1)).getByText(COPY.shared.failure.stale)).toBeTruthy();
@@ -196,13 +197,14 @@ describe("a line-up's states", () => {
 describe("a line-up keeping entries naming nobody", () => {
   it("draws them read-only, counts them as named, starting and regular, and keeps them out of the value", async () => {
     const seen = vi.fn();
-    render(
+    renderUnderNext(
       <Held
         players={[...squad(11), nominee(20)]}
         start={lineupValue(ids(1, 2, 3, 4, 5, 6, 7, 8, 9, 10), ids(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))}
         nameless={[{ starts: true }]}
         seen={seen}
       />,
+      AT_ADDRESS,
     );
     const picked = within(screen.getByRole("table", { name: WORDS.picked }));
     const kept = picked.getByRole("checkbox", { name: `${WORDS.starts} ${COPY.shared.anonymous}` });

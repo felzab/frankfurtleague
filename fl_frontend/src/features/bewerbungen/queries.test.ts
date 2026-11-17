@@ -1,12 +1,12 @@
-import { serveBackend } from "@/test-support/backend.ts";
-import { signedInRequest } from "@/test-support/session.ts";
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
 import { describe, expect, it } from "vitest";
 
 const backend = serveBackend(() => ({}));
 // An administrator's session: the read runs behind the real admin check, and only what it sends is judged.
 signedInRequest();
 
-const { getBewerbungById } = await import("./queries.ts");
+const { getBewerbungById } = await import("./queries");
 
 const ONE_ID = "0123456789abcdef01234567";
 

@@ -1,11 +1,11 @@
-import { configDouble } from "@/test-support/authDoubles.ts";
-import { networkFailure, serveBackend, serveHost } from "@/test-support/backend.ts";
+import { configDouble } from "@/test-support/authDoubles";
+import { networkFailure, serveBackend, serveHost } from "@/test-support/backend";
 import { TEST_SECRETS } from "@/test-support/testEnvironment.mts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { runWithRequestScope } from "./requestScope.ts";
+import { runWithRequestScope } from "./requestScope";
 
-import type { FLOutboxHandout, FLOutboxResultPayload } from "./generated/client/types.ts";
+import type { FLOutboxHandout, FLOutboxResultPayload } from "./generated/client/types";
 
 /** Everything the drain sent, in the order it sent it: a send to the provider, or a report to the backend. */
 type Step = { kind: "send"; url: string; headers: Headers; body: Record<string, unknown> } | { kind: "report"; payload: FLOutboxResultPayload };
@@ -45,11 +45,9 @@ serveHost("https://api.resend.com", ({ method, url, headers, body }) => {
 });
 
 // Varied per case: whether this deployment holds the provider's key, under the production deployment that mails.
-vi.doMock("@/core/config.ts", () =>
-  configDouble({ APP_ENV: "production", AUTH_URL: "https://league.invalid" }, { authResendKey: () => apiKey }),
-);
+vi.doMock("@/core/config", () => configDouble({ APP_ENV: "production", AUTH_URL: "https://league.invalid" }, { authResendKey: () => apiKey }));
 
-const { drainOutbox, takeDrainCounts } = await import("./mail.ts");
+const { drainOutbox, takeDrainCounts } = await import("./mail");
 
 /** One handed-out ban notice, its id and claim number spelled from `n`. */
 const handed = (n: number, attempt = 1): FLOutboxHandout => ({
@@ -69,7 +67,7 @@ beforeEach(() => {
   provider = () => ({ id: "re-1" });
 });
 
-const sends = () => steps.filter((step): step is Extract<Step, { kind: "send" }> => step.kind === "send");
+const sends = () => steps.filter((step) => step.kind === "send");
 // Each report's outcome, its claim aside: every case's claim is the one the backend hands out.
 const reports = () => steps.flatMap((step) => (step.kind === "report" ? [omitClaim(step.payload)] : []));
 const omitClaim = ({ lease: _claim, ...result }: FLOutboxResultPayload) => result;

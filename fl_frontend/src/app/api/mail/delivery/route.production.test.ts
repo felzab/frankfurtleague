@@ -1,9 +1,9 @@
 import { randomBytes } from "node:crypto";
 
-import { configDouble } from "@/test-support/authDoubles.ts";
-import { networkFailure, serveBackend } from "@/test-support/backend.ts";
-import { doubleNextRequest } from "@/test-support/nextRequest.ts";
-import { captureLog } from "@/test-support/stdoutCapture.ts";
+import { configDouble } from "@/test-support/authDoubles";
+import { networkFailure, serveBackend } from "@/test-support/backend";
+import { doubleNextRequest } from "@/test-support/nextRequest";
+import { captureLog } from "@/test-support/stdoutCapture";
 import { assert, describe, it, vi } from "vitest";
 
 // Under the production build's `NODE_ENV` (`fl_frontend/vitest.config.mts :: PRODUCTION_BUILD`): only its format writes
@@ -13,19 +13,19 @@ import { assert, describe, it, vi } from "vitest";
 const webhookSecret = `whsec_${randomBytes(24).toString("base64")}`;
 
 /** Every line the real logger writes, read off standard output. */
-const log = captureLog();
+const log = captureLog("production");
 
 // The Postausgang's event endpoint alone, never reached: the backend fails every event this file forwards.
 serveBackend(({ method, path }) => (method === "POST" && path === "/outbox/event" ? networkFailure() : undefined));
-vi.doMock("@/core/config.ts", () => configDouble({}, { resendWebhookSecret: () => webhookSecret }));
+vi.doMock("@/core/config", () => configDouble({}, { resendWebhookSecret: () => webhookSecret }));
 doubleNextRequest();
 
-const { POST } = await import("./route.ts");
+const { POST } = await import("./route");
 const { NextRequest } = await import("next/server");
 const { Webhook } = await import("svix");
 
 const ROW_ID = `${"b".repeat(23)}2`;
-const ADDRESS = "erika@schule.de";
+const ADDRESS = "erika@schule.example.org";
 
 /** One event about the row, sent to `ADDRESS`. */
 const eventFor = (type: string, data: Record<string, unknown> = {}): Record<string, unknown> => ({

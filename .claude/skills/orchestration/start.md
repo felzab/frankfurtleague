@@ -17,7 +17,10 @@ applied to the whole session.
    with the programme's shared board tool, which the owner reviews once. Where the session builds a
    mechanism meant to change what people write — a rule set, a prompt, a linter — run an A/B as
    well: the same writing task to two read-only agents, one given the mechanism and one denied it,
-   both outputs read against the rules.
+   both outputs read against the rules. The round's "should it exist" lens is a reader of its own,
+   never merged with another lens: it asks of every mechanism the change adds what concrete harm
+   it prevents here, how likely that is, and whether anyone would see it without the mechanism,
+   against the programme's goals file read whole.
 7. A check that reads the whole corpus runs against the real tree before it is wired into anything,
    its findings classified rather than counted.
 8. Enumerate the ending in the register's ending section, so the dispatch floor has something to

@@ -1,5 +1,6 @@
 import { serveBackend, serveHost } from "@/test-support/backend";
 import { doubleNextRequest } from "@/test-support/nextRequest";
+import { posted } from "@/test-support/posted";
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
@@ -44,7 +45,7 @@ const CLUB = "6890a1b2c3d4e5f607190002";
 const seat = (name: string, first: string, phone: string) => ({
   [`kontakte.${name}.first_name`]: first,
   [`kontakte.${name}.last_name`]: "Muster",
-  [`kontakte.${name}.email`]: `${first.toLowerCase()}@schule.de`,
+  [`kontakte.${name}.email`]: `${first.toLowerCase()}@schule.example.org`,
   [`kontakte.${name}.phone`]: phone,
 });
 
@@ -57,9 +58,9 @@ const BOXES: Readonly<Record<string, string>> = {
   team_id: CLUB,
   stufengroesse: "90",
   "kontakte.trainer_is_also": NO_SECOND_SEAT,
-  ...seat("trainer", "Tina", "069 1000"),
-  ...seat("ansprechperson", "Anna", "069 2000"),
-  ...seat("stellvertretung", "Stefan", "069 3000"),
+  ...seat("trainer", "Tina", "069 90009010"),
+  ...seat("ansprechperson", "Anna", "069 90009020"),
+  ...seat("stellvertretung", "Stefan", "069 90009030"),
   "trikot.existing_set": "",
   "trikot.wunschfarbe": "rot",
   "kader.expected_size": "16",
@@ -77,12 +78,6 @@ const NEW_SCHOOL: Readonly<Record<string, string>> = {
   "schule.address.postcode": "60325",
   "schule.address.city": "Frankfurt am Main",
   "schule.address.district": "Westend",
-};
-
-const posted = (entries: Readonly<Record<string, string>>) => {
-  const formData = new FormData();
-  for (const [name, value] of Object.entries(entries)) formData.set(name, value);
-  return formData;
 };
 
 /** What the one write carried, as the backend read it. */

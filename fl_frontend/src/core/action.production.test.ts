@@ -1,8 +1,8 @@
-import { serveBackend } from "@/test-support/backend.ts";
-import { cacheCalls } from "@/test-support/nextRequest.ts";
-import { signedInRequest } from "@/test-support/session.ts";
-import { captureLog } from "@/test-support/stdoutCapture.ts";
-import { seat } from "@/test-support/subjectFixtures.ts";
+import { serveBackend } from "@/test-support/backend";
+import { cacheCalls } from "@/test-support/nextRequest";
+import { signedInRequest } from "@/test-support/session";
+import { captureLog } from "@/test-support/stdoutCapture";
+import { seat } from "@/test-support/subjectFixtures";
 import { assert, describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -18,7 +18,7 @@ const PROBE = "/probe";
 const backend = serveBackend(({ method, path }) => (method === "POST" && path === PROBE ? {} : undefined));
 const { arriveAs } = signedInRequest();
 /** Every line the real logger writes, read off standard output. */
-const log = captureLog();
+const log = captureLog("production");
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { action } = await import("./action");
@@ -41,6 +41,8 @@ describe("the admin lane", () => {
   });
 
   it("answers any other throw as the unexpected failure, logging its name alone, and clears the tag", async () => {
+    // The file's visitor was signed in before the case, on a line of its own.
+    log.clear();
     const answer = await create({ name: "Nord" });
 
     expect(answer).toStrictEqual({ ok: false, reason: COPY.shared.failure.unexpected });

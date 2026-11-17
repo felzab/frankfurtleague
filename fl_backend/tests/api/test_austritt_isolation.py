@@ -21,7 +21,7 @@ from app.api.teams.schemas import FLAustrittPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from tests import documents
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.isolation import InterleavedCollection, outcome_of
 from tests.payloads import spiel_patch_body
 from tests.worker import worker_database
@@ -68,24 +68,21 @@ def spiel(spiel_id: ObjectId, spiel_nr: int, team1: ObjectId, team2: ObjectId, d
     )
 
 
-def on_a_league(url: str, body: Any) -> Any:
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
-            await database[Collection.SAISON_TEAMS].insert_many(
-                [documents.saison_team_document(SAISON_ID, team_id, name, name[:3].upper()) for team_id, name in NAMES.items()]
-            )
-            await database[Collection.SPIELE].insert_many(
-                [
-                    spiel(ITS_OWN, 1, DEPARTED, OPPONENT, BEFORE_THE_EXIT),
-                    spiel(OTHERS, 2, OTHER, OPPONENT, AFTER_THE_EXIT),
-                    spiel(ITS_PAST, 3, DEPARTED, OPPONENT, BEFORE_TODAY),
-                ]
-            )
+async def on_a_league(url: str, body: Any) -> Any:
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+        await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
+        await database[Collection.SAISON_TEAMS].insert_many(
+            [documents.saison_team_document(SAISON_ID, team_id, name, name[:3].upper()) for team_id, name in NAMES.items()]
+        )
+        await database[Collection.SPIELE].insert_many(
+            [
+                spiel(ITS_OWN, 1, DEPARTED, OPPONENT, BEFORE_THE_EXIT),
+                spiel(OTHERS, 2, OTHER, OPPONENT, AFTER_THE_EXIT),
+                spiel(ITS_PAST, 3, DEPARTED, OPPONENT, BEFORE_TODAY),
+            ]
+        )
 
-            return await body(database, client)
-
-    return on_the_seed_loop(_run())
+        return await body(database, client)
 
 
 async def record_the_exit(database: AsyncDatabase, client: AsyncMongoClient) -> None:
@@ -116,7 +113,7 @@ class TestAnExitLandingMidSaveIsJudgedAgain:
             pytest.param(ITS_PAST, {"date": AFTER_THE_EXIT}, id="its-fixture-gone-by-moved-past-the-exit"),
         ],
     )
-    def test_the_save_is_refused_on_the_exit_that_landed_under_it(self, mongo_replica_set_url: str, spiel_id: ObjectId, overrides: Any):
+    async def test_the_save_is_refused_on_the_exit_that_landed_under_it(self, mongo_replica_set_url: str, spiel_id: ObjectId, overrides: Any):
         """Drop the season's fixtures' anchor from `put_austritt` and this fails: both commit."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -154,7 +151,7 @@ class TestAnExitLandingMidSaveIsJudgedAgain:
 
             return outcome, row["austritt"]["date"], [stored[key] for key in slot], [now_stored[key] for key in slot]
 
-        outcome, exit_day, slot_before, slot_after = on_a_league(mongo_replica_set_url, body)
+        outcome, exit_day, slot_before, slot_after = await on_a_league(mongo_replica_set_url, body)
 
         assert (outcome, exit_day) == (Code.ELIGIBILITY_DISQUALIFIED, EXIT_DAY)
         assert slot_after == slot_before, "the save landed beside the exit, fielding a club that left"

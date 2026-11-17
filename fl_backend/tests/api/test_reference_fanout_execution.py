@@ -8,7 +8,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.core.collections import Collection
-from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
+from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database
 from tests.documents import ADDRESS, saison_document, saison_team_document, team_document
 from tests.team_writes import save_the_team
 from tests.worker import worker_database
@@ -53,28 +53,25 @@ def junction_document(team_id: ObjectId, saison_id: str) -> dict[str, Any]:
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def on_a_database(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
+async def on_a_database(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
     """A replica set, not the standalone: the rename writes in a transaction, and seeding runs outside it.
 
     `mutates_schema=True` where the body attaches a validator (`tests/database.py :: a_clean_database`).
     """
 
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, mutates_schema=mutates_schema) as (client, database):
-            await database[Collection.TEAMS].insert_many([seeded_team_document(oid) for oid in TEAM_NAMES])
-            # `status` is the only field a rename reads of a season.
-            await database[Collection.SAISONS].insert_many([saison_document(SAISON_ID, "active"), saison_document(PAST_SAISON_ID, "past")])
-            # The renamed club is in both seasons; another club is in the open one, so the filter is proved to exclude a row.
-            await database[Collection.SAISON_TEAMS].insert_many(
-                [
-                    junction_document(TEAM_OID, SAISON_ID),
-                    junction_document(TEAM_OID, PAST_SAISON_ID),
-                    junction_document(OTHER_TEAM_OID, SAISON_ID),
-                ]
-            )
-            return await body(database, client)
-
-    return on_the_seed_loop(_run())
+    async with a_clean_database(url, DATABASE_NAME, mutates_schema=mutates_schema) as (client, database):
+        await database[Collection.TEAMS].insert_many([seeded_team_document(oid) for oid in TEAM_NAMES])
+        # `status` is the only field a rename reads of a season.
+        await database[Collection.SAISONS].insert_many([saison_document(SAISON_ID, "active"), saison_document(PAST_SAISON_ID, "past")])
+        # The renamed club is in both seasons; another club is in the open one, so the filter is proved to exclude a row.
+        await database[Collection.SAISON_TEAMS].insert_many(
+            [
+                junction_document(TEAM_OID, SAISON_ID),
+                junction_document(TEAM_OID, PAST_SAISON_ID),
+                junction_document(OTHER_TEAM_OID, SAISON_ID),
+            ]
+        )
+        return await body(database, client)
 
 
 def renamed_team_body() -> dict[str, Any]:
@@ -114,21 +111,21 @@ def only_these_names(allowed: Iterable[str]) -> dict[str, Any]:
     return {"bsonType": "object", "properties": {"name": {"enum": sorted(allowed)}}}
 
 
-def after_renaming(url: str) -> dict[tuple[Any, str], Mapping[str, Any]]:
+async def after_renaming(url: str) -> dict[tuple[Any, str], Mapping[str, Any]]:
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         await rename_the_team(database, client)
 
         return await stored_junctions(database)
 
-    return on_a_database(url, body)
+    return await on_a_database(url, body)
 
 
 @pytest.mark.db
 class TestAClubRenameReachesTheJunctionRowsOfItsOpenSeasons:
     """The season's own copy of the identity: without this pass every table and fixture would read the club's old name."""
 
-    def test_the_open_seasons_row_is_rewritten(self, mongo_replica_set_url: str):
-        junctions = after_renaming(mongo_replica_set_url)
+    async def test_the_open_seasons_row_is_rewritten(self, mongo_replica_set_url: str):
+        junctions = await after_renaming(mongo_replica_set_url)
         row = junctions[(TEAM_OID, SAISON_ID)]
 
         assert (row["name"], row["shorthand"]) == (RENAMED_TEAM, RENAMED_SHORTHAND)
@@ -139,10 +136,10 @@ class TestAClubRenameReachesTheJunctionRowsOfItsOpenSeasons:
         other = junctions[(OTHER_TEAM_OID, SAISON_ID)]
         assert (other["name"], other["shorthand"]) == TEAM_NAMES[OTHER_TEAM_OID]
 
-    def test_the_group_survives_the_rewrite(self, mongo_replica_set_url: str):
+    async def test_the_group_survives_the_rewrite(self, mongo_replica_set_url: str):
         """`gruppe` and `austritt` are the row's own state: a `$set` reaching them would move a club between groups on a rename."""
 
-        junctions = after_renaming(mongo_replica_set_url)
+        junctions = await after_renaming(mongo_replica_set_url)
         row = junctions[(TEAM_OID, SAISON_ID)]
 
         assert (row["gruppe"], row["austritt"]) == ("A", None)
@@ -150,7 +147,7 @@ class TestAClubRenameReachesTheJunctionRowsOfItsOpenSeasons:
 
 @pytest.mark.db
 class TestAMidFlightFailureTakesTheWholeRenameBack:
-    def test_the_club_keeps_no_rename_its_season_rows_could_not_take(self, mongo_replica_set_url: str):
+    async def test_the_club_keeps_no_rename_its_season_rows_could_not_take(self, mongo_replica_set_url: str):
         """The club write and the rows' are one transaction: the club document has landed when the rows' write is refused."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -165,7 +162,7 @@ class TestAMidFlightFailureTakesTheWholeRenameBack:
 
             return failure.value.code, await stored_teams(database)
 
-        code, teams = on_a_database(mongo_replica_set_url, body, mutates_schema=True)
+        code, teams = await on_a_database(mongo_replica_set_url, body, mutates_schema=True)
 
         assert code == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the rows' write, got code {code}"
         assert (teams[TEAM_OID]["name"], teams[TEAM_OID]["shorthand"]) == TEAM_NAMES[TEAM_OID], "the club kept a rename its rows never got"

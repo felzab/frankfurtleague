@@ -31,17 +31,14 @@ runs:
         # One writer: on a miss every saving job archives the whole cache at job end and all but the
         # first fail to reserve its key. An exact hit, the only restore setup-uv makes, saves nothing.
         save-cache: ${{ inputs.save-cache }}
-        # The release the backend image's `FROM ghcr.io/astral-sh/uv:` tag names, which the image pin
-        # tests hold.
-        # Neither unset nor `version-file` serves: each installs that day's newest uv, fl_backend's
-        # `required-version` being a range.
-        version: "0.13.7"
+        # The release the backend image's `FROM ghcr.io/astral-sh/uv:` tag names. Neither unset nor
+        # `version-file` serves: each installs that day's newest uv, fl_backend's `required-version`
+        # being a range.
+        version: "0.13.8"
     # `--locked`: a bare sync REWRITES uv.lock in the working tree, so a branch with a stale
     # committed lockfile passes every later check against the rewritten file. `--locked` refuses
-    # it; `--frozen` would accept it.
-
-    # `--only-group dev` where no step imports the application, leaving its dependency graph
-    # uninstalled.
+    # it; `--frozen` would accept it. `--only-group dev` where no step imports the application, leaving
+    # its dependency graph uninstalled.
     - name: Create the backend virtualenv
       shell: bash
       working-directory: fl_backend

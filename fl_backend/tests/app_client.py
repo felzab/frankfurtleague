@@ -1,8 +1,9 @@
 """
 TESTS · the application under test, served in process to an HTTP client of the test's own
 
-Entered and left inside one coroutine, so the driver's client, the request and the close share the
-loop the client binds to. No lifespan: it would open a client of its own and apply the constraints.
+The app reads through the tier's shared client for the url (`tests/database.py :: shared_client`), as a deployed app
+reads through one client for its life: one per request would pay a topology handshake each time, which pymongo's
+documentation names the mistake to avoid. No lifespan: it would open a client of its own and apply the constraints.
 
 Invariants:
 - An app a caller hands in leaves as it came: no `db_client`, and the overrides it held, so the
@@ -11,19 +12,34 @@ Invariants:
   as in production, so a route that forgets its `by` fails here rather than recording the suite's.
 """
 
+import functools
 from collections.abc import AsyncGenerator
 from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import datetime
 
 from fastapi import FastAPI
 from httpx2 import ASGITransport, AsyncClient
-from pymongo import AsyncMongoClient
 
 from app.core.config import BackendConfig
 from app.core.dependencies import get_germany_now
 from app.core.recording import actor_var
 from app.main import create_app
 from tests.config import TEST_BASE_URL, build_test_config
+from tests.database import shared_client
+
+
+@functools.cache
+def app_under_test(database_name: str | None = None) -> FastAPI:
+    """The suite's settings built into an app reading `database_name`, or the shared corpus where none is named.
+
+    One for each database a process serves, since a build costs more than most requests sent through it, and every
+    module naming that database shares it: `app_client` hands it back as it came. Built on first use rather than at
+    import, which every xdist worker pays at collection.
+    """
+
+    config = build_test_config()
+
+    return create_app(config if database_name is None else config.model_copy(update={"db_base_name": database_name}))
 
 
 @asynccontextmanager
@@ -34,7 +50,7 @@ async def app_client(
     now: datetime | None = None,
     app: FastAPI | None = None,
 ) -> AsyncGenerator[AsyncClient]:
-    """No `serverSelectionTimeoutMS`: inside a request the app's own deadline replaces it.
+    """The app served through the tier's shared client, whose 15 s server selection a request's own deadline cuts short.
 
     So a server that never answers is bounded by that deadline, or by a shorter `pymongo.timeout` the caller holds around the request.
     """
@@ -59,9 +75,7 @@ async def app_client(
         undo.callback(actor_var.reset, actor_var.set(None))
         if now is not None:
             served.dependency_overrides[get_germany_now] = lambda: now
-        client = AsyncMongoClient(url)
-        undo.push_async_callback(client.close)
-        served.state.db_client = client
+        served.state.db_client = shared_client(url)
         undo.callback(delattr, served.state, "db_client")
 
         yield await undo.enter_async_context(

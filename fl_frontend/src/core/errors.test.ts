@@ -1,7 +1,7 @@
 import { assert, describe, expect, it } from "vitest";
 
-import { APIBadStatusError, APINetworkError, isRefusalCode, isRuleRefusal, requestOf } from "./errors.ts";
-import { Code } from "./generated/client/types.ts";
+import { APIBadStatusError, APINetworkError, asRefusal, isRefusalCode, isRuleRefusal, requestOf } from "./errors";
+import { Code } from "./generated/client/types";
 
 describe("a refusal read by its code, whatever its status", () => {
   /* Only a rule's code or the unique index's is ever a refusal a mapper words: a credential, a request the API
@@ -39,6 +39,16 @@ describe("a refusal read by its code, whatever its status", () => {
         expect(isRuleRefusal(refusal), `${code} at ${String(status)}`).toBe(isRefusalCode(code));
       }
     }
+  });
+
+  /* A 5xx carrying a rule's code is no refusal, since a write may have landed behind it. */
+  it("reads a server failure carrying a rule's code as no refusal", () => {
+    const failure = new APIBadStatusError({ traceId: "ab".repeat(16), message: "bad", statusCode: 500, serverErrorCode: "swap_not_a_swap" });
+    const refusal = new APIBadStatusError({ traceId: "ab".repeat(16), message: "bad", statusCode: 409, serverErrorCode: "swap_not_a_swap" });
+
+    expect(asRefusal(failure)).toBeNull();
+    expect(asRefusal(refusal)).toBe(refusal);
+    expect(isRuleRefusal(failure)).toBe(false);
   });
 });
 

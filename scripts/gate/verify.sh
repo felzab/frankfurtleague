@@ -7,11 +7,11 @@
 #
 #   ./scripts/gate/verify.sh                   every scope, side by side — the run a pull request is called ready to merge on
 #   ./scripts/gate/verify.sh --scripts --docs --backend --format --frontend-units --frontend --ops --db --images
-#   ./scripts/gate/verify.sh --quick           the scripts, backend and frontend scopes alone: no Docker, and not docs, format, frontend-units, ops, db or images
+#   ./scripts/gate/verify.sh --quick           the scripts, backend and frontend scopes alone, the scripts scope needing Docker for shellcheck and actionlint
 #   ./scripts/gate/verify.sh --verbose         stream each tool's own output instead of capturing it
 #   ./scripts/gate/verify.sh --help
 
-source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh" || exit 3
 
 SCOPES=(scripts docs backend format frontend-units frontend ops db images)
 declare -A RUN=() KNOWN=()
@@ -39,7 +39,8 @@ done
 # --- several scopes: each its own run of this script, side by side ---------------------------------
 
 # Every scope reads the tree and writes only its own caches, so they run together and the run costs
-# the longest rather than the sum. Each run's output is captured and replayed in the written order.
+# the longest rather than the sum. Each run's row prints as it ends, and its whole output is captured
+# and replayed in the written order once every run has ended.
 RUNS_DIR=""
 # The runs not yet reaped. A reaped run's group id is free for the system to reuse, so it is never
 # signalled again.
@@ -60,12 +61,15 @@ if (( ${#SELECTED[@]} > 1 )); then
   # A run's stdout is a file, so it cannot tell a terminal is waiting for its colours.
   if [[ -n "$C_RED" ]]; then export FL_GATE_COLOR=1; else export FL_GATE_COLOR=0; fi
   # pnpm writes and deletes a probe file in its store's directory, which the format scope's walk can
-  # list and then fail to read; handed its store, pnpm writes none.
-  if [[ -n "${RUN[format]:-}" ]]; then
-    export pnpm_config_store_dir
-    pnpm_config_store_dir="$(cd fl_frontend && pnpm store path)"
+  # list and then fail to read; handed its store, pnpm writes none. Where pnpm cannot name it, no store
+  # is handed on, and the format scope's own start-up guard, which asks pnpm to start, gives the verdict.
+  store=""
+  if [[ -n "${RUN[format]:-}" ]] && store="$(pnpm --dir fl_frontend store path 2>/dev/null)"; then
+    export pnpm_config_store_dir="$store"
   fi
 
+  declare -A SCOPE_OF=() ROW=()
+  started="$(_now_ms)"
   # Job control while the runs start, and only then: each run leads a process group of its own, which
   # `stop_runs` signals whole, and takes SIGINT and SIGQUIT as a lone run does, where bash would start
   # it with both ignored and a non-interactive shell can never trap a signal ignored on entry. A
@@ -74,67 +78,50 @@ if (( ${#SELECTED[@]} > 1 )); then
   # group reading it would stop on.
   set -m
   for scope in "${SELECTED[@]}"; do
-    "$BASH" "$SELF" "--${scope}" < /dev/null > "${RUNS_DIR}/${scope}.log" 2>&1 &
+    # Its count of findings in a file of its own, which the library reads at start-up.
+    FL_GATE_FINDINGS_FILE="${RUNS_DIR}/${scope}.findings" "$BASH" "$SELF" "--${scope}" \
+      < /dev/null > "${RUNS_DIR}/${scope}.log" 2>&1 &
     PID[$scope]=$!
+    SCOPE_OF[$!]=$scope
   done
   set +m
 
   info "running side by side: $(IFS=' '; printf '%s' "${SELECTED[*]}")"
-  declare -A STATUS=()
-  spinner_start "${#SELECTED[@]} scopes running side by side"
   for scope in "${SELECTED[@]}"; do
-    rc=0
-    wait "${PID[$scope]}" || rc=$?
-    STATUS[$scope]=$rc
-    unset 'PID[$scope]'
+    ROW[$scope]=${#ROW[@]}
+    add_row "$scope"
   done
-  spinner_stop
+  # In the order they end: `wait -n -p`, bash 5.1's, names the run it reaped. Each run's own exit
+  # code is its row's verdict, and its count of findings fills the row's column alone: a run that
+  # counted a finding and then refused ends as the refusal it ended on alone.
+  while (( ${#PID[@]} )); do
+    rc=0
+    wait -n -p reaped || rc=$?
+    scope="${SCOPE_OF[$reaped]}"
+    unset 'PID[$scope]'
+    # A run that ended before its closing statement left no count, and found nothing it could report.
+    count=0
+    if [[ -s "${RUNS_DIR}/${scope}.findings" ]]; then read -r count < "${RUNS_DIR}/${scope}.findings"; fi
+    # The exit contract's classes, any other code a crash.
+    case "$rc" in 0|1|2|130) class="$rc" ;; *) class=3 ;; esac
+    end_row "${ROW[$scope]}" "${RANK_OF_CLASS[$class]}" "$(( $(_now_ms) - started ))" "$count"
+  done
   for scope in "${SELECTED[@]}"; do cat "${RUNS_DIR}/${scope}.log"; done
 
-  # The exit contract's order, as `finish` reads a single run's sections: findings over a refusal
-  # over a crash.
-  findings=0; refused=0; crashed=0
-  printf '\n      %s%-16s  %s%s\n' "$C_DIM" "scope" "result" "$C_RESET"
-  for scope in "${SELECTED[@]}"; do
-    case "${STATUS[$scope]}" in
-      0)   label=pass;        colour="$C_GREEN" ;;
-      1)   label=findings;    colour="$C_RED"; findings=1 ;;
-      2)   label=refused;     colour="$C_RED"; refused=1 ;;
-      130) label=interrupted; colour="$C_YELLOW"; crashed=1 ;;
-      *)   label="crashed (${STATUS[$scope]})"; colour="$C_RED"; crashed=1 ;;
-    esac
-    printf '      %-16s  %s%s%s\n' "$scope" "$colour" "$label" "$C_RESET"
-  done
-  elapsed="$(fmt_ms $(( $(_now_ms) - _RUN_T0 )))"
-  if (( findings )); then
-    printf '\n%s   ✗%s  A scope above has findings, each named in its own section — exit 1. (%s)\n' "$C_RED" "$C_RESET" "$elapsed" >&2
-    exit 1
-  fi
-  if (( refused )); then
-    printf '\n%s   ✗%s  A scope above refused, so it reached no verdict on the change — exit 2. (%s)\n' "$C_RED" "$C_RESET" "$elapsed" >&2
-    exit 2
-  fi
-  if (( crashed )); then
-    printf '\n%s   ✗%s  A scope above crashed or was stopped, so nothing past that point ran — exit 3. (%s)\n' "$C_RED" "$C_RESET" "$elapsed" >&2
-    exit 3
-  fi
-  if (( ${#SELECTED[@]} == ${#SCOPES[@]} )); then
-    ok "Green — every scope, no findings, ${elapsed}. Safe to merge."
-  else
-    ok "Green — ${#SELECTED[@]} scopes, no findings, ${elapsed}."
-  fi
-  exit 0
+  if (( ${#SELECTED[@]} == ${#SCOPES[@]} )); then finish --what "every scope" "Safe to merge."; fi
+  finish --what "${#SELECTED[@]} scopes"
 fi
 
 # --- one scope ------------------------------------------------------------------------------------
 
 SCOPE="${SELECTED[0]}"
 
-# Each tool's status: 1 is what it found, 130 an interrupt, anything else a tool that never reached a
-# verdict. `--checker` adds the 2 a checker built on the checker kernel answers for an input it
-# could not judge. `--summary` is for a tool raising an annotation per finding itself
-# under Actions, as Vitest and the self-check do: what is said then sums them, `fail --summary`.
-# `--pytest` raises those annotations for pytest, one per case its summary names (`annotate_cases`).
+# A command's status read into the exit contract: 0 a pass, 1 what it found, 130 an interrupt, and
+# anything else a tool that never reached a verdict. `--checker` adds the 2 by which a program on the
+# contract, a script of this repository or a checker of ours, says it could not judge its input.
+# `--summary` is for a tool raising an annotation per finding itself under Actions, as Vitest and a
+# script on this library do: what is said then sums them. `--pytest` raises those annotations for
+# pytest, one per case its summary names (`annotate_cases`).
 check() { # [--checker] [--summary | --pytest] $1 what to say on a finding · the command
   local said rc=0 command
   local -a flags=()
@@ -147,6 +134,11 @@ check() { # [--checker] [--summary | --pytest] $1 what to say on a finding · th
   verdict "${flags[@]}" "$said" "$rc" "${BASH_LINENO[0]}" "${command% }"
 }
 
+# pnpm answers 1 for a registry it could not reach, an offline run without the metadata it needs and a
+# registry answering an HTTP error alike, each of which judged nothing, and its error reference
+# (https://pnpm.io/errors) says the code, never the message, is what a script matches on.
+PNPM_UNREACHED='ERR_PNPM_(META_FETCH_FAIL|NO_OFFLINE_META|FETCH_[0-9]+)'
+
 # `check`'s reading of a status the command has already answered, its output in `QUIETLY_OUTPUT`.
 verdict() { # [--checker] [--summary | --pytest] $1 what to say on a finding · $2 the status · $3 the caller's line · $4 the command
   local checker=0 pytest=0
@@ -156,16 +148,22 @@ verdict() { # [--checker] [--summary | --pytest] $1 what to say on a finding · 
   if [[ "$1" == --pytest ]]; then pytest=1; shift; fi
   case "$2" in
     0) return 0 ;;
-    # pnpm answers a script its manifest does not declare with 1 as well, and then no tool ran at all.
-    1) if [[ "$QUIETLY_OUTPUT" == *ERR_PNPM_NO_SCRIPT* ]]; then on_error "$2" "$3" "$4"; fi
+    1) if [[ " $4 " == *" pnpm "* ]]; then
+         if [[ "$QUIETLY_OUTPUT" =~ $PNPM_UNREACHED ]]; then
+           refuse "pnpm could not read the registry, so ${_STEP_LABEL} judged nothing. Its own reason is above."
+         fi
+         # A script the manifest does not declare, so no tool ran at all.
+         if [[ "$QUIETLY_OUTPUT" == *ERR_PNPM_NO_SCRIPT* ]]; then on_error "$2" "$3" "$4"; fi
+       fi
        if (( pytest )) && annotate_cases; then summary=(--summary); fi
        fail "${summary[@]}" "$1"; return 1 ;;
+    2) if (( checker )); then
+         refuse "${summary[@]}" "${_STEP_LABEL} could not judge its input, so nothing here stands as a verdict on the
+change. Its own reason is above."
+       fi ;;
     130) on_interrupt ;;
-    2) if (( checker )); then refuse "${_STEP_LABEL} could not judge its input, so nothing here stands as a verdict on the
-change. Its own reason is above."; fi
-       on_error "$2" "$3" "$4" ;;
-    *) on_error "$2" "$3" "$4" ;;
   esac
+  on_error "$2" "$3" "$4"
 }
 
 # pytest's short summary gives each case that failed or errored a line of its own, `FAILED <case>` or
@@ -182,46 +180,71 @@ annotate_cases() {
   return "$found"
 }
 
-# A command run from inside one of the repository's directories.
+# A directory it cannot enter answers 3, a crash: cd's own 1 would read as the tool's finding.
 in_dir() { # $1 the directory · the command
   local dir="$1"
   shift
-  ( cd "$dir" && "$@" )
+  ( cd -- "$dir" || exit 3; "$@" )
 }
 
 # ruff's lint, then its formatter in check mode, over the paths named from inside `$1`.
 ruff_both() { # $1 the directory · the paths
   local dir="$1"
   shift
-  ( cd "$dir" && "$PY" -m ruff check "$@" && "$PY" -m ruff format --check "$@" )
+  ( cd -- "$dir" || exit 3; "$PY" -m ruff check "$@" && "$PY" -m ruff format --check "$@" )
 }
 
-# By file, so a module's fixtures stay on one worker; a stalled case's stack is dumped inside every CI
-# job's timeout. Each `--maxprocesses` below is its suite's optimum on 16 cores.
-PYTEST_SPREAD=(-n auto --dist loadfile -o faulthandler_timeout=180)
+# A command run beside others, its output kept in `$1.log` and its status, with the milliseconds it
+# took, in `$1.status`. Bash starts an `&` command of a script with SIGINT and SIGQUIT ignored,
+# which would leave a step running past a Ctrl-C, so both are reset. Called in a subshell, so the
+# reset never reaches the scope's own shell.
+run_beside() { # $1 where its files go · the command
+  local at="$1" t0 rc=0
+  shift
+  trap - INT QUIT
+  t0="$(_now_ms)"
+  "$@" > "${at}.log" 2>&1 || rc=$?
+  printf '%s %s\n' "$rc" "$(( $(_now_ms) - t0 ))" > "${at}.status"
+}
+
+# A command `run_beside` ran, read under the open step as `check` reads its own: its output where
+# it failed, or under `--verbose` whole, since two steps streaming at once would interleave. The
+# step's time is the command's own rather than the moment its step was printed.
+beside_verdict() { # $1 its files · [--checker] [--summary | --pytest] $2 what to say on a finding · $3 the command, as a crash names it
+  local at="$1" rc=3 ms=0
+  local -a said=()
+  shift
+  # A command that left no status ended before it could write one, which reads as a crash.
+  # Split on the space `run_beside` writes, which the repository's IFS leaves out.
+  if [[ -f "${at}.status" ]]; then IFS=' ' read -r rc ms < "${at}.status"; fi
+  QUIETLY_OUTPUT=""
+  if [[ -f "${at}.log" ]]; then QUIETLY_OUTPUT="$(<"${at}.log")"; fi
+  _STEP_MS0=$(( $(_now_ms) - ms ))
+  if (( VERBOSE || rc )); then mapfile -t said <<<"$QUIETLY_OUTPUT"; detail "${said[@]}"; fi
+  verdict "${@:1:$#-1}" "$rc" "${BASH_LINENO[0]}" "${!#}"
+}
+
+# A stalled case's stack is dumped inside every CI job's timeout. Each suite's own configuration says
+# how its cases spread over the workers. Under pytest-xdist a test module that does not collect is a
+# failure, where pytest alone answers it with its interrupt's 2. Each `--maxprocesses` below is its
+# suite's optimum on 16 cores.
+PYTEST_SPREAD=(-n auto -o faulthandler_timeout=180)
 
 case "$SCOPE" in
   docs|ops|db|images) require_docker ;;
 esac
+if [[ "$SCOPE" == ops ]]; then require_compose; fi
 case "$SCOPE" in
   format|frontend-units|frontend|db)
     require_dir fl_frontend/node_modules "Every frontend tool runs out of it. Install it with:  cd fl_frontend && pnpm install"
-    # pnpm's dependency check (`verifyDepsBeforeRun`) runs on every `pnpm run` and `pnpm exec`, so
-    # one exec answers for every step below before any of them runs.
-    quietly in_dir fl_frontend pnpm exec node -e "" \
-      || refuse "pnpm would not start a command in fl_frontend: node_modules does not answer the manifest
-and lockfile, or pnpm itself did not start (its own words are above). Fix with:  cd fl_frontend && pnpm install" ;;
+    require_pnpm_starts ;;
 esac
 PY=""
 case "$SCOPE" in
   scripts|backend|ops|db)
     PY="$(venv_python)" || refuse "No fl_backend virtualenv found. Create it with:  uv sync --project fl_backend --dev"
     # On a runner the job's own `uv sync --locked` has just run.
-    if [[ -z "${GITHUB_ACTIONS:-}" ]]; then
-      quietly uv sync --project fl_backend --dev --check \
-        || refuse "fl_backend/.venv does not match fl_backend/uv.lock, so a finding here would be about this
-machine rather than the change. Sync it with:  uv sync --project fl_backend --dev"
-    fi ;;
+    if [[ -z "${GITHUB_ACTIONS:-}" ]]; then require_synced_venv; fi ;;
 esac
 
 # --- scripts ---------------------------------------------------------------------------------------
@@ -250,52 +273,26 @@ scope_scripts() {
 
 # --- docs ------------------------------------------------------------------------------------------
 
-# The empty tree against the working tree: every tracked file is read whole, and a shallow clone needs
-# no history for it. git answers 2 for what it found.
-diff_check() {
-  local rc=0
-  git diff --check "$(git hash-object -t tree /dev/null)" || rc=$?
-  if (( rc == 2 )); then return 1; fi
-  return "$rc"
-}
-
-# Every tracked text file, for the zero-width, bidirectional and line-separator characters that hide
-# or reorder what a reviewer reads (CVE-2021-42574); the one deliberate fixture is left out. A UTF-8
-# locale, which `-P` needs to read a code point past U+00FF. git grep answers 0 for a match, 1 for none.
-invisible_check() {
-  local rc=0
-  LC_ALL=C.UTF-8 git grep -I -n -P '[\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{2028}\x{2029}]' \
-    -- . ':!fl_frontend/src/core/emailAddress.test.ts' || rc=$?
-  case "$rc" in
-    0) return 1 ;;
-    1) return 0 ;;
-    *) return "$rc" ;;
-  esac
-}
-
 # Offline, every link and fragment inside the repository, through the pinned image with no network;
-# links leaving it are no part of this gate. lychee answers 2 for a broken one.
-check_links() {
+# links leaving it are no part of this gate. lychee answers 2 for a broken link and 1 for its own
+# failure (its README, "Exit codes").
+check_links() { # $1 the image · $2 the checkout as a mount source
   local rc=0
-  MSYS_NO_PATHCONV=1 docker run --rm --network none -v "/${REPO_ROOT}:/input:ro" -w /input \
-    lycheeverse/lychee:0.24.2@sha256:e2d19e57cf6ab037026f20b8e449a1f30d9d7f81eef4194763aab2eab20bd28d \
-    --config lychee.toml --no-progress . || rc=$?
-  if (( rc == 2 )); then return 1; fi
+  MSYS_NO_PATHCONV=1 docker run --rm --network none -v "${2}:/input:ro" -w /input \
+    "$1" --config lychee.toml --no-progress . || rc=$?
+  case "$rc" in 1) return 3 ;; 2) return 1 ;; esac
   return "$rc"
 }
 
 scope_docs() {
+  local image checkout
   section docs
-  step "docs · no conflict marker or whitespace error in any tracked file"
-  check "A tracked file above carries a conflict marker or a whitespace error, each named by its line." diff_check \
-    && ok "no conflict marker or whitespace error"
-
-  step "docs · no invisible or bidirectional character in any tracked file"
-  check "A tracked file above carries an invisible or bidirectional character, each named by its line." invisible_check \
-    && ok "no invisible or bidirectional character"
-
   step "docs · every link and fragment inside the repository resolves"
-  check "lychee names each broken link or fragment above, with the file it stands in." check_links \
+  image="$(tool_image lychee)" \
+    || die "${TOOLS_FILE} names no single FROM line for lychee, so no link was checked."
+  checkout="$(mount_source)"
+  check "lychee names each broken link or fragment above, with the file it stands in." \
+    check_links "$image" "$checkout" \
     && ok "every link inside the repository resolves"
   return 0
 }
@@ -345,7 +342,43 @@ scope_format() {
   step "format · markdownlint"
   check "markdownlint names each finding above with its file, line and rule." in_dir fl_frontend pnpm run lint:md \
     && ok "the Markdown keeps its rules"
+
+  step "format · no conflict marker or whitespace error in any tracked file"
+  check "A tracked file above carries a conflict marker or a whitespace error, each named by its line." diff_check \
+    && ok "no conflict marker or whitespace error"
+
+  step "format · no invisible or bidirectional character in any tracked file"
+  check "A tracked file above carries an invisible or bidirectional character, each named by its line." invisible_check \
+    && ok "no invisible or bidirectional character"
   return 0
+}
+
+# The empty tree against the working tree: every tracked file is read whole, and a shallow clone
+# needs no history for it. With --check, git answers 2 for what it found.
+diff_check() {
+  local empty rc=0
+  empty="$(git hash-object -t tree /dev/null)" || return 3
+  git diff --check "$empty" || rc=$?
+  if (( rc == 2 )); then return 1; fi
+  return "$rc"
+}
+
+# Every tracked text file, for the zero-width, bidirectional and line-separator characters that hide
+# or reorder what a reviewer reads (CVE-2021-42574), the Arabic letter mark U+061C the one
+# bidirectional mark outside U+2000's block, and the other invisible ones the address fixtures type:
+# the soft hyphen U+00AD, U+180E, the word joiner U+2060 and U+FEFF. Those fixtures write each as an
+# escape. A UTF-8 locale, which `-P` needs to read a code point past U+00FF. git grep answers 0 for a
+# match, which is what it found, and 1 for none.
+invisible_check() {
+  local rc=0
+  LC_ALL=C.UTF-8 git grep -I -n -P \
+    '[\x{00AD}\x{061C}\x{180E}\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2060}\x{2066}-\x{2069}\x{2028}\x{2029}\x{FEFF}]' \
+    -- . || rc=$?
+  case "$rc" in
+    0) return 1 ;;
+    1) return 0 ;;
+  esac
+  return "$rc"
 }
 
 # --- frontend-units --------------------------------------------------------------------------------
@@ -361,82 +394,97 @@ scope_frontend_units() {
 # --- frontend --------------------------------------------------------------------------------------
 
 # tsc answers 2 for the errors it found where it wrote its build information and 1 where that was
-# current already (`ExitStatus.DiagnosticsPresent_OutputsGenerated`, `_OutputsSkipped`), and 1 too
-# where it stopped before there was a program to check, a project path it could not read among
-# them, as Node does for an uncaught exception. So its words decide: an error at a file's line and
-# column is a finding, and a failure naming none is no verdict on the change.
+# current already, and 1 too where it stopped before there was a program to check, as Node does for an
+# uncaught exception. So its words decide: an error at a file's line and column is a finding, and a
+# failure naming none is no verdict on the change.
 typecheck() {
-  local rc=0 out line
+  local rc=0 out
   out="$(in_dir fl_frontend pnpm typecheck:only 2>&1)" || rc=$?
   printf '%s\n' "$out"
   case "$rc" in
-    0) return 0 ;;
-    1|2)
-      while IFS= read -r line; do
-        if [[ "$line" =~ \([0-9]+,[0-9]+\):\ error\ TS[0-9]+: ]]; then return 1; fi
-      done <<< "$out"
-      return 3 ;;
-    *) return "$rc" ;;
+    1|2) if [[ "$out" =~ \([0-9]+,[0-9]+\):\ error\ TS[0-9]+: ]]; then return 1; fi
+         return 3 ;;
   esac
+  return "$rc"
 }
 
-# pnpm audit answers 1 for an advisory and for a registry it could not read alike; only a run that read
-# one writes its report, so the report decides: 0 none at the level, 1 one or more, 2 no report.
-audit_prod() {
-  local report rc=0
-  report="$(in_dir fl_frontend pnpm audit:prod --json)" || rc=$?
-  printf '%s\n' "$report"
-  case "$rc" in
-    0|1) if [[ "$report" == *'"metadata"'* ]]; then return "$rc"; fi; return 2 ;;
-    *) return "$rc" ;;
-  esac
-}
+# Global, for the EXIT trap, which runs after the scope has returned.
+FRONTEND_STEPS=""
 
+# Every step before the build but typegen reads the tree and writes nothing another step reads, so
+# those run side by side, each into its own capture, and report in the written order once all have
+# ended.
 scope_frontend() {
   section frontend
-  # `--frozen-lockfile` makes `--lockfile-only`'s write impossible, and the repeat-install shortcut
-  # would answer from mtimes rather than from the manifest.
+  trap 'rm -rf ${FRONTEND_STEPS:+"$FRONTEND_STEPS"}' EXIT
+  FRONTEND_STEPS="$(mktemp -d)"
+  local at="$FRONTEND_STEPS" typegen=3 pid
+  local -a running=()
+  # The lockfile's three checks read the manifest and the lockfile alone, so they run beside every
+  # step before the build. `--frozen-lockfile` makes `--lockfile-only`'s write impossible, and the
+  # repeat-install shortcut would answer from mtimes rather than from the manifest.
+  ( run_beside "${at}/frozen" in_dir fl_frontend pnpm install --frozen-lockfile --lockfile-only --no-optimistic-repeat-install ) &
+  running+=("$!")
+  ( run_beside "${at}/peers" in_dir fl_frontend pnpm peers check ) &
+  running+=("$!")
+  ( run_beside "${at}/dedupe" in_dir fl_frontend pnpm dedupe --check ) &
+  running+=("$!")
+  # The route types tsc checks against; it rewrites tsconfig.json where a key is absent, so it ends
+  # before any reader of that file starts.
+  ( run_beside "${at}/typegen" in_dir fl_frontend pnpm typegen )
+  if [[ -f "${at}/typegen.status" ]]; then IFS=' ' read -r typegen _ < "${at}/typegen.status"; fi
+  if (( typegen == 0 )); then
+    ( run_beside "${at}/tsc" typecheck ) &
+    running+=("$!")
+    ( run_beside "${at}/eslint" in_dir fl_frontend pnpm lint:only ) &
+    running+=("$!")
+    ( run_beside "${at}/knip" in_dir fl_frontend pnpm knip ) &
+    running+=("$!")
+    ( run_beside "${at}/knip-prod" in_dir fl_frontend pnpm knip:prod ) &
+    running+=("$!")
+  fi
+  # Every step ended before the first verdict, since a crash's verdict ends the scope where it stands.
+  for pid in "${running[@]}"; do wait "$pid" || true; done
+
   step "frontend · pnpm  (manifest and lockfile agree)"
-  check "fl_frontend's lockfile no longer answers its manifest or pnpm-workspace.yaml — pnpm names what differs above.
+  beside_verdict "${at}/frozen" "fl_frontend's lockfile no longer answers its manifest or pnpm-workspace.yaml — pnpm names what differs above.
 Fix with:  cd fl_frontend && pnpm install  -- then commit the lockfile." \
-    in_dir fl_frontend pnpm install --frozen-lockfile --lockfile-only --no-optimistic-repeat-install \
+    "pnpm install --frozen-lockfile --lockfile-only --no-optimistic-repeat-install" \
     && ok "manifest and lockfile agree"
 
   # `strictPeerDependencies` refuses an out-of-range peer only while `pnpm install` resolves.
   step "frontend · pnpm  (every peer in range)"
-  check "fl_frontend's lockfile installs a peer outside the range a package asks for — pnpm names it above." \
-    in_dir fl_frontend pnpm peers check \
+  beside_verdict "${at}/peers" "fl_frontend's lockfile installs a peer outside the range a package asks for — pnpm names it above." \
+    "pnpm peers check" \
     && ok "every peer in range"
 
   # `pnpm add` keeps every copy the lockfile already pins, so an added range can leave two copies of
   # one package, and two copies of React Aria split the contexts its components share.
   step "frontend · pnpm  (no copy a dedupe would remove)"
-  check "fl_frontend's lockfile holds a copy a dedupe would remove — pnpm names each change above.
+  beside_verdict "${at}/dedupe" "fl_frontend's lockfile holds a copy a dedupe would remove — pnpm names each change above.
 Fix with:  cd fl_frontend && pnpm dedupe  -- then commit the lockfile." \
-    in_dir fl_frontend pnpm dedupe --check \
+    "pnpm dedupe --check" \
     && ok "no copy a dedupe would remove"
 
-  # The route types tsc checks against; it rewrites tsconfig.json where a key is absent, so it runs
-  # before every reader of that file.
   step "frontend · next typegen"
-  check "next typegen failed — its own output is above." in_dir fl_frontend pnpm typegen || finish
+  beside_verdict "${at}/typegen" "next typegen failed — its own output is above." "pnpm typegen" || finish
   ok "route types generated"
 
   step "frontend · tsc"
-  check "tsc found type errors." typecheck && ok "no type errors"
+  beside_verdict "${at}/tsc" "tsc found type errors." "pnpm typecheck:only" && ok "no type errors"
 
   step "frontend · eslint"
-  check "eslint failed." in_dir fl_frontend pnpm lint && ok "lint clean"
+  beside_verdict "${at}/eslint" "eslint failed." "pnpm lint:only" && ok "lint clean"
 
   step "frontend · knip  (unused files, exports and dependencies)"
-  check "knip found something nothing uses, named above. Delete it, or name the reader knip cannot see in fl_frontend/knip.json." \
-    in_dir fl_frontend pnpm knip \
+  beside_verdict "${at}/knip" "knip found something nothing uses, named above. Delete it, or name the reader knip cannot see in fl_frontend/knip.json." \
+    "pnpm knip" \
     && ok "nothing unused"
 
   step "frontend · knip, production  (what only tests still read)"
-  check "knip's production run found code only tests still read, named above. Delete it with the cases testing it,
+  beside_verdict "${at}/knip-prod" "knip's production run found code only tests still read, named above. Delete it with the cases testing it,
 or name production code knip cannot see in fl_frontend/knip.production.json." \
-    in_dir fl_frontend pnpm knip:prod \
+    "pnpm knip:prod" \
     && ok "nothing only tests read"
 
   # After every reader of tsconfig.json: it writes `.next/`, which that file's `include` covers. No
@@ -445,19 +493,6 @@ or name production code knip cannot see in fl_frontend/knip.production.json." \
   step "frontend · next build"
   check "next build failed." in_dir fl_frontend env SKIP_ENV_VALIDATION=true NEXT_TELEMETRY_DISABLED=1 pnpm build \
     && ok "build succeeds"
-
-  # An advisory, never a finding: one is published upstream while the tree stays as it was.
-  step "frontend · dependency audit  (runtime advisories, high and above)"
-  local rc=0
-  quietly audit_prod || rc=$?
-  case "$rc" in
-    0)   ok "no known runtime vulnerability at high or above" ;;
-    1)   warn "pnpm audit names a runtime advisory at high or above in the report above. Upgrade the package, or
-triage with:  cd fl_frontend && pnpm audit" ;;
-    2)   warn "pnpm audit wrote no report, so no advisory was read. Its own words are above." ;;
-    130) on_interrupt ;;
-    *)   on_error "$rc" "${LINENO}" "pnpm audit:prod --json" ;;
-  esac
   return 0
 }
 
@@ -466,27 +501,22 @@ triage with:  cd fl_frontend && pnpm audit" ;;
 OPS_SCRATCH=""
 cleanup_ops() { if [[ -n "$OPS_SCRATCH" ]]; then rm -rf "$OPS_SCRATCH" || true; fi; }
 
-# zizmor answers 11 to 14 for findings and 1 for its own failure. Installed at the release and the
-# file hashes scripts/gate/zizmor/requirements.txt pins, being no backend dependency; Dependabot moves
-# that file. An environment of the scope's own rather than `uv tool run`, which checks no hash in a
-# constraints or requirements file; `--no-build`, or a wheel refused by its hash falls back to
-# building the sdist, whose Rust toolchain and build backend no hash covers.
+# The release is the backend lockfile's, from its dev group. Its wheel installs the
+# program alone, with no module `-m` could run, so it runs from beside the interpreter.
+# zizmor answers 11 to 14 for findings by their highest severity, and 1 for an error during the audit
+# (its usage page, "Exit codes").
 run_zizmor() {
-  local rc=0 env="${OPS_SCRATCH}/zizmor" bin
-  uv venv --quiet --python "$PY" "$env" || return 3
-  uv pip install --quiet --python "$env" --require-hashes --no-build \
-    --requirements scripts/gate/zizmor/requirements.txt || return 3
-  bin="${env}/bin/zizmor"
-  [[ -x "$bin" ]] || bin="${env}/Scripts/zizmor.exe"
-  # `--offline`, or a token in the environment turns on rules that reach the network;
+  local bin="${PY%/*}/zizmor" rc=0
+  local -a network=(--offline)
+  [[ -x "$bin" ]] || bin="${PY%/*}/zizmor.exe"
+  # Online under Actions alone, with the job's read-only token, where the audits reading GitHub's API
+  # run: an action pinned to a commit gets no Dependabot alert, so `known-vulnerable-actions` is what
+  # names one. Offline everywhere else, or a token in a person's environment turns those audits on.
+  if [[ -n "${GITHUB_ACTIONS:-}" ]]; then network=(); fi
   # `--strict-collection`, or a malformed `.github/dependabot.yml` is a warning it exits 0 on.
-  "$bin" --offline --strict-collection --persona regular . || rc=$?
-  case "$rc" in
-    0) return 0 ;;
-    11|12|13|14) return 1 ;;
-    130) return 130 ;;
-    *) return 3 ;;
-  esac
+  "$bin" "${network[@]}" --strict-collection --persona regular . || rc=$?
+  case "$rc" in 1) return 3 ;; 11|12|13|14) return 1 ;; esac
+  return "$rc"
 }
 
 # The compose files, the nginx configuration and the GitHub Actions surface have no compiler and no
@@ -506,13 +536,15 @@ repository cannot act on belongs in zizmor.yml with its reason, never suppressed
   stage_compose_models "$OPS_SCRATCH"
   render_compose_model "$OPS_SCRATCH" production || die "docker-compose.yml does not parse."
   render_compose_model "$OPS_SCRATCH" local || die "docker-compose.local.yml does not merge over docker-compose.yml."
-  ok "both stacks parse"
+  render_compose_model "$OPS_SCRATCH" e2e || die "docker-compose.e2e.yml does not merge over the local stack."
+  ok "the three stacks parse"
 
   # A parse accepts a published port and a database alike.
   step "ops · what each stack exposes, mounts, trusts, hands out and keeps"
   check --checker "A stack exposes, mounts, trusts, hands out or keeps more than the rule it breaks allows. The
 findings above name the service and the rule." \
-    "$PY" scripts/checks/check_compose_model.py "${OPS_SCRATCH}/production.json" "${OPS_SCRATCH}/local.json" \
+    "$PY" scripts/checks/check_compose_model.py \
+    "${OPS_SCRATCH}/production.json" "${OPS_SCRATCH}/local.json" "${OPS_SCRATCH}/e2e.json" \
     && ok "each stack publishes, mounts, trusts and holds only what its rules allow"
 
   step "ops · every route handler, link page and metadata convention is metered at the edge"
@@ -520,36 +552,10 @@ findings above name the service and the rule." \
     "$PY" scripts/checks/check_public_routes.py \
     && ok "every route handler is accounted for at the edge"
 
-  step "ops · no path or name in the tree holds a retired German stem"
-  check --checker "A path or a name holds a retired German stem. Each finding above names the file, the line, the name
-and the stem; rename it to English by the glossary's rule." \
-    "$PY" scripts/checks/check_retired_stems.py \
-    && ok "every path and name in the tree is clear of the retired stems"
-
-  step "ops · nginx accepts prod.conf"
-  # The image production's model names, so the nginx accepting prod.conf is the one that serves it.
-  # `write`, not `print`: a Windows stdout would end the name in a carriage return.
-  local nginx_image
-  nginx_image="$("$PY" -c 'import json, sys; sys.stdout.write(json.loads(open(sys.argv[1], "rb").read())["services"]["nginx"]["image"])' \
-    "${OPS_SCRATCH}/production.json")" \
-    || refuse "production's model names no image for nginx, so there is no release to parse prod.conf with."
-  if ! docker image inspect "$nginx_image" >/dev/null 2>&1; then
-    quietly docker pull "$nginx_image" \
-      || refuse "${nginx_image} could not be fetched, so prod.conf was not parsed. Docker's own reason is above."
-  fi
-  # No `--add-host`: nginx resolves a literal upstream as it loads, so this parse refuses one naming
-  # `frontend` or `backend`.
-  MSYS_NO_PATHCONV=1 check "nginx refuses prod.conf — its own explanation is above." \
-    docker run --rm --pull never \
-    -v "/${REPO_ROOT}/nginx/prod:/etc/nginx/conf.d:ro" \
-    -v "/${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
-    "$nginx_image" nginx -t \
-    && ok "${nginx_image} accepts prod.conf"
-
-  # A parse sees neither a log line nor a response.
-  step "ops · the edge logs no credential and sends every security header once"
-  check --checker "The running edge failed a case. Each failing case above is what nginx WROTE or SENT, and the
-files under nginx/shared/ decide it." bash nginx/edge_test.sh \
+  # A parse sees neither a log line nor a response, and both edges starting is the parse.
+  step "ops · the edge starts, logs no credential and sends every security header once"
+  check --checker --summary "The running edge failed a case. Each failing case above is what nginx WROTE or SENT, and the
+files under nginx/shared/ decide it." bash scripts/checks/edge_test.sh \
     && ok "the edge logged and sent every case as written"
   return 0
 }
@@ -564,79 +570,61 @@ CONTRACT_SCRATCH=.tmp-contract
 # The published document regenerated from the routes and models, the client regenerated from that,
 # both into the scratch folder, and each compared with the tree's: a route, a model or a docstring the
 # committed files do not hold is a finding. An untracked file in the tree's folders is one a
-# generation added and nobody committed, which the comparison alone would pass. A generator that fails
-# reaches no verdict, and neither does a comparison git could not make.
+# generation added and nobody committed, which the comparison alone would pass. A generator that fails,
+# or exits 0 having written nothing, reaches no verdict, and neither does a comparison git could not
+# make. Orval answers 1 for a warning under `--fail-on-warnings` and for its own failure alike. Run
+# beside the db tiers, where bash suspends `set -e`, so every step's failure is returned explicitly.
 contract_check() {
-  local rc=0 untracked
-  rm -rf "$CONTRACT_SCRATCH" && mkdir "$CONTRACT_SCRATCH" || return 3
+  local rc=0 untracked i diff
+  # Each committed path beside the one regenerated into the scratch folder.
+  local -a compared=(fl_backend/openapi.json "${CONTRACT_SCRATCH}/openapi.json"
+    fl_frontend/src/core/generated "${CONTRACT_SCRATCH}/generated")
+  rm -rf "$CONTRACT_SCRATCH" || return 3
+  mkdir "$CONTRACT_SCRATCH" || return 3
   in_dir fl_backend "$PY" -m app.openapi_document "../${CONTRACT_SCRATCH}/openapi.json" || return 3
-  ( cd fl_frontend && CONTRACT_SCRATCH="../${CONTRACT_SCRATCH}" pnpm exec orval --fail-on-warnings ) || return 3
-  untracked="$(git ls-files --others --exclude-standard -- "${CONTRACT_PATHS[@]}")"
+  CONTRACT_SCRATCH="../${CONTRACT_SCRATCH}" pnpm --dir fl_frontend exec orval --fail-on-warnings || return
+  untracked="$(git ls-files --others --exclude-standard -- "${CONTRACT_PATHS[@]}")" || return 3
   if [[ -n "$untracked" ]]; then printf 'Not committed:\n%s\n' "$untracked"; rc=1; fi
-  # git answers 1 for a difference.
-  git diff --no-index -- fl_backend/openapi.json "${CONTRACT_SCRATCH}/openapi.json" || { (( $? == 1 )) || return 3; rc=1; }
-  git diff --no-index -- fl_frontend/src/core/generated "${CONTRACT_SCRATCH}/generated" || { (( $? == 1 )) || return 3; rc=1; }
+  for (( i = 0; i < ${#compared[@]}; i += 2 )); do
+    # git answers a path it cannot access with a difference's 1: a regenerated one missing is the
+    # generator's failure, and a committed one missing is the change's, which the diff would name.
+    if [[ ! -e "${compared[i + 1]}" ]]; then printf '%s\n' "${compared[i + 1]} was not generated."; return 3; fi
+    if [[ ! -e "${compared[i]}" ]]; then printf 'Not committed:\n%s\n' "${compared[i]}"; rc=1; continue; fi
+    diff=0
+    git diff --no-index -- "${compared[i]}" "${compared[i + 1]}" || diff=$?
+    case "$diff" in 0) ;; 1) rc=1 ;; *) return 3 ;; esac
+  done
   return "$rc"
 }
 
 # Global, for the EXIT trap, which runs after the scope has returned.
 DB_TIERS=""
 
-# A command run beside another, its output kept in `$1.log` and its status, with the milliseconds it
-# took, in `$1.status`. Bash starts an `&` command of a script with SIGINT and SIGQUIT ignored,
-# which would leave a tier running past a Ctrl-C: reset, as `build_images` does.
-run_beside() { # $1 where its files go · the command
-  local at="$1" t0 rc=0
-  shift
-  trap - INT QUIT
-  t0="$(_now_ms)"
-  "$@" > "${at}.log" 2>&1 || rc=$?
-  printf '%s %s\n' "$rc" "$(( $(_now_ms) - t0 ))" > "${at}.status"
-}
-
-# A command `run_beside` ran, read under the open step as `check` reads its own: its output where
-# it failed, or under `--verbose` whole, since two tiers streaming at once would interleave. The
-# step's time is the tier's own rather than the moment its step was printed.
-beside_verdict() { # $1 its files · [--summary | --pytest] $2 what to say on a finding · $3 the command, as a crash names it
-  local at="$1" rc=3 ms=0
-  local -a said=()
-  shift
-  # A tier that left no status ended before its command did, which reads as a crash.
-  # Split on the space `run_beside` writes, which the repository's IFS leaves out.
-  if [[ -f "${at}.status" ]]; then IFS=' ' read -r rc ms < "${at}.status"; fi
-  QUIETLY_OUTPUT=""
-  if [[ -f "${at}.log" ]]; then QUIETLY_OUTPUT="$(<"${at}.log")"; fi
-  _STEP_MS0=$(( $(_now_ms) - ms ))
-  if (( VERBOSE || rc )); then mapfile -t said <<<"$QUIETLY_OUTPUT"; detail "${said[@]}"; fi
-  verdict "${@:1:$#-1}" "$rc" "${BASH_LINENO[0]}" "${!#}"
-}
-
 # Split from the default tier because it needs the Docker daemon the quick scope avoids.
 scope_db() {
   section db
   trap 'rm -rf "$CONTRACT_SCRATCH" ${DB_TIERS:+"$DB_TIERS"}' EXIT
-  # This scope because it alone has both the backend's virtualenv and the frontend's install.
-  step "db · the contract and its generated client match the code they are built from"
-  check "The committed contract no longer matches the code it is generated from; the diff above names each file.
-Fix with:  (cd fl_frontend && pnpm run contract)  -- then commit both." \
-    contract_check \
-    && ok "the contract and the client are current"
-
-  # Side by side, each into its own capture, as `build_images` runs two builds: the tiers share no
-  # container, each starting its own on ports Docker picks.
+  # Side by side, each into its own capture: the tiers share no container, each starting its own on
+  # ports Docker picks, and the contract check writes only its scratch folder.
   DB_TIERS="$(mktemp -d)"
-  local backend frontend
-  # `loadfile` for isolation too: the commit fail points' cases set the server's one
-  # `failCommand`, so they run one after another on one worker.
+  local contract backend frontend
+  # This scope because it alone has both the backend's virtualenv and the frontend's install.
+  ( run_beside "${DB_TIERS}/contract" contract_check ) &
+  contract=$!
   ( run_beside "${DB_TIERS}/backend" in_dir fl_backend "$PY" -m pytest -m db "${PYTEST_SPREAD[@]}" --maxprocesses 6 ) &
   backend=$!
   # Each file starts its own replica set through `@testcontainers/mongodb`.
   ( run_beside "${DB_TIERS}/frontend" in_dir fl_frontend pnpm run test:db ) &
   frontend=$!
-  spinner_start "db · the backend's and the frontend's db tiers, side by side"
+  wait "$contract" || true
   wait "$backend" || true
   wait "$frontend" || true
-  spinner_stop
+
+  step "db · the contract and its generated client match the code they are built from"
+  beside_verdict "${DB_TIERS}/contract" "The committed contract no longer matches the code it is generated from, or Orval warned on the
+regenerated document; the diff or Orval's own lines above name each. Fix with:  (cd fl_frontend && pnpm run contract)
+-- then commit both." "contract_check" \
+    && ok "the contract and the client are current"
 
   step "db · pytest -m db, distributed over one shared replica set"
   beside_verdict "${DB_TIERS}/backend" --pytest "fl_backend db-tier tests failed. A failing test and a mongo that never started both end here: each case's
@@ -657,41 +645,29 @@ own message above says which." "pnpm run test:db" \
 IMAGES_TAG="${VERIFY_TAG:-frankfurtleague-verify-$$}"
 cleanup_images() { docker image rm -f "${IMAGES_TAG}:frontend" "${IMAGES_TAG}:backend" >/dev/null 2>&1 || true; }
 
-# Both at once, each into its own capture: BuildKit runs the two solves side by side.
+# Both in one bake of the definition CI builds, so each target's context, Dockerfile and arguments are
+# `docker-bake.hcl`'s alone. Only where they land is this run's: loaded into the local image store
+# under this run's tag through `--set`, where CI writes the tarballs its publish pushes.
 build_images() {
-  local image rc failed="" logs
-  local -A build_pid=()
-  logs="$(mktemp -d)"
-  for image in frontend backend; do
-    # Bash starts an `&` command of a script with SIGINT and SIGQUIT ignored, which would leave a build
-    # running past a Ctrl-C and tagging an image after `cleanup_images` ran: reset in the subshell.
-    ( trap - INT QUIT; exec docker build -f "fl_${image}/Dockerfile" -t "${IMAGES_TAG}:${image}" "fl_${image}" ) > "${logs}/${image}" 2>&1 &
-    build_pid[$image]=$!
-  done
-  for image in frontend backend; do
-    rc=0
-    wait "${build_pid[$image]}" || rc=$?
-    if (( rc )); then failed+=" ${image}"; detail < "${logs}/${image}"; fi
-  done
-  rm -rf "$logs"
-  if [[ -n "$failed" ]]; then
-    fail "The image(s)${failed} failed to build — the failure the frontend scope cannot see. Docker's own output is above."
-    finish
-  fi
+  require_buildx
+  check "The images failed to build — the failure the frontend scope cannot see. Docker's own output above names the target." \
+    docker buildx bake --file docker-bake.hcl --set '*.output=type=docker' \
+    --set "frontend.tags=${IMAGES_TAG}:frontend" --set "backend.tags=${IMAGES_TAG}:backend" \
+    frontend backend || finish
 }
 
-# What a successful build does not prove, asked of each image. In CI the workflow builds both through
-# `docker/build-push-action`, which carries the layer cache, and hands them over by `VERIFY_TAG`.
+# What a successful build does not prove, asked of each image. In CI the workflow builds both in one
+# bake through `docker/bake-action`, which carries the layer cache, and hands them over by `VERIFY_TAG`.
 scope_images() {
   section images
   if [[ -z "${VERIFY_IMAGES_BUILT:-}" ]]; then
     trap cleanup_images EXIT
-    step "images · docker build frontend and backend"
+    step "images · docker buildx bake frontend backend"
     build_images
     ok "both images build"
   fi
 
-  # Each assertion answers 1 for what it found and 3 for an image that would not run.
+  # Each assertion answers 1 for what it found, and 3 for an image that would not run its probe.
   step "images · instrumentation.js is in the frontend image"
   check "instrumentation.js is MISSING from the image. It must live at fl_frontend/src/instrumentation.ts, not the repository root." \
     image_has_instrumentation "${IMAGES_TAG}:frontend" \

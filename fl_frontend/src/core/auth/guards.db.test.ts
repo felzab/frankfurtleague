@@ -1,22 +1,20 @@
-import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, overriding, registerAuthDoubles, signInByCode } from "@/test-support/authDoubles.ts";
-import { beginRenderPass, serveServerReact } from "@/test-support/cacheScope.ts";
-import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
-import { captureLog } from "@/test-support/stdoutCapture.ts";
+import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, overriding, registerAuthDoubles, signInByCode } from "@/test-support/authDoubles";
+import { beginRenderPass, serveServerReact } from "@/test-support/cacheScope";
+import { emptyStore } from "@/test-support/emptyStore";
+import { replicaSetUrl, startReplicaSet } from "@/test-support/replicaSet";
+import { signInIndexesForTheFile } from "@/test-support/signInIndexes";
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
 import type { MongoClient } from "mongodb";
 
-const { mongod, closing } = await startJudgedReplicaSet();
+const { mongod, closing } = await startReplicaSet();
 
 /** What the request a case arrives as carries. */
 let requestHeaders: Headers | undefined;
 
 // The real `fl_frontend/src/core/db.ts`, which the auth doubles replace by default: the client
 // under test is the one it builds.
-const PRODUCTION_DB = "@/core/db.ts";
-
-/** Every line the real logger writes, the index build's failures among them. */
-const log = captureLog();
+const PRODUCTION_DB = "@/core/db";
 
 registerAuthDoubles({
   core: {
@@ -38,24 +36,19 @@ serveServerReact();
 const { signInStore } = (await import(PRODUCTION_DB)) as { signInStore: () => MongoClient };
 const client = signInStore();
 closing(() => client.close());
-const { auth } = await import("@/core/auth/library.ts");
-const { getAccountSession, getAdminSession } = await import("@/core/auth/guards.ts");
-const { getPasskeyStep } = await import("@/core/auth/landing.ts");
-const { buildAuthIndexes } = await import("@/core/authIndexes.ts");
-const { getSubjectSession } = await import("@/core/subject.ts");
+const { auth } = await import("@/core/auth/library");
+const { getAccountSession, getAdminSession } = await import("@/core/auth/guards");
+const { getPasskeyStep } = await import("@/core/auth/landing");
+const authIndexes = await import("@/core/authIndexes");
+const { MONGO_DB_NAME } = authIndexes;
+const { getSubjectSession } = await import("@/core/subject");
 const { devicesOf } = await import("@/features/account/security");
-const { heldPasskeysOf } = await import("@/features/passkeys/held.ts");
+const { heldPasskeysOf } = await import("@/features/passkeys/held");
 
-// Production's indexes under every case, so the library is driven over what it meets there, and an
-// empty store, each case signing the administrator in afresh.
-beforeEach(async () => {
-  await Promise.all(["session", "user", "passkey", "verification"].map((name) => client.db("auth").collection(name).deleteMany({})));
-  await buildAuthIndexes();
-  expect(
-    log.lines().flatMap(({ level, message }) => (level === "ERROR" ? [message] : [])),
-    "an index of the sign-in store was left unbuilt",
-  ).toStrictEqual([]);
-});
+signInIndexesForTheFile(authIndexes, mongod);
+
+// Each case signs the administrator in afresh.
+beforeEach(() => emptyStore(client.db(MONGO_DB_NAME)));
 
 // Set before the first operation opens a connection, which is when the pool reads it; the option is
 // the client's own, left out of its published type.
@@ -63,7 +56,7 @@ Reflect.set(client, "monitorCommands", true);
 /** Every command sent to the sign-in store, by its name and the collection it names. */
 const sent: string[] = [];
 client.on("commandStarted", (event) => {
-  if (event.databaseName === "auth") sent.push(`${event.commandName} ${String(event.command[event.commandName])}`);
+  if (event.databaseName === MONGO_DB_NAME) sent.push(`${event.commandName} ${String(event.command[event.commandName])}`);
 });
 
 /** The commands `read` sends, in the order it sends them. */
@@ -83,11 +76,11 @@ const CREDENTIAL_ID = "fl-admin-session-db";
 async function signInAsAdministrator(): Promise<Headers> {
   const verified = await signInByCode(auth, ADMIN_EMAIL);
   await client
-    .db("auth")
+    .db(MONGO_DB_NAME)
     .collection("session")
     .updateMany({}, { $set: { authFactor: "passkey", passkeyCredentialId: CREDENTIAL_ID, createdAt: new Date() } });
 
-  const [user] = await client.db("auth").collection("user").find({}).toArray();
+  const [user] = await client.db(MONGO_DB_NAME).collection("user").find({}).toArray();
   assert.ok(user, "the sign-in wrote no user row");
   // Written through the library's adapter, so the row is in the shape the plugin's own writes give it.
   const { adapter } = await auth.$context;
@@ -110,8 +103,8 @@ async function signInAsAdministrator(): Promise<Headers> {
 
 /** Puts every stored session where the library's next refreshing read would write it, its windows untouched. */
 async function dueForRefresh(): Promise<() => Promise<unknown[]>> {
-  const sessions = client.db("auth").collection<{ updatedAt: Date; expiresAt: Date }>("session");
-  const updateAge = (auth.options.session?.updateAge ?? Number.NaN) * 1000;
+  const sessions = client.db(MONGO_DB_NAME).collection<{ updatedAt: Date; expiresAt: Date }>("session");
+  const updateAge = auth.options.session.updateAge * 1000;
   // The library refreshes by how far `expiresAt` has run down, never by `updatedAt`, which the guards' idle windows read.
   await sessions.updateMany({}, [{ $set: { expiresAt: { $subtract: ["$expiresAt", 2 * updateAge] } } }]);
   return async () => (await sessions.find({}).toArray()).map(({ updatedAt, expiresAt }) => [updatedAt, expiresAt]);
@@ -210,13 +203,13 @@ describe("the holder's passkeys, with another account's beside them in the store
    ended. */
 describe("the account row the session read joins, against a real store", () => {
   it("refuses a session its account's ending stamp postdates, at every guard", async () => {
-    const { readServedSession } = await import("@/core/auth/session.ts");
+    const { readServedSession } = await import("@/core/auth/session");
     requestHeaders = await signInAsAdministrator();
     beginRenderPass();
     assert.ok(await getAdminSession(), "the administrator was refused before the stamp, so the refusals below prove nothing");
 
     await client
-      .db("auth")
+      .db(MONGO_DB_NAME)
       .collection("user")
       .updateMany({}, { $set: { sessionsEndedAt: new Date(Date.now() + 1000) } });
 
@@ -226,10 +219,10 @@ describe("the account row the session read joins, against a real store", () => {
   });
 
   it("serves no session whose account row is gone, the session row standing", async () => {
-    const { readServedSession } = await import("@/core/auth/session.ts");
+    const { readServedSession } = await import("@/core/auth/session");
     requestHeaders = await signInAsAdministrator();
-    await client.db("auth").collection("user").deleteMany({});
-    expect(await client.db("auth").collection("session").countDocuments({}), "the session row went with the account's").toBe(1);
+    await client.db(MONGO_DB_NAME).collection("user").deleteMany({});
+    expect(await client.db(MONGO_DB_NAME).collection("session").countDocuments({}), "the session row went with the account's").toBe(1);
 
     beginRenderPass();
     expect(await getAdminSession()).toBe(null);

@@ -16,6 +16,4 @@ import type { Locator, Page } from "@playwright/test";
 export async function chooseWho(page: Page, scope: Locator, who: string): Promise<void> {
   await choose(page, scope, /Wer$/, who);
   await expect(scope.getByRole("button", { name: `${who} Wer` })).toBeVisible();
-  // The list lies over what stands under it until its exit has run, and Playwright retries a press it covers behind a scroll.
-  await expect(page.getByRole("listbox")).toBeHidden();
 }

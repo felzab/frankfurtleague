@@ -20,22 +20,22 @@ import {
   ADMIN_EMAIL,
   answerTheLookup,
   GRANTED,
-  HOLDS_NOTHING,
   madeByPasskey,
   memoryAdapterDouble,
   memoryStore,
   ORIGIN,
   registerAuthDoubles,
   sessionByCode,
-} from "@/test-support/authDoubles.ts";
-import { arriveWith, doubleNextRequest } from "@/test-support/nextRequest.ts";
+} from "@/test-support/authDoubles";
+import { arriveWith, doubleNextRequest } from "@/test-support/nextRequest";
+import { NO_RECORDS } from "@/test-support/subjectFixtures";
 import { beforeEach } from "vitest";
 
-import { asSignInIdentifier } from "@/core/emailAddress.ts";
+import { asSignInIdentifier } from "@/core/emailAddress";
 
-import type { SubjectSession } from "@/core/subject.ts";
-import type { MemoryStore } from "@/test-support/authDoubles.ts";
-import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
+import type { SubjectSession } from "@/core/subject";
+import type { MemoryStore } from "@/test-support/authDoubles";
+import type { LookupFixture } from "@/test-support/subjectFixtures";
 
 /**
  * Who a request arrives as: nobody, or a person signed in at `email` holding `records`, an administrator's grant
@@ -51,7 +51,7 @@ const STORE = "__flSignedInRequestStore";
 
 /** What the backend holds for `visitor`: an account, its records, and the grant where it is an administrator's. */
 const fixtureOf = ({ records = {}, admin = false }: NonNullable<Visitor>): LookupFixture => ({
-  ...(admin ? GRANTED : HOLDS_NOTHING),
+  ...(admin ? GRANTED : NO_RECORDS),
   ...records,
   account: true,
 });
@@ -87,7 +87,7 @@ export function signedInRequest(visitor: Visitor = ADMINISTRATOR): {
     }
 
     // Imported at the arrival, after every double above, so the library is the one the subject loads.
-    const { auth } = await import("@/core/auth/library.ts");
+    const { auth } = await import("@/core/auth/library");
     const { cookie, row } = await sessionByCode(auth, store, next.email);
     if (next.admin === true) madeByPasskey(store, row);
     arriveWith({ ...ORIGIN, cookie });

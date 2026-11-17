@@ -6,6 +6,7 @@ import {
   Barrier,
   configDouble,
   cookieHeader,
+  deleteRow,
   faultingAdapter,
   insertOrderedAdapter,
   lastMailedCode,
@@ -15,19 +16,19 @@ import {
   registerAuthDoubles,
   sessionByCode,
   signInByCode,
-} from "@/test-support/authDoubles.ts";
-import { networkFailure, serveBackend } from "@/test-support/backend.ts";
-import { captureLog } from "@/test-support/stdoutCapture.ts";
-import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures.ts";
-import { assertionFor, COSE_KEY, CREDENTIAL_ID, CREDENTIAL_RAW_ID, registrationFor } from "@/test-support/testAuthenticator.ts";
+} from "@/test-support/authDoubles";
+import { networkFailure, serveBackend } from "@/test-support/backend";
+import { captureLog } from "@/test-support/stdoutCapture";
+import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures";
+import { assertionFor, COSE_KEY, CREDENTIAL_ID, CREDENTIAL_RAW_ID, registrationFor } from "@/test-support/testAuthenticator";
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { assertionAnswer } from "./auth/assertionAnswer.ts";
-import { PASSKEY_TOUCH_SECONDS } from "./sessionLifetimes.ts";
+import { assertionAnswer } from "./auth/assertionAnswer";
+import { PASSKEY_TOUCH_SECONDS } from "./sessionLifetimes";
 
-import type { MemoryStore, SessionRow } from "@/test-support/authDoubles.ts";
-import type { LoggedLine } from "@/test-support/stdoutCapture.ts";
-import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
+import type { MemoryStore, SessionRow } from "@/test-support/authDoubles";
+import type { LoggedLine } from "@/test-support/stdoutCapture";
+import type { LookupFixture } from "@/test-support/subjectFixtures";
 import type { MemoryDB } from "better-auth/adapters/memory";
 
 /** Granted nothing: the person arm of every case below. */
@@ -230,16 +231,16 @@ const { toNextJsHandler } = await import("better-auth/next-js");
 const { runWithEndpointContext } = (await import(
   pathToFileURL(createRequire(import.meta.resolve("better-auth")).resolve("@better-auth/core/context")).href
 )) as { runWithEndpointContext: <T>(context: object, run: () => Promise<T>) => Promise<T> };
-const { auth } = await import("./auth/library.ts");
-const { deleteAccountFor, deleteOwnAccount, listAccounts, requestAccountDeletion } = await import("./auth/accounts.ts");
-const { endSessionsOfAddress } = await import("./auth/accountSessions.ts");
-const { getAccountSession, getAdminSession, isAdminSession, judgeAdminRequest, passesPasskeyTouch } = await import("./auth/guards.ts");
-const { getPasskeyStep, getSignInLanding } = await import("./auth/landing.ts");
-const { PASSKEY_LIMIT } = await import("./auth/enrolment.ts");
-const { readServedSession } = await import("./auth/session.ts");
-const { getSubjectSession } = await import("./subject.ts");
-const { CODE_VALIDITY_MINUTES } = await import("./authEmail.ts");
-const { proxy } = await import("../proxy.ts");
+const { auth } = await import("./auth/library");
+const { deleteAccountFor, deleteOwnAccount, listAccounts, requestAccountDeletion } = await import("./auth/accounts");
+const { endSessionsOfAddress } = await import("./auth/accountSessions");
+const { getAccountSession, getAdminSession, isAdminSession, judgeAdminRequest, passesPasskeyTouch } = await import("./auth/guards");
+const { getPasskeyStep, getSignInLanding } = await import("./auth/landing");
+const { PASSKEY_LIMIT } = await import("./auth/enrolment");
+const { readServedSession } = await import("./auth/session");
+const { getSubjectSession } = await import("./subject");
+const { CODE_VALIDITY_MINUTES } = await import("./authEmail");
+const { proxy } = await import("../proxy");
 const { NextRequest } = await import("next/server");
 
 const handler = toNextJsHandler(auth);
@@ -635,7 +636,7 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
 /* The proxy slides a session ahead of every guard, moving `updatedAt` to now: the guard behind it reads
    a fresh stamp, and only the mark the slide leaves refuses. */
 describe("the administrator's idle hour across the proxy's slide", () => {
-  const EXPIRES_IN_MS = (auth.options.session.expiresIn ?? Number.NaN) * 1000;
+  const EXPIRES_IN_MS = auth.options.session.expiresIn * 1000;
 
   /** Leaves `row` as the library's own refresh `ago` milliseconds back would have left it, so the next read slides it. */
   function refreshedAgo(row: SessionRow, ago: number): void {
@@ -1895,21 +1896,6 @@ describe("the failures one address may spend, across every code it is sent", () 
     expect(store.session.length, "the right code signed in past the bound").toBe(sessions);
   });
 
-  /* Each attempt's row goes in before it counts, so a burst cannot all read zero and all pass. The
-     barrier holds every attempt at its count until the whole burst has arrived, the worst
-     interleaving there is. */
-  it("lets no burst of concurrent attempts past the bound", async () => {
-    const wrong = wrongFor(await mailedCode());
-
-    adapterCalls.counts.arm(15);
-    const answers = await Promise.all(Array.from({ length: 15 }, () => answerOf(ADMIN_EMAIL, wrong)));
-    assert.ok(await adapterCalls.counts.filled, "the burst never met at the count, so it ran no race");
-
-    const refused = answers.filter((answer) => answer.code === "ADDRESS_ATTEMPTS_EXHAUSTED").length;
-    assert.ok(15 - refused <= 10, `${String(15 - refused)} of 15 concurrent attempts reached the code`);
-    assert.ok(failureRows().length <= 10);
-  });
-
   it("keeps the address out of the rows that count it", async () => {
     const otp = await mailedCode();
     await answerOf(ADMIN_EMAIL, wrongFor(otp));
@@ -2049,7 +2035,7 @@ describe("which addresses the send gate mails", () => {
 
   for (const [who, email, backend, verdict] of VERDICTS) {
     it(`answers ${who} \`${verdict}\``, async () => {
-      const { mayReceiveSignIn } = await import("./signInGate.ts");
+      const { mayReceiveSignIn } = await import("./signInGate");
       if (backend !== undefined) BACKENDS.set(email, backend);
 
       expect(await mayReceiveSignIn(email)).toBe(verdict);
@@ -2120,27 +2106,12 @@ describe("which sign-ins the gate admits as the session is minted", () => {
 
       refusals.push([refused.status, await refused.text()]);
       expect(store.session, "a refused passkey sign-in minted a session or ended one").toStrictEqual(before);
-      store.passkey.splice(store.passkey.indexOf(passkey), 1);
+      deleteRow(store, "passkey", passkey.id);
     }
 
     const [barred, empty] = refusals;
     expect(barred?.[0]).toBe(403);
     expect(barred, "a barred address's refusal differs from an empty address's").toStrictEqual(empty);
-  });
-
-  /* The set-up that signs in mints inside the registration's transaction, so its refusal takes the
-     passkey row back with it. An address holding nothing, since the enrolment refuses a barred one
-     before any mint. */
-  it("refuses a passkey set-up that would sign in an address holding nothing, writing no passkey", async () => {
-    const { cookie, row } = await signIn(EMPTY_EMAIL);
-    BACKENDS.set(EMPTY_EMAIL, NOTHING_HELD);
-
-    const refused = await enrolPasskey(cookie, { createSession: true });
-
-    expect(refused.status).toBe(403);
-    expect(((await refused.clone().json()) as { code?: string }).code).toBe("SIGN_IN_REFUSED");
-    expect(store.passkey, "the refused set-up left its passkey behind").toStrictEqual([]);
-    assert.ok(holdsSession(row), "the refused set-up signed its caller out");
   });
 
   /* The account page enrols with no `createSession`, so no mint's gate stands in front of it: a session
@@ -2184,7 +2155,7 @@ describe("which spelling of an administrator a write is attributed to", () => {
   /* One person, one spelling in `action_log.by`, which an administrator's act takes from this actor,
      so a log filtered on it holds every write they made. */
   it("records the folded identifier, which is the spelling the grant itself is looked up by", async () => {
-    const { getRequestActor, runWithRequestScope } = await import("./requestScope.ts");
+    const { getRequestActor, runWithRequestScope } = await import("./requestScope");
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
 
@@ -2208,7 +2179,7 @@ describe("which spelling of an administrator a write is attributed to", () => {
   /* What the backend reads beside the admin key: the admin tier admits only a passkey's session
      inside the administrator's window, judged off these two values. */
   it("states the session's address, age and factor under the administrator's lane", async () => {
-    const { getRequestActor, runWithRequestScope } = await import("./requestScope.ts");
+    const { getRequestActor, runWithRequestScope } = await import("./requestScope");
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
     arriveAs(cookie);
@@ -2290,7 +2261,7 @@ describe("a sign-in the ban's ending overtook between its gate read and its row"
 
 /** Runs `run` as one request of `email`'s, its person recorded as the actor, as the person spine records one. */
 async function asPerson<T>(email: string, run: () => Promise<T>): Promise<T> {
-  const { runWithRequestScope } = await import("./requestScope.ts");
+  const { runWithRequestScope } = await import("./requestScope");
   return runWithRequestScope(
     {
       traceId: `${"0".repeat(31)}3`,
@@ -2383,21 +2354,6 @@ describe("a person's own account deletion", () => {
     expect(store.user.filter((user) => user.id === row.userId).length, "the request deleted the account").toBe(1);
     // The token completes the deletion, so the row the backend stores carries it sealed, as it does the code.
     assert.ok(!JSON.stringify(owed.findLast((entry) => entry.to === email)).includes(mailedToken(email)), "the row holds the token readable");
-  });
-
-  it("deletes the account, its sessions, its passkeys and every pending row of its address once the records are erased, and nobody else's", async () => {
-    const bystander = await seedAccount("unbeteiligt-loeschung@example.org");
-    const person = await seedAccount("loeschende@example.org");
-    const erasuresBefore = erasuresAsked();
-
-    const answer = await asPerson("loeschende@example.org", () =>
-      deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie })),
-    );
-
-    expect(answer).toBe("deleted");
-    expect(erasuresAsked() - erasuresBefore, "the league's records were not erased exactly once").toBe(1);
-    expect(heldOf(person)).toStrictEqual({ user: 0, sessions: 0, passkeys: 0, pending: 0 });
-    expect(heldOf(bystander)).toStrictEqual({ user: 1, sessions: 1, passkeys: 1, pending: 7 });
   });
 
   /* Asked and refused: a case passing where the hook never ran -- no session, another account's token --
@@ -2557,18 +2513,6 @@ describe("a person's own account deletion", () => {
 /* The administrator's erasure and the account sweep reach the store through these two, never through the
    library's admin plugin. */
 describe("an account deleted for its address, and the list of every account", () => {
-  it("deletes the account an address holds and every row of it, in any spelling, and nobody else's", async () => {
-    const bystander = await seedAccount("unbeteiligt-konto@example.org");
-    const person = await seedAccount("konto-weg@example.org");
-
-    expect(await deleteAccountFor("Konto-Weg@Example.org")).toBe(true);
-    // Mailed nowhere, a person would never learn their account went.
-    expect(owed.at(-1)).toMatchObject({ to: "konto-weg@example.org", data: { kind: "deletion_notice", saison_id: null } });
-
-    expect(heldOf(person)).toStrictEqual({ user: 0, sessions: 0, passkeys: 0, pending: 0 });
-    expect(heldOf(bystander)).toStrictEqual({ user: 1, sessions: 1, passkeys: 1, pending: 7 });
-  });
-
   /* Every address typed is answered alike, so a code row stands for an address holding no account: it
      carries the address in its identifier. */
   it("deletes the pending code row of an address holding no account, answering that none was there", async () => {

@@ -1,8 +1,8 @@
 import functools
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from contextlib import asynccontextmanager
 from http import HTTPStatus
-from typing import Final, NamedTuple
+from typing import Any, Final, NamedTuple
 
 import pymongo
 from fastapi import Depends, FastAPI, Request
@@ -92,6 +92,18 @@ async def warn_about_the_grants(grants_collection: AsyncCollection) -> None:
 # it prints on a failure carry it.
 SERVER_SELECTION_TIMEOUT_MS = 15_000
 
+# The options of every client that reads or writes documents, the application's, the read-back's, the made-up seed's and
+# the tests': `standard` reads a stored UUID back as `uuid.UUID`, where the driver's default reads it as `Binary`, so a
+# client without it compares and serialises such a field differently from the app.
+CLIENT_OPTIONS: Final[Mapping[str, Any]] = {"serverSelectionTimeoutMS": SERVER_SELECTION_TIMEOUT_MS, "uuidRepresentation": "standard"}
+
+
+def new_client(uri: str, **options: Any) -> AsyncMongoClient:
+    """A client of `uri` on `CLIENT_OPTIONS`, with a caller's own `options` beside them; constructed, not yet connected."""
+
+    return AsyncMongoClient(host=uri, **{**CLIENT_OPTIONS, **options})
+
+
 # The stop's last step, which must end before the kill. Compose's `stop_grace_period` gives the backend
 # 12 s from the signal; uvicorn spends up to 0.2 s before its graceful wait and up to 11 s in it
 # (`--timeout-graceful-shutdown`), which leaves 0.8 s for this close and the process's exit. `close`
@@ -113,11 +125,7 @@ async def lifespan(app: FastAPI):
             # Constructed inside the handled region: the driver parses the URI here rather than at
             # the ping, so a value the scheme check passed and the parser refuses would otherwise
             # leave as the driver's own traceback, quoting what it read.
-            client = AsyncMongoClient(
-                host=config.mongodb_uri.get_secret_value(),
-                serverSelectionTimeoutMS=SERVER_SELECTION_TIMEOUT_MS,
-                uuidRepresentation="standard",
-            )
+            client = new_client(config.mongodb_uri.get_secret_value())
             app.state.db_client = client
             await client.admin.command("ping")
         except Exception as error:

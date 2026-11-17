@@ -149,7 +149,6 @@ export function SchiedsrichterEditor({
                   label={COPY.signIn.address}
                   name="email"
                   kind="email"
-                  autofill="off"
                   isLocked
                   value={draft.email}
                 />
@@ -158,7 +157,6 @@ export function SchiedsrichterEditor({
                   label={COPY.signIn.address}
                   name="email"
                   kind="email"
-                  autofill="off"
                   isRequired={required.email}
                   maxLength={max.email}
                   value={draft.email}

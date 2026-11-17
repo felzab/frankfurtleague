@@ -15,10 +15,8 @@ export function currentOf<Href extends string>(path: string, hrefs: ReadonlyArra
     .reduce<Href | null>((best, href) => (best === null || href.length > best.length ? href : best), null);
 }
 
-type Row = (typeof ROUTES)[keyof typeof ROUTES];
-
 /** The rows declaring the entry their page belongs to, each a season's page. */
-const PLACED = Object.values(ROUTES).filter((row): row is Extract<Row, { place: object }> => "place" in row);
+const PLACED = Object.values(ROUTES).filter((row) => "place" in row);
 
 /**
  * Whether the path is the row's page in this season, segment by segment against the pattern it declares: `[saison]`

@@ -1,4 +1,4 @@
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -22,11 +22,12 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from app.shared.schemas.literals import FLKontaktRolle
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.documents import SEAT_TEXT_VERSIONS, kontaktperson_document, saison_document, saison_team_document
 from tests.erasure import erased, seats_cleared
 from tests.isolation import InterleavedCollection
 from tests.outbox import MAIL_NOW
+from tests.stored import the_row
 from tests.team_writes import BlockWritten, write_the_block
 from tests.worker import worker_database
 
@@ -54,7 +55,7 @@ AUSTRITT: dict[str, Any] = {"type": "rueckzug", "reason": "Keine Mannschaft mehr
 
 CONFIRMED_ON = "2026-03-15"
 # An edit to a seat that changes nothing about who holds it: `person` writes the other number.
-OTHER_PHONE = "+4915199999999"
+OTHER_PHONE = "+4917604069099"
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 TODAY = "2026-04-01"
 
@@ -65,13 +66,13 @@ BIRTH_DATE = "1990-05-17"
 
 # One number per person: two different people sharing one is a payload the save refuses.
 PHONE: dict[str, str] = {
-    "Ida": "+4915110000001",
-    "Jonas": "+4915110000002",
-    "Klara": "+4915110000003",
-    "Lea": "+4915110000004",
-    "Mika": "+4915110000005",
-    "Nils": "+4915110000006",
-    "Bert": "+4915110000008",
+    "Ida": "+4917604069001",
+    "Jonas": "+4917604069002",
+    "Klara": "+4917604069003",
+    "Lea": "+4917604069004",
+    "Mika": "+4917604069005",
+    "Nils": "+4917604069006",
+    "Bert": "+4917604069008",
 }
 
 
@@ -181,21 +182,18 @@ def junction_document(saison_id: str, kontakte: dict[str, Any] | None) -> dict[s
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Body, *, seeded: dict[str, Any] | None = SEEDED_KONTAKTE) -> Any:
+async def on_a_league(url: str, body: Body, *, seeded: dict[str, Any] | None = SEEDED_KONTAKTE) -> Any:
     """`constraints=True`, so what the block's write stores is judged by the database's own indexes rather than by Pydantic alone."""
 
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
-            # The other season FIRST: `find_one_and_update` takes natural order, so this is the row a
-            # filter that forgot `saison_id` would write to.
-            # Read by the save, which mints no link for a season that has ended.
-            await database[Collection.SAISONS].insert_many([saison_document(OTHER_SAISON_ID, "past"), saison_document(SAISON_ID, "active")])
-            await database[Collection.SAISON_TEAMS].insert_one(junction_document(OTHER_SAISON_ID, None))
-            await database[Collection.SAISON_TEAMS].insert_one(junction_document(SAISON_ID, seeded))
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
+        # The other season FIRST: `find_one_and_update` takes natural order, so this is the row a
+        # filter that forgot `saison_id` would write to.
+        # Read by the save, which mints no link for a season that has ended.
+        await database[Collection.SAISONS].insert_many([saison_document(OTHER_SAISON_ID, "past"), saison_document(SAISON_ID, "active")])
+        await database[Collection.SAISON_TEAMS].insert_one(junction_document(OTHER_SAISON_ID, None))
+        await database[Collection.SAISON_TEAMS].insert_one(junction_document(SAISON_ID, seeded))
 
-            return await body(database)
-
-    return on_the_seed_loop(_run())
+        return await body(database)
 
 
 async def write_kontakte(
@@ -224,24 +222,23 @@ async def erase_the_seats_person(database: AsyncDatabase) -> None:
     await erased(database, database.client, ERASED_EMAIL, germany_now=NOW)
 
 
-async def row_now(database: AsyncDatabase, saison_id: str = SAISON_ID) -> dict[str, Any]:
-    found = await database[Collection.SAISON_TEAMS].find_one({"team_id": TEAM_OID, "saison_id": saison_id})
-    assert found is not None, f"the seeded row for {saison_id} is gone"
-
-    return found
+async def row_now(database: AsyncDatabase, saison_id: str = SAISON_ID) -> Mapping[str, Any]:
+    return await the_row(
+        database, Collection.SAISON_TEAMS, {"team_id": TEAM_OID, "saison_id": saison_id}, f"the seeded row for {saison_id} is gone"
+    )
 
 
 @pytest.mark.db
 class TestNothingElseOnTheRowMoves:
     """Two editors write one row, so the block's write leaves every other field alone."""
 
-    def test_the_group_the_exit_and_the_kit_colour_are_left_exactly_as_seeded(self, mongo_replica_set_url: str):
+    async def test_the_group_the_exit_and_the_kit_colour_are_left_exactly_as_seeded(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
             await write_kontakte(database, NEW_KONTAKTE)
 
             return await row_now(database)
 
-        stored = on_a_league(mongo_replica_set_url, body)
+        stored = await on_a_league(mongo_replica_set_url, body)
 
         # By equality against the seed, not merely "not None": a wholesale `$set` would write the
         # payload's absent keys as nulls, and a colour cleared reads as an admin's own choice.
@@ -250,7 +247,7 @@ class TestNothingElseOnTheRowMoves:
         assert stored["trikot_farbe"] == TRIKOT_FARBE
         assert (stored["name"], stored["shorthand"]) == (TEAM_NAME, TEAM_SHORTHAND)
 
-    def test_the_same_clubs_other_season_is_not_the_row_that_moves(self, mongo_replica_set_url: str):
+    async def test_the_same_clubs_other_season_is_not_the_row_that_moves(self, mongo_replica_set_url: str):
         """`saison_id` is half the filter: without it the club's earliest row takes the write."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -258,7 +255,7 @@ class TestNothingElseOnTheRowMoves:
 
             return await row_now(database, OTHER_SAISON_ID), await row_now(database)
 
-        other, target = on_a_league(mongo_replica_set_url, body)
+        other, target = await on_a_league(mongo_replica_set_url, body)
 
         assert other["kontakte"] is None
         assert target["kontakte"] == as_stored(NEW_KONTAKTE)
@@ -272,7 +269,7 @@ class TestAnErasureLandingMidSaveIsNotUndone:
     judges the row first.
     """
 
-    def test_a_seat_erased_under_the_save_is_refused_rather_than_put_back(self, mongo_replica_set_url: str):
+    async def test_a_seat_erased_under_the_save_is_refused_rather_than_put_back(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
             erasures: list[Any] = []
 
@@ -289,7 +286,7 @@ class TestAnErasureLandingMidSaveIsNotUndone:
 
             return erasures[0], refused.value, await row_now(database)
 
-        cleared, refusal, stored = on_a_league(mongo_replica_set_url, body)
+        cleared, refusal, stored = await on_a_league(mongo_replica_set_url, body)
 
         assert cleared == 1, "the interference emptied no seat, so the save had nothing to undo"
         assert refusal.error_code == Code.VERSION_STALE
@@ -298,7 +295,7 @@ class TestAnErasureLandingMidSaveIsNotUndone:
 
 @pytest.mark.db
 class TestASaveComposedAgainstAnotherBlockIsRefused:
-    def test_the_row_keeps_what_it_held(self, mongo_replica_set_url: str):
+    async def test_the_row_keeps_what_it_held(self, mongo_replica_set_url: str):
         """A refusal has to stop the write rather than accompany it."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -307,7 +304,7 @@ class TestASaveComposedAgainstAnotherBlockIsRefused:
 
             return refused.value, await row_now(database)
 
-        refusal, stored = on_a_league(mongo_replica_set_url, body)
+        refusal, stored = await on_a_league(mongo_replica_set_url, body)
 
         assert refusal.error_code == Code.VERSION_STALE
         assert stored["kontakte"] == SEEDED_KONTAKTE
@@ -391,7 +388,7 @@ class TestTheSeatWriteDecidesFromItsArguments:
     def test_a_number_another_seats_person_holds_in_another_spelling_is_refused_on_its_box(self):
         """The block's rule, which no payload can judge: the other seats are stored, not sent."""
 
-        kontakte, seats = compose_seat_block(stored=SEAT_BLOCK, seat="trainer", sent=seat_sent("Lea", phone="0151 10000002"), today=TODAY)
+        kontakte, seats = compose_seat_block(stored=SEAT_BLOCK, seat="trainer", sent=seat_sent("Lea", phone="0176 04069002"), today=TODAY)
         refusal = find_kontakt_taken_refusal(kontakte=kontakte, seats=seats)
 
         assert refusal is not None
@@ -524,7 +521,7 @@ class TestWhatASeatsLinkReads:
 class TestAKeptRecordKeepsItsEvidence:
     """An unchanged person keeps their record whole: the payload spells none of its evidence, its media answer or its scope."""
 
-    def test_a_confirmed_seat_saved_unchanged_is_stored_byte_for_byte(self, mongo_replica_set_url: str):
+    async def test_a_confirmed_seat_saved_unchanged_is_stored_byte_for_byte(self, mongo_replica_set_url: str):
         """The data-loss path the record exists against: a block recomposed from the payload erases its evidence."""
 
         confirmed = {
@@ -546,12 +543,12 @@ class TestAKeptRecordKeepsItsEvidence:
 
             return await row_now(database)
 
-        stored = on_a_league(mongo_replica_set_url, body, seeded=seeded)
+        stored = await on_a_league(mongo_replica_set_url, body, seeded=seeded)
 
         assert stored["kontakte"]["trainer"]["phone"] == OTHER_PHONE, "the edit itself did not land, so this case proves nothing"
         assert bson.encode(stored["kontakte"]["trainer"]["einwilligung"]) == bson.encode(confirmed)
 
-    def test_a_seat_handed_to_another_person_is_born_afresh_by_the_league(self, mongo_replica_set_url: str):
+    async def test_a_seat_handed_to_another_person_is_born_afresh_by_the_league(self, mongo_replica_set_url: str):
         """Nothing of the person who left travels: their evidence, scope and media answer go with their data."""
 
         handed = {**RESAVED_AS_RENDERED, "trainer": person("Lea")}
@@ -561,7 +558,7 @@ class TestAKeptRecordKeepsItsEvidence:
 
             return await row_now(database)
 
-        stored = on_a_league(mongo_replica_set_url, body, seeded=PARTLY_CONFIRMED)
+        stored = await on_a_league(mongo_replica_set_url, body, seeded=PARTLY_CONFIRMED)
 
         assert stored["kontakte"]["trainer"]["einwilligung"] == born(person("Lea"))
         assert stored["kontakte"]["ansprechperson"] == as_kept(PARTLY_CONFIRMED["ansprechperson"])

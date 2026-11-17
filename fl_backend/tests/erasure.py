@@ -1,4 +1,3 @@
-import inspect
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime
 from typing import Any
@@ -6,11 +5,15 @@ from typing import Any
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.identity.admin_router import post_erasure
 from app.api.identity.crud import erase_everything
 from app.api.identity.person_router import post_account_erasure
+from app.api.identity.schemas import FLErasurePayload
 from app.core.collections import Collection
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.literals import KONTAKT_ROLLEN
+from tests.acts import acting_as
+from tests.handles import wired
 
 
 def erasure_collections(database: AsyncDatabase | Mapping[Collection, Any], **replaced: Any) -> dict[str, Any]:
@@ -20,13 +23,7 @@ def erasure_collections(database: AsyncDatabase | Mapping[Collection, Any], **re
     does not, or the reverse, fails the call.
     """
 
-    # Each handle by its parameter's spelling, the collection's own name before `_collection`.
-    handles = {
-        name: database[Collection(name.removesuffix("_collection"))]
-        for name in inspect.signature(erase_everything).parameters
-        if name.endswith("_collection")
-    }
-    return {**handles, **replaced}
+    return wired(erase_everything, database, **replaced)
 
 
 async def erased(
@@ -43,6 +40,31 @@ async def erased(
         db=client,
         germany_now=germany_now,
     )
+
+
+async def erased_on_request(
+    database: AsyncDatabase | Mapping[Collection, Any],
+    client: AsyncMongoClient,
+    *,
+    email: str,
+    reason: str,
+    by: str,
+    germany_now: datetime,
+    **replaced: Any,
+) -> None:
+    """The erasure administrator `by` enters on a mailed request, run by the administrator route's own function outside a request.
+
+    Any collection replaced by name, as `erased` takes them.
+    """
+
+    with acting_as(by):
+        await post_erasure(
+            erasure_data=FLErasurePayload(email=email, reason=reason),
+            **erasure_collections(database, **replaced),
+            db=client,
+            operator=by,
+            germany_now=germany_now,
+        )
 
 
 type Snapshot = Mapping[str, Sequence[Mapping[str, Any]]]

@@ -73,7 +73,8 @@ pull is what brings the compose file and `nginx/` up to date. A run does this, i
 1. **It prunes every image no container references**, so the running build stays and the one before
    it goes. The build this run replaces stays on the host until the next deploy.
 2. **It pulls every image the tag runs with**, taking an image already on the host as it is. A pull
-   that fails refuses with the stack unchanged: a tag CI never pushed, the registry or the network.
+   that fails is a crash with the stack unchanged: a tag CI never pushed, the registry or the network,
+   which Compose answers with the same 1 as a flag it does not hold.
 3. **It starts the build and waits up to 180 seconds for every service's healthcheck**
    (`docker compose up --wait`). Compose recreates a service only where its definition or image
    moved, so a deploy moving only the application images recreates those two, and nginx keeps
@@ -87,7 +88,8 @@ pull is what brings the compose file and `nginx/` up to date. A run does this, i
    line from the master, or neither within the wait, fails the deploy, the line shown. A worker's
    line decides nothing, since a request can cause one.
 6. **It pins the tag as `TAG=` in the `.env` beside the compose file**, and names the build now live
-   and the build before it.
+   and the build before it. The pin is written to `.env.next` before the start, so a full disk or a
+   permission ends the run with the stack unchanged, and only its rename into `.env` is left here.
 
 **A healthy verdict is container health and the reload, never a page.** The frontend answers a
 static file, the backend its liveness probe, the connector holds a tunnel connection, and nginx is
@@ -95,8 +97,8 @@ running. A site whose every page errors can pass. So once the run ends:
 
 1. **Open the site.** Where it answers 502 or 1033 and the run said live, the tunnel routes
    somewhere else (below).
-2. **Read the frontend's index builds**: `docker compose logs frontend | grep auth.index_unbuilt`
-   prints nothing, or each line is [section 14](#14-the-auth-databases-indexes)'s.
+2. **In a release changing the sign-in store's indexes, read the frontend's index builds** with
+   [section 14](#14-the-auth-databases-indexes)'s command.
 
 **The tunnel's two routes name `nginx:80`.** In the Cloudflare dashboard, the tunnel's published
 application routes for `frankfurtleague.de` and `www.frankfurtleague.de` each have the service type
@@ -115,18 +117,25 @@ about and counts as no pin.
 | Ending                             | Exit      | What stands afterwards                                                                                                               |
 | ---------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | Deployed                           | 0         | The new build, pinned; the replaced build's images still on the host                                                                 |
-| Live, but the pin unwritable       | 1         | The new build; `.env` pinning the previous one, and the line to write                                                                |
+| Live, the pin unrenamed            | 1         | The new build, under this checkout's nginx configuration; `.env` pinning the previous build until the hand step is run               |
 | Failed, and went back              | 1         | The previous build's images, pinned; nginx on the configuration it had, unless the start recreated it or its reload went unconfirmed |
 | Failed, with no other build pinned | 1         | The stack as Compose left it; the pin unmoved                                                                                        |
 | Failed, and going back failed too  | 1         | The stack as Compose left it; `.env` pinning the previous build                                                                      |
 | Failed, went back, state unread    | 1         | The previous build, its services' state unknown; `.env` pinning it                                                                   |
 | Failed under `--no-rollback`       | 1         | The stack as it stands; `.env` pinning the new build                                                                                 |
-| Refused                            | 2         | The stack unchanged; unused images pruned where the run reached that                                                                 |
-| Crashed                            | 3 or more | The stack as far as the run got; its last lines name the command that failed                                                         |
+| Refused                            | 2         | The stack unchanged                                                                                                                  |
+| Crashed                            | 3 or more | The stack unchanged; unused images pruned where the run reached that                                                                 |
 | Interrupted                        | 130       | The stack as far as Compose took it; the pin unmoved, or the new build's under `--no-rollback` once started                          |
 
-**A refusal is a wrong argument, a `HEAD` git cannot read, a machine that is not Linux, a failed
-pull, or a `--no-rollback` run whose pin could not be written.** The run names which.
+**Once the start has begun, every failure before the pin goes back**: the start itself, the read of
+every service's state, `nginx -t` and the reload, each named on the run's last line. **A pin that
+could not be renamed into `.env` after the reload does not go back**: the new build is live and
+whole under the configuration nginx has just loaded, which the build before would run under. The
+run's last line says so and names the hand step, `printf 'TAG=%s\n' <tag> > .env`, without which a
+later failing run would go back to the build before. **A refusal is a wrong argument, a machine
+that is not Linux, or Docker or its Compose plugin not answering.** **A crash comes before the
+start**: a `HEAD` git cannot read, a failed pull, or a pin that could not be written, the run's last
+lines saying the stack has not changed.
 
 **Going back moves the images alone.** The compose file and `nginx/` stay as the pull left them,
 and nginx is not reloaded, so it keeps the configuration it had before the run unless the start
@@ -210,8 +219,11 @@ docker compose exec -T backend python -m app.readback
 
 On the server, from the checkout. It reads every document through its record model, writes nothing,
 prints each refused document's collection, id and error location and never a value, and exits 0 when
-every document validates, 1 when any is refused, and 2 when the database could not be read. Its last
-line counts the documents read and refused.
+every document validates, 1 when any is refused, 2 when its settings could not be loaded or the
+database could not be read, and 3 when it crashed, naming the error's type and the line that raised
+it and never its message. Its last line counts the documents read and refused; a 1 without that line
+is Python's own, a module missing from the image, say, or Compose's own, a container that is not
+running, and judged no document.
 
 **It reads only the collections `RECORD_MODELS` names**, so a collection left behind under an old
 name is read by nothing, and the new name, never written, reads as an empty collection with nothing
@@ -1357,20 +1369,31 @@ publication consents withdrawn again above.
 
 **Every production boot of the frontend builds them, and serves the site whether or not each is
 built** (`fl_frontend/src/core/authIndexes.ts :: AUTH_INDEXES`). An index the boot could not build
-is one `auth.index_unbuilt` line naming it, and only a store that did not answer is built again
-before the next boot. So after every deploy ([section 1](#1-deploying-a-build-and-going-back-to-an-earlier-one)),
-read the frontend's log for that event:
+is one `auth.index_unbuilt` line naming it, and only a line with no `code` is built again before
+the next boot, on the first heartbeat the store answers as a writable server. An index the store
+already holds builds nothing and succeeds, so a boot leaves one unbuilt only in a release changing
+the list or after an index was dropped by hand. After such a deploy
+([section 1](#1-deploying-a-build-and-going-back-to-an-earlier-one)), and after every restart below,
+read the frontend's log for that event from the container's own start, since a restart keeps the
+container and the lines it logged before:
 
 ```bash
-docker compose logs frontend | grep auth.index_unbuilt
+since="$(docker inspect -f '{{.State.StartedAt}}' "$(docker compose ps -q frontend)")"
+docker compose logs --since "$since" frontend | grep auth.index_unbuilt
 ```
 
-| The line's `code` | What stands                                                       | What to do                                                                                                                                                               |
-| ----------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `85`              | An index on the same key under another name, which keeps serving  | Give the list's entry the name the Atlas console shows, in a release                                                                                                     |
-| `11000`           | Rows sharing a value the index keeps unique; no index on that key | Group the collection on the key in the Atlas console to find them. Which row stays is a judgement about those accounts, and the next boot builds the index once one does |
-| `13`              | Nothing: the sign-in store's database user may not build an index | Grant that user `readWrite` on `auth` in the Atlas console, which carries `createIndex`, then restart the frontend (below)                                               |
-| none              | Nothing: the store did not answer the boot                        | Nothing: the frontend builds them again when the store answers, and logs `auth.index_unbuilt` again for any still refused                                                |
+**Read it once about 30 seconds have passed since that start.** Each build waits at most nine
+seconds, the client's selection, checkout and socket bounds of three seconds each
+(`fl_frontend/src/core/db.ts`), and the `session` collection's three are built one after another,
+so the boot's last line comes within about 27 seconds.
+
+| The line's `code` | What stands                                                                 | What to do                                                                                                                                                               |
+| ----------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `85`              | An index on the same key under another name, which keeps serving            | Give the list's entry the name the Atlas console shows, in a release                                                                                                     |
+| `11000`           | Rows sharing a value the index keeps unique; no index on that key           | Group the collection on the key in the Atlas console to find them. Which row stays is a judgement about those accounts, and the next boot builds the index once one does |
+| `13`              | Nothing: the sign-in store's database user may not build an index           | Grant that user `readWrite` on `auth` in the Atlas console, which carries `createIndex`, then restart the frontend (below)                                               |
+| Any other         | Nothing: the store refused it for a reason of its own, such as an election  | Restart the frontend (below), which builds it again                                                                                                                      |
+| none              | Nothing: the store did not answer, or answered slower than the client waits | Nothing: the frontend builds them again on the store's next heartbeat, and logs `auth.index_unbuilt` again for any still refused or still slow                           |
 
 **A name in the list is the one production's index carries.** Three of them — the `passkey`
 collection's unique `credentialID` and both expiry indexes — were made in the Atlas console before
@@ -1402,7 +1425,7 @@ cookie comes back. With an expiry-after of zero seconds the stored value is the 
 
 **A Better Auth release that declares an index of its own on a key the list covers throws on every
 write to that collection**, its adapter building the library's name where the list's already
-stands. The frontend's sign-in db suites build the list before each case, so such an upgrade fails
+stands. The frontend's sign-in db suites build the list for each file, so such an upgrade fails
 them before it ships; the repair is the list's entry taking the library's name.
 
 ## 15. When a sign-in code does not arrive

@@ -8,8 +8,8 @@ import type { FLAddressChangeAnswerResponse, FLAddressChangeMovesResponse } from
 
 /** The new mailbox's link, the one token the backend's lookup names the new address for. */
 const TOKEN = "tok_abc";
-const PREVIOUS = "alt@schule.de";
-const NEW = "neu@schule.de";
+const PREVIOUS = "alt@schule.example.org";
+const NEW = "neu@schule.example.org";
 const EFFECTIVE: FLAddressChangeAnswerResponse = { answer: "confirmed", effective: true, effective_from: null };
 const MOVE: FLAddressChangeMovesResponse["moves"][number] = { id: "6890a1b2c3d4e5f607260001", old: PREVIOUS, new: NEW };
 

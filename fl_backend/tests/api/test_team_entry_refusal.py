@@ -14,10 +14,11 @@ from app.api.teams.services import (
 )
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError, DocumentNotFoundError
+from app.core.exceptions import DocumentNotFoundError
 from app.shared.schemas.literals import FLSpielerStufe
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.documents import saison_document, team_document
+from tests.isolation import refused_code
 from tests.worker import worker_database
 
 # Typed as the `Literal` list `FLSaisonRules` declares: a bare `list[str]` is invariant against it.
@@ -85,15 +86,12 @@ def club_document(team_id: ObjectId, inactive_since: str | None) -> dict[str, An
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Body, *, saison_status: str = "future") -> Any:
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME) as (_, database):
-            await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, saison_status, rules=RULES.model_dump(mode="json")))
-            await database[Collection.TEAMS].insert_many([club_document(LIVE_OID, None), club_document(RETIRED_OID, "2026-03-01")])
+async def on_a_league(url: str, body: Body, *, saison_status: str = "future") -> Any:
+    async with a_clean_database(url, DATABASE_NAME) as (_, database):
+        await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, saison_status, rules=RULES.model_dump(mode="json")))
+        await database[Collection.TEAMS].insert_many([club_document(LIVE_OID, None), club_document(RETIRED_OID, "2026-03-01")])
 
-            return await body(database)
-
-    return on_the_seed_loop(_run())
+        return await body(database)
 
 
 async def enter(database: AsyncDatabase, team_id: ObjectId) -> Any:
@@ -115,20 +113,17 @@ async def junction_rows(database: AsyncDatabase) -> list[dict[str, Any]]:
 class TestEnteringAClubThroughTheEndpoint:
     """`team_retired` and the 404 beside it, against a real mongod: a refusal that exists is not a refusal that is reached."""
 
-    def test_a_retired_club_is_refused_with_the_rule_that_stopped_it(self, mongo_replica_set_url: str):
+    async def test_a_retired_club_is_refused_with_the_rule_that_stopped_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(APIError) as conflict:
-                await enter(database, RETIRED_OID)
+            return await refused_code(enter(database, RETIRED_OID)), await junction_rows(database)
 
-            return conflict.value.error_code, await junction_rows(database)
-
-        code, rows = on_a_league(mongo_replica_set_url, body)
+        code, rows = await on_a_league(mongo_replica_set_url, body)
 
         assert code == Code.TEAM_RETIRED
         # The refusal has to stop the write, not merely accompany it.
         assert rows == []
 
-    def test_a_club_no_document_names_is_a_404_and_writes_nothing(self, mongo_replica_set_url: str):
+    async def test_a_club_no_document_names_is_a_404_and_writes_nothing(self, mongo_replica_set_url: str):
         """The referential hole the club read closes: without it, the row would name a club `teams` does not hold."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -137,4 +132,4 @@ class TestEnteringAClubThroughTheEndpoint:
 
             return await junction_rows(database)
 
-        assert on_a_league(mongo_replica_set_url, body) == []
+        assert await on_a_league(mongo_replica_set_url, body) == []

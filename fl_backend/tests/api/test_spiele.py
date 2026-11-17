@@ -16,7 +16,7 @@ from app.api.spiele.schemas import (
 from app.core.collections import Collection
 from app.shared.schemas.literals import FLSonderereignis
 from tests import documents
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.payloads import spiel_patch_body
 from tests.worker import worker_database
 
@@ -33,7 +33,7 @@ def test_rejects_a_malformed_result(spiel, ergebnis):
 
 
 @pytest.mark.db
-def test_the_unplayed_filter_selects_what_the_predicate_answers(mongo_replica_set_url: str):
+async def test_the_unplayed_filter_selects_what_the_predicate_answers(mongo_replica_set_url: str):
     """Every event, with a result and without: the retirements select with the filter, and the booking rule weighs with the predicate."""
 
     cases = [(ergebnis, sonderereignis) for ergebnis in (None, "1:0") for sonderereignis in (None, *get_args(FLSonderereignis.__value__))]
@@ -64,7 +64,7 @@ def test_the_unplayed_filter_selects_what_the_predicate_answers(mongo_replica_se
     answered = {nr for nr, (ergebnis, event) in enumerate(cases) if is_unplayed(ergebnis=ergebnis, sonderereignis=event)}
 
     assert answered and len(answered) < len(cases), "the predicate answers every case alike, so agreeing with it proves nothing"
-    assert on_the_seed_loop(selected()) == answered
+    assert await selected() == answered
 
 
 class TestShootout:

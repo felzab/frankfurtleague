@@ -1,8 +1,8 @@
-import { answerTheLookup, GRANTED } from "@/test-support/authDoubles.ts";
-import { networkFailure, refusal, serveBackend, serveHost } from "@/test-support/backend.ts";
-import { cacheCalls } from "@/test-support/nextRequest.ts";
-import { signedInRequest } from "@/test-support/session.ts";
-import { captureLog } from "@/test-support/stdoutCapture.ts";
+import { answerTheLookup, GRANTED } from "@/test-support/authDoubles";
+import { networkFailure, refusal, serveBackend, serveHost } from "@/test-support/backend";
+import { cacheCalls } from "@/test-support/nextRequest";
+import { signedInRequest } from "@/test-support/session";
+import { captureLog } from "@/test-support/stdoutCapture";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -124,6 +124,8 @@ describe("the person lane", () => {
 
   it("turns away a caller with no session, logging why, before the input is read", async () => {
     await arriveAs(null);
+    // The file's visitor was signed in before the case, on a line of its own.
+    log.clear();
 
     // An input the schema refuses: read first, it would answer with the box's message.
     expect(await register({ team_id: "", saison_id: "2027" })).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });

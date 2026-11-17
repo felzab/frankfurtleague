@@ -1,4 +1,3 @@
-import asyncio
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
@@ -17,6 +16,7 @@ from app.api.registrierungen.services import (
     registrierung_was_left_unmailed,
 )
 from app.api.teams.crud import pull_saison_team_names
+from app.core.concurrency import concurrently
 from app.core.config import API_VERSION
 from app.core.crud import pull_many_from_db, pull_one_from_db
 from app.core.dependencies import RegistrierungenReadCollection, SaisonsReadCollection, SaisonTeamsReadCollection
@@ -52,7 +52,7 @@ async def get_registrierungen_admin(
     """
 
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": filters.saison_id}, projection=["_id"])
-    read, team_names = await asyncio.gather(
+    read, team_names = await concurrently(
         pull_many_from_db(
             collection=registrierungen_collection,
             db_filter={"saison_id": filters.saison_id, "status": SUBMITTED},

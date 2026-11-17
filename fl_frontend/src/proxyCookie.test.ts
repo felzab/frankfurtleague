@@ -7,7 +7,7 @@ import {
   memoryStore,
   registerAuthDoubles,
   signInByCode,
-} from "@/test-support/authDoubles.ts";
+} from "@/test-support/authDoubles";
 import { assert, describe, expect, it } from "vitest";
 
 const STORE = "__flProxyCookieStore";
@@ -25,9 +25,9 @@ registerAuthDoubles({
 });
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
-const { auth, sessionCookieOf } = await import("./core/auth/library.ts");
+const { auth, sessionCookieOf } = await import("./core/auth/library");
 const { unstable_doesMiddlewareMatch } = await import("next/experimental/testing/server.js");
-const { config } = await import("./proxy.ts");
+const { config } = await import("./proxy");
 
 const HEADERS = { host: "liga.example", "x-forwarded-proto": "https" };
 

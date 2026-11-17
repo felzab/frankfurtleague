@@ -1,24 +1,18 @@
-import asyncio
-import functools
-from collections.abc import Iterator, Mapping
+from collections.abc import AsyncIterator, Mapping
 from typing import Any
 
 import pymongo
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from httpx2 import Response
-from pymongo import MongoClient
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.main import create_app
 from tests import documents
-from tests.app_client import app_client
+from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config, grants_for_the_suite
-from tests.database import a_clean_database_sync
-
-from .conftest import unwritten
+from tests.database import held_corpus
 
 SAISON_ID = "2026"
 
@@ -56,10 +50,6 @@ BERICHT_VERSION = 3
 PUBLIC_PATH = f"/api/v{API_VERSION}/spiele/{SPIEL_ID}"
 ADMIN_PATH = f"{PUBLIC_PATH}/admin"
 
-# Joined onto `team2`, which is how a response proves it came through `build_spiele_pipeline` rather
-# than through a plain `find`.
-AUSTRITT = {"type": "disqualifikation", "reason": "Nicht angetreten zum Spieltag", "date": "2026-03-14"}
-
 
 def spiel_document() -> dict[str, Any]:
     """Every field `FLSpielJoined` requires, so a response that validates proves the whole shape rather than the fields asserted on."""
@@ -82,7 +72,9 @@ def spiel_document() -> dict[str, Any]:
 def junction_rows() -> list[dict[str, Any]]:
     return [
         documents.saison_team_document(SAISON_ID, HOME, "Alpha", "ALX"),
-        documents.saison_team_document(SAISON_ID, AWAY, "Beta", "BEX", austritt=dict(AUSTRITT)),
+        # Joined onto `team2`, which is how a response proves it came through `build_spiele_pipeline` rather
+        # than through a plain `find`.
+        documents.saison_team_document(SAISON_ID, AWAY, "Beta", "BEX", austritt=dict(documents.AUSTRITT)),
     ]
 
 
@@ -191,67 +183,50 @@ def kader_rows() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     )
 
 
-@functools.cache
-def _served() -> FastAPI:
-    """One app for every case serving through it: building one costs more than the request a case sends through it.
-
-    Built on first use rather than at import, which every xdist worker pays at collection.
-    """
-
-    return create_app(build_test_config())
+async def answered(uri: str, path: str, headers: Mapping[str, str]) -> Response:
+    async with app_client(uri, app=app_under_test()) as http:
+        with pymongo.timeout(UNANSWERED_DEADLINE_S if uri == UNANSWERED_URI else None):
+            return await http.get(path, headers=dict(headers))
 
 
-def answered(uri: str, path: str, headers: Mapping[str, str]) -> Response:
-    async def _answered() -> Response:
-        async with app_client(uri, app=_served()) as http:
-            with pymongo.timeout(UNANSWERED_DEADLINE_S if uri == UNANSWERED_URI else None):
-                return await http.get(path, headers=dict(headers))
-
-    return asyncio.run(_answered())
-
-
-# Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
+# Module-scoped: every case below reads this corpus and none writes it, which `held_corpus` keeps
 # from being left as a claim.
 @pytest.fixture(scope="module")
-def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
+async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
     """The fixture and its junction row, in the database `build_test_config` names -- the one the app resolves its collections from."""
 
     database_name = build_test_config().db_base_name
 
-    client = MongoClient(mongo_replica_set_url)
-    try:
-        with a_clean_database_sync(client, mongo_replica_set_url, database_name) as database:
-            database[Collection.GRANTS].insert_many(grants_for_the_suite())
-            # Finished, the one status that closes the editor, so the served status is this row's and no default's; a later
-            # season stored ahead of it, so a status read off whichever season comes first shows.
-            database[Collection.SAISONS].insert_many(
-                [documents.saison_document(LATER_SAISON_ID, "future"), documents.saison_document(SAISON_ID, "past")]
-            )
-            database[Collection.SPIELE].insert_one(spiel_document())
-            spiele = other_spiele()
-            database[Collection.SPIELE].insert_many(spiele)
-            database[Collection.SPIELBERICHTE].insert_many(spielberichte_rows(spiele))
-            database[Collection.SPIELBESTAETIGUNGEN].insert_many(spielbestaetigungen_rows(spiele))
-            spieler, kader = kader_rows()
-            database[Collection.SPIELER].insert_many(spieler)
-            database[Collection.SAISON_SPIELER].insert_many(kader)
-            database[Collection.SAISON_TEAMS].insert_many(junction_rows())
-            database[Collection.SPIELORTE].insert_many(
-                [
-                    spielort_row(SPIELORT_ID, "Sportplatz Ost", inactive_since="2026-04-01"),
-                    spielort_row(LIVE_SPIELORT_ID, "Halle Nord", inactive_since=None),
-                    spielort_row(RETIRED_SPIELORT_ID, "Platz West", inactive_since="2026-02-01"),
-                ]
-            )
-            database[Collection.SCHIEDSRICHTER].insert_many(schiedsrichter_rows())
+    async def seed(database: AsyncDatabase) -> None:
+        await database[Collection.GRANTS].insert_many(grants_for_the_suite())
+        # Finished, the one status that closes the editor, so the served status is this row's and no default's; a later
+        # season stored ahead of it, so a status read off whichever season comes first shows.
+        await database[Collection.SAISONS].insert_many(
+            [documents.saison_document(LATER_SAISON_ID, "future"), documents.saison_document(SAISON_ID, "past")]
+        )
+        await database[Collection.SPIELE].insert_one(spiel_document())
+        spiele = other_spiele()
+        await database[Collection.SPIELE].insert_many(spiele)
+        await database[Collection.SPIELBERICHTE].insert_many(spielberichte_rows(spiele))
+        await database[Collection.SPIELBESTAETIGUNGEN].insert_many(spielbestaetigungen_rows(spiele))
+        spieler, kader = kader_rows()
+        await database[Collection.SPIELER].insert_many(spieler)
+        await database[Collection.SAISON_SPIELER].insert_many(kader)
+        await database[Collection.SAISON_TEAMS].insert_many(junction_rows())
+        await database[Collection.SPIELORTE].insert_many(
+            [
+                spielort_row(SPIELORT_ID, "Sportplatz Ost", inactive_since="2026-04-01"),
+                spielort_row(LIVE_SPIELORT_ID, "Halle Nord", inactive_since=None),
+                spielort_row(RETIRED_SPIELORT_ID, "Platz West", inactive_since="2026-02-01"),
+            ]
+        )
+        await database[Collection.SCHIEDSRICHTER].insert_many(schiedsrichter_rows())
 
-            with unwritten(mongo_replica_set_url, database_name):
-                yield mongo_replica_set_url
-    finally:
-        client.close()
+    async with held_corpus(mongo_replica_set_url, database_name, seed):
+        yield mongo_replica_set_url
 
 
-def test_a_malformed_id_is_a_404_on_the_admin_path_too():
+async def test_a_malformed_id_is_a_404_on_the_admin_path_too():
     """`by_id`, not a bare `{spiel_id}`: the convertor is what keeps a malformed path id off the 422 a query id gets.
 
     One id shows the path carries the convertor; which ids are malformed is `tests/api/test_malformed_ids.py`'s.
@@ -259,14 +234,14 @@ def test_a_malformed_id_is_a_404_on_the_admin_path_too():
 
     path = f"/api/v{API_VERSION}/spiele/not-an-id/admin"
 
-    assert answered(UNANSWERED_URI, path, ADMIN_AUTH).status_code == 404
+    assert (await answered(UNANSWERED_URI, path, ADMIN_AUTH)).status_code == 404
 
 
 @pytest.mark.db
-def test_the_admin_key_gets_the_spiel_with_the_rent_and_the_payment(seeded_url: str):
+async def test_the_admin_key_gets_the_spiel_with_the_rent_and_the_payment(seeded_url: str):
     """The endpoint's whole point: the two figures the editor round-trips arrive, joined as the public read's shape joins them."""
 
-    response = answered(seeded_url, ADMIN_PATH, ADMIN_AUTH)
+    response = await answered(seeded_url, ADMIN_PATH, ADMIN_AUTH)
 
     assert response.status_code == 200
     spiel = response.json()["spiel"]
@@ -275,14 +250,14 @@ def test_the_admin_key_gets_the_spiel_with_the_rent_and_the_payment(seeded_url: 
     assert spiel["schiedsrichter"]["payment"] == PAYMENT
     # The joined field, which only `build_spiele_pipeline` produces. The route out and not the
     # record: the reason is free text about a school, and only a club's own page renders it.
-    assert spiel["team2"]["austritt_type"] == AUSTRITT["type"]
+    assert spiel["team2"]["austritt_type"] == documents.AUSTRITT["type"]
     assert spiel["team1"]["austritt_type"] is None
     # The season's status, read off the fixture's own season, which closes the editor once past.
     assert response.json()["saison_status"] == "past"
 
 
 @pytest.mark.db
-def test_the_editor_offers_the_live_rows_and_the_ones_the_spiel_books(seeded_url: str):
+async def test_the_editor_offers_the_live_rows_and_the_ones_the_spiel_books(seeded_url: str):
     """Offering a retired row the fixture does not book puts a booking on the editor the save then refuses.
 
     The fixture's own retired venue and referee stay offered, so the booking keeps its name; the unconfirmed referee is
@@ -290,7 +265,7 @@ def test_the_editor_offers_the_live_rows_and_the_ones_the_spiel_books(seeded_url
     again, so the administrator waiting on their answer waits for good.
     """
 
-    answer = answered(seeded_url, ADMIN_PATH, ADMIN_AUTH).json()
+    answer = (await answered(seeded_url, ADMIN_PATH, ADMIN_AUTH)).json()
 
     assert [(row["name"], row["inactive_since"]) for row in answer["spielorte"]] == [("Halle Nord", None), ("Sportplatz Ost", "2026-04-01")]
     assert [(row["name"], row["confirmed"], row["declined"], row["inactive_since"]) for row in answer["schiedsrichter"]] == [
@@ -306,14 +281,14 @@ def _editor_path(spiel_id: ObjectId) -> str:
 
 
 @pytest.mark.db
-def test_the_report_panel_shows_this_fixtures_report_by_its_stored_version_and_its_named_scorers(seeded_url: str):
+async def test_the_report_panel_shows_this_fixtures_report_by_its_stored_version_and_its_named_scorers(seeded_url: str):
     """The version is the one an adoption names: served stale, every adoption would be refused.
 
     The state is the adoption's against the saved 2:1, and only the scorers are named: the pupil on the home squad by
     their squad row, the one on neither squad by their record, never the pupil a card alone names.
     """
 
-    response = answered(seeded_url, _editor_path(BERICHT_SPIEL_ID), ADMIN_AUTH)
+    response = await answered(seeded_url, _editor_path(BERICHT_SPIEL_ID), ADMIN_AUTH)
 
     assert response.status_code == 200, response.text
     assert response.json()["spielbericht"] == {
@@ -334,19 +309,19 @@ def test_the_report_panel_shows_this_fixtures_report_by_its_stored_version_and_i
 
 
 @pytest.mark.db
-def test_the_editor_lists_this_fixtures_confirmation_rows_alone(seeded_url: str):
+async def test_the_editor_lists_this_fixtures_confirmation_rows_alone(seeded_url: str):
     """Another fixture of the season holds a row too, stored first."""
 
-    answer = answered(seeded_url, _editor_path(BERICHT_SPIEL_ID), ADMIN_AUTH).json()
+    answer = (await answered(seeded_url, _editor_path(BERICHT_SPIEL_ID), ADMIN_AUTH)).json()
 
     assert [row["id"] for row in answer["spielbestaetigungen"]] == [str(BERICHT_CONFIRMATION_ID)]
 
 
 @pytest.mark.db
-def test_a_fixture_booking_nobody_opens_with_its_fee(seeded_url: str):
+async def test_a_fixture_booking_nobody_opens_with_its_fee(seeded_url: str):
     """Every fixture an erased referee officiated opens this way: the editor keeps the fee by sending the booking back."""
 
-    response = answered(seeded_url, _editor_path(NAMELESS_SPIEL_ID), ADMIN_AUTH)
+    response = await answered(seeded_url, _editor_path(NAMELESS_SPIEL_ID), ADMIN_AUTH)
 
     assert response.status_code == 200, response.text
     assert response.json()["spiel"]["schiedsrichter"] == {"schiedsrichter_id": None, "name": None, "payment": PAYMENT}

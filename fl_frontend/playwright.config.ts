@@ -18,13 +18,12 @@
  */
 import { defineConfig, devices } from "@playwright/test";
 
+import { nameOf, PEOPLE } from "./e2e/support/madeUpLeague";
+
 import type { JourneyOptions } from "./e2e/support/journey";
 
-/**
- * The local `AUTH_URL` (`docker-compose.local.yml`), which is also the passkeys' relying party, `localhost`, unless
- * `E2E_BASE_URL` names the origin a stack serves at.
- */
-const BASE_URL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
+/** The end-to-end stack's `AUTH_URL`, whose host is also the passkeys' relying party. */
+const BASE_URL = "http://localhost:3000";
 
 /**
  * The journeys every viewport runs: each spec at the top of `e2e/`, and each project's own folder holds the rest.
@@ -38,6 +37,31 @@ const BASE_URL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
  * reads the Verwaltung under the session the `administrator` project below sets up in Chromium.
  */
 const EVERY_PROJECT = "e2e/*.spec.ts";
+
+/** What a project's journeys type into the forms themselves: two new schools, and the kit colour the editor saves. */
+type Typed = { accepted: string; objected: string; colour: string };
+
+/** A project's options: its people, clubs, fixtures and link as the seed writes them, beside what its journeys type. */
+function optionsOf(project: typeof PEOPLE.projects.desktop, { accepted, objected, colour }: Typed): JourneyOptions {
+  return {
+    administrator: project.administrator,
+    twoDevices: project.twoDevices.address,
+    mover: project.mover.address,
+    leaver: project.leaver.address,
+    applicants: { accepted, declined: project.applicants.declined, objected },
+    departing: project.departing,
+    entered: { club: project.entered.club, colour },
+    squadded: project.squadded,
+    contact: {
+      address: project.contact.trainer.address,
+      club: project.contact.club,
+      fixture: project.contact.fixture,
+      pupil: nameOf(project.contact.pupil),
+    },
+    registering: { club: project.registering.club, token: project.registering.token, admitter: project.registering.admitter.address },
+    booked: { address: project.booked.referee.address, played: project.booked.played, coming: project.booked.coming },
+  };
+}
 
 export default defineConfig<JourneyOptions>({
   testDir: "./e2e",
@@ -71,17 +95,7 @@ export default defineConfig<JourneyOptions>({
       testMatch: [EVERY_PROJECT, "desktop/**/*.spec.ts"],
       use: {
         ...devices["Desktop Chrome"],
-        administrator: "admin.desktop@example.com",
-        twoDevices: "frieda.falk@example.com",
-        mover: "clara.kranz@example.com",
-        leaver: "hanna.hahn@example.com",
-        applicants: { accepted: "Zeder", declined: "Ahorn", objected: "Buche" },
-        departing: { club: "Linde", fixture: "Birke vs. Linde" },
-        entered: { club: "Kastanie", colour: "Grau" },
-        squadded: "Jonas",
-        contact: { address: "achim.aust@example.com", club: "Ahorn", fixture: "Ahorn vs. Eiche", pupil: "Hedda Holm" },
-        registering: { club: "Kastanie", token: "made-up-kastanie-invitation", admitter: "katja.kraus@example.com" },
-        booked: { address: "selma.seidel@example.com", played: "Eiche vs. Ulme", coming: "Ahorn vs. Eiche" },
+        ...optionsOf(PEOPLE.projects.desktop, { accepted: "Zeder", objected: "Buche", colour: "Grau" }),
       },
     },
     {
@@ -91,17 +105,9 @@ export default defineConfig<JourneyOptions>({
       // The profile `playwright open --mobile` takes in WebKit, Playwright's newest iPhone.
       use: {
         ...devices["iPhone 17"],
-        administrator: "admin.telefon@example.com",
-        twoDevices: "gustav.gerber@example.com",
-        mover: "dora.dahl@example.com",
-        leaver: "ingo.imhof@example.com",
-        applicants: { accepted: "Tanne", declined: "Birke", objected: "Fichte" },
-        departing: { club: "Esche", fixture: "Esche vs. Birke" },
-        entered: { club: "Weide", colour: "Bordeaux" },
-        squadded: "Lena",
-        contact: { address: "uta.uhlig@example.com", club: "Ulme", fixture: "Ulme vs. Kastanie", pupil: "Juna Jost" },
-        registering: { club: "Eiche", token: "made-up-eiche-invitation", admitter: "edgar.eckert@example.com" },
-        booked: { address: "tobias.thiel@example.com", played: "Ulme vs. Ahorn", coming: "Ulme vs. Kastanie" },
+        // Playwright starts Windows WebKit without accelerated compositing, under which a view transition crashes it.
+        launchOptions: { ignoreDefaultArgs: ["--disable-accelerated-compositing"] },
+        ...optionsOf(PEOPLE.projects.phone, { accepted: "Tanne", objected: "Fichte", colour: "Bordeaux" }),
       },
     },
     // Its cases wait for the scheduler's first pass themselves, so CI's desktop leg runs it beside `desktop`.
@@ -110,28 +116,6 @@ export default defineConfig<JourneyOptions>({
       dependencies: ["administrator"],
       testMatch: "first-pass/**/*.spec.ts",
       use: devices["Desktop Chrome"],
-    },
-    // The sessions the layout guard reads a pupil's, a referee's and a team contact's pages under, each signed in once a run.
-    {
-      name: "layout-sessions",
-      testMatch: "layout/sessions.setup.ts",
-      use: devices["Desktop Chrome"],
-    },
-    // The layout-shift guard: Chromium at both of its widths, since WebKit reports no layout shift. CI runs it on stacks
-    // of its own, since its landing's cases run again under each state the database is re-seeded in.
-    {
-      name: "layout",
-      dependencies: ["administrator", "layout-sessions"],
-      testMatch: "layout/**/*.spec.ts",
-      // Each case its own unit, so CI's `--shard` splits the guard's one file by case rather than handing it whole to one
-      // shard. Its cases only read, so a case may run on any stack; under the one worker they still run in file order.
-      fullyParallel: true,
-      use: {
-        ...devices["Desktop Chrome"],
-        // The track the root always keeps, as a desktop browser draws it: headless Chromium is launched with
-        // `--hide-scrollbars`, which leaves a track of 0 px, and the launch option filters that one argument out.
-        launchOptions: { ignoreDefaultArgs: ["--hide-scrollbars"] },
-      },
     },
   ],
 });

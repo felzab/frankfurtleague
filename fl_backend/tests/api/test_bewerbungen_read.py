@@ -11,7 +11,7 @@ from app.api.outbox.schemas import FLOutboxStatus
 from app.core.collections import Collection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from tests import documents
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.documents import confirmed_kenntnisnahme
 from tests.worker import worker_database
 
@@ -23,8 +23,8 @@ BEWERBUNG_ID = "6890a1b2c3d4e5f60793{:04d}"
 KONTAKTPERSON = {
     "first_name": "Anke",
     "last_name": "Koerner",
-    "email": "a.koerner@example.de",
-    "phone": "+49 170 1234567",
+    "email": "a.koerner@example.net",
+    "phone": "+49 171 3920000",
     "birth_date": "1984-05-09",
     "einwilligung": confirmed_kenntnisnahme(),
 }
@@ -54,7 +54,7 @@ def bewerbung_document(
         schule=None
         if team_id is not None
         else documents.new_schule_document(
-            f"Schule {index}", full_name=f"Schule {index} Gesamtschule", schulform="gesamtschule", website_url="https://example.de"
+            f"Schule {index}", full_name=f"Schule {index} Gesamtschule", schulform="gesamtschule", website_url="https://example.net"
         ),
         trikot={"existing_set": "16 rote Trikots", "wunschfarbe": "rot"},
     )
@@ -118,7 +118,7 @@ async def view_one(database: Any, bewerbung_id: ObjectId) -> Any:
 class TestTheReviewPagesRead:
     pytestmark = pytest.mark.db
 
-    def test_it_says_what_the_list_says_of_a_duplicate(self, mongo_replica_set_url: str):
+    async def test_it_says_what_the_list_says_of_a_duplicate(self, mongo_replica_set_url: str):
         """A row's one chip can hide the Dublette, so this read is where an administrator deciding on it learns of the collision."""
 
         async def read(database: Any) -> Any:
@@ -127,7 +127,7 @@ class TestTheReviewPagesRead:
                 row.id: (await view_one(database, row.id)).duplicate for row in listed.bewerbungen
             }
 
-        listed, reviewed = on_the_seed_loop(on_the_view_corpus(mongo_replica_set_url, read))
+        listed, reviewed = await on_the_view_corpus(mongo_replica_set_url, read)
 
         assert (
             reviewed
@@ -141,16 +141,16 @@ class TestTheSeasonsListRead:
 
     pytestmark = pytest.mark.db
 
-    def test_a_row_holds_the_list_and_nobody_s_details(self, mongo_replica_set_url: str):
+    async def test_a_row_holds_the_list_and_nobody_s_details(self, mongo_replica_set_url: str):
         """The list shows counts, so an address here is personal data served to a page that never shows it."""
 
-        answered = on_the_seed_loop(on_the_view_corpus(mongo_replica_set_url, view_list))
+        answered = await on_the_view_corpus(mongo_replica_set_url, view_list)
 
         assert KONTAKTPERSON["email"] not in answered.model_dump_json()
         assert {row.name for row in answered.bewerbungen} == {"Adlerhorst", f"Schule {NEW_SCHOOL}"}
         assert [row.new_school for row in answered.bewerbungen if row.id == ObjectId(BEWERBUNG_ID.format(NEW_SCHOOL))] == [True]
 
-    def test_a_row_says_it_holds_a_seat_never_mailed(self, mongo_replica_set_url: str):
+    async def test_a_row_says_it_holds_a_seat_never_mailed(self, mongo_replica_set_url: str):
         """The sweep erases that application on its day, so the list must say so; a seat an erasure cleared and a decided row ask nothing."""
 
         def row_id(index: int) -> ObjectId:
@@ -165,11 +165,11 @@ class TestTheSeasonsListRead:
                 await database[Collection.BEWERBUNGEN].update_one({"_id": row_id(index)}, {"$set": update})
             return await view_list(database)
 
-        served = {row.id: row.unmailed for row in on_the_seed_loop(on_the_view_corpus(mongo_replica_set_url, read)).bewerbungen}
+        served = {row.id: row.unmailed for row in (await on_the_view_corpus(mongo_replica_set_url, read)).bewerbungen}
 
         assert served == {row_id(PICKED): True, row_id(ALSO_PICKED): False, row_id(NEW_SCHOOL): False, row_id(DECLINED): False}
 
-    def test_a_flood_past_the_cap_says_it_is_cut_and_cuts_no_confirmed_row(self, mongo_replica_set_url: str):
+    async def test_a_flood_past_the_cap_says_it_is_cut_and_cuts_no_confirmed_row(self, mongo_replica_set_url: str):
         """The queue an anonymous form can flood: served short rather than refused, saying so, and with the season's confirmed rows."""
 
         flood = range(1, LIST_LIMIT_DEFAULT + 2)
@@ -183,17 +183,17 @@ class TestTheSeasonsListRead:
             )
             return await view_list(database)
 
-        answered = on_the_seed_loop(on_the_view_corpus(mongo_replica_set_url, read))
+        answered = await on_the_view_corpus(mongo_replica_set_url, read)
         served = [row.id for row in answered.bewerbungen]
 
         assert answered.complete is False
         assert ObjectId(BEWERBUNG_ID.format(flood[0])) not in served
         assert served[LIST_LIMIT_DEFAULT:] == [ObjectId(BEWERBUNG_ID.format(index)) for index in (DECLINED, NEW_SCHOOL, ALSO_PICKED, PICKED)]
 
-    def test_the_offer_marks_the_group_an_acceptance_would_be_refused_on(self, mongo_replica_set_url: str):
+    async def test_the_offer_marks_the_group_an_acceptance_would_be_refused_on(self, mongo_replica_set_url: str):
         """The dialog's greyed entry and `entry_gruppe_full` read one bound, so a page offers nothing the write refuses."""
 
-        offer = on_the_seed_loop(on_the_view_corpus(mongo_replica_set_url, view_list)).saison
+        offer = (await on_the_view_corpus(mongo_replica_set_url, view_list)).saison
 
         assert (offer.status, [(row.gruppe, row.free) for row in offer.gruppen]) == ("future", [("A", 0), ("B", 2)])
         # The boxes the dialog disables, which `trikot_farbe_taken` would refuse: a row holding no colour takes none.

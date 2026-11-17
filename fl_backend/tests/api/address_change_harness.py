@@ -7,12 +7,12 @@ what it changes: the address, the instant, the actor.
 
 import inspect
 from collections.abc import Awaitable, Callable, Mapping
+from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
-import pytest
 from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
@@ -35,16 +35,17 @@ from app.api.address_change.schemas import (
 from app.api.address_change.system_router import sweep_address_change
 from app.api.outbox.system_router import post_handout
 from app.core.collections import Collection
-from app.core.exceptions import APIError
-from app.core.recording import actor_var
 from app.shared.schemas.bounds import ADDRESS_CHANGE_WAITING_PERIOD_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
 from tests import documents
-from tests.config import ADMINISTRATORS, build_test_config, grants_for_the_suite
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.acts import acting_as
+from tests.config import ADMINISTRATORS, GRANTED_FROM, build_test_config, grants_for_the_suite
+from tests.database import a_clean_database
+from tests.handles import wired
 from tests.outbox import claimable
 from tests.records import record_collections
 from tests.session_headers import verified_actor
+from tests.stored import the_row
 
 SAISON_ID = "2026"
 # A century ahead of the real clock: the TTL monitor deletes an expired tombstone or day's count at its next pass,
@@ -208,22 +209,19 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def on_a_person(
+async def on_a_person(
     url: str, database_name: str, body: Body, *, pupil: bool = True, records: bool = True, stores_a_refused_shape: str | None = None
 ) -> Any:
-    async def _run() -> Any:
-        async with a_clean_database(url, database_name, constraints=True, stores_a_refused_shape=stores_a_refused_shape) as (client, database):
-            await _seed(database, pupil=pupil, records=records)
-            return await body(database, client)
-
-    return on_the_seed_loop(_run())
+    async with a_clean_database(url, database_name, constraints=True, stores_a_refused_shape=stores_a_refused_shape) as (client, database):
+        await _seed(database, pupil=pupil, records=records)
+        return await body(database, client)
 
 
 async def granted(database: AsyncDatabase, address: str = EMAIL, *, admin_tier: str = "administration") -> ObjectId:
     """A grant at `address`, written as a hand-written grant is, before the clock's first sight of it."""
 
     grant_id = ObjectId()
-    await database[Collection.GRANTS].insert_one({**grants_for_the_suite()[1], "_id": grant_id, "address": address, "admin_tier": admin_tier})
+    await database[Collection.GRANTS].insert_one(documents.grant_document(address, admin_tier, effective_from=GRANTED_FROM, _id=grant_id))
 
     return grant_id
 
@@ -236,12 +234,13 @@ def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, client
     """
 
     supplied: dict[str, Any] = {}
+    handles = wired(handler, database)
     parameters = inspect.signature(handler).parameters
     for name in parameters:
         if name in given:
             supplied[name] = given[name]
         elif name.endswith("_collection"):
-            supplied[name] = database[Collection[name.removesuffix("_collection").upper()]]
+            supplied[name] = handles[name]
         elif name == "records":
             supplied[name] = record_collections(database)
         elif name == "db":
@@ -259,17 +258,14 @@ def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, client
             supplied[name] = verified_actor(given.get("operator", ADMIN) if "operator" in parameters else EMAIL)
 
     async def as_its_route_binds_it() -> Any:
-        token = actor_var.set(supplied["operator"]) if "operator" in supplied else None
-        try:
+        # A person's handler names no operator, and its route binds no administrator.
+        with acting_as(supplied["operator"]) if "operator" in supplied else nullcontext():
             if "session" in parameters and "session" not in given:
                 # The request's snapshot session (`app/core/dependencies.py :: SnapshotSession`), open for the handler's run.
                 async with client.start_session(snapshot=True) as session:
                     return await handler(**supplied, session=session)
 
             return await handler(**supplied)
-        finally:
-            if token is not None:
-                actor_var.reset(token)
 
     return as_its_route_binds_it()
 
@@ -406,22 +402,8 @@ def sweep(database: AsyncDatabase, client: AsyncMongoClient, *, after: Any = Non
     return call(sweep_address_change, database, client, params=FLAddressChangeSweepParams(after=after), **given)
 
 
-async def refused_code(call: Awaitable[Any]) -> str:
-    with pytest.raises(APIError) as refused:
-        await call
-
-    return refused.value.error_code
-
-
-async def row(database: AsyncDatabase, collection: Collection, row_id: ObjectId) -> Mapping[str, Any]:
-    found = await database[collection].find_one({"_id": row_id})
-    assert found is not None, f"the {collection} row this case seeded is gone"
-
-    return found
-
-
 async def change(database: AsyncDatabase, address_change_id: ObjectId) -> Mapping[str, Any]:
-    return await row(database, Collection.ADDRESS_CHANGES, address_change_id)
+    return await the_row(database, Collection.ADDRESS_CHANGES, address_change_id)
 
 
 async def owed(database: AsyncDatabase) -> list[dict[str, Any]]:
@@ -452,13 +434,13 @@ async def everything(database: AsyncDatabase) -> dict[str, Mapping[str, Any]]:
     """Every record the seed wrote for the person, by what it is."""
 
     return {
-        "pupil": await row(database, Collection.SPIELER, SPIELER_OID),
-        "referee": await row(database, Collection.SCHIEDSRICHTER, REFEREE_OID),
-        "unconfirmed referee": await row(database, Collection.SCHIEDSRICHTER, UNCONFIRMED_REFEREE_OID),
-        "season row": await row(database, Collection.SAISON_TEAMS, ROW_OID),
-        "confirmation": await row(database, Collection.SPIELBESTAETIGUNGEN, CONFIRMATION_OID),
-        "pending application": await row(database, Collection.BEWERBUNGEN, PENDING_OID),
-        "accepted application": await row(database, Collection.BEWERBUNGEN, ACCEPTED_OID),
-        "confirmed registration": await row(database, Collection.REGISTRIERUNGEN, CONFIRMED_REG_OID),
-        "unconfirmed registration": await row(database, Collection.REGISTRIERUNGEN, UNCONFIRMED_REG_OID),
+        "pupil": await the_row(database, Collection.SPIELER, SPIELER_OID),
+        "referee": await the_row(database, Collection.SCHIEDSRICHTER, REFEREE_OID),
+        "unconfirmed referee": await the_row(database, Collection.SCHIEDSRICHTER, UNCONFIRMED_REFEREE_OID),
+        "season row": await the_row(database, Collection.SAISON_TEAMS, ROW_OID),
+        "confirmation": await the_row(database, Collection.SPIELBESTAETIGUNGEN, CONFIRMATION_OID),
+        "pending application": await the_row(database, Collection.BEWERBUNGEN, PENDING_OID),
+        "accepted application": await the_row(database, Collection.BEWERBUNGEN, ACCEPTED_OID),
+        "confirmed registration": await the_row(database, Collection.REGISTRIERUNGEN, CONFIRMED_REG_OID),
+        "unconfirmed registration": await the_row(database, Collection.REGISTRIERUNGEN, UNCONFIRMED_REG_OID),
     }

@@ -21,7 +21,7 @@ from app.core.collections import Collection
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests import documents
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.outbox import MAIL_NOW
 from tests.worker import worker_database
 
@@ -82,48 +82,45 @@ async def decline(database: AsyncDatabase, client: AsyncMongoClient) -> None:
 Press = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[None]]
 
 
-def pressed_then_saved(url: str, press: Press) -> dict[str, Any]:
+async def pressed_then_saved(url: str, press: Press) -> dict[str, Any]:
     """The row after the person's press and then the editor's save of a new school on the version served before it."""
 
-    async def _run() -> dict[str, Any]:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            await database[Collection.SCHIEDSRICHTER].insert_one(referee_document())
-            await press(database, client)
-            await patch_schiedsrichter(
-                schiedsrichter_id=SCHIEDSRICHTER_OID,
-                schiedsrichter_data=FLPatchSchiedsrichterPayload.model_validate(
-                    {
-                        "name": "Pierluigi Collina",
-                        "schule": "Carl-Schurz-Schule",
-                        "default_payment": 20,
-                        "kontakt": {"phone": "+49 69 5550202", "email": EMAIL},
-                        "version": SERVED_VERSION,
-                    }
-                ),
-                schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                outbox_collection=database[Collection.OUTBOX],
-                db=client,
-                today=TODAY,
-                now=MAIL_NOW,
-            )
-            row = await database[Collection.SCHIEDSRICHTER].find_one({"_id": SCHIEDSRICHTER_OID})
-            assert row is not None
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+        await database[Collection.SCHIEDSRICHTER].insert_one(referee_document())
+        await press(database, client)
+        await patch_schiedsrichter(
+            schiedsrichter_id=SCHIEDSRICHTER_OID,
+            schiedsrichter_data=FLPatchSchiedsrichterPayload.model_validate(
+                {
+                    "name": "Pierluigi Collina",
+                    "schule": "Carl-Schurz-Schule",
+                    "default_payment": 20,
+                    "kontakt": {"phone": "+49 69 90009202", "email": EMAIL},
+                    "version": SERVED_VERSION,
+                }
+            ),
+            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+            outbox_collection=database[Collection.OUTBOX],
+            db=client,
+            today=TODAY,
+            now=MAIL_NOW,
+        )
+        row = await database[Collection.SCHIEDSRICHTER].find_one({"_id": SCHIEDSRICHTER_OID})
+        assert row is not None
 
-            return row
-
-    return on_the_seed_loop(_run())
+        return row
 
 
 class TestTheEditorsSaveLandsOverTheAnswer:
-    def test_a_confirmation_stands_beside_the_save(self, mongo_replica_set_url: str):
-        row = pressed_then_saved(mongo_replica_set_url, confirm)
+    async def test_a_confirmation_stands_beside_the_save(self, mongo_replica_set_url: str):
+        row = await pressed_then_saved(mongo_replica_set_url, confirm)
 
         assert row["schule"] == "Carl-Schurz-Schule"
         assert (row["birth_date"], row["einwilligung"]["confirmed_at"], row["einwilligung"]["media"]) == (BIRTH_DATE, TODAY, True)
         assert "erase_at" not in row
 
-    def test_an_objection_stands_beside_the_save(self, mongo_replica_set_url: str):
-        row = pressed_then_saved(mongo_replica_set_url, decline)
+    async def test_an_objection_stands_beside_the_save(self, mongo_replica_set_url: str):
+        row = await pressed_then_saved(mongo_replica_set_url, decline)
 
         assert row["schule"] == "Carl-Schurz-Schule"
         assert row["confirmation"]["declined_at"] == TODAY

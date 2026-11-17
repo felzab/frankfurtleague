@@ -1,17 +1,10 @@
-# Enforce Linux line endings for all text files
+# LF in every text file, committed and checked out: a CR fails a shell script on the Linux server.
 * text=auto eol=lf
-
-# Keep Windows line endings only for Windows-specific scripts
-*.bat text eol=crlf
-*.cmd text eol=crlf
 
 # Binary, declared rather than detected. `text=auto` guesses from content, and a tool that rewrites
 # one of these as text silently strips every CR -- which truncates a PNG at its own signature.
 *.png binary
 *.ico binary
-*.woff binary
-*.woff2 binary
-*.pdf binary
 
 # Written by `pnpm patch-commit`, never by hand. A unified diff spells an empty context line as one
 # space, which is the format's own content and no whitespace error.

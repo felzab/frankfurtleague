@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Final
 
 import pytest
-from conftest import BASH, REPO_ROOT, base_env, import_scripts, new_root, run_shell, write_shell
+from conftest import BASH, REPO_ROOT, base_env, import_scripts, new_root, run_bounded, run_shell, write_shell
 
 [checker] = import_scripts("check_compose_model")
 
@@ -59,7 +59,7 @@ def test_a_port_compose_did_not_expand_refuses():
     """A short-syntax string means the input is not a rendered model, which is a refusal, not a pass."""
     try:
         checker.local(model(mongo={"ports": ["27017:27017"]}), "l")
-    except ValueError:
+    except checker.NotRendered:
         return
     raise AssertionError("a short-syntax port was judged")
 
@@ -67,7 +67,7 @@ def test_a_port_compose_did_not_expand_refuses():
 def test_a_document_without_services_refuses():
     try:
         checker.production({"name": "x"}, "p")
-    except ValueError:
+    except checker.NotRendered:
         return
     raise AssertionError("a model with no services was judged")
 
@@ -116,7 +116,7 @@ def test_an_edge_mounting_nothing_from_the_checkout_fails():
 def test_a_short_syntax_volume_refuses():
     try:
         checker.edge_mounts(model(nginx={"volumes": ["./nginx/prod:/etc/nginx/conf.d:ro"]}), "p", PROJECT, checkout())
-    except ValueError:
+    except checker.NotRendered:
         return
     raise AssertionError("a short-syntax volume was judged")
 
@@ -252,24 +252,27 @@ def declared_secrets(project: Path, stack: str, **moved: str) -> dict[str, Any]:
     return {"secrets": {secret: {"file": str(project / source)} for secret, source in files.items()}}
 
 
-# The checker and the one module it imports, at their paths in a checkout.
-CHECKER_FILES: Final = ("scripts/checks/check_compose_model.py", "scripts/lib/checker_kernel.py")
+# The checker and the two modules it imports, at their paths in a checkout.
+CHECKER_FILES: Final = ("scripts/checks/check_compose_model.py", "scripts/lib/checker_kernel.py", "scripts/lib/nginx_conf.py")
 
 
-def run_main(production: dict[str, Any], local: dict[str, Any], project: Path) -> subprocess.CompletedProcess[str]:
-    """The checker run as the gate runs it, as its own process, over two rendered models beside `project`.
+def run_main(
+    production: dict[str, Any], local: dict[str, Any], project: Path, e2e: dict[str, Any] | None = None
+) -> subprocess.CompletedProcess[str]:
+    """The checker run as the gate runs it, over three rendered models beside `project`.
 
     It reads the edge's directories from the checkout it sits in, so `project` holds the checker too,
-    and is the checkout their edges mount as well as the directory Compose rendered them in.
+    and is the checkout their edges mount as well as the directory Compose rendered them in. The
+    end-to-end model is the local one where a case gives none, as the end-to-end file publishes nothing of its own.
     """
     for rel in CHECKER_FILES:
         (project / rel).parent.mkdir(parents=True, exist_ok=True)
         (project / rel).write_bytes((REPO_ROOT / rel).read_bytes())
-    for name, rendered in (("production.json", production), ("local.json", local)):
+    models = (("production.json", production), ("local.json", local), ("e2e.json", local if e2e is None else e2e))
+    for name, rendered in models:
         (project / name).write_bytes(json.dumps(rendered).encode())
-    command = (sys.executable, str(project / CHECKER_FILES[0]), str(project / "production.json"), str(project / "local.json"))
-    # Its own encoding, not the machine's: the checker's streams are utf-8 whatever the codepage.
-    return subprocess.run(command, capture_output=True, encoding="utf-8", errors="replace", check=False)
+    command = (sys.executable, str(project / CHECKER_FILES[0]), *(str(project / name) for name, _ in models))
+    return run_bounded(command)
 
 
 def failures(done: subprocess.CompletedProcess[str]) -> list[str]:
@@ -292,7 +295,20 @@ def test_a_clean_pair_exits_zero():
     done = run_main(*clean_pair(project), project)
 
     assert done.returncode == 0, done.stdout + done.stderr
-    assert "production publishes nothing and runs 4 services; locally every port binds loopback" in done.stdout, done.stdout
+    assert "production publishes nothing and runs 4 services; both local stacks bind loopback alone" in done.stdout, done.stdout
+
+
+def test_an_end_to_end_stack_publishing_off_loopback_fails_the_run():
+    """The end-to-end file can override a port the local stack binds to loopback, and its database asks no login either."""
+    project = new_root("fl-compose-main-")
+    production, local = clean_pair(project)
+    e2e = json.loads(json.dumps(local))
+    e2e["services"]["nginx"]["ports"] = [port("3000", 80)]
+
+    done = run_main(production, local, project, e2e)
+
+    assert done.returncode == 1, done.stdout + done.stderr
+    assert failures(done) == ["FAIL    e2e: nginx publishes 3000->80 on every interface"], done.stdout
 
 
 @pytest.mark.parametrize("failing", ["production", "local"])
@@ -319,7 +335,37 @@ def test_a_model_compose_did_not_render_exits_two():
 
     assert done.returncode == checker.EXIT_REFUSED, done.stdout + done.stderr
     assert "local: mongo has a port Compose did not expand, so this is not its rendered model" in done.stderr, done.stderr
-    assert "Nothing was judged, so this is a refusal rather than a verdict on either stack." in done.stderr, done.stderr
+    assert "Nothing was judged, so this is a refusal rather than a verdict on any stack." in done.stderr, done.stderr
+
+
+def test_a_rendered_model_without_an_edge_or_a_pinned_connector_fails_the_run():
+    """Each is a model Compose rendered, so a change dropping the service or the address is a finding, never a refusal."""
+    project = new_root("fl-compose-main-")
+    production, local = clean_pair(project)
+    del local["services"]["nginx"]
+    # Replaced, not edited: the rendered connector shares `CONNECTED`'s mapping.
+    production["services"]["cloudflared"]["networks"] = {EDGE: None}
+
+    done = run_main(production, local, project)
+
+    assert done.returncode == 1, done.stdout + done.stderr
+    assert "FAIL    local: no nginx service, so it serves none of this checkout's edge" in failures(done), done.stdout
+    assert "FAIL    production: cloudflared has 0 static addresses, not one, so neither edge's trust in it was compared" in failures(done), (
+        done.stdout
+    )
+
+
+def test_an_edge_configuration_the_parser_cannot_read_exits_two():
+    """The edge's trust is read through nginx_conf.py, whose refusal of a spelling is no verdict on either stack."""
+    project = new_root("fl-compose-main-")
+    production, local = clean_pair(project)
+    # An unclosed block, which nginx itself refuses too.
+    (project / "nginx/shared/edge.conf").write_bytes(conf().encode() + b"location / {\n")
+
+    done = run_main(production, local, project)
+
+    assert done.returncode == checker.EXIT_REFUSED, done.stdout + done.stderr
+    assert "Nothing was judged, so this is a refusal rather than a verdict on any stack." in done.stderr, done.stderr
 
 
 @pytest.mark.parametrize("stack", ["production", "local"])
@@ -364,18 +410,19 @@ def test_a_model_whose_environment_compose_left_unresolved_fails():
 
 def test_an_environment_that_is_no_mapping_refuses():
     """Compose renders `environment` as a mapping; a list is a model written some other way, whose names this cannot read."""
-    with pytest.raises(ValueError, match="not its rendered model"):
+    with pytest.raises(checker.NotRendered, match="not its rendered model"):
         checker.env_files(model(frontend={"environment": [f"{checker.STAND_IN_READ}1=fl_frontend/.env"]}, backend={}), "p")
 
 
-def test_a_connector_without_one_static_address_refuses():
-    """The daemon's own assignment differs per host, so an unpinned connector has no address to compare."""
-    for networks in ({"frankfurtleague-net": None}, {}):
-        try:
-            checker.connector_address(model(cloudflared={"networks": networks}), "p")
-        except ValueError:
-            continue
-        raise AssertionError(f"a connector with networks {networks!r} was given an address")
+@pytest.mark.parametrize("networks", [{"frankfurtleague-net": None}, {}], ids=["unpinned", "no-network"])
+def test_a_connector_without_one_static_address_fails(networks: dict[str, Any]):
+    """Compose rendered it, so it is the change's to fix: the daemon's own assignment differs per host."""
+    address, findings = checker.connector_address(model(cloudflared={"networks": networks}), "p")
+
+    assert address is None
+    assert [finding.detail for finding in findings] == [
+        "p: cloudflared has 0 static addresses, not one, so neither edge's trust in it was compared"
+    ]
 
 
 # --- who shares a network with whom ---------------------------------------------------------------------
@@ -424,7 +471,7 @@ def test_a_service_nobody_placed_on_a_network_fails():
 
 
 def test_networks_that_are_no_mapping_refuse():
-    with pytest.raises(ValueError, match="not its rendered model"):
+    with pytest.raises(checker.NotRendered, match="not its rendered model"):
         checker.networks(model(frontend={"networks": [APP]}), "p")
 
 
@@ -528,27 +575,26 @@ def test_the_local_stack_reading_a_database_login_from_secrets_fails():
 # --- which service reads which login from an inline config -------------------------------------------
 
 LOCAL_URI: Final = "mongodb://mongo:27017/?directConnection=true"
+# The file each application service reads its login from, as the local stack mounts its one inline config.
+LOCAL_LOGINS: Final = {"frontend": "frontend_mongodb_uri", "backend": "backend_mongodb_uri"}
 
 
 def configured(stack: str, service: str) -> dict[str, Any]:
-    """A service's configs as Compose renders the long syntax: one per file `CONFIG_HOLDERS` gives it, at `RUN_SECRETS`."""
-    held = [
-        {"source": "local_mongodb_uri", "target": f"{checker.RUN_SECRETS}/{file}"}
-        for file, holders in sorted(checker.CONFIG_HOLDERS[stack].items())
-        if service in holders
-    ]
-    return {"configs": held} if held else {}
+    """A service's configs as Compose renders the long syntax: the local stack's login at `RUN_SECRETS`, nothing in production."""
+    if stack != "local" or service not in LOCAL_LOGINS:
+        return {}
+    return {"configs": [{"source": "local_mongodb_uri", "target": f"{checker.RUN_SECRETS}/{LOCAL_LOGINS[service]}"}]}
 
 
 def declared_configs(stack: str, content: object = LOCAL_URI) -> dict[str, Any]:
-    """The top-level `configs` as Compose renders an inline one; none where the stack's table names none."""
-    return {"configs": {"local_mongodb_uri": {"content": content}}} if checker.CONFIG_HOLDERS[stack] else {}
+    """The top-level `configs` as Compose renders an inline one; none in production."""
+    return {"configs": {"local_mongodb_uri": {"content": content}}} if stack == "local" else {}
 
 
 def configured_stack(stack: str, content: object = LOCAL_URI) -> dict[str, Any]:
-    """Every service of `stack` reading what `CONFIG_HOLDERS` gives it, beside the stack's own database."""
-    names = {service for holders in checker.CONFIG_HOLDERS[stack].values() for service in holders}
-    return model(mongo={}, **{service: configured(stack, service) for service in names}) | declared_configs(stack, content)
+    """Both application services of `stack` reading what it mounts them, beside the local stack's own database."""
+    database = {"mongo": {}} if stack == "local" else {}
+    return model(**database, **{service: configured(stack, service) for service in LOCAL_LOGINS}) | declared_configs(stack, content)
 
 
 @pytest.mark.parametrize(
@@ -559,11 +605,13 @@ def configured_stack(stack: str, content: object = LOCAL_URI) -> dict[str, Any]:
         pytest.param("mongodb://mongo:27017,cluster0.example.net:27017/", id="a-second-host"),
         pytest.param("mongodb+srv://mongo/", id="a-lookup"),
         pytest.param(None, id="no-inline-content"),
+        # `urlsplit` refuses it with a `ValueError`, which the checker no longer reads as a refusal of the model.
+        pytest.param("mongodb://[mongo:27017/", id="a-host-that-does-not-parse"),
     ],
 )
 def test_a_login_config_naming_anything_but_the_stacks_own_database_fails(content: object):
     """Both readers take it for their login, so any other value aims the stack at a database it does not start."""
-    found = checker.config_holders(configured_stack("local", content), "p", "local")
+    found = checker.local_logins(configured_stack("local", content), "p")
 
     assert len(found) == 2 and all("the config local_mongodb_uri" in finding.detail for finding in found), found
 
@@ -572,25 +620,7 @@ def test_a_login_naming_a_service_the_stack_lacks_fails():
     rendered = configured_stack("local")
     del rendered["services"]["mongo"]
 
-    assert len(checker.config_holders(rendered, "p", "local")) == 2
-
-
-def test_a_login_config_one_reader_lacks_fails():
-    rendered = configured_stack("local")
-    rendered["services"]["backend"] = {}
-
-    found = checker.config_holders(rendered, "p", "local")
-
-    assert [finding.detail for finding in found] == ["p: nothing reads a config as backend_mongodb_uri, not ['backend']"]
-
-
-def test_a_second_reader_of_a_login_config_fails():
-    rendered = configured_stack("local")
-    rendered["services"]["nginx"] = configured("local", "frontend")
-
-    found = checker.config_holders(rendered, "p", "local")
-
-    assert len(found) == 1 and "['frontend', 'nginx'] reads a config" in found[0].detail, found
+    assert len(checker.local_logins(rendered, "p")) == 2
 
 
 def test_a_config_where_a_service_reads_its_credentials_fails_in_production():
@@ -598,9 +628,9 @@ def test_a_config_where_a_service_reads_its_credentials_fails_in_production():
     rendered = configured_stack("production") | declared_configs("local")
     rendered["services"]["backend"] = configured("local", "backend")
 
-    found = checker.config_holders(rendered, "p", "production")
+    found = checker.local_logins(rendered, "p")
 
-    assert len(found) == 1 and "a file CONFIG_HOLDERS lacks" in found[0].detail, found
+    assert len(found) == 1 and "not the stack's own mongo service" in found[0].detail, found
 
 
 def test_a_secret_the_table_lists_left_undeclared_fails():
@@ -668,7 +698,7 @@ COMPOSE_STUB: Final = '#!/usr/bin/env bash\nprintf \'%s\n\' "$*" >> "$FL_COMPOSE
 
 
 def _staged_and_rendered() -> tuple[Path, list[str]]:
-    """`stage_compose_models` and both renders, as the gate's ops scope calls them, behind a stand-in docker."""
+    """`stage_compose_models` and the three renders, as the gate's ops scope calls them, behind a stand-in docker."""
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
     root = new_root("fl-compose-stage-")
     stubs = root / "stubs"
@@ -681,6 +711,7 @@ def _staged_and_rendered() -> tuple[Path, list[str]]:
         f'stage_compose_models "{staged.as_posix()}"\n'
         f'render_compose_model "{staged.as_posix()}" production\n'
         f'render_compose_model "{staged.as_posix()}" local\n'
+        f'render_compose_model "{staged.as_posix()}" e2e\n'
     )
     done = run_shell(BASH, write_shell(root / "parent.sh", body), env=environment)
     assert done.returncode == 0, done.stdout + done.stderr
@@ -695,15 +726,18 @@ def test_each_stand_in_names_itself_in_the_names_the_checker_reads():
         text = (staged / env_file).read_bytes().decode()
         assert text == f"{checker.STAND_IN_READ}{number}={env_file}\n", env_file
     assert (staged / "docker-compose.yml").read_bytes() == (checker.REPO_ROOT / "docker-compose.yml").read_bytes()
-    assert (staged / "docker-compose.local.yml").read_bytes() == (checker.REPO_ROOT / "docker-compose.local.yml").read_bytes()
+    for compose_file in ("docker-compose.yml", "docker-compose.local.yml", "docker-compose.e2e.yml"):
+        assert (staged / compose_file).read_bytes() == (checker.REPO_ROOT / compose_file).read_bytes(), compose_file
 
 
-def test_the_local_model_is_the_merge_and_neither_render_skips_the_environment():
+def test_each_local_model_is_its_merge_and_no_render_skips_the_environment():
     """`--no-env-resolution` is ignored by one Compose release and honoured by the next, so it renders two models."""
     staged, argv = _staged_and_rendered()
     base = f"-f {staged.as_posix()}/docker-compose.yml"
+    local = f"{base} -f {staged.as_posix()}/docker-compose.local.yml"
 
     assert argv == [
         f"compose {base} config --format json --output {staged.as_posix()}/production.json",
-        f"compose {base} -f {staged.as_posix()}/docker-compose.local.yml config --format json --output {staged.as_posix()}/local.json",
+        f"compose {local} config --format json --output {staged.as_posix()}/local.json",
+        f"compose {local} -f {staged.as_posix()}/docker-compose.e2e.yml config --format json --output {staged.as_posix()}/e2e.json",
     ]

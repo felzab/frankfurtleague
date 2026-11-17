@@ -5,6 +5,7 @@ import { dispatchRequest, sentRequestOf } from "./apiDispatch";
 import { frontend_config, internalApiKeyAdmin, internalApiKeyBase, internalApiKeySystem } from "./config";
 import { APIBadStatusError, APINetworkError, mayHaveWritten, UnattributedAdminCallError } from "./errors";
 import { Code } from "./generated/client/types";
+import { ownKeyOf } from "./ownKeyOf";
 import { boundCall, getRequestActor, getRequestTraceId, inBackground } from "./requestScope";
 import { ACTOR_HEADER, AUTH_FACTOR_HEADER, AUTH_TIME_HEADER, formatTraceparent, mintTraceId, TRACEPARENT_HEADER } from "./trace";
 
@@ -67,7 +68,7 @@ const getFetchHeaders = (type: FetchOptions["authType"]): Record<string, string>
  * Whether a failure body's code is one the contract publishes. Judged here once, so every reader compares a `Code`, and
  * a comparison with a code the backend no longer answers fails the type check.
  */
-const isCode = (value: unknown): value is Code => typeof value === "string" && Object.hasOwn(Code, value);
+const isCode = (value: unknown) => typeof value === "string" && ownKeyOf(Code, value);
 
 /** Thrown for every status but a success: the code and the refused fields of the backend's own failure body. */
 const refusalOf = async ({ res, traceId }: { res: Response; traceId: string }) => {

@@ -6,15 +6,13 @@
 # - The host publishes NOTHING. Every service is reachable only over the stack's own networks, the
 #   connector included, so anything nginx does not route does not exist for the internet. A
 #   `ports:` entry anywhere removes that silently.
-# - One package per service; the two images are never merged into one.
 # - The base of the local stack too: `./scripts/ops/local.sh` merges docker-compose.local.yml over
 #   this file, so a setting here reaches both stacks and a difference exists only where that file
 #   writes one. No database service, here or ever.
 
-# The host's journal, which bounds every line's age and which `docker compose
-# logs` reads still. The tag names each line's identifier after its container rather than the first
-# 12 characters of its id, so `journalctl -t <name>` finds a service across recreates
-# (https://docs.docker.com/engine/logging/drivers/journald/).
+# The host's journal, which bounds every line's age and which `docker compose logs` reads still. The
+# tag names each line's identifier after its container rather than the first 12 characters of its
+# id, so `journalctl -t <name>` finds a service across recreates.
 x-logging: &default-logging
   driver: journald
   options:
@@ -30,17 +28,15 @@ services:
     # needs credentials.
     image: ghcr.io/felzab/frankfurtleague-frontend:${TAG:?deploy through scripts/ops/deploy.sh, which sets TAG}
     restart: unless-stopped
-    # Above the package's file, which Compose ranks below `environment`
-    # (https://docs.docker.com/compose/how-tos/environment-variables/envvars-precedence/): with
-    # another name there, the server would boot as a stack that mails no one and demands none of
-    # production's files. The local stack's override names its own.
+    # Above the package's file, which Compose ranks below `environment`: with another name there,
+    # the server would boot as a stack that mails no one and demands none of production's files. The
+    # local stack's override names its own.
     environment:
       APP_ENV: production
     # Past a request's bound and the 30-second work behind its answer, both of which Next's server waits
     # out on a stop: killed sooner, a write or a mail already sent answers as a dropped connection. The
     # Postausgang's drain behind an answer has no such bound: a stop cuts it here, and the rows it held go
-    # to the next drain once their lease lapses (`fl_backend/app/api/outbox/services.py ::
-    # LEASE_DURATION`).
+    # to the next drain once their lease lapses.
     stop_grace_period: 61s
     secrets:
       - frontend_mongodb_uri
@@ -76,9 +72,8 @@ services:
       # fail and the container is marked unhealthy on a perfectly good start.
       start_period: 20s
       # The probe cadence DURING start_period. Without it the engine's own start-period default
-      # applies, 5 s by Docker's reference against this file's 3 s. A deploy
-      # leaves nginx up, so that difference is time the edge spends answering 502 rather than
-      # proxying, on every deploy.
+      # applies, 5 s by Docker's reference against this file's 3 s. A deploy leaves nginx up, so that
+      # difference is time the edge spends answering 502 rather than proxying, on every deploy.
       # Requires Docker Engine 25 or newer on the host, which is where the healthcheck runs.
       start_interval: 3s
     deploy:
@@ -92,19 +87,20 @@ services:
           memory: "512M"
 
   backend:
-    # The frontend's reason.
+    # The package's file alone, which the compose checker holds.
     env_file: ./fl_backend/.env
     image: ghcr.io/felzab/frankfurtleague-backend:${TAG:?deploy through scripts/ops/deploy.sh, which sets TAG}
     restart: unless-stopped
     # Past uvicorn's own graceful wait (the backend image's `CMD`), which the engine's 10 s
     # default falls short of: killed sooner, a request still inside its bound sends no abort.
     stop_grace_period: 12s
-    # The frontend's reason, and its group for the three internal keys.
     secrets:
       - backend_mongodb_uri
       - internal_api_key_base
       - internal_api_key_system
       - internal_api_key_admin
+    # The group owning the three internal keys: compose hands a file secret over with the host
+    # file's owner and mode.
     group_add:
       - "1003"
     networks:
@@ -117,16 +113,15 @@ services:
     healthcheck:
       # `/system/is_live` is the one probe that needs no key, and it deliberately does not touch
       # MongoDB — a liveness check that needs the database fails for reasons a restart cannot fix.
-
-      # The API version is hardcoded here and must match
-      # `API_VERSION`, which records why it is a constant rather
-      # than a setting. `docs/ops/spec.md` §4 records the spellings a bump has to reach.
+      # The API version in its path is typed here rather than read from the backend's
+      # `API_VERSION`, so a bump of that constant moves it by hand.
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v0/system/is_live', timeout=10)"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 20s
-      # Same first-probe reason as the frontend's, and the same engine requirement.
+      # A first probe 3 s in rather than the engine's 5, so a deploy's edge answers 502 for less
+      # time; Docker Engine 25 or newer.
       start_interval: 3s
     deploy:
       resources:
@@ -137,8 +132,7 @@ services:
           memory: "128M"
 
   nginx:
-    # Tag and digest. The local stack, `nginx/edge_test.sh` and
-    # `scripts/gate/verify.sh`'s `nginx -t` read this line.
+    # Tag and digest; the edge test serves the release this names.
     image: nginx:1.31.8-alpine@sha256:713fc2ebfd92e8217db451477182ee91944b123d2b1ee9fd5a8c6e91ca6c3a11
     restart: unless-stopped
     # The config mounts must exist before `up`: Docker mounts a missing directory empty, and nginx
@@ -187,14 +181,13 @@ services:
 
   # The connector, and the whole of why this host publishes no port: it dials out to Cloudflare and
   # carries every request back over the network below, so nothing reaches the origin any other way.
-
+  #
   # No resource limit, unlike the three above: this process forwards bytes for every request on the
   # site, and a CPU cap nobody has measured throttles the whole of it rather than capping a leak.
   cloudflared:
-    # Pinned by tag and digest, against the vendor's own `:latest --pull
-    # always` example: the component holding the site's one route in would otherwise drift per host,
-    # silently.
-    image: cloudflare/cloudflared:2026.10.7@sha256:4955524aeaa379e154023d5a027c250f7b35041a2e7e950cf13f144bc9b9c5ba
+    # Pinned by tag and digest, against the vendor's own `:latest --pull always` example: the
+    # component holding the site's one route in would otherwise drift per host, silently.
+    image: cloudflare/cloudflared:2026.11.0@sha256:b94b96edf2c9c4360f8879c8580cfaa99077f19c849ec595ca2f711b27d4f344
     restart: unless-stopped
     # The pin above is the version policy, and the image turns cloudflared's autoupdate off itself, so
     # the connector never replaces its own binary. A bump reads the release's Dockerfile for it again.
@@ -223,7 +216,8 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
-      # The application pair's first-probe reason, and the same engine requirement.
+      # A first probe 3 s in rather than the engine's 5, so a deploy waits less on the tunnel; Docker
+      # Engine 25 or newer.
       start_interval: 3s
     # No `condition:` to give: nginx declares no healthcheck, so `service_started` is all there is.
     # It is enough, because nginx itself waits on both upstreams being healthy before it starts.
@@ -257,17 +251,16 @@ secrets:
   turnstile_secret_key:
     file: ./secrets/turnstile_secret_key
 
-# Two user-defined bridges, joined by nginx alone. Containers resolve each
-# other by service name on a network they share -- `http://backend:8000` and `http://frontend:3000` in
-# nginx/shared/site.conf are these names, not hosts.
+# Two user-defined bridges, joined by nginx alone. Containers resolve each other by service name on a
+# network they share, so the edge's `http://backend:8000` and `http://frontend:3000` are these names.
 networks:
   # The connector's and nginx's. Its name is the one a running stack already has: a network renamed
   # under the same subnet fails the deploy's `up` with `Pool overlaps` while the old one holds it.
   frankfurtleague-net:
     driver: bridge
-    # Declared rather than left to the daemon: `set_real_ip_from` trusts the
-    # connector by address, and a bridge subnet the daemon picks differs per host, silently
-    # returning every request to the fail-open path.
+    # Declared rather than left to the daemon: `set_real_ip_from` trusts the connector by address,
+    # and a bridge subnet the daemon picks differs per host, silently returning every request to the
+    # fail-open path.
     ipam:
       config:
         - subnet: 172.30.0.0/24

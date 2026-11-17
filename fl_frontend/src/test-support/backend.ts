@@ -30,7 +30,7 @@ import { setImmediate as nextTurn, setTimeout as wallClock } from "node:timers/p
 import { TEST_ENVIRONMENT } from "@/test-support/testEnvironment.mts";
 import { afterAll, afterEach, assert, beforeEach } from "vitest";
 
-import type { Code, FLRefusedField } from "@/core/generated/client/types.ts";
+import type { Code, FLRefusedField } from "@/core/generated/client/types";
 
 /**
  * Where the backend is served: the address the runner's environment hands the real config, so a request the code
@@ -371,7 +371,7 @@ export function serveBackend(answer?: BackendAnswer): Backend {
  * The status the backend refuses `code` at, unless a case names another: a missing record at 404, which
  * the client reads as a missing record beside its code, a refused body at 422, and every rule at 409.
  */
-export const refusalStatus = (code: Code | undefined): number =>
+const refusalStatus = (code: Code | undefined): number =>
   code === "document_not_found" ? 404 : code === "payload_refused" || code === "body_unreadable" ? 422 : 409;
 
 /**

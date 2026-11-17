@@ -1,4 +1,3 @@
-import asyncio
 from datetime import datetime
 from typing import Annotated, Any, Final
 
@@ -24,6 +23,7 @@ from app.api.identity.schemas import (
 )
 from app.api.identity.services import completed_saison_id
 from app.core.codes import Code
+from app.core.concurrency import concurrently
 from app.core.config import API_VERSION
 from app.core.dependencies import (
     ActionLogCollection,
@@ -86,7 +86,7 @@ async def get_subject(
 
     # Concurrently, every page a signed-in person or an administrator renders waiting on this answer: the records and
     # the grant cost the longer of the two rather than their sum.
-    subject, grant = await asyncio.gather(
+    subject, grant = await concurrently(
         find_subject(identifier, records),
         read_admin_tier_of(grants_collection=grants_collection, address=identifier, now=germany_now, session=session),
     )
@@ -117,7 +117,7 @@ async def get_sign_in(
     identifier = sign_in_identifier(str(sign_in_data.email))
 
     # Concurrently, a sign-in waiting on this answer.
-    sign_in, barred, grant = await asyncio.gather(
+    sign_in, barred, grant = await concurrently(
         find_sign_in(identifier, records),
         address_is_barred(ban_list_collection=ban_list_collection, address=identifier),
         read_admin_tier_of(grants_collection=grants_collection, address=identifier, now=germany_now, session=session),

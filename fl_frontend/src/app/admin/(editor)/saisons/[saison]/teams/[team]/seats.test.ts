@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
 
-import { seatsOf } from "./seats.ts";
+import { seatsOf } from "./seats";
 
 import type { FLKontaktperson, FLSaisonTeamConfirmationView, FLSaisonTeamKontakte } from "@/core/generated/client/types";
 

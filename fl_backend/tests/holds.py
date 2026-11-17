@@ -40,10 +40,10 @@ class HeldCollection:
         try:
             await asyncio.wait({task, held}, return_when=asyncio.FIRST_COMPLETED)
         finally:
-            # On every path, as `abandon` drains its task: `cancel()` only schedules the cancellation,
-            # and awaiting the task finishes it inside this case rather than on the next one's loop pass.
+            # On every path: `cancel()` only schedules the cancellation, and awaiting the waiter finishes
+            # it inside this case rather than on the next one's loop pass.
             held.cancel()
-            await asyncio.gather(held, return_exceptions=True)
+            await asyncio.wait({held})
         if self.held.is_set():
             return
 
@@ -51,13 +51,6 @@ class HeldCollection:
         if (error := task.exception()) is not None:
             raise error
         pytest.fail(self.MISSED)
-
-    @staticmethod
-    async def abandon(task: asyncio.Task[Any]) -> None:
-        """Cancelled and drained: left parked on the shared seed loop, it holds its transaction open into the next test."""
-
-        task.cancel()
-        await asyncio.gather(task, return_exceptions=True)
 
 
 class HoldsAfterItsLookup(HeldCollection):

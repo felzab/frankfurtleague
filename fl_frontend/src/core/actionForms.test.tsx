@@ -76,7 +76,13 @@ describe("each form's posted names meet its lane's keys", () => {
     const { createSchiedsrichter } = await import("@/app/admin/(list)/schiedsrichter/createSchiedsrichter");
     const { SchiedsrichterFields } = await import("@/app/admin/(list)/schiedsrichter/SchiedsrichterFields");
     const names = namesIn(<SchiedsrichterFields />);
-    const typed = { name: "Erika Muster", email: "erika@example.org", phone: "069 1234567", schule: "Goethe-Gymnasium", default_payment: "25" };
+    const typed = {
+      name: "Erika Muster",
+      email: "erika@example.org",
+      phone: "069 90009123",
+      schule: "Goethe-Gymnasium",
+      default_payment: "25",
+    };
     everyBoxTyped(names, typed);
     takes(["POST", "/schiedsrichter", { created_id: ID, confirmation: { deadline: "2027-01-15", email: "erika@example.org" } }]);
 
@@ -86,7 +92,7 @@ describe("each form's posted names meet its lane's keys", () => {
         "POST /schiedsrichter",
         {
           name: "Erika Muster",
-          kontakt: { email: "erika@example.org", phone: "069 1234567" },
+          kontakt: { email: "erika@example.org", phone: "069 90009123" },
           schule: "Goethe-Gymnasium",
           default_payment: 25,
         },
@@ -365,7 +371,7 @@ describe("each form's posted names meet its lane's keys", () => {
       ]);
     });
 
-    const SEAT_PERSON = { first_name: "Jana", last_name: "Schmidt", email: "jana@example.org", phone: "069 7654321" };
+    const SEAT_PERSON = { first_name: "Jana", last_name: "Schmidt", email: "jana@example.org", phone: "069 90009765" };
 
     it("loses no key of „Sitz bearbeiten“", async () => {
       const { writeSeat } = await import("@/app/admin/(editor)/saisons/[saison]/teams/[team]/teamActs");

@@ -7,7 +7,7 @@ beneath it reads as a case that is missing.
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+from collections.abc import AsyncIterator, Mapping
 from typing import Any, Final, NamedTuple
 
 import pytest
@@ -17,11 +17,9 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.spiele.services import build_spiele_pipeline
 from app.api.spieler.services import build_spieler_pipeline, name_is_public
 from app.core.crud import aggregate_many_from_db
-from tests.database import a_clean_database, on_the_seed_loop, shared_client
+from tests.database import held_corpus, shared_client
 from tests.documents import saison_spieler_document, schiedsrichter_document, spiel_document, spieler_document
 from tests.worker import worker_database
-
-from .conftest import unwritten
 
 DATABASE_NAME = worker_database("fl_name_is_public_mirror_test")
 
@@ -103,20 +101,17 @@ def _nummer_for(case: EinwilligungCase) -> str:
 class TestTheSquadPipelineAnswersTheSameTable:
     """`build_spieler_pipeline`'s `$cond`, against a real mongod: a `$cond` is only a `$cond` where Mongo evaluates it."""
 
-    def _rows(self, url: str) -> list[Mapping[str, Any]]:
-        async def body(database: AsyncDatabase) -> Any:
-            return await aggregate_many_from_db(
-                collection=database.saison_spieler,
-                pipeline=build_spieler_pipeline(team_id=TEAM_OID, saison_id=SAISON),
-            )
-
-        return on_the_seed_loop(body(shared_client(url)[DATABASE_NAME]))
+    async def _rows(self, url: str) -> list[Mapping[str, Any]]:
+        return await aggregate_many_from_db(
+            collection=shared_client(url)[DATABASE_NAME].saison_spieler,
+            pipeline=build_spieler_pipeline(team_id=TEAM_OID, saison_id=SAISON),
+        )
 
     @pytest.mark.parametrize("case", NAME_IS_PUBLIC, ids=CASE_IDS)
-    def test_the_projection_answers_the_table(self, seeded_url: str, case: EinwilligungCase):
+    async def test_the_projection_answers_the_table(self, seeded_url: str, case: EinwilligungCase):
         """A published row is found by its number; a withheld one serves none, so its number is nowhere in the read."""
 
-        numbered = {row["nummer"]: row for row in self._rows(seeded_url) if row["nummer"] is not None}
+        numbered = {row["nummer"]: row for row in await self._rows(seeded_url) if row["nummer"] is not None}
 
         if case.published:
             assert (numbered[_nummer_for(case)]["first_name"], numbered[_nummer_for(case)]["last_name"]) == (FIRST_NAME, INITIAL)
@@ -128,17 +123,16 @@ class TestTheSquadPipelineAnswersTheSameTable:
 class TestTheRefereeJoinAnswersTheSameTable:
     """`build_spiele_pipeline`'s referee join imports the expression, and Mongo evaluates it over a referee's record."""
 
-    def _verdicts(self, url: str) -> dict[ObjectId, Any]:
-        async def body(database: AsyncDatabase) -> Any:
-            spiele = await aggregate_many_from_db(collection=database.spiele, pipeline=build_spiele_pipeline(db_filter={"saison_id": SAISON}))
+    async def _verdicts(self, url: str) -> dict[ObjectId, Any]:
+        spiele = await aggregate_many_from_db(
+            collection=shared_client(url)[DATABASE_NAME].spiele, pipeline=build_spiele_pipeline(db_filter={"saison_id": SAISON})
+        )
 
-            return {spiel["schiedsrichter"]["schiedsrichter_id"]: spiel["schiedsrichter"]["name_is_public"] for spiel in spiele}
-
-        return on_the_seed_loop(body(shared_client(url)[DATABASE_NAME]))
+        return {spiel["schiedsrichter"]["schiedsrichter_id"]: spiel["schiedsrichter"]["name_is_public"] for spiel in spiele}
 
     @pytest.mark.parametrize("case", NAME_IS_PUBLIC, ids=CASE_IDS)
-    def test_the_join_answers_the_table(self, seeded_url: str, case: EinwilligungCase):
-        assert self._verdicts(seeded_url)[_schiedsrichter_oid_for(case)] is case.published
+    async def test_the_join_answers_the_table(self, seeded_url: str, case: EinwilligungCase):
+        assert (await self._verdicts(seeded_url))[_schiedsrichter_oid_for(case)] is case.published
 
 
 def _schiedsrichter_oid_for(case: EinwilligungCase) -> ObjectId:
@@ -150,52 +144,50 @@ def _spiel_oid_for(case: EinwilligungCase) -> ObjectId:
 
 
 @pytest.fixture(scope="module")
-def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
+async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
     """One person per row of the table, each holding a name and a live squad row in one team's season; one referee per row, booked."""
 
-    async def _seed() -> None:
-        async with a_clean_database(
-            mongo_replica_set_url,
-            DATABASE_NAME,
-            constraints=False,
-            stores_a_refused_shape="consent records of every shape the mirror tables judge, ones no model reads among them",
-        ) as (_, database):
-            # Each case's record laid over the builder's own: the table holds records no model reads, a missing one among them.
-            await database.spieler.insert_many(
-                [{**spieler_document(_oid_for(case), FIRST_NAME, LAST_NAME), "einwilligung": case.einwilligung} for case in NAME_IS_PUBLIC]
-            )
-            await database.saison_spieler.insert_many(
-                [
-                    saison_spieler_document(_oid_for(case), SAISON, TEAM_OID, nummer=_nummer_for(case), position="Angriff", stufe="Q3")
-                    for case in NAME_IS_PUBLIC
-                ]
-            )
-            await database.schiedsrichter.insert_many(
-                [
-                    {
-                        **schiedsrichter_document(
-                            _schiedsrichter_oid_for(case), email="pfiff@example.com", name="Ada Kern", default_payment=20, einwilligung=None
-                        ),
-                        "einwilligung": case.einwilligung,
-                    }
-                    for case in NAME_IS_PUBLIC
-                ]
-            )
-            # No confirmation row on any fixture, so the acceptance gate serves every block and the consent verdict alone is read.
-            await database.spiele.insert_many(
-                [
-                    spiel_document(
-                        spiel_id=_spiel_oid_for(case),
-                        saison_id=SAISON,
-                        spiel_nr=NAME_IS_PUBLIC.index(case) + 1,
-                        spieltag_id=_oid(99),
-                        schiedsrichter={"schiedsrichter_id": _schiedsrichter_oid_for(case), "payment": 20},
-                    )
-                    for case in NAME_IS_PUBLIC
-                ]
-            )
+    async def seed(database: AsyncDatabase) -> None:
+        # Each case's record laid over the builder's own: the table holds records no model reads, a missing one among them.
+        await database.spieler.insert_many(
+            [{**spieler_document(_oid_for(case), FIRST_NAME, LAST_NAME), "einwilligung": case.einwilligung} for case in NAME_IS_PUBLIC]
+        )
+        await database.saison_spieler.insert_many(
+            [
+                saison_spieler_document(_oid_for(case), SAISON, TEAM_OID, nummer=_nummer_for(case), position="Angriff", stufe="Q3")
+                for case in NAME_IS_PUBLIC
+            ]
+        )
+        await database.schiedsrichter.insert_many(
+            [
+                {
+                    **schiedsrichter_document(
+                        _schiedsrichter_oid_for(case), email="pfiff@example.com", name="Ada Kern", default_payment=20, einwilligung=None
+                    ),
+                    "einwilligung": case.einwilligung,
+                }
+                for case in NAME_IS_PUBLIC
+            ]
+        )
+        # No confirmation row on any fixture, so the acceptance gate serves every block and the consent verdict alone is read.
+        await database.spiele.insert_many(
+            [
+                spiel_document(
+                    spiel_id=_spiel_oid_for(case),
+                    saison_id=SAISON,
+                    spiel_nr=NAME_IS_PUBLIC.index(case) + 1,
+                    spieltag_id=_oid(99),
+                    schiedsrichter={"schiedsrichter_id": _schiedsrichter_oid_for(case), "payment": 20},
+                )
+                for case in NAME_IS_PUBLIC
+            ]
+        )
 
-    on_the_seed_loop(_seed())
-
-    with unwritten(mongo_replica_set_url, DATABASE_NAME):
+    async with held_corpus(
+        mongo_replica_set_url,
+        DATABASE_NAME,
+        seed,
+        constraints=False,
+        stores_a_refused_shape="consent records of every shape the mirror tables judge, ones no model reads among them",
+    ):
         yield mongo_replica_set_url

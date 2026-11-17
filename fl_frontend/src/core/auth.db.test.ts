@@ -5,33 +5,34 @@ import {
   Barrier,
   configDouble,
   cookieHeader,
-  GATE_BACKEND_CONFIG,
-  HOLDS_NOTHING,
   lastMailedCode,
   ORIGIN,
   overriding,
   registerAuthDoubles,
   signInByCode,
-} from "@/test-support/authDoubles.ts";
-import { serveBackend } from "@/test-support/backend.ts";
-import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
-import { captureLog } from "@/test-support/stdoutCapture.ts";
-import { answerAt, SEAT } from "@/test-support/subjectFixtures.ts";
-import { registrationFor } from "@/test-support/testAuthenticator.ts";
+} from "@/test-support/authDoubles";
+import { serveBackend } from "@/test-support/backend";
+import { emptyStore } from "@/test-support/emptyStore";
+import { replicaSetUrl, startReplicaSet } from "@/test-support/replicaSet";
+import { signInIndexesForTheFile } from "@/test-support/signInIndexes";
+import { captureLog } from "@/test-support/stdoutCapture";
+import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures";
+import { registrationFor } from "@/test-support/testAuthenticator";
 import { MongoServerError } from "mongodb";
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
-import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
+import type { LookupFixture } from "@/test-support/subjectFixtures";
+import type { MongoClient } from "mongodb";
 
 // A replica set.
-const { mongod, closing } = await startJudgedReplicaSet();
+const { mongod, closing } = await startReplicaSet();
 
 // The set advertises its container-internal address, which topology discovery would follow and find nothing.
 const MONGO_URL = replicaSetUrl(mongod);
 
 // The real `fl_frontend/src/core/db.ts`, which the auth doubles replace by default: the client
 // under test is the one it builds.
-const PRODUCTION_DB = "@/core/db.ts";
+const PRODUCTION_DB = "@/core/db";
 
 type Method = (...args: unknown[]) => unknown;
 
@@ -135,7 +136,7 @@ let deletingUser: () => Promise<unknown> = async () => undefined;
 const { sent } = registerAuthDoubles({
   // The admin key the person lane's erasure is sent under, beside the store's address.
   core: {
-    config: configDouble(GATE_BACKEND_CONFIG, { mongodbUri: () => MONGO_URL, internalApiKeyAdmin: () => "fabricated-admin-not-a-credential" }),
+    config: configDouble({}, { mongodbUri: () => MONGO_URL, internalApiKeyAdmin: () => "fabricated-admin-not-a-credential" }),
     db: DB_DOUBLE,
   },
 });
@@ -162,7 +163,7 @@ serveBackend(({ path: endpoint, body }) => {
   const { email } = (body ?? {}) as { email?: string };
   const granted = email === ADMIN_EMAIL;
   return answerAt(path, {
-    ...HOLDS_NOTHING,
+    ...NO_RECORDS,
     admin_tier: granted ? "administration" : null,
     // Before every session a case makes.
     granted_since: granted ? "2026-01-01T00:00:00Z" : null,
@@ -186,24 +187,17 @@ const counting = new Barrier();
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { toNextJsHandler } = await import("better-auth/next-js");
-const { auth } = await import("./auth/library.ts");
-const { carryAccount, deleteAccountFor, deleteOwnAccount, requestAccountDeletion } = await import("./auth/accounts.ts");
-const { endSessionsOfAddress } = await import("./auth/accountSessions.ts");
-const { buildAuthIndexes } = await import("./authIndexes.ts");
+const { auth } = await import("./auth/library");
+const { carryAccount, deleteAccountFor, deleteOwnAccount, requestAccountDeletion } = await import("./auth/accounts");
+const { endSessionsOfAddress } = await import("./auth/accountSessions");
+const authIndexes = await import("./authIndexes");
+const { MONGO_DB_NAME } = authIndexes;
 
-type Collection = {
-  find: (filter: object) => { toArray: () => Promise<Record<string, unknown>[]> };
-  updateMany: (filter: object, update: object) => Promise<unknown>;
-  deleteMany: (filter: object) => Promise<unknown>;
-};
-type RealClient = {
-  db: (name: string) => { dropDatabase: () => Promise<unknown>; collection: (name: string) => Collection };
-  close: () => Promise<void>;
-};
-
-const realClient = productionClient as RealClient;
+const realClient = productionClient as MongoClient;
 closing(() => realClient.close());
-const authDb = () => realClient.db("auth");
+const authDb = () => realClient.db(MONGO_DB_NAME);
+
+signInIndexesForTheFile(authIndexes, mongod);
 
 beforeEach(async () => {
   gateAnswer = { seats: [], barred: false, account: false };
@@ -212,11 +206,7 @@ beforeEach(async () => {
   atCommit = async () => undefined;
   deletingAccounts = async () => undefined;
   deletingUser = async () => undefined;
-  await authDb().dropDatabase();
-
-  // Production's indexes under every case, so the library is driven over what it meets there.
-  await buildAuthIndexes();
-  expect(eventsAt("ERROR"), "an index of the sign-in store was left unbuilt").toStrictEqual([]);
+  await emptyStore(authDb());
 });
 
 const handler = toNextJsHandler(auth);
@@ -550,14 +540,14 @@ describe("a code sign-in through the mint, against a real database", () => {
    never test: an update matching nothing signs the reader out instead. */
 describe("a session only read, against a real database", () => {
   it("slides the stored row once past `updateAge` at the proxy, and never at a guard's read", async () => {
-    const { readServedSession } = await import("./auth/session.ts");
-    const { proxy } = await import("../proxy.ts");
+    const { readServedSession } = await import("./auth/session");
+    const { proxy } = await import("../proxy");
     const { NextRequest } = await import("next/server");
 
     gateAnswer = { seats: [SEAT], barred: false, account: true };
     const cookie = await signIn("leserin-mit-code@example.org");
-    const expiresIn = (auth.options.session?.expiresIn ?? Number.NaN) * 1000;
-    const updatedAt = new Date(Date.now() - (auth.options.session?.updateAge ?? Number.NaN) * 1000 - 60_000);
+    const expiresIn = auth.options.session.expiresIn * 1000;
+    const updatedAt = new Date(Date.now() - auth.options.session.updateAge * 1000 - 60_000);
     await authDb()
       .collection("session")
       .updateMany({}, { $set: { updatedAt, expiresAt: new Date(updatedAt.getTime() + expiresIn) } });
@@ -631,7 +621,7 @@ async function heldOf({ userId, pending }: { userId: string; pending: readonly s
    never shows: a row they miss stands here and nowhere else. */
 describe("an account deleted, against a real database", () => {
   it("leaves nothing of the address once its own link completes, and nothing of anybody else's goes", async () => {
-    const { runWithRequestScope } = await import("./requestScope.ts");
+    const { runWithRequestScope } = await import("./requestScope");
     const bystander = await seedAccount("unbeteiligt-db@example.org");
     const person = await seedAccount("loeschende-db@example.org");
     const erasuresBefore = erasuresAsked;
@@ -652,7 +642,7 @@ describe("an account deleted, against a real database", () => {
   /* Both deletion paths find an account by its user row, so the helper goes first: a failure at that row
      leaves it for them to find, and no passkey past their reach. */
   it("leaves the user row alone where the library's delete of it fails, its passkeys and pending rows gone", async () => {
-    const { runWithRequestScope } = await import("./requestScope.ts");
+    const { runWithRequestScope } = await import("./requestScope");
     const person = await seedAccount("nutzerzeile-db@example.org");
     deletingUser = () => Promise.reject(new Error("planted: the user row's delete fails"));
 
@@ -686,7 +676,7 @@ describe("an account deleted, against a real database", () => {
   /* The first run's commit fails transiently and writes nothing, so the adapter runs the deletion again; that
      run fails before its commit, and the caller is told of the rollback it is rather than an unknown outcome. */
   it("answers a rollback where the run retried after a transient commit failure fails, and deletes nothing", async () => {
-    const { RolledBackError } = await import("./errors.ts");
+    const { RolledBackError } = await import("./errors");
     const person = await seedAccount("konto-zweiter-lauf-db@example.org");
     let commits = 0;
     atCommit = async (session) => {

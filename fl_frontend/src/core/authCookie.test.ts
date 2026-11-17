@@ -1,4 +1,4 @@
-import { ADMIN_EMAIL, configDouble, memoryAdapterDouble, memoryStore, registerAuthDoubles, signInByCode } from "@/test-support/authDoubles.ts";
+import { ADMIN_EMAIL, configDouble, memoryAdapterDouble, memoryStore, registerAuthDoubles, signInByCode } from "@/test-support/authDoubles";
 import { assert, describe, expect, it } from "vitest";
 
 const STORE = "__flAuthCookieStore";
@@ -14,7 +14,7 @@ registerAuthDoubles({
 });
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
-const { auth } = await import("./auth/library.ts");
+const { auth } = await import("./auth/library");
 
 const HEADERS = { host: "liga.example", "x-forwarded-proto": "https" };
 

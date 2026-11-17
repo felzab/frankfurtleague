@@ -21,10 +21,11 @@ from app.api.schiedsrichter.public_router import post_confirmation
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLSchiedsrichterConfirmationPayload
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError
 from tests import documents
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
+from tests.isolation import refused_code
 from tests.outbox import MAIL_NOW, drained
+from tests.stored import the_row
 from tests.worker import worker_database
 
 # Module level: every case below reaches a real mongod, each write being one transaction.
@@ -41,62 +42,57 @@ SCHIEDSRICHTER_OID = ObjectId("6890a1b2c3d4e5f607830001")
 NAME = "Ortwin Pfeiffenberger"
 EMAIL = "ortwin.pfeiffenberger@example.com"
 NEW_EMAIL = "o.pfeiffenberger@neuepost.example.org"
-PHONE = "+49 69 5550303"
+PHONE = "+49 69 90009303"
 
 
 def referee_document(**overrides: Any) -> dict[str, Any]:
     """A referee as the administrator entered them, before their own answer."""
 
-    return {
-        "_id": SCHIEDSRICHTER_OID,
-        "name": NAME,
-        "schule": "Bettina-Schule",
-        "default_payment": 20,
-        "kontakt": {"phone": PHONE, "email": EMAIL},
-        "inactive_since": None,
-        "version": 0,
-        **overrides,
-    }
+    return documents.schiedsrichter_document(
+        SCHIEDSRICHTER_OID,
+        email=EMAIL,
+        name=NAME,
+        default_payment=20,
+        einwilligung=None,
+        **{"schule": "Bettina-Schule", "kontakt": {"phone": PHONE, "email": EMAIL}, **overrides},
+    )
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Body) -> Any:
+async def on_a_league(url: str, body: Body) -> Any:
     """The SHIPPED indexes, a running season, and one referee who answered their own link."""
 
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
-            await database[Collection.SCHIEDSRICHTER].insert_one(referee_document())
-            await invite_schiedsrichter(
-                schiedsrichter_id=SCHIEDSRICHTER_OID,
-                schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                outbox_collection=database[Collection.OUTBOX],
-                db=client,
-                today=TODAY,
-                now=MAIL_NOW,
-            )
-            (mail,) = await drained(database, client)
-            await post_confirmation(
-                answer_data=FLSchiedsrichterConfirmationPayload.model_validate(
-                    {
-                        "token": mail.token,
-                        "birth_date": "1984-05-09",
-                        "scope": "kader_public",
-                        "media": True,
-                        "text_versions": dict(documents.SCHIEDSRICHTER_TEXT_VERSIONS),
-                    }
-                ),
-                schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                db=client,
-                today=TODAY,
-                germany_now=NOW,
-            )
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+        await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
+        await database[Collection.SCHIEDSRICHTER].insert_one(referee_document())
+        await invite_schiedsrichter(
+            schiedsrichter_id=SCHIEDSRICHTER_OID,
+            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+            outbox_collection=database[Collection.OUTBOX],
+            db=client,
+            today=TODAY,
+            now=MAIL_NOW,
+        )
+        (mail,) = await drained(database, client)
+        await post_confirmation(
+            answer_data=FLSchiedsrichterConfirmationPayload.model_validate(
+                {
+                    "token": mail.token,
+                    "birth_date": "1984-05-09",
+                    "scope": "kader_public",
+                    "media": True,
+                    "text_versions": dict(documents.SCHIEDSRICHTER_TEXT_VERSIONS),
+                }
+            ),
+            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+            db=client,
+            today=TODAY,
+            germany_now=NOW,
+        )
 
-            return await body(database, client)
-
-    return on_the_seed_loop(_run())
+        return await body(database, client)
 
 
 async def save(database: AsyncDatabase, client: AsyncMongoClient, *, email: str) -> Any:
@@ -122,29 +118,19 @@ async def save(database: AsyncDatabase, client: AsyncMongoClient, *, email: str)
 
 
 async def stored(database: AsyncDatabase) -> Mapping[str, Any]:
-    found = await database[Collection.SCHIEDSRICHTER].find_one({"_id": SCHIEDSRICHTER_OID})
-    assert found is not None, "the referee this case seeded is gone"
-
-    return found
-
-
-async def refused_code(call: Awaitable[Any]) -> str:
-    with pytest.raises(APIError) as refused:
-        await call
-
-    return refused.value.error_code
+    return await the_row(database, Collection.SCHIEDSRICHTER, {"_id": SCHIEDSRICHTER_OID}, "the referee this case seeded is gone")
 
 
 class TestTheSaveOnAConfirmedReferee:
     """`schiedsrichter_address_only_per_change`: a confirmed referee's address is who signs in as them, and the save moves it never."""
 
-    def test_a_save_moving_it_is_refused_and_nothing_of_the_save_lands(self, mongo_replica_set_url: str):
+    async def test_a_save_moving_it_is_refused_and_nothing_of_the_save_lands(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await stored(database)
 
             return await refused_code(save(database, client, email=NEW_EMAIL)), before, await stored(database)
 
-        code, before, row = on_a_league(mongo_replica_set_url, body)
+        code, before, row = await on_a_league(mongo_replica_set_url, body)
 
         assert code == Code.SCHIEDSRICHTER_ADDRESS_ONLY_PER_CHANGE
         assert row == before

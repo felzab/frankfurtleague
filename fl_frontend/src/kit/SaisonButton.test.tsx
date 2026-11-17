@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { underNext } from "@/test-support/nextContexts";
-import { act, render, screen } from "@testing-library/react";
+import { renderUnderNext } from "@/test-support/nextContexts";
+import { act, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -50,17 +50,15 @@ const TEAMS = [
 /** The season button's entry for the season, from the team frame's rail at this address. */
 async function entryFor(saison: string, pathname: string, params: Record<string, string>) {
   await act(async () =>
-    render(
-      underNext(
-        <RailFrame
-          groups={GROUPS}
-          bar={["overview", "spiele", "kader"]}
-          saison={{ teams: Promise.resolve(TEAMS), home: "teamOverview" }}
-          foot={{ kind: "account", account: Promise.resolve(null) }}>
-          <p>Seite</p>
-        </RailFrame>,
-        { pathname, params },
-      ),
+    renderUnderNext(
+      <RailFrame
+        groups={GROUPS}
+        bar={["overview", "spiele", "kader"]}
+        saison={{ teams: Promise.resolve(TEAMS), home: "teamOverview" }}
+        foot={{ kind: "account", account: Promise.resolve(null) }}>
+        <p>Seite</p>
+      </RailFrame>,
+      { pathname, params },
     ),
   );
   // The rail's button, the first of the two the frame draws; the band's opens the same list.

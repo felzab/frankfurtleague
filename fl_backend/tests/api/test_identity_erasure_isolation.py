@@ -5,7 +5,7 @@ Each case runs one write to its commit inside the erasure, after the erasure's f
 database what holds the address once the erasure has answered.
 """
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -19,7 +19,7 @@ from app.api.bewerbungen.services import compose_decline_update
 from app.core.collections import Collection
 from app.shared.folding import sign_in_identifier
 from app.shared.tokens import hash_token
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.documents import (
     bewerbung_document,
     kontakte_document,
@@ -34,6 +34,7 @@ from tests.documents import (
 from tests.erasure import erased
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.outbox import MAIL_NOW
+from tests.stored import the_row
 from tests.team_writes import save_the_team, write_the_block
 from tests.whole_database import where_folded_to
 from tests.worker import worker_database
@@ -64,7 +65,7 @@ OPEN_WINDOW = {"open": True, "start": "2026-03-01", "end": "2026-04-30"}
 OPEN_REGISTRATION_WINDOW = {"open": True, "end": "2026-04-30"}
 
 REFEREE_NAME = "Bernd Kraus"
-PHONE = "+49 69 5550202"
+PHONE = "+49 69 90009202"
 
 Rival = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
@@ -139,14 +140,11 @@ async def a_league(database: AsyncDatabase) -> None:
     )
 
 
-def on_a_league(url: str, body: Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]) -> Any:
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            await a_league(database)
+async def on_a_league(url: str, body: Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]) -> Any:
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+        await a_league(database)
 
-            return await body(database, client)
-
-    return on_the_seed_loop(_run())
+        return await body(database, client)
 
 
 # The erased person in the club's trainer seat, and somebody a save seats beside them, each as the editor sends a seat.
@@ -157,13 +155,11 @@ SEATED = {
     "phone": PHONE,
     "einwilligung": {"scope": "kontakt_data", "date": "2026-03-01"},
 }
-BESIDE = {**SEATED, "first_name": "Ottilie", "last_name": "Andere", "email": "ottilie.andere@example.com", "phone": "+49 69 5550404"}
+BESIDE = {**SEATED, "first_name": "Ottilie", "last_name": "Andere", "email": "ottilie.andere@example.com", "phone": "+49 69 90009404"}
 
 
-async def club_row(database: AsyncDatabase) -> dict[str, Any]:
-    found = await database[Collection.SAISON_TEAMS].find_one({"team_id": TEAM_OID, "saison_id": SAISON_ID})
-    assert found is not None, "the seeded row is gone"
-    return found
+async def club_row(database: AsyncDatabase) -> Mapping[str, Any]:
+    return await the_row(database, Collection.SAISON_TEAMS, {"team_id": TEAM_OID, "saison_id": SAISON_ID}, "the seeded row is gone")
 
 
 async def contacts_saved(database: AsyncDatabase, client: AsyncMongoClient, kontakte: Any, version: int) -> Any:
@@ -174,7 +170,7 @@ async def junction_patched(database: AsyncDatabase, client: AsyncMongoClient, va
     return await save_the_team(database, team_id=TEAM_OID, saison_id=SAISON_ID, **values)
 
 
-def junction_values(row: dict[str, Any], **changed: Any) -> dict[str, Any]:
+def junction_values(row: Mapping[str, Any], **changed: Any) -> dict[str, Any]:
     return {"gruppe": row["gruppe"], "trikot_farbe": row.get("trikot_farbe"), **changed}
 
 
@@ -220,7 +216,7 @@ class TestAWriteKeepingTheirSeatInsideTheErasureLeavesNothing:
     """
 
     @pytest.mark.parametrize("write", list(KEEPING_WRITES))
-    def test_nothing_holds_the_address(self, mongo_replica_set_url: str, write: str):
+    async def test_nothing_holds_the_address(self, mongo_replica_set_url: str, write: str):
         prepare = KEEPING_WRITES[write]
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -238,7 +234,7 @@ class TestAWriteKeepingTheirSeatInsideTheErasureLeavesNothing:
 
             return outcome, written, (await club_row(database))["kontakte"]["trainer"], await where_folded_to(database, IDENTIFIER)
 
-        outcome, written, trainer, held = on_a_league(mongo_replica_set_url, body)
+        outcome, written, trainer, held = await on_a_league(mongo_replica_set_url, body)
 
         assert (outcome, written) == (COMMITTED, [COMMITTED]), "the write or the erasure never committed, so this case proves nothing"
         assert trainer is None, "the erased person's seat stands"

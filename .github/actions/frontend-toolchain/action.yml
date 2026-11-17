@@ -20,9 +20,8 @@ runs:
     # pnpm/setup fetches pnpm at the `packageManager` version, installs the Node that
     # `devEngines.runtime` names in the manifest -- from the manifest alone, the lockfile playing no
     # part, so a range there is the newest release matching it on the day the job runs -- and caches
-    # the store itself (https://github.com/pnpm/setup#cache-the-pnpm-store). That field therefore
-    # holds one exact release, the one fl_frontend/Dockerfile's base carries. Dependabot reaches
-    # this action's pin through .github/dependabot.yml's composite-action entry.
+    # the store itself. That field therefore holds one exact release, the one fl_frontend/Dockerfile's
+    # base carries.
     - uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
       with:
         working-directory: fl_frontend

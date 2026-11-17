@@ -1,4 +1,4 @@
-import { configDouble, registerAuthDoubles } from "@/test-support/authDoubles.ts";
+import { configDouble, registerAuthDoubles } from "@/test-support/authDoubles";
 import { assert, describe, it } from "vitest";
 
 /* The library builds its adapter inside its init, which `auth.$context` is the promise of: a factory refusing here
@@ -17,9 +17,9 @@ registerAuthDoubles({
 });
 
 // Imported here rather than at the top: a static import resolves before the doubles above are registered.
-const { deleteAccountFor } = await import("./auth/accounts.ts");
-const { removePasskey } = await import("./auth/passkeys.ts");
-const { RolledBackError } = await import("./errors.ts");
+const { deleteAccountFor } = await import("./auth/accounts");
+const { removePasskey } = await import("./auth/passkeys");
+const { RolledBackError } = await import("./errors");
 
 /* Each caller reads anything but a rollback as a write that may have landed: the erasure has answered before the
    account's deletion, and the passkey's action records its write as sent before the removal. */

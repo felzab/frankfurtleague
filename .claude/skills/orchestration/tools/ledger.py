@@ -951,14 +951,24 @@ def bank_from(
     settled: Mapping[int, int] | None = None,
     cited: Collection[int] = (),
 ) -> Banked:
-    """The agent's final message banked, then saved as `report`: a refused bank saves nothing, so its retry is clean."""
+    """The agent's final message saved as `report`, its folder made, then banked.
+
+    No row names a report that is not there, and a refused bank removes the report it saved, so its retry is clean.
+    """
     text = final_message(agent, projects)
+    data = text.encode("utf-8")
+    existed = report.exists()
     # A resumed agent's next reply is a report of its own: written over the first, it erased it.
-    if report.exists() and report.read_bytes() != text.encode("utf-8"):
+    if existed and report.read_bytes() != data:
         raise ValueError(f"{report} already holds another report: save a later round under its own name, such as <NAME>-r2-report.md")
-    banked = bank_text(register, text, report.name, declared_none, name, routes, closes, agent=agent, settled=settled, cited=cited)
-    report.write_bytes(text.encode("utf-8"))
-    return banked
+    report.parent.mkdir(parents=True, exist_ok=True)
+    report.write_bytes(data)
+    try:
+        return bank_text(register, text, report.name, declared_none, name, routes, closes, agent=agent, settled=settled, cited=cited)
+    except BaseException:
+        if not existed:
+            report.unlink(missing_ok=True)
+        raise
 
 
 def show(register: Path, rows: list[str]) -> tuple[list[str], list[str]]:

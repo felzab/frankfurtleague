@@ -5,34 +5,28 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.main import create_app
-from tests.app_client import app_client
+from tests.app_client import app_client, app_under_test
 from tests.config import SYSTEM_AUTH
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database
 from tests.documents import (
-    SCHIEDSRICHTER_TEXT_VERSIONS,
-    SPIELER_TEXT_VERSIONS,
+    AUSTRITT,
     ban_document,
     bewerbung_document,
+    confirmed_referee_document,
     kontakte_document,
     kontaktperson_document,
     new_schule_document,
-    own_einwilligung_document,
-    registrierung_document,
+    pupils_registrierung_document,
     saison_document,
     saison_team_document,
-    schiedsrichter_document,
     spieler_document,
 )
 from tests.worker import worker_database
-
-from .conftest import AUSTRITT, config_for
 
 DATABASE_NAME = worker_database("fl_identity_references_test")
 
@@ -44,30 +38,30 @@ STAMP = "2026-01-20"
 
 # One mailbox per kind of record, each held by that record alone, so an arm the read drops answers
 # exactly its own address.
-SEAT_PAST = "sitz.vergangen@schule.de"
-SEAT_PAST_OPEN = "sitz.vergangen.offen@schule.de"
-SEAT_OPEN = "sitz.offen@schule.de"
-SEAT_EXITED = "sitz.ausgetreten@schule.de"
-BEWERBUNG_OPEN = "bewerbung.offen@schule.de"
-BEWERBUNG_UNCONFIRMED = "bewerbung.unbestaetigt@schule.de"
-SPIELER = "spieler.anna@schule.de"
-SCHIEDSRICHTER_RETIRED = "pfeife.ruhestand@schule.de"
-REGISTERED = "rita.registriert@schule.de"
-ADMIN = "verena.verwaltung@schule.de"
+SEAT_PAST = "sitz.vergangen@schule.example.org"
+SEAT_PAST_OPEN = "sitz.vergangen.offen@schule.example.org"
+SEAT_OPEN = "sitz.offen@schule.example.org"
+SEAT_EXITED = "sitz.ausgetreten@schule.example.org"
+BEWERBUNG_OPEN = "bewerbung.offen@schule.example.org"
+BEWERBUNG_UNCONFIRMED = "bewerbung.unbestaetigt@schule.example.org"
+SPIELER = "spieler.anna@schule.example.org"
+SCHIEDSRICHTER_RETIRED = "pfeife.ruhestand@schule.example.org"
+REGISTERED = "rita.registriert@schule.example.org"
+ADMIN = "verena.verwaltung@schule.example.org"
 # Barred while the running season lasts, the one holding a referee record and the other nothing: a ban
 # keeps no account, so the record alone decides.
-BARRED_SCHIEDSRICHTER = "gesa.pfeife@schule.de"
-BARRED = "gerda.gesperrt@schule.de"
+BARRED_SCHIEDSRICHTER = "gesa.pfeife@schule.example.org"
+BARRED = "gerda.gesperrt@schule.example.org"
 # Today's address rule refuses a local part beyond ASCII, so no ban can be keyed under this one, and no
 # record holds it: a ban keeping no account, it is judged as any other.
-OUTSIDE_THE_RULE = "jürgen@schule.de"
+OUTSIDE_THE_RULE = "jürgen@schule.example.org"
 
-REGISTERED_OPEN = "rita.offen@schule.de"
+REGISTERED_OPEN = "rita.offen@schule.example.org"
 # Asked as an account may store it, so the answer is shown to keep the asker's spelling.
 NOBODY = "Niemand.Hier@Example.COM"
 
 # The league's owner, asked about nowhere: what lets the read answer at all.
-OWNER = "olga.inhaberin@schule.de"
+OWNER = "olga.inhaberin@schule.example.org"
 
 TEAM_OIDS = [ObjectId(f"6890a1b2c3d4e5f6079900{n:02d}") for n in range(1, 5)]
 GRANT_OID = ObjectId("6890a1b2c3d4e5f607990051")
@@ -82,7 +76,7 @@ ASKED = [
     NOBODY,
     BEWERBUNG_OPEN,
     BEWERBUNG_UNCONFIRMED,
-    "Spieler.Anna@Schule.DE",
+    "Spieler.Anna@Schule.EXAMPLE.ORG",
     SCHIEDSRICHTER_RETIRED,
     REGISTERED,
     REGISTERED_OPEN,
@@ -100,43 +94,6 @@ def _seat(email: str, *, confirmed_at: str | None = STAMP) -> dict[str, Any]:
 
 def _row(team_id: ObjectId, saison_id: str, shorthand: str, **fields: Any) -> dict[str, Any]:
     return saison_team_document(saison_id, team_id, f"Schule {shorthand}", shorthand, **fields)
-
-
-def _referee(oid: Any, email: str, name: str, **fields: Any) -> dict[str, Any]:
-    return schiedsrichter_document(
-        oid,
-        email=email,
-        name=name,
-        default_payment=20,
-        **{"einwilligung": own_einwilligung_document(text_versions=SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at=STAMP), **fields},
-    )
-
-
-def _registrierung(email: str, *, confirmed: bool) -> dict[str, Any]:
-    return registrierung_document(
-        ObjectId(),
-        email,
-        saison_id=ACTIVE_SAISON,
-        team_id=TEAM_OIDS[0],
-        first_name="Rita",
-        last_name="Registriert",
-        token=email,
-        submitted_at="2026-01-02",
-        deadline="2026-01-09",
-        position="Mittelfeld",
-        nummer="17",
-        stufe="Q1",
-        confirmed=None
-        if not confirmed
-        else {
-            "birth_date": "2009-05-04",
-            "scope": "internal",
-            "media": False,
-            "text_versions": SPIELER_TEXT_VERSIONS,
-            "today": "2026-01-03",
-            "at": "2026-01-03T08:00:00+00:00",
-        },
-    )
 
 
 async def _seed(database: AsyncDatabase) -> None:
@@ -167,12 +124,17 @@ async def _seed(database: AsyncDatabase) -> None:
     await database[Collection.SPIELER].insert_one(spieler_document(ObjectId(), "Anna", "Anders", email=SPIELER))
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [
-            _referee(ObjectId(), SCHIEDSRICHTER_RETIRED, "B. Ruhestand", inactive_since="2026-03-01"),
-            _referee(ObjectId(), BARRED_SCHIEDSRICHTER, "G. Pfeife"),
+            confirmed_referee_document(ObjectId(), SCHIEDSRICHTER_RETIRED, "B. Ruhestand", confirmed_at=STAMP, inactive_since="2026-03-01"),
+            confirmed_referee_document(ObjectId(), BARRED_SCHIEDSRICHTER, "G. Pfeife", confirmed_at=STAMP),
         ]
     )
     await database[Collection.REGISTRIERUNGEN].insert_many(
-        [_registrierung(REGISTERED, confirmed=True), _registrierung(REGISTERED_OPEN, confirmed=False)]
+        [
+            pupils_registrierung_document(
+                ObjectId(), address, saison_id=ACTIVE_SAISON, team_id=TEAM_OIDS[0], token=address, confirmed=confirmed
+            )
+            for address, confirmed in ((REGISTERED, True), (REGISTERED_OPEN, False))
+        ]
     )
     await database[Collection.BAN_LIST].insert_many(
         [ban_document(BARRED_SCHIEDSRICHTER, until=ACTIVE_SAISON), ban_document(BARRED, until=ACTIVE_SAISON)]
@@ -186,38 +148,30 @@ async def _seed(database: AsyncDatabase) -> None:
     )
 
 
-@functools.cache
-def _served() -> FastAPI:
-    return create_app(config_for(DATABASE_NAME))
-
-
 async def _ask(url: str, identifiers: list[str]) -> tuple[int, Mapping[str, Any]]:
-    async with app_client(url, app=_served()) as http:
+    async with app_client(url, app=app_under_test(DATABASE_NAME)) as http:
         response = await http.post(PATH, headers=SYSTEM_AUTH, json={"identifiers": identifiers})
 
     return response.status_code, response.json()
 
 
 @functools.cache
-def answered(url: str) -> tuple[int, Mapping[str, Any]]:
+async def answered(url: str) -> tuple[int, Mapping[str, Any]]:
     """One pass's batch through the MOUNTED route over the whole league, which every case reads.
 
     One request rather than one per address: a judgement mixing two addresses of one batch shows only in a batch.
     """
 
-    async def _run() -> tuple[int, Mapping[str, Any]]:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
-            await _seed(database)
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
+        await _seed(database)
 
-            return await _ask(url, ASKED)
-
-    return on_the_seed_loop(_run())
+        return await _ask(url, ASKED)
 
 
 @pytest.mark.db
 class TestWhatLetsAnAccountGo:
-    def test_the_answer_holds_each_once_in_the_spelling_asked_and_nothing_else(self, mongo_replica_set_url: str):
-        assert answered(mongo_replica_set_url) == (
+    async def test_the_answer_holds_each_once_in_the_spelling_asked_and_nothing_else(self, mongo_replica_set_url: str):
+        assert await answered(mongo_replica_set_url) == (
             200,
             {
                 "unreferenced": [NOBODY, REGISTERED_OPEN, BARRED, OUTSIDE_THE_RULE],
@@ -229,12 +183,9 @@ class TestWhatLetsAnAccountGo:
 class TestALeagueWithoutAnOwner:
     """An empty or foreign database answers every address unreferenced, and the sweep would delete every account on it."""
 
-    def test_the_whole_batch_is_refused(self, mongo_replica_set_url: str):
-        async def _run() -> tuple[int, Mapping[str, Any]]:
-            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True):
-                return await _ask(mongo_replica_set_url, [NOBODY, SEAT_OPEN])
-
-        status, body = on_the_seed_loop(_run())
+    async def test_the_whole_batch_is_refused(self, mongo_replica_set_url: str):
+        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True):
+            status, body = await _ask(mongo_replica_set_url, [NOBODY, SEAT_OPEN])
 
         assert (status, body["error_code"]) == (409, Code.NO_OWNER), body
         assert "unreferenced" not in body

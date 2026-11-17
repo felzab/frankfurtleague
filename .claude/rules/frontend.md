@@ -31,5 +31,11 @@ Each fails silently. The ratified decisions for this surface are in `docs/decisi
   one-shot form (`fl_frontend/src/kit/usePasskeyTouch.ts`). A touch fired from an effect, or behind
   anything slower than the sign-in client's own request, has lost the press Safari asks of WebAuthn:
   `tsc` and every unit test pass, and the passkey journeys run in Chromium alone.
+- A journey presses a control inside an overlay through the overlay a helper of
+  `fl_frontend/e2e/support/controls.ts` answered, never by the control's own role off the page, a
+  button's or a text box's, which the lint's ban on looking up an overlay's role passes. Found that
+  way, the press can land on an overlay still entering: it fails Playwright's stability check, and
+  the retry scrolls the control into view, which closes a rising sheet or a combo box's list, and
+  only a journeys leg in CI shows it, now and then.
 - Grep for render props before deleting a `"use client"`. A Server Component may not pass a function
   to a Client Component, and neither `tsc` nor the build catches it on a dynamic route.

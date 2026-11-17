@@ -1,17 +1,14 @@
 /**
- * E2E · J6's editors in the area, under each project, where no lower tier sees a club editor's one save reach only one
- * of its two records, a squad row's save get lost, or the season's Registrierungen fail on the seed's real rows.
+ * E2E · the administration's editors, under each project, where no lower tier sees a club editor's one save reach only
+ * one of its two records, a squad row's save get lost, or the season's Registrierungen fail on the seed's real rows.
  */
 import { expect } from "@playwright/test";
 
-import { SAISON as PLANNED } from "./support/application";
-import { choose, save, saveBar, typeInto } from "./support/controls";
+import { choose, enteredDialog, save, saveBar, typeInto } from "./support/controls";
 import { ADMINISTRATOR_STATE, test } from "./support/journey";
+import { nameOf, PEOPLE, PLANNED, RUNNING } from "./support/madeUpLeague";
 
 test.use({ storageState: ADMINISTRATOR_STATE });
-
-/** The running season of the made-up seed, whose squads it fills. */
-const RUNNING = "2027";
 
 test("a known club enters the planned season, and its editor's one save reaches both its records", async ({
   page,
@@ -21,7 +18,7 @@ test("a known club enters the planned season, and its editor's one save reaches 
 
   await page.goto(`/admin/saisons/${PLANNED}/teams`);
   await page.getByRole("button", { name: "Team eintragen" }).click();
-  const dialog = page.getByRole("dialog", { name: "Team eintragen" });
+  const dialog = await enteredDialog(page, "Team eintragen");
   await choose(page, dialog, /^Team$/, club);
   await choose(page, dialog, /^Gruppe/, /^Gruppe C/);
   await dialog.getByRole("button", { name: "Eintragen" }).click();
@@ -58,5 +55,5 @@ test("a pupil's squad row saves from its editor, and the season's Registrierunge
   await page.goto(`/admin/saisons/${RUNNING}/registrierungen`);
   await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Registrierungen" })).toBeVisible();
   // The heading stands over an empty list too: a pupil's row of the seed is what says the list was read.
-  await expect(page.getByRole("main").getByRole("link", { name: "Ole Sommer", exact: true })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("link", { name: nameOf(PEOPLE.administration.registration), exact: true })).toBeVisible();
 });

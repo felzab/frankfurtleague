@@ -36,7 +36,6 @@ export default function ErasuresPage() {
           label: COPY.signIn.address,
           name: "email",
           kind: "email",
-          autofill: "off",
           isRequired: requires(email, ""),
           maxLength: identityPostErasureBodyEmailMax,
         },

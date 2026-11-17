@@ -1,7 +1,26 @@
+import logging
+from collections.abc import Iterator
+from contextlib import contextmanager
+
+import pytest
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.collections import Collection
-from app.core.recording import FLAction
+from app.core.recording import FLAction, actor_var
+
+
+@contextmanager
+def acting_as(address: str) -> Iterator[None]:
+    """`address` as the administrator `bind_actor` binds on a request, for a handler a case calls directly.
+
+    Reset in a `finally`, so a case that fails inside it leaves its actor to nothing after it.
+    """
+
+    token = actor_var.set(address)
+    try:
+        yield
+    finally:
+        actor_var.reset(token)
 
 
 async def acts_of(database: AsyncDatabase) -> list[tuple[str, str, str | None, object]]:
@@ -18,3 +37,9 @@ async def deletions_of(database: AsyncDatabase, action: FLAction) -> list[tuple[
     rows = database[Collection.ACTION_LOG].find({"action": action}).sort("_id", 1)
 
     return [(row["by"], row["label"], row["count"], row["record_id"]) async for row in rows]
+
+
+def journal_records(caplog: pytest.LogCaptureFixture) -> list[logging.LogRecord]:
+    """Every journal line `caplog` captured, one record a line, so an act written over several lines counts each."""
+
+    return [record for record in caplog.records if record.getMessage() == "journal.act"]

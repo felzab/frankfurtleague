@@ -1,8 +1,8 @@
-import { serveBackend } from "@/test-support/backend.ts";
-import { signedInRequest } from "@/test-support/session.ts";
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import type { FLOwnSaisonsResponse, FLSaisonFrameResponse } from "@/core/generated/client/types.ts";
+import type { FLOwnSaisonsResponse, FLSaisonFrameResponse } from "@/core/generated/client/types";
 
 const SAISONS = {
   "2027": { id: "2027", start_date: "2026-09-01", end_date: "2027-07-31" },
@@ -23,7 +23,7 @@ serveBackend(({ method, path }) => {
 // A referee's session: the real subject read, the real person's read and the real frame read run beneath the query.
 signedInRequest({ email: "pia@example.org", records: { schiedsrichter: [{ schiedsrichter_id: "6890a1b2c3d4e5f607250021" }] } });
 
-const { getOwnSaisons } = await import("./queries.ts");
+const { getOwnSaisons } = await import("./queries");
 
 beforeEach(() => {
   held.own = [SAISONS["2027"], SAISONS["2026"], SAISONS["2025"]];

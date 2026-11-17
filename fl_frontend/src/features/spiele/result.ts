@@ -10,12 +10,11 @@ import type { ScoreOutcome } from "@/kit/ScoreRows";
  * match apart.
  */
 
-/** The two no-shows, whose goals the league composes from the season's rules and which take no goal of their own. */
-type NoShow = Extract<FLSonderereignis, "nichtantreten_team1" | "nichtantreten_team2">;
-
-/** Whether a Sonderereignis, or a select's choice of one, is a no-show. */
-export const isNoShow = (sonderereignis: string | null): sonderereignis is NoShow =>
-  sonderereignis === "nichtantreten_team1" || sonderereignis === "nichtantreten_team2";
+/**
+ * Whether a Sonderereignis, or a select's choice of one, is one of the two no-shows, whose goals the league composes from
+ * the season's rules and which take no goal of their own.
+ */
+export const isNoShow = (sonderereignis: string | null) => sonderereignis === "nichtantreten_team1" || sonderereignis === "nichtantreten_team2";
 
 export const creditedSide = ({ side, eigentor }: { side: FLSpielSide; eigentor: boolean }): FLSpielSide =>
   eigentor ? (side === "team1" ? "team2" : "team1") : side;
