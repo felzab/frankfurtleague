@@ -1095,7 +1095,7 @@ def _sent(to: str, text: str, **extra: object) -> dict[str, object]:
 
 @pytest.mark.parametrize("to", ["WORKER", "a1b2c3"], ids=["by name", "by id"])
 def test_a_sent_message_is_written_to_its_agents_file_and_routes_its_rows(tmp_path: Path, to: str) -> None:
-    """An order appended by hand, its send forgotten, never reached the agent: the record follows the send."""
+    """The send itself writes the message to its agent's file and routes its rows, so no order is recorded that was never sent."""
     plans, register, messages = _fleet(tmp_path)
     now = datetime.datetime(2026, 10, 6, 19, 5, tzinfo=datetime.UTC)
     text = 'Fix both.\r\nRows: A-F1, A-F2\nPath C:\\Users\\x stays as typed, and so does "agent_id": in a brief.'
@@ -1137,7 +1137,7 @@ def test_a_send_that_is_no_coordinators_order_writes_nothing_and_says_nothing(tm
 def test_a_coordinators_send_it_cannot_record_is_told_rather_than_dropped(
     tmp_path: Path, to: str, messages_file: bool, briefs_line: bool, said: str
 ) -> None:
-    """Every agent missing from a stale live-agent table was skipped in silence; whatever is not recorded is now said."""
+    """A coordinator's send that reaches no messages file is told, naming why, rather than skipped in silence."""
     plans, _, messages = _fleet(tmp_path, messages_file=messages_file, briefs_line=briefs_line)
     before = messages.read_bytes() if messages.exists() else None
     told = reg.record(_sent(to, "x"), plans)
@@ -1155,7 +1155,7 @@ def test_rows_routed_elsewhere_are_told_and_the_message_still_recorded(tmp_path:
 
 
 def test_the_hook_command_answers_a_notice_and_a_failure_as_hook_json(tmp_path: Path) -> None:
-    """A failure inside the hook was swallowed by the shell's exit 0, reading exactly like a recorded send."""
+    """The hook answers a notice and its own failure alike as hook JSON, so a failure behind the shell's exit 0 reaches the coordinator."""
     plans, register, _ = _fleet(tmp_path, messages_file=False)
     (plans / "other" / "REGISTER-x.md").parent.mkdir()
     (plans / "other" / "REGISTER-x.md").write_bytes(b"\xff not this session's, and not utf-8\n")
@@ -1172,7 +1172,7 @@ def test_the_hook_command_answers_a_notice_and_a_failure_as_hook_json(tmp_path: 
 
 
 def test_the_messages_hook_says_a_lock_it_cannot_take_inside_its_timeout(tmp_path: Path) -> None:
-    """The hook waited on a held lock as long as its own timeout, so the harness killed it and the coordinator heard nothing.
+    """The hook gives up on a held lock inside its own timeout and says so, rather than being killed by the harness with nothing told.
 
     The record's whole wait is held to at most half the timeout `.claude/settings.json` gives the hook.
     """
@@ -1197,7 +1197,7 @@ def test_the_messages_hook_says_a_lock_it_cannot_take_inside_its_timeout(tmp_pat
 
 
 def test_the_writer_tools_hook_refuses_an_implementers_mcp_call() -> None:
-    """The hook lets through whatever it cannot read, so a renamed input field turned it off with nothing failing.
+    """The hook lets through whatever it cannot read, so a renamed input field would turn it off with nothing failing.
 
     The payload is a PreToolUse input as the hooks reference documents it, `agent_type` among the
     common fields a subagent's call carries.
@@ -1226,7 +1226,7 @@ def test_the_writer_tools_hook_refuses_an_implementers_mcp_call() -> None:
 
 
 def test_dispatch_writes_the_messages_file_and_the_row_a_send_resolves_through(tmp_path: Path) -> None:
-    """The first dispatch after the landing made no messages file and no live-agent row, so its sends had nowhere to go."""
+    """`dispatch` writes the messages file and the live-agent row a send resolves through, by the agent's name and by an id given later."""
     plans, register, _ = _fleet(tmp_path)
     briefs = tmp_path / "plans" / "prog" / "scratch" / "briefs"
     first = _run("reg", "dispatch", str(register), "NEWBIE", "--question", "the new work")
@@ -1249,7 +1249,7 @@ def test_dispatch_refuses_a_register_naming_no_briefs_directory(tmp_path: Path) 
 
 
 def test_a_sent_rows_line_routes_each_row_it_can_and_names_each_it_cannot(tmp_path: Path) -> None:
-    """One refused row in a `Rows:` line once dropped the eight beside it, the route being all or none."""
+    """A `Rows:` line routes each row it can and names each it cannot, so one refused row never holds back the rest."""
     plans, register, _ = _fleet(tmp_path)
     ledger.route(register, "OTHER", ["A-F2"])
     said = reg.record(_sent("WORKER", "Fix them.\nRows: A-F1, A-F2, A-F9."), plans)
@@ -1272,7 +1272,7 @@ def _brief(tmp_path: Path, name: str, rows: str) -> Path:
 
 
 def test_dispatch_routes_its_briefs_rows_one_by_one_and_takes_a_queues_rows(tmp_path: Path) -> None:
-    """A brief is a file and its dispatch no SendMessage, so the rows a brief named reached no hook and stayed OPEN."""
+    """A brief is a file and its dispatch no SendMessage, so `dispatch --brief` routes the rows it names itself, through no hook."""
     _, register, _ = _fleet(tmp_path)
     ledger.route(register, "OTHER", ["A-F2"])
     brief = _brief(tmp_path, "NEWBIE", "Rows: A-F1, A-F2.")
@@ -1311,7 +1311,7 @@ def test_dispatch_with_an_id_sets_a_finished_agents_row_running_again(tmp_path: 
 
 @pytest.mark.parametrize("name", ["NEWBIE", "OTHER"], ids=["a new row", "another agent's row"])
 def test_dispatch_refuses_an_id_another_live_row_names(tmp_path: Path, name: str) -> None:
-    """Two rows naming one id left every later write to either row refused, and a send by that id in no messages file."""
+    """An id another live row names is refused, writing nothing, since two rows naming one id would refuse every later write to either."""
     _, register, _ = _fleet(tmp_path)
     briefs = tmp_path / "plans" / "prog" / "scratch" / "briefs"
     before = register.read_bytes()
@@ -1322,7 +1322,7 @@ def test_dispatch_refuses_an_id_another_live_row_names(tmp_path: Path, name: str
 
 
 def test_a_queued_standing_action_is_ticked_by_the_dispatch_of_its_brief(tmp_path: Path) -> None:
-    """Standing actions lived in UPDATE text, where nothing read them, and the four rows of the table stayed `no`."""
+    """A standing action is queued as a row of its table, which the dispatch of its brief ticks, naming the dispatch."""
     _, register, _ = _fleet(tmp_path)
     register.write_bytes(register.read_bytes().replace(b"## Findings ledger", (STANDING + "## Findings ledger").encode()))
     brief = _brief(tmp_path, "NEWBIE", "")
@@ -1347,7 +1347,7 @@ def _live_status(register: Path, name: str) -> str:
 
 
 def test_a_paused_agent_is_counted_apart_and_a_message_resumes_it(tmp_path: Path) -> None:
-    """An agent paused under /pace read RUNNING, so the gauge counted it and the width it bounds was wrong."""
+    """A paused agent is counted apart from the RUNNING gauge, so the width the gauge bounds stays right; a message resumes it."""
     plans, register, _ = _fleet(tmp_path)
     assert _run("reg", "pause", str(register), "WORKER").returncode == 0
     assert re.fullmatch(r"PAUSED \d{4}-\d\d-\d\d \d\d:\d\d", _live_status(register, "WORKER"))
@@ -1362,7 +1362,7 @@ def test_a_paused_agent_is_counted_apart_and_a_message_resumes_it(tmp_path: Path
 
 
 def test_a_message_to_a_finished_agent_sets_its_row_running(tmp_path: Path) -> None:
-    """A finished agent resumed by a message stayed DONE, so the gauge and the pacing count missed it."""
+    """A message to a finished agent sets its row RUNNING, so the gauge and the pacing count include the agent it resumes."""
     plans, register, _ = _fleet(tmp_path)
     register.write_bytes(register.read_bytes().replace(b"| the work | x | RUNNING |", b"| the work | x | DONE 2026-10-16 10:00 W.md |"))
     now = datetime.datetime(2026, 10, 16, 15, 1, tzinfo=datetime.UTC)
@@ -1372,7 +1372,7 @@ def test_a_message_to_a_finished_agent_sets_its_row_running(tmp_path: Path) -> N
 
 
 def test_a_register_write_failing_after_the_record_says_the_message_is_recorded(tmp_path: Path) -> None:
-    """The hook said a message was in no messages file after writing it there, and the coordinator sent it twice.
+    """A register write failing after the record still says the message is recorded, so the coordinator never sends it twice.
 
     The register's lock names a running process, so the wake and the route each fail after the record.
     """
@@ -1409,7 +1409,7 @@ def test_dispatch_takes_a_finished_agents_rows_and_never_a_paused_ones(tmp_path:
 
 
 def test_context_reads_the_last_calls_context_and_counts_the_calls(tmp_path: Path) -> None:
-    """Agents resumed for a new round at 950,000 tokens of context cost a fresh agent's quota many times over."""
+    """`context` reads an agent's context at its last call and counts its calls: a resume at a large context costs many fresh agents' quota."""
     env = _home(tmp_path)
     folder = tmp_path / "home" / ".claude" / "projects" / "proj" / "session" / "subagents"
     folder.mkdir(parents=True)
@@ -1447,9 +1447,8 @@ FAILED_RUN: Final = _log(
     ("docs", "^[[31m   \u2717^[[0m  The documentation gate failed. Each finding above opens with what it judged"),
     ("docs", "##[error]Process completed with exit code 1."),
     # Vitest's summary as the gate replays it, Vitest's raised annotation repeating the case's error, and the
-    # gate's verdict, which raises none of its own. The frame is a real job's log; no run on Actions has
-    # failed a Vitest case, so Vitest's own lines are copied from a planted local run under CI=true
-    # GITHUB_ACTIONS=true.
+    # gate's verdict, which raises none of its own. The frame is a real job's log, and Vitest's own
+    # lines are a planted local run's under CI=true GITHUB_ACTIONS=true.
     ("frontend-units", "      \u23af\u23af\u23af\u23af\u23af\u23af\u23af Failed Tests 1 \u23af\u23af\u23af\u23af\u23af\u23af\u23af"),
     ("frontend-units", f"       FAIL  |unit| {MIRROR_CASE}"),
     ("frontend-units", "      AssertionError: These backend components have no Zod mirror and no recorded reason:"),
@@ -1485,7 +1484,7 @@ def _report(log: bytes, red: str = EXPECTED_RED) -> tuple[list[str], list[str], 
 
 
 def test_ci_names_every_finding_of_every_failed_job_expected_or_new() -> None:
-    """A job holding an expected red was read as wholly expected while a second, unlisted finding sat in it."""
+    """Every finding of a failed job is named, expected or new, so a job holding an expected red never hides a second, unlisted one."""
     said, new, flagged = _report(FAILED_RUN)
     assert flagged
     assert new == [
@@ -1537,7 +1536,7 @@ def _vitest_run(annotation: str) -> bytes:
 
 
 def test_ci_names_each_failing_vitest_case_and_reads_vitests_annotation_as_its_repeat() -> None:
-    """Vitest's failures read as their errors' messages and the step's verdict, no case named: only node:test's section was parsed."""
+    """Each failing Vitest case is named as its own new line, and Vitest's annotation of it is read as its repeat, no second finding."""
     # The runner trims a line's leading space before it reads a workflow command, so Vitest's
     # annotation the gate replays indented is raised, and logged as its message.
     said, new, flagged = _report(_vitest_run("##[error]{text}"))
@@ -1550,7 +1549,7 @@ def test_ci_names_each_failing_vitest_case_and_reads_vitests_annotation_as_its_r
 
 
 def test_ci_prints_every_new_line_last_and_the_count_after_them() -> None:
-    """A `tail -8` of a read printing NEW lines first showed two of its four, and none where the expected blocks ran long."""
+    """NEW lines print last and their count after them, so a `tail` of a read shows each new finding however long the expected blocks run."""
     said, _, _ = _report(FAILED_RUN)
     first_new = next(k for k, line in enumerate(said) if line.startswith("NEW"))
     assert all(line.startswith(("NEW", " ")) for line in said[first_new:-1]), said
@@ -1561,7 +1560,7 @@ def test_ci_prints_every_new_line_last_and_the_count_after_them() -> None:
 
 
 def test_a_red_row_whose_recorded_job_passed_is_cleared_and_one_with_no_job_stays() -> None:
-    """A row its job's passing had cleared stayed RED until someone wrote CLEARED by hand, a job the row never named."""
+    """A RED row naming its job is cleared when that job passes, and a row naming another job, or none, stays RED."""
     red = EXPECTED_RED.replace("| `refusalCoverage` | | mapper |", "| `refusalCoverage` | | `frontend` job: NEW in run 1 |")
     reading = ci.report(FAILED_RUN.decode("utf-8"), red, passed=frozenset({"frontend"}))
     assert [row.matches for row in reading.cleared] == ["refusalCoverage"]
@@ -1677,7 +1676,7 @@ def _gh(tmp_path: Path, run: Mapping[str, object], log: bytes = b"", code: int =
 def test_ci_reads_a_run_through_gh_only_once_it_concluded(
     tmp_path: Path, status: str, conclusion: str, log: bytes, code: int, exit_code: int, said: str
 ) -> None:
-    """A pipe from gh hid gh's own failure behind ci.py's exit, and nothing checked the run had concluded."""
+    """`ci.py` runs gh itself, so gh's own failure is its exit rather than hidden behind a pipe, and a run not yet concluded is refused."""
     root, sha = _pushed(tmp_path)
     env = _gh(tmp_path, {"status": status, "conclusion": conclusion, "workflowName": "verify", "headSha": sha}, log, code)
     register = tmp_path / "REGISTER-s.md"
@@ -1693,7 +1692,7 @@ def test_ci_reads_a_run_through_gh_only_once_it_concluded(
     ids=["workflow", "commit"],
 )
 def test_ci_refuses_a_run_of_another_workflow_or_another_commit(tmp_path: Path, workflow: str, head: bool, said: str) -> None:
-    """The coordinator handed it the pr-body run, "the newest on the branch", and the read judged a run that tests nothing."""
+    """A run of another workflow, such as pr-body, or of another commit is refused and writes nothing, since it tests nothing of the head."""
     root, sha = _pushed(tmp_path)
     env = _gh(tmp_path, {"status": "completed", "conclusion": "success", "workflowName": workflow, "headSha": sha if head else "0" * 40})
     register = tmp_path / "REGISTER-s.md"
@@ -1705,7 +1704,7 @@ def test_ci_refuses_a_run_of_another_workflow_or_another_commit(tmp_path: Path, 
 
 
 def test_a_read_writes_cleared_on_each_red_row_its_run_passed(tmp_path: Path) -> None:
-    """The register's rows were turned CLEARED by hand, one of them from a detail line no read ever matched."""
+    """A read writes CLEARED, with the commit and the run, on each RED row whose job passed, and on every row when the whole run passes."""
     root, sha = _pushed(tmp_path)
     jobs = [{"name": "frontend", "conclusion": "success"}, {"name": "docs", "conclusion": "failure"}]
     run = {"status": "completed", "conclusion": "failure", "workflowName": "verify", "headSha": sha, "jobs": jobs}
@@ -1724,7 +1723,7 @@ def test_a_read_writes_cleared_on_each_red_row_its_run_passed(tmp_path: Path) ->
 
 
 def test_expect_writes_a_red_row_per_new_line_that_the_next_read_expects(tmp_path: Path) -> None:
-    """Rows were written by heredoc scripts, one matching a detail line the read never takes, so the next run read NEW again."""
+    """`expect` writes a RED row for each NEW line, escaped and matched as the read takes it, so the next read of that log expects it."""
     root, sha = _pushed(tmp_path)
     log = _log(("frontend-units", "##[error]`db` | a pipe took 155 s"), ("docs", "##[error]`is neither an invariant nor a header` here"))
     env = _gh(tmp_path, {"status": "completed", "conclusion": "failure", "workflowName": "verify", "headSha": sha}, log)
@@ -1750,7 +1749,7 @@ def _failed(sha: str, **extra: object) -> dict[str, object]:
 
 
 def test_expect_writes_no_row_for_a_jobs_summary_and_a_relay_is_no_finding(tmp_path: Path) -> None:
-    """A row matching a job's placeholder expected every later failure of that job, so the read could not fail."""
+    """No row is written for a job's summary, which would expect every later failure of that job and leave the read unable to fail."""
     root, sha = _pushed(tmp_path)
     log = _log(
         ("images", "##[error]Process completed with exit code 1."), ("verify", "##[error]A scope job failed -- its own log has the findings.")
@@ -1772,7 +1771,7 @@ def test_expect_writes_no_row_for_a_jobs_summary_and_a_relay_is_no_finding(tmp_p
 
 
 def test_expect_keeps_a_lines_spacing_so_the_next_read_matches_it(tmp_path: Path) -> None:
-    """Spaces were collapsed in the row's literal, so the line it was written for read NEW again."""
+    """A row's literal keeps its line's spaces and tabs, so the next read matches the line it is written for."""
     root, sha = _pushed(tmp_path)
     log = _log(("docs", "##[error]two  spaces\tand a tab"))
     env = _gh(tmp_path, _failed(sha), log)
@@ -1808,7 +1807,7 @@ def test_ci_names_a_cancelled_run_rather_than_reading_its_log(tmp_path: Path) ->
 
 
 def test_ci_reads_another_commits_run_with_commit_and_writes_no_row(tmp_path: Path) -> None:
-    """Every run of another commit was refused, main's among them, and such a run says nothing of the pushed head's rows."""
+    """`--commit` reads a run of another commit, main's among them, and writes no row, since it says nothing of the pushed head's rows."""
     root, sha = _pushed(tmp_path)
     head = git(root, "rev-parse", "HEAD")
     jobs = [{"name": "frontend", "conclusion": "success"}]
