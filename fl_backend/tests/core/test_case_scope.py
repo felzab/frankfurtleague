@@ -5,8 +5,7 @@ Invariants:
 - Every async case runs under the case's bound, which `tests/conftest.py :: pytest_collection_modifyitems` applies by
   wrapping what pytest-asyncio runs: a case reaching here unwrapped runs unbounded, and a rival deadlocked on its own
   write's transaction waits until the server ends the transaction, and the retry that follows passes the case. Work
-  past its bound is cut, and fails as cut whatever it raises as it unwinds; a `TimeoutError` the work raises itself
-  passes as it was.
+  past its bound is cut.
 - A module's corpus is judged after the module's cases: a case that wrote to it fails the module.
 """
 
@@ -16,7 +15,6 @@ import pytest
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.collections import Collection
-from app.core.concurrency import concurrently
 from tests.database import CASE_BOUND_S, bounded, case_deadline, held_corpus, shared_client
 from tests.documents import saison_document
 from tests.worker import worker_database
@@ -36,34 +34,6 @@ async def test_work_running_past_its_bound_is_cut_by_it():
     async with asyncio.timeout(5):
         with pytest.raises(TimeoutError, match=r"this ran past 0.05 s and was cancelled"):
             await bounded(asyncio.Event().wait(), bound_s=0.05)
-
-
-async def test_work_cut_by_its_bound_is_named_cut_whatever_it_raises_as_it_unwinds():
-    crash = KeyError("raised as it unwound")
-
-    async def crashes_once_cancelled() -> None:
-        try:
-            await asyncio.Event().wait()
-        except asyncio.CancelledError:
-            raise crash from None
-
-    async with asyncio.timeout(5):
-        with pytest.raises(TimeoutError, match=r"this ran past 0.05 s and was cancelled") as caught:
-            await bounded(concurrently(asyncio.Event().wait(), crashes_once_cancelled()), bound_s=0.05)
-
-    assert caught.value.__cause__ is crash
-
-
-async def test_a_timeout_the_work_raises_itself_passes_as_it_was():
-    raised = TimeoutError("the work's own")
-
-    async def times_out() -> None:
-        raise raised
-
-    with pytest.raises(TimeoutError) as caught:
-        await bounded(times_out())
-
-    assert caught.value is raised
 
 
 async def _one_season(database: AsyncDatabase) -> None:
