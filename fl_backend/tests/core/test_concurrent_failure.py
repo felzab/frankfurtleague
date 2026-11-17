@@ -5,8 +5,8 @@ Invariants:
 - A run that raises stops every other run before the call returns, so no read outlives the request that sent it.
 - The exception escapes as itself, never inside an `ExceptionGroup`, so the handler chosen by its type answers it: a
   404 raised in a run answers as a 404.
-- Where several raise in one step, a crash outranks a refusal whichever finished first, so a request answers a defect
-  as one; of a kind, the first is raised, and every other crash is logged, so a second crash is still found.
+- Where several raise in one step, the first is raised and every other crash is logged, so a second crash is still
+  found; a refusal is an answer, and logged by nothing.
 """
 
 import asyncio
@@ -41,26 +41,6 @@ async def test_a_failure_stops_the_other_runs_and_escapes_as_itself():
     assert stopped.is_set(), "the other run was still going when the failure escaped"
 
 
-async def test_of_a_refusal_and_a_crash_in_one_step_the_crash_escapes_though_it_finished_second():
-    crash = KeyError("crashed")
-    finished: list[str] = []
-
-    async def refused() -> None:
-        await asyncio.sleep(0)
-        finished.append("refused")
-        raise DocumentNotFoundError()
-
-    async def crashed() -> None:
-        await asyncio.sleep(0)
-        finished.append("crashed")
-        raise crash
-
-    with pytest.raises(KeyError) as raised:
-        await concurrently(refused(), crashed())
-
-    assert (raised.value, finished) == (crash, ["refused", "crashed"])
-
-
 async def test_a_crash_discarded_beside_the_one_raised_is_logged_and_a_refusal_is_not(caplog: pytest.LogCaptureFixture):
     crash = KeyError("crashed")
 
@@ -77,7 +57,7 @@ async def test_a_crash_discarded_beside_the_one_raised_is_logged_and_a_refusal_i
         raise ValueError("crashed too")
 
     with caplog.at_level(logging.ERROR, logger=fl_logger.name), pytest.raises(KeyError) as raised:
-        await concurrently(refused(), crashed(), crashed_too())
+        await concurrently(crashed(), refused(), crashed_too())
 
     assert raised.value is crash
     [record] = caplog.records

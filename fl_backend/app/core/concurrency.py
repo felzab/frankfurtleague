@@ -37,9 +37,8 @@ async def concurrently(*runs: Run[Any]) -> tuple[Any, ...]:
     A task group, where `asyncio.gather` would leave the others running past a failure. The group's
     `ExceptionGroup` is unwrapped because a handler is chosen by the exception's own type, so a 404
     raised in a run answers as a 404. Where several raise in the step that sets off the cancellation, or
-    as that cancellation unwinds them, a crash outranks a refusal, so the answer does not hang on which
-    finished first: the first failure that is not a refusal is raised, else the first refusal, and every
-    other crash is logged. A run the cancellation stopped before it raised has nothing to rank.
+    as that cancellation unwinds them, the first is raised and every other crash is logged, so a second
+    crash is still found.
     """
 
     try:
@@ -50,8 +49,7 @@ async def concurrently(*runs: Run[Any]) -> tuple[Any, ...]:
     else:
         return tuple(task.result() for task in tasks)
 
-    crashes = [failure for failure in failures if not isinstance(failure, APIError)]
-    failure = (crashes or failures)[0]
+    failure = failures[0]
     for other in failures:
         if other is not failure:
             _log_discarded(other)
