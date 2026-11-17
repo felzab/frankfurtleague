@@ -1,8 +1,7 @@
 """
 TESTS · the made-up seed's own decisions: the one server it writes to, and every landing state it builds
 
-`scripts/tests/test_made_up_seed_script.py` drives the shell script that runs the seed in a container; what the seed itself
-decides is judged here, beside the backend it imports.
+What the seed itself decides is judged here, beside the backend it imports.
 
 Invariants:
 - The seed writes only to `LOCAL_SERVER`, and refuses any other server, exit 2, before any client exists, quoting nothing
