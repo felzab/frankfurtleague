@@ -96,8 +96,8 @@ running. A site whose every page errors can pass. So once the run ends:
 
 1. **Open the site.** Where it answers 502 or 1033 and the run said live, the tunnel routes
    somewhere else (below).
-2. **Read the frontend's index builds once they have settled**, with
-   [section 14](#14-the-auth-databases-indexes)'s two commands.
+2. **In a release changing the sign-in store's indexes, read the frontend's index builds** with
+   [section 14](#14-the-auth-databases-indexes)'s command.
 
 **The tunnel's two routes name `nginx:80`.** In the Cloudflare dashboard, the tunnel's published
 application routes for `frankfurtleague.de` and `www.frankfurtleague.de` each have the service type
@@ -116,19 +116,21 @@ about and counts as no pin.
 | Ending                             | Exit      | What stands afterwards                                                                                                               |
 | ---------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | Deployed                           | 0         | The new build, pinned; the replaced build's images still on the host                                                                 |
-| Live, but the pin unwritable       | 1         | The new build; `.env` pinning the previous one, and the line to write                                                                |
 | Failed, and went back              | 1         | The previous build's images, pinned; nginx on the configuration it had, unless the start recreated it or its reload went unconfirmed |
 | Failed, with no other build pinned | 1         | The stack as Compose left it; the pin unmoved                                                                                        |
 | Failed, and going back failed too  | 1         | The stack as Compose left it; `.env` pinning the previous build                                                                      |
 | Failed, went back, state unread    | 1         | The previous build, its services' state unknown; `.env` pinning it                                                                   |
 | Failed under `--no-rollback`       | 1         | The stack as it stands; `.env` pinning the new build                                                                                 |
-| Refused                            | 2         | The stack unchanged; unused images pruned where the run reached that                                                                 |
-| Crashed                            | 3 or more | The stack as far as the run got; its last lines name the command that failed                                                         |
+| Refused                            | 2         | The stack unchanged                                                                                                                  |
+| Crashed                            | 3 or more | The stack unchanged; unused images pruned where the run reached that                                                                 |
 | Interrupted                        | 130       | The stack as far as Compose took it; the pin unmoved, or the new build's under `--no-rollback` once started                          |
 
-**A refusal is a wrong argument, a machine that is not Linux, or a `--no-rollback` run whose pin
-could not be written.** The run names which. A `HEAD` git cannot read and a failed pull are
-crashes, each with the stack unchanged, the run's last lines naming the command.
+**Once the start has begun, every failure goes back**: the start itself, the read of every
+service's state, `nginx -t`, the reload, and a pin the run could not write, each named on the run's
+last line. **A refusal is a wrong argument, a machine that is not Linux, or Docker or its Compose
+plugin not answering.** **A crash comes before the start**: a `HEAD` git cannot read, a failed pull,
+or a `--no-rollback` run whose pin could not be written, the run's last lines saying the stack has
+not changed.
 
 **Going back moves the images alone.** The compose file and `nginx/` stay as the pull left them,
 and nginx is not reloaded, so it keeps the configuration it had before the run unless the start
