@@ -234,7 +234,7 @@ case "$SCOPE" in
 esac
 if [[ "$SCOPE" == ops ]]; then require_compose; fi
 case "$SCOPE" in
-  scripts|format|frontend-units|frontend|db)
+  format|frontend-units|frontend|db)
     require_dir fl_frontend/node_modules "Every frontend tool runs out of it. Install it with:  cd fl_frontend && pnpm install"
     require_pnpm_starts ;;
 esac
