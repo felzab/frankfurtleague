@@ -502,9 +502,7 @@ one of `fl_backend/tests/made_up_seed.py :: LANDING_STATES`, the seed refusing a
 runs again with `SEED_LANDING` in the backend container's environment, the read-back judges it, and
 the frontend alone is recreated, so no read of the earlier state stays cached. It builds nothing and
 keeps the stack's keys, its sign-in store and its images, so sessions and passkeys survive it. It
-refuses with no end-to-end stack running, and then from any checkout but the one whose `--e2e`
-created the stack's containers, which Compose records on each as
-`com.docker.compose.project.working_dir`. The stack's name is every checkout's, and the frontend it
+refuses with no end-to-end stack running. The stack's name is every checkout's, and the frontend it
 recreates takes the keys, the mail folder and the compose files of the checkout it runs in.
 
 **The checkers are Python, and one kernel makes their answers comparable**,
@@ -808,7 +806,7 @@ be true there, a check the owner makes in its list of monitors:
 | Scripts carry the git executable bit                                                                                                       | `scripts/gate/selfcheck.sh`, its first step                                                                                                                                            |
 | A deploy pins no build its last read finds with a service not running and healthy, and a stopped one-off container names no service        | `scripts/tests/test_deploy.py`, which runs `scripts/ops/deploy.sh` behind a stand-in engine; no real engine is driven                                                                  |
 | The journeys job's legs together run every project `fl_frontend/playwright.config.ts` defines, a setup project included                    | the `journeys` job's desktop leg, which asks Playwright's `--list` for every leg's flags                                                                                               |
-| The made-up seed loads only into a stack running its backend, and writes only to the local stack's server                                  | `scripts/tests/test_made_up_seed_script.py` behind a stand-in engine, and `fl_backend/tests/core/test_made_up_seed.py :: is_local_server`'s cases                                      |
+| The made-up seed loads only into a stack running its own mongo and its backend, its frontend stopped, and writes only to that server       | `scripts/tests/test_made_up_seed_script.py` behind a stand-in engine, and `fl_backend/tests/core/test_made_up_seed.py :: is_local_server`'s cases                                      |
 | Only a green run of every scope closes as safe to merge                                                                                    | `scripts/tests/test_gate_endings.py :: test_only_a_green_run_of_every_scope_is_safe_to_merge`                                                                                          |
 | Production never builds                                                                                                                    | unenforced: `docker-compose.yml` declares no `build:`, and `deploy.sh` only pulls                                                                                                      |
 | The builder stage has no reachable backend and no real environment                                                                         | `fl_frontend/Dockerfile`'s `SKIP_ENV_VALIDATION=true`, with no secrets directory and no `API_URL`                                                                                      |

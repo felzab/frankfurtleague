@@ -7,11 +7,13 @@
 #   ./scripts/ops/made_up_seed.sh --landing=<state>  the same, the landing in <state> (the seed's LANDING_STATES)
 #   ./scripts/ops/made_up_seed.sh --help
 #
-# Compose reaches the stack through the caller's COMPOSE_FILE and TAG, and the seed refuses any server but the local
-# stack's. Exit 0 seeded, and every document reads back through its record model; 1 a seed or a document to correct,
-# each named by the seed's or the read-back's own account; 2 refused, Docker not responding, no backend running,
-# another server, a state the seed does not hold, or a seed or a read-back that could not load its settings or read
-# the database; 130 interrupted; 3 or more a step that crashed, its own status kept where it is 3 or more.
+# Compose reaches the stack through the caller's COMPOSE_FILE and TAG, and only the local and the end-to-end stacks are
+# seeded: the script refuses any stack not running the mongo service, and the seed any server but that one.
+# Exit 0 seeded, and every document reads back through its record model; 1 a seed or a document to correct, each named
+# by the seed's or the read-back's own account; 2 refused, Docker not responding, no backend running, another stack, a
+# frontend not stopped, another server, a state the seed does not hold, or a seed or a read-back that could not load
+# its settings or read the database; 130 interrupted; 3 or more a step that crashed, its own status kept where it is 3
+# or more.
 
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh" || exit 3
 
@@ -34,11 +36,27 @@ SEED_ROOT="/tmp/seed"
 require_docker
 require_compose
 
+step "The stack the seed loads into"
+# Judged by what runs, whichever files a checkout's Compose reads: the local and the end-to-end stacks each run a mongo
+# service, and production runs none. `--all` lists a stopped container too, and a one-off one `docker compose run`
+# labels, which does none of its service's own work but writes as its service does.
+listed="$(docker compose ps --all --format '{{.Service}} {{.State}} {{.Label "com.docker.compose.oneoff"}}')"
+running=" "; frontend=""
+while IFS=' ' read -r service state oneoff; do
+  if [[ "$state" == running && "${oneoff%$'\r'}" == False ]]; then running+="${service} "; fi
+  # A restarting frontend comes back and a paused one resumes: only an exited or a created one stays stopped.
+  if [[ "$service" == frontend && "$state" != exited && "$state" != created ]]; then frontend="$state"; fi
+done <<<"$listed"
 # Refused rather than failed at the first hand-in: with no backend running, nothing has been judged.
-step "The stack's backend"
-backend="$(docker compose ps --status running --quiet backend)"
-[[ -n "$backend" ]] || refuse "the stack's backend is not running, so there is nothing to seed. Start the stack first."
-ok "running"
+[[ "$running" == *" backend "* ]] \
+  || refuse "the stack's backend is not running, so there is nothing to seed. Start the stack first."
+[[ "$running" == *" mongo "* ]] \
+  || refuse "the made-up seed loads only into the local or the end-to-end stack, and this one runs no mongo service."
+# The seed empties and refills one collection after another, and the frontend is the database's one other writer: its
+# passes and the requests it serves would write from a league half loaded.
+[[ -z "$frontend" ]] \
+  || refuse "the stack's frontend is ${frontend}, and the seed writes only a database nothing else writes. Stop it first."
+ok "the local or the end-to-end stack, its backend running and its frontend stopped"
 
 step "The made-up league${LANDING:+, the landing ${LANDING}}"
 # Through stdin and into the container's own /tmp, written as the container's user: a bind mount would differ between

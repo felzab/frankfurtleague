@@ -24,8 +24,8 @@ The scripts that check, run and deploy this project. Each script's header is its
 | `scripts/pyrightconfig.json`            | —             | pyright's configuration for the Python below this folder                                                   |
 
 **`deploy.sh` is the one script that reaches production.** Every other script stays on the machine
-it runs on, and `made_up_seed.sh`, which empties the database it seeds, runs a seed that refuses every
-database server but the local and the end-to-end stacks'.
+it runs on, and `made_up_seed.sh`, which empties the database it seeds, refuses every stack but the
+local and the end-to-end ones, as the seed refuses every database server but theirs.
 `local.sh --fresh` deletes the local stack's volumes, and with them its database and Next's build
 cache.
 
