@@ -91,7 +91,7 @@ from app.core.collections import Collection
 from app.core.config import EnvironmentValidationError, get_config
 from app.core.crud import ANCHOR_FIELD, Anchored
 from app.core.db import new_client
-from app.readback import RECORD_MODELS
+from app.readback import CRASHED, RECORD_MODELS, REFUSED, UNJUDGED
 from app.shared.einwilligung_evidence import compose_initial
 from app.shared.schemas.addresses import FLAddress
 from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS
@@ -137,12 +137,6 @@ PLANNED: Final[str] = PEOPLE["seasons"]["planned"]
 # The collections whose record model declares the count an anchor advances, each first document carrying it, as a
 # document of the league's soon does.
 ANCHORED: Final[frozenset[Collection]] = frozenset(collection for collection, model in RECORD_MODELS.items() if issubclass(model, Anchored))
-
-
-# The exit contract the script reads: 0 seeded, 1 a document to correct, 2 refused or could not write, 3 crashed.
-REFUSED: Final = 1
-UNJUDGED: Final = 2
-CRASHED: Final = 3
 
 
 def _crashed(error: BaseException) -> NoReturn:
