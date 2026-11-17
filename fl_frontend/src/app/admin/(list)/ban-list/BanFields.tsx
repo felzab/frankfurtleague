@@ -20,7 +20,6 @@ export function BanFields() {
         label={COPY.signIn.address}
         name="email"
         kind="email"
-        autofill="off"
         isRequired={requires(SignInPayloadSchema.shape.email, "")}
         maxLength={banListPostBanListEntryBodyEmailMax}
       />

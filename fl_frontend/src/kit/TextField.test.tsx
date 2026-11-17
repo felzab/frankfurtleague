@@ -14,12 +14,11 @@ import type { ReactElement } from "react";
 
 describe("an address field's autofill", () => {
   // The harm: the address of a person being erased stays in the administrator's browser, and no check reads that.
-  it("offers nothing where an administrator types somebody else's", () => {
+  it("offers nothing unless the field names the person's own", () => {
     render(
       <TextField
         label={COPY.signIn.address}
         kind="email"
-        autofill="off"
       />,
     );
     expect(screen.getByRole("textbox").getAttribute("autocomplete")).toBe("off");
