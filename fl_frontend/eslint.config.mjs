@@ -1504,19 +1504,19 @@ const eslintConfig = defineConfig([
     },
   },
 
-  // Two file names the toolchain takes in silence. Next 16 still runs a `middleware.ts`, deprecated, so it would be a
-  // second request hook beside `proxy.ts`; Tailwind 4 reads no `tailwind.config.*` but through a stylesheet's `@config`.
-  ...[
-    ["**/middleware.{ts,tsx,js}", "Next.js 16 renamed `middleware.ts` to `proxy.ts`: the request hook is fl_frontend/src/proxy.ts."],
-    [
-      "**/tailwind.config.{js,ts,cjs,mjs}",
-      "Tailwind 4 is configured in CSS: the theme is `@theme` in fl_frontend/src/app/tokens.css and globals.css.",
-    ],
-  ].map(([pattern, errorMessage]) => ({
-    files: [pattern],
+  // A file name the toolchain takes in silence: Tailwind 4 reads no `tailwind.config.*` but through a stylesheet's
+  // `@config`.
+  {
+    files: ["**/tailwind.config.{js,ts,cjs,mjs}"],
     plugins: { "check-file": checkFile },
-    rules: { "check-file/filename-blocklist": ["error", { [pattern]: "" }, { errorMessage }] },
-  })),
+    rules: {
+      "check-file/filename-blocklist": [
+        "error",
+        { "**/tailwind.config.{js,ts,cjs,mjs}": "" },
+        { errorMessage: "Tailwind 4 is configured in CSS: the theme is `@theme` in fl_frontend/src/app/tokens.css and globals.css." },
+      ],
+    },
+  },
 
   // The token file's colours, held to one list and to the contrast each pair's job needs.
   {
