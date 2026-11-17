@@ -224,9 +224,10 @@ beside_verdict() { # $1 its files · [--checker] [--summary | --pytest] $2 what 
   verdict "${@:1:$#-1}" "$rc" "${BASH_LINENO[0]}" "${!#}"
 }
 
-# A stalled case's stack is dumped inside every CI job's timeout. Each suite's own configuration keeps a
-# file on one worker. Under pytest-xdist a test module that does not collect is a failure, where pytest
-# alone answers it with its interrupt's 2. Each `--maxprocesses` below is its suite's optimum on 16 cores.
+# A stalled case's stack is dumped inside every CI job's timeout. Each suite's own configuration says
+# how its cases spread over the workers. Under pytest-xdist a test module that does not collect is a
+# failure, where pytest alone answers it with its interrupt's 2. Each `--maxprocesses` below is its
+# suite's optimum on 16 cores.
 PYTEST_SPREAD=(-n auto -o faulthandler_timeout=180)
 
 case "$SCOPE" in
