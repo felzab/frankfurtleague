@@ -94,8 +94,7 @@ SERVER_SELECTION_TIMEOUT_MS = 15_000
 
 # Every client's options, the application's, the read-back's and the made-up seed's, and each one a test builds:
 # `standard` reads a stored UUID back as `uuid.UUID`, where the driver's default reads it as `Binary`, so a client
-# without it compares and serialises such a field differently from the app. `tests/core/test_client_construction.py`
-# refuses a client built anywhere but `new_client`.
+# without it compares and serialises such a field differently from the app.
 CLIENT_OPTIONS: Final[Mapping[str, Any]] = {"serverSelectionTimeoutMS": SERVER_SELECTION_TIMEOUT_MS, "uuidRepresentation": "standard"}
 
 
