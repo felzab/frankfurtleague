@@ -79,7 +79,7 @@ async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
 
 
 async def on_a_league(url: str, body: Callable[[AsyncDatabase], Awaitable[Any]]) -> Any:
-    return await body((await shared_client(url))[DATABASE_NAME])
+    return await body(shared_client(url)[DATABASE_NAME])
 
 
 def page_of(club: str) -> Callable[[AsyncDatabase], Awaitable[Any]]:

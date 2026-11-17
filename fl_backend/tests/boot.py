@@ -8,42 +8,37 @@ case, so a secret value, a made-up one included, never sits in one.
 """
 
 import asyncio
+import contextlib
 import json
 import os
 import re
 import sys
-from collections.abc import AsyncGenerator, Mapping
-from contextlib import AbstractAsyncContextManager, asynccontextmanager
+from collections.abc import AsyncGenerator, AsyncIterator, Mapping
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
 
 from app.core.concurrency import concurrently
 from app.core.db import SERVER_SELECTION_TIMEOUT_MS
-from tests.database import CASE_BOUND_S, FIXTURE_BOUND_S
-from tests.processes import READ_AFTER_ITS_END_S, running
+from tests.database import CASE_BOUND_S
 
 BACKEND_ROOT: Final = Path(__file__).resolve().parents[1]
 DOCKERFILE: Final = BACKEND_ROOT / "Dockerfile"
 
 # Far past the longest boot run to its exit, one waiting out the driver's server selection, so only a boot that hangs
-# reaches it. `booted` runs in a module fixture, outside any case's bound and under the fixture's.
+# reaches it. `booted` runs in a module fixture, outside any case's bound.
 BOOT_BOUND_S: Final = SERVER_SELECTION_TIMEOUT_MS / 1000 + 45
 
 # A boot `serving` holds, which runs inside a case: past the few seconds an import takes against a server that answers,
 # and under the case's own bound, so a boot that never starts fails as one.
 SERVING_BOUND_S: Final = 20.0
 
-# How long a boot asked to stop gets before it is ended with every process it started. uvicorn defers a SIGTERM until
-# its lifespan's startup ends, so a boot stuck there, the one `SERVING_BOUND_S` cuts, ends only once its tree is ended.
+# How long a boot asked to stop gets before it is killed. uvicorn defers a SIGTERM until its lifespan's startup ends, so
+# a boot stuck there, the one `SERVING_BOUND_S` cuts, ends only once it is killed.
 STOP_GRACE_S: Final = 5.0
 
-assert SERVING_BOUND_S + STOP_GRACE_S + READ_AFTER_ITS_END_S < CASE_BOUND_S, (
-    "a boot held inside a case must time out and stop before the case does"
-)
-assert BOOT_BOUND_S + STOP_GRACE_S + READ_AFTER_ITS_END_S < FIXTURE_BOUND_S, (
-    "a boot run in a fixture must time out and stop before the fixture's phase does"
-)
+assert SERVING_BOUND_S + STOP_GRACE_S < CASE_BOUND_S, "a boot held inside a case must time out and stop before the case does"
 
 # The shape of the application's own log message (`app/core/logging.py`), which carries no value; uvicorn's lines and a
 # traceback's do not take it.
@@ -81,8 +76,11 @@ def boot_command() -> list[str]:
     return [sys.executable, "-m", "uvicorn", *arguments, "--app-dir", str(BACKEND_ROOT)]
 
 
-def _environment(secrets: Path, variables: Mapping[str, str]) -> Withheld:
-    """`variables` and the secrets folder, with the image's own `ENV` and nothing of this machine's but one name."""
+def environment(secrets: Path, variables: Mapping[str, str]) -> Withheld:
+    """`variables` and the secrets folder, with the image's own `ENV` and nothing of this machine's but one name.
+
+    Every process a case starts from the backend runs over one: a developer's environment can name a real deployment.
+    """
 
     environment = Withheld({"PYTHONUNBUFFERED": "1", "SECRETS_DIR": str(secrets), **variables})
     # Windows' sockets cannot load their providers without it, so `asyncio` fails at its import (WinError 10106); it
@@ -93,7 +91,7 @@ def _environment(secrets: Path, variables: Mapping[str, str]) -> Withheld:
     return environment
 
 
-def _secrets_folder(directory: Path, files: Mapping[str, str]) -> Path:
+def secrets_folder(directory: Path, files: Mapping[str, str]) -> Path:
     secrets = directory / "run-secrets"
     secrets.mkdir()
     for name, value in files.items():
@@ -142,19 +140,36 @@ class Boot:
         return sorted(name for name, value in values.items() if value in self.output)
 
 
-def _boot(directory: Path, files: Mapping[str, str], variables: Mapping[str, str]) -> AbstractAsyncContextManager[asyncio.subprocess.Process]:
+@asynccontextmanager
+async def _boot(directory: Path, files: Mapping[str, str], variables: Mapping[str, str]) -> AsyncIterator[asyncio.subprocess.Process]:
     """The boot started from `directory`, with `files` as its secrets and `variables` as its whole environment, held running.
 
-    Stopped as the block leaves, by any path a sibling's failure included, and ended with every process it started.
+    Both streams in one, as the container log holds them. Asked to stop as the block leaves, by any path a sibling's
+    failure included, and killed once `STOP_GRACE_S` has passed, or at once where the wait is cancelled.
     """
 
-    return running(
-        boot_command(),
+    process = await asyncio.create_subprocess_exec(
+        *boot_command(),
         cwd=directory,
-        env=_environment(_secrets_folder(directory, files), variables),
-        merged=True,
-        grace_s=STOP_GRACE_S,
+        env=environment(secrets_folder(directory, files), variables),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
     )
+    try:
+        yield process
+    finally:
+        # The ask, which on Windows is already a kill. A process that has just exited is no error.
+        with contextlib.suppress(ProcessLookupError):
+            process.terminate()
+        try:
+            await asyncio.wait_for(process.wait(), STOP_GRACE_S)
+        except TimeoutError:
+            process.kill()
+            await process.wait()
+        except BaseException:
+            # Cancelled while it waited, so no grace is left to wait out.
+            process.kill()
+            raise
 
 
 async def _to_its_exit(directory: Path, files: Mapping[str, str], variables: Mapping[str, str]) -> Boot:

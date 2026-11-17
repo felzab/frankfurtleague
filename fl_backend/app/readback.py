@@ -1,10 +1,9 @@
 """Read every stored document back through its record model, and name each one that model refuses.
 
 Read-only, for after a migration's files have run: `python -m app.readback` in the backend's container.
-It prints a document's id and the location of each error, never a value, and closes on `CLOSING_LINE`. It
-exits 0 when every document validates, 1 when any is refused, 2 when its settings could not be loaded or
-the database could not be read, and 3 when the read-back itself failed. A 1 is the read-back's own only
-beside its closing line, which is how a caller tells it from Python's own 1 for a module that never ran.
+It prints a document's id and the location of each error, never a value, and closes on a count of the
+documents read and refused. It exits 0 when every document validates, 1 when any is refused, 2 when its
+settings could not be loaded or the database could not be read, and 3 when the read-back itself failed.
 """
 
 import asyncio
@@ -43,10 +42,6 @@ from app.core.db import new_client
 REFUSED: Final = 1
 UNJUDGED: Final = 2
 CRASHED: Final = 3
-
-# The read-back's last line. A script running it reads a 1 without this line, a document refused in it, as Compose's
-# or Python's, a crash, so the read-back's tests hold this wording to the pattern that script matches.
-CLOSING_LINE: Final = "{read} documents read, {refused} refused."
 
 RECORD_MODELS: Mapping[Collection, type[BaseModel]] = {
     Collection.SAISONS: FLSaisonRecord,
@@ -105,7 +100,7 @@ async def read_back(client: AsyncMongoClient, database_name: str) -> int:
                 for location in locations:
                     print(f"{collection} {document.get('_id')} {location}")
 
-    print(CLOSING_LINE.format(read=read, refused=refused))
+    print(f"{read} documents read, {refused} refused.")
     return REFUSED if refused else 0
 
 
@@ -116,7 +111,13 @@ async def _main() -> int:
     except EnvironmentValidationError as refusal:
         print(f"The settings could not be loaded: {refusal}")
         return UNJUDGED
-    client = new_client(config.mongodb_uri.get_secret_value())
+    try:
+        client = new_client(config.mongodb_uri.get_secret_value())
+    # A URI the settings' scheme check passes and the driver's parser refuses, a port out of range among them, which
+    # it answers with a `ValueError`; the type alone, as below.
+    except (PyMongoError, ValueError) as failure:
+        print(f"The database could not be read ({type(failure).__name__}).")
+        return UNJUDGED
     try:
         return await read_back(client, config.db_base_name)
     # The type alone: the driver's message names the host it resolved out of the secret.
