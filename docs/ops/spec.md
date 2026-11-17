@@ -698,8 +698,9 @@ a finding, a refusal and a crash. One map, `_lib.sh :: RANK_OF_CLASS`, ranks a c
 and for that table alike.
 
 `deploy.sh` keeps the scale's meaning for a deploy: 1 a failed deploy, every failure once its start
-has begun going back to the build before, 2 a refusal and 3 or more a step before the start that
-crashed, each with the stack unchanged ([`runbooks.md`](runbooks.md) §1).
+has begun going back to the build before but a pin left unrenamed after nginx's reload, which
+leaves the new build live, 2 a refusal and 3 or more a step before the start that crashed, each with
+the stack unchanged ([`runbooks.md`](runbooks.md) §1).
 
 **Colour is decided centrally, through `FL_GATE_COLOR` ahead of everything else**: the gate's own
 variable, how `verify.sh` hands each scope's run its answer without exporting one every tool would
