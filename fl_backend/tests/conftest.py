@@ -429,7 +429,8 @@ def _replica_set_mongod() -> Generator[str]:
     # `enableTestCommands` admits `configureFailPoint`, the one way to land a commit inside one server
     # command. MongoDB holds one configuration of a fail point for the whole server, which every worker
     # shares, so every case configuring one sits in `tests/api/test_commit_fail_points.py`, which
-    # `--dist loadfile` keeps on one worker.
+    # `--dist loadfile` keeps on one worker: `fl_backend/pyproject.toml :: addopts` passes it to every
+    # run, so a bare `-n` distributes by file too.
     container = (
         DockerContainer(MONGO_IMAGE)
         # No `--auth`: with `--replSet` mongod demands a bind-mounted keyFile whose permissions it checks,
