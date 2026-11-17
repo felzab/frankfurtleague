@@ -58,7 +58,7 @@ the folder.
   Markdown files and folders lowercase kebab-case, and a dynamic route segment its param
   (`[saison]`). A name a tool looks for keeps it (`page.tsx`).
 - **A frontend test is named after the module it stands beside**, or, where it judges the tree
-  rather than one module, after what it judges (`interceptions.test.ts`). A backend test file is
+  rather than one module, after what it judges (`errorBoundaryReports.test.ts`). A backend test file is
   named after the behaviour it holds. Where one behaviour's cases split by kind, a suffix names the
   kind, among them `_execution` for the write carried out against a database, `_refusal` for the
   judgement that refuses it, `_read` for what a read serves and `_isolation` for a write a rival
