@@ -13,7 +13,7 @@ from pymongo import AsyncMongoClient
 
 from app.core.config import INTERNAL_API_KEY_LENGTH, MONGODB_URI_FILE, SECRET_FILES
 from app.core.constraints import SUPPORT_INDEXES, TTL_INDEXES, UNIQUE_INDEXES
-from app.core.db import NO_SERVER, UNREACHABLE
+from app.core.db import NO_SERVER, UNREACHABLE, new_client
 from app.main import BOOT_REFUSED
 from tests.boot import Boot, Withheld, booted, names, serving
 from tests.worker import worker_database
@@ -155,7 +155,7 @@ class TestTheBoot:
         database = worker_database("fl_boot_indexes")
         declared = {(index.collection, index.name) for index in (*UNIQUE_INDEXES, *SUPPORT_INDEXES, *TTL_INDEXES)}
 
-        client: AsyncMongoClient = AsyncMongoClient(mongo_replica_set_url)
+        client: AsyncMongoClient = new_client(mongo_replica_set_url)
         try:
             await client.drop_database(database)
 

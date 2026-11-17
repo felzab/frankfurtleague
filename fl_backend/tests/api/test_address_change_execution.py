@@ -39,6 +39,7 @@ from app.api.registrierungen.services import compose_decline_update
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
+from app.core.db import new_client
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.logging import JSONFormatter
 from app.shared.schemas.bounds import ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAITING_PERIOD_DAYS, GRANT_WAIT_HOURS, OWNER_WAIT_DAYS
@@ -538,7 +539,7 @@ class TestTheConfirmation:
             await database[Collection.SAISON_TEAMS].insert_one(documents.saison_team_document(SAISON_ID, SECOND_TEAM_OID, "Quellbrunn", "QBX"))
             minted = await start(database, client)
             # A client of this case's own, so the spy sees the effect's commands rather than the seeding's.
-            watched = AsyncMongoClient(mongo_replica_set_url, event_listeners=[spy])
+            watched = new_client(mongo_replica_set_url, event_listeners=[spy])
             try:
                 answered = await answer(watched[DATABASE_NAME], watched, minted.token)
                 # Read before the close sends `endSessions`, which is no command of the effect's.

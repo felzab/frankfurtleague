@@ -33,6 +33,7 @@ from app.api.teams.schemas import FLAustrittPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
+from app.core.db import new_client
 from app.core.recording import ACT_BY_KONTAKT, record_act
 from app.core.transactions import UNKNOWN_COMMIT_RESULT
 from app.shared.einwilligung_evidence import evidence_state_of
@@ -157,7 +158,7 @@ async def failing_client(
 ) -> AsyncIterator[AsyncMongoClient]:
     """A client of its own the point reaches by `data`'s `appName`, `listener` hearing its commands, closed after the point is off."""
 
-    client = AsyncMongoClient(url, serverMonitoringMode="poll", appname=data["appName"], event_listeners=[] if listener is None else [listener])
+    client = new_client(url, serverMonitoringMode="poll", appname=data["appName"], event_listeners=[] if listener is None else [listener])
     try:
         async with fail_point(server, data, mode=mode):
             yield client

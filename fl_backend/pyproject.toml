@@ -182,8 +182,13 @@ extend-immutable-calls = ["fastapi.Depends"]
 # and this suite is fast enough that verbosity costs nothing.
 #
 # -m "not db" keeps the default suite off the container tier, and a command-line -m overrides it
+#
+# --dist loadfile keeps each file on one xdist worker wherever a run passes -n, a bare one included:
+# MongoDB holds one configuration of a fail point for the whole server the workers share, so the cases
+# of tests/api/test_commit_fail_points.py spread over workers take each other's. Without -n it changes
+# nothing, xdist reading the mode only where it starts workers.
 
-addopts = "--import-mode=importlib --strict-markers --strict-config -ra --showlocals -m \"not db\""
+addopts = "--import-mode=importlib --strict-markers --strict-config -ra --showlocals -m \"not db\" --dist loadfile"
 testpaths = ["tests"]
 pythonpath = ["."]
 # --strict-markers turns an unregistered marker into an error, so this line is what makes
