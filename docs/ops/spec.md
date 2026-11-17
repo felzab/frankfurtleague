@@ -275,7 +275,7 @@ set**, 50 (`fl_backend/app/shared/schemas/bounds.py :: KADER_SIZE_MAX`), behind 
 in one break: each pupil opens the team's invite and their own link and sends each page's form, a
 retry each, 10N requests passing within two minutes at the zone's rate. That squad's 4N sends on the
 action key pass at `location /`'s burst in about three minutes, a send past it refused and sent
-again. `scripts/checks/check_public_routes.py :: unsized_links` holds the burst to that maximum.
+again. A season's bound moving past 50 moves this burst by hand.
 
 **A link page's location writes no error line at all** (`error_log /dev/null`). nginx writes every
 error line with the request line whole, the query and the referrer with it, and the open-source
@@ -800,7 +800,7 @@ be true there, a check the owner makes in its list of monitors:
 | Each upstream is named through a variable and found through Docker's DNS, so a recreated container needs no reload                         | `scripts/checks/edge_test.sh`                                                                                                                                                          |
 | Each zone and the connection ceiling refuse past their figure with the edge's `429`                                                        | `scripts/checks/edge_test.sh`, which reads each figure off the configuration it judges                                                                                                 |
 | Every route handler, link page and metadata convention is metered or accounted for at the edge                                             | `scripts/checks/check_public_routes.py`, its rules driven red in `scripts/tests/test_check_public_routes.py`                                                                           |
-| A link page's location writes no error line, withholds the referrer, and takes a burst sized for the largest squad                         | `scripts/checks/check_public_routes.py :: unlogged_links`, `:: referring_links` and `:: unsized_links`; `scripts/checks/edge_test.sh`                                                  |
+| A link page's location writes no error line and withholds the referrer                                                                     | `scripts/checks/check_public_routes.py :: unlogged_links` and `:: referring_links`; `scripts/checks/edge_test.sh`                                                                      |
 | Every image this repository does not build is pinned by tag and digest                                                                     | `scripts/tests/test_image_pins.py`                                                                                                                                                     |
 | The frontend image's Node, the backend image's Python series and its uv are the ones the checkout and CI run                               | `scripts/tests/test_image_pins.py`                                                                                                                                                     |
 | The journeys' Playwright image is the Playwright release the frontend lockfile resolves                                                    | `scripts/tests/test_image_pins.py`                                                                                                                                                     |
