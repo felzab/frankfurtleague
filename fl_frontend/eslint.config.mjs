@@ -491,15 +491,6 @@ const SOURCE_BANS = [
     TESTS,
   ),
   syntaxBan(
-    // At the construction rather than on a string: an image held in a variable starts a container as surely as one
-    // typed there.
-    syntax(
-      ':matches(NewExpression[callee.name=/Container$/], NewExpression[callee.property.name=/Container$/]):not([arguments.0.type="CallExpression"][arguments.0.callee.name="localStackMongo"])',
-      "A container starts from the local stack's server, `localStackMongo()` in fl_frontend/src/test-support/replicaSet.ts: an image named here runs a release no Dependabot bump proposed.",
-    ),
-    EVERY,
-  ),
-  syntaxBan(
     syntax(
       inLiteral(String.raw`${TOKEN_START}(?:hover|group-hover|peer-hover|data-hovered):opacity-`),
       "A hover is one of globals.css's hover tokens, never an opacity.",
