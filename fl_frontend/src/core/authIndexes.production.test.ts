@@ -3,7 +3,7 @@ import { EventEmitter } from "node:events";
 import { memoryAdapterDouble, memoryStore, registerAuthDoubles } from "@/test-support/authDoubles";
 import { captureLog } from "@/test-support/stdoutCapture";
 import { MongoNetworkTimeoutError, MongoServerError, MongoServerSelectionError } from "mongodb";
-import { assert, beforeEach, describe, expect, it, vi } from "vitest";
+import { assert, beforeEach, describe, expect, it } from "vitest";
 
 import type { IndexOptions } from "mongodb";
 
@@ -22,12 +22,6 @@ const log = captureLog("production");
 
 /** Each error line written, by its event and fields. */
 const errorLines = () => log.lines().flatMap(({ level, message, fields }) => (level === "ERROR" ? [{ event: message, fields }] : []));
-
-/** The last line written, which a settled run's verdict is: a reader waits for it, then reads every line before it. */
-const lastLine = () => {
-  const last = log.lines().at(-1);
-  return last && { level: last.level, event: last.message, fields: last.fields };
-};
 
 /** The builds still running, by collection, which `afterHeartbeat` waits out. */
 const running = new Map<string, number>();
@@ -84,25 +78,11 @@ const DUPLICATE_TOKEN = new MongoServerError({
   keyValue: { token: TOKEN },
 });
 
-/** What a primary stepping down answers a build: a server code that judges no index. */
-const STEPPING_DOWN = new MongoServerError({ message: "not primary", code: 10107, codeName: "NotWritablePrimary" });
-
 /** What an unreachable store answers every build: no server code at all. */
 const UNANSWERED = new MongoServerSelectionError("Server selection timed out after 3000 ms", { type: "Unknown" } as never);
 
 /** What a store too slow for the client's socket bound answers a build. */
 const TIMED_OUT = new MongoNetworkTimeoutError("connection 1 to store:27017 timed out");
-
-/** The client's socket bound, which each timed-out call waited out before it failed. */
-const SOCKET_BOUND_MS = 3000;
-
-/** A build the store answers past the socket's bound, under the faked clock a case sets. */
-async function timingOut(): Promise<never> {
-  // An answer is a later turn of the event loop, as the network's is, and each call waits out the socket's bound.
-  await new Promise((resolve) => setImmediate(resolve));
-  vi.setSystemTime(Date.now() + SOCKET_BOUND_MS);
-  throw TIMED_OUT;
-}
 
 /**
  * Emits a heartbeat as the driver does, its reply naming the server writable or not, and waits out whatever run it
@@ -142,7 +122,6 @@ describe("the sign-in store's index build", () => {
         fields: { index: "session_token_uidx", name: "MongoServerError", code: 11000, codeName: "DuplicateKey" },
       },
     ]);
-    expect(lastLine()).toStrictEqual({ level: "INFO", event: "auth.indexes_settled", fields: { built: 7, unbuilt: 1 } });
     for (const { error, raw } of log.lines()) {
       assert.ok(!raw.includes(TOKEN), "the line quoted the value the refusal named");
       expect(error, "the refusal reached the line as its error").toBe(undefined);
@@ -153,16 +132,11 @@ describe("the sign-in store's index build", () => {
      marking no server unknown for a timeout after the handshake. Either way a restart is what the build waited for
      otherwise. */
   it.for([
-    ["did not answer", () => Promise.reject(UNANSWERED)],
-    ["timed out", timingOut],
-  ] as const)("builds every index again on the next heartbeat of a writable store where one %s, and not before", async ([, failing]) => {
-    vi.useFakeTimers({ toFake: ["Date"] });
-    try {
-      answer = failing;
-      await buildAuthIndexes();
-    } finally {
-      vi.useRealTimers();
-    }
+    ["did not answer", UNANSWERED],
+    ["timed out", TIMED_OUT],
+  ] as const)("builds every index again on the next heartbeat of a writable store where one %s, and not before", async ([, failure]) => {
+    answer = () => Promise.reject(failure);
+    await buildAuthIndexes();
     const first = builds.length;
 
     answer = () => Promise.resolve("built");
@@ -178,43 +152,16 @@ describe("the sign-in store's index build", () => {
     expect(names(builds.slice(first))).toStrictEqual(names(builds.slice(0, first)));
   });
 
-  /* A primary stepping down judged no index, and the next primary builds it; a duplicate is the store's verdict, which
-     asking again only repeats. */
-  it.for([
-    ["a role change", STEPPING_DOWN, true],
-    ["a duplicate", DUPLICATE_TOKEN, false],
-  ] as const)(
-    "asks a build refused by %s again on the next writable heartbeat only where the refusal judged no index",
-    async ([, refusal, askedAgain]) => {
-      answer = (build) => (build.name === "session_token_uidx" ? Promise.reject(refusal) : Promise.resolve("built"));
-      await buildAuthIndexes();
-      const first = builds.length;
-      answer = () => Promise.resolve("built");
+  /* A duplicate is the store's verdict, which asking again on every heartbeat would only repeat, a line each time. */
+  it("never asks a build the store refused again on a heartbeat", async () => {
+    answer = (build) => (build.name === "session_token_uidx" ? Promise.reject(DUPLICATE_TOKEN) : Promise.resolve("built"));
+    await buildAuthIndexes();
+    const first = builds.length;
+    answer = () => Promise.resolve("built");
 
-      await afterHeartbeat();
+    await afterHeartbeat();
 
-      expect(builds.length > first, "whether the build ran again on the next writable heartbeat").toBe(askedAgain);
-    },
-  );
-
-  /* A timeout is no verdict, so it is asked again; the asking ends, or a build that never answers would hold every
-     run queued behind it. */
-  it("asks a build that times out again until its window has passed, then logs every index unbuilt", async () => {
-    vi.useFakeTimers({ toFake: ["Date"] });
-    try {
-      answer = timingOut;
-      await buildAuthIndexes();
-    } finally {
-      vi.useRealTimers();
-    }
-
-    assert.ok(builds.filter(({ name }) => name === "session_token_uidx").length > 1, "a build that timed out was not asked again");
-    // One line for each index the run asked for, however often it asked.
-    const asked = new Map(builds.map(({ collection, name }) => [`${collection}.${name}`, name]));
-    const lines = errorLines();
-    expect(lines.map(({ fields }) => fields["index"]).sort()).toStrictEqual([...asked.values()].sort());
-    for (const { event, fields } of lines) expect([event, fields["name"]]).toStrictEqual(["auth.index_unbuilt", "MongoNetworkTimeoutError"]);
-    expect(lastLine()).toStrictEqual({ level: "INFO", event: "auth.indexes_settled", fields: { built: 0, unbuilt: lines.length } });
+    expect(builds.length, "the build ran again on the next writable heartbeat").toBe(first);
   });
 
   /* Read off the library's own schema rather than the list, so a field it declares unique, or an

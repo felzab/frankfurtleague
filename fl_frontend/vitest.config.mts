@@ -1,6 +1,5 @@
 import { defineConfig } from "vitest/config";
 
-import { DB_TIER } from "./src/test-support/dbTier.mts";
 import { TEST_ENVIRONMENT } from "./src/test-support/testEnvironment.mts";
 
 /**
@@ -53,7 +52,16 @@ export default defineConfig({
         test: { name: "unit-production", include: PRODUCTION_BUILD, env: { NODE_ENV: "production" } },
       },
       {
-        test: { name: "db", include: ["src/**/*.db.test.ts"], ...DB_TIER },
+        test: {
+          name: "db",
+          include: ["src/**/*.db.test.ts"],
+          // A case here waits on a replica set in a container, past Vitest's five seconds. The tier's usual run is inside
+          // the whole gate, beside every other scope, where a case that takes a second alone took up to 30 s (2026-11-17):
+          // sized for that run, so a case slow only from the gate's load passes and one that hangs still fails by name.
+          // The replica set's start is bounded apart: each file awaits it at module level, where neither bound reaches.
+          testTimeout: 60_000,
+          hookTimeout: 60_000,
+        },
       },
     ],
   },

@@ -1,87 +1,45 @@
-import { DB_TIER } from "@/test-support/dbTier.mts";
-import { settledWithin } from "@/test-support/replicaSet";
-import { beforeAll, expect } from "vitest";
+import { beforeAll, expect, vi } from "vitest";
 
-import type { LoggedLine } from "@/test-support/stdoutCapture";
-
-/**
- * How long a db file waits for the sign-in store's indexes, inside the hook or the case that builds them. The build
- * asks again for any index the store answers past the client's socket bound, for as long as a boot's run allows, which
- * outlasts either: a store that slow fails here, naming the build, before Vitest's bound names only the hook or the
- * case. Inside the whole gate a store answers past that socket bound and is asked again, so the wait is sized for
- * those asks rather than for a store answering alone.
- */
-const BUILT_WITHIN_MS = 45_000;
+import type { AUTH_INDEXES } from "@/core/authIndexes";
+import type { Db } from "mongodb";
 
 /**
- * How long an overdue build takes to stop once its client is closed: the close fails the operation in flight and every
- * later one fails before it is sent.
+ * How long a file's hook waits, once its build has run, for the store to hold every index. On a loaded machine the
+ * store answers a build past the client's socket bound: the build is logged unbuilt, and the server goes on with it,
+ * or the store's next heartbeat asks it again. The build ahead of it ends within its calls' own bounds, three seconds a
+ * stage (`fl_frontend/src/core/db.ts`), and the two together stay under the db project's hook bound in
+ * `fl_frontend/vitest.config.mts`, so a store that never holds an index fails here, naming it, rather than as a
+ * timed-out hook.
  */
-const STOPPED_WITHIN_MS = 5_000;
+export const HELD_WITHIN_MS = 30_000;
 
-/** The longest a build may be waited on, its stop after an overrun included, inside the hook or the case awaiting it. */
-const WAITED_WITHIN_MS = Math.min(DB_TIER.hookTimeout, DB_TIER.testTimeout) - STOPPED_WITHIN_MS;
-
-if (BUILT_WITHIN_MS >= WAITED_WITHIN_MS) {
-  throw new Error("the wait for the sign-in store's indexes, and its stop, must end inside the hook or the case that builds them");
-}
-
-/**
- * `build`'s run of the sign-in store's indexes, failing under the build's own name once `withinMs` passes. Production
- * never closes its client, so past the bound this closes it, `closeStore`, and waits for the run to stop: the run's
- * lines then land in the hook or the case that awaited it, and nothing of it outlives the file. The file's later cases
- * meet that closed client too, and fail after the first failure, which names the build.
- */
-export async function signInIndexesBuilt(
-  build: () => Promise<void>,
-  closeStore: () => Promise<unknown>,
-  withinMs: number = BUILT_WITHIN_MS,
-): Promise<void> {
-  if (withinMs >= WAITED_WITHIN_MS) {
-    throw new Error(`a wait of ${String(withinMs)} ms for the sign-in store's indexes outlasts its hook or case`);
+/** Every index `indexes` names that `store` does not hold, as `collection.name`. */
+async function unheld(indexes: typeof AUTH_INDEXES, store: Db): Promise<string[]> {
+  const collections = new Set((await store.listCollections({}, { nameOnly: true }).toArray()).map(({ name }) => name));
+  const held = new Set<string>();
+  for (const collection of collections) {
+    for (const { name } of await store.collection(collection).indexes()) held.add(`${collection}.${String(name)}`);
   }
-  // The build never rejects, so a failure here is the bound's.
-  const run = build();
-  try {
-    await settledWithin(
-      run,
-      withinMs,
-      `the sign-in store's indexes did not settle within ${String(withinMs / 1000)} s: the store answered a build past the client's socket bound and was asked again`,
-    );
-  } catch (overdue) {
-    await closeStore();
-    // A heartbeat answered while the close was under way can have queued a rebuild behind the overdue run, and a closed
-    // client answers no heartbeat after it. So the wait is for one more run, queued behind both, whose every index
-    // fails at once on lines of its own.
-    await settledWithin(
-      build(),
-      STOPPED_WITHIN_MS,
-      `the sign-in store's build did not stop within ${String(STOPPED_WITHIN_MS / 1000)} s of its client's close`,
-    );
-    throw overdue;
-  }
+  return indexes.map(({ collection, options }) => `${collection}.${options.name}`).filter((index) => !held.has(index));
 }
 
 /**
  * Production's indexes under every case of the file, so the library is driven over what it meets there: built once
- * for the file, as a boot builds them once, by `build`, the file's `buildAuthIndexes` imported after its doubles, on
- * the client `closeStore` closes. A build that leaves an index unbuilt fails the file, by the line `log` read.
+ * for the file, as a boot builds them once, by the file's `buildAuthIndexes`, imported after its doubles, and held by
+ * `store` before the first case runs.
  */
 export function signInIndexesForTheFile(
-  build: () => Promise<void>,
-  closeStore: () => Promise<unknown>,
-  log: { lines(): readonly LoggedLine[]; clear(): void },
+  { buildAuthIndexes, AUTH_INDEXES: indexes }: { buildAuthIndexes: () => Promise<void>; AUTH_INDEXES: typeof AUTH_INDEXES },
+  store: () => Db,
 ): void {
   beforeAll(async () => {
-    log.clear();
-    let written: readonly LoggedLine[] = [];
-    try {
-      await signInIndexesBuilt(build, closeStore);
-    } finally {
-      // Read whether the build settled or overran, so this hook judges its build's lines rather than the next case.
-      written = log.lines();
-    }
-    const unbuilt = written.flatMap(({ level, message, fields }) => (level === "ERROR" ? [{ message, fields }] : []));
-    expect(unbuilt, "an index of the sign-in store was left unbuilt").toStrictEqual([]);
+    await buildAuthIndexes();
+    // `vi.waitFor` rather than `expect.poll`, which Vitest refuses outside a case.
+    await vi.waitFor(
+      async () => {
+        expect(await unheld(indexes, store()), "an index of the sign-in store was left unbuilt").toStrictEqual([]);
+      },
+      { timeout: HELD_WITHIN_MS, interval: 200 },
+    );
   });
 }

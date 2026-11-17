@@ -1,8 +1,7 @@
 import "server-only";
 
-import { MongoError, MongoNetworkTimeoutError, MongoServerError } from "mongodb";
+import { MongoError, MongoServerError } from "mongodb";
 
-import { now } from "./clock";
 import { signInStore } from "./db";
 import { logger } from "./logging";
 
@@ -23,7 +22,7 @@ type AuthIndex = {
  * One index per query the library and this application send to the sign-in store.
  * The library declares none of them at table level, so its adapter builds none.
  */
-const AUTH_INDEXES: readonly AuthIndex[] = [
+export const AUTH_INDEXES: readonly AuthIndex[] = [
   // The cookie's own value, read by every guard.
   { collection: "session", key: { token: 1 }, options: { name: "session_token_uidx", unique: true } },
   { collection: "session", key: { userId: 1 }, options: { name: "session_userId_idx" } },
@@ -56,66 +55,26 @@ export function buildAuthIndexes(): Promise<void> {
   return running;
 }
 
-/**
- * How long a run asks again for a build the store has not answered. Without it a build that never answers would hold
- * `running`, and every rebuild queued behind it.
- */
-const ANSWERED_WITHIN_MS = 180_000;
-
-/**
- * The codes of a server answering while it changes role, an election's or a shutdown's, which judge no index: the SDAM
- * specification's "not writable primary" and "node is recovering" errors, matched by code alone, as the specification
- * requires where the reply carries one
- * (https://github.com/mongodb/specifications/blob/master/source/server-discovery-and-monitoring/server-discovery-and-monitoring.md#not-writable-primary-and-node-is-recovering).
- * The driver implements the same set as its `isStateChangeError`, which it does not export.
- */
-const STATE_CHANGE_CODES: ReadonlySet<number> = new Set([
-  // Not writable primary: NotWritablePrimary, NotPrimaryNoSecondaryOk, LegacyNotPrimary.
-  10107, 13435, 10058,
-  // Node is recovering: InterruptedAtShutdown, InterruptedDueToReplStateChange, NotPrimaryOrSecondary,
-  // PrimarySteppedDown, ShutdownInProgress.
-  11600, 11602, 13436, 189, 91,
-]);
-
 async function buildOnce(): Promise<void> {
   const database = signInStore().db(MONGO_DB_NAME);
   const lanes = Map.groupBy(AUTH_INDEXES, (index) => index.collection);
-  const askUntil = now().getTime() + ANSWERED_WITHIN_MS;
 
-  let unbuilt = 0;
   await Promise.all(
     [...lanes].map(async ([collection, indexes]) => {
       for (const { key, options } of indexes) {
-        const failed = await failureOf(() => database.collection(collection).createIndex(key, options, undefined), askUntil);
-        if (failed === undefined) continue;
-        unbuilt += 1;
-        logUnbuilt(options.name, failed);
-        // Neither a store that did not answer, which carries no server code, nor a server changing role judged the
-        // index, so its recovery asks again; every other code is the store's verdict, which asking again only repeats.
-        if (!(failed instanceof MongoServerError) || STATE_CHANGE_CODES.has(Number(failed.code))) rebuildOnRecovery();
+        try {
+          // Under the client's socket bound like every call: a build outlasting it is logged unbuilt and still
+          // finishes, since the server keeps a build whose connection closed.
+          await database.collection(collection).createIndex(key, options, undefined);
+        } catch (failed) {
+          logUnbuilt(options.name, failed);
+          // No server code is a store that did not answer, or answered slower than the client waits, which judged no
+          // index; a server code is the store's verdict, which asking again only repeats.
+          if (!(failed instanceof MongoServerError)) rebuildOnRecovery();
+        }
       }
     }),
   );
-  // The run's verdict, which a reader waits for rather than for a time: until it is written, a lane may still be
-  // asking, and its line still to come.
-  logger.info("auth.indexes_settled", { built: AUTH_INDEXES.length - unbuilt, unbuilt });
-}
-
-/**
- * `undefined` once the store answers the build, or the failure standing for its verdict. Each call is under the
- * client's socket bound, and a timeout is no verdict: the server goes on building after the client stops waiting, and
- * the same `createIndex` waits for a build already under way and answers with its outcome. So a timeout is asked
- * again, until `askUntil`.
- */
-async function failureOf(build: () => Promise<unknown>, askUntil: number): Promise<unknown> {
-  for (;;) {
-    try {
-      await build();
-      return undefined;
-    } catch (failed) {
-      if (!(failed instanceof MongoNetworkTimeoutError) || now().getTime() >= askUntil) return failed;
-    }
-  }
 }
 
 /**
@@ -125,9 +84,8 @@ async function failureOf(build: () => Promise<unknown>, askUntil: number): Promi
  * stayed writable but timed out answers its next one, within the client's heartbeat interval: "If there is a network
  * timeout on the connection after the handshake completes, the client MUST NOT mark the server Unknown"
  * (https://github.com/mongodb/specifications/blob/master/source/server-discovery-and-monitoring/server-discovery-and-monitoring.md#network-error-when-reading-or-writing),
- * so its topology never changes. While a store stays that slow, each window ends in its lines and the next heartbeat
- * starts another, until it answers. A server that changed role is one the driver marks unknown and checks at once, and
- * the first writable heartbeat after it is the new primary's.
+ * so its topology never changes. While a store stays that slow, each run ends in its lines and the next heartbeat
+ * starts another, until it answers.
  */
 function rebuildOnRecovery(): void {
   if (rebuildArmed) return;
