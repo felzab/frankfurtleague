@@ -28,8 +28,8 @@ export default defineConfig({
       // focus scope calls as a dialog unmounts.
       jsdom: { url: "http://localhost/", pretendToBeVisual: true },
     },
-    // Each project's name opens with its tier's, `unit` or `db`: the scripts in `package.json` the gate runs select a
-    // tier by that prefix, so a project named otherwise would run nowhere. Each inherits the options above, `extends`
+    // A db project's name opens with `db`: `package.json`'s `test:db` selects those projects and `test` every other
+    // (`--project='!db*'`), so each project runs in exactly one tier. Each inherits the options above, `extends`
     // defaulting to `true` (https://vitest.dev/guide/projects).
     projects: [
       {
