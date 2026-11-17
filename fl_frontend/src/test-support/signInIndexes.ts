@@ -38,7 +38,7 @@ export function signInIndexesForTheFile(
     await buildAuthIndexes();
     // A call the store answered past the client's socket bound arms a rebuild for the next writable heartbeat, which
     // must run here rather than inside a case reading its lines. The armed rebuild is `rebuildOnRecovery`'s listener on
-    // this client (`fl_frontend/src/core/authIndexes.ts`), the only one any file adds: registered before the wait's own,
+    // this client, the only one any file adds: registered before the wait's own,
     // it starts first, and the build after the wait queues behind it. A round with no call past the bound arms nothing;
     // a store answering no round within it is ended by the db project's hook bound, its unbuilt lines on the reporter.
     while (client().listenerCount("serverHeartbeatSucceeded") > 0) {
