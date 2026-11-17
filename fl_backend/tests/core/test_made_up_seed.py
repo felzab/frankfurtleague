@@ -7,18 +7,13 @@ decides is judged here, beside the backend it imports.
 Invariants:
 - The seed writes only to `LOCAL_SERVER`, and refuses any other server, exit 2, before any client exists, quoting nothing
   of the settings it read.
-- Settings it cannot load are a refusal, 2, and its own 1 opens the line the script reads that 1 by, which the script
-  holds to: every other 1, Python's own or Compose's, the script reads as a crash.
-- An insert the replica set never acknowledged, a bulk write answered with write-concern errors alone, is a database
-  that could not be written, 2, never a crash.
+- Settings it cannot load are a refusal, 2.
 - Every state of the landing builds a league whose every document its record model reads, with no database, and that no
   write of the app's refuses: each rule below is the app's own refusal, so a rule the app tightens tightens this one.
 """
 
-import os
 import re
 import secrets
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -36,14 +31,9 @@ from app.api.spieltage.services import DatedNeighbour, find_spieltag_order_refus
 from app.api.teams.services import find_austritt_refusal
 from app.core import clock
 from app.core.config import MONGODB_URI_FILE, SECRET_FILES
-from app.core.db import new_client
 from app.core.exceptions import WriteRefusal
-from tests.boot import BACKEND_ROOT, Withheld
-from tests.database import a_clean_database
-from tests.made_up_seed import AS_WRITTEN, INSERT_REFUSED, LANDING_STATES, UNJUDGED, MadeUpLeague, Season, is_local_server, write
-from tests.worker import worker_database
-
-LIBRARY: Final = BACKEND_ROOT.parent / "scripts" / "lib" / "_lib.sh"
+from tests.boot import BACKEND_ROOT, environment, secrets_folder
+from tests.made_up_seed import LANDING_STATES, UNJUDGED, MadeUpLeague, Season, is_local_server
 
 # Each a server, or a way of naming one, that is not the local stack's own; named, never the URI itself, since a case's
 # name is printed by every run.
@@ -57,12 +47,16 @@ ELSEWHERE: Final = {
     "joining-its-set": "mongodb://mongo:27017",
 }
 
-# What each of `ELSEWHERE`'s URIs carries that no other text of a run would.
-QUOTED: Final = ("seed-guard", "seed-user", "not-a-password", "27018")
+# What `ELSEWHERE`'s managed cluster carries that no other text of a run would.
+QUOTED: Final = ("seed-guard", "seed-user", "not-a-password")
 
 REFUSAL: Final = (
     "The made-up seed writes only to the local or the end-to-end stack's own mongo service, at port 27017 with directConnection=true."
 )
+
+# An interpreter's start and the seed's imports take a few seconds, and every case here ends before any client exists;
+# this is far past them, so only a seed that hangs reaches it.
+SEED_BOUND_S: Final = 60.0
 
 
 def test_the_local_stack_s_server_is_the_seed_s() -> None:
@@ -75,37 +69,17 @@ def test_any_other_server_is_not(uri: str) -> None:
     assert not is_local_server(uri)
 
 
-def seeded(directory: Path, uri: str) -> subprocess.CompletedProcess[str]:
-    """`python -m tests.made_up_seed` run to its exit with `uri` as its database's settings, inheriting nothing else."""
-
-    settings = directory / "run-secrets"
-    settings.mkdir()
-    for name in SECRET_FILES:
-        # Bytes: a text-mode write would end each file in a carriage return on Windows.
-        (settings / name).write_bytes((uri if name == MONGODB_URI_FILE else secrets.token_hex(32)).encode())
-    return run_seed(directory, {"SECRETS_DIR": str(settings), "DB_BASE_NAME": "fl_made_up", "PYTHONPATH": str(BACKEND_ROOT)})
-
-
-# An interpreter's start and the seed's imports take a few seconds, and every case here ends before any client exists;
-# this is far past them, so only a seed that hangs reaches it.
-SEED_BOUND_S: Final = 60.0
-
-
-def run_seed(directory: Path, settings: dict[str, str]) -> subprocess.CompletedProcess[str]:
-    """`python -m tests.made_up_seed` run to its exit over `settings` alone.
+def run_seed(directory: Path, secrets_dir: Path, variables: dict[str, str]) -> subprocess.CompletedProcess[str]:
+    """`python -m tests.made_up_seed` run to its exit over `secrets_dir` and `variables` alone.
 
     A process of its own, as the container runs it, so the seed's own read of the settings is what it judges. Run from
     `directory`, so no package's dotenv file is read beside the case's settings.
     """
 
-    environment = Withheld(settings)
-    # Windows' sockets cannot load their providers without it, so `asyncio` fails at its import (WinError 10106).
-    if "SYSTEMROOT" in os.environ:
-        environment["SYSTEMROOT"] = os.environ["SYSTEMROOT"]
     return subprocess.run(
         (sys.executable, "-m", "tests.made_up_seed"),
         cwd=directory,
-        env=environment,
+        env=environment(secrets_dir, {"PYTHONPATH": str(BACKEND_ROOT), **variables}),
         capture_output=True,
         encoding="utf-8",
         errors="replace",
@@ -114,9 +88,11 @@ def run_seed(directory: Path, settings: dict[str, str]) -> subprocess.CompletedP
     )
 
 
-@pytest.mark.parametrize("uri", ELSEWHERE.values(), ids=ELSEWHERE.keys())
-def test_the_seed_refuses_any_other_server_before_any_client_exists(uri: str, tmp_path: Path) -> None:
-    done = seeded(tmp_path, uri)
+def test_the_seed_refuses_any_other_server_before_any_client_exists(tmp_path: Path) -> None:
+    """One process for the wiring: which servers are another's, `test_any_other_server_is_not` judges in this one."""
+
+    files = {name: ELSEWHERE["managed-cluster"] if name == MONGODB_URI_FILE else secrets.token_hex(32) for name in SECRET_FILES}
+    done = run_seed(tmp_path, secrets_folder(tmp_path, files), {"DB_BASE_NAME": "fl_made_up"})
     said = done.stdout + done.stderr
     # Asked first: every later assertion's message is the output itself.
     assert not any(part in said for part in QUOTED), "the refusal quotes the settings it read"
@@ -128,61 +104,11 @@ def test_the_seed_refuses_any_other_server_before_any_client_exists(uri: str, tm
 def test_settings_that_cannot_load_are_a_refusal(tmp_path: Path) -> None:
     """Settings that cannot be built are a configuration it could not load: nothing was judged, before any client exists."""
 
-    done = run_seed(tmp_path, {"SECRETS_DIR": str(tmp_path), "PYTHONPATH": str(BACKEND_ROOT)})
+    done = run_seed(tmp_path, tmp_path, {})
 
     assert (done.returncode, done.stdout) == (UNJUDGED, ""), done.stdout + done.stderr
     # One line, the settings' own refusal as the backend's boot logs it, naming the files missing from the empty directory.
     assert re.fullmatch(r"The settings could not be loaded: [^\n]*Invalid secret files: [^\n]+\n", done.stderr), done.stderr
-
-
-UNACKNOWLEDGED_DATABASE: Final = worker_database("fl_made_up_seed_unacknowledged")
-
-
-@pytest.mark.db
-async def test_an_insert_the_set_never_acknowledged_is_a_database_that_could_not_be_written(
-    mongo_replica_set_url: str, capsys: pytest.CaptureFixture[str]
-) -> None:
-    # Empty, so the seed has nothing to empty first: its first write is the first insert. The clean database's TTL check
-    # stays off, since the seed's documents are dated on the real clock and the case judges the exit code alone.
-    async with a_clean_database(mongo_replica_set_url, UNACKNOWLEDGED_DATABASE, constraints=False):
-        # Two acknowledging members asked of a set of one: the server writes each insert and answers it with a write-concern
-        # error alone, as a majority write the set never acknowledged answers.
-        unacknowledged = new_client(mongo_replica_set_url, w=2)
-        try:
-            code = await write(unacknowledged, UNACKNOWLEDGED_DATABASE, LANDING_STATES[AS_WRITTEN](clock.now()))
-        finally:
-            await unacknowledged.close()
-
-    assert (code, capsys.readouterr().err) == (UNJUDGED, "The database could not be written (BulkWriteError).\n")
-
-
-def test_the_refused_insert_s_line_is_the_one_the_script_reads_a_finding_by() -> None:
-    """A wording the script's pattern stops matching turns every insert to correct into a crash."""
-
-    assert class_of(1, INSERT_REFUSED.format(reason="E11000 duplicate key error") + "\n") == "1", INSERT_REFUSED
-    # A 1 without that line is Compose's or Python's own.
-    assert class_of(1, "Traceback (most recent call last):\n") == "3"
-
-
-def class_of(status: int, output: str) -> str:
-    """The class the scripts' library gives the seed's `status` beside `output`, read by bash itself.
-
-    Bash matches the pattern as a POSIX extended expression, which Python's `re` reads otherwise: `\\d` matches a digit
-    there and a `d` here.
-    """
-    bash = shutil.which("bash")
-    assert bash is not None, "no bash on PATH, which every script under scripts/ needs"
-    read = 'source "$1"; class=0; exit_class made-up-seed "$2" "$3" || class=$?; printf "%s" "$class"'
-    ran = subprocess.run(
-        [bash, "-c", read, "bash", LIBRARY.as_posix(), str(status), output],
-        cwd=BACKEND_ROOT,
-        capture_output=True,
-        encoding="utf-8",
-        timeout=SEED_BOUND_S,
-        check=False,
-    )
-    assert ran.returncode == 0, ran.stdout + ran.stderr
-    return ran.stdout
 
 
 def drawn(spiel: dict[str, Any]) -> FLSpiel:

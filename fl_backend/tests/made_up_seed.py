@@ -34,9 +34,8 @@ or a link it names is not the one the scenario sets up for that journey.
 `SEED_LANDING` in the environment sets the landing's state, the seed as written by default (`LANDING_STATES`); any other
 name is refused, exit 2, before the database is reached.
 
-It exits 0 when the league is written, 1 when an insert is refused, after `INSERT_REFUSED`'s line, 2 when it refuses to
-run, its settings could not be loaded or it could not write the database, and 3 when the seed itself failed. A 1 is the
-seed's own only beside that line, which is how a caller tells it from Python's own 1 for a module that never ran.
+It exits 0 when the league is written, 1 when an insert is refused, 2 when it refuses to run, its settings could not be
+loaded or it could not write the database, and 3 when the seed itself failed.
 
 Run by `./scripts/ops/local.sh --e2e`, `--e2e --landing=<state>` and `--seed-made-up`, and by the journeys' CI job, as
 `python -m tests.made_up_seed` inside the stack's backend container, copied there beside the tests' builders: it reads the
@@ -144,10 +143,6 @@ ANCHORED: Final[frozenset[Collection]] = frozenset(collection for collection, mo
 REFUSED: Final = 1
 UNJUDGED: Final = 2
 CRASHED: Final = 3
-
-# The seed's one 1 of its own opens its line so: the script running it reads a 1 without this line as Compose's or
-# Python's, a crash, so the seed's tests hold this wording to the pattern that script matches.
-INSERT_REFUSED: Final = "An insert was refused: {reason}"
 
 
 def _crashed(error: BaseException) -> NoReturn:
@@ -1656,17 +1651,14 @@ async def write(client: AsyncMongoClient, database_name: str, league: MadeUpLeag
                 continue
             inserted = await database[collection].insert_many(rows, ordered=True)
             print(f"seeded {collection}: {len(inserted.inserted_ids)} document(s)")
-    except BulkWriteError as refused:
-        # An insert the server refused. One carrying write-concern errors alone, a write the set never acknowledged, refused
-        # no document: the database could not be written, worded as the next handler words it.
-        if written := refused.details.get("writeErrors"):
-            print(INSERT_REFUSED.format(reason=written[0]["errmsg"]), file=sys.stderr)
-            return REFUSED
-        print(f"The database could not be written ({type(refused).__name__}).", file=sys.stderr)
-        return UNJUDGED
-    # The type alone: the driver's message names the host it resolved out of the secret. Nothing of the seed was judged,
-    # as the read-back's own unreadable database is not.
     except PyMongoError as failure:
+        # An insert the server refused, in the server's own account of the key. A bulk write answered with write-concern
+        # errors alone, one the set never acknowledged, refused no document.
+        if isinstance(failure, BulkWriteError) and (written := failure.details.get("writeErrors")):
+            print(f"An insert was refused: {written[0]['errmsg']}", file=sys.stderr)
+            return REFUSED
+        # The type alone: the driver's message names the host it resolved out of the secret. Nothing of the seed was
+        # judged, as the read-back's own unreadable database is not.
         print(f"The database could not be written ({type(failure).__name__}).", file=sys.stderr)
         return UNJUDGED
 
