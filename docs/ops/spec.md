@@ -512,8 +512,7 @@ edge test's alike, whose interpreter `uv` holds to `fl_backend/pyproject.toml`'s
 rollback pulls ([`runbooks.md`](runbooks.md) §1). When pruning, keep roughly the last five `sha-`
 tags per package, never the one the server's `.env` pins, and never an **untagged version created
 alongside a tag still in use**: BuildKit provenance attestations the tagged image references by
-digest, so deleting one corrupts the tag it belongs to. The backend package's `follow-up-sha-` tags,
-which no deploy pulls, can go.
+digest, so deleting one corrupts the tag it belongs to.
 
 ### 1.6 The verification gate
 
