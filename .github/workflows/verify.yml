@@ -4,7 +4,8 @@ on:
   pull_request:
   push:
     # A push run is the one writer of its branch's caches, which every pull request into that branch
-    # restores. `follow-up` stays here as long as the branch does, and goes when it is deleted.
+    # restores, and on main alone it publishes. `follow-up` stays here as long as the branch does, and
+    # goes when it is deleted.
     branches: [main, follow-up]
 
 # Least privilege, declared here so a permissive repository default cannot silently widen what a
@@ -26,8 +27,8 @@ env:
 
 concurrency:
   group: verify-${{ github.ref }}
-  # Supersede an in-flight run on a PR, but never on a push, whose run publishes and writes the
-  # caches its branch's pull requests restore.
+  # Supersede an in-flight run on a PR, but never on a push, whose run writes the caches its branch's
+  # pull requests restore, and on main publishes.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Each job's `timeout-minutes` bounds a hang rather than predicting a duration: four times the job's
@@ -427,20 +428,15 @@ jobs:
           echo "::error::A scope job failed, was cancelled or was skipped -- the scope results above name it, and its own log has the findings."
           exit 1
 
-  # On a push that `verify` passed, the images the images job built and checked are pushed, building
-  # and checking nothing again: on main both, under their `sha-<commit>` tags; on follow-up the
-  # backend alone, under `follow-up-sha-<commit>`, so its read-back can be run against the production
-  # database by hand before the branch merges, as `TAG=follow-up-sha-<commit> docker compose run
-  # --rm --no-deps backend python -m app.readback`, which only reads. Never the image's own command:
-  # its boot builds every index the branch declares, on production's database. `deploy.sh` refuses
-  # that tag, and no frontend image carries it, so no deploy can put a follow-up build live.
+  # On a push to main that `verify` passed, both images the images job built and checked are pushed
+  # under their `sha-<commit>` tags, building and checking nothing again.
   publish:
     # `images` for its outputs, which only a job named here can read.
     needs: [verify, images]
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    # Not set from a measured time, as every other job's is: it runs on a push alone, so no pull
-    # request's run times it.
+    # Not set from a measured time, as every other job's is: it runs on main alone, so no pull request's
+    # run times it.
     timeout-minutes: 15
     # A job-level grant replaces the workflow's whole: the push alone, which the package grants this
     # repository's workflows. The artifact comes through the run's own runtime token.
@@ -469,27 +465,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       # The one reference the images job recorded for each, never `--all-tags`: a tarball may name
-      # any tag, and only the one the images job checked is published. A branch the trigger gains
-      # publishes nothing until this step names it.
-      - name: Push the images
+      # any tag, and only the one the images job checked is published.
+      - name: Push both images
         env:
           FRONTEND_TAG: ${{ needs.images.outputs.frontend-tag }}
           BACKEND_TAG: ${{ needs.images.outputs.backend-tag }}
         run: |
-          case "$GITHUB_REF" in
-            refs/heads/main)
-              docker load --input "${RUNNER_TEMP}/images/frontend.tar"
-              docker load --input "${RUNNER_TEMP}/images/backend.tar"
-              docker push "$FRONTEND_TAG"
-              docker push "$BACKEND_TAG"
-              ;;
-            refs/heads/follow-up)
-              docker load --input "${RUNNER_TEMP}/images/backend.tar"
-              docker tag "$BACKEND_TAG" "${BACKEND_TAG/:sha-/:follow-up-sha-}"
-              docker push "${BACKEND_TAG/:sha-/:follow-up-sha-}"
-              ;;
-            *)
-              echo "::error::verify.yml's publish job names no tag for ${GITHUB_REF}, so it pushes nothing."
-              exit 1
-              ;;
-          esac
+          docker load --input "${RUNNER_TEMP}/images/frontend.tar"
+          docker load --input "${RUNNER_TEMP}/images/backend.tar"
+          docker push "$FRONTEND_TAG"
+          docker push "$BACKEND_TAG"
