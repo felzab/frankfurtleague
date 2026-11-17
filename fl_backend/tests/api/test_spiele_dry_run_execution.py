@@ -140,10 +140,8 @@ async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
 async def previewed(url: str, body: dict[str, Any]) -> Response:
     """The dry run as a real request, guards and middleware included, which a write could hide in as well.
 
-    A write the preview defers to a task it leaves running gets loop turns while this client closes. One that lands then
-    is caught by the comparison `held_corpus` runs after the module's case, and one still pending as the case ends fails
-    it by the case scope's check on the tasks it leaves. Nothing suspends between the app's client being unbound and that
-    check, so no deferred write runs in between.
+    A write the preview defers to a task it leaves running gets loop turns while this client closes. The comparison
+    `held_corpus` runs after the module's case catches it only if it lands before the module's teardown.
     """
 
     async with app_client(url, app=app_under_test(DATABASE_NAME), now=NOW) as http:

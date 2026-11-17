@@ -92,9 +92,9 @@ async def warn_about_the_grants(grants_collection: AsyncCollection) -> None:
 # it prints on a failure carry it.
 SERVER_SELECTION_TIMEOUT_MS = 15_000
 
-# Every client's options, the application's, the read-back's and the made-up seed's, and each one a test builds:
-# `standard` reads a stored UUID back as `uuid.UUID`, where the driver's default reads it as `Binary`, so a client
-# without it compares and serialises such a field differently from the app.
+# The options of every client that reads or writes documents, the application's, the read-back's, the made-up seed's and
+# the tests': `standard` reads a stored UUID back as `uuid.UUID`, where the driver's default reads it as `Binary`, so a
+# client without it compares and serialises such a field differently from the app.
 CLIENT_OPTIONS: Final[Mapping[str, Any]] = {"serverSelectionTimeoutMS": SERVER_SELECTION_TIMEOUT_MS, "uuidRepresentation": "standard"}
 
 
