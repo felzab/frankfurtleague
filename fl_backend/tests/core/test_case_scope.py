@@ -4,17 +4,19 @@ TESTS · the scope every async case runs in (`tests/database.py :: bounded_case`
 Invariants:
 - Every async case runs under the case's bound, which `tests/conftest.py :: pytest_collection_modifyitems` applies by
   wrapping what pytest-asyncio runs: a case reaching here unwrapped runs unbounded, and a rival deadlocked on its own
-  write's transaction waits out MongoDB's abort and passes on the retry. Work past its bound is cut, and fails as cut
-  whatever it raises as it unwinds; a `TimeoutError` the work raises itself passes as it was.
+  write's transaction waits until the server's transaction lifetime, far past the run. Work past its bound is cut, and
+  fails as cut whatever it raises as it unwinds; a `TimeoutError` the work raises itself passes as it was.
 - A task the work starts and leaves running fails the scope that left it, and is cancelled there rather than running
   into the next case, as is a task one of those starts as it unwinds. A task still running once cancelled refuses every
-  later scope until it ends. A task started outside the scope is not the scope's, nor is a shared client's monitor,
-  wherever that client was first asked for and whichever scope pymongo restarts it from; a client the scope opens and
-  leaves open fails it.
-- Every async fixture's setup and teardown run in a scope of their own, which a task they leave running fails.
+  later case and fixture setup until it ends, and no teardown, which is what may end it. A task started outside the
+  scope is not the scope's, nor is a shared client's monitor, wherever that client was first asked for and whichever
+  scope pymongo restarts it from; a client the scope opens and leaves open fails it.
+- Every async fixture's setup and teardown run in a scope of their own, under the fixture's bound, in every shape a
+  fixture takes: a coroutine, a generator, on a class and parametrised.
 - A clean database is entered in a case's body alone, and a module's corpus is judged after the module's cases: it is
   refused when released in the task that seeded it, and nothing clears it while it is held.
-- A transaction left open as a clean database is left fails it, and is ended there rather than holding the next case.
+- A transaction a scope leaves open fails that scope, whatever clean database it entered meanwhile, and is ended there
+  rather than holding the next case.
 - A variable a corpus's seed binds stays out of the fixture's context, which pytest-asyncio carries into every case of
   the module.
 """
@@ -22,7 +24,8 @@ Invariants:
 import asyncio
 import contextlib
 import contextvars
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
+from types import CoroutineType
 from typing import Any
 
 import pymongo
@@ -30,18 +33,31 @@ import pytest
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
-from pymongo.periodic_executor import AsyncPeriodicExecutor
+from pymongo.errors import PyMongoError
 
 from app.core.collections import Collection
 from app.core.concurrency import concurrently
 from app.core.db import new_client
 from app.core.logging import NO_REQUEST_SENTINEL, trace_id_var
 from tests.config import UNANSWERED_DEADLINE_S, UNANSWERED_URI
-from tests.database import CASE_BOUND_S, a_clean_database, bounded, bounded_case, case_deadline, held_corpus, in_a_scope, shared_client
+from tests.database import (
+    CASE_BOUND_S,
+    FIXTURE_BOUND_S,
+    a_clean_database,
+    bounded,
+    bounded_case,
+    case_deadline,
+    fixture_phase,
+    held_corpus,
+    scope_deadline,
+    shared_client,
+)
 from tests.documents import saison_document
 from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_case_scope_test")
+# A second database, one a case enters while a transaction it began elsewhere stands open.
+ANOTHER_DATABASE_NAME = worker_database("fl_case_scope_other_test")
 
 
 async def test_a_case_runs_inside_its_bound():
@@ -86,13 +102,43 @@ async def test_a_timeout_the_work_raises_itself_passes_as_it_was():
     assert caught.value is raised
 
 
+def _in_its_phase() -> None:
+    """Inside a fixture's phase, under the fixture's own bound; an assertion here fails the case's setup or its teardown."""
+
+    deadline = scope_deadline()
+    assert deadline is not None, "the fixture ran outside a bounded scope: `tests/conftest.py :: pytest_fixture_setup` did not wrap it"
+    left = deadline - asyncio.get_running_loop().time()
+    assert CASE_BOUND_S < left <= FIXTURE_BOUND_S, f"the fixture's phase is cut {left:.0f} s on, not at the fixture's own bound"
+
+
 @pytest.fixture
-async def set_up_in_a_scope() -> AsyncIterator[bool]:
-    yield in_a_scope()
+async def a_generator() -> AsyncIterator[None]:
+    _in_its_phase()
+    yield
+    _in_its_phase()
 
 
-async def test_an_async_fixture_runs_in_a_scope_of_its_own(set_up_in_a_scope: bool):
-    assert set_up_in_a_scope, "the fixture ran outside any scope: `tests/conftest.py :: pytest_fixture_setup` did not wrap it"
+@pytest.fixture
+async def a_coroutine() -> None:
+    _in_its_phase()
+
+
+@pytest.fixture(params=["first", "second"])
+async def parametrised(request: pytest.FixtureRequest) -> AsyncIterator[str]:
+    _in_its_phase()
+    yield request.param
+    _in_its_phase()
+
+
+class TestAnAsyncFixture:
+    @pytest.fixture
+    async def on_a_class(self) -> AsyncIterator[None]:
+        _in_its_phase()
+        yield
+        _in_its_phase()
+
+    async def test_runs_each_phase_in_a_bounded_scope(self, a_generator: None, a_coroutine: None, parametrised: str, on_a_class: None):
+        """Judged in the fixtures themselves, their teardowns included: each phase asserts its own scope."""
 
 
 async def test_a_task_left_running_fails_its_scope_and_is_cancelled():
@@ -193,6 +239,58 @@ async def test_a_task_running_past_its_cancellation_refuses_every_later_scope_un
     await bounded(asyncio.sleep(0))
 
 
+class _Stray:
+    """A task that ignores its cancellation until released."""
+
+    def __init__(self) -> None:
+        self.released = asyncio.Event()
+        self.running = asyncio.Event()
+        self.tasks: list[asyncio.Task[None]] = []
+
+    async def _ignores_its_cancellation(self) -> None:
+        self.running.set()
+        while not self.released.is_set():
+            # Swallowed on purpose: the defect a scope cannot cancel away.
+            with contextlib.suppress(asyncio.CancelledError):
+                await self.released.wait()
+
+    async def starts_one(self) -> None:
+        self.tasks.append(asyncio.create_task(self._ignores_its_cancellation()))
+        # Running, or its cancellation would land before its loop.
+        await self.running.wait()
+
+
+@pytest.fixture
+def stray() -> Iterator[_Stray]:
+    """The stray task, released again once the async teardown below has run or been refused.
+
+    So a refused teardown fails the case's teardown rather than leaving the task to hold the session's loop open.
+    """
+
+    held = _Stray()
+    yield held
+    held.released.set()
+
+
+@pytest.fixture
+async def released_in_its_teardown(stray: _Stray) -> AsyncIterator[_Stray]:
+    """The case's stray task, which this fixture's teardown releases and waits out: a teardown refused fails here."""
+
+    yield stray
+    stray.released.set()
+    await asyncio.wait(stray.tasks)
+
+
+async def test_a_task_running_past_its_cancellation_refuses_a_fixture_s_setup_and_no_teardown(released_in_its_teardown: _Stray):
+    """The teardown releasing the task runs after this case, in a phase of its own, while the task still runs."""
+
+    with pytest.raises(AssertionError, match=r"still running 5 s after their cancellation"):
+        await bounded_case(released_in_its_teardown.starts_one(), "tests/the_first.py::case")
+
+    with pytest.raises(AssertionError, match=r"the setup of 'the next' was not run: tests/the_first\.py::case left task\(s\)"):
+        await fixture_phase(asyncio.sleep(0), "the setup of 'the next'", setup=True)
+
+
 @contextlib.asynccontextmanager
 async def _a_server_that_never_answers() -> AsyncIterator[tuple[str, asyncio.Event]]:
     """A url whose server takes a client's first `hello` and never answers it, and the event set once it has.
@@ -257,37 +355,40 @@ async def test_a_shared_client_s_monitor_mid_check_is_not_the_scope_s():
                 await client.close()
 
 
-async def test_a_background_task_first_started_outside_every_scope_is_restarted_outside_them():
-    """pymongo's own executor, as it restarts a shared client's monitor from a later case's server selection."""
+def _monitor_tasks() -> set[asyncio.Task[Any]]:
+    return {task for task in asyncio.all_tasks() if task.get_name() == "pymongo_server_monitor_task"}
 
-    started: list[asyncio.Task[Any]] = []
-    restarted = asyncio.Event()
 
-    async def target() -> bool:
-        running = asyncio.current_task()
-        assert running is not None
-        started.append(running)
-        restarted.set()
-        # The first run stops the executor, its task ending uncancelled as a monitor's does when its check raises.
-        return len(started) > 1
+async def test_a_shared_client_s_monitor_restarted_by_a_scope_s_server_selection_is_not_the_scope_s():
+    """pymongo's own restart: a shared monitor whose task ended uncancelled, reopened by a later case's server selection."""
 
-    executor = AsyncPeriodicExecutor(interval=60, min_interval=0.01, target=target, name="the_shared_monitor")
-    contextvars.Context().run(executor.open)
-    await restarted.wait()
-    await asyncio.wait(started)
-    restarted.clear()
+    async with _a_server_that_never_answers() as (url, received):
+        before = _monitor_tasks()
+        # A check failing at once rather than at the connect timeout, so the monitor sleeps between its checks.
+        client = await shared_client(f"{url}&connectTimeoutMS=100")
+        try:
+            await received.wait()
+            [monitor] = _monitor_tasks() - before
+            # Ended uncancelled, as a check that raised leaves it: the flag pymongo's executor sets then, read between
+            # checks. The only step here not pymongo's own.
+            running = monitor.get_coro()
+            assert isinstance(running, CoroutineType) and running.cr_frame is not None, running
+            running.cr_frame.f_locals["self"]._stopped = True
+            await asyncio.wait([monitor], timeout=5)
+            assert monitor.done() and not monitor.cancelled(), "the shared monitor did not end uncancelled"
 
-    async def restarts_it() -> None:
-        executor.open()
-        await restarted.wait()
+            async def selects_a_server() -> None:
+                # No server answers, so the selection runs the topology's opening again, which restarts the monitor.
+                with pymongo.timeout(0.5), contextlib.suppress(PyMongoError):
+                    await client.admin.command("ping")
 
-    try:
-        await bounded(restarts_it())
+            await bounded(selects_a_server())
 
-        assert [task.done() for task in started] == [True, False], "the restarted task was cancelled as the scope's own"
-    finally:
-        executor.close()
-        await asyncio.wait(started)
+            restarted = _monitor_tasks() - before - {monitor}
+            assert [task.done() for task in restarted] == [False], "the selection restarted no monitor, so the scope judged none"
+        finally:
+            # Its own: no other case asks for this url, and `close_the_shared_clients` closing it again is a no-op.
+            await client.close()
 
 
 async def test_a_clean_database_entered_outside_a_case_is_refused():
@@ -307,14 +408,21 @@ async def _one_season(database: AsyncDatabase, session: AsyncClientSession | Non
 
 
 @pytest.mark.db
-async def test_a_transaction_left_open_fails_its_clean_database_and_is_ended(mongo_replica_set_url: str):
+async def test_a_transaction_left_open_fails_the_scope_that_began_it_and_is_ended(mongo_replica_set_url: str):
     client = await shared_client(mongo_replica_set_url)
     session = client.start_session()
+
+    async def leaves_one_open() -> None:
+        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
+            await session.start_transaction()
+            await _one_season(database, session=session)
+        # A clean database entered and left while it stands is not the one that judges it.
+        async with a_clean_database(mongo_replica_set_url, ANOTHER_DATABASE_NAME):
+            pass
+
     try:
-        with pytest.raises(AssertionError, match=r"1 transaction\(s\) this process started stood open"):
-            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
-                await session.start_transaction()
-                await _one_season(database, session=session)
+        with pytest.raises(AssertionError, match=r"^this left 1 transaction\(s\) open, ended here"):
+            await bounded(leaves_one_open())
 
         standing = await (
             await client.admin.aggregate(

@@ -127,7 +127,7 @@ def pytest_fixture_setup(fixturedef: pytest.FixtureDef[Any], request: pytest.Fix
 
 def _phased_coroutine(fixture: Callable[..., Any], name: str) -> Callable[..., Coroutine[Any, Any, Any]]:
     async def phased(*args: Any, **kwargs: Any) -> Any:
-        return await fixture_phase(fixture(*args, **kwargs), f"the fixture '{name}'")
+        return await fixture_phase(fixture(*args, **kwargs), f"the fixture '{name}'", setup=True)
 
     return phased
 
@@ -135,8 +135,8 @@ def _phased_coroutine(fixture: Callable[..., Any], name: str) -> Callable[..., C
 def _phased_generator(fixture: Callable[..., Any], name: str) -> Callable[..., AsyncGenerator[Any]]:
     async def phased(*args: Any, **kwargs: Any) -> AsyncGenerator[Any]:
         generator = fixture(*args, **kwargs)
-        yield await fixture_phase(_first(generator), f"the setup of '{name}'")
-        await fixture_phase(_ended(generator, name), f"the teardown of '{name}'")
+        yield await fixture_phase(_first(generator), f"the setup of '{name}'", setup=True)
+        await fixture_phase(_ended(generator, name), f"the teardown of '{name}'", setup=False)
 
     return phased
 
@@ -146,8 +146,14 @@ async def _first(generator: AsyncGenerator[Any]) -> Any:
 
 
 async def _ended(generator: AsyncGenerator[Any], name: str) -> None:
-    async for _ in generator:
-        raise ValueError(f"the fixture '{name}' yields more than once")
+    try:
+        await anext(generator)
+    except StopAsyncIteration:
+        return
+
+    # Closed before the refusal, so a fixture yielding twice runs its cleanup here rather than once collected.
+    await generator.aclose()
+    raise ValueError(f"the fixture '{name}' yields more than once")
 
 
 RejectsAssertion = Callable[[type[BaseModel], dict[str, Any], str], ValidationError]
@@ -336,6 +342,12 @@ UNSTARTED_KEY = "fl_mongodb_unstarted"
 
 REPLICA_SET_ELECTION_TIMEOUT_S = 60
 
+# The test servers' `transactionLifetimeLimitSeconds`, the frontend tier's too, past any run: the server never ends a
+# transaction a test holds, so a transaction a scope leaves open is ended by that scope's own check
+# (`tests/database.py :: _ended_open_transactions`), naming the scope, and a deadlock is cut by the case's bound rather
+# than freed by the server's expiry for the retry to pass.
+TRANSACTION_LIFETIME_S = 3600
+
 # A server's reason for exiting is its last lines, and under `-n` the message carrying them repeats in
 # every case the failed start errors.
 FAILED_START_LOG_LINES = 10
@@ -413,6 +425,11 @@ def _elected(container: DockerContainer) -> str:
                 # `except Exception` misses.
                 raise TimeoutError(f"the single-node replica set did not become primary within {REPLICA_SET_ELECTION_TIMEOUT_S}s")
             time.sleep(0.25)
+
+        # Read back rather than trusted: a server ignoring the startup parameter would expire transactions at its default.
+        held = client.admin.command({"getParameter": 1, "transactionLifetimeLimitSeconds": 1})["transactionLifetimeLimitSeconds"]
+        if held != TRANSACTION_LIFETIME_S:
+            raise RuntimeError(f"the replica set holds a transaction lifetime of {held} s, where its command sets {TRANSACTION_LIFETIME_S} s")
     finally:
         client.close()
 
@@ -435,7 +452,10 @@ def _replica_set_mongod() -> Generator[str]:
         DockerContainer(MONGO_IMAGE)
         # No `--auth`: with `--replSet` mongod demands a bind-mounted keyFile whose permissions it checks,
         # fragile on a Windows host.
-        .with_command(f"--replSet rs0 --bind_ip_all --oplogSize {REPLICA_SET_OPLOG_MB} --setParameter enableTestCommands=1")
+        .with_command(
+            f"--replSet rs0 --bind_ip_all --oplogSize {REPLICA_SET_OPLOG_MB} --setParameter enableTestCommands=1"
+            f" --setParameter transactionLifetimeLimitSeconds={TRANSACTION_LIFETIME_S}"
+        )
         .with_exposed_ports(27017)
         .with_tmpfs_mount(TMPFS_DATA_PATH, TMPFS_DATA_OPTIONS)
         .waiting_for(LogMessageWaitStrategy(re.compile(r"waiting for connections", re.IGNORECASE)))
