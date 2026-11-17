@@ -89,8 +89,8 @@ commit that makes the change.
 
 ## Operations and CI
 
-- **ci** — Run a CI job, on any event, on fewer than every scope. _A map choosing scopes from changed
-  paths left a scope unrun with every job green._
+- **ci** — Skip a scope on any event: every push and pull request runs every scope, whatever paths it
+  changed. _A map choosing scopes from changed paths left a scope unrun with every job green._
 - **ci** — Re-add `actions/cache` for an image. _buildx fetches only the layers a build needs, where
   a cache step downloads the whole tarball._
 - **exit codes** — Collapse a refusal into a failure; move one half of the exit contract alone. _A
