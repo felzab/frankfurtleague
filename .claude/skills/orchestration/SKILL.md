@@ -32,6 +32,11 @@ not.
    building one's own is the last resort and asked first. A test
    exists only where a behaviour could regress unnoticed and it is the cheapest guard; the change is
    the smallest that fully solves the problem; removing an unneeded test, doc or helper is a gain.
+   Before a mechanism is added or kept, the concrete harm it prevents in this project as it is, the
+   harm's likelihood and whether a reader or CI would see it anyway are named; where the harm is
+   unlikely or already seen, nothing is built. "Fix at the cause" is the smallest change at the
+   defect's own lines: a shared mechanism only for three real instances, never a twin because one
+   side has a check.
 6. Safe: secrets and privacy.
 7. Documented only where the code cannot speak.
 8. Nothing open.
@@ -183,9 +188,14 @@ independent. Stop once the bar is met.
 - Once the session's files stop moving, one lens round reads the whole change: security, data and
   concurrency, contract, and tests, each lens a fresh reader over a captured diff written to the
   scratch path. One fix round follows, and the cycle ends on it, never on an audit.
+- Before a row reaches a fixer, the ledger carries its harm and that harm's likelihood. A row marked
+  optional or not established, or one whose harm is unlikely or already loud, you close "NOT A
+  DEFECT (goal: <reason>)" with no fixer; a row whose fix would add a mechanism goes to the "should
+  it exist" reader first.
 - Fresh readers re-read only for a lens that read silently failing behaviour and found something
-  serious there, or more than a couple of things; a driving re-auditor that wrote none of the fixes
-  plants against them. Decide which lenses are silent before any finding exists.
+  serious there; a driving re-auditor that wrote none of the fixes plants against them. A second fix
+  round, or another reading round, runs only on the owner's word, put to him with what the first
+  fix round added in lines and mechanisms. Decide which lenses are silent before any finding exists.
 - A document is audited once, cold, and you read its fix.
 - A change to what a person sees is reviewed by the owner once, on its area's board. A look ruling
   is a class and binds every surface in flight, and the owner's word on what the owner has looked at

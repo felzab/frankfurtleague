@@ -60,7 +60,12 @@ BAR.            Done is every item met in full, nothing traded. Challenge an ite
                 verify; never assume it. Lean: a test only where a behaviour could regress unnoticed
                 and it is the cheapest guard, a comment or document only for what the code cannot
                 say, the smallest change that fully solves the item, and removing an unneeded test,
-                doc or helper counts as a gain. <What else the skill's bar means for this work.>
+                doc or helper counts as a gain. Before adding or keeping a mechanism (a check,
+                guard, lint entry, helper, test, document step or owner step), name the concrete
+                harm it prevents in this project as it is, how likely that harm is, and whether a
+                reader or CI would see it without the mechanism; where the harm is unlikely or
+                already seen, build nothing and say so. <What else the skill's bar means for this
+                work.>
 
 1  OWNERSHIP.   The exact files you may write, on the `Owns:` lines below. Writing any other file
                 is a defect in this brief -- stop and report it, or message me for it, rather than
@@ -98,8 +103,11 @@ ledger id, closed or open with its evidence.
 
 ```text
 BAR.            Ask what you cannot verify; never assume it. A test, document or helper with no
-                job is a finding too: removing it counts as a gain. <What else the skill's bar
-                means for this subject.>
+                job is a finding too: removing it counts as a gain. For each mechanism you judge
+                or propose, name the concrete harm it prevents in this project as it is, how
+                likely that harm is, and whether a reader or CI would see it without the
+                mechanism; a fix you suggest is the smallest change at the defect's own lines.
+                <What else the skill's bar means for this subject.>
 
 1  OWNERSHIP.   You write nothing, having no tool that writes. Your report is your final
                 message.

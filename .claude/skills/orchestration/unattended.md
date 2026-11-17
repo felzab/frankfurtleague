@@ -24,7 +24,9 @@ prompt parks the whole fleet; the register is what stays true until the owner is
   purpose, leave it unexecuted. Surface two instructions in tension as a tension.
 - Record every call taken alone as it is taken, with its reasoning and what reversing it would cost.
 - Deciding in the owner's place is a grant for a named stretch only, covering routine judgement on
-  best-practice terms.
+  best-practice terms. It never covers approving a design that adds a mechanism: queue that with
+  its harm and the harm's likelihood, and build only the smallest fix at the defect's own lines
+  meanwhile.
 - A question that arises goes through no ask tool, which nobody would answer before the owner is
   back: queue it under the register's "Open, awaiting the owner" with its options, your
   recommendation first. Where it blocks work, build the recommended option provisionally and mark
