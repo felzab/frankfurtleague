@@ -4,8 +4,7 @@ on:
   pull_request:
   push:
     # A push run is the one writer of its branch's caches, which every pull request into that branch
-    # restores, and on main alone it publishes. `follow-up` stays here as long as the branch does, and
-    # goes when it is deleted.
+    # restores, and on main alone it publishes.
     branches: [main, follow-up]
 
 # Least privilege, declared here so a permissive repository default cannot silently widen what a

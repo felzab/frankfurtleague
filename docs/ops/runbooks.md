@@ -88,7 +88,8 @@ pull is what brings the compose file and `nginx/` up to date. A run does this, i
    line from the master, or neither within the wait, fails the deploy, the line shown. A worker's
    line decides nothing, since a request can cause one.
 6. **It pins the tag as `TAG=` in the `.env` beside the compose file**, and names the build now live
-   and the build before it.
+   and the build before it. The pin is written to `.env.next` before the start, so a full disk or a
+   permission ends the run with the stack unchanged, and only its rename into `.env` is left here.
 
 **A healthy verdict is container health and the reload, never a page.** The frontend answers a
 static file, the backend its liveness probe, the connector holds a tunnel connection, and nginx is
@@ -116,6 +117,7 @@ about and counts as no pin.
 | Ending                             | Exit      | What stands afterwards                                                                                                               |
 | ---------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | Deployed                           | 0         | The new build, pinned; the replaced build's images still on the host                                                                 |
+| Live, the pin unrenamed            | 1         | The new build, under this checkout's nginx configuration; `.env` pinning the previous build until the hand step is run               |
 | Failed, and went back              | 1         | The previous build's images, pinned; nginx on the configuration it had, unless the start recreated it or its reload went unconfirmed |
 | Failed, with no other build pinned | 1         | The stack as Compose left it; the pin unmoved                                                                                        |
 | Failed, and going back failed too  | 1         | The stack as Compose left it; `.env` pinning the previous build                                                                      |
@@ -125,12 +127,15 @@ about and counts as no pin.
 | Crashed                            | 3 or more | The stack unchanged; unused images pruned where the run reached that                                                                 |
 | Interrupted                        | 130       | The stack as far as Compose took it; the pin unmoved, or the new build's under `--no-rollback` once started                          |
 
-**Once the start has begun, every failure goes back**: the start itself, the read of every
-service's state, `nginx -t`, the reload, and a pin the run could not write, each named on the run's
-last line. **A refusal is a wrong argument, a machine that is not Linux, or Docker or its Compose
-plugin not answering.** **A crash comes before the start**: a `HEAD` git cannot read, a failed pull,
-or a `--no-rollback` run whose pin could not be written, the run's last lines saying the stack has
-not changed.
+**Once the start has begun, every failure before the pin goes back**: the start itself, the read of
+every service's state, `nginx -t` and the reload, each named on the run's last line. **A pin that
+could not be renamed into `.env` after the reload does not go back**: the new build is live and
+whole under the configuration nginx has just loaded, which the build before would run under. The
+run's last line says so and names the hand step, `printf 'TAG=%s\n' <tag> > .env`, without which a
+later failing run would go back to the build before. **A refusal is a wrong argument, a machine
+that is not Linux, or Docker or its Compose plugin not answering.** **A crash comes before the
+start**: a `HEAD` git cannot read, a failed pull, or a pin that could not be written, the run's last
+lines saying the stack has not changed.
 
 **Going back moves the images alone.** The compose file and `nginx/` stay as the pull left them,
 and nginx is not reloaded, so it keeps the configuration it had before the run unless the start
@@ -1366,14 +1371,21 @@ publication consents withdrawn again above.
 built** (`fl_frontend/src/core/authIndexes.ts :: AUTH_INDEXES`). An index the boot could not build
 is one `auth.index_unbuilt` line naming it, and only a line with no `code` is built again before
 the next boot, on the first heartbeat the store answers as a writable server. An index the store
-already holds builds nothing and succeeds, so only a release changing the list can leave one
-unbuilt. In such a release, once the deploy
-([section 1](#1-deploying-a-build-and-going-back-to-an-earlier-one)) ends, read the frontend's log
-for that event:
+already holds builds nothing and succeeds, so a boot leaves one unbuilt only in a release changing
+the list or after an index was dropped by hand. After such a deploy
+([section 1](#1-deploying-a-build-and-going-back-to-an-earlier-one)), and after every restart below,
+read the frontend's log for that event from the container's own start, since a restart keeps the
+container and the lines it logged before:
 
 ```bash
-docker compose logs frontend | grep auth.index_unbuilt
+since="$(docker inspect -f '{{.State.StartedAt}}' "$(docker compose ps -q frontend)")"
+docker compose logs --since "$since" frontend | grep auth.index_unbuilt
 ```
+
+**Read it once about 30 seconds have passed since that start.** Each build waits at most nine
+seconds, the client's selection, checkout and socket bounds of three seconds each
+(`fl_frontend/src/core/db.ts`), and the `session` collection's three are built one after another,
+so the boot's last line comes within about 27 seconds.
 
 | The line's `code` | What stands                                                                 | What to do                                                                                                                                                               |
 | ----------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

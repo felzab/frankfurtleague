@@ -2,7 +2,8 @@
 
 No case can run the script against a real engine, which is the server's alone. Each copies it with
 `_lib.sh` into a fixture tree of its own, where it `cd`s and writes `.env`, and puts a stand-in
-`docker`, `uname` and `sleep` first on PATH. The stand-in answers `docker compose ps` as Docker documents it
+`docker`, `uname` and `sleep` first on PATH, and for one case an `mv` the filesystem refuses. The stand-in
+answers `docker compose ps` as Docker documents it
 (https://docs.docker.com/reference/cli/docker/compose/ps/): only running containers by default, and
 with `--all` the stopped ones too, a one-off container `docker compose run` left among them. Its
 nginx answers each case's `nginx -t` and error log after the reload, the same at every read, so it
@@ -76,6 +77,7 @@ exit 0
 UNAME: Final = "#!/usr/bin/env bash\nprintf '%s\\n' Linux\n"
 # The clock, faked: each reload read follows a second's wait, and the stand-in's log is the same at every read.
 SLEEP: Final = "#!/usr/bin/env bash\nexit 0\n"
+FAILING_MV: Final = "#!/usr/bin/env bash\nprintf '%s\\n' 'mv: cannot move: Read-only file system' >&2\nexit 1\n"
 
 
 def containers(**states: str | None) -> str:
@@ -100,6 +102,7 @@ def deploy(
     compose_version: int = 0,
     exec_fails: bool = False,
     unwritable_pin: bool = False,
+    unrenamed_pin: bool = False,
 ) -> tuple[int, str, str, list[str], str | None]:
     """One run deploying `NEW` over a stack whose `.env` pins `pin`, or with no `.env` for None.
 
@@ -117,6 +120,9 @@ def deploy(
     stubs.mkdir()
     for name, text in (("docker", DOCKER), ("uname", UNAME), ("sleep", SLEEP)):
         os.chmod(write_shell(stubs / name, text), 0o755)
+    # A rename the filesystem refuses, the pin's second file already written.
+    if unrenamed_pin:
+        os.chmod(write_shell(stubs / "mv", FAILING_MV), 0o755)
     (engine / f"containers.{NEW}").write_bytes(new.encode())
     (engine / f"containers.{PREVIOUS}").write_bytes(previous.encode())
     (engine / f"up.{NEW}").write_bytes(str(new_up).encode())
@@ -322,17 +328,16 @@ def test_a_pull_that_failed_is_a_crash_with_the_stack_unchanged():
 
 
 @pytest.mark.parametrize(
-    ("new_up", "exec_fails", "unwritable_pin", "failure"),
+    ("new_up", "exec_fails", "failure"),
     [
         # Compose answers its own failure to run the exec 1, as nginx answers a refused configuration.
-        pytest.param(0, True, False, "nginx did not take this checkout's configuration", id="nginx-t-unrun"),
-        pytest.param(137, False, False, f"{NEW} did not come up", id="wait-killed"),
-        pytest.param(0, False, True, "the .env could not be written to pin it", id="pin-unwritable"),
+        pytest.param(0, True, "nginx did not take this checkout's configuration", id="nginx-t-unrun"),
+        pytest.param(137, False, f"{NEW} did not come up", id="wait-killed"),
     ],
 )
-def test_any_failure_once_the_start_has_begun_goes_back(new_up: int, exec_fails: bool, unwritable_pin: bool, failure: str):
+def test_any_failure_before_the_pin_goes_back(new_up: int, exec_fails: bool, failure: str):
     """Past the start the stack is half moved, so no failure there ends the run where it stands."""
-    code, out, err, calls, pinned = deploy(new_up=new_up, nginx_t=1 if exec_fails else 0, exec_fails=exec_fails, unwritable_pin=unwritable_pin)
+    code, out, err, calls, pinned = deploy(new_up=new_up, nginx_t=1 if exec_fails else 0, exec_fails=exec_fails)
 
     assert code == 1, out + err
     assert went_back(calls), calls
@@ -341,8 +346,21 @@ def test_any_failure_once_the_start_has_begun_goes_back(new_up: int, exec_fails:
     assert failure in said and f"so the stack went back to {PREVIOUS}, which is live." in said, err
 
 
-def test_a_pin_that_cannot_be_written_is_a_crash_before_the_build_starts():
-    code, out, err, calls, pinned = deploy("--no-rollback", unwritable_pin=True)
+def test_a_pin_rename_that_fails_after_the_reload_leaves_the_new_build_live():
+    """Going back would put the build before under the configuration nginx has just loaded."""
+    code, out, err, calls, pinned = deploy(unrenamed_pin=True)
+
+    assert code == 1, out + err
+    assert reloaded_nginx(calls), calls
+    assert not went_back(calls), calls
+    assert pinned == f"TAG={PREVIOUS}\n", pinned
+    assert f"printf 'TAG=%s\\n' {NEW} > .env" in last_line(err), err
+    assert f"{NEW} is live and healthy" in err, err
+
+
+@pytest.mark.parametrize("args", [pytest.param((), id="rollback"), pytest.param(("--no-rollback",), id="no-rollback")])
+def test_a_pin_that_cannot_be_written_is_a_crash_before_the_build_starts(args: tuple[str, ...]):
+    code, out, err, calls, pinned = deploy(*args, unwritable_pin=True)
 
     assert code == 3, out + err
     assert "the .env could not be written, so" in err, err

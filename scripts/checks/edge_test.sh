@@ -88,23 +88,6 @@ conf_query() { # $1 the file the answer goes to · the query and its arguments, 
   MSYS_NO_PATHCONV=1 "$EDGE_PY" scripts/lib/nginx_conf.py "$@" > "$into"
 }
 
-# One curl run whose answers the cases grade by what it wrote, its stdout into the variable `--stdout`
-# names: a transfer the edge did not answer writes 000, which its case grades as the edge's, so curl's
-# own status decides nothing.
-requested() { # [--stdout <name>] the curl command
-  local _rq_name="" _rq_out=""
-  if [[ "${1-}" == --stdout ]]; then _rq_name="$2"; shift 2; fi
-  _rq_out="$("$@")" || true
-  if [[ -n "$_rq_name" ]]; then printf -v "$_rq_name" '%s' "$_rq_out"; fi
-}
-
-# A path as a mount source, into the variable `$1` names.
-mounted() { # $1 the variable · $2 the path
-  local source
-  source="$(mount_source "$2")"
-  printf -v "$1" '%s' "$source"
-}
-
 # Each header's name and value off the file the set is written in, so a location restating the set
 # with a different value fails as surely as one dropping it. A value naming a variable is the default of
 # the http-level map setting it, which every page but a link page is sent.
@@ -165,10 +148,9 @@ RECORD
 # mount would refuse. The empty tmpfs under them hides the image's own `default.conf`, as the
 # stacks' directory mount does.
 LOCAL_MOUNTS=( --tmpfs /etc/nginx/conf.d )
-conf_source=""
 for conf in "${REPO_ROOT}"/nginx/local/*.conf; do
   [[ -f "$conf" ]] || continue
-  mounted conf_source "$conf"
+  conf_source="$(mount_source "$conf")"
   LOCAL_MOUNTS+=( -v "${conf_source}:/etc/nginx/conf.d/${conf##*/}:ro" )
 done
 (( ${#LOCAL_MOUNTS[@]} > 2 )) || refuse "nginx/local/ holds no *.conf, so there is no edge to serve."
@@ -210,11 +192,10 @@ done
 if verbose; then info "the model starts ${EDGE_IMAGE} with: ${EDGE_PRIVILEGES[*]}"; fi
 
 quietly docker network create "$NETWORK"
-STUB_SOURCE="" SHARED_SOURCE="" RELAY_SOURCE="" PROD_SOURCE=""
-mounted STUB_SOURCE "${SCRATCH}/zz-upstream-stub.conf"
-mounted SHARED_SOURCE "${REPO_ROOT}/nginx/shared"
-mounted RELAY_SOURCE "${SCRATCH}/relay-record.sh"
-mounted PROD_SOURCE "${REPO_ROOT}/nginx/prod"
+STUB_SOURCE="$(mount_source "${SCRATCH}/zz-upstream-stub.conf")"
+SHARED_SOURCE="$(mount_source "${REPO_ROOT}/nginx/shared")"
+RELAY_SOURCE="$(mount_source "${SCRATCH}/relay-record.sh")"
+PROD_SOURCE="$(mount_source "${REPO_ROOT}/nginx/prod")"
 # Before either edge, as compose orders the pair before nginx: a configuration resolving its upstreams
 # at load still starts, and fails only the case aimed at it.
 MSYS_NO_PATHCONV=1 docker run -d --name "$BACKEND_STUB" --network "$NETWORK" --network-alias backend \
@@ -275,9 +256,10 @@ BASE="http://${ADDR}"
 # Any status is an answer: an edge answering 502 everywhere is a configuration defect the cases below
 # name, exit 1, where waiting for a 200 would refuse it as no verdict.
 _up=0
-_status=""
 for (( _try = 0; _try < 50; _try++ )); do
-  requested --stdout _status curl -s -o /dev/null -w '%{http_code}' --max-time 2 -H "Host: localhost" "${BASE}/healthprobe"
+  # curl's own status decides nothing here or at any request below: a transfer the edge did not answer
+  # writes 000, which its case grades as the edge's.
+  _status="$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 -H "Host: localhost" "${BASE}/healthprobe")" || true
   if [[ -n "$_status" && "$_status" != 000 ]]; then _up=1; break; fi
   sleep 0.2
 done
@@ -423,7 +405,7 @@ for _i in "${!HEADER_PATHS[@]}"; do
     -H "X-Forwarded-Proto: https"
     -H "Next-Action: ${CLIENT_ACTION}" "${BASE}${HEADER_PATHS[_i]}" )
 done
-requested curl "${HEADER_REQUESTS[@]}"
+curl "${HEADER_REQUESTS[@]}" || true
 for _i in "${!HEADER_PATHS[@]}"; do
   read_headers "${SCRATCH}/headers-${_i}"
   grade_security_headers "${HEADER_PATHS[_i]}" "${HEADER_LINK[$_i]:-}"
@@ -451,9 +433,8 @@ done
 
 # nginx answers a prefix location's path without its slash with a redirect to it, and Next redirects
 # that slash away again, so a typed `/confirm` loops unless it reaches Next itself.
-CONFIRM_STATUS=""
-requested --stdout CONFIRM_STATUS curl -s -o /dev/null -D "${SCRATCH}/headers-confirm" -w '%{http_code}' --max-time 5 \
-  -H "Host: localhost" "${BASE}/confirm"
+CONFIRM_STATUS="$(curl -s -o /dev/null -D "${SCRATCH}/headers-confirm" -w '%{http_code}' --max-time 5 \
+  -H "Host: localhost" "${BASE}/confirm")" || true
 read_headers "${SCRATCH}/headers-confirm"
 if [[ "$CONFIRM_STATUS" != 200 || -z "${SENT_VALUE[x-seen-traceparent]:-}" ]]; then
   fail "UPSTREAM /confirm"
@@ -477,7 +458,7 @@ relay_seen() { # $1 the variable · the curl options naming the transfer's heade
   # A 502 alone is retried, the relay's answer before the listener is up: the listener takes one
   # connection, so a retry after a timeout that reached it reads a 502 and judges nothing.
   for (( _k = 0; _k < 25; _k++ )); do
-    requested --stdout status curl -s -o /dev/null -w '%{http_code}' --max-time 2 -H "Host: localhost" "$@" "${BASE}/next-action-relay"
+    status="$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 -H "Host: localhost" "$@" "${BASE}/next-action-relay")" || true
     [[ "$status" == 502 ]] || break
     sleep 0.2
   done
@@ -644,8 +625,7 @@ spent_request link-head -A "$LINK_MARKER" -H "Accept: ${NAVIGATION_ACCEPT}" --he
 
 # A transfer curl never answered reads as `none`.
 printf '%s\n' "${ACTION_CONFIG[@]}" > "${SCRATCH}/action.curlrc"
-action_statuses=""
-requested --stdout action_statuses curl -K "${SCRATCH}/action.curlrc"
+action_statuses="$(curl -K "${SCRATCH}/action.curlrc")" || true
 mapfile -t ACTION_STATUSES <<<"$action_statuses"
 expect_action() { # $1 label, $2 the status every transfer of it must answer, or "some:<status>"
   local label="$1" wanted="$2" _j _status found=0 all=1 answered=""
@@ -857,8 +837,7 @@ CONN_REQUESTS=( --parallel --parallel-immediate --parallel-max $(( CONN_CEILING 
 for (( _n = 0; _n <= CONN_CEILING; _n++ )); do
   CONN_REQUESTS+=( -s -o /dev/null -w '%{http_code}\n' --max-time 15 -H "Host: frankfurtleague.de" "${PROD_BASE}/held" )
 done
-conn_statuses=""
-requested --stdout conn_statuses curl "${CONN_REQUESTS[@]}"
+conn_statuses="$(curl "${CONN_REQUESTS[@]}")" || true
 mapfile -t CONN_STATUSES <<<"$conn_statuses"
 CONN_REFUSED=0
 for _status in "${CONN_STATUSES[@]}"; do
@@ -886,8 +865,12 @@ for (( _try = 0; _try < 50; _try++ )); do
 done
 (( ${LINK_LOGGED:-0} >= LINK_KEPT )) \
   || refuse "the edge logged ${LINK_LOGGED:-0} of the ${LINK_KEPT} link-page requests kept whole, so whether a refusal reached the error log was not judged."
-LINK_ERRORS=""
-if LINK_ERRORS="$(grep -F "$TOK" "$ERROR_LOG" "$PROD_ERROR_LOG")"; then
+# grep answers 1 for no line, the passing answer here and at the two token reads below, and 2 for a file it could
+# not read, which judged nothing.
+matched=0
+LINK_ERRORS="$(grep -F "$TOK" "$ERROR_LOG" "$PROD_ERROR_LOG")" || matched=$?
+(( matched < 2 )) || crash "grep could not read the edges' error logs, so whether one holds a live token was not judged."
+if (( matched == 0 )); then
   fail "ACTION link-log"
   detail "an error line on stderr holds a live token: ${LINK_ERRORS}"
   ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
@@ -933,8 +916,7 @@ for case_line in "${BODY_CASES[@]}"; do
       -H "Content-Type: application/octet-stream" --data-binary "@${SCRATCH_NAME}/body-${body_size}" "${BASE}${body_path}" )
   done
 done
-body_statuses=""
-requested --stdout body_statuses curl "${BODY_REQUESTS[@]}"
+body_statuses="$(curl "${BODY_REQUESTS[@]}")" || true
 mapfile -t BODY_STATUSES <<<"$body_statuses"
 for _j in "${!BODY_LABELS[@]}"; do
   _status="${BODY_STATUSES[_j]:-none}"; _status="${_status%$'\r'}"
@@ -949,9 +931,8 @@ done
 
 # The www redirect is the one block outside `nginx/shared/site.conf` that includes the header set, and
 # the catch-all the one that answers a name nobody configured.
-WWW_STATUS=""
-requested --stdout WWW_STATUS curl -s -o /dev/null -D "${SCRATCH}/headers-www" -w '%{http_code}' --max-time 5 \
-  -H "Host: www.frankfurtleague.de" "${PROD_BASE}/probe"
+WWW_STATUS="$(curl -s -o /dev/null -D "${SCRATCH}/headers-www" -w '%{http_code}' --max-time 5 \
+  -H "Host: www.frankfurtleague.de" "${PROD_BASE}/probe")" || true
 read_headers "${SCRATCH}/headers-www"
 if [[ "$WWW_STATUS" != 301 || "${SENT_VALUE[location]:-}" != "https://frankfurtleague.de/probe" ]]; then
   fail "REDIRECT www.frankfurtleague.de"
@@ -960,8 +941,7 @@ if [[ "$WWW_STATUS" != 301 || "${SENT_VALUE[location]:-}" != "https://frankfurtl
 fi
 grade_security_headers "www.frankfurtleague.de"
 # A Host no block names, which must reach neither the frontend nor a redirect.
-UNKNOWN_STATUS=""
-requested --stdout UNKNOWN_STATUS curl -s -o /dev/null -w '%{http_code}' --max-time 5 -H "Host: unrecognised.invalid" "${PROD_BASE}/"
+UNKNOWN_STATUS="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 -H "Host: unrecognised.invalid" "${PROD_BASE}/")" || true
 if [[ "$UNKNOWN_STATUS" != 421 ]]; then
   fail "CATCH-ALL nginx/prod/"
   detail "expected 421 for a Host no block names, nginx answered ${UNKNOWN_STATUS}"
@@ -1046,9 +1026,8 @@ done <<< "$CONF_DIRECTIVES"
 
 # The production block reaching the frontend: a `resolver` of its own there replaces the shared one
 # for every location it wraps, and a public one finds no `frontend`.
-PROD_STATUS=""
-requested --stdout PROD_STATUS curl -s -o /dev/null -D "${SCRATCH}/headers-prod-site" -w '%{http_code}' --max-time 10 \
-  -H "Host: frankfurtleague.de" "${PROD_BASE}/"
+PROD_STATUS="$(curl -s -o /dev/null -D "${SCRATCH}/headers-prod-site" -w '%{http_code}' --max-time 10 \
+  -H "Host: frankfurtleague.de" "${PROD_BASE}/")" || true
 read_headers "${SCRATCH}/headers-prod-site"
 if [[ "$PROD_STATUS" != 200 || -z "${SENT_VALUE[x-seen-traceparent]:-}" ]]; then
   fail "UPSTREAM frankfurtleague.de/"
@@ -1091,8 +1070,7 @@ for _i in "${!LINK_ACTION_PATHS[@]}"; do
 done
 upstream_request "a static file a link page asked for" -H "Referer: http://localhost/confirm/kontakt?token=${REFERRED_TOK}" \
   "${BASE}/_next/static/chunks/referred.js?upstream=fail"
-upstream_statuses=""
-requested --stdout upstream_statuses curl "${UPSTREAM_REQUESTS[@]}"
+upstream_statuses="$(curl "${UPSTREAM_REQUESTS[@]}")" || true
 mapfile -t UPSTREAM_STATUSES <<<"$upstream_statuses"
 # A request a zone refused, or one the stub answered, never met the failure, and judging the log after
 # it would call a silence nobody caused a pass.
@@ -1116,8 +1094,10 @@ done
   || refuse "the edge logged ${UPSTREAM_LOGGED:-0} of the ${#UPSTREAM_LABELS[@]} requests its failing frontend answered, so whether an error line holds a token was not judged."
 [[ "$(<"$ERROR_LOG")" == *"$REFERRED_TOK"* ]] \
   || refuse "the failing frontend's static file wrote no error line holding its Referer, so this run read no error line it could judge the link pages' silence against."
-UPSTREAM_ERRORS=""
-if UPSTREAM_ERRORS="$(grep -F "$TOK" "$ERROR_LOG")"; then
+matched=0
+UPSTREAM_ERRORS="$(grep -F "$TOK" "$ERROR_LOG")" || matched=$?
+(( matched < 2 )) || crash "grep could not read the edge's error log, so whether it holds a live token was not judged."
+if (( matched == 0 )); then
   fail "UPSTREAM a link page's failing frontend"
   detail "an error line on stderr holds a live token: ${UPSTREAM_ERRORS}"
   UPSTREAM_FAILURES=$(( UPSTREAM_FAILURES + 1 ))
@@ -1146,8 +1126,10 @@ for logged_line in "${LOGGED_LINES[@]}"; do
     LINE_FAILURES=$(( LINE_FAILURES + 1 ))
   fi
 done
-TOKEN_LINES=""
-if TOKEN_LINES="$(grep -F "$TOK" "$ACCESS_LOG" "$PROD_ACCESS_LOG")"; then
+matched=0
+TOKEN_LINES="$(grep -F "$TOK" "$ACCESS_LOG" "$PROD_ACCESS_LOG")" || matched=$?
+(( matched < 2 )) || crash "grep could not read the edges' stdout, so whether it holds a live token was not judged."
+if (( matched == 0 )); then
   fail "LINE a live token"
   detail "the edge's stdout holds the token: ${TOKEN_LINES}"
   LINE_FAILURES=$(( LINE_FAILURES + 1 ))

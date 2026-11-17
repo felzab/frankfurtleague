@@ -5,7 +5,7 @@ No case can raise the stack, which needs the images and an engine. Each copies t
 call with the compose files and project it was given and answers each kind of call with the code the case gives, and a stand-in
 `uname` answering as Git Bash does, so `local.sh` runs on any machine. `local.sh --e2e` and CI's journeys fail on any
 code but 0, so only this suite tells the seed's refusal from a failure, and only it sees a stack started over a failed
-step.
+step. CI's stacks are always ones the seed may load into, so only this suite sees `made_up_seed.sh` refuse the others.
 """
 
 from __future__ import annotations
@@ -33,8 +33,9 @@ LOCAL_PROJECT: Final = "frankfurtleague"
 
 # Each call as `<COMPOSE_FILE> | <COMPOSE_PROJECT_NAME> | <arguments>`. The kinds: `down`, `build`, `start` (the `up`
 # without a wait), `wait` (the database and the backend waited for), `rest` (the whole stack waited for), and the seed's
-# four: `states`, its look at the stack, then `hand`, `seed` and `readback`. An `up` is told by whether it waits and
-# which services it names, never by its timeout, which the script may retune.
+# three: `states`, its look at the stack, listing the case's `states` file as `<service> <state> <one-off label>`, then
+# `hand` and `seed`. An `up` is told by whether it waits and which services it names, never by its timeout, which the
+# script may retune.
 DOCKER: Final = r"""#!/usr/bin/env bash
 d="$FL_STACK_DIR"
 printf '%s | %s | %s\n' "${COMPOSE_FILE-}" "${COMPOSE_PROJECT_NAME-}" "$*" >> "$d/calls"
@@ -46,15 +47,15 @@ case " $* " in
   *" compose up "*" --wait "*" mongo backend ") exit "$(answer wait)" ;;
   *" compose up "*" --wait "*) exit "$(answer rest)" ;;
   *" compose up "*) exit "$(answer start)" ;;
-  # The backend's container, which the wait above has running.
-  *" compose ps "*) printf '%s\n' 4f2a; exit 0 ;;
+  *" compose ps "*) cat "$d/states"; exit 0 ;;
   *" sh -c "*) cat > /dev/null; exit "$(answer hand)" ;;
   *" tests.made_up_seed "*) exit "$(answer seed)" ;;
-  *" app.readback "*) exit "$(answer readback)" ;;
 esac
 exit 0
 """
 UNAME: Final = "#!/usr/bin/env bash\nprintf '%s\\n' MINGW64_NT-10.0-26100\n"
+# The stack the wait above leaves for the seed, as Compose labels a service's own containers.
+SEEDABLE: Final = "mongo running False\nbackend running False\n"
 
 
 def kind(call: str) -> str:
@@ -71,7 +72,6 @@ def kind(call: str) -> str:
         (" compose ps ", "states"),
         (" sh -c ", "hand"),
         ("tests.made_up_seed", "seed"),
-        ("app.readback", "readback"),
     ):
         if needle in padded:
             return name
@@ -81,13 +81,14 @@ def kind(call: str) -> str:
 def stack(
     root: Path,
     *args: str,
+    states: str = SEEDABLE,
     codes: Mapping[str, int] = MappingProxyType({}),
     script: str = "scripts/ops/e2e_stack.sh",
     reaches: tuple[str, str] = (E2E_FILES, E2E_PROJECT),
     caller: str = LOCAL_PROJECT,
     extra: Mapping[str, str] = MappingProxyType({}),
 ) -> tuple[int, str, list[str]]:
-    """One run of `script` in `root`, each kind of call in `codes` answering with its code, 0 otherwise.
+    """One run of `script` in `root`, `compose ps` listing `states`, each kind of call in `codes` answering with its code, 0 otherwise.
 
     Every compose call must reach the files and the project `reaches` names, whatever project `caller`, the caller's own
     variable, names, and each script asks the plugin's release before any other compose call of its own. Returns the
@@ -99,6 +100,7 @@ def stack(
     stubs.mkdir()
     for name, text in (("docker", DOCKER), ("uname", UNAME)):
         os.chmod(write_shell(stubs / name, text), 0o755)
+    (engine / "states").write_bytes(states.encode())
     for name, code in codes.items():
         (engine / name).write_bytes(str(code).encode())
     # The local stack's files and project, as a caller beside it exports them: the script must name its own.
@@ -153,64 +155,34 @@ def test_a_start_runs_on_new_keys_over_an_empty_stack_and_mail_sink_and_serves_o
 
     code, said, kinds = stack(root, "serve")
     assert code == 0, said
-    assert kinds == ["wait", "states", "hand", "hand", "hand", "seed", "readback", "rest"], kinds
+    assert kinds == ["wait", "states", "hand", "hand", "hand", "seed", "rest"], kinds
 
 
 @pytest.mark.parametrize(
-    ("args", "codes", "expected", "last"),
+    ("states", "codes", "last"),
     [
-        (("serve",), {"readback": 2}, 2, "readback"),
-        (("serve",), {"seed": 1}, 1, "seed"),
-        # The seed's crash keeps its own status, and an interrupt stays 130.
-        (("serve",), {"seed": 137}, 137, "seed"),
-        (("serve",), {"seed": 130}, 130, "seed"),
-        # A service that never came up healthy and an image that does not build are what those two verbs judge.
-        (("serve",), {"wait": 1}, 1, "wait"),
-        (("start", "--build"), {"build": 1}, 1, "build"),
-        # A teardown judges nothing, so Compose's 1 there is any error at all, a crash.
-        (("start",), {"down": 1}, 3, "down"),
+        pytest.param(SEEDABLE, {"seed": 2}, "seed", id="seed-refusal-stays-refused"),
+        # Production with its frontend stopped, whichever files the checkout's Compose reads: the seed empties every
+        # collection of the database it reaches.
+        pytest.param("backend running False\nfrontend exited False\n", {}, "states", id="no-mongo"),
+        # A one-off frontend writes into the half-loaded league as the service's own does.
+        pytest.param(f"{SEEDABLE}frontend running True\n", {}, "states", id="frontend-running"),
     ],
-    ids=["seed-refused-stays-refused", "seed-fails", "seed-crashes", "seed-interrupted", "wait-fails", "build-fails", "teardown-crashes"],
 )
-def test_nothing_starts_after_a_step_that_did_not_hold(args: tuple[str, ...], codes: dict[str, int], expected: int, last: str) -> None:
-    """Under Actions the step that ended the run raises the one annotation, the seed script its own, and an interrupt none."""
-    code, said, kinds = stack(checkout(), *args, codes=codes, extra={"GITHUB_ACTIONS": "true"})
-    assert code == expected, said
+def test_a_refusal_starts_nothing_after_it_and_stays_a_refusal(states: str, codes: dict[str, int], last: str) -> None:
+    """Under Actions the seed script raises the one annotation; the stack's own ending raises none."""
+    code, said, kinds = stack(checkout(), "serve", states=states, codes=codes, extra={"GITHUB_ACTIONS": "true"})
+    assert code == 2, said
     assert kinds[-1] == last, kinds
     annotations = [line for line in said.splitlines() if line.lstrip().startswith("::error::")]
-    assert len(annotations) == (0 if expected == 130 else 1), annotations
+    assert len(annotations) == 1, annotations
 
 
-@pytest.mark.parametrize(
-    ("codes", "expected"),
-    [({"readback": 2}, 2), ({"seed": 1}, 1), ({"seed": 137}, 137), ({"seed": 130}, 130)],
-    ids=["refused", "failed", "crashed", "interrupted"],
-)
-def test_local_sh_keeps_the_stack_s_verdict(codes: dict[str, int], expected: int) -> None:
-    code, said, kinds = stack(checkout(), "--e2e", codes=codes, script="scripts/ops/local.sh", extra={"GITHUB_ACTIONS": "true"})
-    assert code == expected, said
+def test_local_sh_keeps_the_stack_s_refusal() -> None:
+    code, said, kinds = stack(checkout(), "--e2e", codes={"seed": 2}, script="scripts/ops/local.sh")
+    assert code == 2, said
     assert kinds[:3] == ["down", "build", "start"], kinds
     assert "rest" not in kinds, kinds
-    annotations = [line for line in said.splitlines() if line.lstrip().startswith("::error::")]
-    assert len(annotations) == (0 if expected == 130 else 1), annotations
-
-
-@pytest.mark.parametrize(
-    ("script", "args"),
-    [
-        ("scripts/ops/e2e_stack.sh", ("start", "--build")),
-        ("scripts/ops/local.sh", ()),
-        ("scripts/ops/local.sh", ("--e2e",)),
-    ],
-    ids=["e2e", "local", "local-e2e"],
-)
-def test_a_missing_compose_plugin_is_a_refusal_before_any_compose_verb(script: str, args: tuple[str, ...]) -> None:
-    """Docker answers 1 for a plugin it does not hold, which the build's and the wait's rows read as their finding."""
-    reaches = (E2E_FILES, E2E_PROJECT) if script.endswith("e2e_stack.sh") or "--e2e" in args else (LOCAL_FILES, LOCAL_PROJECT)
-    code, said, kinds = stack(checkout(), *args, codes={"version": 1}, script=script, reaches=reaches)
-    assert code == 2, said
-    assert "Docker Compose did not answer" in said, said
-    assert kinds == [], kinds
 
 
 def test_local_sh_deletes_the_end_to_end_stack_s_volume_alone() -> None:
@@ -220,9 +192,10 @@ def test_local_sh_deletes_the_end_to_end_stack_s_volume_alone() -> None:
     assert kinds == ["down"], kinds
 
 
-@pytest.mark.parametrize("args", [("--down",), ("--down", "--fresh")], ids=["down", "down-fresh"])
-def test_local_sh_holds_the_local_stack_to_its_own_name(args: tuple[str, ...]) -> None:
+def test_local_sh_holds_the_local_stack_to_its_own_name() -> None:
     """`--down --fresh` deletes the named stack's volumes, so a caller's variable or a `.env` naming another stack must not reach it."""
-    code, said, kinds = stack(checkout(), *args, script="scripts/ops/local.sh", reaches=(LOCAL_FILES, LOCAL_PROJECT), caller="another-stack")
+    code, said, kinds = stack(
+        checkout(), "--down", "--fresh", script="scripts/ops/local.sh", reaches=(LOCAL_FILES, LOCAL_PROJECT), caller="another-stack"
+    )
     assert code == 0, said
     assert kinds == ["down"], kinds

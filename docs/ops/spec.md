@@ -62,8 +62,7 @@ no ecosystem reading a step's string.
 - **Both database test tiers run the local stack's own mongo**, reading it from
   `docker-compose.local.yml`'s one `mongo` line.
 
-`scripts/tests/test_image_pins.py` holds every reference to that form, and refuses a linter image a
-script or a workflow types, or a mongo image either tier types, itself. **That mongo stays in the
+`scripts/tests/test_image_pins.py` holds every reference to that form. **That mongo stays in the
 release series the managed cluster runs**, so no test passes on a feature production lacks:
 `.github/dependabot.yml` proposes no later series, and a move of the cluster moves the one pin by
 hand.
@@ -464,9 +463,9 @@ database service the local and the end-to-end stacks each start and production l
 seed refuses any server its settings name but that one, before it connects. **It writes a database
 nothing else writes**: the frontend is the one other writer, the backend running no pass of its
 own, so the script refuses a stack whose frontend is not stopped, and `local.sh` stops the frontend
-before each seed it loads. It loads once the backend's boot has built every index, and
-`python -m app.readback` then reads every document it wrote back through its record model; only
-then do the frontend and nginx start.
+before each seed it loads. It reads every document through its record model before it empties
+anything, and loads once the backend's boot has built every index; only then do the frontend and
+nginx start.
 
 **The local stack starts with an empty `auth`, and a sign-in builds it.** The grants deciding which
 administrator may sign in arrive with the made-up seed, so a `--fresh` stack admits nobody until
@@ -499,13 +498,11 @@ naming that folder (`fl_frontend/e2e/support/journey.ts :: E2E_DIR`).
 
 **`--e2e --landing=<state>` re-seeds the running end-to-end stack with the landing in that state**,
 one of `fl_backend/tests/made_up_seed.py :: LANDING_STATES`, the seed refusing any other: the seed
-runs again with `SEED_LANDING` in the backend container's environment, the read-back judges it, and
-the frontend alone is recreated, so no read of the earlier state stays cached. It builds nothing and
-keeps the stack's keys, its sign-in store and its images, so sessions and passkeys survive it. It
-refuses with no end-to-end stack running, and then from any checkout but the one whose `--e2e`
-created the stack's containers, which Compose records on each as
-`com.docker.compose.project.working_dir`. The stack's name is every checkout's, and the frontend it
-recreates takes the keys, the mail folder and the compose files of the checkout it runs in.
+runs again with `SEED_LANDING` in the backend container's environment, and the frontend alone is
+recreated, so no read of the earlier state stays cached. It builds nothing and keeps the stack's
+keys, its sign-in store and its images, so sessions and passkeys survive it. It refuses with no
+end-to-end stack running. The stack's name is every checkout's, and the frontend it recreates takes
+the keys, the mail folder and the compose files of the checkout it runs in.
 
 **The checkers are Python, and one kernel makes their answers comparable**,
 `scripts/lib/checker_kernel.py` (§1.7). Each runs in the backend's virtualenv, the gate's and the
@@ -515,8 +512,7 @@ edge test's alike, whose interpreter `uv` holds to `fl_backend/pyproject.toml`'s
 rollback pulls ([`runbooks.md`](runbooks.md) §1). When pruning, keep roughly the last five `sha-`
 tags per package, never the one the server's `.env` pins, and never an **untagged version created
 alongside a tag still in use**: BuildKit provenance attestations the tagged image references by
-digest, so deleting one corrupts the tag it belongs to. The backend package's `follow-up-sha-` tags,
-which no deploy pulls, can go.
+digest, so deleting one corrupts the tag it belongs to.
 
 ### 1.6 The verification gate
 
@@ -688,8 +684,8 @@ judge, on `scripts/lib/checker_kernel.py`'s scale, which fixes 0, 1, 2 and 3 in 
 an exception escaping a checker 3; the gate reads that 2 as a refusal only where a step names the
 program on this contract (`check --checker`), and a script calling another reads it through
 `run_contract`. A checker that fails to import answers Python's own 1, a finding with its traceback
-on screen, and the run is red either way. The made-up seed and the backend's read-back answer on the
-same scale, and so does `docker compose exec`, which runs them and answers its own failure 1.
+on screen, and the run is red either way. The made-up seed answers on the same scale, and so does
+`docker compose exec`, which runs it and answers its own failure 1.
 
 **A command run bare is plain bash under strict mode**: any status but 0 is a crash through the
 error trap, which names the line. Bash suspends `set -e` and that trap for every command a function
@@ -702,8 +698,9 @@ a finding, a refusal and a crash. One map, `_lib.sh :: RANK_OF_CLASS`, ranks a c
 and for that table alike.
 
 `deploy.sh` keeps the scale's meaning for a deploy: 1 a failed deploy, every failure once its start
-has begun going back to the build before, 2 a refusal and 3 or more a step before the start that
-crashed, each with the stack unchanged ([`runbooks.md`](runbooks.md) §1).
+has begun going back to the build before but a pin left unrenamed after nginx's reload, which
+leaves the new build live, 2 a refusal and 3 or more a step before the start that crashed, each with
+the stack unchanged ([`runbooks.md`](runbooks.md) §1).
 
 **Colour is decided centrally, through `FL_GATE_COLOR` ahead of everything else**: the gate's own
 variable, how `verify.sh` hands each scope's run its answer without exporting one every tool would
@@ -803,12 +800,11 @@ be true there, a check the owner makes in its list of monitors:
 | A link page's location writes no error line and withholds the referrer                                                                     | `scripts/checks/check_public_routes.py :: unlogged_links` and `:: referring_links`; `scripts/checks/edge_test.sh`                                                                      |
 | Every image this repository does not build is pinned by tag and digest                                                                     | `scripts/tests/test_image_pins.py`                                                                                                                                                     |
 | The frontend image's Node, the backend image's Python series and its uv are the ones the checkout and CI run                               | `scripts/tests/test_image_pins.py`                                                                                                                                                     |
-| The journeys' Playwright image is the Playwright release the frontend lockfile resolves                                                    | `scripts/tests/test_image_pins.py`                                                                                                                                                     |
 | Every gate scope has one CI job, and every job but `journeys`, `verify` and `publish` runs one scope                                       | `scripts/tests/test_gate_jobs.py`; the `verify` job holds every job to its `needs:`                                                                                                    |
 | Scripts carry the git executable bit                                                                                                       | `scripts/gate/selfcheck.sh`, its first step                                                                                                                                            |
 | A deploy pins no build its last read finds with a service not running and healthy, and a stopped one-off container names no service        | `scripts/tests/test_deploy.py`, which runs `scripts/ops/deploy.sh` behind a stand-in engine; no real engine is driven                                                                  |
 | The journeys job's legs together run every project `fl_frontend/playwright.config.ts` defines, a setup project included                    | the `journeys` job's desktop leg, which asks Playwright's `--list` for every leg's flags                                                                                               |
-| The made-up seed loads only into a stack running its backend, and writes only to the local stack's server                                  | `scripts/tests/test_made_up_seed_script.py` behind a stand-in engine, and `fl_backend/tests/core/test_made_up_seed.py :: is_local_server`'s cases                                      |
+| The made-up seed loads only into a stack running its own mongo, its frontend stopped, and writes only to that server                       | `scripts/tests/test_e2e_stack_script.py` behind a stand-in engine, and `fl_backend/tests/core/test_made_up_seed.py :: is_local_server`'s cases                                         |
 | Only a green run of every scope closes as safe to merge                                                                                    | `scripts/tests/test_gate_endings.py :: test_only_a_green_run_of_every_scope_is_safe_to_merge`                                                                                          |
 | Production never builds                                                                                                                    | unenforced: `docker-compose.yml` declares no `build:`, and `deploy.sh` only pulls                                                                                                      |
 | The builder stage has no reachable backend and no real environment                                                                         | `fl_frontend/Dockerfile`'s `SKIP_ENV_VALIDATION=true`, with no secrets directory and no `API_URL`                                                                                      |
