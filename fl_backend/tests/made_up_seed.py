@@ -1657,8 +1657,13 @@ async def write(client: AsyncMongoClient, database_name: str, league: MadeUpLeag
             inserted = await database[collection].insert_many(rows, ordered=True)
             print(f"seeded {collection}: {len(inserted.inserted_ids)} document(s)")
     except BulkWriteError as refused:
-        print(INSERT_REFUSED.format(reason=refused.details["writeErrors"][0]["errmsg"]), file=sys.stderr)
-        return REFUSED
+        # An insert the server refused. One carrying write-concern errors alone, a write the set never acknowledged, refused
+        # no document: the database could not be written, worded as the next handler words it.
+        if written := refused.details.get("writeErrors"):
+            print(INSERT_REFUSED.format(reason=written[0]["errmsg"]), file=sys.stderr)
+            return REFUSED
+        print(f"The database could not be written ({type(refused).__name__}).", file=sys.stderr)
+        return UNJUDGED
     # The type alone: the driver's message names the host it resolved out of the secret. Nothing of the seed was judged,
     # as the read-back's own unreadable database is not.
     except PyMongoError as failure:
