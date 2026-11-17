@@ -67,6 +67,7 @@ const { getAccountSession } = await import("./auth/guards");
 const { buildAuthIndexes, MONGO_DB_NAME } = await import("./authIndexes");
 
 const store = () => (storeClient as MongoClient).db(MONGO_DB_NAME);
+const closeStore = () => (storeClient as MongoClient).close();
 const COLLECTIONS = ["session", "passkey", "user", "verification"] as const;
 
 beforeEach(async () => {
@@ -110,12 +111,12 @@ describe("ending every other session on a real store", () => {
 describe("the index build against a real store", () => {
   // Production's hand-made indexes are the case: one standing under another name refuses its build.
   it("logs a same-key index standing under another name, and builds every other", async () => {
-    await signInIndexesBuilt(buildAuthIndexes);
+    await signInIndexesBuilt(buildAuthIndexes, closeStore);
     const reference = await heldIndexes();
     await store().dropDatabase();
     await store().collection("session").createIndex({ token: 1 }, { unique: true, name: "made_by_hand" }, undefined);
 
-    await signInIndexesBuilt(buildAuthIndexes);
+    await signInIndexesBuilt(buildAuthIndexes, closeStore);
 
     const errors = errorLines();
     expect(errors.length, JSON.stringify(errors)).toBe(1);
@@ -132,7 +133,7 @@ describe("the index build against a real store", () => {
 
   // An expiry stored as anything but a date is never deleted by its index, and nothing reports it.
   it("stores every expiry the library writes as a date", async () => {
-    await signInIndexesBuilt(buildAuthIndexes);
+    await signInIndexesBuilt(buildAuthIndexes, closeStore);
     await signInByCode(auth, ADMIN_EMAIL);
     // A code mailed and never typed, and the send's own counts, stay behind in `verification`.
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });

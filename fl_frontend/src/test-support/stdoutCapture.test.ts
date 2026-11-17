@@ -1,9 +1,22 @@
 // The log capture's own guarantee, which every suite reading the logger's lines relies on and none tests: it reads
 // the logger's chunks alone, each case from an empty record, and a line it cannot read fails the case, not the writer.
 import { caseFailures } from "@/test-support/caseFailures";
-import { captureLog, documentsWrittenByAsync } from "@/test-support/stdoutCapture";
-import { describe, expect, it } from "vitest";
+import { captureLog, documentsWrittenByAsync, endEveryCapture } from "@/test-support/stdoutCapture";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
+/** The stream's own `write`, which the file's captures replace in turn. */
+const streamWrite = process.stdout.write;
+
+/** The case after which a hook running past the capture's `afterEach` writes a line. */
+const AFTER_HOOK_CASE = "fails the case a later after-hook writes after, whichever case it is";
+
+// Registered ahead of the captures, so it runs after their `afterEach`, as a file's client close registered first does.
+afterEach(({ task }) => {
+  if (task.name === AFTER_HOOK_CASE) logger.info("capture.after_hook");
+});
+
+// Two captures, as a file opening a second one stacks it on the first: the logger's chunks reach the last alone.
+captureLog();
 const log = captureLog();
 
 // Imported after the capture, as a suite's subject is.
@@ -65,5 +78,62 @@ describe("the capture", () => {
   it("refuses to read the production document outside a production build", async () => {
     expect(() => captureLog("production")).toThrow("NODE_ENV test");
     await expect(documentsWrittenByAsync(() => Promise.resolve())).rejects.toThrow("NODE_ENV test");
+  });
+});
+
+// The harm: a line written outside every case's body is swallowed from the reporter, and no case reads it.
+describe("a line no case reads", () => {
+  describe("written by a hook ahead of the cases", () => {
+    beforeAll(() => {
+      logger.info("capture.before_all");
+    });
+
+    failsNaming(
+      "fails the case it was written ahead of",
+      /^the logger wrote before this case began, where no case reads it:\nINFO capture\.before_all/,
+      () => undefined,
+    );
+  });
+
+  failsNaming(
+    AFTER_HOOK_CASE,
+    /^the logger wrote once this case had ended, where no case reads it:\nINFO capture\.after_hook/,
+    () => undefined,
+  );
+
+  describe("read by the hook that wrote it", () => {
+    beforeAll(() => {
+      logger.info("capture.read_by_its_hook");
+      expect(log.lines().at(-1)?.message).toBe("capture.read_by_its_hook");
+    });
+
+    it("fails no case", () => {
+      expect(log.lines()).toStrictEqual([]);
+    });
+  });
+
+  describe("cleared before a hook read the lines after it", () => {
+    beforeAll(() => {
+      logger.info("capture.cleared_unread");
+      log.clear();
+      logger.info("capture.read_after_the_clear");
+      expect(log.lines().map(({ message }) => message)).toStrictEqual(["capture.read_after_the_clear"]);
+    });
+
+    failsNaming(
+      "fails the case it was written ahead of, the line read after it judged",
+      /^the logger wrote before this case began, where no case reads it:\nINFO capture\.cleared_unread \{\}\n$/,
+      () => undefined,
+    );
+  });
+});
+
+describe("the captures' end", () => {
+  // The harm: ended first opened first, the first gives the stream back its own `write` and the second then puts back
+  // the one it replaced, the first's, so a capture stays installed past the file's end.
+  it("gives the stream back its own write, every capture ended last opened first", () => {
+    endEveryCapture();
+
+    expect(process.stdout.write).toBe(streamWrite);
   });
 });

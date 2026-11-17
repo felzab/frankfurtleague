@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import { BootRefusal } from "./bootRefusal";
 import { logger } from "./logging";
+import { ownKeyOf } from "./ownKeyOf";
 
 // The class the backend's `INTERNAL_API_KEY_CHARACTERS` pins: printable ASCII without the space, which
 // `secrets.compare_digest` there reads.
@@ -37,7 +38,7 @@ const SECRET_FILES = {
 
 type SecretKey = keyof typeof SECRET_FILES;
 
-const isSecretKey = (name: string): name is SecretKey => Object.hasOwn(SECRET_FILES, name);
+const isSecretKey = (name: string) => ownKeyOf(SECRET_FILES, name);
 
 // Fatal, as the backend's read is: a lenient decode turns a byte that is not UTF-8 into U+FFFD and
 // hands the schema a value nobody wrote.
