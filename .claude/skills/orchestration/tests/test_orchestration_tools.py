@@ -1980,7 +1980,7 @@ STANDING: Final = (
 
 @pytest.mark.parametrize("folder", ["fleet", "a fleet"], ids=["a plain path", "a register path holding a space"])
 def test_a_landing_closes_only_the_rows_routed_to_its_agent_that_a_rows_fixed_line_names(tmp_path: Path, folder: str) -> None:
-    """Routes went out by message and the ledger fell hundreds of rows behind; a bare mention or another fixer's row closed nothing."""
+    """A landing closes each row routed to its agent that a `Rows fixed:` line names; a bare mention or another fixer's row closes nothing."""
     tmp_path = tmp_path / folder
     tmp_path.mkdir()
     branch = "worktree-agent-a1b2c3"
@@ -1996,17 +1996,17 @@ def test_a_landing_closes_only_the_rows_routed_to_its_agent_that_a_rows_fixed_li
     merge = git(root, "rev-parse", "--short", "HEAD")
     assert f"FIXED A-F11 by {merge}" in done.stdout
     assert "not ROUTED to WORKER, a1b2c3, so left as they stand: A-F2" in done.stdout
-    # An OPEN row a body names was never routed: the landing prints its close and leaves it OPEN.
+    # An OPEN row a body names is routed to nobody: the landing prints its close and leaves it OPEN.
     said = done.stdout.splitlines()
     opened = said.index("named fixed by the merged commits while OPEN; run the line of each row the merge fixed:")
     assert shlex.split(said[opened + 1])[-1] == "A-F3" and _status(register, "A-F3")[0] == "OPEN"
-    # A fixer's body naming finding numbers rather than rows left its rows ROUTED with nothing said.
+    # Each row routed to the agent that no `Rows fixed:` line names is said to stay ROUTED.
     said = done.stdout.splitlines()
     assert "still ROUTED to WORKER, a1b2c3 with no `Rows fixed:` line closing them: A-F1, A-F4" in said
     assert _status(register, "A-F11") == [f"FIXED ({merge})", "was WORKER"]
     assert [_status(register, row)[0] for row in ("A-F1", "A-F2", "A-F3", "A-F4")] == ["ROUTED", "ROUTED", "OPEN", "ROUTED"]
-    # One printed line per row, each run whole as printed and from outside the repository: a single
-    # command over every row closed as FIXED the one this merge left for a later round.
+    # One printed line per row, each run whole as printed and from outside the repository, so closing
+    # the row this merge fixed leaves the one it left for a later round routed.
     lines = said[said.index("  run only the line of each row this merge fixed; the rest stay routed:") + 1 :][:2]
     assert [shlex.split(line)[-1] for line in lines] == ["A-F1", "A-F4"]
     fixed = subprocess.run(shlex.split(lines[0]), cwd=tmp_path.parent, capture_output=True, check=False)
@@ -2017,7 +2017,7 @@ def test_a_landing_closes_only_the_rows_routed_to_its_agent_that_a_rows_fixed_li
 
 
 def test_a_rows_fixed_line_wrapped_like_its_body_names_every_row() -> None:
-    """A fixer wrapped its line at 76 characters and the landing read the first line alone, leaving 8 of 11 rows routed."""
+    """A `Rows fixed:` line wrapped at the body's width names the rows on its continuation lines too, and a bare mention names none."""
     body = (
         "Frontend: A note\n\nThe journeys read the built page.\n\n"
         "Rows fixed: JOURNEY-LENS-F23, JOURNEY-LENS-F24,\nJOURNEY-LENS-F25, AUTH-PRIVACY-2-F6.\n\n"
@@ -2068,7 +2068,7 @@ def test_a_spec_table_conflict_lands_merged_by_row_key(tmp_path: Path) -> None:
 
 
 def test_a_conflict_outside_a_table_aborts_the_merge_naming_who_else_changes_the_path(tmp_path: Path) -> None:
-    """Six landings stopped on a conflict, and the next branch over the same file was found only by its own landing."""
+    """The aborted merge names every other branch changing the path, so the next branch over the same file is known before its landing."""
     root = _repo(tmp_path)
     _agent_commit(root, "Docs: A note", {"notes.txt": "agent\n"})
     git(root, "branch", "worktree-agent-d4e5f6")
@@ -2132,7 +2132,7 @@ def test_a_merge_failing_a_touched_packages_type_check_aborts_the_merge(tmp_path
 
 
 def test_a_type_failure_already_at_head_is_its_own_outcome(tmp_path: Path) -> None:
-    """While the session branch held a type error, every landing touching the package was sent back to an agent no rebase could help."""
+    """A type error the session branch already holds is its own exit, so no landing is sent back to an agent no rebase can help."""
     root = _repo(tmp_path)
     _agent_commit(root, "Backend: A clean module", {"fl_backend/app/fine.py": "def g(x: int) -> int:\n    return x\n"})
     _session_commit(root, "Backend: A red module", {"fl_backend/app/bad.py": 'x: int = "not a number"\n'})
@@ -2168,7 +2168,7 @@ INDEX_BREAKER: Final = '#!/bin/sh\nprintf broken > "$(git rev-parse --git-dir)/i
 
 
 def test_git_failing_in_the_cleanup_of_a_refused_merge_keeps_the_refusals_exit(tmp_path: Path) -> None:
-    """A `git status` failing after the hooks refused the merge commit replaced exit 6 with exit 2, "refused before the merge"."""
+    """A `git status` failing after the hooks refuse the merge commit keeps exit 6, never exit 2, which says it was refused before the merge."""
     root = _repo(tmp_path)
     _agent_commit(root, "Docs: A note", NOTE)
     write_shell(tmp_path / "hooks" / "pre-commit", INDEX_BREAKER).chmod(0o755)
@@ -2256,7 +2256,7 @@ def test_git_failing_during_the_merge_is_its_own_exit(tmp_path: Path) -> None:
 
 
 def test_a_landing_credits_every_agent_whose_branch_it_brought_in(tmp_path: Path) -> None:
-    """A merge agent's landing carried a fixer's commits, and the fixer's named rows stayed ROUTED to be closed by hand."""
+    """A landing closes the named rows of every agent whose commits it brings in, a fixer's carried on a merge agent's branch among them."""
     root = _repo(tmp_path, branch="worktree-agent-a1b2c3")
     register = _banked(tmp_path, ("A-report.md", "F1 one\n\nF2 two\n"))
     ledger.route(register, "WORKER", ["A-F1"])
@@ -2272,7 +2272,7 @@ def test_a_landing_credits_every_agent_whose_branch_it_brought_in(tmp_path: Path
 
 @pytest.mark.parametrize(("status", "code"), [("completed", 9), ("in_progress", 0)], ids=["the window open", "its run still going"])
 def test_a_landing_waits_while_a_standing_action_waits_on_the_open_window(tmp_path: Path, status: str, code: int) -> None:
-    """Three times the writers queued for a concluded window went out only after the next landing had closed it."""
+    """A landing waits while a standing action waits on a concluded window, so the writers queued for it go out before a landing closes it."""
     root = _repo(tmp_path)
     _agent_commit(root, "Docs: A note", NOTE)
     register, brief = _register(tmp_path), tmp_path / "NEXT.md"
@@ -2326,7 +2326,7 @@ def test_a_landing_credits_no_agent_whose_branch_had_landed_before_it(tmp_path: 
 
 
 def test_bookkeeping_that_fails_after_the_merge_is_its_own_exit(tmp_path: Path) -> None:
-    """Two live rows naming one id raised a traceback after the merge commit, and a git failure there read as refused before it."""
+    """A bookkeeping failure after the merge commit, such as two live rows naming one id, is exit 10 naming the merge, never a traceback."""
     branch = "worktree-agent-a1b2c3"
     root = _repo(tmp_path, branch=branch)
     _register(tmp_path, live=LIVE.replace("| OTHER `d4e5f6` |", "| OTHER `a1b2c3` |"))
@@ -2338,7 +2338,7 @@ def test_bookkeeping_that_fails_after_the_merge_is_its_own_exit(tmp_path: Path) 
 
 
 def test_git_failing_in_the_bookkeeping_after_the_merge_is_not_a_refusal(tmp_path: Path) -> None:
-    """A git failure reading the carried branches stopped as exit 2, "refused before the merge", with the merge commit made.
+    """A git failure reading the carried branches after the merge commit is exit 10, never exit 2, which says nothing was merged.
 
     A post-commit hook deletes the merged tip's object, so the bookkeeping's first read of the merged commits fails.
     """
@@ -2354,7 +2354,7 @@ def test_git_failing_in_the_bookkeeping_after_the_merge_is_not_a_refusal(tmp_pat
 
 
 def test_queue_names_a_row_queued_already_and_done_ticks_it(tmp_path: Path) -> None:
-    """A message's standing action, ticked by nothing, held back every later landing in a concluded window."""
+    """`queue --done` ticks a standing action no dispatch ticks, such as one sent by message, so it holds back no later landing."""
     _, register, _ = _fleet(tmp_path)
     register.write_bytes(register.read_bytes().replace(b"## Findings ledger", (STANDING + "## Findings ledger").encode()))
     brief = _brief(tmp_path, "LATER", "")
@@ -2375,7 +2375,7 @@ def _agents(tmp_path: Path, *rows: str) -> Path:
 
 
 def test_prune_removes_a_finished_agents_merged_clean_worktree_and_branch_alone(tmp_path: Path) -> None:
-    """58 worktrees took 4.9 GB, 56 of them merged, while the worktree table stayed empty."""
+    """`prune` removes a finished agent's merged, clean worktree and its branch, and names why it keeps or leaves each other one."""
     root = _repo(tmp_path, branch="worktree-agent-a1b2c3")
     for agent in ("d4e5f6", "f00d", "beef"):
         git(root, "branch", f"worktree-agent-{agent}")
@@ -2418,7 +2418,7 @@ def _transcribed(tmp_path: Path, agent: str, *, ended: bool = True, written: flo
 
 
 def test_prune_keeps_a_finished_agent_that_works_again_holds_rows_or_holds_ignored_files(tmp_path: Path) -> None:
-    """A resumed writer passed every guard between its resume and its first edit, and its tree went with every file git ignores."""
+    """A finished agent's tree stays while it works again, holds ROUTED rows or holds ignored files no install or build writes again."""
     agents = {"a1b2c3": "WORKER", "d4e5f6": "OTHER", "f00d": "SAVER", "beef": "KEEPER", "cafe": "CLEAN"}
     root = _repo(tmp_path, branch="worktree-agent-a1b2c3")
     (root / ".git" / "info").mkdir(exist_ok=True)
@@ -2453,7 +2453,7 @@ def test_prune_keeps_a_finished_agent_that_works_again_holds_rows_or_holds_ignor
 
 
 def test_prune_names_every_worktree_it_leaves_and_prunes_one_whose_folder_is_gone(tmp_path: Path) -> None:
-    """After a prune the text read every worktree left as a live agent's, while a detached tree and a stale row's tree stayed unnamed."""
+    """`prune` names every worktree it leaves and why, a detached tree among them, and prunes one whose folder is gone with its branch."""
     root = _repo(tmp_path, branch="worktree-agent-a1b2c3")
     git(root, "branch", "worktree-agent-d4e5f6")
     git(root, "branch", "elsewhere")
@@ -2484,7 +2484,7 @@ def test_prune_exits_one_naming_each_removal_git_refuses(tmp_path: Path) -> None
 
 
 def test_prune_removes_a_tree_holding_a_path_past_windows_limit(tmp_path: Path) -> None:
-    """At the path limit git unregistered the tree, failed to delete it, and the next prune called it removed while the folder stayed."""
+    """A tree holding a path past Windows' limit is removed with its folder, rather than unregistered by git and left on disk."""
     root = _repo(tmp_path, branch="worktree-agent-a1b2c3")
     (root / ".git" / "info").mkdir(exist_ok=True)
     with (root / ".git" / "info" / "exclude").open("ab") as excluded:
@@ -2502,7 +2502,7 @@ def test_prune_removes_a_tree_holding_a_path_past_windows_limit(tmp_path: Path) 
 
 
 def test_prune_names_a_folder_a_removal_left_until_it_is_gone(tmp_path: Path) -> None:
-    """A tree git unregistered and could not delete was named once, then pruned as having no worktree while its folder stayed."""
+    """A folder a removal left on disk is named by every prune until it is gone, and only then is its branch removed."""
     root = _repo(tmp_path, branch="worktree-agent-a1b2c3")
     left = root / reg.AGENT_TREES / "agent-a1b2c3"
     git(root, "worktree", "add", "-q", str(left), "worktree-agent-a1b2c3")
@@ -2520,7 +2520,7 @@ def test_prune_names_a_folder_a_removal_left_until_it_is_gone(tmp_path: Path) ->
 
 
 def test_overlap_names_each_path_a_live_worktree_changes_by_commit_or_by_edit(tmp_path: Path) -> None:
-    """Briefs were diffed path by path against nothing, so six overlaps surfaced as landing conflicts."""
+    """`overlap` names each path a live worktree changes, by commit or by edit, so a brief's overlap is found before it is a conflict."""
     root = _repo(tmp_path, branch="worktree-agent-a1b2c3")
     _agent_commit(root, "Docs: A row", {"docs/spec.md": TABLE_HEAD + "| I2 | two |\n"}, branch="worktree-agent-a1b2c3")
     git(root, "worktree", "add", "-q", str(tmp_path / "tree"), "worktree-agent-a1b2c3")
@@ -2536,7 +2536,7 @@ def test_overlap_names_each_path_a_live_worktree_changes_by_commit_or_by_edit(tm
 
 
 def test_overlap_reads_a_briefs_owns_lines_and_names_a_path_no_file_answers(tmp_path: Path) -> None:
-    """Read from the OWNERSHIP prose, a path written relative to its package matched nothing, and overlap answered none."""
+    """`--brief` reads the `Owns:` lines alone and names a path no tracked file answers, so a path written wrong never reads as no overlap."""
     root = _repo(tmp_path, branch="worktree-agent-a1b2c3")
     git(root, "worktree", "add", "-q", str(tmp_path / "tree"), "worktree-agent-a1b2c3")
     write(tmp_path / "tree", "fl_backend/app/schema.txt", '"a": 9')
@@ -2556,7 +2556,7 @@ def test_overlap_reads_a_briefs_owns_lines_and_names_a_path_no_file_answers(tmp_
 
 
 def test_overlap_reads_a_route_folders_brackets_as_written(tmp_path: Path) -> None:
-    """`[saison]` was read as a character class, so a brief naming a route's file matched none and named no overlap."""
+    """Brackets in a path are read as written, so a route folder such as `[saison]` matches its own files, not a character class."""
     root = _repo(tmp_path, branch="worktree-agent-a1b2c3")
     _agent_commit(root, "Frontend: A page", {"app/[saison]/page.tsx": "a\n"}, branch="worktree-agent-a1b2c3")
     git(root, "worktree", "add", "-q", str(tmp_path / "tree"), "worktree-agent-a1b2c3")
