@@ -1,8 +1,8 @@
 import { once } from "node:events";
-import { setTimeout as pause } from "node:timers/promises";
 
 import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, overriding, registerAuthDoubles, signInByCode } from "@/test-support/authDoubles";
 import { settledWithin, startReplicaSet } from "@/test-support/replicaSet";
+import { signInIndexesForTheFile } from "@/test-support/signInIndexes";
 import { captureLog } from "@/test-support/stdoutCapture";
 import { StoreRelay } from "@/test-support/storeRelay";
 import { isAPIError } from "better-auth/api";
@@ -49,8 +49,12 @@ async function storeOf(url: string): Promise<{ client: MongoClient; connectSignI
 const { client } = await storeOf(PRODUCTION_DB);
 const { auth } = await import("./auth/library");
 const { readServedSession } = await import("./auth/session");
+const authIndexes = await import("./authIndexes");
+const { MONGO_DB_NAME, buildAuthIndexes } = authIndexes;
 // The same module evaluated again, so the boot's connect starts on a client no other case has opened.
 const boot = await storeOf(`${import.meta.resolve("./db.ts")}?boot`);
+
+signInIndexesForTheFile(authIndexes, mongod);
 
 // What a timer firing late on a loaded machine adds to the bound.
 const LATENESS_MS = 2000;
@@ -136,10 +140,8 @@ describe("the sign-in store's client bounds every operation it sends", () => {
 describe("the sign-in store's indexes recover with the store", () => {
   /* The client opened before the outage, so its topology is the one recovering, and the driver marks
      that recovery with no `open`: only a new topology emits one. */
-  it("builds an index again once a store that stopped answering after the first open answers again", async () => {
-    const { MONGO_DB_NAME, buildAuthIndexes } = await import("./authIndexes");
+  it("builds an index again once a store that stopped answering after the first open answers again", async ({ task }) => {
     const sessions = client.db(MONGO_DB_NAME).collection("session");
-    await buildAuthIndexes();
     await sessions.dropIndex("session_userId_idx");
     let opens = 0;
     const counted = () => {
@@ -157,11 +159,11 @@ describe("the sign-in store's indexes recover with the store", () => {
       );
       const indexed = async () => (await sessions.indexes()).some(({ name }) => name === "session_userId_idx");
 
-      // The monitor's next check of a store it marked unknown, and the build itself.
-      const deadline = Date.now() + client.options.minHeartbeatFrequencyMS + STAGE_BOUND + LATENESS_MS;
-      while (!(await indexed()) && Date.now() < deadline) await pause(200);
-
-      expect(await indexed(), "the index was not built again once the store answered").toBe(true);
+      // Production asks again on every writable heartbeat until a build succeeds, so the case waits for the index, within
+      // its own time limit, rather than for a count of attempts.
+      await expect
+        .poll(indexed, { timeout: task.timeout, interval: 200, message: "the index was not built again once the store answered" })
+        .toBe(true);
       // The rebuild's other indexes may still be on the wire: a run queues behind the one in flight, so the file's
       // close meets no build to cut.
       await buildAuthIndexes();

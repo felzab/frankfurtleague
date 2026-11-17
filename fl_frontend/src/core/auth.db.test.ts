@@ -197,7 +197,7 @@ const realClient = productionClient as MongoClient;
 closing(() => realClient.close());
 const authDb = () => realClient.db(MONGO_DB_NAME);
 
-signInIndexesForTheFile(authIndexes, () => realClient);
+signInIndexesForTheFile(authIndexes, mongod);
 
 beforeEach(async () => {
   gateAnswer = { seats: [], barred: false, account: false };
