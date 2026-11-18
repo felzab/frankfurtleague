@@ -188,8 +188,8 @@ kinds of part switch by the screen at `lg` instead:
 A new block takes the box's rule unless it is one of these.
 
 **On a phone, a button or another control is 40 px tall**, set by the coarse pointer
-(`pointer-coarse:h-10`, as in `fl_frontend/src/kit/Tabs.tsx`). That is less than the 44 or 48 px
-the platforms' guides ask, since the league's visitors are mostly young and a larger control reads as
+(`pointer-coarse:h-10`, as in `fl_frontend/src/kit/Tabs.tsx`). That is less than Apple's 44 pt and
+Android's 48 dp, since the league's visitors are mostly young and a larger control reads as
 bulky. A link the kit draws as a control (`fl_frontend/src/kit/Link.tsx :: frameLink`, a menu's
 entries) is 40 px like one; a small text link, such as the footer's, keeps the height of its text.
 

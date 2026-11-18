@@ -667,7 +667,7 @@ const OFF_SCALE = (except) =>
     String.raw`${except}-?(?:[pm][xytrblse]?|gap(?:-[xy])?|space-[xy]|scroll-[mp][xytrblse]?)-(?![xy]-)(?!(?:${KIT_SPACING}|auto|reverse|${STEP_AND_OFFSET}|${DIALOG_PADDING})!?$).+`,
   );
 
-/** The one spacing class off the scale, and its one file: a checkbox's or a radio's box and a switch's track sit 1 px down. */
+/** The one spacing class off the scale, and its one file: a toggle's drawn box or track sits 1 px down. */
 const TOGGLE_OFFSET = { name: "mt-px", home: "src/kit/fieldStyles.ts" };
 
 const TABLE_BLOCK = { allow: ["src/kit/Table.tsx", "src/kit/Lineup.tsx"] };

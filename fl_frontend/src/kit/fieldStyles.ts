@@ -274,10 +274,9 @@ export const toggleRow = tv({
 });
 
 /**
- * The drawn box of a checkbox or a radio, a pixel down so it centres on the label's first line; a switch's track
- * takes the same pixel, so its top stands level with the box's. Checked or chosen, it fills with the link green: a
- * checkbox's tick on it is the page's ground, white in the light theme and near-black in the dark, and a radio keeps
- * a 4-px ring of it around a dot of the ground.
+ * The drawn box of a checkbox or a radio, a pixel down so it centres on the label's first line. Checked or chosen, it
+ * fills with the link green: a checkbox's tick on it is the page's ground, white in the light theme and near-black in
+ * the dark, and a radio keeps a 4-px ring of it around a dot of the ground.
  */
 export const toggleBox = tv({
   base: `mt-px flex size-4.5 shrink-0 items-center justify-center border transition-colors duration-(--motion-state) ${hoverLook({ host: "toggle" })}`,
