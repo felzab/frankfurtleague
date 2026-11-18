@@ -20,7 +20,7 @@ from app.shared.tokens import hash_token
 from tests import documents
 from tests.bewerbung_routes import answered, resent, viewed
 from tests.database import a_clean_database
-from tests.documents import kontaktperson_document, team_document
+from tests.documents import kontaktperson_document, saison_document, team_document
 from tests.isolation import refused_code
 from tests.outbox import MAIL_NOW, drained
 from tests.stored import the_row
@@ -99,9 +99,11 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 async def on_a_league(url: str, body: Body, *, documents: list[dict[str, Any]] | None = None) -> Any:
-    """A clean database carrying the shipped indexes."""
+    """A clean database carrying the shipped indexes, the application's running season and its club."""
 
     async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+        # The resend reads the application's season, refusing a finished one.
+        await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active"))
         await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, TEAM_NAME, "ADX", website_url=None, schulform="gymnasium_g9"))
         await database[Collection.BEWERBUNGEN].insert_many(documents if documents is not None else [bewerbung_document()])
 
