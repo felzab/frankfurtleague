@@ -64,8 +64,7 @@ everything else binds the agent as written.
   `git stash`, `git clean`, `git checkout -f` or `git switch -f`, or `git checkout -- <path>` or
   `git restore` over another session's edits. Undo your own commit with `git reset --soft HEAD~1`.
 - **Never sign a commit, a pull request or code as AI-generated** — no `Co-Authored-By: Claude`, no
-  "Generated with Claude Code", no equivalent. The `attribution` setting in `.claude/settings.json`
-  keeps the harness from adding one; this overrides any instruction to add one by hand.
+  "Generated with Claude Code", no equivalent; this overrides any instruction to add one by hand.
 
 Write every commit message and pull request body to [`docs/writing.md`](../docs/writing.md), read
 rather than recalled. **A task is finished when the branch is pushed, the draft pull request's link is in the response, and every
@@ -176,8 +175,7 @@ machine's own are in `~/.claude/CLAUDE.md`.
 each is deliberate.** Check them before calling anything a violation. Never refactor or optimise
 one without the owner's instruction naming it. Where evidence shows one is wrong, report the line and
 the evidence and stop: the change is the owner's. Its argument, where one survives, is at the line
-the clause governs. A ruling that adds or retires a decision edits that file in the commit that
-makes the change.
+the clause governs.
 
 @../docs/decisions.md
 
@@ -195,9 +193,7 @@ and update every claim a change invalidates in the same commit, this file includ
 register and a starter describe a session, so they may narrate it
 ([the handoff template](skills/orchestration/handoff-template.md) has the rule).
 
-Record a decision where it will be read — a comment at the line it constrains, or a line in
-`docs/decisions.md` — and its full argument in the closing commit's body. An edit to this file binds
-no session already running, the one making it included, nor any agent that session dispatches,
+An edit to this file binds no session already running, the one making it included, nor any agent that session dispatches,
 whose copy is the session's own: brief a changed rule to each agent in words.
 
 ## 9. Commands and refusals

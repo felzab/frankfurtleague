@@ -153,6 +153,10 @@ Tailwind v4, configured in CSS: `src/app/globals.css` and the design tokens in `
 `browserslist` in `fl_frontend/package.json` is Tailwind's own support matrix, since the stylesheet
 uses `oklch()`, `color-mix()` and `@property`; it does not govern Next's own polyfills.
 
+**Consistency breaks a tie between two designs**: one value, declared once as a token in
+`src/app/tokens.css` and used everywhere, wins over a value that looks better in one place alone. An
+exception is written down beside the token it departs from, where the next change finds it.
+
 **A block chooses its form by a container query on its own box, never by the screen's width**,
 because the rail opens and closes under one viewport, so only the box says how much room a block
 has. Lists, tables and bordered boxes, match rows, card grids and folds among them, stack below
@@ -180,6 +184,10 @@ kinds of part switch by the screen at `lg` instead:
   height. The screen tells the device, and a box does not.
 
 A new block takes the box's rule unless it is one of these.
+
+**On a phone, a button or another control is 40 px tall**, set by the coarse pointer
+(`pointer-coarse:h-10`, as in `fl_frontend/src/kit/Tabs.tsx`). A small text link, such as the
+footer's, keeps the height of its text.
 
 **Every string a visitor reads comes from the catalogue**, and the kit's text props refuse one typed
 into a page: [`copy.md`](copy.md) says where each string, date and number comes from and how it is

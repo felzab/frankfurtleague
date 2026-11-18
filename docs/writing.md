@@ -4,10 +4,8 @@ How documents, names, comments, commit messages and pull requests are written he
 every Markdown file, markdownlint holds it to one style, and lychee resolves every link and
 `#fragment` inside the repository; the gate runs all three. This page holds what no tool checks.
 
-`docs/` describes the system. `.claude/` holds the working rules of the AI agents that build it, and
-nothing in the repository depends on it: deleting it leaves every check, CI job and build passing.
-No document outside `.claude/` addresses an agent, and only what [the map](README.md) lists names
-the folder.
+`docs/` describes the system, and [the AI agents' folder](README.md#the-ai-agents-folder) is
+described once, in the map. No document outside `.claude/` addresses an agent.
 
 ## Documents
 
