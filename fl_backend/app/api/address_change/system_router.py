@@ -27,23 +27,14 @@ from app.api.address_change.schemas import (
     FLAddressChangeSweepResponse,
 )
 from app.api.address_change.services import LIVE_TERMS, build_due_terms, build_lapsed_terms, compose_end_update, is_expired
-from app.api.identity.lookup import RecordCollections, SubjectLookup
+from app.api.identity.lookup import MoveCollections, MoveHandles
 from app.core.codes import Code
 from app.core.crud import aggregate_many_from_db, patch_many_in_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
-    ActionLogCollection,
     AddressChangeCollection,
     AddressChangeReadCollection,
-    BewerbungenCollection,
     DBClient,
     GermanyNow,
-    GrantsCollection,
-    MailboxAnchorsCollection,
-    OutboxCollection,
-    RegistrierungenCollection,
-    SaisonTeamsCollection,
-    SchiedsrichterCollection,
-    SpielerCollection,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.logging import fl_logger
@@ -115,17 +106,7 @@ async def _end_the_lapsed_changes(
 async def _make_the_due_change_take_effect(
     row: Mapping[str, Any],
     *,
-    records: RecordCollections,
-    address_changes_collection: AsyncCollection,
-    spieler_collection: AsyncCollection,
-    schiedsrichter_collection: AsyncCollection,
-    saison_teams_collection: AsyncCollection,
-    bewerbungen_collection: AsyncCollection,
-    registrierungen_collection: AsyncCollection,
-    grants_collection: AsyncCollection,
-    outbox_collection: AsyncCollection,
-    action_log_collection: AsyncCollection,
-    mailbox_anchors_collection: AsyncCollection,
+    collections: MoveCollections,
     db: AsyncMongoClient,
     now: datetime,
 ) -> Literal["effective", "discarded"]:
@@ -136,16 +117,20 @@ async def _make_the_due_change_take_effect(
 
     async def take_effect(session: AsyncClientSession) -> Literal["effective", "discarded"]:
         record = await pull_one_from_db(
-            collection=address_changes_collection, db_filter={"_id": row["_id"], **build_due_terms(now)}, session=session
+            collection=collections.address_changes_collection, db_filter={"_id": row["_id"], **build_due_terms(now)}, session=session
         )
-        holdings = await read_the_holdings(str(record["address"]), records=records, grants_collection=grants_collection, session=session)
+        holdings = await read_the_holdings(
+            str(record["address"]), records=collections.records, grants_collection=collections.grants_collection, session=session
+        )
         verdict = await judge_the_effect_in_session(
             record=record,
             holdings=holdings,
-            records=records,
-            spieler_collection=spieler_collection,
-            grants_collection=grants_collection,
-            occupancy=Occupancy(grants_collection=grants_collection, address_changes_collection=address_changes_collection),
+            records=collections.records,
+            spieler_collection=collections.spieler_collection,
+            grants_collection=collections.grants_collection,
+            occupancy=Occupancy(
+                grants_collection=collections.grants_collection, address_changes_collection=collections.address_changes_collection
+            ),
             expired=False,
             session=session,
             at_the_pass=True,
@@ -154,16 +139,7 @@ async def _make_the_due_change_take_effect(
             await move_the_address_in_session(
                 record=record,
                 holdings=holdings,
-                address_changes_collection=address_changes_collection,
-                spieler_collection=spieler_collection,
-                schiedsrichter_collection=schiedsrichter_collection,
-                saison_teams_collection=saison_teams_collection,
-                bewerbungen_collection=bewerbungen_collection,
-                registrierungen_collection=registrierungen_collection,
-                grants_collection=grants_collection,
-                outbox_collection=outbox_collection,
-                action_log_collection=action_log_collection,
-                mailbox_anchors_collection=mailbox_anchors_collection,
+                collections=collections,
                 now=now,
                 session=session,
             )
@@ -171,21 +147,23 @@ async def _make_the_due_change_take_effect(
 
         # Every judgement the confirmation makes, at the end of the waiting time as at its start.
         await end_the_change_in_session(
-            address_changes_collection=address_changes_collection,
+            address_changes_collection=collections.address_changes_collection,
             db_filter={"_id": record["_id"]},
             kind="discarded",
             now=now,
             session=session,
         )
-        await owe_the_refusal_notice_in_session(record, outbox_collection=outbox_collection, now=now, session=session)
+        await owe_the_refusal_notice_in_session(record, outbox_collection=collections.outbox_collection, now=now, session=session)
         await tell_the_holders_of_the_end_in_session(
             record,
-            grants_collection=grants_collection,
-            outbox_collection=outbox_collection,
+            grants_collection=collections.grants_collection,
+            outbox_collection=collections.outbox_collection,
             now=now,
             session=session,
         )
-        await record_act(collection=address_changes_collection, action="retention.address_changes", by=ACT_BY_SYSTEM, count=1, session=session)
+        await record_act(
+            collection=collections.address_changes_collection, action="retention.address_changes", by=ACT_BY_SYSTEM, count=1, session=session
+        )
         return "discarded"
 
     return await transact(db, take_effect)
@@ -197,17 +175,7 @@ async def _make_the_due_change_take_effect(
 )
 async def sweep_address_change(
     params: Annotated[FLAddressChangeSweepParams, Query()],
-    records: SubjectLookup,
-    address_changes_collection: AddressChangeCollection,
-    spieler_collection: SpielerCollection,
-    schiedsrichter_collection: SchiedsrichterCollection,
-    saison_teams_collection: SaisonTeamsCollection,
-    bewerbungen_collection: BewerbungenCollection,
-    registrierungen_collection: RegistrierungenCollection,
-    grants_collection: GrantsCollection,
-    outbox_collection: OutboxCollection,
-    action_log_collection: ActionLogCollection,
-    mailbox_anchors_collection: MailboxAnchorsCollection,
+    collections: MoveHandles,
     db: DBClient,
     germany_now: GermanyNow,
 ) -> FLAddressChangeSweepResponse:
@@ -218,7 +186,7 @@ async def sweep_address_change(
     """
 
     [read] = await aggregate_many_from_db(
-        collection=address_changes_collection,
+        collection=collections.address_changes_collection,
         # One past the share, so a call ending exactly at the share's last row can tell whether any follow.
         pipeline=_pipeline(now=germany_now, after=params.after, size=ADDRESS_CHANGE_PER_PASS + 1),
     )
@@ -269,7 +237,9 @@ async def sweep_address_change(
         reached = lapsed[-1]
         # Not `BaseException`, so a cancellation still ends the call.
         try:
-            removed = await _end_the_lapsed_changes(lapsed, address_changes_collection=address_changes_collection, db=db, now=germany_now)
+            removed = await _end_the_lapsed_changes(
+                lapsed, address_changes_collection=collections.address_changes_collection, db=db, now=germany_now
+            )
             skipped = len(lapsed) - removed
         except Exception as failure:
             broke_off = cut_by(failure, which="lapsed", was="end", address_change_id=lapsed[0])
@@ -282,17 +252,7 @@ async def sweep_address_change(
         try:
             ergebnis = await _make_the_due_change_take_effect(
                 row,
-                records=records,
-                address_changes_collection=address_changes_collection,
-                spieler_collection=spieler_collection,
-                schiedsrichter_collection=schiedsrichter_collection,
-                saison_teams_collection=saison_teams_collection,
-                bewerbungen_collection=bewerbungen_collection,
-                registrierungen_collection=registrierungen_collection,
-                grants_collection=grants_collection,
-                outbox_collection=outbox_collection,
-                action_log_collection=action_log_collection,
-                mailbox_anchors_collection=mailbox_anchors_collection,
+                collections=collections,
                 db=db,
                 now=germany_now,
             )

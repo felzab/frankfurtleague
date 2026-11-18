@@ -194,7 +194,7 @@ async def erased_in_scope(
         return await erase_everything(
             identifier,
             scope=scope,
-            **erasure_collections(database, **replaced),
+            collections=erasure_collections(database, **replaced),
             now=NOW,
             session=session,
         )
@@ -596,7 +596,7 @@ class TestTheChangeOfAPupilsAddress:
         writes: dict[str, set[str]] = {}
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            recorded: dict[str, Any] = {name: WritesRecorded(handle, writes) for name, handle in erasure_collections(database).items()}
+            recorded: dict[str, Any] = {name: WritesRecorded(handle, writes) for name, handle in vars(erasure_collections(database)).items()}
             await erased_in_scope(database, client, frozenset({"spieler"}), identifier="gwendolyn@example.com", **recorded)
 
             return await the_row(database, Collection.ADDRESS_CHANGES, {"_id": MOVING_PUPIL_CHANGE_OID})

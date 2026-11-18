@@ -10,7 +10,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, get_type_hints
 from zoneinfo import ZoneInfo
 
 from bson import ObjectId
@@ -245,6 +245,10 @@ def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, client
             supplied[name] = handles[name]
         elif name == "records":
             supplied[name] = record_collections(database)
+        elif name == "collections":
+            # The bundle the route's dependency builds, of whichever class the handler declares.
+            bundle = get_type_hints(handler)[name]
+            supplied[name] = bundle(**wired(bundle, database))
         elif name == "db":
             supplied[name] = client
         elif name == "config":

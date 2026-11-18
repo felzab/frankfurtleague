@@ -5,6 +5,7 @@ from app.api.address_change.crud import others_naming
 from app.api.grants.crud import read_grants
 from app.api.grants.guard import ADMIN_TIER
 from app.api.identity.crud import EACH_PERSON_GROUP, erase_everything, resolve_subject
+from app.api.identity.lookup import ErasureHandles
 from app.api.identity.schemas import FLErasureAddressPayload, FLErasurePayload, FLErasureViewResponse
 from app.api.identity.services import (
     address_change_viewable_denied,
@@ -17,29 +18,15 @@ from app.api.identity.services import (
 from app.api.spiele.schemas import is_played
 from app.core.crud import aggregate_many_from_db, refuse
 from app.core.dependencies import (
-    ActionLogCollection,
-    AddressChangeCollection,
     AddressChangeReadCollection,
-    AufstellungenCollection,
-    BewerbungenCollection,
     BewerbungenReadCollection,
     DBClient,
     GermanyNow,
-    GrantsCollection,
     GrantsReadCollection,
-    OutboxCollection,
-    RegistrierungenCollection,
     RegistrierungenReadCollection,
-    SaisonSpielerCollection,
-    SaisonTeamsCollection,
     SaisonTeamsReadCollection,
-    SchiedsrichterCollection,
     SchiedsrichterReadCollection,
     SnapshotSession,
-    SpielberichteCollection,
-    SpielbestaetigungenCollection,
-    SpieleCollection,
-    SpielerCollection,
     SpieleReadCollection,
     SpielerReadCollection,
 )
@@ -137,20 +124,7 @@ async def get_erasure_view(
 )
 async def post_erasure(
     erasure_data: FLErasurePayload,
-    spieler_collection: SpielerCollection,
-    saison_spieler_collection: SaisonSpielerCollection,
-    saison_teams_collection: SaisonTeamsCollection,
-    bewerbungen_collection: BewerbungenCollection,
-    schiedsrichter_collection: SchiedsrichterCollection,
-    spiele_collection: SpieleCollection,
-    spielbestaetigungen_collection: SpielbestaetigungenCollection,
-    spielberichte_collection: SpielberichteCollection,
-    aufstellungen_collection: AufstellungenCollection,
-    registrierungen_collection: RegistrierungenCollection,
-    action_log_collection: ActionLogCollection,
-    grants_collection: GrantsCollection,
-    outbox_collection: OutboxCollection,
-    address_changes_collection: AddressChangeCollection,
+    collections: ErasureHandles,
     db: DBClient,
     operator: ActorEmail,
     germany_now: GermanyNow,
@@ -168,18 +142,18 @@ async def post_erasure(
 
     @journal.attempted
     async def erase_the_address(session: AsyncClientSession) -> None:
-        grants = await read_grants(grants_collection=grants_collection, session=session)
+        grants = await read_grants(grants_collection=collections.grants_collection, session=session)
         refuse(find_admin_address_refusal(identifier=identifier, actor=operator, grants=grants))
 
         subject = await resolve_subject(
             identifier,
-            saison_teams_collection=saison_teams_collection,
-            bewerbungen_collection=bewerbungen_collection,
-            schiedsrichter_collection=schiedsrichter_collection,
-            spieler_collection=spieler_collection,
-            registrierungen_collection=registrierungen_collection,
-            address_changes_collection=address_changes_collection,
-            grants_collection=grants_collection,
+            saison_teams_collection=collections.saison_teams_collection,
+            bewerbungen_collection=collections.bewerbungen_collection,
+            schiedsrichter_collection=collections.schiedsrichter_collection,
+            spieler_collection=collections.spieler_collection,
+            registrierungen_collection=collections.registrierungen_collection,
+            address_changes_collection=collections.address_changes_collection,
+            grants_collection=collections.grants_collection,
             session=session,
         )
         # Ending a grant holder's change is a discard, which only the owner makes.
@@ -194,24 +168,11 @@ async def post_erasure(
         erasure = await erase_everything(
             identifier,
             scope=EACH_PERSON_GROUP,
-            spieler_collection=spieler_collection,
-            saison_spieler_collection=saison_spieler_collection,
-            saison_teams_collection=saison_teams_collection,
-            bewerbungen_collection=bewerbungen_collection,
-            schiedsrichter_collection=schiedsrichter_collection,
-            spiele_collection=spiele_collection,
-            spielbestaetigungen_collection=spielbestaetigungen_collection,
-            spielberichte_collection=spielberichte_collection,
-            aufstellungen_collection=aufstellungen_collection,
-            registrierungen_collection=registrierungen_collection,
-            action_log_collection=action_log_collection,
-            grants_collection=grants_collection,
-            outbox_collection=outbox_collection,
-            address_changes_collection=address_changes_collection,
+            collections=collections,
             now=germany_now,
             session=session,
         )
-        await record_act(collection=action_log_collection, action="erasure.on_request", label=erasure_data.reason, session=session)
+        await record_act(collection=collections.action_log_collection, action="erasure.on_request", label=erasure_data.reason, session=session)
         journal.note("erasure", erasure.records, seats=erasure.seats, rows=erasure.rows)
 
     async with journal:

@@ -107,7 +107,8 @@ async def the_league(database: AsyncDatabase, *, saisons: Mapping[str, str] = LE
 async def run(database: AsyncDatabase, client: AsyncMongoClient, *, after: Any = None, **replaced: Any) -> Any:
     return await sweep_erasure(
         params=FLErasureSweepParams(after=after),
-        **erasure_collections(database, **({"saisons_collection": database[Collection.SAISONS]} | replaced)),
+        saisons_collection=replaced.pop("saisons_collection", database[Collection.SAISONS]),
+        collections=erasure_collections(database, **replaced),
         db=client,
         germany_now=NOW,
     )

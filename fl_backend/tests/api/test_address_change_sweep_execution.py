@@ -24,6 +24,7 @@ from app.api.address_change.system_router import (
     post_address_change_moves_done,
     sweep_address_change,
 )
+from app.api.identity.lookup import MoveCollections
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.logging import JSONFormatter
@@ -34,7 +35,7 @@ from tests.acts import deletions_of
 from tests.config import grants_for_the_suite
 from tests.database import a_clean_database
 from tests.documents import saison_document, schiedsrichter_document, spieler_document
-from tests.records import record_collections
+from tests.handles import wired
 from tests.whole_database import where_held
 from tests.worker import worker_database
 
@@ -135,17 +136,7 @@ async def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> 
 async def sweep(database: AsyncDatabase, client: AsyncMongoClient, *, after: Any = None, **replaced: Any) -> Any:
     return await sweep_address_change(
         params=FLAddressChangeSweepParams(after=after),
-        records=record_collections(database, **{name: value for name, value in replaced.items() if name != "address_changes_collection"}),
-        address_changes_collection=replaced.get("address_changes_collection", database[Collection.ADDRESS_CHANGES]),
-        spieler_collection=replaced.get("spieler_collection", database[Collection.SPIELER]),
-        schiedsrichter_collection=replaced.get("schiedsrichter_collection", database[Collection.SCHIEDSRICHTER]),
-        saison_teams_collection=replaced.get("saison_teams_collection", database[Collection.SAISON_TEAMS]),
-        bewerbungen_collection=replaced.get("bewerbungen_collection", database[Collection.BEWERBUNGEN]),
-        registrierungen_collection=replaced.get("registrierungen_collection", database[Collection.REGISTRIERUNGEN]),
-        grants_collection=database[Collection.GRANTS],
-        outbox_collection=database[Collection.OUTBOX],
-        action_log_collection=database[Collection.ACTION_LOG],
-        mailbox_anchors_collection=database[Collection.MAILBOX_ANCHORS],
+        collections=MoveCollections(**wired(MoveCollections, database, **replaced)),
         db=client,
         germany_now=NOW,
     )

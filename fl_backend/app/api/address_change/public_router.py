@@ -47,24 +47,17 @@ from app.api.address_change.services import (
     wait_after_confirmation,
     wait_tier,
 )
-from app.api.identity.lookup import SubjectLookup
+from app.api.identity.lookup import MoveHandles, SubjectLookup
 from app.core.clock import german_day
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
-    ActionLogCollection,
     AddressChangeCollection,
     AddressChangeReadCollection,
-    BewerbungenCollection,
     DBClient,
     GermanyNow,
     GrantsCollection,
     GrantsReadCollection,
-    MailboxAnchorsCollection,
     OutboxCollection,
-    RegistrierungenCollection,
-    SaisonTeamsCollection,
-    SchiedsrichterCollection,
-    SpielerCollection,
     SpielerReadCollection,
 )
 from app.core.exceptions import link_expired
@@ -200,22 +193,12 @@ async def get_address_change_view(
 @router.post(
     "",
     summary="Confirm or decline a pending address",
-    # `uniq_spieler_email` and `uniq_grant_address` are published by the duplicate-key trace and stay unreached: the
-    # in-session reads of another pupil and of the new address's grant include every row either index holds.
+    # `uniq_spieler_email` and `uniq_grant_address` stay unreached: the in-session reads of another pupil and of the new
+    # address's grant include every row either index holds.
 )
 async def post_address_change_answer(
     answer_data: FLAddressChangeAnswerPayload,
-    address_changes_collection: AddressChangeCollection,
-    records: SubjectLookup,
-    spieler_collection: SpielerCollection,
-    schiedsrichter_collection: SchiedsrichterCollection,
-    saison_teams_collection: SaisonTeamsCollection,
-    bewerbungen_collection: BewerbungenCollection,
-    registrierungen_collection: RegistrierungenCollection,
-    grants_collection: GrantsCollection,
-    outbox_collection: OutboxCollection,
-    mailbox_anchors_collection: MailboxAnchorsCollection,
-    action_log_collection: ActionLogCollection,
+    collections: MoveHandles,
     db: DBClient,
     germany_now: GermanyNow,
 ) -> FLAddressChangeAnswerResponse:
@@ -230,7 +213,7 @@ async def post_address_change_answer(
     async def answer_the_link(session: AsyncClientSession) -> FLAddressChangeAnswerResponse:
         """A second press meets the spent link and is refused rather than writing twice."""
 
-        record = await address_changes_collection.find_one(build_either_link_filter(token_hash), session=session)
+        record = await collections.address_changes_collection.find_one(build_either_link_filter(token_hash), session=session)
         refuse(find_unknown_refusal(found=record is not None))
         assert record is not None
         if side_of(record, token_hash) == "previous":
@@ -238,9 +221,9 @@ async def post_address_change_answer(
                 record,
                 answer=answer_data.answer,
                 stop_hash=token_hash,
-                address_changes_collection=address_changes_collection,
-                grants_collection=grants_collection,
-                outbox_collection=outbox_collection,
+                address_changes_collection=collections.address_changes_collection,
+                grants_collection=collections.grants_collection,
+                outbox_collection=collections.outbox_collection,
                 germany_now=germany_now,
                 session=session,
             )
@@ -251,7 +234,7 @@ async def post_address_change_answer(
         # A decline is refused none of the judgements below: it removes an address nobody proved.
         if answer_data.answer == "declined":
             await end_the_change_in_session(
-                address_changes_collection=address_changes_collection,
+                address_changes_collection=collections.address_changes_collection,
                 db_filter=db_filter,
                 kind="declined",
                 now=germany_now,
@@ -259,14 +242,18 @@ async def post_address_change_answer(
             )
             return FLAddressChangeAnswerResponse(answer="declined", effective_from=None, effective=False)
 
-        holdings = await read_the_holdings(str(record["address"]), records=records, grants_collection=grants_collection, session=session)
+        holdings = await read_the_holdings(
+            str(record["address"]), records=collections.records, grants_collection=collections.grants_collection, session=session
+        )
         verdict = await judge_the_effect_in_session(
             record=record,
             holdings=holdings,
-            records=records,
-            spieler_collection=spieler_collection,
-            grants_collection=grants_collection,
-            occupancy=Occupancy(grants_collection=grants_collection, address_changes_collection=address_changes_collection),
+            records=collections.records,
+            spieler_collection=collections.spieler_collection,
+            grants_collection=collections.grants_collection,
+            occupancy=Occupancy(
+                grants_collection=collections.grants_collection, address_changes_collection=collections.address_changes_collection
+            ),
             expired=is_expired(record, now=germany_now),
             session=session,
         )
@@ -279,23 +266,14 @@ async def post_address_change_answer(
             await move_the_address_in_session(
                 record=record,
                 holdings=holdings,
-                address_changes_collection=address_changes_collection,
-                spieler_collection=spieler_collection,
-                schiedsrichter_collection=schiedsrichter_collection,
-                saison_teams_collection=saison_teams_collection,
-                bewerbungen_collection=bewerbungen_collection,
-                registrierungen_collection=registrierungen_collection,
-                grants_collection=grants_collection,
-                outbox_collection=outbox_collection,
-                action_log_collection=action_log_collection,
-                mailbox_anchors_collection=mailbox_anchors_collection,
+                collections=collections,
                 now=germany_now,
                 session=session,
             )
             return FLAddressChangeAnswerResponse(answer="confirmed", effective_from=None, effective=True)
 
         confirmed: Mapping[str, Any] = await patch_one_in_db(
-            collection=address_changes_collection,
+            collection=collections.address_changes_collection,
             db_filter=db_filter,
             update=compose_confirmation_update(wait=wait, now=germany_now),
             session=session,
@@ -305,7 +283,7 @@ async def post_address_change_answer(
         effective_from = stored_instant(confirmed["effective_from"])
         if holdings.grant is not None:
             await record_act(
-                collection=address_changes_collection,
+                collection=collections.address_changes_collection,
                 action="grant.address_change_started",
                 by=holdings.identifier if record["way"] == "account" else ACT_BY_SYSTEM,
                 record_id=record["_id"],
@@ -316,8 +294,8 @@ async def post_address_change_answer(
                 record,
                 stage="started",
                 effective_from=effective_from,
-                grants_collection=grants_collection,
-                outbox_collection=outbox_collection,
+                grants_collection=collections.grants_collection,
+                outbox_collection=collections.outbox_collection,
                 now=germany_now,
                 session=session,
             )
