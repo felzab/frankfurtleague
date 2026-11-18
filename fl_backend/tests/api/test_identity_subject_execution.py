@@ -67,14 +67,12 @@ async def _no_body(_: AsyncDatabase) -> None:
 
 
 async def call_subject(database: AsyncDatabase, email: str) -> FLSubjectResponse:
-    async with database.client.start_session(snapshot=True) as session:
-        return await get_subject(
-            subject_data=FLSubjectPayload(email=email),
-            records=record_collections(database),
-            grants_collection=database[Collection.GRANTS],
-            session=session,
-            germany_now=NOW,
-        )
+    return await get_subject(
+        subject_data=FLSubjectPayload(email=email),
+        records=record_collections(database),
+        grants_collection=database[Collection.GRANTS],
+        germany_now=NOW,
+    )
 
 
 async def answered(url: str, email: str = IDENTIFIER) -> FLSubjectResponse:

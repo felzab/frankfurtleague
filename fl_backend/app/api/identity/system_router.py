@@ -41,7 +41,6 @@ from app.core.dependencies import (
     SaisonSpielerCollection,
     SaisonTeamsCollection,
     SchiedsrichterCollection,
-    SnapshotSession,
     SpielberichteCollection,
     SpielbestaetigungenCollection,
     SpieleCollection,
@@ -71,7 +70,6 @@ async def get_subject(
     subject_data: FLSubjectPayload,
     records: SubjectLookup,
     grants_collection: GrantsReadCollection,
-    session: SnapshotSession,
     germany_now: GermanyNow,
 ) -> FLSubjectResponse:
     """Answer which confirmed, live contact seats, pupil records and referee records one mailbox holds, with its grant.
@@ -86,7 +84,7 @@ async def get_subject(
     # the grant cost the longer of the two rather than their sum.
     subject, grant = await concurrently(
         find_subject(identifier, records),
-        read_admin_tier_of(grants_collection=grants_collection, address=identifier, now=germany_now, session=session),
+        read_admin_tier_of(grants_collection=grants_collection, address=identifier, now=germany_now),
     )
     admin_tier, granted_since = (None, None) if grant is None else grant
 
@@ -103,7 +101,6 @@ async def get_sign_in(
     records: SubjectLookup,
     ban_list_collection: BanListReadCollection,
     grants_collection: GrantsReadCollection,
-    session: SnapshotSession,
     germany_now: GermanyNow,
 ) -> FLSignInResponse:
     """Answer what the sign-in gate decides on for one mailbox: two flags, its ban and its grant's tier, and never a record.
@@ -117,7 +114,7 @@ async def get_sign_in(
     sign_in, barred, grant = await concurrently(
         find_sign_in(identifier, records),
         address_is_barred(ban_list_collection=ban_list_collection, address=identifier),
-        read_admin_tier_of(grants_collection=grants_collection, address=identifier, now=germany_now, session=session),
+        read_admin_tier_of(grants_collection=grants_collection, address=identifier, now=germany_now),
     )
 
     return FLSignInResponse(**sign_in.model_dump(), barred=barred, admin_tier=None if grant is None else grant[0])
