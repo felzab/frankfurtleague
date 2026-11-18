@@ -117,17 +117,17 @@ def compose_new_team(*, schule: Any, shorthand: str | None) -> dict[str, Any]:
     }
 
 
-def parse_new_team(*, seeded_team: Mapping[str, Any]) -> dict[str, Any]:
+def parse_new_team(*, composed_team: Mapping[str, Any]) -> dict[str, Any]:
     """The club document as stored, from one the guard has already passed.
 
     Parsed, not composed: `website_url`'s validator strips tab, return and newline, so the raw
     block leaves `teams` holding what `POST /teams` never stores for the same school.
     """
 
-    return FLPostTeamPayload.model_validate(seeded_team).model_dump(mode="json")
+    return FLPostTeamPayload.model_validate(composed_team).model_dump(mode="json")
 
 
-def find_new_team_refusal(*, seeded_team: Mapping[str, Any]) -> WriteRefusal | None:
+def find_new_team_refusal(*, composed_team: Mapping[str, Any]) -> WriteRefusal | None:
     """Why the school's details make no club, or `None`.
 
     Through the payload itself, never a copy: nothing else judges them, so a scheme-less `website_url` would reach
@@ -135,7 +135,7 @@ def find_new_team_refusal(*, seeded_team: Mapping[str, Any]) -> WriteRefusal | N
     """
 
     try:
-        FLPostTeamPayload.model_validate(seeded_team)
+        FLPostTeamPayload.model_validate(composed_team)
     # Narrow on purpose: anything else raised here is a fault in this code, and a 409 blaming the
     # school for one is a refusal nobody can act on.
     except ValidationError:

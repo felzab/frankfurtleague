@@ -135,10 +135,10 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     school's details, its address among them. The persons are named by whoever submits the
     application or by an administrator, so their data is taken from a third party (Art. 14).
   - Recipients: administrators; an application's Ansprechperson, who is told which other seats are
-    still open and which objected, by role alone, at an address that may be unconfirmed; every seat
-    holder of a season row, who sees on the team's overview each other seat's holder by name, the
-    seats they hold and whether they confirmed, never their address, telephone number or birthdate
-    (`fl_backend/app/api/teams/schemas.py :: FLTeamSeat`).
+    still open and which objected, naming no holder, at an address that may be unconfirmed; every
+    seat holder of a season row, who sees on the team's overview each other seat's holder by name,
+    the seats they hold and whether they confirmed, never their address, telephone number or
+    birthdate (`fl_backend/app/api/teams/schemas.py :: FLTeamSeat`).
 - **Squads** (`registrierungen`, `spieler`, `saison_spieler`, `invitations`).
   - Purpose and basis: entering a pupil in a team's squad and fielding them; Art. 6(1)(f), the
     name's publication and media on consent.
@@ -313,7 +313,7 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     `fl_backend/app/api/aufstellungen/crud.py :: erase_pupil_from_aufstellungen_in_session`);
   - their address wherever the action log names it, replaced by the marker naming nobody
     (`fl_backend/app/api/action_log/crud.py :: reattribute_administrator_in_session`);
-  - every reason typed in a fixture answer from a seat they hold, found by team, season and role
+  - every reason typed in a fixture answer from a seat they hold, found by team, season and seat
     (`fl_backend/app/api/kontakte/crud.py :: remove_the_seats_reasons`), with their seats' links;
   - every mail owed or sent to them but the deletion link that asked for the erasure and the notice
     telling them of it, and every access notice still owed about them

@@ -1360,7 +1360,7 @@ def build_season_reasons_filter(saison_id: str) -> dict[str, Any]:
     return {"saison_id": saison_id, "answer.reason": {"$ne": None}}
 
 
-# --- A seat holder's erasure or Widerspruch: the reasons typed from the seats they hold, matched by team, season and role.
+# --- A seat holder's erasure or Widerspruch: the reasons typed from the seats they hold, matched by team, season and seat.
 
 
 class HeldSeats(NamedTuple):

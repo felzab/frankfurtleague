@@ -146,8 +146,8 @@ async def strip_the_seasons_confirmations(
 ) -> int:
     """At the season's end, every reason left on the season's rows, answering how many rows that took.
 
-    A replaced club's rows, a referee's and an administrator's reason among them; each answer's way and role stay as the
-    record.
+    A replaced club's rows, a referee's and an administrator's reason among them; each answer's way and who gave it, by
+    seat or kind, stay as the record.
     """
 
     reasons = await patch_many_in_db(

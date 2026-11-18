@@ -128,6 +128,7 @@ from tests.documents import (
 )
 
 # The seasons, people, clubs, fixtures and links the journeys type, read by them too.
+# Its `club` and `squadded` keys are the journeys' option names, so they follow the frontend's names, not `team` and `kader`.
 PEOPLE: Final[Mapping[str, Any]] = json.loads(Path(__file__).with_name("made_up_people.json").read_text(encoding="utf-8"))
 PROJECTS: Final[Sequence[Mapping[str, Any]]] = (PEOPLE["projects"]["desktop"], PEOPLE["projects"]["phone"])
 FINISHED: Final[str] = PEOPLE["seasons"]["finished"]

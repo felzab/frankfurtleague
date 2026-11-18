@@ -146,7 +146,7 @@ async def get_account_erasure_view(
         session=session,
     )
     # A registration holds its team's id alone, and the season row is what names the club that season.
-    team_rows = (
+    junctions = (
         await aggregate_many_from_db(
             collection=saison_teams_collection, pipeline=build_season_team_pipeline(subject.registrierungen), session=session
         )
@@ -166,7 +166,7 @@ async def get_account_erasure_view(
         registrierung_rows=subject.registrierungen,
         # The person's own preview counts only what reached their mailbox, which an administrator's request has not yet.
         address_change_rows=known_to_the_new_mailbox(others_naming(subject.address_change, identifier)),
-        team_rows=team_rows,
+        junctions=junctions,
     )
 
     return FLAccountErasureViewResponse(**view.model_dump(), admin_tier=None if own is None else own["admin_tier"])

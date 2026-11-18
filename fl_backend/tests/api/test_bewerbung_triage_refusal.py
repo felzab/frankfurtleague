@@ -43,7 +43,7 @@ class TestOnlyTheSchoolsOwnFaultIsRefused:
         """The repair that refusal offers -- decline it and type the club in by hand -- is then the wrong one."""
 
         with pytest.raises(ZorbanaxBoom):
-            find_new_team_refusal(seeded_team=ExplodingSchule())
+            find_new_team_refusal(composed_team=ExplodingSchule())
 
 
 class TestADeclinesReason:

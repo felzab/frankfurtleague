@@ -626,7 +626,7 @@ class TestWhoMayArrive:
 
         assert code == Code.TEAM_RETIRED
 
-    async def test_an_id_naming_no_club_is_a_404(self, mongo_replica_set_url: str):
+    async def test_an_id_naming_no_team_is_a_404(self, mongo_replica_set_url: str):
         """Kills pointing the row at a club that is not there -- which is the phantom this endpoint exists to repair."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
