@@ -90,6 +90,10 @@
       },
       { "name": "disclosure", "when": ["**"] },
       {
+        "name": "security",
+        "when": [".claude/CLAUDE.md", ".claude/rules", ".claude/orchestra", "docs/decisions.md"]
+      },
+      {
         "name": "practice",
         "when": [
           "fl_backend",
