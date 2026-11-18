@@ -16,10 +16,8 @@ from app.api.saisons.schemas import (
     FLLandingResponse,
     FLLandingRunning,
     FLLandingSide,
-    FLSaison,
     FLSaisonFrameEntryListAdapter,
     FLSaisonFrameResponse,
-    FLSaisonsSingleResponse,
     FLSpielPageResponse,
     FLSpielSideStanding,
     FLSpielSideStandings,
@@ -34,7 +32,6 @@ from app.api.saisons.services import (
     decided_podium,
     has_started,
     matchday_of,
-    with_schedule,
 )
 from app.api.saisons.visibility import PublicSaison, resolve_public_saison
 from app.api.spielberichte.services import SIDES, build_public_bericht_pipeline, compose_public_bericht, team_id_of
@@ -326,22 +323,6 @@ async def get_landing(
         bewerbung_window_held=windows.held,
         counts=counts,
     )
-
-
-# Declared after `/frame` and `/landing`, which it would otherwise answer as season ids: routes match in
-# declaration order, and the `objectid` convertor cannot help here, a season id being a four-character string.
-@router.get("/{saison_id}", summary="One Saison")
-async def get_saison(saison_id: str, saisons_collection: SaisonsReadCollection) -> FLSaisonsSingleResponse:
-    """One season the public may read, by its id.
-
-    404 where no season carries it or it is a `future` one.
-    """
-
-    # The status term withholds a `future` season in the filter itself, so its miss is the miss of an id no season
-    # carries and nothing here needs to know it was withheld.
-    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id, **base_tier_status_term()})
-
-    return FLSaisonsSingleResponse(saison=FLSaison.model_validate(with_schedule(saison_raw)))
 
 
 # The knockout phases, which the K.-o.-Runde shows of the same matchdays and matches the Spielplan does.

@@ -18,7 +18,7 @@ from app.api.spiele.schemas import (
     SONDEREREIGNIS_WITHOUT_A_RESULT,
     FLSpielCommon,
 )
-from app.api.teams.schemas import FLKontaktMint, FLTeamGruppeOffer, FLTeamListState, FLTeamsAdminRow, FLTeamStatistik, FLTeamStatistikScope
+from app.api.teams.schemas import FLKontaktMint, FLTeamGruppeOffer, FLTeamListState, FLTeamsAdminRow, FLTeamStatistik
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
@@ -40,14 +40,13 @@ ZERO_STATISTIK: Mapping[str, int] = {field_name: 0 for field_name in FLTeamStati
 _IS_THIS_TEAM_IN_SLOT_ONE: Mapping[str, Any] = {"$eq": ["$team1.team_id", "$$team_oid"]}
 
 
-def _spiele_of_this_team(saison_id: str, scope: FLTeamStatistikScope) -> dict[str, Any]:
+def _spiele_of_this_team(saison_id: str) -> dict[str, Any]:
     """Shared by the `$lookup` stages below: a `$match` per stage is another place to forget the phase filter."""
 
     return {
         "saison_id": saison_id,
-        # Absent under "total" rather than negated: an `$in` over every phase needs widening by
-        # hand the day one is added.
-        **({"saison_phase": "gruppenphase"} if scope == "gruppenphase" else {}),
+        # The group phase alone: a knockout result is no league result.
+        "saison_phase": "gruppenphase",
         "$expr": {"$or": [_IS_THIS_TEAM_IN_SLOT_ONE, {"$eq": ["$team2.team_id", "$$team_oid"]}]},
     }
 
@@ -63,8 +62,8 @@ def counting_spiele_match() -> dict[str, Any]:
     }
 
 
-def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FLTeamStatistikScope) -> Mapping[str, Any]:
-    """One team's statistics, derived from the season's matches; `scope` is the whole difference between the table and a team page."""
+def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules) -> Mapping[str, Any]:
+    """One team's statistics, derived from the season's group-phase matches."""
 
     return {
         "$lookup": {
@@ -73,7 +72,7 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
             "pipeline": [
                 {
                     "$match": {
-                        **_spiele_of_this_team(saison_id, scope),
+                        **_spiele_of_this_team(saison_id),
                         **counting_spiele_match(),
                     }
                 },
@@ -120,7 +119,7 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
     }
 
 
-def build_cancelled_lookup_stage(saison_id: str, scope: FLTeamStatistikScope) -> Mapping[str, Any]:
+def build_cancelled_lookup_stage(saison_id: str) -> Mapping[str, Any]:
     """This team's fixtures that ended with no result, called off or struck out, counted in a stage of their own.
 
     Never a second accumulator inside the counting `$lookup`: aggregation `$eq: [null, null]` is
@@ -134,7 +133,7 @@ def build_cancelled_lookup_stage(saison_id: str, scope: FLTeamStatistikScope) ->
             "pipeline": [
                 {
                     "$match": {
-                        **_spiele_of_this_team(saison_id, scope),
+                        **_spiele_of_this_team(saison_id),
                         # The flag is the whole rule: a fixture with no result and no event is
                         # one still to play, never one called off.
                         "sonderereignis": {"$in": list(SONDEREREIGNIS_WITHOUT_A_RESULT)},
@@ -171,8 +170,6 @@ def build_team_pipeline(
     saison_id: str,
     rules: FLSaisonRules | None,
     team_id: Any | None = None,
-    # Defaults to the group table, so a read naming none is the correct standing rather than the playoff-polluted one.
-    statistik_scope: FLTeamStatistikScope = "gruppenphase",
     # Retired clubs, for a read handed one club's id rather than discovering one. Never on a base-tier list: a standings
     # row names no leaving date, so a list that un-hid a retired club would say nothing about which one had left.
     include_inactive: bool = False,
@@ -214,8 +211,8 @@ def build_team_pipeline(
     # A scoring rule is the table, so `rules=None` derives none -- `build_statistik_by_team` is
     # the other way to one, over fixtures this collection has not stored.
     if rules is not None:
-        pipeline.append(build_statistik_lookup_stage(saison_id=saison_id, rules=rules, scope=statistik_scope))
-        pipeline.append(build_cancelled_lookup_stage(saison_id=saison_id, scope=statistik_scope))
+        pipeline.append(build_statistik_lookup_stage(saison_id=saison_id, rules=rules))
+        pipeline.append(build_cancelled_lookup_stage(saison_id=saison_id))
 
     # One projection, one team shape: a reduced variant trims the response and saves no query work,
     # since every lookup runs either way.

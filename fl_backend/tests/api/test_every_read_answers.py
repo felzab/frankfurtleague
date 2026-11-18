@@ -350,7 +350,7 @@ async def test_the_league_stands_in_the_phase_each_seed_names(league: Phase, mon
     """
 
     landing = (await _get(league, mongo_replica_set_url, f"/api/v{API_VERSION}/saisons/landing", headers=BASE_AUTH)).json()["saison"]
-    editor = await _get(league, mongo_replica_set_url, f"/api/v{API_VERSION}/spiele/{league.featured['_id']}/admin", headers=ADMIN_AUTH)
+    editor = await _get(league, mongo_replica_set_url, f"/api/v{API_VERSION}/spiele/{league.featured['_id']}", headers=ADMIN_AUTH)
 
     assert landing["state"] == league.name
     if league.name == "before_start":

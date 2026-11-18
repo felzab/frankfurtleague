@@ -78,9 +78,8 @@ commit that makes the change.
   for a key._
 - **db** — Spell a collection name as a literal; enumerate the field names too. _A literal escapes
   the one declaration, and a field-name layer would be a hand-kept copy of every model._
-- **routing** — Move a guard onto an endpoint; merge a slice's routers of different tiers; delete
-  `GET /{id}`. _A guard on the router puts a wrong tier in a wrong file, and `GET /{id}` gives every
-  resource one address._
+- **routing** — Move a guard onto an endpoint; merge a slice's routers of different tiers. _A guard
+  on the router puts a wrong tier in a wrong file._
 - **routing** — Answer 422 for a malformed path id, or 404 for a query one. _A path names a
   resource, which a malformed id cannot, while a query carries input._
 - **tests** — Mark a test `db` for a decision the default tier reaches. _A test runs once, at the

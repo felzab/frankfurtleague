@@ -20,8 +20,9 @@ def is_confirmed(einwilligung: Any) -> bool:
     return isinstance(einwilligung, Mapping) and einwilligung.get("confirmed_at") is not None
 
 
-# `name_is_public` as a Mongo expression, kept equal to it, and shared so no two reads judge a name apart. By `$type`,
-# as an absent key and a stored null are one state.
+# Whether a base-tier read may serve a person's name: their record present, its scope `kader_public` and its
+# confirmation stamped. Failing closed, so a scope no enum holds withholds too. Shared so no two reads judge a name
+# apart, and by `$type`, as an absent key and a stored null are one state.
 NAME_IS_PUBLIC: Final[Mapping[str, Any]] = {
     "$and": [
         {"$eq": [{"$type": "$einwilligung"}, "object"]},

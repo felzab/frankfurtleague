@@ -113,10 +113,6 @@ class FLKoRundeResponse(BaseReadModel):
     spieltage: list[FLSpielplanSpieltag]
 
 
-class FLSpieltageSingleResponse(BaseReadModel):
-    spieltag: FLSpieltag
-
-
 # The status on the response rather than on the matchday: a matchday carries no season-scoped state.
 class FLSpieltagAdminResponse(BaseReadModel):
     """One matchday and its season's `status`, which says whether the matchday can still be re-dated."""

@@ -47,8 +47,7 @@ BERICHT_CONFIRMATION_ID = ObjectId("6890a1b2c3d4e5f607230041")
 # Raised past the create's 0 by later writes: the one an adoption names.
 BERICHT_VERSION = 3
 
-PUBLIC_PATH = f"/api/v{API_VERSION}/spiele/{SPIEL_ID}"
-ADMIN_PATH = f"{PUBLIC_PATH}/admin"
+ADMIN_PATH = f"/api/v{API_VERSION}/spiele/{SPIEL_ID}"
 
 
 def spiel_document() -> dict[str, Any]:
@@ -232,7 +231,7 @@ async def test_a_malformed_id_is_a_404_on_the_admin_path_too():
     One id shows the path carries the convertor; which ids are malformed is `tests/api/test_malformed_ids.py`'s.
     """
 
-    path = f"/api/v{API_VERSION}/spiele/not-an-id/admin"
+    path = f"/api/v{API_VERSION}/spiele/not-an-id"
 
     assert (await answered(UNANSWERED_URI, path, ADMIN_AUTH)).status_code == 404
 
@@ -277,7 +276,7 @@ async def test_the_editor_offers_the_live_rows_and_the_ones_the_spiel_books(seed
 
 
 def _editor_path(spiel_id: ObjectId) -> str:
-    return f"/api/v{API_VERSION}/spiele/{spiel_id}/admin"
+    return f"/api/v{API_VERSION}/spiele/{spiel_id}"
 
 
 @pytest.mark.db

@@ -87,10 +87,8 @@ async def get_spiele_spielplan(
     )
 
 
-# A static suffix rather than a second `GET /{spiel_id}`: the public router owns that path at this
-# same prefix, so whichever router registered first would answer both.
 @router.get(
-    f"{by_id('spiel_id')}/admin",
+    by_id("spiel_id"),
     summary="One Spiel and all the match editor offers and shows beside it",
 )
 async def get_spiel_admin(

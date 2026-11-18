@@ -43,18 +43,14 @@ from app.api.spielbestaetigungen.admin_router import router as spielbestaetigung
 from app.api.spielbestaetigungen.person_router import router as spielbestaetigungen_person_router
 from app.api.spielbestaetigungen.system_router import router as spielbestaetigungen_system_router
 from app.api.spiele.admin_router import router as spiele_admin_router
-from app.api.spiele.public_router import router as spiele_public_router
 from app.api.spieler.admin_router import router as spieler_admin_router
 from app.api.spieler.person_router import router as spieler_person_router
 from app.api.spieler.person_router import spieler_router as spieler_person_spieler_router
-from app.api.spieler.public_router import router as spieler_public_router
 from app.api.spielorte.admin_router import router as spielorte_admin_router
 from app.api.spieltage.admin_router import router as spieltage_admin_router
-from app.api.spieltage.public_router import router as spieltage_public_router
 from app.api.system.router import router as system_router
 from app.api.teams.admin_router import router as teams_admin_router
 from app.api.teams.person_router import router as teams_person_router
-from app.api.teams.public_router import router as teams_public_router
 from app.core.codes import Rule
 from app.core.config import API_VERSION, BackendConfig
 from app.core.db import lifespan
@@ -93,17 +89,18 @@ ROUTERS: Mapping[str, tuple[APIRouter, ...]] = {
         registrierungen_person_spieler_router,
         registrierungen_system_router,
     ),
+    # The public router first: the administration's `/{saison_id}` would take its `/frame` and `/landing` as season ids.
     "saisons": (saisons_public_router, saisons_admin_router, saisons_overview_router),
     "schiedsrichter": (schiedsrichter_admin_router, schiedsrichter_public_router, schiedsrichter_person_router, schiedsrichter_system_router),
     "ban_list": (ban_list_admin_router,),
     "spielberichte": (spielberichte_person_router,),
     "spielbestaetigungen": (spielbestaetigungen_admin_router, spielbestaetigungen_person_router, spielbestaetigungen_system_router),
-    "spiele": (spiele_public_router, spiele_admin_router),
-    "spieler": (spieler_public_router, spieler_admin_router, spieler_person_router, spieler_person_spieler_router),
+    "spiele": (spiele_admin_router,),
+    "spieler": (spieler_admin_router, spieler_person_router, spieler_person_spieler_router),
     "spielorte": (spielorte_admin_router,),
-    "spieltage": (spieltage_public_router, spieltage_admin_router),
+    "spieltage": (spieltage_admin_router,),
     "system": (system_router,),
-    "teams": (teams_public_router, teams_admin_router, teams_person_router),
+    "teams": (teams_admin_router, teams_person_router),
 }
 
 

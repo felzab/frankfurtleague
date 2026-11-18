@@ -10,11 +10,10 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.public_router import get_team
 from app.api.saisons.schemas import FLTeamPageResponse
-from app.api.spieler.public_router import get_spieler_by_id
 from app.api.spieler.schemas import (
     FLSpielerPublic,
 )
-from app.api.spieler.services import build_spieler_pipeline, public_initial
+from app.api.spieler.services import build_spieler_pipeline
 from tests.database import held_corpus, shared_client
 from tests.documents import (
     SPIELER_TEXT_VERSIONS,
@@ -137,16 +136,6 @@ class TestTheProjection:
         assert "first_name" in _sort()
 
 
-class TestTheInitial:
-    @pytest.mark.parametrize(
-        ("stored", "served"),
-        [("Müller", "M.")],
-    )
-    def test_the_find_path_serves_an_initial_with_its_dot(self, stored: str | None, served: str | None):
-        """The dot rides with the initial so the one page rendering it joins the two names unchanged."""
-        assert public_initial(stored) == served
-
-
 @pytest.mark.db
 class TestTheBaseTierReadExecuted:
     """The whole chain against a real mongod: what is STORED, what the pipeline yields, and what the club page serialises."""
@@ -211,21 +200,18 @@ MASK_DATABASE_NAME = worker_database("fl_spieler_mask_read_test")
 
 
 class MaskedRow(NamedTuple):
-    """One seeded person, their consent record, and the two names the base tier must answer for them."""
+    """One seeded person and their consent record."""
 
     oid: ObjectId
     first_name: str
     last_name: str
     einwilligung: dict[str, Any]
-    served_first_name: str | None
-    served_last_name: str | None
 
 
-# Each served pair is written out rather than composed from `public_initial`, which would compare the
-# redaction with itself. No forename holds a surname as a substring: one case greps the whole payload.
+# No forename holds a surname as a substring: one case greps the whole payload.
 MASKED_KADER = {
-    "Offen": MaskedRow(ObjectId("6890a1b2c3d4e5f607390031"), "Alina", "Falk", _consent("kader_public"), "Alina", "F."),
-    "Internal": MaskedRow(ObjectId("6890a1b2c3d4e5f607390032"), "Bruno", "Gerber", _consent("internal"), None, None),
+    "Offen": MaskedRow(ObjectId("6890a1b2c3d4e5f607390031"), "Alina", "Falk", _consent("kader_public")),
+    "Internal": MaskedRow(ObjectId("6890a1b2c3d4e5f607390032"), "Bruno", "Gerber", _consent("internal")),
 }
 
 # A shirt per row. Both play one position, so the order by position and forename alone would put the withheld row,
@@ -242,7 +228,7 @@ WITHHELD_NAMES = ("Bruno", "Gerber")
 
 @pytest.mark.db
 class TestThePublicationGate:
-    """The consent gate over both base-tier reads, against a squad holding one row per state the predicate decides between."""
+    """The consent gate over the club page's squad, holding one row per state the predicate decides between."""
 
     async def _read(self, url: str) -> dict[str, Any]:
         async def body(database: AsyncDatabase) -> Any:
@@ -270,25 +256,6 @@ class TestThePublicationGate:
     async def test_no_pupil_s_record_id_appears_anywhere_in_the_response(self, masked_url: str, case: str):
         """Against the SERIALISED body: an id outlives every season and team, so it would tie a withheld row to its others."""
         assert str(MASKED_KADER[case].oid) not in json.dumps(await self._read(masked_url))
-
-    async def _read_one(self, url: str, case: str) -> dict[str, Any]:
-        async def body(database: AsyncDatabase) -> Any:
-            response = await get_spieler_by_id(spieler_id=MASKED_KADER[case].oid, spieler_collection=database.spieler)
-
-            return response.model_dump(mode="json", by_alias=True)
-
-        return await _on_the_mask_database(url, body)
-
-    @pytest.mark.parametrize("case", MASKED_KADER)
-    async def test_the_single_read_answers_the_same_two_names(self, masked_url: str, case: str):
-        """The second base-tier path: one predicate, so a `find` and an aggregation cannot disagree about one person."""
-        row = MASKED_KADER[case]
-
-        assert await self._read_one(masked_url, case) == {
-            "spieler_id": str(row.oid),
-            "first_name": row.served_first_name,
-            "last_name": row.served_last_name,
-        }
 
 
 @pytest.fixture(scope="module")

@@ -134,16 +134,6 @@ class FLSaisonSpielerRow(BaseModel):
     version: int = 0
 
 
-class FLSpielerSingleResponse(BaseReadModel):
-    """One player as an anonymous visitor may read them, the surname an initial and no squad field of any season."""
-
-    spieler_id: CustomObjectId
-    # Nullable: this path is masked by the squad list's predicate, which answers `null` for a person
-    # whose record does not publish them.
-    first_name: str | None
-    last_name: str | None
-
-
 class FLSpielerAdminRow(BaseReadModel):
     """One squad row as the Spieler list shows it: the person's name and nothing else of them."""
 

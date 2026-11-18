@@ -81,7 +81,7 @@ const calls: { endpoint: string; method: string }[] = [];
 // The backend answers the editor's read with the fixture, the dry run with its report and the write with its answer,
 // so the save runs through the real guard, read, generated call and dispatch, which counts the write.
 serveBackend(({ method, path, search, body }) => {
-  if (method === "GET" && path === `/spiele/${SPIEL_ID}/admin`) return { spiel: state.read };
+  if (method === "GET" && path === `/spiele/${SPIEL_ID}`) return { spiel: state.read };
   if (method !== "PATCH" || path !== `/spiele/${SPIEL_ID}`) return undefined;
 
   calls.push({ endpoint: search.size > 0 ? `${path}?${search.toString()}` : path, method });

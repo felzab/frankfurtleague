@@ -28,7 +28,7 @@ const WRITTEN: FLSpieltagWriteResponse = { spieltag_id: SPIELTAG_ID, version: 5 
 // The save reads the matchday again and writes it, so the real guard, query, generated call and dispatch all run;
 // anything else is unanswered and fails the case.
 const backend = serveBackend(({ method, path }) => {
-  if (method === "GET" && path === `/spieltage/${SPIELTAG_ID}/admin`) {
+  if (method === "GET" && path === `/spieltage/${SPIELTAG_ID}`) {
     return { saison_status: "active", spieltag: STORED } satisfies FLSpieltagAdminResponse;
   }
   if (method === "PATCH" && path === `/spieltage/${SPIELTAG_ID}`) return WRITTEN;
@@ -46,7 +46,7 @@ describe("a matchday's save", () => {
     const answer = await saveSpieltag({ id: SPIELTAG_ID, version: EDITOR_VERSION, changes: { end: "2027-03-16" } });
 
     expect(backend.sent.map(({ method, path, body }) => ({ method, path, body }))).toStrictEqual([
-      { method: "GET", path: `/spieltage/${SPIELTAG_ID}/admin`, body: undefined },
+      { method: "GET", path: `/spieltage/${SPIELTAG_ID}`, body: undefined },
       { method: "PATCH", path: `/spieltage/${SPIELTAG_ID}`, body: { start: "2027-03-13", end: "2027-03-16", version: EDITOR_VERSION } },
     ]);
     expect(answer).toStrictEqual({ ok: true, value: WRITTEN.version });

@@ -416,8 +416,8 @@ both `retire` in code; leaving one season is an `austritt`.\
 
 ### `Statistik` — the derived league-table figures
 
-**Is:** the league table's figures, computed per team and season from `spiele` on every read and
-stored nowhere. `statistik_scope` chooses the table, `gruppenphase` by default.\
+**Is:** the league table's figures, computed per team and season from the group phase's `spiele` on
+every read and stored nowhere.\
 **In code:** `fl_backend/app/api/teams/schemas.py :: FLTeamStatistik`, built by
 `fl_backend/app/api/teams/services.py :: build_team_pipeline`.\
 **See:** [`domain.md`](domain.md#what-is-stored-and-what-is-computed).
@@ -501,7 +501,6 @@ tree its fixtures are drawn as.\
 | `slice`                     | A frontend code-organisation unit under `src/features/`, one per business entity                                                                                                                            |
 | `surface`                   | A documentation term: frontend, backend, or ops, each with its folder under `docs/`                                                                                                                         |
 | `base` / `system` / `admin` | The three API key tiers, not user roles. See [`backend/overview.md`](backend/overview.md#authorization)                                                                                                     |
-| `format`                    | The discriminator on the teams response (`list`, or `single` from `GET /teams/{team_id}`)                                                                                                                   |
 | `Aktion`                    | In code one entry is `action_log_entry` and the log is `action_log` ([its entry](#aktion--action_log_entry--one-recorded-act))                                                                              |
 | `Einladung`                 | In code `invitation`, on screen „Registrierungslink“ ([its entry](#einladung--invitation--the-link-one-team-registers-its-players-through))                                                                 |
 | `aufnehmen`                 | In code `admit` ([its entry](#aufnehmen--admit--a-team-taking-one-registered-pupil-into-its-squad))                                                                                                         |

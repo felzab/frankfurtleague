@@ -306,17 +306,12 @@ BASE_READS = [
     ("/api/v0/bewerbungen/form/{saison_id}", "get"),
     ("/api/v0/saisons/frame", "get"),
     ("/api/v0/saisons/landing", "get"),
-    ("/api/v0/saisons/{saison_id}", "get"),
     ("/api/v0/saisons/{saison_id}/ko_runde", "get"),
     ("/api/v0/saisons/{saison_id}/spiele/{spiel_id}", "get"),
     ("/api/v0/saisons/{saison_id}/spielplan", "get"),
     ("/api/v0/saisons/{saison_id}/tabelle", "get"),
     ("/api/v0/saisons/{saison_id}/teams", "get"),
     ("/api/v0/saisons/{saison_id}/teams/{team_id}", "get"),
-    ("/api/v0/spiele/{spiel_id}", "get"),
-    ("/api/v0/spieler/{spieler_id}", "get"),
-    ("/api/v0/spieltage/{spieltag_id}", "get"),
-    ("/api/v0/teams/{team_id}", "get"),
 ]
 
 

@@ -173,9 +173,7 @@ async def _rewrite_gruppenphase_sides(
     return len({spiel_id for spiel_ids in by_pass.values() for spiel_id in spiel_ids})
 
 
-# Two segments, because `GET /saisons/{saison_id}` is declared first and would answer a single static
-# one: a season id is a plain four-character string, so the `objectid` convertor cannot separate them.
-@router.get("/list/admin", summary="Every Saison for the admin surfaces")
+@router.get("", summary="Every Saison for the admin surfaces")
 async def get_saisons_admin(
     saisons_collection: SaisonsReadCollection,
     spiele_collection: SpieleReadCollection,
@@ -219,9 +217,9 @@ async def get_saisons_admin(
     )
 
 
-# Declared after `/list/admin`, which it would otherwise answer with `list` as a season id; a static suffix rather than
-# a second `GET /{saison_id}`, which the public router owns at this same prefix.
-@router.get("/{saison_id}/admin", summary="One Saison for the admin editor")
+# Mounted after the public router, whose `/frame` and `/landing` it would otherwise take as season ids: routes match in
+# the order they are mounted, and a season id is a plain four-character string no convertor tells apart.
+@router.get("/{saison_id}", summary="One Saison for the admin editor")
 async def get_saison_admin(
     saison_id: str,
     saisons_collection: SaisonsReadCollection,

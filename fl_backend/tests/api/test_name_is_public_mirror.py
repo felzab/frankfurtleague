@@ -15,7 +15,7 @@ from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.spiele.services import build_spiele_pipeline
-from app.api.spieler.services import build_spieler_pipeline, name_is_public
+from app.api.spieler.services import build_spieler_pipeline
 from app.core.crud import aggregate_many_from_db
 from tests.database import held_corpus, shared_client
 from tests.documents import saison_spieler_document, schiedsrichter_document, spiel_document, spieler_document
@@ -76,11 +76,6 @@ NAME_IS_PUBLIC: Final[tuple[EinwilligungCase, ...]] = (
 )
 
 CASE_IDS = [case.case for case in NAME_IS_PUBLIC]
-
-
-@pytest.mark.parametrize("case", NAME_IS_PUBLIC, ids=CASE_IDS)
-def test_the_python_predicate_answers_the_table(case: EinwilligungCase):
-    assert name_is_public(case.einwilligung) is case.published
 
 
 def _oid(position: int) -> ObjectId:

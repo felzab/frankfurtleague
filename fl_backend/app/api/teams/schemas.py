@@ -56,10 +56,6 @@ from app.shared.schemas.responses import BasePayload, BaseReadModel
 # `offered_gruppen` serves short while refusing nothing.
 MAX_NUMBER_OF_GROUPS: Final = len(get_args(FLGruppenNames.__value__))
 
-# Two values rather than a free `saison_phase` filter: a table of the Halbfinale alone is not a
-# standing, and offering it invites one.
-type FLTeamStatistikScope = Literal["gruppenphase", "total"]
-
 # Which second seat one person may hold beside the Trainer's. A closed set rather than a flag per seat: the
 # two are alternatives, and nothing can mean holding both.
 type FLTrainerAlso = Literal["ansprechperson", "stellvertretung"]
@@ -492,15 +488,6 @@ class FLKontaktSeatPayload(_KontaktpersonWritablePayload):
     version: CustomVersion
 
 
-class FLTeamSingleFilterParams(BaseModel):
-    """What `GET /teams/{team_id}` accepts: only what chooses which season's figures to derive."""
-
-    saison_id: str | None = None
-    # Defaults to the group table, so an omitted parameter is the correct standing rather than the
-    # playoff-polluted one.
-    statistik_scope: FLTeamStatistikScope = Field(default="gruppenphase")
-
-
 # The list's status filter: in the season, out of it, or out of the league.
 type FLTeamListState = Literal["active", "departed", "retired"]
 
@@ -573,13 +560,6 @@ class FLTeamSaisonFacts(BaseReadModel):
     # The registration window's end, past which an entry through the link is a nominee, the link opening on until the
     # season ends; null for a season storing no window.
     registrierung_end: CustomOptionalDateString
-
-
-class FLTeamsSingleResponse(BaseReadModel):
-    """One team, from `GET /teams/{team_id}`."""
-
-    format: Literal["single"] = "single"
-    team: FLTeam
 
 
 class FLKontaktMint(BaseModel):
