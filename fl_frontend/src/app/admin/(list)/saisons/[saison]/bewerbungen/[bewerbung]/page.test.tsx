@@ -36,7 +36,6 @@ const person = {
 const open: FLBewerbungConfirmation = {
   sent_at: "2026-11-01",
   deadline: "2026-11-15",
-  reminded_at: null,
   declined_at: null,
   delivery: null,
   state: "valid",
