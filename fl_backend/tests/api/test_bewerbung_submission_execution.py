@@ -185,9 +185,9 @@ class TestWhatASubmissionStores:
         assert "decision" in stored and stored["decision"] is None
 
     async def test_each_consent_is_the_one_the_server_composed(self, mongo_replica_set_url: str):
-        """The applicant supplied a wording version and a tick; the scope, the source, the day and the empty stamp are the league's.
+        """Each seat's consent is the one the server composed: the contact scope, the day, no stamp and no media.
 
-        `administrativ` on every seat: nobody has confirmed yet.
+        Nobody has confirmed yet.
         """
 
         async def body(database: AsyncDatabase) -> Mapping[str, Any]:
