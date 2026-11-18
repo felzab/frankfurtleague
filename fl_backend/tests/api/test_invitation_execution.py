@@ -615,7 +615,7 @@ class TestTheSeasonWidePress:
         assert owed[str(NO_BLOCK)] == []
         # The withdrawn team's own seat IS confirmed, so an empty list here is the withdrawal's doing.
         assert owed[str(WITHDRAWN)] == []
-        assert (done.mailed, done.skipped, done.failed) == (1, 4, 0)
+        assert (done.mailed, done.failed) == (1, 0)
 
     async def test_the_press_writes_one_row_across_the_teams_it_mails(self, mongo_replica_set_url: str):
         """One press is one act in the Protokoll, though each team it mails commits in a transaction of its own."""
@@ -680,8 +680,8 @@ class TestTheSeasonWidePress:
 
         done, revoked_at, live, owed = await on_a_league(mongo_replica_set_url, body)
 
-        # The failed team, counted, and the three teams the plan skips: no block, no confirmed seat, withdrawn.
-        assert (done.mailed, done.skipped, done.failed) == (1, 3, 1)
+        # The failed team, counted apart from the one mailed; the three the plan skips are counted in neither.
+        assert (done.mailed, done.failed) == (1, 1)
         # Its transaction aborted, so the link somebody already holds is untouched and still opens.
         assert revoked_at is None
         # Every other team is served as though nothing had gone wrong, its seats owed.

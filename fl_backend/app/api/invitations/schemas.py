@@ -101,10 +101,8 @@ class FLInvitationMailResponse(BaseReadModel):
 
 
 class FLInvitationDispatchResponse(BaseReadModel):
-    """How the season's press came out, counted in teams."""
+    """How the season's press came out, counted in teams; a team it skipped is counted in neither."""
 
-    saison_id: CustomNonEmptyString
     mailed: int = Field(ge=0)
-    skipped: int = Field(ge=0)
     # Each one logged with what became of its commit; a team whose commit went unanswered is counted here too.
     failed: int = Field(ge=0)

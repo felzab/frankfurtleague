@@ -12,7 +12,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.admin_router import activate_saison, delete_spielplan, patch_saison, post_spielplan
 from app.api.saisons.schemas import (
-    FLActivateSaisonResponse,
     FLGenerateSpielplanPayload,
     FLPatchSaisonPayload,
     FLSaisonRules,
@@ -215,10 +214,10 @@ async def call_activate(
     saison_id: str,
     *,
     saisons_collection: Any = None,
-) -> FLActivateSaisonResponse:
+) -> None:
     """`saisons_collection` is overridable so a case can hand the endpoint the hooked stand-in and nothing else."""
 
-    return await activate_saison(
+    await activate_saison(
         saison_id=saison_id,
         saisons_collection=saisons_collection if saisons_collection is not None else database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
@@ -511,12 +510,14 @@ class TestARolloverLandingMidPatchIsJudgedAgain:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            promoted: list[FLActivateSaisonResponse] = []
+            # The seasons the rival rollover promoted, read below: an empty list is a rollover that never ran.
+            promoted: list[str] = []
 
             async def roll_over_between() -> None:
                 # Permitted: the incumbent is undrawn and so owes nothing, and the rival is drawn.
                 # Demoting the incumbent is what makes the season under test `past`.
-                promoted.append(await call_activate(database, client, RIVAL))
+                await call_activate(database, client, RIVAL)
+                promoted.append(RIVAL)
 
             seasons = SeasonsRunningOneHook(database[Collection.SAISONS], roll_over_between, at="after_the_first_read")
 

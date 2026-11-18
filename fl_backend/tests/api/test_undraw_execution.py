@@ -2,7 +2,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from itertools import product
-from typing import Any
+from typing import Any, NamedTuple
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -12,11 +12,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.saisons.admin_router import delete_spielplan, post_spielplan
-from app.api.saisons.schemas import (
-    FLGenerateSpielplanPayload,
-    FLGenerateSpielplanResponse,
-    FLUndrawSpielplanResponse,
-)
+from app.api.saisons.schemas import FLGenerateSpielplanPayload
 from app.api.spiele.admin_router import patch_spiel
 from app.api.spiele.schemas import FLPatchSpielDataPayload
 from app.api.teams.services import offered_gruppen
@@ -126,8 +122,15 @@ async def on_a_seeded_saison(url: str, body: Body, *, seed: Seed | None = None, 
         return await body(database, client)
 
 
-async def call_draw(database: AsyncDatabase, client: AsyncMongoClient, *, saison_id: str = SAISON_ID) -> FLGenerateSpielplanResponse:
-    return await post_spielplan(
+class Drawn(NamedTuple):
+    """One season's matchdays and fixtures as its draw stored them."""
+
+    spieltage: int
+    spiele: int
+
+
+async def call_draw(database: AsyncDatabase, client: AsyncMongoClient, *, saison_id: str = SAISON_ID) -> Drawn:
+    await post_spielplan(
         saison_id=saison_id,
         saisons_collection=database[Collection.SAISONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
@@ -141,11 +144,13 @@ async def call_draw(database: AsyncDatabase, client: AsyncMongoClient, *, saison
         today=TODAY,
     )
 
+    return Drawn(*await counts_now(database, saison_id=saison_id))
+
 
 async def call_undraw(
     database: AsyncDatabase, client: AsyncMongoClient, *, saison_id: str = SAISON_ID, spielberichte_collection: Any = None
-) -> FLUndrawSpielplanResponse:
-    return await delete_spielplan(
+) -> None:
+    await delete_spielplan(
         saison_id=saison_id,
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
@@ -188,7 +193,7 @@ def server_code(failure: OperationFailure) -> Any:
 class UndrawnSeason:
     """One committed undraw, read back four ways, so the assertions run outside the event loop."""
 
-    drawn: FLGenerateSpielplanResponse
+    drawn: Drawn
     spieltage: int
     spiele: int
     watermark: Any
@@ -234,7 +239,7 @@ class TestAnUndrawRemovesTheWholeSpielplan:
 class AbortedUndraw:
     """An undraw that fell mid-flight, as the driver reported it and as a later request would find the season."""
 
-    drawn: FLGenerateSpielplanResponse
+    drawn: Drawn
     write_error: Any
     spieltage: int
     spiele: int
@@ -279,7 +284,7 @@ class TestAnAbortedUndrawLeavesAllThreeStanding:
 class NeighbouringSeasons:
     """Two drawn seasons, one of them undrawn, each collection counted for each season separately."""
 
-    neighbour_drawn: FLGenerateSpielplanResponse
+    neighbour_drawn: Drawn
     neighbour_spieltage: int
     neighbour_spiele: int
     neighbour_watermark: Any
@@ -451,7 +456,7 @@ class TestASubmittedReportKeepsTheSpielplan:
 class RefusedUndraw:
     """An undraw refused before it removed anything, and the season it left standing."""
 
-    drawn: FLGenerateSpielplanResponse
+    drawn: Drawn
     error_code: str
     spieltage: int
     spiele: int
@@ -599,15 +604,17 @@ class TestABracketSlotSeededByHandKeepsTheWholeSpielplan:
 
 @dataclass(frozen=True)
 class UndrawOfNothing:
-    """One undraw of a season holding no fixture, and what it reported."""
+    """One undraw of a season holding no fixture, and what it left."""
 
-    response: FLUndrawSpielplanResponse
+    counts: tuple[int, int]
     watermark: Any
 
 
 async def an_undraw_of(url: str, *, seed: Seed) -> UndrawOfNothing:
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> UndrawOfNothing:
-        return UndrawOfNothing(response=await call_undraw(database, client), watermark=await watermark_now(database))
+        await call_undraw(database, client)
+
+        return UndrawOfNothing(counts=await counts_now(database), watermark=await watermark_now(database))
 
     return await on_a_seeded_saison(url, body, seed=seed)
 
@@ -615,12 +622,11 @@ async def an_undraw_of(url: str, *, seed: Seed) -> UndrawOfNothing:
 class TestAnUndrawOfASeasonHoldingNoSpielplan:
     """A DELETE answers the state asked for. Refusing one would fail a second press, and two admins make that ordinary."""
 
-    async def test_a_watermark_standing_with_no_spiele_behind_it_is_cleared_and_reported(self, mongo_replica_set_url: str):
-        """Report the clear off the counts and this fails: the claim is what is removed, and the rule says report it."""
+    async def test_a_watermark_standing_with_no_spiele_behind_it_is_cleared(self, mongo_replica_set_url: str):
+        """The watermark is the one thing a season can hold with neither collection behind it, so the undraw clears it alone."""
 
         seed = Seed(saison=saison_document(spielplan={"generated_at": TODAY}))
         undrawn = await an_undraw_of(mongo_replica_set_url, seed=seed)
 
-        assert (undrawn.response.spieltage, undrawn.response.spiele) == (0, 0)
-        assert undrawn.response.watermark_cleared is True
+        assert undrawn.counts == (0, 0)
         assert undrawn.watermark is None

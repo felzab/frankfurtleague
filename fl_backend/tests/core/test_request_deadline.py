@@ -341,7 +341,7 @@ class _CommitOfUnknownOutcomeForOneTeam:
         return await self._collection.insert_one(document, **rest)
 
 
-Pressed = tuple[int, float, tuple[int, int, int], dict[ObjectId, list[ObjectId]], dict[ObjectId, ObjectId]]
+Pressed = tuple[int, float, tuple[int, int], dict[ObjectId, list[ObjectId]], dict[ObjectId, ObjectId]]
 
 
 DISPATCH_PATH = f"/api/saisons/{SAISON_ID}/invitations/dispatch"
@@ -361,7 +361,7 @@ def pressing_app() -> FastAPI:
 async def _pressed(served: FastAPI, url: str, stand_in: Callable[[AsyncCollection], Any]) -> Pressed:
     """One press over ASGI, the route handed `stand_in` for its `invitations` collection.
 
-    Answers the status, the time, the press's three counts, each team's live links and its seeded link.
+    Answers the status, the time, the press's two counts, each team's live links and its seeded link.
     """
 
     seeded = {team_id: _seeded_link(team_id) for team_id in TEAM_NAMES}
@@ -403,7 +403,7 @@ async def _pressed(served: FastAPI, url: str, stand_in: Callable[[AsyncCollectio
         return (
             response.status_code,
             elapsed,
-            (answer["mailed"], answer["skipped"], answer["failed"]),
+            (answer["mailed"], answer["failed"]),
             live,
             {team_id: row["_id"] for team_id, row in seeded.items()},
         )
@@ -418,7 +418,7 @@ class TestTheSendPastItsDeadline:
 
         assert status == 200
         assert elapsed < ANSWERED_WITHIN_S
-        assert counts == (1, 0, 2)
+        assert counts == (1, 2)
         # The control: the team before the stall WAS reached, so the two below are the deadline's doing.
         assert len(live[BEFORE_THE_STALL]) == 1 and live[BEFORE_THE_STALL] != [seeded[BEFORE_THE_STALL]]
         assert live[STALLED] == [seeded[STALLED]]
@@ -433,7 +433,7 @@ class TestTheSendPastItsDeadline:
             status, _, counts, _, _ = await _pressed(pressing_app, mongo_replica_set_url, _CommitOfUnknownOutcomeForOneTeam)
 
         assert status == 200
-        assert counts == (2, 0, 1)
+        assert counts == (2, 1)
         assert [getattr(record, "error_code", None) for record in caplog.records if record.message == "saisons.invitation_unminted"] == [
             Code.UNKNOWN_OUTCOME
         ]
