@@ -4,6 +4,8 @@ paths:
   - "fl_backend/**/.*"
   - "fl_frontend/**/*"
   - "fl_frontend/**/.*"
+  - "scripts/**/*"
+  - "scripts/**/.*"
 ---
 
 # Traps — the seams between surfaces
