@@ -247,10 +247,11 @@ here is the order, on the server in the checkout:
    ends.
 3. **Run the change's migration files** with `mongosh --file`, in their order, each ending on its
    own check. A rename is written as a count of the rows still holding the old name, the rename,
-   and the same count again, which must read 0. The same file drops any index the old name held,
-   by a `dropIndex` line: `create_index` refuses a name already held at different options and
-   creates nothing under a name it does not declare, so the boot would leave the old index
-   standing forever.
+   and the same count again, which must read 0; an added field as a count of the rows lacking it,
+   the write, and the same count again, which must read 0. The rename's file drops any index the
+   old name held, by a `dropIndex` line: `create_index` refuses a name already held at different
+   options and creates nothing under a name it does not declare, so the boot would leave the old
+   index standing forever.
 4. **Deploy**: `git pull`, then `./scripts/ops/deploy.sh --no-rollback`, since the build before it
    cannot read the renamed data (§1).
 5. **The read-back**: `docker compose exec -T backend python -m app.readback`, exit 0, then any

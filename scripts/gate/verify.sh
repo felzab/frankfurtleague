@@ -333,7 +333,7 @@ scope_backend() {
 # Its own scope: prettier governs markdown, YAML and the compose files too.
 scope_format() {
   section format
-  step "format · prettier  (check mode — this gate never writes)"
+  step "format · prettier  (check mode, so it reports on the tree it was pointed at)"
   check "Prettier names the unformatted files above. Fix with:  cd fl_frontend && pnpm format  -- then commit the result." \
     in_dir fl_frontend pnpm format:check \
     && ok "the tree is formatted"

@@ -46,13 +46,12 @@ commit that makes the change.
 
 ## The frontend
 
-- **admin** — Give a shell page a second `h1`. _A second `h1` names the page twice in the outline a
+- **admin** — Render a second `h1` on a page. _A second `h1` names the page twice in the outline a
   screen reader walks._
 - **cache** — Fault staleness within the `minutes` lifetime after a change no save makes. _A
   background pass or a hand edit clears no tag, and the lifetime is what bounds it._
-- **copy** — Word a field from anything but its patterns; add a pattern the owner did not approve;
-  explain why or how on a status line. _Readers learn one approved phrase per job, and longer text
-  wraps and shifts the page._
+- **copy** — Word a field from anything but its patterns; explain why or how on a status line.
+  _Readers learn one phrase per job, and longer text wraps and shifts the page._
 - **forms** — Judge a typed field between keystrokes; return the editor to a dialog. _Judging
   mid-typing raises errors, and a page gives every record an address to return to._
 - **forms** — Confirm a clean save; raise the dialog on `info`. _A dialog on every save is clicked
@@ -114,7 +113,8 @@ commit that makes the change.
 
 - **auth** — Carry a return destination on the sign-in redirect without the allowlist first. _An
   unchecked address turns the sign-in into a redirect to any site._
-- **austritt** — Ask a passkey touch for an Austritt
+- **austritt** — Ask a passkey touch for an Austritt. _The touch guards a fixed list of acts, and an
+  Austritt is not on it._
 - **csp** — Disable `react/no-danger`. _The CSP allows inline scripts, so this rule keeps injected
   markup out._
 - **db** — Add a second direct `MongoClient`. _League data reaches the database only through the

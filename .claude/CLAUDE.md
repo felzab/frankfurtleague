@@ -4,8 +4,7 @@ A soccer league site: Next.js in front of FastAPI and MongoDB, deployed with Doc
 nginx. Its pages are built from the component kit in `fl_frontend/src/kit/`, on React Aria
 Components. The corpus entry point is [`docs/README.md`](../docs/README.md). The domain vocabulary
 is German and load-bearing: **open a term's entry in [`docs/glossary.md`](../docs/glossary.md)
-before you first write that term** — in a
-name, a schema field, a commit message or a sentence.
+before you first write that term** — in a name, a schema field, a commit message or a sentence.
 
 This folder holds only what exists because AI agents write this repository: the quality bar, how a
 change ships and the writer's traps. `docs/` describes the system, and nothing outside `.claude/`
@@ -46,8 +45,7 @@ else**, in the primary checkout — the repository's main working tree, never a 
 branch is the session's; an agent the session dispatches to write or to plant works on the branch
 the harness cuts for its worktree, and the coordinator lands what it commits. Cut it with
 `git checkout <base> && git pull --ff-only origin <base> && git checkout -b short-kebab-name`, the
-base being `follow-up` for a session of the follow-up programme, for as long as that branch exists,
-and `main` for every other change.
+base being the one the session's starter names, else `main`.
 
 This trigger, the exit-code rule under the gate and the signature ban bind every agent whatever its
 brief; a dispatched agent that writes or plants meets the trigger on its worktree's branch. A
@@ -83,10 +81,11 @@ finding until it exits 0; a run naming its scopes is for iterating, and `--help`
 before then needs no gate run: the pull request's CI runs on every push, the journeys among it, each
 job bounded by its own `timeout-minutes` and by no other time budget.
 
-- **Let the command finish, and read the exit code from the command whose code it is**, never
-  through a pipe or past Bash's byte mask: `verify.sh --docs | tail -5` reports `tail`'s 0 while the
-  gate exited 1, and a child's 2304 reads as 0. Report the number — never the word "passing", and
-  never one tool standing in for the scope that runs it.
+- **Let the command finish, and report its result by quoting the gate's closing line and its exit
+  code, read from the gate's own command as the very next command**: a code read past a pipe, a
+  semicolon or Bash's byte mask, or a background notice's summary, is not the gate's —
+  `verify.sh --docs | tail -5` reports `tail`'s 0 while the gate exited 1, and a child's 2304 reads
+  as 0. Never the word "passing", and never one tool standing in for the scope that runs it.
 
 ## 3. Quality bar
 
@@ -130,10 +129,10 @@ job bounded by its own `timeout-minutes` and by no other time budget.
 - **What stays open is a GitHub issue, read and written with `gh issue`**: only a question the owner
   has not answered, a standing condition outside the repository, or a study the owner ordered. Its
   body carries the analysis, and it takes one kind label — `bug`, `enhancement`, `question`,
-  `documentation`, or `upstream` where it waits on someone else's release. An issue a redesign
-  session owns names it in its title, as „Redesign session N: …“; **an open issue whose title names
-  no redesign session is worked only when the owner names it.** `Closes #<n>` acts only in a pull
-  request into `main`; one resolved through a pull request into another branch is closed with
+  `documentation`, or `upstream` where it waits on someone else's release. **An open issue is worked
+  only when the owner names it, or when the plan of the running programme, which the owner approved,
+  assigns it to a session.** `Closes #<n>` acts only in a pull request into `main`; one resolved
+  through a pull request into another branch is closed with
   `gh issue close <n> --comment <that pull request's link>` once it has merged.
 
 ## 4. Stack and versions
@@ -142,7 +141,7 @@ Prefer the pattern the repository already uses, and match the surrounding code; 
 convention is in `docs/`. Verify anything the repository does not already do against the official
 docs before writing it, and say plainly where you could not. **Before answering anything about a
 library's API, and before writing a line that depends on one, grep that library's `llms.txt`** —
-[`rules/stack.md`](rules/stack.md) lists each package's, with the deprecations no tool catches —
+[`rules/stack.md`](rules/stack.md) lists each package's, with the one deprecation no tool catches —
 ahead of the prose docs and long before recall. An API claim made without checking an available one
 is unverified: say so in the same answer. **Before adopting a tool, look for a well-maintained,
 widely adopted one and cost the option needing no dependency first**; writing one's own is the last
@@ -165,28 +164,28 @@ machine's own are in `~/.claude/CLAUDE.md`.
 
 - **Never let a command whose file operand is a variable read stdin**: with the variable empty,
   `grep` waits on stdin with nothing to show it. Guard the empty case and pass `< /dev/null`.
-- **Run Prettier over a file before committing it, unless the `Edit` or `Write` tool wrote it in a
-  checkout whose `fl_frontend` is installed** —
-  `cd fl_frontend && pnpm exec prettier --write --cache --cache-strategy content --ignore-path ../.prettierignore <file>`. A hook
-  formats what those two tools write there; the gate's format scope only checks, and no commit hook
-  formats anything.
+- **Run Prettier over a file before committing it, unless the `Edit` or `Write` tool wrote it while
+  an `fl_frontend` install stands in that checkout or in the one the hooks run from** —
+  `cd fl_frontend && pnpm exec prettier --write --cache --cache-strategy content --ignore-path ../.prettierignore <file>`.
+  A hook formats what those two tools write there; the gate's format scope only checks, and no
+  commit hook formats anything.
 
 ## 7. Ratified decisions — never "fix" one
 
 **Every line of [`docs/decisions.md`](../docs/decisions.md), loaded below, is a never-clause, and
-each is deliberate.** Check them before calling anything a violation. Never flag, refactor or
-optimise one without an instruction naming it; where you believe one is wrong, another source's
-disagreement included, say so and stop — the correction is the owner's. Its argument, where one
-survives, is at the line the clause governs or in the commit `git log -S` finds for its words. A
-ruling that adds or retires a decision edits that file in the commit that makes the change.
+each is deliberate.** Check them before calling anything a violation. Never refactor or optimise
+one without the owner's instruction naming it. Where evidence shows one is wrong, report the line and
+the evidence and stop: the change is the owner's. Its argument, where one survives, is at the line
+the clause governs. A ruling that adds or retires a decision edits that file in the commit that
+makes the change.
 
 @../docs/decisions.md
 
-**Before proposing a change on a surface, read in full every rules file that loaded, and open the one
-for a surface you are about to touch even if no read has pulled it in.** The files under
-`.claude/rules/` — [`backend.md`](rules/backend.md), [`frontend.md`](rules/frontend.md),
-[`cross-surface.md`](rules/cross-surface.md) and [`stack.md`](rules/stack.md) — hold the traps each
-surface springs; a rules file written during a session loads only in a session started after it.
+**Before proposing a change on a surface, open the rules file for one you are about to touch even if
+no read has pulled it in.** The files under `.claude/rules/` — [`backend.md`](rules/backend.md),
+[`frontend.md`](rules/frontend.md), [`cross-surface.md`](rules/cross-surface.md) and
+[`stack.md`](rules/stack.md) — hold the traps each surface springs. A rules file written during a
+session does not load in that session, and does load in an agent it dispatches afterwards.
 
 ## 8. Documentation
 
@@ -203,7 +202,8 @@ whose copy is the session's own: brief a changed rule to each agent in words.
 
 ## 9. Commands and refusals
 
-Commands live in `.claude/commands/` and are slash-only — **never launch one from prose.**
+**A slash command, or the procedure it runs, starts only on the owner's own words**, typed as the
+command or said to the same effect, never on an agent's own reading, such as that the owner left.
 
 **Comply with every refusal from a permission rule or a hook, and never route around it.** Write a
 multi-line file with the `Write` tool, never a heredoc. Give each shell command one purpose: a deny
