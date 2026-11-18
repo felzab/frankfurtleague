@@ -30,6 +30,7 @@ from app.core.dependencies import (
     SpieleCollection,
 )
 from app.core.journal import Journal
+from app.core.recording import ACT_BY_SCHIEDSRICHTER, record_act
 from app.core.routing import SAFE
 from app.core.security import BASE_TIER
 from app.core.transactions import transact
@@ -192,6 +193,8 @@ async def post_decline(
             now=germany_now,
             session=session,
         )
+        # Nameless, as the pass's erasure is: the entry it would name is gone.
+        await record_act(collection=schiedsrichter_collection, action="schiedsrichter.objected", by=ACT_BY_SCHIEDSRICHTER, session=session)
         # The restore's replay reads the erased record's id off this line and erases it again.
         journal.note("objection", [f"{Collection.SCHIEDSRICHTER}/{raw['_id']}"])
 

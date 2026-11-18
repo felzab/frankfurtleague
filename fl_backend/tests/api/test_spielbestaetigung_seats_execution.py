@@ -154,6 +154,7 @@ async def contradict(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         saisons_collection=database[Collection.SAISONS],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         outbox_collection=database[Collection.OUTBOX],
+        teams_collection=database[Collection.TEAMS],
         db=client,
         today=TODAY,
         germany_now=NOW,
