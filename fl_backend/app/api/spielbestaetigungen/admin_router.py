@@ -1,6 +1,3 @@
-from collections.abc import Mapping
-from typing import Any
-
 from fastapi import APIRouter, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -88,7 +85,7 @@ async def enter_spielbestaetigung(
     goes at the season's end.
     """
 
-    async def settle_for_the_party(session: AsyncClientSession) -> Mapping[str, Any]:
+    async def settle_for_the_party(session: AsyncClientSession) -> None:
         row = await pull_one_from_db(
             collection=spielbestaetigungen_collection,
             db_filter={"_id": spielbestaetigung_id},
@@ -110,13 +107,13 @@ async def enter_spielbestaetigung(
         try:
             # The state term as a seat's press writes it. A seat's answer committing under
             # this one conflicts with the write instead, and the retry's read above refuses.
-            entered = await patch_one_in_db(
+            await patch_one_in_db(
                 collection=spielbestaetigungen_collection,
                 db_filter={"_id": spielbestaetigung_id, **build_answerable_filter()},
                 update=compose_enter_update(reason=enter_data.reason, today=today),
                 session=session,
                 expected_version=None,
-                return_document=ReturnDocument.AFTER,
+                return_document=ReturnDocument.BEFORE,
             )
         except DocumentNotFoundError as miss:
             raise not_actionable_refusal() from miss
@@ -137,8 +134,6 @@ async def enter_spielbestaetigung(
             db_filter={"saison_id": row["saison_id"], "team_id": {"$in": [junction["team_id"] for junction in state.junctions]}},
             session=session,
         )
-
-        return entered
 
     await transact(db, settle_for_the_party)
 
@@ -162,7 +157,7 @@ async def discard_spielbestaetigung(
     The public fixture counts it as the club's agreement, and the club is told that the date stands.
     """
 
-    async def discard_the_proposal(session: AsyncClientSession) -> Mapping[str, Any]:
+    async def discard_the_proposal(session: AsyncClientSession) -> None:
         row = await pull_one_from_db(
             collection=spielbestaetigungen_collection,
             db_filter={"_id": spielbestaetigung_id},
@@ -191,13 +186,13 @@ async def discard_spielbestaetigung(
         await anchor_the_spiele_acted_on(spiele_collection=spiele_collection, spiel_ids=[row["spiel_id"]], session=session)
 
         try:
-            discarded = await patch_one_in_db(
+            await patch_one_in_db(
                 collection=spielbestaetigungen_collection,
                 db_filter={"_id": spielbestaetigung_id, **build_discardable_filter()},
                 update=compose_closing_update(reason="discarded"),
                 session=session,
                 expected_version=None,
-                return_document=ReturnDocument.AFTER,
+                return_document=ReturnDocument.BEFORE,
             )
         except DocumentNotFoundError as miss:
             raise not_actionable_refusal() from miss
@@ -222,8 +217,6 @@ async def discard_spielbestaetigung(
             # A seat emptied or an address moved beside this write conflicts with it rather than leaving the old mailbox told.
             await anchor_the_mailboxes_told(saison_teams_collection=saison_teams_collection, saison_team_ids=[junction["_id"]], session=session)
         await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=mails, now=germany_now)
-
-        return discarded
 
     await transact(db, discard_the_proposal)
 

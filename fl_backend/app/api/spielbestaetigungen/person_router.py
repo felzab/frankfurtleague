@@ -248,8 +248,7 @@ async def post_team_answer(
             membership = await pull_saison_membership(
                 saison_teams_collection=saison_teams_collection, saison_id=stored.saison_id, session=session
             )
-            # The composer spelled at the call: its kept sides are what disarm this check's no-membership code here.
-            refuse(judged_as_a_proposal(find_eligibility_refusal(stored.id, proposal_payload(stored, vorschlag), [stored], membership)))
+            refuse(judged_as_a_proposal(find_eligibility_refusal(stored.id, proposed, [stored], membership)))
 
             span = await pull_spieltag_span(spieltage_collection=spieltage_collection, spieltag_id=stored.spieltag_id, session=session)
             if span is not None:
