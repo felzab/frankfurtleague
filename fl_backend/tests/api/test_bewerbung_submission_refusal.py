@@ -20,8 +20,9 @@ from app.api.bewerbungen.services import (
     open_links_on,
     seats_past_the_bound,
 )
-from app.api.teams.schemas import FLKontaktperson, normalise_phone
+from app.api.teams.schemas import FLKontaktperson
 from app.core.codes import Code
+from app.shared.folding import normalise_phone
 from app.shared.mailbox import mailbox_anchor_ids
 from app.shared.schemas.bounds import TEAM_WEBSITE_URL_MAX_LENGTH
 from tests.documents import ADDRESS, kontaktperson_document

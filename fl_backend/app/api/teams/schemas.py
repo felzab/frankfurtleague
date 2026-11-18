@@ -1,4 +1,3 @@
-import re
 from collections.abc import Mapping
 from typing import Annotated, Final, Literal, get_args
 
@@ -64,30 +63,6 @@ type FLTeamStatistikScope = Literal["gruppenphase", "total"]
 # Which second seat one person may hold beside the Trainer's. A closed set rather than a flag per seat: the
 # two are alternatives, and nothing can mean holding both.
 type FLTrainerAlso = Literal["ansprechperson", "stellvertretung"]
-
-
-# Both spellings of the country code. Neither arm can take the other's value -- `0049…` does not
-# start with `49` -- so the order carries nothing.
-_PHONE_COUNTRY_CODES = ("0049", "49")
-
-
-def normalise_phone(value: str) -> str:
-    """One spelling per telephone number, so `+49 170 …` and `0170 …` compare equal.
-
-    Digits alone, `PHONE_REGEX` admitting spaces, brackets, hyphens and dots. No German area code
-    starts with the trunk `0`, so a leading country code folds back to it.
-    """
-
-    digits = re.sub(r"[^0-9]", "", value)
-
-    for country_code in _PHONE_COUNTRY_CODES:
-        if digits.startswith(country_code):
-            # The second `removeprefix` takes the trunk zero written as `(0)`, which is the standard
-            # German notation and the commonest spelling of all. An international-format number
-            # carries no real leading zero, so dropping one can only be right.
-            return f"0{digits.removeprefix(country_code).removeprefix('0')}"
-
-    return digits
 
 
 class FLAustritt(BaseModel):

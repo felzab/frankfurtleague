@@ -19,14 +19,14 @@ from app.api.outbox.schemas import (
     FLOutboxStatus,
 )
 from app.api.outbox.services import OwedMail
-from app.api.teams.schemas import FLPostTeamPayload, normalise_phone
+from app.api.teams.schemas import FLPostTeamPayload
 from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_evidence import TextVersions, compose_choices
-from app.shared.folding import sign_in_identifier
+from app.shared.folding import normalise_phone, sign_in_identifier
 from app.shared.mailbox import OPEN_LINKS_PER_MAILBOX, mailbox_of, mailbox_pattern
 from app.shared.saison import season_has_ended
 from app.shared.schemas.bounds import (

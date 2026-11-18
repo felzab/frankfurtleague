@@ -18,20 +18,12 @@ from app.api.spiele.schemas import (
     SONDEREREIGNIS_WITHOUT_A_RESULT,
     FLSpielCommon,
 )
-from app.api.teams.schemas import (
-    FLKontaktMint,
-    FLTeamGruppeOffer,
-    FLTeamListState,
-    FLTeamsAdminRow,
-    FLTeamStatistik,
-    FLTeamStatistikScope,
-    normalise_phone,
-)
+from app.api.teams.schemas import FLKontaktMint, FLTeamGruppeOffer, FLTeamListState, FLTeamsAdminRow, FLTeamStatistik, FLTeamStatistikScope
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
-from app.shared.folding import person_name_key, sign_in_identifier
+from app.shared.folding import normalise_phone, person_name_key, sign_in_identifier
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import KONTAKT_SEATS, FLGruppenNames, FLKontaktRow, FLKontaktSeat, FLTrikotFarbe
 
