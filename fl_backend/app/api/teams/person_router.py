@@ -60,6 +60,7 @@ from app.core.dependencies import (
 )
 from app.core.journal import Journal
 from app.core.readonly import ReadCollection
+from app.core.routing import by_id
 from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transact
 from app.shared.einwilligung_evidence import FLEinwilligungChoice
@@ -99,7 +100,7 @@ def _seats_of(kontakte: Mapping[str, Any]) -> list[FLTeamSeat]:
 
 
 @router.patch(
-    "/{team_id:objectid}/saisons/{saison_id}/account/einwilligung",
+    f"{by_id('team_id')}/saisons/{{saison_id}}/account/einwilligung",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Change a seat holder's own WhatsApp and media consent on one team's season",
 )
@@ -308,7 +309,7 @@ async def _pull_team_spiele(
 # `/self/...`, its own segment: the admin router serves this team and season under its own paths, and one path in both
 # routers would be answered by whichever was mounted first.
 @router.get(
-    "/{team_id:objectid}/saisons/{saison_id}/self/overview",
+    f"{by_id('team_id')}/saisons/{{saison_id}}/self/overview",
     summary="A team's Übersicht in one season",
 )
 async def get_team_overview(
@@ -422,7 +423,7 @@ async def get_team_overview(
 
 
 @router.get(
-    "/{team_id:objectid}/saisons/{saison_id}/self/spiele",
+    f"{by_id('team_id')}/saisons/{{saison_id}}/self/spiele",
     summary="A team's fixtures in one season, with what is open on each",
 )
 async def get_team_spiele(

@@ -89,7 +89,7 @@ router = APIRouter(prefix="/registrierungen", dependencies=PERSON_TIER)
 
 
 @router.get(
-    "/kader/{team_id:objectid}/{saison_id}",
+    f"/kader{by_id('team_id')}/{{saison_id}}",
     summary="A team's pending registrations for one season",
 )
 async def get_open_registrierungen(

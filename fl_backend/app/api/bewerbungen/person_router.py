@@ -14,6 +14,7 @@ from app.core.collections import Collection
 from app.core.crud import patch_past_the_version_in_db, refuse
 from app.core.dependencies import BewerbungenCollection, DBClient, GermanyNow
 from app.core.journal import Journal
+from app.core.routing import by_id
 from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transact
 from app.shared.einwilligung_evidence import FLEinwilligungChoice
@@ -29,7 +30,7 @@ router = APIRouter(prefix="/bewerbungen", dependencies=PERSON_TIER)
 # `/account/einwilligung`, its own segment: the admin router serves this application under its own paths, and one path in
 # both routers would be answered by whichever was mounted first.
 @router.patch(
-    "/{bewerbung_id:objectid}/account/einwilligung",
+    f"{by_id('bewerbung_id')}/account/einwilligung",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Withdraw a seat holder's own WhatsApp and media consent on a pending Bewerbung",
 )
