@@ -384,10 +384,8 @@ async def post_confirmation(
     token_hash = hash_token(answer_data.token)
 
     async def answer_for_the_pupil(session: AsyncClientSession) -> FLRegistrierungConfirmationResponse:
-        """One transaction, so a second press landing between the read and the write is refused by
-        the stamp rather than overwriting the answer already given.
-        """
-
+        # One transaction, so a second press landing between the read and the write is refused by the stamp rather than
+        # overwriting the answer already given.
         raw = await registrierungen_collection.find_one(
             build_confirmation_filter(token_hash=token_hash), projection=dict(CONFIRMATION_ANSWER_FIELDS), session=session
         )
