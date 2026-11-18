@@ -38,18 +38,7 @@ class FLInvitationRow(FLInvitation):
 class FLInvitationMintResponse(BaseReadModel):
     """A freshly minted registration link, and the only answer that ever carries its raw value: no later read recovers it."""
 
-    saison_id: CustomNonEmptyString
-    team_id: CustomObjectId
-    invitation_id: CustomObjectId
     token: CustomNonEmptyString
-
-
-class FLInvitationWriteResponse(BaseReadModel):
-    """The revoked link, which stays stored so a delivery event about it still lands."""
-
-    saison_id: CustomNonEmptyString
-    team_id: CustomObjectId
-    invitation_id: CustomObjectId
 
 
 type FLInvitationSkipReason = Literal[

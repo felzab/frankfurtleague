@@ -181,8 +181,11 @@ class Mailed:
         return link
 
 
-async def mailed(database: AsyncDatabase, answer: Any, owed: list[Any]) -> Mailed:
-    """The outbox drained as the frontend drains it after the write, each mail matched to the person the answer names."""
+async def mailed(database: AsyncDatabase, answer: Any, owed: list[Any] | None) -> Mailed:
+    """The outbox drained as the frontend drains it after the write, each mail matched to the person the answer names.
+
+    `owed` is `None` for a write answering no body, whose mails are read as they went out.
+    """
 
     mails = await drained(database, database.client)
     links = [
@@ -197,7 +200,8 @@ async def mailed(database: AsyncDatabase, answer: Any, owed: list[Any]) -> Maile
         for mail in mails
         if mail.data.kind == "kontakt_confirmation"
     ]
-    assert [(link.seats, link.email) for link in links] == [(mint.seats, mint.email) for mint in owed], "the answer and the mails part"
+    if owed is not None:
+        assert [(link.seats, link.email) for link in links] == [(mint.seats, mint.email) for mint in owed], "the answer and the mails part"
 
     return Mailed(answer=answer, confirmations=links)
 
@@ -222,7 +226,7 @@ async def save(database: AsyncDatabase, kontakte: Any) -> Mailed:
 
 
 async def resend(database: AsyncDatabase, seat: str, *, today: str = TODAY) -> Mailed:
-    answer = await resend_kontakt_confirmation(
+    await resend_kontakt_confirmation(
         team_id=TEAM_OID,
         saison_id=SAISON_ID,
         seat=seat,
@@ -234,7 +238,7 @@ async def resend(database: AsyncDatabase, seat: str, *, today: str = TODAY) -> M
         germany_now=MAIL_NOW,
     )
 
-    return await mailed(database, answer, [answer.confirmation])
+    return await mailed(database, None, None)
 
 
 async def replace(database: AsyncDatabase) -> Any:

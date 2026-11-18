@@ -294,10 +294,12 @@ class TestTheEntry:
 
     async def test_a_new_team_is_founded_and_entered_with_its_colour(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            answer = await enter(database, {"kind": "new", "team": team_fields(name="Eschborn", shorthand="ESC")})
+            await enter(database, {"kind": "new", "team": team_fields(name="Eschborn", shorthand="ESC")})
+            founded = await database[Collection.TEAMS].find_one({"shorthand": "ESC"}, {"_id": 1})
+            assert founded is not None, "the entry founded no club"
             acts = database[Collection.ACTION_LOG].find({"action": "team.entered"})
 
-            return await database[Collection.SAISON_TEAMS].find_one({"team_id": ObjectId(answer.team_id)}), [act["label"] async for act in acts]
+            return await database[Collection.SAISON_TEAMS].find_one({"team_id": founded["_id"]}), [act["label"] async for act in acts]
 
         row, acts = await on_a_league(mongo_replica_set_url, body)
 

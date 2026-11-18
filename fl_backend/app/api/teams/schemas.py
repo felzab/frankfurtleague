@@ -459,12 +459,6 @@ class FLPostTeamEntryPayload(BasePayload):
     trikot_farbe: FLTrikotFarbe | None
 
 
-class FLPostTeamEntryResponse(BaseReadModel):
-    """The club the entry wrote a row for, whose editor the list opens."""
-
-    team_id: CustomObjectId
-
-
 class FLReplaceSaisonTeamPayload(BasePayload):
     """Which club takes this season's row over. The path names the club going out."""
 
@@ -570,40 +564,6 @@ class FLKontaktSeatResponse(BaseReadModel):
 
     # The address the fresh link is owed to, as stored. Null where the seat keeps its person, who keeps their link.
     email: str | None
-
-
-class FLKontaktInviteResponse(BaseReadModel):
-    """A fresh link owed one seat, and its pair where the Trainer holds both; the old link opens nothing from this write on."""
-
-    saison_id: str
-    team_id: CustomObjectId
-    confirmation: FLKontaktMint
-
-
-class FLReplaceSaisonTeamResponse(BaseReadModel):
-    """The junction row as the replacement left it, plus what it reached beyond that row.
-
-    `austritt` is cleared and not echoed: a club that has not withdrawn needs nothing done about it.
-    """
-
-    saison_id: str
-    outgoing_team_id: CustomObjectId
-    incoming_team_id: CustomObjectId
-    # Untouched by the replacement, and echoed because the arriving club has to be told which group
-    # it now stands in.
-    gruppe: FLGruppenNames
-    # The gap: the outgoing school's colour and its three people leave with it, so the season now
-    # has no way at all to reach this team.
-    trikot_farbe: FLTrikotFarbe | None
-    kontakte: FLSaisonTeamKontakte | None
-    # Reseeded from the incoming club, exactly as entry seeds them.
-    name: CustomNonEmptyString
-    shorthand: CustomShorthand
-    # The fixtures whose side moved to the incoming club, reported rather than assumed.
-    rewritten_spiele: int
-    # Reported for the same reason, and separately: the outgoing club's squad leaves the season with
-    # it, and zero is a real answer -- a club can hold a junction row and no squad at all.
-    retired_kader_rows: int
 
 
 class FLTeamSeat(BaseModel):

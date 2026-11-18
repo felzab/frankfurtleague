@@ -179,7 +179,7 @@ describe("each form's posted names meet its lane's keys", () => {
       city: "Frankfurt am Main",
     };
     everyBoxTyped(names, typed);
-    takes(["POST", "/teams/saisons/2027/entry", { team_id: TEAM }]);
+    takes(["POST", "/teams/saisons/2027/entry", new Response(null, { status: 204 })]);
 
     // The season the dialog carries beside its boxes.
     expect(await enterTeam(formOf([...names, "saison_id"], { ...typed, saison_id: "2027" }))).toStrictEqual({ ok: true, value: undefined });
