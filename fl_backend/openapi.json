@@ -539,14 +539,6 @@
             "title": "Media",
             "type": "boolean"
           },
-          "rollen": {
-            "items": {
-              "$ref": "#/components/schemas/FLKontaktRolle"
-            },
-            "minItems": 1,
-            "title": "Rollen",
-            "type": "array"
-          },
           "saison_id": {
             "title": "Saison Id",
             "type": "string"
@@ -557,13 +549,21 @@
           },
           "scope": {
             "$ref": "#/components/schemas/FLKontaktKenntnisnahmeScope"
+          },
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontaktSeat"
+            },
+            "minItems": 1,
+            "title": "Seats",
+            "type": "array"
           }
         },
         "required": [
           "bewerbung_id",
           "schule",
           "saison_id",
-          "rollen",
+          "seats",
           "scope",
           "media",
           "evidence_state"
@@ -679,17 +679,17 @@
             "title": "Last Name",
             "type": "string"
           },
-          "rolle": {
-            "$ref": "#/components/schemas/FLKontaktRolle"
-          },
           "saison_id": {
             "title": "Saison Id",
             "type": "string"
+          },
+          "seat": {
+            "$ref": "#/components/schemas/FLKontaktSeat"
           }
         },
         "required": [
           "saison_id",
-          "rolle",
+          "seat",
           "first_name",
           "last_name"
         ],
@@ -770,12 +770,12 @@
             "title": "Last Name",
             "type": "string"
           },
-          "rolle": {
-            "$ref": "#/components/schemas/FLKontaktRolle"
-          },
           "saison_id": {
             "title": "Saison Id",
             "type": "string"
+          },
+          "seat": {
+            "$ref": "#/components/schemas/FLKontaktSeat"
           },
           "team_name": {
             "title": "Team Name",
@@ -785,7 +785,7 @@
         "required": [
           "saison_id",
           "team_name",
-          "rolle",
+          "seat",
           "first_name",
           "last_name"
         ],
@@ -1041,20 +1041,20 @@
             "title": "Media Offered",
             "type": "boolean"
           },
-          "rollen": {
-            "items": {
-              "$ref": "#/components/schemas/FLKontaktRolle"
-            },
-            "minItems": 1,
-            "title": "Rollen",
-            "type": "array"
-          },
           "saison_id": {
             "title": "Saison Id",
             "type": "string"
           },
           "scope": {
             "$ref": "#/components/schemas/FLKontaktKenntnisnahmeScope"
+          },
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontaktSeat"
+            },
+            "minItems": 1,
+            "title": "Seats",
+            "type": "array"
           },
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -1070,7 +1070,7 @@
           "team_id",
           "team_name",
           "saison_id",
-          "rollen",
+          "seats",
           "scope",
           "media",
           "evidence_state",
@@ -3136,17 +3136,17 @@
             "title": "Reason",
             "type": "string"
           },
-          "rollen": {
-            "items": {
-              "$ref": "#/components/schemas/FLKontaktRolle"
-            },
-            "minItems": 1,
-            "title": "Rollen",
-            "type": "array"
-          },
           "saison_id": {
             "title": "Saison Id",
             "type": "string"
+          },
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontaktSeat"
+            },
+            "minItems": 1,
+            "title": "Seats",
+            "type": "array"
           },
           "team": {
             "title": "Team",
@@ -3157,7 +3157,7 @@
           "kind",
           "team",
           "saison_id",
-          "rollen",
+          "seats",
           "reason"
         ],
         "title": "FLBewerbungAbsageData",
@@ -3481,21 +3481,21 @@
             "title": "Email",
             "type": "string"
           },
-          "rolle": {
-            "$ref": "#/components/schemas/FLKontaktRolle"
+          "seat": {
+            "$ref": "#/components/schemas/FLKontaktSeat"
           },
-          "rollen": {
+          "seats": {
             "items": {
-              "$ref": "#/components/schemas/FLKontaktRolle"
+              "$ref": "#/components/schemas/FLKontaktSeat"
             },
-            "title": "Rollen",
+            "title": "Seats",
             "type": "array"
           }
         },
         "required": [
-          "rolle",
+          "seat",
           "email",
-          "rollen",
+          "seats",
           "confirmation_deadline"
         ],
         "title": "FLBewerbungEinwilligungResendResponse",
@@ -3504,10 +3504,10 @@
       "FLBewerbungEinwilligungViewResponse": {
         "description": "What the page renders for one seat, and nothing of the person.",
         "properties": {
-          "also_rolle": {
+          "also_seat": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLKontaktRolle"
+                "$ref": "#/components/schemas/FLKontaktSeat"
               },
               {
                 "type": "null"
@@ -3554,9 +3554,6 @@
             "title": "Quelle",
             "type": "string"
           },
-          "rolle": {
-            "$ref": "#/components/schemas/FLKontaktRolle"
-          },
           "row": {
             "anyOf": [
               {
@@ -3574,6 +3571,9 @@
           "schule": {
             "title": "Schule",
             "type": "string"
+          },
+          "seat": {
+            "$ref": "#/components/schemas/FLKontaktSeat"
           },
           "state": {
             "enum": [
@@ -3593,8 +3593,8 @@
           "row",
           "saison_id",
           "schule",
-          "rolle",
-          "also_rolle",
+          "seat",
+          "also_seat",
           "minimum_age",
           "maximum_age",
           "deadline",
@@ -3912,7 +3912,7 @@
         "type": "object"
       },
       "FLBewerbungLinkData": {
-        "description": "One person's confirmation link on an application: at its submission, a re-send, a correction or a reseat, or the one reminder.\n\n`rollen` are every seat the link answers, two where the Trainer holds a second; the reminder's link joins the first.",
+        "description": "One person's confirmation link on an application: at its submission, a re-send, a correction or a reseat, or the one reminder.\n\n`seats` are every seat the link answers, two where the Trainer holds a second; the reminder's link joins the first.",
         "properties": {
           "deadline": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -3927,14 +3927,6 @@
             "title": "Kind",
             "type": "string"
           },
-          "rollen": {
-            "items": {
-              "$ref": "#/components/schemas/FLKontaktRolle"
-            },
-            "minItems": 1,
-            "title": "Rollen",
-            "type": "array"
-          },
           "saison_id": {
             "title": "Saison Id",
             "type": "string"
@@ -3942,13 +3934,21 @@
           "schule": {
             "title": "Schule",
             "type": "string"
+          },
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontaktSeat"
+            },
+            "minItems": 1,
+            "title": "Seats",
+            "type": "array"
           }
         },
         "required": [
           "kind",
           "saison_id",
           "schule",
-          "rollen",
+          "seats",
           "deadline"
         ],
         "title": "FLBewerbungLinkData",
@@ -4062,7 +4062,7 @@
           },
           "declined": {
             "items": {
-              "$ref": "#/components/schemas/FLKontaktRolle"
+              "$ref": "#/components/schemas/FLKontaktSeat"
             },
             "minItems": 1,
             "title": "Declined",
@@ -4073,23 +4073,23 @@
             "title": "Kind",
             "type": "string"
           },
-          "rollen": {
-            "items": {
-              "$ref": "#/components/schemas/FLKontaktRolle"
-            },
-            "minItems": 1,
-            "title": "Rollen",
-            "type": "array"
-          },
           "saison_id": {
             "title": "Saison Id",
             "type": "string"
+          },
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontaktSeat"
+            },
+            "minItems": 1,
+            "title": "Seats",
+            "type": "array"
           }
         },
         "required": [
           "kind",
           "saison_id",
-          "rollen",
+          "seats",
           "declined",
           "deadline"
         ],
@@ -4111,28 +4111,28 @@
           },
           "pending": {
             "items": {
-              "$ref": "#/components/schemas/FLKontaktRolle"
+              "$ref": "#/components/schemas/FLKontaktSeat"
             },
             "title": "Pending",
-            "type": "array"
-          },
-          "rollen": {
-            "items": {
-              "$ref": "#/components/schemas/FLKontaktRolle"
-            },
-            "minItems": 1,
-            "title": "Rollen",
             "type": "array"
           },
           "saison_id": {
             "title": "Saison Id",
             "type": "string"
+          },
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontaktSeat"
+            },
+            "minItems": 1,
+            "title": "Seats",
+            "type": "array"
           }
         },
         "required": [
           "kind",
           "saison_id",
-          "rollen",
+          "seats",
           "pending",
           "deadline"
         ],
@@ -4440,17 +4440,17 @@
             "title": "Kind",
             "type": "string"
           },
-          "rollen": {
-            "items": {
-              "$ref": "#/components/schemas/FLKontaktRolle"
-            },
-            "minItems": 1,
-            "title": "Rollen",
-            "type": "array"
-          },
           "saison_id": {
             "title": "Saison Id",
             "type": "string"
+          },
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontaktSeat"
+            },
+            "minItems": 1,
+            "title": "Seats",
+            "type": "array"
           },
           "shorthand": {
             "title": "Shorthand",
@@ -4476,7 +4476,7 @@
           "team",
           "shorthand",
           "saison_id",
-          "rollen",
+          "seats",
           "gruppe",
           "trikot_farbe"
         ],
@@ -6376,14 +6376,6 @@
             "title": "Kind",
             "type": "string"
           },
-          "rollen": {
-            "items": {
-              "$ref": "#/components/schemas/FLKontaktRolle"
-            },
-            "minItems": 1,
-            "title": "Rollen",
-            "type": "array"
-          },
           "row": {
             "$ref": "#/components/schemas/FLKontaktRow"
           },
@@ -6394,13 +6386,21 @@
           "schule": {
             "title": "Schule",
             "type": "string"
+          },
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontaktSeat"
+            },
+            "minItems": 1,
+            "title": "Seats",
+            "type": "array"
           }
         },
         "required": [
           "kind",
           "saison_id",
           "schule",
-          "rollen",
+          "seats",
           "deadline",
           "row"
         ],
@@ -6414,16 +6414,16 @@
             "title": "Email",
             "type": "string"
           },
-          "rollen": {
+          "seats": {
             "items": {
-              "$ref": "#/components/schemas/FLKontaktRolle"
+              "$ref": "#/components/schemas/FLKontaktSeat"
             },
-            "title": "Rollen",
+            "title": "Seats",
             "type": "array"
           }
         },
         "required": [
-          "rollen",
+          "seats",
           "email"
         ],
         "title": "FLKontaktMint",
@@ -6461,19 +6461,19 @@
         "title": "FLKontaktPayload",
         "type": "object"
       },
-      "FLKontaktRolle": {
-        "enum": [
-          "trainer",
-          "ansprechperson",
-          "stellvertretung"
-        ],
-        "type": "string"
-      },
       "FLKontaktRow": {
         "enum": [
           "open",
           "saison_past",
           "exited"
+        ],
+        "type": "string"
+      },
+      "FLKontaktSeat": {
+        "enum": [
+          "trainer",
+          "ansprechperson",
+          "stellvertretung"
         ],
         "type": "string"
       },
@@ -14299,13 +14299,13 @@
             "title": "Kind",
             "type": "string"
           },
-          "rolle": {
-            "$ref": "#/components/schemas/FLKontaktRolle"
+          "seat": {
+            "$ref": "#/components/schemas/FLKontaktSeat"
           }
         },
         "required": [
           "kind",
-          "rolle"
+          "seat"
         ],
         "title": "FLSpielbestaetigungByKontakt",
         "type": "object"
@@ -16312,9 +16312,6 @@
       "FLSubjectSeat": {
         "description": "One contact seat the mailbox holds on a season's junction row.\n\nPer seat and never per person: one row seats one person twice where `trainer_is_also` says so.",
         "properties": {
-          "rolle": {
-            "$ref": "#/components/schemas/FLKontaktRolle"
-          },
           "saison_end_date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Saison End Date",
@@ -16331,6 +16328,9 @@
           },
           "saison_status": {
             "$ref": "#/components/schemas/FLSaisonStatus"
+          },
+          "seat": {
+            "$ref": "#/components/schemas/FLKontaktSeat"
           },
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -16349,7 +16349,7 @@
         "required": [
           "saison_id",
           "team_id",
-          "rolle",
+          "seat",
           "team_name",
           "team_shorthand",
           "saison_status",
@@ -16852,6 +16852,13 @@
             "title": "Full Name",
             "type": "string"
           },
+          "held_seats": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontaktSeat"
+            },
+            "title": "Held Seats",
+            "type": "array"
+          },
           "name": {
             "minLength": 1,
             "title": "Name",
@@ -16867,13 +16874,6 @@
           "registrierungen_complete": {
             "title": "Registrierungen Complete",
             "type": "boolean"
-          },
-          "rollen": {
-            "items": {
-              "$ref": "#/components/schemas/FLKontaktRolle"
-            },
-            "title": "Rollen",
-            "type": "array"
           },
           "saison_id": {
             "title": "Saison Id",
@@ -16921,7 +16921,7 @@
           "shorthand",
           "full_name",
           "trikot_farbe",
-          "rollen",
+          "held_seats",
           "spielbestaetigungen",
           "aufstellungen",
           "registrierungen",
@@ -17867,16 +17867,16 @@
             ],
             "title": "Name"
           },
-          "rollen": {
+          "seats": {
             "items": {
-              "$ref": "#/components/schemas/FLKontaktRolle"
+              "$ref": "#/components/schemas/FLKontaktSeat"
             },
-            "title": "Rollen",
+            "title": "Seats",
             "type": "array"
           }
         },
         "required": [
-          "rollen",
+          "seats",
           "name",
           "confirmed"
         ],

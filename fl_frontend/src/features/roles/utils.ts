@@ -76,12 +76,12 @@ export function placeOf(target: RoleTarget): { href: Route; name: Words; seats?:
   switch (first.kind) {
     case "kontakt": {
       // Every seat at one address shares its team and season, so the first names both.
-      const rollen = target.roles.flatMap((role) => (role.kind === "kontakt" ? [role.rolle] : []));
+      const held = target.roles.flatMap((role) => (role.kind === "kontakt" ? [role.seat] : []));
       return {
         href,
         name: { record: first.team_name },
-        seats: COPY.account.role.seats(COPY.shared.saisonNameBound(first.saison_id), rollen),
-        teamLine: COPY.area.team.accountLine({ record: first.team_shorthand }, rollen),
+        seats: COPY.account.role.seats(COPY.shared.saisonNameBound(first.saison_id), held),
+        teamLine: COPY.area.team.accountLine({ record: first.team_shorthand }, held),
       };
     }
     case "spieler":

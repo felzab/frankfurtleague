@@ -117,7 +117,7 @@ def _judged(identifier: str, seat_rows: Rows, referee_rows: Rows, pupil_rows: Ro
                 {
                     "saison_id": row["saison_id"],
                     "team_id": row["team_id"],
-                    "rolle": slot,
+                    "seat": slot,
                     "team_name": row["name"],
                     "team_shorthand": row["shorthand"],
                     "saison_status": saisons[row["saison_id"]]["status"],

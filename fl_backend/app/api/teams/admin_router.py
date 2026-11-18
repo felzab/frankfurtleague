@@ -141,7 +141,7 @@ from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.transactions import transact
 from app.shared.schemas.custom import CustomObjectId
-from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.schemas.literals import KONTAKT_SEATS
 from app.shared.tokens import mint_token
 
 router = APIRouter(
@@ -312,7 +312,7 @@ async def get_teams_admin(
                 "gruppe",
                 "trikot_farbe",
                 "austritt.type",
-                *[f"kontakte.{seat}.einwilligung.confirmed_at" for seat in KONTAKT_ROLLEN],
+                *[f"kontakte.{seat}.einwilligung.confirmed_at" for seat in KONTAKT_SEATS],
             ],
             sort_by=[("name", 1)],
             collation=GERMAN_COLLATION,
@@ -765,8 +765,8 @@ async def put_kontakt_seat(
     """
 
     # A 404 rather than a 422, as a malformed path id answers: the segment names no seat any row has.
-    rolle = seat_named(seat)
-    if rolle is None:
+    pressed = seat_named(seat)
+    if pressed is None:
         raise DocumentNotFoundError()
 
     # Unset fields left out, so an omitted claim stands rather than reading as the null that ends it.
@@ -783,7 +783,7 @@ async def put_kontakt_seat(
             projection=KONTAKT_WRITE_FIELDS,
             session=session,
         )
-        kontakte, seats = compose_seat_block(stored=stored.get("kontakte"), seat=rolle, sent=sent, today=today)
+        kontakte, seats = compose_seat_block(stored=stored.get("kontakte"), seat=pressed, sent=sent, today=today)
         refuse(find_kontakt_taken_refusal(kontakte=kontakte, seats=seats))
 
         confirmations = await write_the_contact_block(
@@ -846,7 +846,7 @@ async def replace_saison_team(
         outgoing_raw = await pull_one_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "team_id": team_id},
-            projection=[f"kontakte.{slot}.{field}" for slot in KONTAKT_ROLLEN for field in SEAT_FIELDS],
+            projection=[f"kontakte.{slot}.{field}" for slot in KONTAKT_SEATS for field in SEAT_FIELDS],
             session=session,
         )
         outgoing, outgoing_names = seated_people(outgoing_raw)
@@ -993,8 +993,8 @@ async def invite_kontakt(
     db_filter = {"team_id": team_id, "saison_id": saison_id}
 
     # A 404 rather than a 422, as a malformed path id answers: the segment names no seat any row has.
-    rolle = seat_named(seat)
-    if rolle is None:
+    pressed = seat_named(seat)
+    if pressed is None:
         raise DocumentNotFoundError()
 
     # Outside the callback, so a retried transaction owes this press's mail once and a second press its own.
@@ -1013,10 +1013,10 @@ async def invite_kontakt(
         refuse(find_kontakt_row_refusal(saison_status=saison_raw.get("status"), austritt=stored.get("austritt")))
 
         kontakte = stored.get("kontakte")
-        refuse(find_kontakt_seat_refusal(kontakte=kontakte, seat=rolle))
+        refuse(find_kontakt_seat_refusal(kontakte=kontakte, seat=pressed))
         assert isinstance(kontakte, Mapping)
 
-        seats = seats_one_link_answers(kontakte=kontakte, seat=rolle)
+        seats = seats_one_link_answers(kontakte=kontakte, seat=pressed)
 
         entry = compose_kontakt_confirmation(today=today)
         await patch_one_in_db(

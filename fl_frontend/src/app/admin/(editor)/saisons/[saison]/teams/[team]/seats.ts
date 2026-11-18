@@ -1,13 +1,13 @@
 import { COPY } from "@/core/copy";
 import { dayOf } from "@/core/format";
 import { deliveryChip } from "@/features/bewerbungen/deliveryState";
-import { KONTAKT_ROLLEN, seatBesideTrainer } from "@/features/teams/constants";
+import { KONTAKT_SEATS, seatBesideTrainer } from "@/features/teams/constants";
 import { CONFIRMED_CHIP, ERASED_CHIP, EXPIRED_CHIP, OBJECTED_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
 
 import type { Copy } from "@/core/copy";
 import type {
   FLKontaktperson,
-  FLKontaktRolle,
+  FLKontaktSeat,
   FLSaisonTeamConfirmationView,
   FLTeamMembership,
   FLTrainerAlso,
@@ -19,9 +19,9 @@ const DAYS = COPY.admin.schiedsrichter;
 
 /** What a seat's acts read: which seat, whether it waits on an answer, and the person the dialog starts from. */
 export type SeatTarget = {
-  rolle: FLKontaktRolle;
+  seat: FLKontaktSeat;
   /** Every seat the row's person holds. */
-  rollen: readonly FLKontaktRolle[];
+  seats: readonly FLKontaktSeat[];
   /** A person waits on their answer, so a fresh link has someone to reach. */
   asks: boolean;
   person: { first_name: string; last_name: string; email: string; phone: string } | null;
@@ -56,25 +56,25 @@ export function seatsOf({
   confirmations,
 }: Pick<FLTeamMembership, "kontakte" | "confirmations">): ReadonlyArray<Omit<SeatRow, "acts"> & { target: SeatTarget }> {
   const covered = kontakte == null ? null : seatBesideTrainer(kontakte);
-  return KONTAKT_ROLLEN.filter((rolle) => rolle !== covered).map((rolle) => {
-    const person = kontakte?.[rolle] ?? null;
-    const link = confirmations?.[rolle] ?? null;
-    const rollen: FLKontaktRolle[] = rolle === "trainer" && covered !== null ? [rolle, covered] : [rolle];
+  return KONTAKT_SEATS.filter((seat) => seat !== covered).map((seat) => {
+    const person = kontakte?.[seat] ?? null;
+    const link = confirmations?.[seat] ?? null;
+    const seats: FLKontaktSeat[] = seat === "trainer" && covered !== null ? [seat, covered] : [seat];
     const { chip, day, asks } = standingOf(person, link, kontakte != null);
     const delivery = deliveryChip(link?.delivery ?? null);
     return {
-      id: rolle,
+      id: seat,
       name: person === null ? COPY.admin.seatEmpty : { record: `${person.first_name} ${person.last_name}` },
       chips: [...(chip === null ? [] : [chip]), ...(delivery === null ? [] : [delivery])],
-      line: COPY.admin.seatLine(rollen, person?.email ?? null, day),
+      line: COPY.admin.seatLine(seats, person?.email ?? null, day),
       muted: person === null,
       target: {
-        rolle,
-        rollen,
+        seat,
+        seats,
         asks,
         person:
           person === null ? null : { first_name: person.first_name, last_name: person.last_name, email: person.email, phone: person.phone },
-        trainerAlso: rolle === "trainer" ? (kontakte?.trainer_is_also ?? null) : null,
+        trainerAlso: seat === "trainer" ? (kontakte?.trainer_is_also ?? null) : null,
       },
     };
   });

@@ -38,7 +38,7 @@ from app.shared.schemas.bounds import (
     SAISON_ID_LENGTH,
     SIGNATORY_MIN_AGE_YEARS,
 )
-from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle, FLTrikotFarbe
+from app.shared.schemas.literals import KONTAKT_SEATS, FLKontaktSeat, FLTrikotFarbe
 
 
 def find_triage_refusal(*, status: str) -> WriteRefusal | None:
@@ -304,7 +304,7 @@ def compose_kontakte(*, kontakte: Mapping[str, Any], today: str) -> dict[str, An
             "birth_date": None,
             "einwilligung": compose_einwilligung(today=today),
         }
-        for seat in KONTAKT_ROLLEN
+        for seat in KONTAKT_SEATS
     }
     composed["trainer_is_also"] = kontakte["trainer_is_also"]
 
@@ -345,19 +345,19 @@ def compose_confirmation(*, today: str) -> dict[str, Any]:
 def compose_confirmations(*, today: str, unmailed: Container[str] = ()) -> dict[str, Any]:
     """Every seat's bookkeeping at the submission. An `unmailed` seat's `sent_at` is null, which no reminder reaches: no mail was owed it."""
 
-    return {seat: {**compose_confirmation(today=today), **({"sent_at": None} if seat in unmailed else {})} for seat in KONTAKT_ROLLEN}
+    return {seat: {**compose_confirmation(today=today), **({"sent_at": None} if seat in unmailed else {})} for seat in KONTAKT_SEATS}
 
 
 # The admin reads' projection, and the first exclusion projection in this tree: an inclusion list
 # would have to restate every field an application holds. Each seat keeps the hash of every link it
 # was mailed, a reminder's beside the first, and only an administrator's re-send voids them.
-WITHOUT_TOKEN_HASHES: Mapping[str, int] = {f"confirmations.{seat}.token_hashes": 0 for seat in KONTAKT_ROLLEN}
+WITHOUT_TOKEN_HASHES: Mapping[str, int] = {f"confirmations.{seat}.token_hashes": 0 for seat in KONTAKT_SEATS}
 
 
 def _per_seat(block: str, *fields: str) -> dict[str, int]:
     """Each seat's copy of these paths, included, so a fourth seat cannot fall out of a read."""
 
-    return {f"{block}.{seat}.{field}": 1 for seat in KONTAKT_ROLLEN for field in fields}
+    return {f"{block}.{seat}.{field}": 1 for seat in KONTAKT_SEATS for field in fields}
 
 
 # What an answer moves on each seat, read before it: a withdrawal keeps the grant it ended.
@@ -401,29 +401,29 @@ def build_token_filter(*, token_hash: str) -> Mapping[str, Any]:
     No status term: a reopened link shows its own state.
     """
 
-    return {"$or": [{f"confirmations.{seat}.token_hashes": token_hash} for seat in KONTAKT_ROLLEN]}
+    return {"$or": [{f"confirmations.{seat}.token_hashes": token_hash} for seat in KONTAKT_SEATS]}
 
 
-def is_seat(value: object) -> TypeIs[FLKontaktRolle]:
+def is_seat(value: object) -> TypeIs[FLKontaktSeat]:
     """Whether this value names a seat: a path segment and a stored key are both only as trustworthy as whatever wrote them."""
 
-    return value in KONTAKT_ROLLEN
+    return value in KONTAKT_SEATS
 
 
-def seat_named(value: Any) -> FLKontaktRolle | None:
+def seat_named(value: Any) -> FLKontaktSeat | None:
     """The seat this value names, or `None`."""
 
     return value if is_seat(value) else None
 
 
-def seat_holding(*, bewerbung_raw: Mapping[str, Any], token_hash: str) -> FLKontaktRolle | None:
+def seat_holding(*, bewerbung_raw: Mapping[str, Any], token_hash: str) -> FLKontaktSeat | None:
     """Which seat's hash this is, read off the document the filter found rather than off a second query."""
 
     block = bewerbung_raw.get("confirmations")
     if not isinstance(block, Mapping):
         return None
 
-    for seat in KONTAKT_ROLLEN:
+    for seat in KONTAKT_SEATS:
         entry = block.get(seat)
         if isinstance(entry, Mapping) and token_hash in (entry.get("token_hashes") or ()):
             return seat_named(seat)
@@ -431,7 +431,7 @@ def seat_holding(*, bewerbung_raw: Mapping[str, Any], token_hash: str) -> FLKont
     return None
 
 
-def find_unknown_token_refusal(*, seat: FLKontaktRolle | None) -> WriteRefusal | None:
+def find_unknown_token_refusal(*, seat: FLKontaktSeat | None) -> WriteRefusal | None:
     """Why this token opens nothing, or `None`.
 
     One answer for unknown, voided by a re-send, and deleted with the application: nothing
@@ -656,7 +656,7 @@ def find_saison_past_einwilligung_refusal(*, saison_status: Any, austritt: Any) 
     )
 
 
-def saison_link_pair(*, kontakte: Any, confirmations: Any, seat: str, token_hash: str) -> FLKontaktRolle | None:
+def saison_link_pair(*, kontakte: Any, confirmations: Any, seat: str, token_hash: str) -> FLKontaktSeat | None:
     """The other seat this season-row link was minted for, still unconfirmed, or `None`.
 
     Never `paired_seat`: a Trainer confirmed before taking a second seat is minted a link for that seat
@@ -685,10 +685,10 @@ def compose_saison_decline_update(*, seats: Sequence[str], today: str) -> Mappin
     return {"$set": written}
 
 
-def pending_seats(*, kontakte: Any) -> list[FLKontaktRolle]:
+def pending_seats(*, kontakte: Any) -> list[FLKontaktSeat]:
     """Every seat without a stamp, in declaration order. An emptied slot counts: the application cannot complete without it."""
 
-    return [seat for seat in KONTAKT_ROLLEN if not _seat_is_confirmed(kontakte, seat)]
+    return [seat for seat in KONTAKT_SEATS if not _seat_is_confirmed(kontakte, seat)]
 
 
 def find_unconfirmed_kontakte_refusal(*, kontakte: Any) -> WriteRefusal | None:
@@ -713,7 +713,7 @@ def seat_stands(*, kontakte: Any, confirmations: Any, seat: str) -> bool:
     return isinstance(slot, Mapping) and isinstance(entry, Mapping)
 
 
-def paired_seat(*, kontakte: Any, confirmations: Any, seat: str) -> FLKontaktRolle | None:
+def paired_seat(*, kontakte: Any, confirmations: Any, seat: str) -> FLKontaktSeat | None:
     """The other seat the same person still holds, or `None`: one click answers for the person, not for one of their two seats."""
 
     other = claimed_pair_seat(kontakte=kontakte, seat=seat)
@@ -737,13 +737,13 @@ def _was_mailed(confirmations: Any, seat: str) -> bool:
     return (_entry_of(confirmations, seat) or {}).get("sent_at") is not None
 
 
-def mailed_seats(*, confirmations: Any) -> list[FLKontaktRolle]:
+def mailed_seats(*, confirmations: Any) -> list[FLKontaktSeat]:
     """The seats a mail has reached. A seat past `OPEN_LINKS_PER_MAILBOX` is none of them: its person has heard of no application."""
 
-    return [seat for seat in KONTAKT_ROLLEN if _was_mailed(confirmations, seat)]
+    return [seat for seat in KONTAKT_SEATS if _was_mailed(confirmations, seat)]
 
 
-def ansprechperson_mailbox(*, kontakte: Any, confirmations: Any) -> tuple[str | None, list[FLKontaktRolle]]:
+def ansprechperson_mailbox(*, kontakte: Any, confirmations: Any) -> tuple[str | None, list[FLKontaktSeat]]:
     """The Ansprechperson's address as stored, and every seat that same inbox holds.
 
     `None` where that seat is empty: the message this addresses has nowhere to go, and a substitute
@@ -757,7 +757,7 @@ def ansprechperson_mailbox(*, kontakte: Any, confirmations: Any) -> tuple[str | 
     slots = kontakte if isinstance(kontakte, Mapping) else {}
     addresses: dict[str, str] = {}
 
-    for seat in KONTAKT_ROLLEN:
+    for seat in KONTAKT_SEATS:
         slot = slots.get(seat)
         email = str(slot.get("email") or "").strip() if isinstance(slot, Mapping) else ""
         if email:
@@ -768,7 +768,7 @@ def ansprechperson_mailbox(*, kontakte: Any, confirmations: Any) -> tuple[str | 
         return None, []
 
     # One inbox is one stored address, each the fold every payload stores.
-    held: list[FLKontaktRolle] = [seat for seat in KONTAKT_ROLLEN if addresses.get(seat) == anchor]
+    held: list[FLKontaktSeat] = [seat for seat in KONTAKT_SEATS if addresses.get(seat) == anchor]
 
     return anchor, held
 
@@ -902,7 +902,7 @@ def build_open_links_filter(*, saison_id: str, address: str) -> Mapping[str, Any
                 f"kontakte.{seat}.einwilligung.confirmed_at": None,
                 f"confirmations.{seat}.sent_at": {"$ne": None},
             }
-            for seat in KONTAKT_ROLLEN
+            for seat in KONTAKT_SEATS
         ],
     }
 
@@ -911,18 +911,18 @@ def open_links_on(*, row: Mapping[str, Any], mailbox: str) -> int:
     """The unanswered links this application's mails left in this mailbox: one a person, and one application can name its plus-tagged forms."""
 
     kontakte, confirmations = row.get("kontakte"), row.get("confirmations")
-    waiting: list[FLKontaktRolle] = [
-        seat for seat in KONTAKT_ROLLEN if _was_mailed(confirmations, seat) and not _seat_is_confirmed(kontakte, seat)
+    waiting: list[FLKontaktSeat] = [
+        seat for seat in KONTAKT_SEATS if _was_mailed(confirmations, seat) and not _seat_is_confirmed(kontakte, seat)
     ]
 
     return sum(mailbox_of(address) == mailbox for address, _ in people_with_address(kontakte=kontakte, seats=waiting))
 
 
-def seats_past_the_bound(*, kontakte: Any, open_links: Mapping[str, int]) -> list[FLKontaktRolle]:
+def seats_past_the_bound(*, kontakte: Any, open_links: Mapping[str, int]) -> list[FLKontaktSeat]:
     """The seats this submission owes no mail, each person after the first taking a link of the mailbox's count, in the mails' order."""
 
     held = dict(open_links)
-    past: list[FLKontaktRolle] = []
+    past: list[FLKontaktSeat] = []
     for address, seats in people_with_address(kontakte=kontakte):
         mailbox = mailbox_of(address)
         if held[mailbox] >= OPEN_LINKS_PER_MAILBOX:
@@ -1022,7 +1022,7 @@ def find_repeated_contact_refusal(*, kontakte: Mapping[str, Any]) -> WriteRefusa
     numbers: set[str] = set()
     boxes: list[tuple[str, ...]] = []
 
-    for seat in KONTAKT_ROLLEN:
+    for seat in KONTAKT_SEATS:
         if seat == kontakte["trainer_is_also"]:
             continue
         # On the sign-in fold: two seats one sign-in reaches are one identity.
@@ -1047,7 +1047,7 @@ def find_seat_contact_refusal(*, kontakte: Any, seats: Sequence[str], email: str
     slots = kontakte if isinstance(kontakte, Mapping) else {}
     # The seats this write reaches are left out: they are one person, and their blocks are equal
     # by the submission's own rule.
-    others = [slot for seat in KONTAKT_ROLLEN if seat not in seats and isinstance(slot := slots.get(seat), Mapping)]
+    others = [slot for seat in KONTAKT_SEATS if seat not in seats and isinstance(slot := slots.get(seat), Mapping)]
 
     # The fold `find_repeated_contact_refusal` compares by: a third spelling of "one mailbox" here would refuse where the
     # form accepted, or the reverse.
@@ -1078,7 +1078,7 @@ def find_seat_write_refusal(*, confirmations: Any, seats: Sequence[str]) -> Writ
     return None
 
 
-def claimed_pair_seat(*, kontakte: Any, seat: str) -> FLKontaktRolle | None:
+def claimed_pair_seat(*, kontakte: Any, seat: str) -> FLKontaktSeat | None:
     """The other seat `trainer_is_also` claims for this person, standing or emptied.
 
     `paired_seat` without its `seat_stands` half, which answers `None` for exactly the emptied slots
@@ -1098,7 +1098,7 @@ def compose_kontakt_seat_update(
     """The person and their fresh link, in one `$set`. Two writes would seat them behind the link the seat's last holder still holds."""
 
     # A Widerspruch on a seat this write leaves still stands, and so does the deletion its notice announced, on the day it named.
-    stands = any(_declined_on(confirmations, seat) is not None for seat in KONTAKT_ROLLEN if seat not in seats)
+    stands = any(_declined_on(confirmations, seat) is not None for seat in KONTAKT_SEATS if seat not in seats)
     moved = _moves_the_deletion_day(kontakte=kontakte, confirmations=confirmations, seats=seats, today=today)
     # The notice told the mailbox this write may replace, and a mistyped one told nobody: the person now seated is owed it.
     told = "ansprechperson" not in seats
@@ -1168,7 +1168,7 @@ def seat_reminder_is_due(*, kontakte: Any, confirmations: Any, seat: str, today:
     return days_after(day=entry["sent_at"], days=BEWERBUNG_REMINDER_DAYS) <= today
 
 
-def reminder_seats(*, bewerbung_raw: Mapping[str, Any], today: str, unreachable: Container[str]) -> list[FLKontaktRolle]:
+def reminder_seats(*, bewerbung_raw: Mapping[str, Any], today: str, unreachable: Container[str]) -> list[FLKontaktSeat]:
     """Every seat of this application owed a reminder today, in declaration order; none once it is decided.
 
     `unreachable` names the seats whose last mail did not arrive.
@@ -1181,12 +1181,12 @@ def reminder_seats(*, bewerbung_raw: Mapping[str, Any], today: str, unreachable:
 
     return [
         seat
-        for seat in KONTAKT_ROLLEN
+        for seat in KONTAKT_SEATS
         if seat_reminder_is_due(kontakte=kontakte, confirmations=confirmations, seat=seat, today=today, unreachable=seat in unreachable)
     ]
 
 
-def closed_chases(*, bewerbung_raw: Mapping[str, Any], today: str, unreachable: Container[str]) -> list[FLKontaktRolle]:
+def closed_chases(*, bewerbung_raw: Mapping[str, Any], today: str, unreachable: Container[str]) -> list[FLKontaktSeat]:
     """The seats due today but for a last mail that did not arrive, whose chase the clock closes.
 
     No query reads the Postausgang, so left open they stay in the clock's read until their deadline, and a page of them
@@ -1197,7 +1197,7 @@ def closed_chases(*, bewerbung_raw: Mapping[str, Any], today: str, unreachable: 
     return [seat for seat in reminder_seats(bewerbung_raw=bewerbung_raw, today=today, unreachable=()) if seat in unreachable]
 
 
-def reopened_chases(*, bewerbung_raw: Mapping[str, Any], to: str) -> list[FLKontaktRolle]:
+def reopened_chases(*, bewerbung_raw: Mapping[str, Any], to: str) -> list[FLKontaktSeat]:
     """The seats whose closed chase a mail delivered to this address opens again, every seat that person holds.
 
     By the address rather than the mail's own seat: one that left the seat before an address change proves nothing of the
@@ -1215,11 +1215,11 @@ def reopened_chases(*, bewerbung_raw: Mapping[str, Any], to: str) -> list[FLKont
     ]
 
 
-def group_seats_by_mailbox(*, kontakte: Any, seats: Sequence[FLKontaktRolle]) -> list[tuple[str, list[FLKontaktRolle]]]:
+def group_seats_by_mailbox(*, kontakte: Any, seats: Sequence[FLKontaktSeat]) -> list[tuple[str, list[FLKontaktSeat]]]:
     """The seats as the mails go out: one message per stored address, in first-seen order."""
 
     slots = kontakte if isinstance(kontakte, Mapping) else {}
-    grouped: dict[str, tuple[str, list[FLKontaktRolle]]] = {}
+    grouped: dict[str, tuple[str, list[FLKontaktSeat]]] = {}
 
     for seat in seats:
         slot = slots.get(seat)
@@ -1282,7 +1282,7 @@ def deletion_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) -> bool:
     if _deadline_passed(deadline=day, today=today):
         return True
 
-    days = [seat_deadline_of(confirmations=confirmations, seat=seat) for seat in KONTAKT_ROLLEN]
+    days = [seat_deadline_of(confirmations=confirmations, seat=seat) for seat in KONTAKT_SEATS]
 
     return None in days and not any(isinstance(other, str) and other >= today for other in days)
 
@@ -1316,7 +1316,7 @@ def build_reminder_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
     return {
         "saison_id": saison_id,
         "status": "submitted",
-        "$or": [_seat_reminder_term(seat=seat, today=today) for seat in KONTAKT_ROLLEN],
+        "$or": [_seat_reminder_term(seat=seat, today=today) for seat in KONTAKT_SEATS],
     }
 
 
@@ -1332,19 +1332,19 @@ def build_deletion_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
     emptied with no other seat's link running.
     """
 
-    passed = [_lapsed_seat_term(seat=seat, today=today) for seat in KONTAKT_ROLLEN]
+    passed = [_lapsed_seat_term(seat=seat, today=today) for seat in KONTAKT_SEATS]
     erased = [
         {
             f"confirmations.{seat}": None,
-            **{f"confirmations.{other}.deadline": {"$not": {"$gte": today}} for other in KONTAKT_ROLLEN if other != seat},
+            **{f"confirmations.{other}.deadline": {"$not": {"$gte": today}} for other in KONTAKT_SEATS if other != seat},
         }
-        for seat in KONTAKT_ROLLEN
+        for seat in KONTAKT_SEATS
     ]
 
     return {"saison_id": saison_id, "status": "submitted", "$or": [*passed, *erased]}
 
 
-def lapsed_seats(*, kontakte: Any, confirmations: Any, today: str) -> list[FLKontaktRolle]:
+def lapsed_seats(*, kontakte: Any, confirmations: Any, today: str) -> list[FLKontaktSeat]:
     """The seats of a season row whose link's day has passed with no confirmation, in declaration order.
 
     Strictly past, as `saison_link_is_over` ends the link. A confirmed seat keeps its entry, an erased one holds no
@@ -1353,7 +1353,7 @@ def lapsed_seats(*, kontakte: Any, confirmations: Any, today: str) -> list[FLKon
 
     return [
         seat
-        for seat in KONTAKT_ROLLEN
+        for seat in KONTAKT_SEATS
         if saison_link_is_over(deadline=seat_deadline_of(confirmations=confirmations, seat=seat), today=today)
         and not _seat_is_confirmed(kontakte, seat)
     ]
@@ -1362,7 +1362,7 @@ def lapsed_seats(*, kontakte: Any, confirmations: Any, today: str) -> list[FLKon
 def build_lapsed_seats_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
     """Every season row of this season with a lapsed seat, as `lapsed_seats` judges it: an emptied seat leaves the read."""
 
-    return {"saison_id": saison_id, "$or": [_lapsed_seat_term(seat=seat, today=today) for seat in KONTAKT_ROLLEN]}
+    return {"saison_id": saison_id, "$or": [_lapsed_seat_term(seat=seat, today=today) for seat in KONTAKT_SEATS]}
 
 
 def compose_lapsed_seats_update(*, kontakte: Any, seats: Sequence[str]) -> Mapping[str, Any]:
@@ -1442,7 +1442,7 @@ def bewerbung_link(seats: Sequence[str], *, replaced: bool) -> FLOutboxLink:
     )
 
 
-def bewerbung_reference(bewerbung_id: Any, seats: Sequence[FLKontaktRolle]) -> FLOutboxReference:
+def bewerbung_reference(bewerbung_id: Any, seats: Sequence[FLKontaktSeat]) -> FLOutboxReference:
     """The application and the person's seat a delivery is read by: the one the Trainer mirrors, where they hold two."""
 
     return FLOutboxReference(collection=Collection.BEWERBUNGEN, id=bewerbung_id, seat=min(seats, key=lambda seat: seat == "trainer"))
@@ -1454,7 +1454,7 @@ def state_undeliverable(state: FLOutboxStatus | None) -> bool:
     return state is not None and state.undeliverable
 
 
-def people_with_address(*, kontakte: Any, seats: Sequence[FLKontaktRolle] = KONTAKT_ROLLEN) -> list[tuple[str, list[FLKontaktRolle]]]:
+def people_with_address(*, kontakte: Any, seats: Sequence[FLKontaktSeat] = KONTAKT_SEATS) -> list[tuple[str, list[FLKontaktSeat]]]:
     """Each person these seats name who holds an address, with the seats they hold, the Trainer last.
 
     One address is one person (the submission refuses two people at one), so the seats sharing an address are the one
@@ -1463,7 +1463,7 @@ def people_with_address(*, kontakte: Any, seats: Sequence[FLKontaktRolle] = KONT
 
     return [
         (email, sorted(held, key=lambda seat: seat == "trainer"))
-        for email, held in group_seats_by_mailbox(kontakte=kontakte, seats=[seat for seat in KONTAKT_ROLLEN if seat in seats])
+        for email, held in group_seats_by_mailbox(kontakte=kontakte, seats=[seat for seat in KONTAKT_SEATS if seat in seats])
     ]
 
 
@@ -1471,7 +1471,7 @@ def owed_link(
     *,
     bewerbung_id: Any,
     kontakte: Any,
-    seats: Sequence[FLKontaktRolle],
+    seats: Sequence[FLKontaktSeat],
     saison_id: str,
     schule: str,
     deadline: str,
@@ -1483,7 +1483,7 @@ def owed_link(
     return OwedMail(
         key=key,
         to=str(kontakte[seats[0]]["email"]),
-        data=FLBewerbungLinkData(kind=kind, saison_id=saison_id, schule=schule, rollen=list(seats), deadline=deadline),
+        data=FLBewerbungLinkData(kind=kind, saison_id=saison_id, schule=schule, seats=list(seats), deadline=deadline),
         reference=bewerbung_reference(bewerbung_id, seats),
         link=bewerbung_link(seats, replaced=kind != "bewerbung_reminder"),
     )
@@ -1498,7 +1498,7 @@ def owed_at_submission(
     """
 
     mails: list[OwedMail] = []
-    for email, seats in people_with_address(kontakte=kontakte, seats=[seat for seat in KONTAKT_ROLLEN if seat not in unmailed]):
+    for email, seats in people_with_address(kontakte=kontakte, seats=[seat for seat in KONTAKT_SEATS if seat not in unmailed]):
         stem = f"{Collection.BEWERBUNGEN}/{bewerbung_id}"
         if "ansprechperson" not in seats:
             mails.append(
@@ -1513,7 +1513,7 @@ def owed_at_submission(
                 )
             )
             continue
-        others: list[FLKontaktRolle] = [seat for seat in KONTAKT_ROLLEN if seat not in seats]
+        others: list[FLKontaktSeat] = [seat for seat in KONTAKT_SEATS if seat not in seats]
         mails.append(
             OwedMail(
                 key=f"{stem}/received",
@@ -1521,7 +1521,7 @@ def owed_at_submission(
                 data=FLBewerbungReceivedData(
                     kind="bewerbung_received",
                     saison_id=saison_id,
-                    rollen=seats,
+                    seats=seats,
                     pending=others,
                     deadline=deadline,
                 ),
@@ -1553,9 +1553,7 @@ def owed_deletion_notices(*, bewerbung_raw: Mapping[str, Any], saison_id: str) -
             to=email,
             data=FLDeletionNoticeData(kind="deletion_notice", saison_id=saison_id),
         )
-        for email, seats in people_with_address(
-            kontakte=kontakte, seats=[seat for seat in KONTAKT_ROLLEN if _seat_is_confirmed(kontakte, seat)]
-        )
+        for email, seats in people_with_address(kontakte=kontakte, seats=[seat for seat in KONTAKT_SEATS if _seat_is_confirmed(kontakte, seat)])
         if email != told
     ]
 
@@ -1636,7 +1634,7 @@ BEWERBUNG_LIST_FIELDS: Mapping[str, int] = {
 
 
 def seats_confirmed_of(*, kontakte: Any) -> int:
-    return len(KONTAKT_ROLLEN) - len(pending_seats(kontakte=kontakte))
+    return len(KONTAKT_SEATS) - len(pending_seats(kontakte=kontakte))
 
 
 def holds_an_unmailed_seat(*, row: Mapping[str, Any]) -> bool:
@@ -1645,7 +1643,7 @@ def holds_an_unmailed_seat(*, row: Mapping[str, Any]) -> bool:
     confirmations = row.get("confirmations")
 
     return row["status"] == "submitted" and any(
-        _entry_of(confirmations, seat) is not None and not _was_mailed(confirmations, seat) for seat in KONTAKT_ROLLEN
+        _entry_of(confirmations, seat) is not None and not _was_mailed(confirmations, seat) for seat in KONTAKT_SEATS
     )
 
 
@@ -1673,7 +1671,7 @@ def bewerbung_list_row(
         "expected_kader": row["kader"]["expected_size"],
         "wunschgegner": row.get("wunschgegner"),
         "seats_confirmed": seats_confirmed_of(kontakte=row.get("kontakte")),
-        "people": len(KONTAKT_ROLLEN) - (1 if row["kontakte"].get("trainer_is_also") else 0),
+        "people": len(KONTAKT_SEATS) - (1 if row["kontakte"].get("trainer_is_also") else 0),
         "duplicate": is_duplicate(row=row, doubled=doubled),
         "unmailed": holds_an_unmailed_seat(row=row),
     }
@@ -1697,7 +1695,7 @@ def build_confirmed_seat_filter(*, saison_id: str) -> Mapping[str, Any]:
     the mailboxes can confirm, one link at a time, and only that fills this read too.
     """
 
-    return {"saison_id": saison_id, "$or": [{f"kontakte.{seat}.einwilligung.confirmed_at": {"$ne": None}} for seat in KONTAKT_ROLLEN]}
+    return {"saison_id": saison_id, "$or": [{f"kontakte.{seat}.einwilligung.confirmed_at": {"$ne": None}} for seat in KONTAKT_SEATS]}
 
 
 def build_duplicates_pipeline(*, saison_id: str) -> list[Mapping[str, Any]]:
@@ -1733,7 +1731,7 @@ def seat_state(*, row: Mapping[str, Any], states: Mapping[tuple[Any, str | None]
 def unreachable_seats(*, row: Mapping[str, Any], states: Mapping[tuple[Any, str | None], FLOutboxStatus]) -> set[str]:
     """The seats of a stored application whose last mail did not arrive."""
 
-    return {seat for seat in KONTAKT_ROLLEN if state_undeliverable(seat_state(row=row, states=states, seat=seat))}
+    return {seat for seat in KONTAKT_SEATS if state_undeliverable(seat_state(row=row, states=states, seat=seat))}
 
 
 def with_delivery(row: Mapping[str, Any], states: Mapping[tuple[Any, str | None], FLOutboxStatus], *, today: str) -> dict[str, Any]:

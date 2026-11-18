@@ -72,7 +72,7 @@ async function rowsOf(
     shorthand: "AHO",
     full_name: "Ahorn-Gymnasium",
     trikot_farbe: null,
-    rollen: ["ansprechperson"],
+    held_seats: ["ansprechperson"],
     spielbestaetigungen: [],
     aufstellungen: [],
     registrierungen: [],

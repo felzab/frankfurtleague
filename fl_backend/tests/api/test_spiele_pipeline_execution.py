@@ -72,7 +72,7 @@ def a_spiel() -> dict[str, Any]:
 
 
 def agreed() -> dict[str, Any]:
-    return {"kind": "agreed", "at": "2026-04-20", "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None}
+    return {"kind": "agreed", "at": "2026-04-20", "by": {"kind": "kontakt", "seat": "trainer"}, "vorschlag": None, "reason": None}
 
 
 def a_row(spiel: Mapping[str, Any], team_id: ObjectId, **fields: Any) -> dict[str, Any]:

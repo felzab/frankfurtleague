@@ -59,7 +59,7 @@ export function answerAt(endpoint: string, held: LookupFixture): Record<string, 
 export const SEAT: FLSubjectSeat = deepFrozen({
   saison_id: "2526",
   team_id: "6890a1b2c3d4e5f607250011",
-  rolle: "ansprechperson",
+  seat: "ansprechperson",
   team_name: "Goethe-Gymnasium",
   team_shorthand: "GOE",
   saison_status: "active",

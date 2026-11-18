@@ -17,7 +17,7 @@ import { useUnsavedChangesWarning } from "@/kit/useUnsavedChangesWarning";
 
 import { NO_SECOND_SEAT, SEATS } from "./application";
 
-import type { FLBewerbungSchuleOption, FLKontaktRolle, FLSchulform, FLTrikotFarbe } from "@/core/generated/client/types";
+import type { FLBewerbungSchuleOption, FLKontaktSeat, FLSchulform, FLTrikotFarbe } from "@/core/generated/client/types";
 import type { Option } from "@/kit/OptionList";
 import type { BewerbungRules } from "./bewerbungRules";
 
@@ -77,7 +77,7 @@ function NewSchool({ box, rules }: { box: Box; rules: BewerbungRules }) {
 }
 
 /** One person's four boxes; the seat's age floor stands under the first, as what a reader meets before naming anybody. */
-function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktRolle; floor: number; box: Box; rules: BewerbungRules }) {
+function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktSeat; floor: number; box: Box; rules: BewerbungRules }) {
   const { maxLength, required } = rules;
   const path = (name: string) => box(`kontakte.${seat}.${name}`);
   return (

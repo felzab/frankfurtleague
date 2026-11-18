@@ -4,7 +4,7 @@ import { requires } from "@/core/action";
 import { MEDIA_MIN_AGE } from "@/core/bounds";
 import { now } from "@/core/clock";
 import { SEAT_WORDINGS } from "@/core/consentWordings";
-import { COPY, rollenText } from "@/core/copy";
+import { COPY, seatsText } from "@/core/copy";
 import { bornAfter, bornBy } from "@/core/dayArithmetic";
 import { dayIn, dayOf, formatDate } from "@/core/format";
 import { bewerbungenGetEinwilligungView } from "@/core/generated/client/sdk";
@@ -70,8 +70,8 @@ function alreadyDone(view: FLBewerbungEinwilligungViewResponse, kind: "confirmed
 }
 
 /** Every seat one answer on this link writes, which the page names as the mail named them. */
-const rollenOf = ({ rolle, also_rolle: also }: FLBewerbungEinwilligungViewResponse) => ({
-  record: rollenText(also === null ? [rolle] : [rolle, also]),
+const seatsHeld = ({ seat, also_seat: also }: FLBewerbungEinwilligungViewResponse) => ({
+  record: seatsText(also === null ? [seat] : [seat, also]),
 });
 
 /** For whom the person stands, in which season and as what: a season row's seat is entered for a team. */
@@ -81,7 +81,7 @@ const standsFor = (view: FLBewerbungEinwilligungViewResponse): Fact[] => [
     value: { record: view.schule },
   },
   { label: COPY.shared.saison, value: COPY.shared.saisonName(view.saison_id) },
-  { label: SERVER_COPY.mail.bewerbung.registeredAs, value: rollenOf(view) },
+  { label: SERVER_COPY.mail.bewerbung.registeredAs, value: seatsHeld(view) },
 ];
 
 /** The objection's question, „Eintrag widersprechen?“, over what the page says an objection does to this seat. */
@@ -95,7 +95,7 @@ function closedRow(view: FLBewerbungEinwilligungViewResponse, token: string): Ma
     title: WORDS.closedTitle,
     facts: standsFor(view),
     sentence: WORDS.text(
-      WORDS.opening.seasonRow(team, view.saison_id, rollenOf(view)),
+      WORDS.opening.seasonRow(team, view.saison_id, seatsHeld(view)),
       WORDS.closedStored,
       view.row === "exited" ? WORDS.teamDeparted(team) : SERVER_COPY.refusalLine.saison_past,
       WORDS.objectionEffect.seasonRow,
@@ -119,13 +119,13 @@ function question(view: FLBewerbungEinwilligungViewResponse, token: string, unti
     facts: [...standsFor(view), { label: WORDS.confirmBy, value: { record: formatDate(until) } }],
     sentence: onSeasonRow
       ? WORDS.text(
-          WORDS.opening.seasonRow(schule, view.saison_id, rollenOf(view)),
+          WORDS.opening.seasonRow(schule, view.saison_id, seatsHeld(view)),
           WORDS.stored,
           WORDS.seatDeadline(until),
           WORDS.objectionEffect.seasonRow,
         )
       : WORDS.text(
-          WORDS.opening.named(schule, view.saison_id, rollenOf(view)),
+          WORDS.opening.named(schule, view.saison_id, seatsHeld(view)),
           WORDS.stored,
           WORDS.applicationDeadline(until),
           WORDS.objectionEffect.application,

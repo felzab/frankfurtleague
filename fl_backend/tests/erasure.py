@@ -11,7 +11,7 @@ from app.api.identity.person_router import post_account_erasure
 from app.api.identity.schemas import FLErasurePayload
 from app.core.collections import Collection
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.schemas.literals import KONTAKT_SEATS
 from tests.acts import acting_as
 from tests.handles import wired
 
@@ -74,7 +74,7 @@ def seats_cleared(before: Iterable[Mapping[str, Any]], after: Iterable[Mapping[s
     """The contact seats held before and empty after, whoever held them, so a seat cleared past the address counts too."""
 
     def held(rows: Iterable[Mapping[str, Any]]) -> set[tuple[Any, str]]:
-        return {(row["_id"], seat) for row in rows for seat in KONTAKT_ROLLEN if isinstance((row.get("kontakte") or {}).get(seat), Mapping)}
+        return {(row["_id"], seat) for row in rows for seat in KONTAKT_SEATS if isinstance((row.get("kontakte") or {}).get(seat), Mapping)}
 
     return len(held(before) - held(after))
 

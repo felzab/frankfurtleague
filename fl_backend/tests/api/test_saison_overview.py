@@ -106,7 +106,7 @@ ROWS = [
         answer={
             "kind": "declined",
             "at": "2026-03-14",
-            "by": {"kind": "kontakt", "rolle": "trainer"},
+            "by": {"kind": "kontakt", "seat": "trainer"},
             "vorschlag": {"date": "2026-03-27", "time": "16:00:00"},
             "reason": None,
         },
@@ -126,7 +126,7 @@ ROWS = [
         HOME,
         deadline="2026-03-20",
         asked_at="2026-03-12",
-        answer={"kind": "agreed", "at": "2026-03-13", "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None},
+        answer={"kind": "agreed", "at": "2026-03-13", "by": {"kind": "kontakt", "seat": "trainer"}, "vorschlag": None, "reason": None},
     ),
     documents.spielbestaetigung_document(SPIELE[PROPOSED], party=REFEREE_PARTY, deadline="2026-03-20", asked_at=None),
     # The referee alone still to answer, past the clubs' deadline: a referee answers until the kick-off, so nothing lapsed.

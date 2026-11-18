@@ -47,7 +47,7 @@ class TestWhoALinkIsMailedTo:
 
         assert len(recipient) == 1
         # The FIRST seat in seat order, so the message addresses the person as the role they lead with.
-        assert recipient[0].rolle == "trainer"
+        assert recipient[0].seat == "trainer"
 
     def test_an_unconfirmed_first_seat_leaves_the_next_one_addressed(self):
         """The seats are read in turn, so stopping at the Trainer would keep the link from a person who confirmed."""
@@ -57,7 +57,7 @@ class TestWhoALinkIsMailedTo:
             ansprechperson=kontaktperson("Quillhilde", "quillhilde@example.com", confirmed_at=CONFIRMED_ON),
         )
 
-        assert [(entry.rolle, entry.email) for entry in confirmed_recipients(kontakte=block)] == [("ansprechperson", "quillhilde@example.com")]
+        assert [(entry.seat, entry.email) for entry in confirmed_recipients(kontakte=block)] == [("ansprechperson", "quillhilde@example.com")]
 
     def test_a_repeated_address_leaves_the_seat_after_it_addressed(self):
         block = kontakte(

@@ -22,7 +22,7 @@ from app.api.spieler.schemas import FLPatchKaderRowPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.schemas.literals import KONTAKT_SEATS
 from tests.acts import acts_of
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_KEY
@@ -87,7 +87,7 @@ def _seat(email: str) -> dict[str, Any]:
 
 def _junction(saison_id: str, team_id: ObjectId, name: str, **slots: dict[str, Any]) -> dict[str, Any]:
     return saison_team_document(
-        saison_id, team_id, name, name[:3].upper(), kontakte={**{slot: None for slot in KONTAKT_ROLLEN}, **slots, "trainer_is_also": None}
+        saison_id, team_id, name, name[:3].upper(), kontakte={**{slot: None for slot in KONTAKT_SEATS}, **slots, "trainer_is_also": None}
     )
 
 

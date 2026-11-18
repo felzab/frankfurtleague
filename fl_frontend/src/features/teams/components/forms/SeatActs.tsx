@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { COPY, rollenText } from "@/core/copy";
+import { COPY, seatsText } from "@/core/copy";
 import { Dialog } from "@/kit/Dialog";
 import { useLocked } from "@/kit/draftUnsaved";
 import { SideActs } from "@/kit/SideActs";
@@ -15,7 +15,7 @@ import { seatActKinds } from "./seatActKinds";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
-import type { FLKontaktperson, FLKontaktRolle } from "@/core/generated/client/types";
+import type { FLKontaktperson, FLKontaktSeat } from "@/core/generated/client/types";
 import type { SeatRules } from "@/features/teams/fieldRules";
 import type { SideAct } from "@/kit/SideActs";
 import type { ReactNode } from "react";
@@ -33,7 +33,7 @@ const ACT = { verb: "save" } as const;
  * the row's `sideActs`.
  */
 export function SeatActs<Key>({
-  rollen,
+  seats,
   person,
   rules: { required, max },
   write,
@@ -42,7 +42,7 @@ export function SeatActs<Key>({
   children,
 }: {
   /** Every seat the row's person holds. */
-  rollen: readonly FLKontaktRolle[];
+  seats: readonly FLKontaktSeat[];
   /** `null` on an emptied seat. */
   person: Pick<FLKontaktperson, "first_name" | "last_name" | "email" | "phone"> | null;
   rules: SeatRules;
@@ -83,7 +83,7 @@ export function SeatActs<Key>({
       {/* Held closed while the edit is locked: nothing opens it then. */}
       <Dialog
         title={EDIT}
-        lead={{ record: rollenText(rollen) }}
+        lead={{ record: seatsText(seats) }}
         act={ACT}
         action={write}
         carry={carry}

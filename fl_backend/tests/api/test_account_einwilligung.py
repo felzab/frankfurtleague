@@ -501,7 +501,7 @@ class TestTheAccountPagesRead:
             (record["schiedsrichter_id"], record["name"], record["schule"], record["birth_date"], record["media_offered"])
             for record in body["schiedsrichter"]
         ] == [(str(REFEREE_OID), "Ortrud Zwiebelmayer", REFEREE_SCHULE, ADULT_BIRTHDATE, True)]
-        assert [(seat["team_name"], seat["saison_id"], sorted(seat["rollen"]), seat["media"], seat["givable"]) for seat in body["seats"]] == [
+        assert [(seat["team_name"], seat["saison_id"], sorted(seat["seats"]), seat["media"], seat["givable"]) for seat in body["seats"]] == [
             (ROW_NAME_B, ACTIVE_SAISON, ["stellvertretung"], True, True),
             (ROW_NAME_A_PAST, PAST_SAISON, ["ansprechperson", "trainer"], True, False),
         ]
@@ -818,7 +818,7 @@ class TestAPendingApplicationsSeats:
                 "bewerbung_id": str(PENDING_OID),
                 "schule": PENDING_SCHULE,
                 "saison_id": ACTIVE_SAISON,
-                "rollen": ["trainer", "ansprechperson"],
+                "seats": ["trainer", "ansprechperson"],
                 "scope": "kontakt_data",
                 "media": True,
                 "evidence_state": _seated_state(2),

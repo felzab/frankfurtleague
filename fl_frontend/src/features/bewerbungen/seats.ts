@@ -1,21 +1,21 @@
 import { COPY } from "@/core/copy";
 import { dayOf } from "@/core/format";
-import { KONTAKT_ROLLEN, seatBesideTrainer } from "@/features/teams/constants";
+import { KONTAKT_SEATS, seatBesideTrainer } from "@/features/teams/constants";
 import { CONFIRMED_CHIP, ERASED_CHIP, EXPIRED_CHIP, NOT_SENT_CHIP, OBJECTED_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
 
 import { deliveryChip } from "./deliveryState";
 
 import type { Copy } from "@/core/copy";
-import type { FLBewerbung, FLBewerbungConfirmation, FLKontaktperson, FLKontaktRolle } from "@/core/generated/client/types";
+import type { FLBewerbung, FLBewerbungConfirmation, FLKontaktperson, FLKontaktSeat } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
 
 /** Where a seat's answer stands, as the link's own page says it, and an erasure's entry, which the read serves as none. */
 type SeatState = FLBewerbungConfirmation["state"] | "erased";
 
-/** `seat` is the one its writes name, `rollen` every seat the person holds. */
+/** `seat` is the one its writes name, `seats` every seat the person holds. */
 export type SeatView = {
-  seat: FLKontaktRolle;
-  rollen: readonly FLKontaktRolle[];
+  seat: FLKontaktSeat;
+  seats: readonly FLKontaktSeat[];
   /** Null on a seat a Widerspruch or an erasure emptied. */
   person: FLKontaktperson | null;
   state: SeatState;
@@ -36,7 +36,7 @@ const STATE_CHIP: Readonly<Record<SeatState, ChipProps>> = {
 };
 
 /** The day the seat's state dates from, a decided application's spent link naming none: its deadline is not why it ended. */
-function dayOfState({ status, kontakte }: FLBewerbung, seat: FLKontaktRolle, entry: FLBewerbungConfirmation): Copy | null {
+function dayOfState({ status, kontakte }: FLBewerbung, seat: FLKontaktSeat, entry: FLBewerbungConfirmation): Copy | null {
   const confirmedAt = kontakte[seat]?.einwilligung.confirmed_at ?? null;
   switch (entry.state) {
     case "confirmed":
@@ -57,7 +57,7 @@ function dayOfState({ status, kontakte }: FLBewerbung, seat: FLKontaktRolle, ent
 export function seatsOf(bewerbung: FLBewerbung): SeatView[] {
   const { kontakte, confirmations } = bewerbung;
   const also = seatBesideTrainer(kontakte);
-  return KONTAKT_ROLLEN.filter((seat) => seat !== also).map((seat) => {
+  return KONTAKT_SEATS.filter((seat) => seat !== also).map((seat) => {
     const entry = confirmations[seat];
     // An erasure clears the entry, which is all that parts it from the empty slot a Widerspruch leaves.
     const state = entry?.state ?? "erased";
@@ -65,7 +65,7 @@ export function seatsOf(bewerbung: FLBewerbung): SeatView[] {
     const delivery = entry?.sent_at === null ? NOT_SENT_CHIP : deliveryChip(entry?.delivery ?? null);
     return {
       seat,
-      rollen: seat === "trainer" && also !== null ? [seat, also] : [seat],
+      seats: seat === "trainer" && also !== null ? [seat, also] : [seat],
       person: kontakte[seat],
       state,
       chips: delivery === null ? [STATE_CHIP[state]] : [STATE_CHIP[state], delivery],

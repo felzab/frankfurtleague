@@ -102,8 +102,8 @@ def row(spiel_raw: Mapping[str, Any], team_id: ObjectId, **fields: Any) -> dict[
     )
 
 
-def declined(rolle: str, reason: str, date: str) -> dict[str, Any]:
-    return documents.kontakt_answer_document(rolle, reason=reason, vorschlag={"date": date, "time": "17:00:00"})
+def declined(seat: str, reason: str, date: str) -> dict[str, Any]:
+    return documents.kontakt_answer_document(seat, reason=reason, vorschlag={"date": date, "time": "17:00:00"})
 
 
 ROWS = [
@@ -111,7 +111,7 @@ ROWS = [
     row(VORSCHLAG, TEAM),
     row(VORSCHLAG, OTHER, answer=declined("trainer", OTHERS_REASON, "2026-04-16")),
     row(DECLINED, TEAM, answer=declined("ansprechperson", OWN_REASON, "2026-04-23")),
-    row(AGREED, TEAM, answer={"kind": "agreed", "at": TODAY, "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None}),
+    row(AGREED, TEAM, answer={"kind": "agreed", "at": TODAY, "by": {"kind": "kontakt", "seat": "trainer"}, "vorschlag": None, "reason": None}),
     row(OVERDUE, TEAM, answer=declined("trainer", OWN_REASON, "2026-04-03"), closed={"reason": "discarded"}),
     {**row(MOVED, TEAM), "ansetzung": {**row(MOVED, TEAM)["ansetzung"], "time": "16:00:00", "digest": "a-slot-left"}},
     row(VALID, TEAM),
@@ -252,7 +252,7 @@ class TestTheOverview:
         status, served = await read(mongo_replica_set_url, "overview")
 
         assert status == 200
-        assert (served["name"], served["full_name"], served["rollen"]) == ("Zorbanax", "Zorbanax-Schule", ["trainer"])
+        assert (served["name"], served["full_name"], served["held_seats"]) == ("Zorbanax", "Zorbanax-Schule", ["trainer"])
         # The date agreed, the discarded decline, the row about a slot left and the call-off ask nothing; the others by
         # their day.
         assert [
@@ -277,7 +277,7 @@ class TestTheOverview:
             (registrierung["first_name"], registrierung["position"], registrierung["stufe"], registrierung["admissible"])
             for registrierung in served["registrierungen"]
         ] == [("Pia", None, None, False), ("Ole", "Abwehr", "Q2", True)]
-        assert [(entry["rollen"], entry["name"], entry["confirmed"]) for entry in served["seats"]] == [
+        assert [(entry["seats"], entry["name"], entry["confirmed"]) for entry in served["seats"]] == [
             (["trainer"], "Theo Theo-Mustermann", True),
             (["ansprechperson"], "Anna Anna-Mustermann", False),
             (["stellvertretung"], None, False),

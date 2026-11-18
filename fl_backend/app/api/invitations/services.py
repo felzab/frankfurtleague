@@ -7,7 +7,7 @@ from app.api.invitations.schemas import FLInvitationSkipReason
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
-from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle
+from app.shared.schemas.literals import KONTAKT_SEATS, FLKontaktSeat
 
 # An exclusion rather than an inclusion list: what it subtracts is the whole credential, where a list of everything
 # else is one a later field joins by being forgotten.
@@ -136,7 +136,7 @@ def _confirmed_seat(kontakte: Any, seat: str) -> Mapping[str, Any] | None:
 class InvitationRecipient(NamedTuple):
     """One mailbox a link goes to, and the seat it is addressed as."""
 
-    rolle: FLKontaktRolle
+    seat: FLKontaktSeat
     email: str
 
 
@@ -146,10 +146,10 @@ def confirmed_recipients(*, kontakte: Any) -> list[InvitationRecipient]:
     recipients: list[InvitationRecipient] = []
     seen: set[str] = set()
 
-    for seat in KONTAKT_ROLLEN:
+    for seat in KONTAKT_SEATS:
         entry = _confirmed_seat(kontakte, seat)
-        rolle = seat_named(seat)
-        if entry is None or rolle is None:
+        named = seat_named(seat)
+        if entry is None or named is None:
             continue
 
         address = str(entry.get("email") or "")
@@ -157,7 +157,7 @@ def confirmed_recipients(*, kontakte: Any) -> list[InvitationRecipient]:
             continue
 
         seen.add(address)
-        recipients.append(InvitationRecipient(rolle=rolle, email=address))
+        recipients.append(InvitationRecipient(seat=named, email=address))
 
     return recipients
 

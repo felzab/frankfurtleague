@@ -87,7 +87,7 @@ from app.core.dependencies import (
 from app.core.security import SYSTEM_TIER
 from app.core.transactions import SWEEP_PAGE, Batch, refuse_a_stalled_page, run_isolated
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
-from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.schemas.literals import KONTAKT_SEATS
 from app.shared.schemas.responses import FLSweepSaisonsResponse
 
 # System tier: the timer holds no session.
@@ -755,7 +755,7 @@ async def sweep_spielbestaetigungen(
                         "$in": [
                             aufstellung_reminder_key(spiel_id=spiel["_id"], team_id=team_id, seat=seat)
                             for spiel, team_id in owed
-                            for seat in KONTAKT_ROLLEN
+                            for seat in KONTAKT_SEATS
                         ]
                     }
                 },
@@ -768,7 +768,7 @@ async def sweep_spielbestaetigungen(
         told: dict[Any, set[Any]] = {}
         for spiel, team_id in owed:
             # Any seat's key stored is the club reminded, whoever holds its seats now.
-            if any(aufstellung_reminder_key(spiel_id=spiel["_id"], team_id=team_id, seat=seat) in reminded for seat in KONTAKT_ROLLEN):
+            if any(aufstellung_reminder_key(spiel_id=spiel["_id"], team_id=team_id, seat=seat) in reminded for seat in KONTAKT_SEATS):
                 continue
             marks = aufstellung_marks(date=spiel["date"], time=spiel["time"], stored=False, now=germany_now)
             assert marks is not None
@@ -784,7 +784,7 @@ async def sweep_spielbestaetigungen(
             )
             owed_here = [
                 OwedMail(
-                    key=aufstellung_reminder_key(spiel_id=spiel["_id"], team_id=team_id, seat=recipient.rolle),
+                    key=aufstellung_reminder_key(spiel_id=spiel["_id"], team_id=team_id, seat=recipient.seat),
                     to=recipient.email,
                     data=data,
                     reference=FLOutboxReference(collection=Collection.SAISON_TEAMS, id=junction["_id"], seat=None),

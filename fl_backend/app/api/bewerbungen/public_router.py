@@ -361,8 +361,8 @@ async def _saison_view(
         row=kontakt_row_of(saison_status=saison_raw.get("status"), austritt=row.get("austritt")),
         saison_id=str(row["saison_id"]),
         schule=saison_schule(row),
-        rolle=seat,
-        also_rolle=also,
+        seat=seat,
+        also_seat=also,
         minimum_age=minimum_age_for(seats),
         maximum_age=BIRTH_DATE_MAX_AGE_YEARS,
         deadline=seat_deadline_of(confirmations=row.get("confirmations"), seat=seat),
@@ -422,8 +422,8 @@ async def get_einwilligung_view(
         row=None,
         saison_id=str(bewerbung_raw["saison_id"]),
         schule=await _schule_name(bewerbung_raw=bewerbung_raw, teams_collection=teams_collection),
-        rolle=seat,
-        also_rolle=also,
+        seat=seat,
+        also_seat=also,
         minimum_age=minimum_age_for(seats),
         maximum_age=BIRTH_DATE_MAX_AGE_YEARS,
         deadline=seat_deadline_of(confirmations=bewerbung_raw.get("confirmations"), seat=seat),
@@ -616,7 +616,7 @@ async def post_einwilligung(
 
         # Off the updated document, so an Ansprechperson who has just declined leaves this null and
         # the message their decline would have gone to is owed to nobody.
-        declined_email, declined_rollen = ansprechperson_mailbox(
+        declined_email, declined_seats = ansprechperson_mailbox(
             kontakte=updated_raw.get("kontakte"), confirmations=updated_raw.get("confirmations")
         )
         if declined_email is not None:
@@ -632,12 +632,12 @@ async def post_einwilligung(
                         data=FLBewerbungObjectionData(
                             kind="bewerbung_objection",
                             saison_id=saison_id,
-                            rollen=declined_rollen,
+                            seats=declined_seats,
                             declined=list(seats),
                             # The declining seat is outstanding now, so a day is there to name.
                             deadline=str(deletion_day(kontakte=updated_raw.get("kontakte"), confirmations=updated_raw.get("confirmations"))),
                         ),
-                        reference=bewerbung_reference(bewerbung_raw["_id"], declined_rollen),
+                        reference=bewerbung_reference(bewerbung_raw["_id"], declined_seats),
                     )
                 ],
                 now=germany_now,

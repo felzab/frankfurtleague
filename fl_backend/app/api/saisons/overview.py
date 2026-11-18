@@ -44,7 +44,7 @@ from app.api.spiele.services import PARTY_NAME_FIELD, build_party_name_stages, b
 from app.core import clock
 from app.core.collections import Collection
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
-from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.schemas.literals import KONTAKT_SEATS
 from app.shared.schemas.responses import BaseReadModel
 
 # The four cards, in the urgency order the page shows them: what is due by a deadline, the results, the fixtures'
@@ -408,8 +408,8 @@ def overview_of(
                 kind="bewerbung",
                 bewerbung_id=bewerbung["_id"],
                 name=picked[0]["name"] if picked else bewerbung["schule"]["team_name"],
-                seats_confirmed=len(KONTAKT_ROLLEN) - len(pending_seats(kontakte=bewerbung.get("kontakte"))),
-                seats=len(KONTAKT_ROLLEN),
+                seats_confirmed=len(KONTAKT_SEATS) - len(pending_seats(kontakte=bewerbung.get("kontakte"))),
+                seats=len(KONTAKT_SEATS),
             )
         )
 

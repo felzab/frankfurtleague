@@ -1,6 +1,6 @@
-import { KONTAKT_ROLLEN } from "@/features/teams/constants";
+import { KONTAKT_SEATS } from "@/features/teams/constants";
 
-import type { FLKontaktRolle } from "@/core/generated/client/types";
+import type { FLKontaktSeat } from "@/core/generated/client/types";
 
 /** The field the one-shot form's replay key posts under, the kit's `replayField`. */
 export const REPLAY_FIELD = "idempotency_key";
@@ -9,7 +9,7 @@ export const REPLAY_FIELD = "idempotency_key";
 export const NO_SECOND_SEAT = "none";
 
 /** The boxes in the order the form shows them, the seats' one order. */
-export const SEATS = KONTAKT_ROLLEN;
+export const SEATS = KONTAKT_SEATS;
 
 /** What the boxes post, each under its dotted name, a box not shown posting nothing. */
 type Posted = Readonly<Record<string, unknown>>;
@@ -23,7 +23,7 @@ function figure(value: unknown): unknown {
   return /^\d+$/.test(value) ? Number(value) : orNull(value);
 }
 
-const seatOf = (posted: Posted, seat: FLKontaktRolle) => ({
+const seatOf = (posted: Posted, seat: FLKontaktSeat) => ({
   first_name: posted[`kontakte.${seat}.first_name`],
   last_name: posted[`kontakte.${seat}.last_name`],
   email: posted[`kontakte.${seat}.email`],

@@ -30,7 +30,7 @@ from app.core.crud import patch_one_in_db
 from app.core.exceptions import DocumentNotFoundError
 from app.core.logging import FL_LOGGER_NAME
 from app.core.transactions import SWEEP_PAGE
-from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle
+from app.shared.schemas.literals import KONTAKT_SEATS, FLKontaktSeat
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.acts import deletions_of
@@ -78,7 +78,7 @@ SCHOOL_NAME = "Zorbanax"
 
 
 def first_hashes(prefix: str) -> dict[str, str]:
-    return {seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_ROLLEN}
+    return {seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_SEATS}
 
 
 # Sought by the leak search over the owed notices, so a surname reaching one is caught.
@@ -246,7 +246,7 @@ async def refuse_the_ansprechpersons_address(database: AsyncDatabase, client: As
 
 
 # The seats the corpus's applications mail, `kontakte`'s Trainer reading the seat it mirrors.
-BOTH_MAILBOXES: Mapping[FLKontaktRolle, str] = {"ansprechperson": "wraxlington@example.com", "stellvertretung": "bramblewick@example.com"}
+BOTH_MAILBOXES: Mapping[FLKontaktSeat, str] = {"ansprechperson": "wraxlington@example.com", "stellvertretung": "bramblewick@example.com"}
 
 
 CONFIRMED_BIRTH_DATE = "1994-07-19"
@@ -269,7 +269,7 @@ async def confirm_every_seat(database: AsyncDatabase, bewerbung_id: ObjectId) ->
         db_filter={"_id": bewerbung_id},
         update=compose_confirmation_update(
             kontakte=stored["kontakte"],
-            seats=KONTAKT_ROLLEN,
+            seats=KONTAKT_SEATS,
             birth_date=CONFIRMED_BIRTH_DATE,
             today=MAILED_ON_THE_MARK,
             text_versions=SEAT_TEXT_VERSIONS,
@@ -291,13 +291,13 @@ async def decline(database: AsyncDatabase, client: AsyncMongoClient, token: str,
     return await answered(database, client, {"token": token, "answer": "declined"}, today=TODAY, germany_now=now)
 
 
-def reminder_mail(to: str, rollen: list[str]) -> dict[str, Any]:
+def reminder_mail(to: str, seats: list[str]) -> dict[str, Any]:
     """The reminder the corpus's application owes one person, as the Postausgang holds it."""
 
     return {
-        "key": f"{Collection.BEWERBUNGEN}/{REMIND_OID}/reminder/{rollen[0]}/{TODAY}",
+        "key": f"{Collection.BEWERBUNGEN}/{REMIND_OID}/reminder/{seats[0]}/{TODAY}",
         "to": to,
-        "data": {"kind": "bewerbung_reminder", "saison_id": SAISON_ID, "schule": SCHOOL_NAME, "rollen": rollen, "deadline": "2026-04-12"},
+        "data": {"kind": "bewerbung_reminder", "saison_id": SAISON_ID, "schule": SCHOOL_NAME, "seats": seats, "deadline": "2026-04-12"},
     }
 
 
@@ -319,10 +319,10 @@ class TestTheReminderClock:
         ]
         assert document is not None
         first = first_hashes(str(REMIND_OID))
-        for rolle in KONTAKT_ROLLEN:
-            bookkeeping = document["confirmations"][rolle]
+        for seat in KONTAKT_SEATS:
+            bookkeeping = document["confirmations"][seat]
             # No link before the hand-out: the first one alone stands until the drain mints the reminder's beside it.
-            assert bookkeeping["token_hashes"] == [first[rolle]]
+            assert bookkeeping["token_hashes"] == [first[seat]]
             assert (bookkeeping["reminded_at"], bookkeeping["sent_at"]) == (TODAY, MAILED_ON_THE_MARK)
         assert document["confirmations"]["trainer"]["deadline"] == "2026-04-12"
 
@@ -344,11 +344,11 @@ class TestTheReminderClock:
 
         old_view, new_view, token, document = await on_a_league(mongo_replica_set_url, body)
 
-        assert (old_view.state, old_view.rolle) == ("valid", "trainer")
+        assert (old_view.state, old_view.seat) == ("valid", "trainer")
         assert new_view.state == "valid"
         first = first_hashes(str(REMIND_OID))
-        for rolle in ("trainer", "ansprechperson"):
-            assert document["confirmations"][rolle]["token_hashes"] == [first[rolle], hash_token(token)]
+        for seat in ("trainer", "ansprechperson"):
+            assert document["confirmations"][seat]["token_hashes"] == [first[seat], hash_token(token)]
 
     async def test_a_resend_after_a_reminder_voids_every_link_on_both_seats_the_person_holds(self, mongo_replica_set_url: str):
         """A re-send replaces the person's links, so nothing it replaces may still open the seat.
@@ -385,8 +385,8 @@ class TestTheReminderClock:
         assert (state, foreign_state) == ("valid", "valid")
         assert document is not None
         # One link answering both, each entry written back as the create writes it, and the reminder owed again.
-        for rolle in ("trainer", "ansprechperson"):
-            assert document["confirmations"][rolle] == {
+        for seat in ("trainer", "ansprechperson"):
+            assert document["confirmations"][seat] == {
                 "token_hashes": [hash_token(fresh_token)],
                 "sent_at": TODAY,
                 "deadline": confirmation_deadline_from(today=TODAY),
@@ -483,7 +483,7 @@ class TestAnApplicationWhoseNoticeCannotArrive:
         """The two later mails past the bound: that mailbox has heard of nothing, and the day stands for the people who have."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            unmailed = {f"confirmations.{seat}.sent_at": None for seat in KONTAKT_ROLLEN}
+            unmailed = {f"confirmations.{seat}.sent_at": None for seat in KONTAKT_SEATS}
             await database[Collection.BEWERBUNGEN].update_many({"_id": {"$in": [REMIND_OID, DELETE_OID]}}, {"$set": unmailed})
             response = await sweep(database, client, now=MAIL_NOW)
 
@@ -556,7 +556,7 @@ class TestAClosedChase:
         assert closed["confirmations"]["ansprechperson"]["chase_closed_at"] == TODAY
         assert opened is not None
         assert opened["confirmations"]["ansprechperson"]["chase_closed_at"] is None
-        assert [(mail["to"], mail["data"]["rollen"]) for mail in mails] == [("wraxlington@example.com", ["ansprechperson", "trainer"])]
+        assert [(mail["to"], mail["data"]["seats"]) for mail in mails] == [("wraxlington@example.com", ["ansprechperson", "trainer"])]
 
     async def test_a_re_send_still_opens_it(self, mongo_replica_set_url: str):
         """The re-send replaces the entry, its stamp with it, and the seats it left reach their mark on their own day."""
@@ -1319,7 +1319,7 @@ class TestEachCappedClockMakesProgressAcrossPasses:
             first = await sweep(database, client, now=MAIL_NOW)
             second = await sweep(database, client, now=MAIL_NOW)
             closed = await database[Collection.BEWERBUNGEN].count_documents(
-                {"_id": {"$in": bounced}, **{f"confirmations.{seat}.chase_closed_at": TODAY for seat in KONTAKT_ROLLEN}}
+                {"_id": {"$in": bounced}, **{f"confirmations.{seat}.chase_closed_at": TODAY for seat in KONTAKT_SEATS}}
             )
 
             return first.erased, first.reminded, second.reminded, await reminded(database), closed
@@ -1584,7 +1584,7 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
     async def test_the_sweep_of_a_past_season(self, mongo_replica_set_url: str):
         """The lapsed seats' side again where the season's own end runs too: it takes the open rows, and with them every reminder."""
 
-        lapsing = [seats for size in range(1, len(KONTAKT_ROLLEN) + 1) for seats in combinations(KONTAKT_ROLLEN, size)]
+        lapsing = [seats for size in range(1, len(KONTAKT_SEATS) + 1) for seats in combinations(KONTAKT_SEATS, size)]
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, Counter[str]]:
             await database[Collection.SAISON_TEAMS].insert_many([lapsed_row(position, seats) for position, seats in enumerate(lapsing)])

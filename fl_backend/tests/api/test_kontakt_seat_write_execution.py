@@ -142,7 +142,7 @@ class TestTheSeatsStateDecidesTheWrite:
         assert (seat["first_name"], seat["birth_date"]) == ("Lea", None)
         assert (seat["einwilligung"]["scope"], seat["einwilligung"]["date"]) == ("kontakt_data", TODAY)
         assert (seat["einwilligung"]["confirmed_at"], seat["einwilligung"]["media"]) == (None, False)
-        assert [(mail.to, mail.data.rollen) for mail in mails] == [("lea@example.com", ["trainer"])]
+        assert [(mail.to, mail.data.seats) for mail in mails] == [("lea@example.com", ["trainer"])]
         # The seat beside it keeps its person, and with them the link they already hold.
         assert row["confirmations"]["ansprechperson"] == link_entry()
 
@@ -293,7 +293,7 @@ class TestAConfirmationLandingBeforeTheSave:
 
         seat = row["kontakte"]["trainer"]
         assert (seat["first_name"], seat["birth_date"], seat["einwilligung"]["confirmed_at"]) == ("Lea", None, None)
-        assert [(mail.to, mail.data.rollen) for mail in mails] == [("lea@example.com", ["trainer"])]
+        assert [(mail.to, mail.data.seats) for mail in mails] == [("lea@example.com", ["trainer"])]
 
 
 class TestTheRefusals:

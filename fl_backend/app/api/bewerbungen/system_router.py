@@ -63,7 +63,7 @@ from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.security import SYSTEM_TIER
 from app.core.transactions import SWEEP_PAGE, Batch, drain, refuse_a_stalled_page, run_isolated
 from app.shared.schemas.bounds import DECLINED_RETENTION_DAYS, LIST_LIMIT_DEFAULT
-from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle
+from app.shared.schemas.literals import KONTAKT_SEATS, FLKontaktSeat
 from app.shared.schemas.responses import FLSweepSaisonsResponse
 
 # System tier: the sweep holds no session, so `bind_actor` would refuse it.
@@ -238,7 +238,7 @@ async def sweep_saison(
             outbox_collection=outbox_collection, collection=Collection.BEWERBUNGEN, ids=[row["_id"] for row in rows], session=session
         )
 
-        def chase_of(row: Mapping[str, Any]) -> tuple[list[tuple[str, list[FLKontaktRolle]]], list[FLKontaktRolle]]:
+        def chase_of(row: Mapping[str, Any]) -> tuple[list[tuple[str, list[FLKontaktSeat]]], list[FLKontaktSeat]]:
             unreachable = unreachable_seats(row=row, states=states)
             seats = reminder_seats(bewerbung_raw=row, today=today, unreachable=unreachable)
 
@@ -290,7 +290,7 @@ async def sweep_saison(
                 session=session,
             )
         # One write a seat, however many rows, a write a row being a page's worth of commands.
-        for seat in KONTAKT_ROLLEN:
+        for seat in KONTAKT_SEATS:
             if ids := [row_id for row_id, seats in closing.items() if seat in seats]:
                 await patch_past_the_version_in_db(
                     collection=bewerbungen_collection,

@@ -312,19 +312,19 @@ export interface FLEinwilligungState {
   scope: string | null;
 }
 
-export type FLKontaktRolle = (typeof FLKontaktRolle)[keyof typeof FLKontaktRolle];
-
-export const FLKontaktRolle = {
-  trainer: "trainer",
-  ansprechperson: "ansprechperson",
-  stellvertretung: "stellvertretung",
-} as const;
-
 export type FLKontaktKenntnisnahmeScope = (typeof FLKontaktKenntnisnahmeScope)[keyof typeof FLKontaktKenntnisnahmeScope];
 
 export const FLKontaktKenntnisnahmeScope = {
   kontakt_data: "kontakt_data",
   kontakt_data_whatsapp: "kontakt_data_whatsapp",
+} as const;
+
+export type FLKontaktSeat = (typeof FLKontaktSeat)[keyof typeof FLKontaktSeat];
+
+export const FLKontaktSeat = {
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
 } as const;
 
 /**
@@ -337,11 +337,11 @@ export interface FLAccountBewerbungSeatEinwilligung {
   bewerbung_id: string;
   evidence_state: FLEinwilligungState;
   media: boolean;
-  /** @minItems 1 */
-  rollen: FLKontaktRolle[];
   saison_id: string;
   schule: string;
   scope: FLKontaktKenntnisnahmeScope;
+  /** @minItems 1 */
+  seats: FLKontaktSeat[];
 }
 
 export type FLEinwilligungScope = (typeof FLEinwilligungScope)[keyof typeof FLEinwilligungScope];
@@ -435,10 +435,10 @@ export interface FLAccountSeatEinwilligung {
   givable: boolean;
   media: boolean;
   media_offered: boolean;
-  /** @minItems 1 */
-  rollen: FLKontaktRolle[];
   saison_id: string;
   scope: FLKontaktKenntnisnahmeScope;
+  /** @minItems 1 */
+  seats: FLKontaktSeat[];
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
   team_name: string;
@@ -479,8 +479,8 @@ export interface FLAccountEinwilligungenResponse {
 export interface FLAccountErasureBewerbung {
   first_name: string;
   last_name: string;
-  rolle: FLKontaktRolle;
   saison_id: string;
+  seat: FLKontaktSeat;
 }
 
 export const FLAccountErasureDataValue = {
@@ -508,8 +508,8 @@ export interface FLAccountErasureSchiedsrichter {
 export interface FLAccountErasureSeat {
   first_name: string;
   last_name: string;
-  rolle: FLKontaktRolle;
   saison_id: string;
+  seat: FLKontaktSeat;
   team_name: string;
 }
 
@@ -1536,9 +1536,9 @@ export interface FLBewerbung {
 export interface FLBewerbungAbsageData {
   kind: "bewerbung_absage";
   reason: string;
-  /** @minItems 1 */
-  rollen: FLKontaktRolle[];
   saison_id: string;
+  /** @minItems 1 */
+  seats: FLKontaktSeat[];
   team: string;
 }
 
@@ -1640,8 +1640,8 @@ export interface FLBewerbungEinwilligungResendResponse {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   confirmation_deadline: string;
   email: string;
-  rolle: FLKontaktRolle;
-  rollen: FLKontaktRolle[];
+  seat: FLKontaktSeat;
+  seats: FLKontaktSeat[];
 }
 
 export type FLBewerbungEinwilligungViewResponseQuelle =
@@ -1675,16 +1675,16 @@ export const FLKontaktRow = {
  * What the page renders for one seat, and nothing of the person.
  */
 export interface FLBewerbungEinwilligungViewResponse {
-  also_rolle: FLKontaktRolle | null;
+  also_seat: FLKontaktSeat | null;
   answered_at: string | null;
   deadline: string | null;
   maximum_age: number;
   minimum_age: number;
   quelle: FLBewerbungEinwilligungViewResponseQuelle;
-  rolle: FLKontaktRolle;
   row: FLKontaktRow | null;
   saison_id: string;
   schule: string;
+  seat: FLKontaktSeat;
   state: FLBewerbungEinwilligungViewResponseState;
 }
 
@@ -1838,16 +1838,16 @@ export const FLBewerbungLinkDataKind = {
 /**
  * One person's confirmation link on an application: at its submission, a re-send, a correction or a reseat, or the one reminder.
  *
- * `rollen` are every seat the link answers, two where the Trainer holds a second; the reminder's link joins the first.
+ * `seats` are every seat the link answers, two where the Trainer holds a second; the reminder's link joins the first.
  */
 export interface FLBewerbungLinkData {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   deadline: string;
   kind: FLBewerbungLinkDataKind;
-  /** @minItems 1 */
-  rollen: FLKontaktRolle[];
   saison_id: string;
   schule: string;
+  /** @minItems 1 */
+  seats: FLKontaktSeat[];
 }
 
 /**
@@ -1880,11 +1880,11 @@ export interface FLBewerbungObjectionData {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   deadline: string;
   /** @minItems 1 */
-  declined: FLKontaktRolle[];
+  declined: FLKontaktSeat[];
   kind: "bewerbung_objection";
-  /** @minItems 1 */
-  rollen: FLKontaktRolle[];
   saison_id: string;
+  /** @minItems 1 */
+  seats: FLKontaktSeat[];
 }
 
 /**
@@ -1894,10 +1894,10 @@ export interface FLBewerbungReceivedData {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   deadline: string;
   kind: "bewerbung_received";
-  pending: FLKontaktRolle[];
-  /** @minItems 1 */
-  rollen: FLKontaktRolle[];
+  pending: FLKontaktSeat[];
   saison_id: string;
+  /** @minItems 1 */
+  seats: FLKontaktSeat[];
 }
 
 /**
@@ -1970,9 +1970,9 @@ export interface FLBewerbungWindow {
 export interface FLBewerbungZusageData {
   gruppe: FLGruppenNames;
   kind: "bewerbung_zusage";
-  /** @minItems 1 */
-  rollen: FLKontaktRolle[];
   saison_id: string;
+  /** @minItems 1 */
+  seats: FLKontaktSeat[];
   shorthand: string;
   team: string;
   trikot_farbe: FLTrikotFarbe | null;
@@ -2864,7 +2864,7 @@ export interface FLKoRundeResponse {
  */
 export interface FLKontaktMint {
   email: string;
-  rollen: FLKontaktRolle[];
+  seats: FLKontaktSeat[];
 }
 
 /**
@@ -2884,11 +2884,11 @@ export interface FLKontaktLinkData {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   deadline: string;
   kind: "kontakt_confirmation";
-  /** @minItems 1 */
-  rollen: FLKontaktRolle[];
   row: FLKontaktRow;
   saison_id: string;
   schule: string;
+  /** @minItems 1 */
+  seats: FLKontaktSeat[];
 }
 
 export interface FLKontaktPayload {
@@ -5098,7 +5098,7 @@ export const FLSpielbestaetigungByKontaktKind = {
  */
 export interface FLSpielbestaetigungByKontakt {
   kind: FLSpielbestaetigungByKontaktKind;
-  rolle: FLKontaktRolle;
+  seat: FLKontaktSeat;
 }
 
 export type FLSpielbestaetigungBySchiedsrichterKind =
@@ -5592,13 +5592,13 @@ export interface FLSubjectSchiedsrichter {
  * Per seat and never per person: one row seats one person twice where `trainer_is_also` says so.
  */
 export interface FLSubjectSeat {
-  rolle: FLKontaktRolle;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   saison_end_date: string;
   saison_id: string;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   saison_start_date: string;
   saison_status: FLSaisonStatus;
+  seat: FLKontaktSeat;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
   team_name: string;
@@ -5833,7 +5833,7 @@ export interface FLTeamPanelRegistrierung {
 export interface FLTeamSeat {
   confirmed: boolean;
   name: string | null;
-  rollen: FLKontaktRolle[];
+  seats: FLKontaktSeat[];
 }
 
 /**
@@ -5866,11 +5866,11 @@ export interface FLTeamOverviewResponse {
   aufstellungen: FLTeamPanelAufstellung[];
   /** @minLength 1 */
   full_name: string;
+  held_seats: FLKontaktSeat[];
   /** @minLength 1 */
   name: string;
   registrierungen: FLTeamPanelRegistrierung[];
   registrierungen_complete: boolean;
-  rollen: FLKontaktRolle[];
   saison_id: string;
   seats: FLTeamSeat[];
   /** @minLength 1 */

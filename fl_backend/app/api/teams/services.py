@@ -43,7 +43,7 @@ from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
 from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.custom import CustomObjectId
-from app.shared.schemas.literals import KONTAKT_ROLLEN, FLGruppenNames, FLKontaktRolle, FLKontaktRow, FLTrikotFarbe
+from app.shared.schemas.literals import KONTAKT_SEATS, FLGruppenNames, FLKontaktRow, FLKontaktSeat, FLTrikotFarbe
 
 AS_NAME = "saison_data"
 SAISON_PAST_AS_NAME = "saison_past_data"
@@ -916,7 +916,7 @@ def build_team_saisons_pipeline(team_id: Any) -> list[Mapping[str, Any]]:
                     },
                     # Each link's state and never its hash, which only the link's own lookup reads. Unset
                     # rather than projected field by field: a sub-path projection drops a null seat's key.
-                    {"$unset": [f"confirmations.{seat}.token_hashes" for seat in KONTAKT_ROLLEN]},
+                    {"$unset": [f"confirmations.{seat}.token_hashes" for seat in KONTAKT_SEATS]},
                 ],
                 "as": "memberships",
             }
@@ -939,7 +939,7 @@ def _seat_state(row: Mapping[str, Any], seat: str) -> str:
 
     also = (row.get("kontakte") or {}).get("trainer_is_also")
     links = row.get("confirmations") or {}
-    if seat == "trainer" and also in KONTAKT_ROLLEN and links.get(also) == links.get("trainer"):
+    if seat == "trainer" and also in KONTAKT_SEATS and links.get(also) == links.get("trainer"):
         return str(also)
 
     return seat
@@ -1064,7 +1064,7 @@ def compose_kontakte_origin(*, kontakte: Mapping[str, Any], stored: Any) -> dict
     stored_block = stored if isinstance(stored, Mapping) else {}
     composed = dict(kontakte)
 
-    for slot in KONTAKT_ROLLEN:
+    for slot in KONTAKT_SEATS:
         seat = kontakte.get(slot)
         if not isinstance(seat, Mapping):
             continue
@@ -1081,8 +1081,8 @@ def compose_kontakte_origin(*, kontakte: Mapping[str, Any], stored: Any) -> dict
 
 
 def compose_seat_block(
-    *, stored: Any, seat: FLKontaktRolle, sent: Mapping[str, Any], today: str
-) -> tuple[dict[str, Any], tuple[FLKontaktRolle, ...]]:
+    *, stored: Any, seat: FLKontaktSeat, sent: Mapping[str, Any], today: str
+) -> tuple[dict[str, Any], tuple[FLKontaktSeat, ...]]:
     """The whole block a seat write leaves, and the seats it writes, so one person is judged and stored as a block's save judges them.
 
     Every state of a seat takes the write: a standing person is replaced or corrected, a confirmed one gives way, and an
@@ -1090,7 +1090,7 @@ def compose_seat_block(
     seat reaches both. `sent` holds `trainer_is_also` only where the caller sent it.
     """
 
-    block = dict(stored) if isinstance(stored, Mapping) else {**dict.fromkeys(KONTAKT_ROLLEN), "trainer_is_also": None}
+    block = dict(stored) if isinstance(stored, Mapping) else {**dict.fromkeys(KONTAKT_SEATS), "trainer_is_also": None}
     claim = block.get("trainer_is_also")
     if seat == "trainer":
         claim = sent.get("trainer_is_also", claim)
@@ -1104,7 +1104,7 @@ def compose_seat_block(
     return {**block, **dict.fromkeys(seats, slot), "trainer_is_also": claim}, seats
 
 
-def find_kontakt_taken_refusal(*, kontakte: Mapping[str, Any], seats: Sequence[FLKontaktRolle]) -> WriteRefusal | None:
+def find_kontakt_taken_refusal(*, kontakte: Mapping[str, Any], seats: Sequence[FLKontaktSeat]) -> WriteRefusal | None:
     """Why this person cannot hold these seats, or `None`: another seat's person holds their address or their number.
 
     `find_repeated_contact_refusal`'s rule, asked of the seats this write leaves. The seats
@@ -1112,7 +1112,7 @@ def find_kontakt_taken_refusal(*, kontakte: Mapping[str, Any], seats: Sequence[F
     """
 
     person = kontakte[seats[0]]
-    others = [held for slot in KONTAKT_ROLLEN if slot not in seats and isinstance(held := kontakte.get(slot), Mapping)]
+    others = [held for slot in KONTAKT_SEATS if slot not in seats and isinstance(held := kontakte.get(slot), Mapping)]
 
     if sign_in_identifier(person["email"]) in {sign_in_identifier(str(held.get("email") or "")) for held in others}:
         return WriteRefusal(error_code=Code.KONTAKT_EMAIL_TAKEN, status=HTTPStatus.CONFLICT, fields=(("email",),))
@@ -1137,7 +1137,7 @@ def compose_kontakt_confirmation(*, today: str) -> dict[str, Any]:
     return {"token_hashes": [], "sent_at": today, "deadline": confirmation_deadline_from(today=today), "declined_at": None}
 
 
-def people_of(kontakte: Any) -> list[tuple[FLKontaktRolle, ...]]:
+def people_of(kontakte: Any) -> list[tuple[FLKontaktSeat, ...]]:
     """Each person the block seats, as the filled seats they hold, the Trainer beside the seat `trainer_is_also` names.
 
     One link per person: two would leave the first answering for a seat the second already answered.
@@ -1145,21 +1145,21 @@ def people_of(kontakte: Any) -> list[tuple[FLKontaktRolle, ...]]:
 
     block = kontakte if isinstance(kontakte, Mapping) else {}
     also = block.get("trainer_is_also")
-    people: list[tuple[FLKontaktRolle, ...]] = []
+    people: list[tuple[FLKontaktSeat, ...]] = []
 
-    for slot in KONTAKT_ROLLEN:
+    for slot in KONTAKT_SEATS:
         if slot == also:
             continue
 
-        held: tuple[FLKontaktRolle, ...] = (slot, also) if slot == "trainer" and also in KONTAKT_ROLLEN else (slot,)
-        filled: tuple[FLKontaktRolle, ...] = tuple(seat for seat in held if isinstance(block.get(seat), Mapping))
+        held: tuple[FLKontaktSeat, ...] = (slot, also) if slot == "trainer" and also in KONTAKT_SEATS else (slot,)
+        filled: tuple[FLKontaktSeat, ...] = tuple(seat for seat in held if isinstance(block.get(seat), Mapping))
         if filled:
             people.append(filled)
 
     return people
 
 
-def links_owed(*, kontakte: Any, stored: Any) -> list[tuple[FLKontaktRolle, ...]]:
+def links_owed(*, kontakte: Any, stored: Any) -> list[tuple[FLKontaktSeat, ...]]:
     """Each person this save newly seats, as the unconfirmed seats one fresh link answers for.
 
     Newly is `_seat_held_by`'s identity, so a corrected name is a handover here too: the seat's last
@@ -1168,14 +1168,14 @@ def links_owed(*, kontakte: Any, stored: Any) -> list[tuple[FLKontaktRolle, ...]
 
     block = kontakte if isinstance(kontakte, Mapping) else {}
     stored_block = stored if isinstance(stored, Mapping) else {}
-    owed: list[tuple[FLKontaktRolle, ...]] = []
+    owed: list[tuple[FLKontaktSeat, ...]] = []
 
     for person in people_of(block):
         if all(_seat_held_by(stored_block.get(seat), seat=block[seat]) is not None for seat in person):
             continue
 
         # A seat of the pair this person has already confirmed keeps its stamp and its link.
-        unconfirmed: tuple[FLKontaktRolle, ...] = tuple(seat for seat in person if not _seat_is_stamped(block[seat]))
+        unconfirmed: tuple[FLKontaktSeat, ...] = tuple(seat for seat in person if not _seat_is_stamped(block[seat]))
         if unconfirmed:
             owed.append(unconfirmed)
 
@@ -1192,10 +1192,10 @@ def compose_confirmations_with(*, stored_confirmations: Any, minted: Mapping[str
 
     stored_links = stored_confirmations if isinstance(stored_confirmations, Mapping) else {}
 
-    return {slot: minted[slot] if slot in minted else stored_links.get(slot) for slot in KONTAKT_ROLLEN}
+    return {slot: minted[slot] if slot in minted else stored_links.get(slot) for slot in KONTAKT_SEATS}
 
 
-def kontakt_reference(saison_team_id: Any, seats: Sequence[FLKontaktRolle]) -> FLOutboxReference:
+def kontakt_reference(saison_team_id: Any, seats: Sequence[FLKontaktSeat]) -> FLOutboxReference:
     """The season row and the person's seat a delivery is read by: the one the Trainer mirrors, where they hold two."""
 
     return FLOutboxReference(collection=Collection.SAISON_TEAMS, id=saison_team_id, seat=min(seats, key=lambda seat: seat == "trainer"))
@@ -1206,7 +1206,7 @@ def owed_kontakt_link(
     row: Mapping[str, Any],
     saison_id: str,
     kontakte: Mapping[str, Any],
-    seats: Sequence[FLKontaktRolle],
+    seats: Sequence[FLKontaktSeat],
     deadline: str,
     kontakt_row: FLKontaktRow,
     key: str,
@@ -1228,7 +1228,7 @@ def owed_kontakt_link(
                 kind="kontakt_confirmation",
                 saison_id=saison_id,
                 schule=str(row.get("name") or ""),
-                rollen=list(seats),
+                seats=list(seats),
                 deadline=deadline,
                 row=kontakt_row,
             ),
@@ -1239,11 +1239,11 @@ def owed_kontakt_link(
                 replaced=True,
             ),
         ),
-        FLKontaktMint(rollen=list(seats), email=email),
+        FLKontaktMint(seats=list(seats), email=email),
     )
 
 
-def seats_one_link_answers(*, kontakte: Any, seat: FLKontaktRolle) -> tuple[FLKontaktRolle, ...]:
+def seats_one_link_answers(*, kontakte: Any, seat: FLKontaktSeat) -> tuple[FLKontaktSeat, ...]:
     """The pressed seat and, where one person holds both, the other seat they have not confirmed."""
 
     for person in people_of(kontakte):
@@ -1350,7 +1350,7 @@ def teams_admin_rows(
 
     def listed(row: Mapping[str, Any]) -> FLTeamsAdminRow:
         kontakte = row.get("kontakte") or {}
-        seats = [seat for slot in KONTAKT_ROLLEN if isinstance(seat := kontakte.get(slot), Mapping)]
+        seats = [seat for slot in KONTAKT_SEATS if isinstance(seat := kontakte.get(slot), Mapping)]
 
         return FLTeamsAdminRow(
             id=row["team_id"],

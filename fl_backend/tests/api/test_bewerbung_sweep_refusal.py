@@ -20,7 +20,7 @@ from app.api.bewerbungen.services import (
 )
 from app.api.outbox.schemas import FLOutboxDelivery, FLOutboxDeliveryState, FLOutboxStatus
 from app.shared.schemas.bounds import BEWERBUNG_REMINDER_DAYS
-from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.schemas.literals import KONTAKT_SEATS
 from app.shared.tokens import hash_token
 from tests.documents import kontaktperson_document, minted_confirmations
 
@@ -33,7 +33,7 @@ MAILED_ON_THE_MARK = "2026-03-29"
 MAILED_A_DAY_SHORT = "2026-03-30"
 MAILED_A_DAY_PAST = "2026-03-28"
 
-HASHES: Mapping[str, str] = {seat: hash_token(f"first-{seat}") for seat in KONTAKT_ROLLEN}
+HASHES: Mapping[str, str] = {seat: hash_token(f"first-{seat}") for seat in KONTAKT_SEATS}
 
 
 def kontakte(**overrides: Any) -> dict[str, Any]:
@@ -259,13 +259,13 @@ class TestOneMessagePerMailbox:
     def test_one_person_holding_two_seats_gets_one_message_with_both(self):
         block = kontakte(trainer=kontaktperson_document("Ida"), ansprechperson=kontaktperson_document("Ida"), trainer_is_also="ansprechperson")
 
-        assert group_seats_by_mailbox(kontakte=block, seats=KONTAKT_ROLLEN) == [
+        assert group_seats_by_mailbox(kontakte=block, seats=KONTAKT_SEATS) == [
             ("ida@example.com", ["trainer", "ansprechperson"]),
             ("stellan@example.com", ["stellvertretung"]),
         ]
 
     def test_a_seat_without_an_address_is_left_out(self):
-        assert group_seats_by_mailbox(kontakte=kontakte(trainer=None), seats=KONTAKT_ROLLEN) == [
+        assert group_seats_by_mailbox(kontakte=kontakte(trainer=None), seats=KONTAKT_SEATS) == [
             ("ansgar@example.com", ["ansprechperson"]),
             ("stellan@example.com", ["stellvertretung"]),
         ]
@@ -302,7 +302,7 @@ class TestTheFourteenDayClock:
     def test_a_seat_an_erasure_emptied_goes_when_no_other_link_runs(self, other: str, due: bool):
         """The erasure took its deadline with its entry and no write refills that seat, so no other clock would ever take it."""
 
-        stamped = kontakte(**{seat: kontaktperson_document(seat.title(), confirmed_at=YESTERDAY) for seat in KONTAKT_ROLLEN})
+        stamped = kontakte(**{seat: kontaktperson_document(seat.title(), confirmed_at=YESTERDAY) for seat in KONTAKT_SEATS})
         stamped["trainer"] = None
         block = {**all_seats_until(other), "trainer": None}
 
@@ -316,7 +316,7 @@ class TestTheFourteenDayClock:
         assert deletion_day(kontakte=kontakte(), confirmations=block) == YESTERDAY
 
     def test_an_application_every_seat_confirmed_waits_for_the_triage_instead(self):
-        stamped = kontakte(**{seat: kontaktperson_document(seat.title(), confirmed_at=YESTERDAY) for seat in KONTAKT_ROLLEN})
+        stamped = kontakte(**{seat: kontaktperson_document(seat.title(), confirmed_at=YESTERDAY) for seat in KONTAKT_SEATS})
 
         assert not deletion_is_due(bewerbung_raw=application(confirmations=all_seats_until(YESTERDAY), kontakte=stamped), today=TODAY)
 
@@ -324,7 +324,7 @@ class TestTheFourteenDayClock:
     def test_a_declined_seat_counts_as_outstanding(self, emptied: str):
         """The whole clock's reach: such an application can never complete, so this is the only way it leaves."""
 
-        stamped = kontakte(**{seat: kontaktperson_document(seat.title(), confirmed_at=YESTERDAY) for seat in KONTAKT_ROLLEN})
+        stamped = kontakte(**{seat: kontaktperson_document(seat.title(), confirmed_at=YESTERDAY) for seat in KONTAKT_SEATS})
         stamped[emptied] = None
 
         assert deletion_is_due(bewerbung_raw=application(confirmations=all_seats_until(YESTERDAY), kontakte=stamped), today=TODAY)

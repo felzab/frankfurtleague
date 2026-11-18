@@ -312,10 +312,9 @@ window ended, which stands the row outside `max_kader_size`.\
 ### `rolle` — which of a squad's leading roles a player holds
 
 **Is:** the Kapitän or the Co-Kapitän of one team for one season, held on the `saison_spieler` row
-as one nullable closed set, null being the ordinary state. On a contact seat the same word names
-the seat instead.\
-**In code:** `fl_backend/app/api/spieler/schemas.py :: FLSpielerRolle`; the seat's
-`fl_backend/app/shared/schemas/literals.py :: FLKontaktRolle`.
+as one nullable closed set, null being the ordinary state. It is never a contact
+[`seat`](#seat--one-of-a-clubs-three-contact-places-and-who-holds-it).\
+**In code:** `fl_backend/app/api/spieler/schemas.py :: FLSpielerRolle`.
 
 ### `admin_tier` — which tier of access to the league's administration a grant holds
 
@@ -382,6 +381,18 @@ one season's people: a new season collects them again.\
 **In code:** `fl_backend/app/api/teams/schemas.py :: FLSaisonTeamKontakte` over
 `:: FLKontaktperson` and `:: FLKontaktKenntnisnahme`.\
 **See:** [`domain.md`](domain.md#the-entities-and-what-holds-them-together).
+
+### `seat` — one of a club's three contact places, and who holds it
+
+**Is:** one place in `kontakte`, „Sitz“ on screen: the Ansprechperson, the Stellvertretung or the
+Trainer, on a `saison_teams` row and on an application. Each seat holds one person, and one person
+holds two where `trainer_is_also` names the Trainer's second. A seat its holder confirmed through
+their own link admits them to the team's panel while the season is coming or running, where they
+answer the club's `Spielbestätigung`, enter its `Aufstellung`, keep its `Kader` and decide its
+`Registrierung`. It is never `rolle`, the captaincy.\
+**In code:** `fl_backend/app/shared/schemas/literals.py :: FLKontaktSeat`, every module iterating
+`:: KONTAKT_SEATS`; a signed-in person's seats
+`fl_backend/app/api/identity/schemas.py :: FLSubjectSeat`.
 
 ### `Einwilligung` · `Kenntnisnahme` — one stored key over two vocabularies: a person's own consent, and what a contact seat was told
 
@@ -620,7 +631,8 @@ not yet a `Funktion`.\
 
 **Is:** one contact seat, pupil row or referee row, or administration, each admitting the signed-in
 person to a panel; plural `Funktionen`, and „Funktion wechseln“ switches between them. It is
-neither the wire's `subject`, which it narrows, nor `rolle`, the captaincy and the contact seat.\
+neither the wire's `subject`, which it narrows, nor a `seat`, the record one kind of it stands on,
+nor `rolle`, the captaincy.\
 **In code:** `fl_backend/app/api/identity/crud.py :: roles_of`, narrowed by
 `fl_backend/app/api/identity/services.py :: grants_a_panel`;
 `fl_frontend/src/core/roles.ts :: rolesOf`.

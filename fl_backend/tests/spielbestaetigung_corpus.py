@@ -156,7 +156,7 @@ async def the_league(database: AsyncDatabase, *, spiele: list[dict[str, Any]], j
 @dataclasses.dataclass(frozen=True)
 class Recipient:
     address: str
-    rollen: list[str]
+    seats: list[str]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -308,7 +308,7 @@ async def handed_out(
                     moved_from=data["moved_from"],
                 )
                 (pass_.requests if kind == "spiel_request" else pass_.reminders).append(grouped[key])
-            grouped[key].recipients.append(Recipient(address=mail.to, rollen=seats))
+            grouped[key].recipients.append(Recipient(address=mail.to, seats=seats))
             continue
         if kind == "aufstellung_reminder":
             pass_.aufstellungen.append(
@@ -347,7 +347,7 @@ async def handed_out(
                 "spiel_cancelled": pass_.spiel_cancelled,
                 "spiel_vorschlag_discarded": pass_.vorschlag_discarded,
             }[kind].append(grouped[key])
-        grouped[key].recipient.append(Recipient(address=mail.to, rollen=seats))
+        grouped[key].recipient.append(Recipient(address=mail.to, seats=seats))
 
     assert set_aside == kontakt_links, f"{set_aside} contacts mails handed out where the case owed {kontakt_links}"
 

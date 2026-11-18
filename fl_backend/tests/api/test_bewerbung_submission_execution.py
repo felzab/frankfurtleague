@@ -19,7 +19,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.shared.schemas.bounds import BEWERBUNG_CONFIRMATION_DEADLINE_DAYS
-from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.schemas.literals import KONTAKT_SEATS
 from app.shared.tokens import hash_token
 from tests.app_client import app_client, app_under_test
 from tests.bewerbung_routes import viewed
@@ -269,7 +269,7 @@ class TestWhatTheCreateOwes:
                     "kind": "bewerbung_confirmation",
                     "saison_id": SAISON_ID,
                     "schule": EXISTING_NAME,
-                    "rollen": ["stellvertretung"],
+                    "seats": ["stellvertretung"],
                     "deadline": deadline,
                 },
             },
@@ -280,7 +280,7 @@ class TestWhatTheCreateOwes:
                     "kind": "bewerbung_confirmation",
                     "saison_id": SAISON_ID,
                     "schule": EXISTING_NAME,
-                    "rollen": ["trainer"],
+                    "seats": ["trainer"],
                     "deadline": deadline,
                 },
             },
@@ -290,7 +290,7 @@ class TestWhatTheCreateOwes:
                 "data": {
                     "kind": "bewerbung_received",
                     "saison_id": SAISON_ID,
-                    "rollen": ["ansprechperson"],
+                    "seats": ["ansprechperson"],
                     "pending": ["trainer", "stellvertretung"],
                     "deadline": deadline,
                 },
@@ -325,7 +325,7 @@ class TestWhatTheCreateOwes:
             [mail] = [mail for mail in mails if mail.to == KONTAKTE[seat]["email"]]
             assert mail.token is not None
             assert document["confirmations"][seat]["token_hashes"] == [hash_token(mail.token)]
-            assert (views[mail.to].state, views[mail.to].rolle) == ("valid", seat)
+            assert (views[mail.to].state, views[mail.to].seat) == ("valid", seat)
 
 
 class TestTheSubmissionKey:
@@ -598,7 +598,7 @@ class TestAMailboxPastTheBound:
         stored, more, days = await on_a_league(mongo_replica_set_url, body)
 
         assert (stored, more) == (OPEN_LINKS_PER_MAILBOX + 1, 0)
-        assert days == dict.fromkeys(KONTAKT_ROLLEN)
+        assert days == dict.fromkeys(KONTAKT_SEATS)
 
     async def test_a_seat_past_the_bound_leaves_the_applications_other_people_mailed(self, mongo_replica_set_url: str):
         """The school's other two are reached: only the crowded mailbox stands unmailed."""
@@ -693,7 +693,7 @@ class TestAMailboxPastTheBound:
 
         first, second = await on_a_league(mongo_replica_set_url, body)
 
-        assert first == dict.fromkeys(KONTAKT_ROLLEN, TODAY)
+        assert first == dict.fromkeys(KONTAKT_SEATS, TODAY)
         assert second == {"trainer": None, "ansprechperson": TODAY, "stellvertretung": TODAY}
 
     async def test_a_press_finding_the_mailbox_full_writes_no_document(self, mongo_replica_set_url: str):

@@ -11,7 +11,7 @@ from app.core.collections import Collection
 from app.core.concurrency import concurrently
 from app.core.crud import GERMAN_COLLATION
 from app.shared.schemas.bounds import ACTION_LOG_ENTRY_RETENTION_SECONDS, ADDRESS_CHANGE_RETENTION_DAYS, MAILBOX_ANCHOR_RETENTION_SECONDS
-from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.schemas.literals import KONTAKT_SEATS
 
 
 @dataclass(frozen=True)
@@ -195,7 +195,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
             ((f"confirmations.{seat}.token_hashes", ASCENDING),),
             "a contact seat's confirmation page, through the application's lookup, driven by strangers",
         )
-        for seat in KONTAKT_ROLLEN
+        for seat in KONTAKT_SEATS
     ),
     # `status` sits after the sort keys, the read being free to omit it: an index serves a sort
     # "only when the query includes equality conditions on all prefix keys that precede the sort
@@ -289,7 +289,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
             ((f"kontakte.{seat}.email", ASCENDING),),
             "a person's seats, which the subject lookup reads on every signed-in page",
         )
-        for seat in KONTAKT_ROLLEN
+        for seat in KONTAKT_SEATS
     ),
     *(
         SupportIndex(
@@ -298,7 +298,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
             ((f"kontakte.{seat}.email", ASCENDING),),
             "a person's applications, which every sign-in attempt and account page read",
         )
-        for seat in KONTAKT_ROLLEN
+        for seat in KONTAKT_SEATS
     ),
     # Compound, so the sign-in's `status` term is read off the index; the erasure's read of every status walks its prefix.
     SupportIndex(

@@ -1488,7 +1488,7 @@ class TestAResendRacingAnAnswer:
 
         # The landing inside: the re-send judged a read holding the address the correction then replaced.
         assert as_read is not None and as_read["kontakte"]["ansprechperson"]["email"] != CORRECTED_EMAIL
-        assert (response.email, response.rollen) == (CORRECTED_EMAIL, ["ansprechperson"])
+        assert (response.email, response.seats) == (CORRECTED_EMAIL, ["ansprechperson"])
         # The re-send settles the correction's mail it supersedes, so one mail goes, to the corrected mailbox, and its link opens.
         assert [mail.to for mail in mails] == [CORRECTED_EMAIL]
         assert stored["confirmations"]["ansprechperson"]["token_hashes"] == [hash_token(mails[-1].token or "")]
@@ -1523,7 +1523,7 @@ class TestAResendRacingAnAnswer:
 
     @pytest.mark.parametrize("pressed", ["ansprechperson", "trainer"])
     async def test_a_person_holding_two_seats_is_answered_for_both(self, mongo_replica_set_url: str, pressed: str):
-        """The caller records the delivery and words the mail's role text from `rollen`, so one seat named would cover half the link."""
+        """The caller records the delivery and words the mail's role text from `seats`, so one seat named would cover half the link."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_an_open_ansprechperson_seat(database, mirrored=True)
@@ -1533,7 +1533,7 @@ class TestAResendRacingAnAnswer:
 
         response, [mail], stored = await on_a_league(mongo_replica_set_url, body)
 
-        assert sorted(response.rollen) == ["ansprechperson", "trainer"]
+        assert sorted(response.seats) == ["ansprechperson", "trainer"]
         assert {seat: stored["confirmations"][seat]["token_hashes"] for seat in ("ansprechperson", "trainer")} == dict.fromkeys(
             ("ansprechperson", "trainer"), [hash_token(mail.token or "")]
         )

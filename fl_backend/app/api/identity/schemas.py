@@ -9,7 +9,7 @@ from app.shared.schemas.kontakt import CustomEmail
 
 # The wire's spelling of the three seats, imported rather than restated: a second closed set here
 # would name a seat no other endpoint publishes.
-from app.shared.schemas.literals import FLAdminTier, FLKontaktRolle, FLSaisonStatus
+from app.shared.schemas.literals import FLAdminTier, FLKontaktSeat, FLSaisonStatus
 from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 
@@ -29,8 +29,7 @@ class FLSubjectSeat(BaseModel):
 
     saison_id: str
     team_id: CustomObjectId
-    # The contact-seat sense of the word, never the captaincy's `FLSpielerRolle`.
-    rolle: FLKontaktRolle
+    seat: FLKontaktSeat
     # The junction row's own name and code, the ones the club was played under:
     # a club renamed since is still named here as its seats were held.
     team_name: str
@@ -127,7 +126,7 @@ class FLAccountErasureSeat(BaseModel):
     saison_id: str
     # The row's own name, the one the club played that season under.
     team_name: str
-    rolle: FLKontaktRolle
+    seat: FLKontaktSeat
     first_name: str
     last_name: str
 
@@ -136,7 +135,7 @@ class FLAccountErasureBewerbung(BaseModel):
     """One seat on an application, of any status."""
 
     saison_id: str
-    rolle: FLKontaktRolle
+    seat: FLKontaktSeat
     first_name: str
     last_name: str
 

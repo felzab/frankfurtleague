@@ -41,8 +41,8 @@ from app.shared.schemas.custom import (
 from app.shared.schemas.einwilligung import FLSeatTextVersions, refuse_a_stale_grant
 from app.shared.schemas.literals import (
     FLGruppenNames,
-    FLKontaktRolle,
     FLKontaktRow,
+    FLKontaktSeat,
     FLSaisonStatus,
     FLSchulform,
     FLTrikotFarbe,
@@ -550,10 +550,10 @@ class FLBewerbungEinwilligungViewResponse(BaseReadModel):
     # The school's name as submitted, or the picked club's; on a season row, the name the club
     # carries in that season.
     schule: str
-    rolle: FLKontaktRolle
+    seat: FLKontaktSeat
     # The second seat this link's answer writes, and never `trainer_is_also` itself: null on every other seat, so no link
     # says whether two other seats are one person.
-    also_rolle: FLKontaktRolle | None
+    also_seat: FLKontaktSeat | None
     # The person's floor over the seats this link answers for, so the page bounds its date control
     # and fills its own sentences from what the answer will judge rather than from a constant.
     minimum_age: int
@@ -628,11 +628,11 @@ FLEinwilligungAnswerResponse = Annotated[
 class FLBewerbungEinwilligungResendResponse(BaseReadModel):
     """The seat whose link was replaced and where its fresh one is owed; the old one opens nothing."""
 
-    rolle: FLKontaktRolle
+    seat: FLKontaktSeat
     # Off the image the write replaced, never the caller's earlier read: a seat write landing between
     # the two moved the address this link has to go to.
     email: str
-    rollen: list[FLKontaktRolle]
+    seats: list[FLKontaktSeat]
     confirmation_deadline: CustomDateString
 
 

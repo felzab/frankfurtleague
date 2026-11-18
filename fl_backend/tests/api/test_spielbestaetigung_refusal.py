@@ -346,11 +346,11 @@ class TestTheDayARowLapsed:
         assert (due_by_of(row(**REFEREES)), due_by_of(row())) == (DATE, DEADLINE)
 
 
-AGREED = {"kind": "agreed", "at": "2027-05-02", "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None}
+AGREED = {"kind": "agreed", "at": "2027-05-02", "by": {"kind": "kontakt", "seat": "trainer"}, "vorschlag": None, "reason": None}
 DECLINED = {
     "kind": "declined",
     "at": "2027-05-02",
-    "by": {"kind": "kontakt", "rolle": "trainer"},
+    "by": {"kind": "kontakt", "seat": "trainer"},
     "vorschlag": {"date": "2027-05-15", "time": "17:00:00"},
     "reason": None,
 }

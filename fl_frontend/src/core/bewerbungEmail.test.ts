@@ -13,7 +13,7 @@ const ZUSAGE: FLBewerbungZusageData = {
   team: "Ernst-Reuter-Schule",
   shorthand: "ERS",
   saison_id: "2627",
-  rollen: ["ansprechperson"],
+  seats: ["ansprechperson"],
   gruppe: "A",
   trikot_farbe: "hellgruen",
 };
@@ -22,7 +22,7 @@ const LINK: FLBewerbungLinkData = {
   kind: "bewerbung_confirmation",
   saison_id: "2627",
   schule: "Ernst-Reuter-Schule",
-  rollen: ["trainer"],
+  seats: ["trainer"],
   deadline: "2026-09-18",
 };
 

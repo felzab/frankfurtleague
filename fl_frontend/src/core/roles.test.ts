@@ -31,13 +31,13 @@ describe("which of a subject's seats grant a panel", () => {
   });
 
   /* Per seat and never per team: a resolver collapsing one junction row's two seats into one drops
-     the second seat's `rolle`. */
+     the second seat. */
   it("answers two seats on one team as two Funktionen naming that one team", () => {
-    const { roles } = rolesOf(person({ seats: [seat({ rolle: "trainer" }), seat({ rolle: "ansprechperson" })] }));
+    const { roles } = rolesOf(person({ seats: [seat({ seat: "trainer" }), seat({ seat: "ansprechperson" })] }));
 
     expect(roles.length).toBe(2);
     expect(new Set(roles.map((role) => (role.kind === "kontakt" ? role.team_id : null)))).toStrictEqual(new Set([SEAT.team_id]));
-    expect(new Set(roles.map((role) => (role.kind === "kontakt" ? role.rolle : null)))).toStrictEqual(new Set(["trainer", "ansprechperson"]));
+    expect(new Set(roles.map((role) => (role.kind === "kontakt" ? role.seat : null)))).toStrictEqual(new Set(["trainer", "ansprechperson"]));
   });
 });
 

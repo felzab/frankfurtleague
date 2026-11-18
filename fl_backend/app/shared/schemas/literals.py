@@ -65,10 +65,10 @@ type FLTrikotFarbe = Literal[
 # --- The contact seats
 
 # The three seats as a closed set, in the order a season team's contact block declares them.
-type FLKontaktRolle = Literal["trainer", "ansprechperson", "stellvertretung"]
+type FLKontaktSeat = Literal["trainer", "ansprechperson", "stellvertretung"]
 
 # The one spelling of the seat set every module iterates, so a fourth seat is added in one place.
-KONTAKT_ROLLEN: Final[tuple[FLKontaktRolle, ...]] = get_args(FLKontaktRolle.__value__)
+KONTAKT_SEATS: Final[tuple[FLKontaktSeat, ...]] = get_args(FLKontaktSeat.__value__)
 
 # A season row as a link minted on it sees it: open, or closed by its season ending, which outranks its
 # team having left it.
