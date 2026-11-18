@@ -36,12 +36,7 @@ const Registration = z.object({
  * The refusals saying what the link opens has moved since the page was read: revoked or its club gone, the window shut,
  * the club out of the season, the squad full, the Stufen narrowed.
  */
-const MOVED: ReadonlySet<Code> = new Set<Code>([
-  "document_not_found",
-  "registrierung_closed",
-  "registrierung_kader_full",
-  "registrierung_stufe_not_allowed",
-]);
+const MOVED: ReadonlySet<Code> = new Set<Code>(["document_not_found", "registrierung_closed", "kader_full", "registrierung_stufe_not_allowed"]);
 
 const moved = (error: unknown) => error instanceof APIBadStatusError && error.serverErrorCode !== undefined && MOVED.has(error.serverErrorCode);
 

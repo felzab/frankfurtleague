@@ -29,7 +29,6 @@ from app.api.registrierungen.services import (
     find_age_refusal,
     find_already_confirmed_refusal,
     find_expired_token_refusal,
-    find_kader_refusal,
     find_stufe_refusal,
     find_team_departed_refusal,
     find_unknown_token_refusal,
@@ -258,11 +257,9 @@ async def post_registrierung(
             excluding_spieler_id=None,
             session=session,
         )
-        refuse(
-            find_kader_refusal(
-                full=find_full_kader_refusal(room=room, nominee=entry_is_a_nominee(registrierung=saison_raw.get("registrierung"), day=today))
-            )
-        )
+        # The squad write's own `kader_full`, the answer the link's `kader_free` gives: it carries no figure, so a stranger
+        # holding a link learns nothing about a squad's size.
+        refuse(find_full_kader_refusal(room=room, nominee=entry_is_a_nominee(registrierung=saison_raw.get("registrierung"), day=today)))
 
         # A mailbox already holding its most open links is owed nothing, and nothing refuses the press: the row
         # stands unmailed and lapses on its deadline, so the answer cannot tell anybody what that mailbox holds.

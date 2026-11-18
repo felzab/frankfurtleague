@@ -575,7 +575,7 @@ class TestWhatASubmissionIsRefused:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
             return await refused_code(register(database, client)), await database[Collection.REGISTRIERUNGEN].count_documents({})
 
-        assert await on_a_league(mongo_replica_set_url, body, kader_size=RULES["max_kader_size"]) == (Code.REGISTRIERUNG_KADER_FULL, 0)
+        assert await on_a_league(mongo_replica_set_url, body, kader_size=RULES["max_kader_size"]) == (Code.KADER_FULL, 0)
 
     async def test_a_retired_kader_row_gives_its_place_back(self, mongo_replica_set_url: str):
         """Counted as the squad editor counts: a player who left the squad is not holding a place."""
