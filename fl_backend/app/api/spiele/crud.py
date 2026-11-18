@@ -534,7 +534,7 @@ async def advance_bracket_winners(
 
 
 def report_advancement(advancement: SlotAdvancement) -> FLSpielAdvancement:
-    """One advancement as the response reports it -- the one mapping to the wire shape, so save and preview report alike."""
+    """One advancement as the save and the preview record it -- the one mapping, so both judge and number alike."""
 
     return FLSpielAdvancement(
         spiel_id=advancement.spiel_id,
@@ -546,7 +546,7 @@ def report_advancement(advancement: SlotAdvancement) -> FLSpielAdvancement:
 
 
 def report_release(release: SpieltagRelease) -> FLSpielReleasedSide:
-    """One released side as the response reports it -- the one mapping to the wire shape, so save and preview report alike."""
+    """One released side as the save and the preview record it -- the one mapping, so both judge and number alike."""
 
     return FLSpielReleasedSide(
         spiel_id=release.spiel_id,
@@ -848,8 +848,8 @@ async def preview_spiel_save(
     )
 
     return FLPatchSpielDataResponse(
-        advanced_to=advanced_to,
-        released_sides=released_sides,
+        advanced_to=[advancement.spiel_nr for advancement in advanced_to],
+        released_sides=[release.spiel_nr for release in released_sides],
         voided_ergebnisse=voided_ergebnisse_of([*advanced_to, *released_sides]),
         version=judged.patched.version,
         recipients=recipients_named(told, names=names),
@@ -907,7 +907,7 @@ async def _save_moving_nothing(
         if not stamped:
             raise APIError(HTTPStatus.CONFLICT, Code.VERSION_STALE)
 
-    return FLPatchSpielDataResponse(voided_ergebnisse=[], version=stored.version, recipients=None)
+    return FLPatchSpielDataResponse(advanced_to=[], released_sides=[], voided_ergebnisse=[], version=stored.version, recipients=None)
 
 
 async def _bracket_moves(judged: _JudgedSave, *, collections: SpielSaveCollections, session: AsyncClientSession) -> bool:
@@ -1040,8 +1040,8 @@ async def save_spiel_in_session(
         )
 
     return FLPatchSpielDataResponse(
-        advanced_to=advanced_to,
-        released_sides=released_sides,
+        advanced_to=[advancement.spiel_nr for advancement in advanced_to],
+        released_sides=[release.spiel_nr for release in released_sides],
         voided_ergebnisse=voided_ergebnisse,
         version=saved[VERSION_FIELD],
         recipients=None,

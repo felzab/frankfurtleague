@@ -153,18 +153,8 @@ describe("the match editor's save", () => {
 
   // The note is the one place the person learns the write moved other fixtures.
   it("names each other fixture once, a released side's among them, in its number's order", async () => {
-    state.answer = {
-      ...NOTHING_MOVED,
-      advanced_to: [
-        { spiel_id: "64b000000000000000000007", spiel_nr: 31, ...VOIDED_NONE },
-        { spiel_id: "64b000000000000000000008", spiel_nr: 12, ...VOIDED_NONE },
-      ],
-      // One fixture both moved and released a side, and one only released it.
-      released_sides: [
-        { spiel_id: "64b000000000000000000008", spiel_nr: 12, side: "team2", team_name: "Weide", ...VOIDED_NONE },
-        { spiel_id: "64b000000000000000000009", spiel_nr: 7, side: "team1", team_name: "Linde", ...VOIDED_NONE },
-      ],
-    } satisfies FLPatchSpielDataResponse;
+    // One fixture both moved and released a side, and one only released it.
+    state.answer = { ...NOTHING_MOVED, advanced_to: [31, 12], released_sides: [12, 7] } satisfies FLPatchSpielDataResponse;
 
     const answer = await saveSpiel(saving({ time: "18:00:00" }));
 
@@ -218,12 +208,9 @@ describe("the match editor's question before it deletes a later result", () => {
   beforeEach(() => {
     state.dryRun = {
       ...NOTHING_MOVED,
-      advanced_to: [
-        VOIDED_33,
-        // An occupant moved into a match not yet played deletes nothing there.
-        { spiel_id: "64b000000000000000000008", spiel_nr: 32, ...VOIDED_NONE },
-      ],
-      released_sides: [{ ...VOIDED_31, side: "team1", team_name: "Linde" }],
+      // An occupant moved into match 32, not yet played, deletes nothing there.
+      advanced_to: [33, 32],
+      released_sides: [31],
       voided_ergebnisse: [VOIDED_31, VOIDED_33],
     } satisfies FLPatchSpielDataResponse;
   });

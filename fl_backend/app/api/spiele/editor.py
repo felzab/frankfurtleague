@@ -13,12 +13,10 @@ from pydantic import Field
 from app.api.aufstellungen.schemas import FLAufstellungMarks, FLAufstellungSummary
 from app.api.aufstellungen.services import aufstellung_marks, aufstellung_stands
 from app.api.saisons.services import has_started
-from app.api.schiedsrichter.services import DECLINED_AT_PATH, is_declined
 from app.api.spielberichte.crud import pull_bericht_context, pull_named
 from app.api.spielberichte.schemas import (
     FLSpielberichtBericht,
     FLSpielberichtScorer,
-    FLSpielberichtSides,
     FLSpielberichtSpieler,
     FLSpielberichtState,
     FLSpielberichtVorschlag,
@@ -58,15 +56,13 @@ class FLSpielEditorSpielort(BaseReadModel):
 
 
 class FLSpielEditorSchiedsrichter(BaseReadModel):
-    """A referee the editor offers: their whole name, the fee they default to, how they answered their entry, and the day they retired."""
+    """A referee the editor offers: their whole name, the fee they default to, whether they confirmed their entry, and the day they retired."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     name: CustomNonEmptyString
     default_payment: int = Field(ge=0)
-    # Offered unconfirmed too, so the editor marks the one a save refuses (`booking_unconfirmed_schiedsrichter`), and
-    # whether that is an objection, after which nobody asks the person again, or no answer yet.
+    # Offered unconfirmed too, so the editor marks the one a save refuses (`booking_unconfirmed_schiedsrichter`).
     confirmed: bool
-    declined: bool
     inactive_since: CustomOptionalDateString
 
 
@@ -90,14 +86,13 @@ class FLSpielEditorTeam(BaseReadModel):
 class FLSpielEditorBericht(BaseReadModel):
     """The fixture's report as the editor's Spielbericht section shows it: its goals and the result they propose.
 
-    `version` is the report document's, the one an adoption names (`adopts_bericht`), `sides` the clubs the report is
-    about, and `named` each pupil a goal names, by the names their record holds.
+    `version` is the report document's, the one an adoption names (`adopts_bericht`), and `named` each pupil a goal
+    names, by the names their record holds.
     """
 
     state: FLSpielberichtState
     version: int
     ergebnis_vorschlag: FLSpielberichtVorschlag
-    sides: FLSpielberichtSides
     scorers: list[FLSpielberichtScorer]
     named: list[FLSpielberichtSpieler]
 
@@ -270,7 +265,6 @@ async def _spielbericht_of(
         state=bericht_state_of(bericht, context.spiel),
         version=document[VERSION_FIELD],
         ergebnis_vorschlag=bericht.ergebnis_vorschlag,
-        sides=bericht.sides,
         scorers=bericht.scorers,
         named=[spieler for spieler in named if spieler.spieler_id in scorers],
     )
@@ -356,7 +350,7 @@ async def read_spiel_editor(
             db_filter=_offered(booked_schiedsrichter),
             limit=LIST_LIMIT_DEFAULT,
             sort_by=[("name", 1)],
-            projection=["name", "default_payment", "inactive_since", "einwilligung.confirmed_at", DECLINED_AT_PATH],
+            projection=["name", "default_payment", "inactive_since", "einwilligung.confirmed_at"],
             collation=GERMAN_COLLATION,
         ),
         _none()
@@ -398,9 +392,7 @@ async def read_spiel_editor(
         saison_begun=has_started(start_date=str(saison_raw["start_date"]), today=clock.german_day(now)),
         spielorte=[FLSpielEditorSpielort.model_validate(row) for row in spielorte_raw],
         schiedsrichter=[
-            FLSpielEditorSchiedsrichter.model_validate(
-                {**row, "confirmed": is_confirmed(row.get("einwilligung")), "declined": is_declined(row.get("confirmation"))}
-            )
+            FLSpielEditorSchiedsrichter.model_validate({**row, "confirmed": is_confirmed(row.get("einwilligung"))})
             for row in schiedsrichter_raw
         ],
         teams=teams,
