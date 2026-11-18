@@ -202,13 +202,13 @@ def _reason_now(
 ) -> FLSpielbestaetigungClosedReason | None:
     """Why the pass's next close would shut this row, read off its own judge: a page never shows or refuses otherwise than it records."""
 
-    return reason_to_close(row=spielbestaetigung_raw, spiel=ansetzung_state.spiel, austritte=austritte_of(ansetzung_state), now=now)
+    return reason_to_close(row=spielbestaetigung_raw, spiel=ansetzung_state.spiel, austritte=austritte_of(ansetzung_state.junctions), now=now)
 
 
-def austritte_of(ansetzung_state: AnsetzungState) -> dict[Any, str]:
-    """Each club's exit day off the season rows `ansetzung_state` holds, as `reason_to_close` and `lapsed_on` take them."""
+def austritte_of(rows: Iterable[Mapping[str, Any]]) -> dict[Any, str]:
+    """Each club's exit day off its season row, as `reason_to_close` and `lapsed_on` take them; a row holding no exit day has none."""
 
-    return {row.get("team_id"): str(date) for row in ansetzung_state.junctions if (date := (row.get("austritt") or {}).get("date")) is not None}
+    return {row.get("team_id"): str(date) for row in rows if (date := (row.get("austritt") or {}).get("date")) is not None}
 
 
 def _past_deadline(*, spielbestaetigung_raw: Mapping[str, Any], now: datetime) -> bool:
@@ -1267,7 +1267,7 @@ def austritt_recipients_of(
     exit's own read takes it. A referee is told by the pass's close, judged by its rules for an exit on that day.
     """
 
-    austritte = {row["team_id"]: str(day) for row in junctions.values() if (day := (row.get("austritt") or {}).get("date")) is not None}
+    austritte = austritte_of(junctions.values())
     held: dict[Any, list[Mapping[str, Any]]] = {}
     for row in rows:
         held.setdefault(row["spiel_id"], []).append(row)

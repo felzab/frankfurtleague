@@ -43,6 +43,7 @@ from app.api.spielbestaetigungen.services import (
     ansetzung_digest_of,
     answers_at_its_end,
     asked_with_its_move,
+    austritte_of,
     build_answerable_filter,
     build_held_filter,
     build_holding_filter,
@@ -167,12 +168,6 @@ async def _junctions(
         ),
         "team_id",
     )
-
-
-def _austritte(junctions: Mapping[Any, Mapping[str, Any]]) -> dict[Any, str]:
-    return {
-        team_id: str(junction["austritt"]["date"]) for team_id, junction in junctions.items() if isinstance(junction.get("austritt"), Mapping)
-    }
 
 
 async def _referee_addresses(*, schiedsrichter_collection: AsyncCollection, ids: Iterable[Any], session: AsyncClientSession) -> dict[Any, str]:
@@ -322,7 +317,7 @@ async def sweep_spielbestaetigungen(
         junctions = await _junctions(
             saison_teams_collection=saison_teams_collection, saison_id=saison_id, spiele=spiele.values(), rows=rows, session=session
         )
-        austritte = _austritte(junctions)
+        austritte = austritte_of(junctions.values())
 
         def spiel_of(row: Mapping[str, Any]) -> Mapping[str, Any]:
             return spiele[row["spiel_id"]]
@@ -469,7 +464,7 @@ async def sweep_spielbestaetigungen(
         junctions = await _junctions(
             saison_teams_collection=saison_teams_collection, saison_id=saison_id, spiele=spiele, rows=read, session=session
         )
-        austritte = _austritte(junctions)
+        austritte = austritte_of(junctions.values())
         junction_rows = list(junctions.values())
 
         # Each row holding its party's question about an Ansetzung its fixture left, a discard as an agreement, the mint's
@@ -652,7 +647,7 @@ async def sweep_spielbestaetigungen(
         junctions = await _junctions(
             saison_teams_collection=saison_teams_collection, saison_id=saison_id, spiele=[], rows=rows, session=session
         )
-        austritte = _austritte(junctions)
+        austritte = austritte_of(junctions.values())
 
         def reminder_of(row: Mapping[str, Any]) -> list[OwedMail]:
             spiel = spiele[row["spiel_id"]]
@@ -723,7 +718,7 @@ async def sweep_spielbestaetigungen(
             if aufstellung_stands(row)
         }
         junctions = await _junctions(saison_teams_collection=saison_teams_collection, saison_id=saison_id, spiele=due, rows=[], session=session)
-        austritte = _austritte(junctions)
+        austritte = austritte_of(junctions.values())
 
         def teams_owed(spiel: Mapping[str, Any]) -> list[Any]:
             """The fixture's clubs holding no line-up for it that stands (`aufstellung_stands`), the fixture still theirs to play on its day."""
