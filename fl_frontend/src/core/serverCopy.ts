@@ -63,7 +63,7 @@ const OBJECTION_RIGHT = {
   after: " genügt.",
 };
 const MORE = { before: "Mehr unter\u00A0", after: "." };
-// What an objection does to a contact's seat on a season row, which the objection empties in its own write.
+// What an objection does to a contact's seat on a season row and to a referee's entry, each erased in its own write.
 const OBJECTION_DELETES_ENTRY = "Widersprichst du, löschen wir deinen Eintrag.";
 // A referee's confirmation's opening, which its mail opens on too, and what the league stores of the entry.
 const REFEREE_OPENING = "Die Liga hat dich als Schiedsrichterin oder Schiedsrichter für ihre Spiele eingetragen.";
@@ -979,7 +979,7 @@ export const SERVER_COPY = catalogue({
         heading: "Schiedsrichterinnen und Schiedsrichter",
         // The referee's minimum age is the backend's alone, so the text writes it out.
         text: (days: number) =>
-          `Pfeifst du für die Liga, trägt sie dich mit Name, Kontaktdaten, Schule und Honorar ein, so wie du oder die Person, die dich genannt hat, sie uns mitteilt. Über einen Link bestätigst du den Eintrag innerhalb ${boundBy("von", formatNumber(days), "Tagen")} mit deinem Geburtsdatum; pfeifen kann, wer mindestens\u00A016\u00A0Jahre alt ist. Widersprichst du, löschen wir deinen Eintrag nach Ablauf der ${boundBy(formatNumber(days), "Tage")} deines Links; bis dahin ist er bei uns als widersprochen vermerkt, damit dich niemand erneut fragt. Löschen wir deinen Eintrag, steht an deinen gespielten Spielen „anonym“ mit dem Honorar, und aus angesetzten Spielen nehmen wir dich heraus.`,
+          `Pfeifst du für die Liga, trägt sie dich mit Name, Kontaktdaten, Schule und Honorar ein, so wie du oder die Person, die dich genannt hat, sie uns mitteilt. Über einen Link bestätigst du den Eintrag innerhalb ${boundBy("von", formatNumber(days), "Tagen")} mit deinem Geburtsdatum; pfeifen kann, wer mindestens\u00A016\u00A0Jahre alt ist. ${OBJECTION_DELETES_ENTRY} Löschen wir deinen Eintrag, steht an deinen gespielten Spielen „anonym“ mit dem Honorar, und aus angesetzten Spielen nehmen wir dich heraus.`,
       },
       spiele: {
         heading: "Spiele und Spielberichte",
@@ -1079,7 +1079,7 @@ export const SERVER_COPY = catalogue({
             name: "Schiedsrichter",
             content: "Name, Kontaktdaten, Geburtsdatum, Schule, Honorar, Antworten",
             period: (bound: RetentionBounds) =>
-              `${boundBy(formatNumber(bound.schiedsrichterDays), "Tage")} ab dem letzten Link, wenn unbestätigt oder widersprochen; sonst bis du oder die Liga den Eintrag beendet`,
+              `${boundBy(formatNumber(bound.schiedsrichterDays), "Tage")} ab dem letzten Link, wenn unbestätigt; sonst bis du oder die Liga den Eintrag beendet`,
           },
           {
             name: "Teams und Spiele",
@@ -1278,14 +1278,10 @@ export const SERVER_COPY = catalogue({
     opening: REFEREE_OPENING,
     /** The deadline in the two parts around its day: the mail sets the day semibold, the page writes it plain. */
     deadline: ENTRY_DEADLINE,
-    /** Both answers that end the entry, an unanswered deadline and an objection, in one clause: either deletes it alike. */
-    question: (until: CalendarDay) =>
-      `${REFEREE_OPENING} ${REFEREE_STORED} ${ENTRY_DEADLINE.before}${formatDateLong(until)} oder widersprichst du, löschen wir deinen Eintrag nach diesem Tag.`,
-    /**
-     * What an objection does, the objection's question's sentence: an objection writes its day alone, and the entry goes
-     * with the link's deadline, as an unanswered one does.
-     */
-    objectionEffect: "Wir löschen deinen Eintrag, wenn dein Link abläuft.",
+    /** Both answers that end the entry, an unanswered deadline and an objection, each in a season row seat's sentence. */
+    question: (until: CalendarDay) => `${REFEREE_OPENING} ${REFEREE_STORED} ${entryDeadline(until)} ${OBJECTION_DELETES_ENTRY}`,
+    /** What an objection does, the objection's question's sentence: it erases the entry at once, as a seat's empties the seat. */
+    objectionEffect: OBJECTION_DELETES_ENTRY,
   },
 
   /**

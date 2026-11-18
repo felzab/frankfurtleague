@@ -382,7 +382,7 @@ bound's conditions follow the table.
 | An admitted registration                     | The admission                          | `fl_backend/app/api/registrierungen/person_router.py :: admit`                                                                                           |
 | A pupil                                      | A season after their last squad season | `fl_frontend/src/features/saisons/sweep.ts :: runErasureSweep`                                                                                           |
 | A registration link's entry                  | The link's end                         | `fl_backend/app/api/registrierungen/services.py :: saison_takes_registrierungen`                                                                         |
-| A referee unconfirmed or under a Widerspruch | 14 days from the latest link           | `fl_backend/app/shared/schemas/bounds.py :: CONFIRMATION_DEADLINE_DAYS`, `fl_backend/app/api/schiedsrichter/system_router.py :: sweep_schiedsrichter`    |
+| A referee unconfirmed                        | 14 days from the latest link           | `fl_backend/app/shared/schemas/bounds.py :: CONFIRMATION_DEADLINE_DAYS`, `fl_backend/app/api/schiedsrichter/system_router.py :: sweep_schiedsrichter`    |
 | A confirmed referee                          | A deletion or a request                | `fl_backend/app/api/identity/crud.py :: erase_everything`                                                                                                |
 | A ban                                        | Five full seasons after its own        | `fl_backend/app/shared/schemas/bounds.py :: BAN_DURATION_SAISONS`                                                                                        |
 | A grant                                      | Its removal or an erasure              | `fl_backend/app/api/grants/admin_router.py :: delete_grant`                                                                                              |
@@ -416,11 +416,10 @@ bound's conditions follow the table.
   the activation.
 - **A registration link's entry** has no clock: the link ends with its season, its team's Austritt,
   or when withdrawn or replaced.
-- **A referee unconfirmed or under a Widerspruch** is erased by the first hourly pass past its
-  stored deadline's day, 14 days from its latest link. A referee's Widerspruch writes its day alone
-  (`fl_backend/app/api/schiedsrichter/public_router.py :: post_decline`). Until the pass, the entry
-  stands, shown to administrators as objected, so that no booking takes it and nobody asks the
-  person again. A contact seat's Widerspruch empties the seat in the same write.
+- **A referee unconfirmed** is erased by the first hourly pass past its stored deadline's day, 14
+  days from its latest link. A referee's Widerspruch erases the entry in its own write
+  (`fl_backend/app/api/schiedsrichter/public_router.py :: post_decline`), as a contact seat's
+  empties the seat.
 - **A confirmed referee** is kept until an administrator deletes the row or the referee asks.
 - **A ban** is removed by the activation past the fifth full season after the one it was entered
   under.
@@ -461,7 +460,8 @@ bound's conditions follow the table.
   subscribed ([`ops/runbooks.md`](ops/runbooks.md#10-the-mail-providers-dashboard)).
 - **A registration's deadline is stored at the mint**, so a raised bound never moves a link already
   in somebody's inbox. Every link asking a person to confirm being named or registered is ruled to
-  live 14 days, and every unconfirmed or declined item to go 14 days after, which the notice states.
+  live 14 days, and every unconfirmed or declined item to go 14 days after, which the notice states;
+  a Widerspruch erases a referee's entry at once.
   An address change moving an unconfirmed registration mails a fresh link to the new address. It
   stores a deadline 14 days on, which that mail states. A move mailing none keeps the stored
   deadline, so a registration nobody can confirm is kept no day longer for the move
@@ -684,7 +684,8 @@ the notice and the procedures in [`ops/runbooks.md`](ops/runbooks.md) stand as t
     in each first-contact mail, and not on the confirmation page, is „presented clearly and
     separately from any other information“ under Art. 21(4).
 21. **A Widerspruch and naming the person again**: after one, an administrator can seat the same
-    person and a new application can name them, which mails them again. Nothing checks it, and only
+    person or enter them as a referee again, and a new application can name them, which mails them
+    again. Nothing checks it, and only
     a record id stays in a line. Whether a Widerspruch must prevent that, and whether a mark may be
     kept to do so.
 22. **An adult contact person's birthdate**: whether the one age check carries storing the date
@@ -708,10 +709,7 @@ the notice and the procedures in [`ops/runbooks.md`](ops/runbooks.md) stand as t
     where the notice stands. That lasts at most the application's 14 days and one, or a
     registration's deadline, unless an administrator sends the link. Whether that is the reasonable
     period of Art. 14(3)(a), its month being the outer limit.
-27. **A referee's entry after a Widerspruch** stands until the midnight after its link's deadline, up
-    to 14 days, shown to administrators as objected so that nobody asks the person again (section
-    6): whether that keeps Art. 17(1)'s "without undue delay".
-28. **Production's data on a development machine**: production's snapshot of 2026-11-11 is on a
+27. **Production's data on a development machine**: production's snapshot of 2026-11-11 is on a
     development machine, as the downloaded file and as the local containers that restored it to
     rehearse the migration, with their volumes. It holds every database of the cluster, the sign-in
     store's among them. The owner deletes all three after the deploy it rehearses, and this record

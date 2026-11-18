@@ -65,17 +65,15 @@ function chipsOf({ schiedsrichter: referee, delivery }: FLSchiedsrichterSingleRe
 }
 
 /**
- * Where the confirmation stands, by the day that says it: confirmed on, objected on, or the link's deadline, ahead or
- * passed, the backend judging which by the rule its press refuses on. A retired entry no link has gone to yet says
- * nothing, its return asking the person.
+ * Where the confirmation stands, by the day that says it: confirmed on, or the link's deadline, ahead or passed, the
+ * backend judging which by the rule its press refuses on. A retired entry no link has gone to yet says nothing, its
+ * return asking the person.
  */
 function standingOf({ schiedsrichter: referee, confirmation_expired: expired }: FLSchiedsrichterSingleResponse): Copy | null {
   const { einwilligung, confirmation } = referee;
   switch (confirmationStateOf(referee)) {
     case "confirmed":
       return einwilligung === null ? null : WORDS.confirmedOn(dayOf(einwilligung.confirmed_at));
-    case "objected":
-      return confirmation?.declined_at == null ? null : WORDS.objectedOn(dayOf(confirmation.declined_at));
     case "unanswered":
       if (confirmation === null) return null;
       return expired ? WORDS.expiredOn(dayOf(confirmation.deadline)) : COPY.admin.spiel.answerBy(dayOf(confirmation.deadline));

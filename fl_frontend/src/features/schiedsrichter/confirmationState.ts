@@ -1,23 +1,22 @@
-import { CONFIRMED_CHIP, OBJECTED_CHIP, RETIRED_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
+import { CONFIRMED_CHIP, RETIRED_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
 
 import type { FLSchiedsrichter } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
 
 /**
- * Where a referee's entry stands, as the administration reads it: confirmed, with a consent on record; objected through
- * their link, the entry going when the link lapses; asked and not yet answered; or never asked, a retired entry whose
- * corrected address no link has gone to. An unanswered entry also goes when its link lapses: the hourly pass erases it
- * once the midnight after its deadline has passed, so an expired one stands only until that pass next runs.
+ * Where a referee's entry stands, as the administration reads it: confirmed, with a consent on record; asked and not yet
+ * answered; or never asked, a retired entry whose corrected address no link has gone to. An objection through the link
+ * erases the entry at once. An unanswered entry goes when its link lapses: the hourly pass erases it once the midnight
+ * after its deadline has passed, so an expired one stands only until that pass next runs.
  */
-export type ConfirmationState = "confirmed" | "objected" | "unanswered" | "unasked";
+export type ConfirmationState = "confirmed" | "unanswered" | "unasked";
 
 export function confirmationStateOf({
   einwilligung,
   confirmation,
 }: Pick<FLSchiedsrichter, "einwilligung" | "confirmation">): ConfirmationState {
   if (einwilligung !== null) return "confirmed";
-  if (confirmation === null) return "unasked";
-  return confirmation.declined_at === null ? "unanswered" : "objected";
+  return confirmation === null ? "unasked" : "unanswered";
 }
 
 /**
@@ -29,8 +28,6 @@ export function refereeChip(referee: Pick<FLSchiedsrichter, "inactive_since" | "
   switch (confirmationStateOf(referee)) {
     case "confirmed":
       return CONFIRMED_CHIP;
-    case "objected":
-      return OBJECTED_CHIP;
     case "unanswered":
     case "unasked":
       return UNCONFIRMED_CHIP;

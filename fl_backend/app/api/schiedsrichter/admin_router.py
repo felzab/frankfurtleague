@@ -385,7 +385,7 @@ async def resend_confirmation(
         )
 
         refuse(find_retired_refusal(inactive_since=stored.get("inactive_since")))
-        refuse(find_already_answered_refusal(einwilligung=stored.get(EINWILLIGUNG_FIELD), confirmation=stored.get(CONFIRMATION_FIELD)))
+        refuse(find_already_answered_refusal(einwilligung=stored.get(EINWILLIGUNG_FIELD)))
 
         email = stored["kontakt"]["email"]
         refuse(find_missing_address_refusal(email=email))

@@ -1151,8 +1151,8 @@ export const COPY = catalogue({
       kontaktData: "Kontaktdaten",
       confirmation: "Bestätigung",
       /**
-       * The fact saying where the referee's confirmation stands, one of the three lines below or, while it is still
-       * awaited, `COPY.admin.spiel.answerBy`.
+       * The fact saying where the referee's confirmation stands, `confirmedOn` or `expiredOn` below or, while it is
+       * still awaited, `COPY.admin.spiel.answerBy`; `objectedOn` is a contact seat's, an objection erasing a referee.
        */
       state: "Stand",
       /** Beside the act that mailed a fresh link, and the save whose corrected address did: the address it went to. */
