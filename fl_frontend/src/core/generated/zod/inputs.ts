@@ -2013,7 +2013,7 @@ export const SpieleGetSpielParams = zod.object({
  * A save storing what stands, where the bracket's resolution would move nothing either, writes no fixture and raises
  * no `version`: with `adopts_bericht` it stamps the Spielbericht alone, and it is refused where that stamp matches
  * nothing. A `dry_run` writes nothing and answers the same report, with the parties the confirmation pass would mail and the
- * later results the save would delete, which the save's `voided_results` must name back.
+ * later results the save would delete, which the save's `voided_ergebnisse` must name back.
  * @summary Update a Spiel
  */
 export const spielePatchSpielPathSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2069,14 +2069,14 @@ export const spielePatchSpielBodyTimeOneRegExp = new RegExp("^([01][0-9]|2[0-3])
 export const spielePatchSpielBodyTimeThreeRegExp = new RegExp("^\\s*$");
 export const spielePatchSpielBodyVersionMin = 0;
 
-export const spielePatchSpielBodyVoidedResultsItemSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-export const spielePatchSpielBodyVoidedResultsItemSpielNrExclusiveMin = 0;
+export const spielePatchSpielBodyVoidedErgebnisseItemSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const spielePatchSpielBodyVoidedErgebnisseItemSpielNrExclusiveMin = 0;
 
-export const spielePatchSpielBodyVoidedResultsItemVoidedElfmeterschiessenOneTeam1Min = 0;
+export const spielePatchSpielBodyVoidedErgebnisseItemVoidedElfmeterschiessenOneTeam1Min = 0;
 
-export const spielePatchSpielBodyVoidedResultsItemVoidedElfmeterschiessenOneTeam2Min = 0;
+export const spielePatchSpielBodyVoidedErgebnisseItemVoidedElfmeterschiessenOneTeam2Min = 0;
 
-export const spielePatchSpielBodyVoidedResultsItemVoidedErgebnisOneRegExp = new RegExp("^[0-9]+:[0-9]+$");
+export const spielePatchSpielBodyVoidedErgebnisseItemVoidedErgebnisOneRegExp = new RegExp("^[0-9]+:[0-9]+$");
 
 export const SpielePatchSpielBody = zod.object({
   date: zod.union([zod.string().regex(spielePatchSpielBodyDateOneRegExp), zod.null(), zod.string().regex(spielePatchSpielBodyDateThreeRegExp)]),
@@ -2171,22 +2171,22 @@ export const SpielePatchSpielBody = zod.object({
   ]),
   time: zod.union([zod.string().regex(spielePatchSpielBodyTimeOneRegExp), zod.null(), zod.string().regex(spielePatchSpielBodyTimeThreeRegExp)]),
   version: zod.int().min(spielePatchSpielBodyVersionMin),
-  voided_results: zod
+  voided_ergebnisse: zod
     .array(
       zod
         .object({
-          spiel_id: zod.string().regex(spielePatchSpielBodyVoidedResultsItemSpielIdRegExp),
-          spiel_nr: zod.int().gt(spielePatchSpielBodyVoidedResultsItemSpielNrExclusiveMin),
+          spiel_id: zod.string().regex(spielePatchSpielBodyVoidedErgebnisseItemSpielIdRegExp),
+          spiel_nr: zod.int().gt(spielePatchSpielBodyVoidedErgebnisseItemSpielNrExclusiveMin),
           voided_elfmeterschiessen: zod.union([
             zod
               .object({
-                team1: zod.int().min(spielePatchSpielBodyVoidedResultsItemVoidedElfmeterschiessenOneTeam1Min),
-                team2: zod.int().min(spielePatchSpielBodyVoidedResultsItemVoidedElfmeterschiessenOneTeam2Min),
+                team1: zod.int().min(spielePatchSpielBodyVoidedErgebnisseItemVoidedElfmeterschiessenOneTeam1Min),
+                team2: zod.int().min(spielePatchSpielBodyVoidedErgebnisseItemVoidedElfmeterschiessenOneTeam2Min),
               })
               .describe("The penalty shoot-out that settled a level knockout fixture: the side with more goals in it won."),
             zod.null(),
           ]),
-          voided_ergebnis: zod.union([zod.string().regex(spielePatchSpielBodyVoidedResultsItemVoidedErgebnisOneRegExp), zod.null()]),
+          voided_ergebnis: zod.union([zod.string().regex(spielePatchSpielBodyVoidedErgebnisseItemVoidedErgebnisOneRegExp), zod.null()]),
           voided_sonderereignis: zod.union([
             zod.enum(["ausgefallen", "nichtantreten_team1", "nichtantreten_team2", "abgebrochen", "annulliert"]),
             zod.null(),
@@ -2403,8 +2403,6 @@ export const SpielerReactivateSaisonSpielerParams = zod.object({
 
 /**
  * Every venue in name order, the retired ones too where `include_inactive` asks for them.
- *
- * `maps_link` is a Maps search string, not a URL.
  * @summary List Spielorte
  */
 export const spielorteGetSpielorteQueryIncludeInactiveDefault = false;
@@ -2414,7 +2412,7 @@ export const SpielorteGetSpielorteQueryParams = zod.object({
 });
 
 /**
- * Create a venue, its `maps_link` derived from the name and the address.
+ * Create a venue, its `maps_query` derived from the name and the address.
  *
  * A name another venue holds, a retired one included, is refused.
  * @summary Create a Spielort
@@ -2477,7 +2475,7 @@ export const SpielorteGetSpielortParams = zod.object({
 /**
  * Save a venue on the `version` it was read at, answering the version stored.
  *
- * Every fixture at the venue shows its new name and `maps_link`, and keeps the `mietpreis` agreed for it.
+ * Every fixture at the venue shows its new name and `maps_query`, and keeps the `mietpreis` agreed for it.
  * @summary Update a Spielort
  */
 export const spielortePatchSpielortPathSpielortIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2603,38 +2601,39 @@ export const TeamsPostTeamEntryParams = zod.object({
   saison_id: zod.string(),
 });
 
-export const teamsPostTeamEntryBodyClubOneTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-export const teamsPostTeamEntryBodyClubTwoTeamAddressCityMax = 80;
+export const teamsPostTeamEntryBodyTeamOneTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const teamsPostTeamEntryBodyTeamTwoTeamAddressCityMax = 80;
 
-export const teamsPostTeamEntryBodyClubTwoTeamAddressDistrictMax = 80;
+export const teamsPostTeamEntryBodyTeamTwoTeamAddressDistrictMax = 80;
 
-export const teamsPostTeamEntryBodyClubTwoTeamAddressHouseNumberMax = 16;
+export const teamsPostTeamEntryBodyTeamTwoTeamAddressHouseNumberMax = 16;
 
-export const teamsPostTeamEntryBodyClubTwoTeamAddressHouseNumberRegExp = new RegExp("^([0-9\\-abcABC]+)?$");
-export const teamsPostTeamEntryBodyClubTwoTeamAddressPostcodeMin = 5;
-export const teamsPostTeamEntryBodyClubTwoTeamAddressPostcodeMax = 5;
+export const teamsPostTeamEntryBodyTeamTwoTeamAddressHouseNumberRegExp = new RegExp("^([0-9\\-abcABC]+)?$");
+export const teamsPostTeamEntryBodyTeamTwoTeamAddressPostcodeMin = 5;
+export const teamsPostTeamEntryBodyTeamTwoTeamAddressPostcodeMax = 5;
 
-export const teamsPostTeamEntryBodyClubTwoTeamAddressPostcodeRegExp = new RegExp("^[0-9]{5}$");
-export const teamsPostTeamEntryBodyClubTwoTeamAddressStreetMax = 120;
+export const teamsPostTeamEntryBodyTeamTwoTeamAddressPostcodeRegExp = new RegExp("^[0-9]{5}$");
+export const teamsPostTeamEntryBodyTeamTwoTeamAddressStreetMax = 120;
 
-export const teamsPostTeamEntryBodyClubTwoTeamDescriptionMax = 4096;
+export const teamsPostTeamEntryBodyTeamTwoTeamDescriptionMax = 4096;
 
-export const teamsPostTeamEntryBodyClubTwoTeamFullNameMax = 120;
+export const teamsPostTeamEntryBodyTeamTwoTeamFullNameMax = 120;
 
-export const teamsPostTeamEntryBodyClubTwoTeamFullNameRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
-export const teamsPostTeamEntryBodyClubTwoTeamNameMax = 60;
+export const teamsPostTeamEntryBodyTeamTwoTeamFullNameRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+export const teamsPostTeamEntryBodyTeamTwoTeamNameMax = 60;
 
-export const teamsPostTeamEntryBodyClubTwoTeamNameRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
-export const teamsPostTeamEntryBodyClubTwoTeamShorthandRegExp = new RegExp("^\\s*[A-Za-z]{3}\\s*$");
-export const teamsPostTeamEntryBodyClubTwoTeamWebsiteUrlOneMax = 300;
+export const teamsPostTeamEntryBodyTeamTwoTeamNameRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+export const teamsPostTeamEntryBodyTeamTwoTeamShorthandRegExp = new RegExp("^\\s*[A-Za-z]{3}\\s*$");
+export const teamsPostTeamEntryBodyTeamTwoTeamWebsiteUrlOneMax = 300;
 
 export const TeamsPostTeamEntryBody = zod
   .object({
-    club: zod.union([
+    gruppe: zod.enum(["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"]),
+    team: zod.union([
       zod
         .object({
           kind: zod.literal("known").meta({ title: "Kind" }),
-          team_id: zod.string().regex(teamsPostTeamEntryBodyClubOneTeamIdRegExp),
+          team_id: zod.string().regex(teamsPostTeamEntryBodyTeamOneTeamIdRegExp),
         })
         .describe("A club the league holds, picked from the list's create dialog."),
       zod
@@ -2642,37 +2641,36 @@ export const TeamsPostTeamEntryBody = zod
           kind: zod.literal("new").meta({ title: "Kind" }),
           team: zod.object({
             address: zod.object({
-              city: zod.string().min(1).max(teamsPostTeamEntryBodyClubTwoTeamAddressCityMax),
-              district: zod.string().max(teamsPostTeamEntryBodyClubTwoTeamAddressDistrictMax),
+              city: zod.string().min(1).max(teamsPostTeamEntryBodyTeamTwoTeamAddressCityMax),
+              district: zod.string().max(teamsPostTeamEntryBodyTeamTwoTeamAddressDistrictMax),
               house_number: zod
                 .string()
-                .max(teamsPostTeamEntryBodyClubTwoTeamAddressHouseNumberMax)
-                .regex(teamsPostTeamEntryBodyClubTwoTeamAddressHouseNumberRegExp),
+                .max(teamsPostTeamEntryBodyTeamTwoTeamAddressHouseNumberMax)
+                .regex(teamsPostTeamEntryBodyTeamTwoTeamAddressHouseNumberRegExp),
               postcode: zod
                 .string()
-                .min(teamsPostTeamEntryBodyClubTwoTeamAddressPostcodeMin)
-                .max(teamsPostTeamEntryBodyClubTwoTeamAddressPostcodeMax)
-                .regex(teamsPostTeamEntryBodyClubTwoTeamAddressPostcodeRegExp),
-              street: zod.string().min(1).max(teamsPostTeamEntryBodyClubTwoTeamAddressStreetMax),
+                .min(teamsPostTeamEntryBodyTeamTwoTeamAddressPostcodeMin)
+                .max(teamsPostTeamEntryBodyTeamTwoTeamAddressPostcodeMax)
+                .regex(teamsPostTeamEntryBodyTeamTwoTeamAddressPostcodeRegExp),
+              street: zod.string().min(1).max(teamsPostTeamEntryBodyTeamTwoTeamAddressStreetMax),
             }),
-            description: zod.string().max(teamsPostTeamEntryBodyClubTwoTeamDescriptionMax),
+            description: zod.string().max(teamsPostTeamEntryBodyTeamTwoTeamDescriptionMax),
             full_name: zod
               .string()
               .min(1)
-              .max(teamsPostTeamEntryBodyClubTwoTeamFullNameMax)
-              .regex(teamsPostTeamEntryBodyClubTwoTeamFullNameRegExp),
-            name: zod.string().min(1).max(teamsPostTeamEntryBodyClubTwoTeamNameMax).regex(teamsPostTeamEntryBodyClubTwoTeamNameRegExp),
+              .max(teamsPostTeamEntryBodyTeamTwoTeamFullNameMax)
+              .regex(teamsPostTeamEntryBodyTeamTwoTeamFullNameRegExp),
+            name: zod.string().min(1).max(teamsPostTeamEntryBodyTeamTwoTeamNameMax).regex(teamsPostTeamEntryBodyTeamTwoTeamNameRegExp),
             schulform: zod.union([
               zod.enum(["gymnasium_g8", "gymnasium_g9", "gesamtschule", "privatschule_g8", "privatschule_g9", "oberstufengymnasium"]),
               zod.null(),
             ]),
-            shorthand: zod.string().regex(teamsPostTeamEntryBodyClubTwoTeamShorthandRegExp),
-            website_url: zod.union([zod.string().max(teamsPostTeamEntryBodyClubTwoTeamWebsiteUrlOneMax), zod.null()]),
+            shorthand: zod.string().regex(teamsPostTeamEntryBodyTeamTwoTeamShorthandRegExp),
+            website_url: zod.union([zod.string().max(teamsPostTeamEntryBodyTeamTwoTeamWebsiteUrlOneMax), zod.null()]),
           }),
         })
         .describe("A club the entry founds, in the transaction that enters it."),
     ]),
-    gruppe: zod.enum(["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"]),
     trikot_farbe: zod.union([
       zod.enum([
         "schwarz",

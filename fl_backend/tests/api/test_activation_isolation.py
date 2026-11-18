@@ -20,7 +20,7 @@ from app.api.saisons.schemas import (
 )
 from app.api.spiele.admin_router import patch_spiel
 from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT, FLPatchSpielDataPayload
-from app.api.teams.crud import write_the_club
+from app.api.teams.crud import write_the_team
 from app.api.teams.services import offered_gruppen
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -582,7 +582,7 @@ class TestARolloverLandingMidSaveIsJudgedAgain:
                     spielberichte_collection=database[Collection.SPIELBERICHTE],
                     aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
                     spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-                    now=NOW,
+                    germany_now=NOW,
                 )
             )
 
@@ -602,7 +602,7 @@ class TestARolloverLandingMidSaveIsJudgedAgain:
         # The judgement's read and the retry's: the save conflicted rather than committing.
         assert season_reads == 2, f"{season_reads} reads: {MISCOUNTED_JUDGEMENTS}"
 
-    async def test_a_club_row_save_is_refused_on_the_rollover_that_landed_under_it(self, mongo_replica_set_url: str):
+    async def test_a_team_row_save_is_refused_on_the_rollover_that_landed_under_it(self, mongo_replica_set_url: str):
         """Drop the season's anchor from `patch_team_saison` and this fails."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -648,7 +648,7 @@ class TestARolloverLandingMidRenameIsJudgedAgain:
     """A rename rewrites the club rows of every season it reads as open, and the rollover writes no club row."""
 
     async def test_the_season_closed_under_it_keeps_the_name_it_was_played_under(self, mongo_replica_set_url: str):
-        """Drop the open seasons' anchor from `write_the_club` and this fails: the incumbent's row is renamed after it closed."""
+        """Drop the open seasons' anchor from `write_the_team` and this fails: the incumbent's row is renamed after it closed."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             row = await database[Collection.SAISON_TEAMS].find_one({"saison_id": OUTGOING})
@@ -665,13 +665,13 @@ class TestARolloverLandingMidRenameIsJudgedAgain:
             # The writer rather than the save over it: the save anchors its own season first, so a rollover of that season
             # would wait on it inside this hook.
             async def rename(session: AsyncClientSession) -> Any:
-                return await write_the_club(
+                return await write_the_team(
                     # The stand-in delegates every call, which the helper's collection type cannot say.
                     teams_collection=cast(Any, teams),
                     saison_teams_collection=database[Collection.SAISON_TEAMS],
                     saisons_collection=database[Collection.SAISONS],
                     team_id=row["team_id"],
-                    club={
+                    team={
                         "name": RENAMED,
                         "shorthand": "UMX",
                         "description": "",

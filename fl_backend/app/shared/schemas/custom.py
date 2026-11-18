@@ -93,12 +93,8 @@ class CustomObjectIdAnnotation:
         return handler(core_schema.str_schema(pattern=f"^{OBJECT_ID_REGEX}$"))
 
 
+# A path's id too: a path converter declaring `Annotated[str, ...]` while returning an ObjectId would type every endpoint's id as `str`.
 CustomObjectId = Annotated[ObjectId, CustomObjectIdAnnotation]
-
-
-# The path-parameter spelling, deliberately the same type. Never give it a converter declaring
-# `Annotated[str, ...]` while returning an ObjectId: every endpoint's id would then type as `str`.
-CustomRouteObjectId = CustomObjectId
 
 
 def parse_empty_string_to_none(value: Any) -> Any:

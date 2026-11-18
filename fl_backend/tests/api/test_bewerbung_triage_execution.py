@@ -21,9 +21,9 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungKontaktSeatPayload,
     FLDeclineBewerbungPayload,
 )
-from app.api.bewerbungen.services import compose_new_club, confirmation_deadline_from
+from app.api.bewerbungen.services import compose_new_team, confirmation_deadline_from
 from app.api.outbox.crud import states_of
-from app.api.teams.crud import found_a_club
+from app.api.teams.crud import found_a_team
 from app.api.teams.schemas import FLPostTeamPayload
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -119,7 +119,7 @@ KONTAKTE: Mapping[str, Any] = {
 }
 
 
-def club_document(team_id: ObjectId, name: str, shorthand: str, *, inactive_since: str | None = None) -> dict[str, Any]:
+def seeded_team(team_id: ObjectId, name: str, shorthand: str, *, inactive_since: str | None = None) -> dict[str, Any]:
     return team_document(team_id, name, shorthand, schulform="gymnasium_g9", inactive_since=inactive_since)
 
 
@@ -173,8 +173,8 @@ async def on_a_league(url: str, body: Body, *, saison_status: str = "future", oc
         await database[Collection.GRANTS].insert_many(grants_for_the_suite())
         await database[Collection.TEAMS].insert_many(
             [
-                club_document(EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND),
-                club_document(RETIRED_OID, RETIRED_NAME, RETIRED_SHORTHAND, inactive_since="2126-03-01"),
+                seeded_team(EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND),
+                seeded_team(RETIRED_OID, RETIRED_NAME, RETIRED_SHORTHAND, inactive_since="2126-03-01"),
             ]
         )
         if occupied:
@@ -252,7 +252,7 @@ async def junction_rows(database: AsyncDatabase, **narrow: Any) -> list[Mapping[
 
 
 # The clubs `on_a_league` seeds. Named, because "no club was created" is asserted as this number.
-SEEDED_CLUBS = 2
+SEEDED_TEAMS = 2
 
 
 async def through_the_app(
@@ -277,7 +277,7 @@ async def through_the_app(
 class TestAnAcceptanceEntersTheSchool:
     """The three writes, against a real mongod: a club where the school is new, the junction row, and the application."""
 
-    async def test_a_new_school_gets_a_club_that_the_application_then_names(self, mongo_replica_set_url: str):
+    async def test_a_new_school_gets_a_team_that_the_application_then_names(self, mongo_replica_set_url: str):
         """Catches an acceptance that enters the school without writing the created id back: nothing would join the two."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -302,7 +302,7 @@ class TestAnAcceptanceEntersTheSchool:
         assert stored["decision"] == {"made_at": TODAY, "reason": None}
         assert (response.team_id, response.created_team, response.gruppe) == (created["_id"], True, "A")
 
-    async def test_an_application_naming_an_existing_club_creates_none(self, mongo_replica_set_url: str):
+    async def test_an_application_naming_an_existing_team_creates_none(self, mongo_replica_set_url: str):
         """Catches a branch that creates a club whatever the application said, which would duplicate every returning school."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -313,7 +313,7 @@ class TestAnAcceptanceEntersTheSchool:
 
         before, after, response, rows = await on_a_league(mongo_replica_set_url, body)
 
-        assert (before, after) == (SEEDED_CLUBS, SEEDED_CLUBS)
+        assert (before, after) == (SEEDED_TEAMS, SEEDED_TEAMS)
         assert (response.team_id, response.created_team) == (EXISTING_OID, False)
         assert len(rows) == 1
         # The club's name as it stands TODAY, copied at entry rather than joined on read.
@@ -358,7 +358,7 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
     would leave a club created for a school that never entered.
     """
 
-    async def test_a_full_group_is_refused_and_no_club_is_created_for_the_new_school(self, mongo_replica_set_url: str):
+    async def test_a_full_group_is_refused_and_no_team_is_created_for_the_new_school(self, mongo_replica_set_url: str):
         """`entry_gruppe_full` on the NEW-school application, and the ROLLBACK behind it.
 
         Not the ordering: an insert moved ahead of the count passes this too, being rolled back.
@@ -372,12 +372,12 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
                 (await stored_bewerbung(database, NEW_SCHOOL_BEWERBUNG))["status"],
             )
 
-        code, clubs, rows, status = await on_a_league(mongo_replica_set_url, body, occupied=RULES["teams_per_gruppe"])
+        code, teams, rows, status = await on_a_league(mongo_replica_set_url, body, occupied=RULES["teams_per_gruppe"])
 
         assert code == Code.ENTRY_GRUPPE_FULL
-        assert (clubs, rows, status) == (SEEDED_CLUBS, RULES["teams_per_gruppe"], "submitted")
+        assert (teams, rows, status) == (SEEDED_TEAMS, RULES["teams_per_gruppe"], "submitted")
 
-    async def test_a_retired_club_is_refused_and_nothing_is_entered(self, mongo_replica_set_url: str):
+    async def test_a_retired_team_is_refused_and_nothing_is_entered(self, mongo_replica_set_url: str):
         """`team_retired`: a club that left the league is reactivated first, and the season's row is not the route to it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -404,12 +404,12 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
                 (await stored_bewerbung(database, NEW_SCHOOL_BEWERBUNG))["status"],
             )
 
-        code, clubs, rows, status = await on_a_league(mongo_replica_set_url, body, saison_status=saison_status)
+        code, teams, rows, status = await on_a_league(mongo_replica_set_url, body, saison_status=saison_status)
 
         assert code == Code.ENTRY_SAISON_NOT_FUTURE
-        assert (clubs, rows, status) == (SEEDED_CLUBS, [], "submitted")
+        assert (teams, rows, status) == (SEEDED_TEAMS, [], "submitted")
 
-    async def test_a_club_the_season_already_holds_is_refused_by_its_own_code(self, mongo_replica_set_url: str):
+    async def test_a_team_the_season_already_holds_is_refused_by_its_own_code(self, mongo_replica_set_url: str):
         """Two open applications may name one club, and the index alone would answer the second a bare `duplicate_key`."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -430,7 +430,7 @@ UNRESOLVED = [
 
 
 @pytest.mark.db
-class TestAnApplicationResolvingToNoOneClub:
+class TestAnApplicationResolvingToNoOneTeam:
     """`bewerbung_subject_unresolved` reaching the acceptance.
 
     Nothing in the database holds the rule, so the write path is where it holds.
@@ -452,10 +452,10 @@ class TestAnApplicationResolvingToNoOneClub:
                 (await stored_bewerbung(database, bewerbung_id))["status"],
             )
 
-        code, clubs, rows, status = await on_a_league(mongo_replica_set_url, body)
+        code, teams, rows, status = await on_a_league(mongo_replica_set_url, body)
 
         assert code == Code.BEWERBUNG_SUBJECT_UNRESOLVED
-        assert (clubs, rows, status) == (SEEDED_CLUBS, [], "submitted")
+        assert (teams, rows, status) == (SEEDED_TEAMS, [], "submitted")
 
 
 UNCONFIRMED_BEWERBUNG = ObjectId("6890a1b2c3d4e5f607920008")
@@ -570,7 +570,7 @@ async def seed_the_unusable_school(database: AsyncDatabase) -> Mapping[str, Any]
 
 
 @pytest.mark.db
-class TestASchoolNoClubCanBeCreatedFrom:
+class TestASchoolNoTeamCanBeCreatedFrom:
     """`bewerbung_schule_unusable` reaching the acceptance, which is the last point that can still answer 409.
 
     Past it the club is written, `FLTeamListAdapter` refuses it, and the clubs page an administrator
@@ -589,18 +589,18 @@ class TestASchoolNoClubCanBeCreatedFrom:
                 (await stored_bewerbung(database, UNUSABLE_BEWERBUNG))["status"],
             )
 
-        code, stored_url, clubs, rows, status = await on_a_league(mongo_replica_set_url, body)
+        code, stored_url, teams, rows, status = await on_a_league(mongo_replica_set_url, body)
 
         assert stored_url == UNUSABLE_URL, "the validator refused the value, so the refusal below proves nothing"
         assert code == Code.BEWERBUNG_SCHULE_UNUSABLE
-        assert (clubs, rows, status) == (SEEDED_CLUBS, [], "submitted")
+        assert (teams, rows, status) == (SEEDED_TEAMS, [], "submitted")
 
 
 @pytest.mark.db
 class TestAPartialAcceptanceCommitsNothing:
     """One transaction over three writes: a club created without its junction row is a school in no season that nothing reports."""
 
-    async def test_a_refused_final_patch_takes_the_club_and_the_junction_row_back(self, mongo_replica_set_url: str):
+    async def test_a_refused_final_patch_takes_the_team_and_the_junction_row_back(self, mongo_replica_set_url: str):
         """A `$jsonSchema` refusing the moved `status` fails the LAST of the three, after the other two have landed.
 
         Catches running the three outside one transaction, and dropping the session from either write.
@@ -626,23 +626,23 @@ class TestAPartialAcceptanceCommitsNothing:
                 await stored_bewerbung(database, NEW_SCHOOL_BEWERBUNG),
             )
 
-        code, clubs, rows, stored = await on_a_league(mongo_replica_set_url, body, mutates_schema=True)
+        code, teams, rows, stored = await on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
         # On the code, so this cannot pass because something else failed before any write.
         assert code == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the patch, got code {code}"
-        assert clubs == SEEDED_CLUBS, "the club survived a transaction that never committed"
+        assert teams == SEEDED_TEAMS, "the club survived a transaction that never committed"
         assert rows == [], "the junction row survived a transaction that never committed"
         assert (stored["status"], stored["team_id"], stored["decision"]) == ("submitted", None, None)
 
 
 @pytest.mark.db
-class TestADuplicateShorthandIsAConflictAndNotHalfAClub:
+class TestADuplicateShorthandIsAConflictAndNotHalfATeam:
     """A code another club holds is refused on its box before the club is written: a 409, and no half-written season.
 
     The refusal is the acceptance's own look-up; `uniq_shorthand` answers only a race between two writes.
     """
 
-    async def test_the_second_club_to_claim_the_two_letters_is_refused_whole(self, mongo_replica_set_url: str):
+    async def test_the_second_team_to_claim_the_two_letters_is_refused_whole(self, mongo_replica_set_url: str):
         """Through a served request, so the refusal is read as the wire carries it, its box named."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -661,10 +661,10 @@ class TestADuplicateShorthandIsAConflictAndNotHalfAClub:
                 (await stored_bewerbung(database, CLASHING_BEWERBUNG))["status"],
             )
 
-        status_code, payload, clubs, rows, status = await on_a_league(mongo_replica_set_url, body)
+        status_code, payload, teams, rows, status = await on_a_league(mongo_replica_set_url, body)
 
         assert (status_code, payload["error_code"], payload["fields"][0]["path"]) == (409, Code.DUPLICATE_KEY, ["shorthand"])
-        assert (clubs, rows, status) == (SEEDED_CLUBS, [], "submitted")
+        assert (teams, rows, status) == (SEEDED_TEAMS, [], "submitted")
 
 
 @pytest.mark.db
@@ -987,23 +987,23 @@ def without_the_id(document: Mapping[str, Any]) -> dict[str, Any]:
 
 
 @pytest.mark.db
-class TestOneSchoolMakesOneClubWhicheverPathCreatesIt:
-    """The entry's `found_a_club` and an acceptance are two ways to the same collection, so they store one document for one school."""
+class TestOneSchoolMakesOneTeamWhicheverPathCreatesIt:
+    """The entry's `found_a_team` and an acceptance are two ways to the same collection, so they store one document for one school."""
 
-    async def test_the_created_club_holds_what_the_guard_parsed_rather_than_the_block_as_submitted(self, mongo_replica_set_url: str):
+    async def test_the_created_team_holds_what_the_guard_parsed_rather_than_the_block_as_submitted(self, mongo_replica_set_url: str):
         """Store the COMPOSED block instead and this fails: its `website_url` keeps the tab and the carriage return.
 
-        Against what `found_a_club` itself stored for this school, so the claim rests on that path
+        Against what `found_a_team` itself stored for this school, so the claim rests on that path
         rather than on a copy of its expression.
         """
 
         schule = {**schule_block(DIRTY_URL_NAME), "website_url": DIRTY_URL}
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            club = FLPostTeamPayload.model_validate(compose_new_club(schule=schule, shorthand=DIRTY_URL_SHORTHAND))
+            team = FLPostTeamPayload.model_validate(compose_new_team(schule=schule, shorthand=DIRTY_URL_SHORTHAND))
 
             async def found_it(session: AsyncClientSession) -> Any:
-                return await found_a_club(teams_collection=database[Collection.TEAMS], club=club.model_dump(mode="json"), session=session)
+                return await found_a_team(teams_collection=database[Collection.TEAMS], team=team.model_dump(mode="json"), session=session)
 
             async with transaction_session(client) as session:
                 created_id = await session.with_transaction(found_it)
@@ -1019,7 +1019,7 @@ class TestOneSchoolMakesOneClubWhicheverPathCreatesIt:
 
         through_the_entry, created = await on_a_league(mongo_replica_set_url, body)
 
-        assert through_the_entry is not None, "`found_a_club` stored nothing, so the comparison below stands on one document"
+        assert through_the_entry is not None, "`found_a_team` stored nothing, so the comparison below stands on one document"
         assert created is not None, "no club was created for a school that named none"
 
         # Every key either insert wrote, `inactive_since` included: both paths owe it.

@@ -46,8 +46,8 @@ from app.core.crud import (
     insert_live,
     is_held_elsewhere,
     patch_one_in_db,
-    pull_many_from_db,
     pull_one_from_db,
+    pull_whole_from_db,
     refuse,
     set_inactive_since,
 )
@@ -63,8 +63,8 @@ from app.core.dependencies import (
 )
 from app.core.recording import record_act
 from app.core.routing import by_id
-from app.core.transactions import transaction_session
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.core.transactions import transact
+from app.shared.schemas.custom import CustomObjectId
 
 # Admin-guarded, not base: a referee is a pupil, so their contact details and school are admin-tier, as is the fee,
 # which is money.
@@ -81,9 +81,10 @@ async def get_schiedsrichter(
 ) -> FLSchiedsrichterListResponse:
     """Every referee in name order, retired ones included where `include_inactive` asks, since a played match still names them."""
 
-    schiedsrichter_raw = await pull_many_from_db(
+    schiedsrichter_raw = await pull_whole_from_db(
         collection=schiedsrichter_collection,
         db_filter={} if filters.include_inactive else {"inactive_since": None},
+        what="the referees",
         sort_by=[("name", 1)],
         collation=GERMAN_COLLATION,
     )
@@ -96,7 +97,7 @@ async def get_schiedsrichter(
     summary="One Schiedsrichter",
 )
 async def get_schiedsrichter_by_id(
-    schiedsrichter_id: CustomRouteObjectId,
+    schiedsrichter_id: CustomObjectId,
     schiedsrichter_collection: SchiedsrichterReadCollection,
     outbox_collection: OutboxReadCollection,
     today: GermanDay,
@@ -129,7 +130,7 @@ async def post_schiedsrichter(
     outbox_collection: OutboxCollection,
     db: DBClient,
     today: GermanDay,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLPostSchiedsrichterResponse:
     """Create a referee and owe them their confirmation link, answering the address and the deadline it goes to.
 
@@ -162,7 +163,7 @@ async def post_schiedsrichter(
             email=email,
             deadline=confirmation_deadline_from(today=today),
             version=0,
-            now=now,
+            now=germany_now,
             session=session,
         )
 
@@ -170,8 +171,7 @@ async def post_schiedsrichter(
 
     # One transaction over the judgement, the insert and the mail: a row written outside it would stand with a link
     # owed that an administrator was then told had been refused.
-    async with transaction_session(db) as session:
-        post_operation = await session.with_transaction(judge_and_create)
+    post_operation = await transact(db, judge_and_create)
 
     return FLPostSchiedsrichterResponse(
         created_id=post_operation.inserted_id,
@@ -186,13 +186,13 @@ async def post_schiedsrichter(
     summary="Update a Schiedsrichter",
 )
 async def patch_schiedsrichter(
-    schiedsrichter_id: CustomRouteObjectId,
+    schiedsrichter_id: CustomObjectId,
     schiedsrichter_data: FLPatchSchiedsrichterPayload,
     schiedsrichter_collection: SchiedsrichterCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
     today: GermanDay,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLPatchSchiedsrichterResponse:
     """Update a referee on the `version` the editor was served, answering the version stored.
 
@@ -239,7 +239,7 @@ async def patch_schiedsrichter(
                 email=email,
                 deadline=confirmation_deadline_from(today=today),
                 version=updated_document.version,
-                now=now,
+                now=germany_now,
                 session=session,
             )
 
@@ -247,9 +247,8 @@ async def patch_schiedsrichter(
 
     # One transaction: a save storing a corrected address without the link it owes, or owing one the save rolled
     # back, mails the wrong mailbox. Every write derives from the payload and an in-session read, so a
-    # `with_transaction` retry is safe.
-    async with transaction_session(db) as session:
-        answer, re_minted = await session.with_transaction(correct_and_ask)
+    # `transact` retry is safe.
+    answer, re_minted = await transact(db, correct_and_ask)
 
     if re_minted:
         answer.confirmation = FLSchiedsrichterMint(deadline=confirmation_deadline_from(today=today), email=email)
@@ -263,7 +262,7 @@ async def patch_schiedsrichter(
     summary="Deactivate a Schiedsrichter (soft delete)",
 )
 async def delete_schiedsrichter(
-    schiedsrichter_id: CustomRouteObjectId,
+    schiedsrichter_id: CustomObjectId,
     schiedsrichter_collection: SchiedsrichterCollection,
     spiele_collection: SpieleCollection,
     db: DBClient,
@@ -286,9 +285,10 @@ async def delete_schiedsrichter(
             session=session,
         )
 
-        assigned = await pull_many_from_db(
+        assigned = await pull_whole_from_db(
             collection=spiele_collection,
             db_filter=build_unplayed_assignment_filter(schiedsrichter_id),
+            what=f"referee {schiedsrichter_id}'s unplayed fixtures",
             projection={"spiel_nr": 1},
             session=session,
         )
@@ -308,8 +308,7 @@ async def delete_schiedsrichter(
 
     # The stamp inside the judgement's transaction, so a booking committing after the read of the
     # fixtures conflicts on the referee it anchors rather than landing unseen.
-    async with transaction_session(db) as session:
-        await session.with_transaction(retire_the_referee)
+    await transact(db, retire_the_referee)
 
 
 @router.post(
@@ -317,12 +316,12 @@ async def delete_schiedsrichter(
     summary="Bring a deactivated Schiedsrichter back",
 )
 async def reactivate_schiedsrichter(
-    schiedsrichter_id: CustomRouteObjectId,
+    schiedsrichter_id: CustomObjectId,
     schiedsrichter_collection: SchiedsrichterCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
     today: GermanDay,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLSchiedsrichterReactivateResponse:
     """Bring a retired referee back into the picker and every default read.
 
@@ -364,15 +363,14 @@ async def reactivate_schiedsrichter(
                 email=email,
                 deadline=confirmation_deadline_from(today=today),
                 version=updated[VERSION_FIELD],
-                now=now,
+                now=germany_now,
                 session=session,
             )
 
         return email
 
     # One transaction, so a row never comes back without the link it was owed.
-    async with transaction_session(db) as session:
-        minted_for = await session.with_transaction(reactivate_and_ask)
+    minted_for = await transact(db, reactivate_and_ask)
 
     return FLSchiedsrichterReactivateResponse(
         confirmation=None if minted_for is None else FLSchiedsrichterMint(deadline=confirmation_deadline_from(today=today), email=minted_for),
@@ -384,12 +382,12 @@ async def reactivate_schiedsrichter(
     summary="Send a Schiedsrichter a fresh confirmation link",
 )
 async def invite_schiedsrichter(
-    schiedsrichter_id: CustomRouteObjectId,
+    schiedsrichter_id: CustomObjectId,
     schiedsrichter_collection: SchiedsrichterCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
     today: GermanDay,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLSchiedsrichterMintResponse:
     """Owe this referee a fresh confirmation link, which the Postausgang mints and mails, and answer where it goes.
 
@@ -431,7 +429,7 @@ async def invite_schiedsrichter(
             email=str(email),
             deadline=confirmation_deadline_from(today=today),
             version=updated[VERSION_FIELD],
-            now=now,
+            now=germany_now,
             session=session,
         )
 
@@ -439,7 +437,6 @@ async def invite_schiedsrichter(
 
     # The address answered is the one read in-session above, never one the caller read before this
     # request: a save moving it in between would otherwise send the link to the previous mailbox.
-    async with transaction_session(db) as session:
-        minted_for = await session.with_transaction(judge_and_mint)
+    minted_for = await transact(db, judge_and_mint)
 
     return FLSchiedsrichterMintResponse(confirmation=FLSchiedsrichterMint(deadline=confirmation_deadline_from(today=today), email=minted_for))

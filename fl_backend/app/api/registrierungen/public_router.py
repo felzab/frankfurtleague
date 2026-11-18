@@ -40,8 +40,8 @@ from app.api.registrierungen.services import (
     state_of,
 )
 from app.api.saisons.services import entry_is_a_nominee
-from app.api.spieler.crud import pull_squad_room
-from app.api.spieler.services import find_full_squad_refusal
+from app.api.spieler.crud import pull_kader_room
+from app.api.spieler.services import find_full_kader_refusal
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
 from app.core.crud import patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
@@ -66,9 +66,9 @@ from app.core.dependencies import (
 from app.core.readonly import ReadCollection
 from app.core.routing import SAFE
 from app.core.security import BASE_TIER
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.schemas.bounds import (
-    BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
+    BIRTH_DATE_MAX_AGE_YEARS,
     REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS,
     REGISTRIERUNG_MIN_AGE_YEARS,
 )
@@ -92,7 +92,7 @@ JUNCTION_PROJECTION = {"name": 1, "austritt": 1}
 # reads as closed rather than as a season nobody knows. The invite authorises instead.
 
 
-async def _club_departed(
+async def _team_departed(
     *, saison_teams_collection: ReadCollection, registrierung_raw: Mapping[str, Any], session: AsyncClientSession | None = None
 ) -> bool:
     """Whether this registration's club has left the season: by an exit, on the record's presence, or by a replacement, which leaves it no row.
@@ -157,7 +157,7 @@ async def post_invitation_view(
 
     # What an entry submitted today would store, the admission judging the submission's day.
     nominee = entry_is_a_nominee(registrierung=saison_raw.get("registrierung"), day=today)
-    room = await pull_squad_room(
+    room = await pull_kader_room(
         saison_spieler_collection=saison_spieler_collection,
         saison_id=saison_id,
         team_id=team_id,
@@ -176,7 +176,7 @@ async def post_invitation_view(
         # The same junction row the submission judges `registrierung_closed` on, so the page words
         # the state before anything is typed rather than after a whole form is filled in.
         team_entered=junction_raw is not None,
-        kader_free=find_full_squad_refusal(room=room, nominee=nominee) is None,
+        kader_free=find_full_kader_refusal(room=room, nominee=nominee) is None,
         nachnominierung=nominee,
     )
 
@@ -245,7 +245,7 @@ async def post_registrierung(
 
         refuse(find_stufe_refusal(stufe=registrierung_data.stufe, allowed_stufen=list(rules.get("allowed_stufen") or [])))
 
-        room = await pull_squad_room(
+        room = await pull_kader_room(
             saison_spieler_collection=saison_spieler_collection,
             saison_id=saison_id,
             team_id=team_id,
@@ -255,7 +255,7 @@ async def post_registrierung(
         )
         refuse(
             find_kader_refusal(
-                full=find_full_squad_refusal(room=room, nominee=entry_is_a_nominee(registrierung=saison_raw.get("registrierung"), day=today))
+                full=find_full_kader_refusal(room=room, nominee=entry_is_a_nominee(registrierung=saison_raw.get("registrierung"), day=today))
             )
         )
 
@@ -317,9 +317,8 @@ async def post_registrierung(
         return FLPostRegistrierungResponse(registrierung_id=registrierung_id)
 
     # The key lookup is the transaction's first read: a first press committed before this snapshot is
-    # found, and one committed after it makes the anchor or the insert a write conflict `with_transaction` retries.
-    async with transaction_session(db) as session:
-        return await session.with_transaction(store_or_replay)
+    # found, and one committed after it makes the anchor or the insert a write conflict `transact` retries.
+    return await transact(db, store_or_replay)
 
 
 # The confirmation link's two endpoints: the token is the whole credential, so both are base-tier as
@@ -353,7 +352,7 @@ async def get_confirmation_view(
     team_raw = await teams_collection.find_one({"_id": raw["team_id"]}, projection={"name": 1, "full_name": 1})
     assert team_raw is not None
 
-    departed = await _club_departed(saison_teams_collection=saison_teams_collection, registrierung_raw=raw)
+    departed = await _team_departed(saison_teams_collection=saison_teams_collection, registrierung_raw=raw)
 
     return FLRegistrierungConfirmationViewResponse(
         state=state_of(registrierung_raw=raw, departed=departed, today=today),
@@ -361,7 +360,7 @@ async def get_confirmation_view(
         schule=str(team_raw["full_name"]),
         saison_id=str(raw["saison_id"]),
         minimum_age=REGISTRIERUNG_MIN_AGE_YEARS,
-        maximum_age=BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
+        maximum_age=BIRTH_DATE_MAX_AGE_YEARS,
         # The token filter matched inside the block, so it stands, and its record model requires the day.
         deadline=str(raw["confirmation"]["deadline"]),
         answered_at=(raw.get("einwilligung") or {}).get("confirmed_at"),
@@ -397,7 +396,7 @@ async def post_confirmation(
         refuse(find_unknown_token_refusal(found=raw is not None))
         assert raw is not None
 
-        departed = await _club_departed(saison_teams_collection=saison_teams_collection, registrierung_raw=raw, session=session)
+        departed = await _team_departed(saison_teams_collection=saison_teams_collection, registrierung_raw=raw, session=session)
         refuse(find_expired_token_refusal(confirmation=raw.get("confirmation"), status=raw.get("status"), departed=departed, today=today))
         refuse(find_already_confirmed_refusal(einwilligung=raw.get("einwilligung")))
         refuse(find_age_refusal(birth_date=answer_data.birth_date, today=today))
@@ -428,5 +427,4 @@ async def post_confirmation(
             media=answer_data.media,
         )
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(answer_for_the_pupil)
+    return await transact(db, answer_for_the_pupil)

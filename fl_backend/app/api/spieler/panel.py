@@ -7,7 +7,7 @@ so it stands above both.
 
 from app.api.saisons.schemas import FLTeamPageSpiel
 from app.api.spieler.schemas import FLSpielerSelfKaderRow
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.responses import BaseReadModel
 
 
 class FLSpielerSaisonSelfSpiel(FLTeamPageSpiel):
@@ -18,7 +18,7 @@ class FLSpielerSaisonSelfSpiel(FLTeamPageSpiel):
     starts: bool | None
 
 
-class FLSpielerSaisonSelfResponse(BaseAPIResponse):
+class FLSpielerSaisonSelfResponse(BaseReadModel):
     """A pupil's own season: where they play, and their club's fixtures."""
 
     saison_id: str

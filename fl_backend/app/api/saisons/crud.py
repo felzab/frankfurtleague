@@ -9,7 +9,7 @@ from app.api.saisons.services import next_saison_id
 from app.api.spiele.schemas import FLSpielJoinedInternal, FLSpielJoinedInternalListAdapter
 from app.api.spiele.services import build_spiele_pipeline
 from app.api.teams.services import TAKEN_PLACE_FIELDS, has_taken_place
-from app.core.crud import aggregate_many_from_db, pull_many_from_db, pull_one_from_db
+from app.core.crud import aggregate_many_from_db, pull_one_from_db, pull_whole_from_db
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.shared.schemas.bounds import SAISON_ID_LENGTH
@@ -82,8 +82,12 @@ async def pull_landing_windows(*, saisons_collection: ReadCollection, today: str
     an arbitrary pick would move between reads.
     """
 
-    candidates = await pull_many_from_db(
-        collection=saisons_collection, db_filter=SAISON_NOT_ENDED_FILTER, sort_by=[("_id", -1)], projection=["bewerbung", "status"]
+    candidates = await pull_whole_from_db(
+        collection=saisons_collection,
+        db_filter=SAISON_NOT_ENDED_FILTER,
+        what="the seasons not yet ended",
+        sort_by=[("_id", -1)],
+        projection=["bewerbung", "status"],
     )
     windowed = [raw for raw in candidates if raw.get("bewerbung") is not None]
 

@@ -84,7 +84,7 @@ RULES: Mapping[str, Any] = documents.rules_document(
 )
 
 
-def club_document(team_id: ObjectId, name: str) -> dict[str, Any]:
+def seeded_team(team_id: ObjectId, name: str) -> dict[str, Any]:
     # `full_name` passed rather than defaulted: the invite's read answers it (`TEAM_FULL_NAME`).
     return documents.team_document(team_id, name, name[:3].upper(), full_name=f"{name}-Gesamtschule", schulform="gesamtschule")
 
@@ -137,7 +137,7 @@ async def on_a_league(
     body: Body,
     *,
     registrierung: Any = OPEN_WINDOW,
-    squad: int = 0,
+    kader_size: int = 0,
     saison_status: str = "active",
 ) -> Any:
     """A clean database carrying the shipped indexes, so a duplicate production would refuse fails here too.
@@ -148,7 +148,7 @@ async def on_a_league(
 
     async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
         await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, saison_status, registrierung))
-        await database[Collection.TEAMS].insert_many([club_document(TEAM_OID, TEAM_NAME), club_document(OTHER_TEAM_OID, OTHER_TEAM_NAME)])
+        await database[Collection.TEAMS].insert_many([seeded_team(TEAM_OID, TEAM_NAME), seeded_team(OTHER_TEAM_OID, OTHER_TEAM_NAME)])
         await database[Collection.SAISON_TEAMS].insert_one(junction_document(SAISON_ID, TEAM_OID, TEAM_NAME))
         await database[Collection.INVITATIONS].insert_many(
             [
@@ -158,13 +158,13 @@ async def on_a_league(
             ]
         )
 
-        if squad:
+        if kader_size:
             await database[Collection.SAISON_SPIELER].insert_many(
                 [
                     documents.saison_spieler_document(
                         ObjectId(), SAISON_ID, TEAM_OID, _id=ObjectId(), stufe="Q1", position="Abwehr", nummer=str(seat)
                     )
-                    for seat in range(squad)
+                    for seat in range(kader_size)
                 ]
             )
 
@@ -548,7 +548,7 @@ class TestWhatASubmissionIsRefused:
 
         assert await on_a_league(mongo_replica_set_url, body, registrierung={**OPEN_WINDOW, "open": False}) == (Code.DOCUMENT_NOT_FOUND, 0)
 
-    async def test_a_nominee_is_taken_by_a_full_squad(self, mongo_replica_set_url: str):
+    async def test_a_nominee_is_taken_by_a_full_kader(self, mongo_replica_set_url: str):
         """Past the window's `end` the cap holds nobody, and the row counts neither way until a team admits it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
@@ -556,7 +556,7 @@ class TestWhatASubmissionIsRefused:
 
             return await database[Collection.REGISTRIERUNGEN].count_documents({})
 
-        assert await on_a_league(mongo_replica_set_url, body, registrierung=PAST_WINDOW, squad=RULES["max_kader_size"]) == 1
+        assert await on_a_league(mongo_replica_set_url, body, registrierung=PAST_WINDOW, kader_size=RULES["max_kader_size"]) == 1
 
     async def test_nominees_leave_the_cap_to_an_ordinary_entry(self, mongo_replica_set_url: str):
         """Counted, a late pupil would shut the link on a regular one, on the page and at the write alike."""
@@ -568,15 +568,15 @@ class TestWhatASubmissionIsRefused:
 
             return answer.kader_free, await database[Collection.REGISTRIERUNGEN].count_documents({})
 
-        assert await on_a_league(mongo_replica_set_url, body, squad=RULES["max_kader_size"]) == (True, 1)
+        assert await on_a_league(mongo_replica_set_url, body, kader_size=RULES["max_kader_size"]) == (True, 1)
 
-    async def test_a_full_squad_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
+    async def test_a_full_kader_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
             return await refused_code(register(database, client)), await database[Collection.REGISTRIERUNGEN].count_documents({})
 
-        assert await on_a_league(mongo_replica_set_url, body, squad=RULES["max_kader_size"]) == (Code.REGISTRIERUNG_KADER_FULL, 0)
+        assert await on_a_league(mongo_replica_set_url, body, kader_size=RULES["max_kader_size"]) == (Code.REGISTRIERUNG_KADER_FULL, 0)
 
-    async def test_a_retired_squad_row_gives_its_place_back(self, mongo_replica_set_url: str):
+    async def test_a_retired_kader_row_gives_its_place_back(self, mongo_replica_set_url: str):
         """Counted as the squad editor counts: a player who left the squad is not holding a place."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
@@ -585,7 +585,7 @@ class TestWhatASubmissionIsRefused:
 
             return await database[Collection.REGISTRIERUNGEN].count_documents({})
 
-        assert await on_a_league(mongo_replica_set_url, body, squad=RULES["max_kader_size"]) == 1
+        assert await on_a_league(mongo_replica_set_url, body, kader_size=RULES["max_kader_size"]) == 1
 
     async def test_two_submissions_for_one_remaining_place_both_land(self, mongo_replica_set_url: str):
         """The declared race, pinned so a later reader does not read it as a defect.
@@ -600,7 +600,7 @@ class TestWhatASubmissionIsRefused:
 
             return await database[Collection.REGISTRIERUNGEN].count_documents({})
 
-        assert await on_a_league(mongo_replica_set_url, body, squad=RULES["max_kader_size"] - 1) == 2
+        assert await on_a_league(mongo_replica_set_url, body, kader_size=RULES["max_kader_size"] - 1) == 2
 
 
 class TestWhatTheInvitesOwnReadAnswers:
@@ -616,7 +616,7 @@ class TestWhatTheInvitesOwnReadAnswers:
 
         assert answer.running is False
 
-    async def test_a_link_past_the_windows_end_stays_open_to_a_full_squad(self, mongo_replica_set_url: str):
+    async def test_a_link_past_the_windows_end_stays_open_to_a_full_kader(self, mongo_replica_set_url: str):
         """A nominee stands outside the cap, so a page reading the cap would shut the one way a late pupil has in."""
 
         async def run(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[bool, bool]:
@@ -624,7 +624,7 @@ class TestWhatTheInvitesOwnReadAnswers:
 
             return answer.running, answer.kader_free
 
-        assert await on_a_league(mongo_replica_set_url, run, registrierung=PAST_WINDOW, squad=RULES["max_kader_size"]) == (True, True)
+        assert await on_a_league(mongo_replica_set_url, run, registrierung=PAST_WINDOW, kader_size=RULES["max_kader_size"]) == (True, True)
 
     async def test_a_departed_team_s_link_is_refused(self, mongo_replica_set_url: str):
         """A squad grows no further once its club has left, so the page opens as a dead link rather than as a form."""

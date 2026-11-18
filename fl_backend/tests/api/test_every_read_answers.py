@@ -43,13 +43,13 @@ NEXT_SAISON = "2127"
 RULES = documents.rules_document(number_of_gruppen=1, teams_per_gruppe=4, qualifiers_per_gruppe=4)
 
 # In the order the group finishes: each club beats every club after it.
-CLUBS = (
+TEAMS = (
     (ObjectId("6890a1b2c3d4e5f607f00001"), "Adler", "ADX"),
     (ObjectId("6890a1b2c3d4e5f607f00002"), "Biber", "BIX"),
     (ObjectId("6890a1b2c3d4e5f607f00003"), "Corax", "COX"),
     (ObjectId("6890a1b2c3d4e5f607f00004"), "Dachs", "DAX"),
 )
-RANK = {team_id: rank for rank, (team_id, _, _) in enumerate(CLUBS)}
+RANK = {team_id: rank for rank, (team_id, _, _) in enumerate(TEAMS)}
 
 # One address holding every Funktion a person's read asks of: the confirmed Trainer of the first club, a referee
 # booked on the phase's featured fixture, and a pupil on the second club's squad.
@@ -71,7 +71,7 @@ def _drawn() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
 
     entered = [
         EnteredTeam(row_id=ObjectId(f"6890a1b2c3d4e5f607f001{index:02d}"), team_id=team_id, gruppe="A", name=name, shorthand=shorthand)
-        for index, (team_id, name, shorthand) in enumerate(CLUBS)
+        for index, (team_id, name, shorthand) in enumerate(TEAMS)
     ]
     plan = draw_spielplan(saison_id=SAISON, rules=FLSaisonRules.model_validate(RULES), entered=entered)
 
@@ -137,7 +137,7 @@ def _semis_fielded(spiele: list[dict[str, Any]]) -> tuple[dict[str, Any], dict[s
     """Group 1st against 4th and 2nd against 3rd, as the bracket's sources name them."""
 
     first, second = (spiel for spiel in spiele if spiel["saison_phase"] == "halbfinale")
-    (top, _, _), (runner_up, _, _), (third, _, _), (fourth, _, _) = CLUBS
+    (top, _, _), (runner_up, _, _), (third, _, _), (fourth, _, _) = TEAMS
     _fielded(first, top, fourth, "2126-05-10")
     _fielded(second, runner_up, third, "2126-05-10")
     return first, second
@@ -163,7 +163,7 @@ def _decided() -> Phase:
     _played(first, "2126-05-10", (3, 1))
     _played(second, "2126-05-10", (2, 0))
     third_place, finale = (spiel for spiel in spiele if spiel["saison_phase"] == "finale")
-    (top, _, _), (runner_up, _, _), (third, _, _), (fourth, _, _) = CLUBS
+    (top, _, _), (runner_up, _, _), (third, _, _), (fourth, _, _) = TEAMS
     _fielded(third_place, fourth, third, "2126-05-24")
     _fielded(finale, top, runner_up, "2126-05-24")
     _played(third_place, "2126-05-24", (1, 0))
@@ -177,7 +177,7 @@ PHASES = {phase.name: phase for phase in (_before_start(), _running(), _decided(
 
 
 async def _seed(database: AsyncDatabase, phase: Phase) -> None:
-    (own_club, _, _), (squad_club, _, _), *_ = CLUBS
+    (own_team, _, _), (kader_team, _, _), *_ = TEAMS
     featured = phase.featured
 
     await database[Collection.GRANTS].insert_many(grants_for_the_suite())
@@ -187,7 +187,7 @@ async def _seed(database: AsyncDatabase, phase: Phase) -> None:
             documents.saison_document(NEXT_SAISON, "future"),
         ]
     )
-    await database[Collection.TEAMS].insert_many([documents.team_document(team_id, name, shorthand) for team_id, name, shorthand in CLUBS])
+    await database[Collection.TEAMS].insert_many([documents.team_document(team_id, name, shorthand) for team_id, name, shorthand in TEAMS])
     trainer = documents.kontaktperson_document("Pia", confirmed_at="2126-01-12", email=PERSON)
     await database[Collection.SAISON_TEAMS].insert_many(
         [
@@ -197,9 +197,9 @@ async def _seed(database: AsyncDatabase, phase: Phase) -> None:
                 name,
                 shorthand,
                 _id=ObjectId(f"6890a1b2c3d4e5f607f001{index:02d}"),
-                kontakte=documents.kontakte_document(trainer=trainer) if team_id == own_club else None,
+                kontakte=documents.kontakte_document(trainer=trainer) if team_id == own_team else None,
             )
-            for index, (team_id, name, shorthand) in enumerate(CLUBS)
+            for index, (team_id, name, shorthand) in enumerate(TEAMS)
         ]
     )
     await database[Collection.SPIELTAGE].insert_many(phase.spieltage)
@@ -225,11 +225,11 @@ async def _seed(database: AsyncDatabase, phase: Phase) -> None:
     )
     await database[Collection.SAISON_SPIELER].insert_many(
         [
-            documents.saison_spieler_document(PERSON_SPIELER, SAISON, squad_club, nummer="7"),
-            documents.saison_spieler_document(OTHER_SPIELER, SAISON, own_club, nummer="9"),
+            documents.saison_spieler_document(PERSON_SPIELER, SAISON, kader_team, nummer="7"),
+            documents.saison_spieler_document(OTHER_SPIELER, SAISON, own_team, nummer="9"),
         ]
     )
-    await database[Collection.AUFSTELLUNGEN].insert_one(documents.aufstellung_document(featured, own_club, starters=[OTHER_SPIELER]))
+    await database[Collection.AUFSTELLUNGEN].insert_one(documents.aufstellung_document(featured, own_team, starters=[OTHER_SPIELER]))
     await database[Collection.SPIELBESTAETIGUNGEN].insert_many(
         [
             documents.spielbestaetigung_document(featured, party={"kind": "team", "team_id": featured["team1"]["team_id"]}),
@@ -243,7 +243,7 @@ async def _seed(database: AsyncDatabase, phase: Phase) -> None:
             REGISTRIERUNG,
             "jonas.neu@example.com",
             saison_id=SAISON,
-            team_id=own_club,
+            team_id=own_team,
             first_name="Jonas",
             last_name="Neu",
             token="registrierung-link",
@@ -270,12 +270,12 @@ async def _seed(database: AsyncDatabase, phase: Phase) -> None:
 def _path_values(phase: Phase) -> dict[str, str]:
     """The value each path or query parameter of a read takes, all naming what the phase seeded."""
 
-    (own_club, _, _), *_ = CLUBS
+    (own_team, _, _), *_ = TEAMS
 
     return {
         "saison_id": SAISON,
         "spiel_id": str(phase.featured["_id"]),
-        "team_id": str(own_club),
+        "team_id": str(own_team),
         "spieler_id": str(PERSON_SPIELER),
         "schiedsrichter_id": str(PERSON_SCHIEDSRICHTER),
         "spielort_id": str(SPIELORT),

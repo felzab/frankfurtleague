@@ -125,7 +125,7 @@ function tilesOf(spiel: FLSpielJoined, page: FLSpielPageResponse): readonly [Sta
     { label: fact.schiedsrichter, value: refereeOf(spiel), words: true },
     spiel.spielort === null
       ? { label: fact.spielort, value: COPY.shared.noValue, words: true }
-      : { label: fact.spielort, value: { record: spiel.spielort.name }, words: true, href: buildMapsSearchUrl(spiel.spielort.maps_link) },
+      : { label: fact.spielort, value: { record: spiel.spielort.name }, words: true, href: buildMapsSearchUrl(spiel.spielort.maps_query) },
   ];
 }
 

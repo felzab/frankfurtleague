@@ -192,7 +192,7 @@ async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoCl
         outbox_collection=database[Collection.OUTBOX],
         db=client,
         today=TODAY,
-        now=MAIL_NOW,
+        germany_now=MAIL_NOW,
     )
     minted = await start_the_change(
         database, client, email=KONTAKT[schiedsrichter_id]["email"], identifier=sign_in_identifier(former_email), germany_now=NOW

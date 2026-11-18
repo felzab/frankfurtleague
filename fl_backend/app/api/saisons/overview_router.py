@@ -31,7 +31,7 @@ async def get_saison_overview(
     teams_collection: TeamsReadCollection,
     spielorte_collection: SpielorteReadCollection,
     schiedsrichter_collection: SchiedsrichterReadCollection,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLSaisonOverviewResponse:
     """The administrator's Übersicht for one season: its open work on the cards `due`, `ergebnisse`, `dates` and `bewerbungen`.
 
@@ -40,7 +40,7 @@ async def get_saison_overview(
     """
 
     read = await aggregate_many_from_db(
-        collection=saisons_collection, pipeline=build_overview_pipeline(saison_id=saison_id, today=clock.german_day(now))
+        collection=saisons_collection, pipeline=build_overview_pipeline(saison_id=saison_id, today=clock.german_day(germany_now))
     )
     if not read:
         raise DocumentNotFoundError()
@@ -58,4 +58,4 @@ async def get_saison_overview(
         schiedsrichter_collection=schiedsrichter_collection,
     )
 
-    return overview_of(read=season, spiele=spiele, faults=faults, now=now)
+    return overview_of(read=season, spiele=spiele, faults=faults, now=germany_now)

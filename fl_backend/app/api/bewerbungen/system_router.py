@@ -251,10 +251,10 @@ async def sweep_saison(
         people_of = {row["_id"]: people for row, (people, _) in chases if people}
         chased = [row for row in rows if row["_id"] in people_of]
         # One read for the page: a mail names the school, and the row holds only its id.
-        club_names = await pull_team_names(teams_collection=teams_collection, team_ids=[row.get("team_id") for row in chased], session=session)
+        team_names = await pull_team_names(teams_collection=teams_collection, team_ids=[row.get("team_id") for row in chased], session=session)
 
         def reminders_of(row: Mapping[str, Any]) -> list[OwedMail]:
-            schule = schule_name(bewerbung_raw=row, club_names=club_names)
+            schule = schule_name(bewerbung_raw=row, team_names=team_names)
             return [
                 owed_link(
                     kind="bewerbung_reminder",

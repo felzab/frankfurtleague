@@ -102,7 +102,7 @@ async def on_a_league(
     url: str,
     body: Body,
     *,
-    squad: int = 0,
+    kader_size: int = 0,
     registrierung: Any = None,
 ) -> Any:
     """Two clubs in one active season, each with seats; `kader` live rows already on the first club.
@@ -138,9 +138,9 @@ async def on_a_league(
             )
         )
 
-        if squad:
+        if kader_size:
             await database[Collection.SAISON_SPIELER].insert_many(
-                [documents.saison_spieler_document(ObjectId(), SAISON_ID, TEAM_OID, nummer=str(seat)) for seat in range(squad)]
+                [documents.saison_spieler_document(ObjectId(), SAISON_ID, TEAM_OID, nummer=str(seat)) for seat in range(kader_size)]
             )
 
         return await body(database, client)
@@ -281,7 +281,7 @@ async def persons(database: AsyncDatabase) -> list[Mapping[str, Any]]:
     return await database[Collection.SPIELER].find().sort("_id", 1).to_list(length=None)
 
 
-async def squad_rows(database: AsyncDatabase, *, spieler_id: Any) -> list[Mapping[str, Any]]:
+async def kader_rows(database: AsyncDatabase, *, spieler_id: Any) -> list[Mapping[str, Any]]:
     return await database[Collection.SAISON_SPIELER].find({"spieler_id": spieler_id}).to_list(length=None)
 
 
@@ -310,7 +310,7 @@ class TestWhatAnAdmissionWrites:
             registrierung_id = await seed(database, registrierung_document())
             answer = await admit(database, client, registrierung_id)
 
-            return answer, await persons(database), await squad_rows(database, spieler_id=answer.spieler_id), await acts_of(database)
+            return answer, await persons(database), await kader_rows(database, spieler_id=answer.spieler_id), await acts_of(database)
 
         answer, stored, rows, acts = await on_a_league(mongo_replica_set_url, body)
 
@@ -366,7 +366,7 @@ class TestWhatAnAdmissionWrites:
         assert remaining == 0
         assert held == {hash_token(TOKEN): []}
 
-    async def test_it_writes_nothing_beyond_the_person_the_squad_row_the_anchor_and_the_log(self, mongo_replica_set_url: str):
+    async def test_it_writes_nothing_beyond_the_person_the_kader_row_the_anchor_and_the_log(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             registrierung_id = await seed(database, registrierung_document())
             before = await snapshot(database)
@@ -391,7 +391,7 @@ class TestTheLateEntry:
     async def test_the_marker_is_derived_at_the_admission(self, mongo_replica_set_url: str, window: Any, flagged: bool):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             answer = await admit(database, client, await seed(database, registrierung_document()))
-            rows = await squad_rows(database, spieler_id=answer.spieler_id)
+            rows = await kader_rows(database, spieler_id=answer.spieler_id)
 
             return answer.is_nachnominiert, rows[0]["is_nachnominiert"]
 
@@ -431,14 +431,14 @@ class TestTheStufe:
         assert after == before
 
 
-class TestTheSquadCap:
-    async def test_a_nominee_enters_a_full_squad(self, mongo_replica_set_url: str):
+class TestTheKaderCap:
+    async def test_a_nominee_enters_a_full_kader(self, mongo_replica_set_url: str):
         """The cap holds no nominee: refused here, a pupil the league let register late could never be admitted."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             return await admit(database, client, await seed(database, registrierung_document()))
 
-        answer = await on_a_league(mongo_replica_set_url, body, squad=3, registrierung={"open": True, "end": "2026-03-29"})
+        answer = await on_a_league(mongo_replica_set_url, body, kader_size=3, registrierung={"open": True, "end": "2026-03-29"})
 
         assert answer.is_nachnominiert is True
 
@@ -450,7 +450,7 @@ class TestTheSquadCap:
 
             return code, before, await snapshot(database)
 
-        code, before, after = await on_a_league(mongo_replica_set_url, body, squad=3)
+        code, before, after = await on_a_league(mongo_replica_set_url, body, kader_size=3)
 
         assert code == Code.KADER_FULL
         assert after == before
@@ -478,13 +478,13 @@ class TestTheSquadCap:
 
             return outcome, live, await database[Collection.REGISTRIERUNGEN].count_documents({"_id": first})
 
-        outcome, live, still_pending = await on_a_league(mongo_replica_set_url, body, squad=2)
+        outcome, live, still_pending = await on_a_league(mongo_replica_set_url, body, kader_size=2)
 
         assert outcome == Code.KADER_FULL
         assert (live, still_pending) == (3, 1)
 
     @pytest.mark.parametrize(
-        ("squad", "window", "retired_nominee", "full"),
+        ("kader_size", "window", "retired_nominee", "full"),
         [
             (2, None, False, False),
             (3, None, False, True),
@@ -494,7 +494,7 @@ class TestTheSquadCap:
         ids=("room left", "at the cap", "a nominee by the window", "a nominee by their stored mark"),
     )
     async def test_the_read_marks_a_row_full_exactly_where_its_admission_meets_the_cap(
-        self, mongo_replica_set_url: str, squad: int, window: Any, retired_nominee: bool, full: bool
+        self, mongo_replica_set_url: str, kader_size: int, window: Any, retired_nominee: bool, full: bool
     ):
         """The page locks „Aufnehmen“ on `kader_full`: a mark the admission's own verdict contradicts misleads the team."""
 
@@ -511,7 +511,7 @@ class TestTheSquadCap:
 
             return row.kader_full, await outcome_of(admit(database, client, registrierung_id))
 
-        marked, outcome = await on_a_league(mongo_replica_set_url, body, squad=squad, registrierung=window)
+        marked, outcome = await on_a_league(mongo_replica_set_url, body, kader_size=kader_size, registrierung=window)
 
         assert (marked, outcome) == (full, Code.KADER_FULL if full else COMMITTED)
 
@@ -770,7 +770,7 @@ class TestARetiredRow:
             )
             await admit(database, client, await seed(database, registrierung_document()))
 
-            return await squad_rows(database, spieler_id=stored_id)
+            return await kader_rows(database, spieler_id=stored_id)
 
         rows = await on_a_league(mongo_replica_set_url, body)
 
@@ -783,7 +783,7 @@ class TestARetiredRow:
         }
 
 
-class TestAPersonAlreadyInASquad:
+class TestAPersonAlreadyInAKader:
     @pytest.mark.parametrize("team_id", [TEAM_OID, OTHER_TEAM_OID], ids=("this team", "another team"))
     async def test_a_live_row_this_season_refuses_the_admission(self, mongo_replica_set_url: str, team_id: ObjectId):
         stored_id = ObjectId()
@@ -872,7 +872,7 @@ class TestOneAddressAdmittedTwiceAtOnce:
             # Serially the address resolves before any insert; landing inside, the first attempt reaches it.
             spieler.assert_landed_inside(serially=0)
 
-            return outcome, await persons(database), await squad_rows(database, spieler_id=answers[0].spieler_id)
+            return outcome, await persons(database), await kader_rows(database, spieler_id=answers[0].spieler_id)
 
         outcome, stored, rows = await on_a_league(mongo_replica_set_url, body)
 
@@ -1022,7 +1022,7 @@ def keys_at_every_depth(value: Any) -> Iterator[str]:
 
 
 class TestThePendingReadServesTheShirtNumbers:
-    async def test_each_row_carries_its_number_and_one_the_squad_wears_is_marked(self, mongo_replica_set_url: str):
+    async def test_each_row_carries_its_number_and_one_the_kader_wears_is_marked(self, mongo_replica_set_url: str):
         """The team decides on the mark before it admits: a number left unread would serve none and mark no double."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1032,7 +1032,7 @@ class TestThePendingReadServesTheShirtNumbers:
 
             return (await read(database, client)).registrierungen
 
-        listed = await on_a_league(mongo_replica_set_url, body, squad=1)
+        listed = await on_a_league(mongo_replica_set_url, body, kader_size=1)
 
         assert {row.first_name: (row.nummer, row.nummer_double) for row in listed} == {"Thessaly": ("17", False), "Doppelt": ("0", True)}
 

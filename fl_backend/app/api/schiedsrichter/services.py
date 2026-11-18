@@ -8,7 +8,7 @@ from app.api.saisons.schemas import SAISON_FRAME_FIELDS, SAISON_FRAME_ORDER
 from app.api.saisons.services import SAISON_AS, SAISON_LOOKUP
 from app.api.schiedsrichter.schemas import FLSchiedsrichterConfirmationState, FLSchiedsrichterSpiel
 from app.api.spielberichte.services import takes_a_bericht
-from app.api.spielbestaetigungen.crud import JUDGED_SPIEL_FIELDS, JUDGED_VEREIN_FIELDS, OWN_ROW_FIELDS
+from app.api.spielbestaetigungen.crud import JUDGED_JUNCTION_FIELDS, JUDGED_SPIEL_FIELDS, OWN_ROW_FIELDS
 from app.api.spielbestaetigungen.services import AnsetzungState, exit_ends_the_booking, schiedsrichter_state_of
 from app.api.spiele.schemas import SONDEREREIGNIS_KEEPING_ITS_SLOT, FLSpielortFieldPublic, unplayed_filter
 from app.api.spiele.services import build_named_spiele_pipeline
@@ -22,7 +22,7 @@ from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_evidence import TextVersions, compose_initial
 from app.shared.folding import league_address, sign_in_identifier
 from app.shared.schemas.bounds import (
-    BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
+    BIRTH_DATE_MAX_AGE_YEARS,
     SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS,
     SCHIEDSRICHTER_MIN_AGE_YEARS,
 )
@@ -277,14 +277,14 @@ def find_age_refusal(*, birth_date: str, today: str) -> WriteRefusal | None:
     The bounds go with the refusal, so the field's message names the range the write judges.
     """
 
-    if SCHIEDSRICHTER_MIN_AGE_YEARS <= whole_years_between(born=birth_date, today=today) <= BEWERBUNG_KONTAKT_MAX_AGE_YEARS:
+    if SCHIEDSRICHTER_MIN_AGE_YEARS <= whole_years_between(born=birth_date, today=today) <= BIRTH_DATE_MAX_AGE_YEARS:
         return None
 
     return WriteRefusal(
         error_code=Code.CONFIRMATION_AGE,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         fields=(("birth_date",),),
-        bounds={"min": SCHIEDSRICHTER_MIN_AGE_YEARS, "max": BEWERBUNG_KONTAKT_MAX_AGE_YEARS},
+        bounds={"min": SCHIEDSRICHTER_MIN_AGE_YEARS, "max": BIRTH_DATE_MAX_AGE_YEARS},
     )
 
 
@@ -449,7 +449,7 @@ def build_self_saisons_pipeline(schiedsrichter_ids: Sequence[Any]) -> list[Mappi
 
 # Where `build_self_spiele_pipeline` puts what it joins onto each fixture.
 OWN_ROW_AS: Final = "spielbestaetigung"
-OWN_ROW_VEREINE_AS: Final = "vereine"
+OWN_ROW_JUNCTIONS_AS: Final = "junctions"
 BERICHT_AS: Final = "spielbericht"
 
 
@@ -495,9 +495,9 @@ def build_self_spiele_pipeline(*, saison_id: str, schiedsrichter_ids: Sequence[A
                             "let": {"saison_id": "$saison_id", "team_ids": ["$ansetzung.team1_id", "$ansetzung.team2_id"]},
                             "pipeline": [
                                 {"$match": {"$expr": {"$and": [{"$eq": ["$saison_id", "$$saison_id"]}, {"$in": ["$team_id", "$$team_ids"]}]}}},
-                                {"$project": dict(JUDGED_VEREIN_FIELDS)},
+                                {"$project": dict(JUDGED_JUNCTION_FIELDS)},
                             ],
-                            "as": OWN_ROW_VEREINE_AS,
+                            "as": OWN_ROW_JUNCTIONS_AS,
                         }
                     },
                 ],
@@ -560,13 +560,13 @@ def compose_self_spiel(spiel: Mapping[str, Any], *, now: datetime) -> FLSchiedsr
         time=spiel.get("time"),
         spielort=None
         if not isinstance(spielort, Mapping)
-        else FLSpielortFieldPublic(spielort_id=spielort["spielort_id"], name=spielort["name"], maps_link=spielort["maps_link"]),
+        else FLSpielortFieldPublic(spielort_id=spielort["spielort_id"], name=spielort["name"], maps_query=spielort["maps_query"]),
         sonderereignis=spiel.get("sonderereignis"),
         spielbestaetigung_id=None if row is None else row["_id"],
         state=None
         if row is None
         else schiedsrichter_state_of(
-            spielbestaetigung_raw=row, ansetzung_state=AnsetzungState(spiel=spiel, vereine=row[OWN_ROW_VEREINE_AS]), now=now
+            spielbestaetigung_raw=row, ansetzung_state=AnsetzungState(spiel=spiel, junctions=row[OWN_ROW_JUNCTIONS_AS]), now=now
         ),
         reason=None if row is None else own_reason_of(row),
         entered=row is not None and entered_of(row),

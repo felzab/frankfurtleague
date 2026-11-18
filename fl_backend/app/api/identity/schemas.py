@@ -10,7 +10,7 @@ from app.shared.schemas.kontakt import CustomEmail
 # The wire's spelling of the three seats, imported rather than restated: a second closed set here
 # would name a seat no other endpoint publishes.
 from app.shared.schemas.literals import FLAdminTier, FLKontaktRolle, FLSaisonStatus
-from app.shared.schemas.responses import BaseAPIResponse, BasePayload
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 
 class FLSubjectPayload(BasePayload):
@@ -74,7 +74,7 @@ class FLSubject(BaseModel):
     unconfirmed: bool
 
 
-class FLSubjectResponse(FLSubject, BaseAPIResponse):
+class FLSubjectResponse(FLSubject, BaseReadModel):
     """Which confirmed, live records one mailbox matches, and the grant it holds."""
 
     # The grant this mailbox holds, or null: stored, where the lists beside it are derived, so it is
@@ -94,7 +94,7 @@ class FLSignIn(BaseModel):
     account: bool
 
 
-class FLSignInResponse(FLSignIn, BaseAPIResponse):
+class FLSignInResponse(FLSignIn, BaseReadModel):
     """The sign-in gate's whole answer: the records' two flags, the ban and the grant, and no record itself.
 
     The ban narrows neither flag: whether a barred person signs in is the gate's to decide.
@@ -163,7 +163,7 @@ class FLAccountErasureView(BaseModel):
     address_change: int = Field(ge=0)
 
 
-class FLAccountErasureViewResponse(FLAccountErasureView, BaseAPIResponse):
+class FLAccountErasureViewResponse(FLAccountErasureView, BaseReadModel):
     # The tier of the live grant the address holds, read in the preview's snapshot as the press reads it.
     admin_tier: FLAdminTier | None
 
@@ -176,7 +176,7 @@ class FLReferencesPayload(BasePayload):
     identifiers: list[str] = Field(min_length=1, max_length=REFERENCES_ADDRESSES_MAX)
 
 
-class FLReferencesResponse(BaseAPIResponse):
+class FLReferencesResponse(BaseReadModel):
     """Which of them nothing references, and nothing of the records that reference the others."""
 
     unreferenced: list[str]
@@ -224,7 +224,7 @@ class FLErasurePayload(FLErasureAddressPayload):
     ]
 
 
-class FLErasureViewResponse(BaseAPIResponse):
+class FLErasureViewResponse(BaseReadModel):
     """What the administrator's erasure of one address reaches, counted and never named, so the confirmation shows no person."""
 
     spieler: int = Field(ge=0)
@@ -246,7 +246,7 @@ class FLErasureSweepParams(BaseModel):
     after: CustomObjectId | None = None
 
 
-class FLErasureSweepResponse(BaseAPIResponse):
+class FLErasureSweepResponse(BaseReadModel):
     """One call's share of the season-after rule: what it erased, whom it passed over, and how many are still due."""
 
     # The latest `past` season, which the rule keeps a squad row in; null where none is `past`, nobody then being due.

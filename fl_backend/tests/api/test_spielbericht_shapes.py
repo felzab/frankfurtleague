@@ -206,7 +206,7 @@ class TestACalledOffSpielTakesNoReport:
     def test_a_spiel_that_took_no_place_is_refused(self, sonderereignis: str):
         assert refused_with(Code.BERICHT_CANCELLED, find_cancelled_refusal(sonderereignis=sonderereignis))
 
-    def test_its_form_serves_no_squads(self):
+    def test_its_form_serves_no_kaders(self):
         """The referee's page reads this rather than the refusal, so the pupils' names stay off a fixture that takes no report.
 
         Played before `NOW` in a running season, so the call-off alone decides.
@@ -215,7 +215,7 @@ class TestACalledOffSpielTakesNoReport:
         assert kader_is_open(context(sonderereignis="ausgefallen"), now=NOW) is False
 
 
-class TestAFixtureAClubLeftTakesNoReportFromItsReferee:
+class TestAFixtureATeamLeftTakesNoReportFromItsReferee:
     """The pass told the referee they no longer referee it: still taken, their report would stand on a match the club left."""
 
     @pytest.mark.parametrize(
@@ -237,8 +237,8 @@ class TestAFixtureAClubLeftTakesNoReportFromItsReferee:
         )
 
 
-class TestANewlyNamedPupilIsInTheSquad:
-    def test_a_pupil_outside_the_second_sides_live_squad_is_refused(self):
+class TestANewlyNamedPupilIsInTheKader:
+    def test_a_pupil_outside_the_second_sides_live_kader_is_refused(self):
         """Each side is judged against its own squad, the second as the first: a goal must never be stored under a pupil nobody fielded."""
 
         new = newly_named(FLSpielberichtBerichtPayload.model_validate(payload([tor("team2", ObjectId())])), None, spiel())
@@ -312,11 +312,11 @@ class TestTheAdoptedStateIsDerivedFromTwo:
         assert bericht_state_of(saved(), spiel(sonderereignis="abgebrochen")) == "proposed"
 
 
-class TestAReportAboutOtherClubsReadsItsOwnState:
+class TestAReportAboutOtherTeamsReadsItsOwnState:
     """A knockout correction fields another club on a side the report credits goals and entries to."""
 
     @pytest.mark.parametrize("side", ["team1", "team2"])
-    def test_a_side_fielding_another_club_reads_sides_changed_whatever_the_result(self, side: str):
+    def test_a_side_fielding_another_team_reads_sides_changed_whatever_the_result(self, side: str):
         """Adopted and matching, or holding no result: the proposal still names the clubs that left."""
 
         bericht = saved(adopted=True, sides={**SIDES, side: ObjectId()})

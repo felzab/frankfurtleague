@@ -20,7 +20,7 @@ from app.api.identity.services import find_role_refusal, holds_a_seat, own_seats
 from app.api.registrierungen.crud import pull_open_registrierungen
 from app.api.registrierungen.services import registrierung_is_confirmed
 from app.api.saisons.services import SPIELTAG_POSITION_LOOKUP, matchday_of
-from app.api.spielbestaetigungen.crud import JUDGED_VEREIN_FIELDS
+from app.api.spielbestaetigungen.crud import JUDGED_JUNCTION_FIELDS
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment, FLSpielbestaetigungTeamState
 from app.api.spielbestaetigungen.services import (
     AnsetzungState,
@@ -61,9 +61,9 @@ from app.core.dependencies import (
 from app.core.journal import Journal
 from app.core.readonly import ReadCollection
 from app.core.security import PERSON_TIER, PersonIdentifier
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.einwilligung_evidence import FLEinwilligungChoice
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.einwilligung import FLSeatEinwilligungPayload, by_choice
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle, FLSpielSide
 
@@ -104,7 +104,7 @@ def _seats_of(kontakte: Mapping[str, Any]) -> list[FLTeamSeat]:
     summary="Change a seat holder's own WhatsApp and media consent on one team's season",
 )
 async def patch_einwilligung(
-    team_id: CustomRouteObjectId,
+    team_id: CustomObjectId,
     saison_id: str,
     einwilligung_data: FLSeatEinwilligungPayload,
     identifier: PersonIdentifier,
@@ -169,8 +169,7 @@ async def patch_einwilligung(
             journal.note("withdrawal", [f"{Collection.SAISON_TEAMS}/{row['_id']}"], choices=list(choices), seats=rollen)
 
     async with journal:
-        async with transaction_session(db) as session:
-            await session.with_transaction(write)
+        await transact(db, write)
 
 
 # What a team's pages read of the confirmation rows of its fixtures: the judgement's fields, and the answer's way and
@@ -237,7 +236,7 @@ class _Spielbestaetigung(NamedTuple):
 
 
 def _spielbestaetigung_of(
-    spiel_raw: Mapping[str, Any], *, team_id: Any, vereine: Sequence[Mapping[str, Any]], now: datetime
+    spiel_raw: Mapping[str, Any], *, team_id: Any, junctions: Sequence[Mapping[str, Any]], now: datetime
 ) -> _Spielbestaetigung | None:
     """The team's unclosed row about the fixture's Ansetzung as it stands, where it asks the team anything."""
 
@@ -256,7 +255,7 @@ def _spielbestaetigung_of(
         None,
     )
     vorschlag_open = None if proposal is None else FLSpielbestaetigungAppointment.model_validate(proposal)
-    ansetzung_state = AnsetzungState(spiel=spiel_raw, vereine=vereine)
+    ansetzung_state = AnsetzungState(spiel=spiel_raw, junctions=junctions)
     state = team_state_of(spielbestaetigung_raw=own, ansetzung_state=ansetzung_state, now=now, vorschlag_open=vorschlag_open)
     if state is None:
         return None
@@ -298,12 +297,12 @@ async def _pull_team_spiele(
     spiele = await aggregate_many_from_db(
         collection=spiele_collection, pipeline=_team_spiele_pipeline(saison_id=saison_id, team_id=team_id), session=session
     )
-    clubs = {(spiel.get(side) or {}).get("team_id") for spiel in spiele for side in ("team1", "team2")} - {None}
-    vereine = await saison_teams_collection.find(
-        {"saison_id": saison_id, "team_id": {"$in": sorted(clubs, key=str)}}, JUDGED_VEREIN_FIELDS, session=session
+    team_ids = {(spiel.get(side) or {}).get("team_id") for spiel in spiele for side in ("team1", "team2")} - {None}
+    junctions = await saison_teams_collection.find(
+        {"saison_id": saison_id, "team_id": {"$in": sorted(team_ids, key=str)}}, JUDGED_JUNCTION_FIELDS, session=session
     ).to_list(length=None)
 
-    return spiele, vereine
+    return spiele, junctions
 
 
 # `/self/...`, its own segment: the admin router serves this team and season under its own paths, and one path in both
@@ -313,7 +312,7 @@ async def _pull_team_spiele(
     summary="A team's Übersicht in one season",
 )
 async def get_team_overview(
-    team_id: CustomRouteObjectId,
+    team_id: CustomObjectId,
     saison_id: str,
     identifier: PersonIdentifier,
     teams_collection: TeamsReadCollection,
@@ -322,7 +321,7 @@ async def get_team_overview(
     registrierungen_collection: RegistrierungenReadCollection,
     records: SubjectLookup,
     session: SnapshotSession,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLTeamOverviewResponse:
     """Everything a team's Übersicht shows in one read, for a person holding any contact seat on the team in this season.
 
@@ -345,9 +344,9 @@ async def get_team_overview(
         ],
         session=session,
     )
-    club = await teams_collection.find_one({"_id": team_id}, ["full_name"], session=session)
-    assert row is not None and club is not None
-    spiele, vereine = await _pull_team_spiele(
+    team = await teams_collection.find_one({"_id": team_id}, ["full_name"], session=session)
+    assert row is not None and team is not None
+    spiele, junctions = await _pull_team_spiele(
         spiele_collection=spiele_collection,
         saison_teams_collection=saison_teams_collection,
         saison_id=saison_id,
@@ -361,7 +360,7 @@ async def get_team_overview(
     spielbestaetigungen: list[FLTeamPanelSpielbestaetigung] = []
     aufstellungen: list[FLTeamPanelAufstellung] = []
     for spiel in sorted(spiele, key=lambda spiel: (str(spiel.get("date") or ""), str(spiel.get("time") or ""), spiel["spiel_nr"])):
-        spielbestaetigung = _spielbestaetigung_of(spiel, team_id=team_id, vereine=vereine, now=now)
+        spielbestaetigung = _spielbestaetigung_of(spiel, team_id=team_id, junctions=junctions, now=germany_now)
         if spielbestaetigung is not None and spielbestaetigung.state != "agreed":
             answer = spielbestaetigung.row.get("answer") or {}
             declined = spielbestaetigung.state == "declined"
@@ -384,7 +383,7 @@ async def get_team_overview(
                 )
             )
 
-        marks = _marks_of(spiel, now)
+        marks = _marks_of(spiel, germany_now)
         # Open work alone: one the team can still enter, on a fixture still to be played.
         if marks is not None and not marks.stored and marks.phase != "locked":
             aufstellungen.append(
@@ -398,7 +397,7 @@ async def get_team_overview(
         saison_id=saison_id,
         name=row["name"],
         shorthand=row["shorthand"],
-        full_name=club["full_name"],
+        full_name=team["full_name"],
         trikot_farbe=row.get("trikot_farbe"),
         rollen=rollen_on(subject.seats, team_id=team_id, saison_id=saison_id),
         spielbestaetigungen=spielbestaetigungen,
@@ -427,14 +426,14 @@ async def get_team_overview(
     summary="A team's fixtures in one season, with what is open on each",
 )
 async def get_team_spiele(
-    team_id: CustomRouteObjectId,
+    team_id: CustomObjectId,
     saison_id: str,
     identifier: PersonIdentifier,
     saison_teams_collection: SaisonTeamsReadCollection,
     spiele_collection: SpieleReadCollection,
     records: SubjectLookup,
     session: SnapshotSession,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLTeamSpieleResponse:
     """Every fixture of the team in this season in the order the draw numbered them, for a person holding any contact seat on it.
 
@@ -446,7 +445,7 @@ async def get_team_spiele(
     # it serves from straddling a commit.
     subject = await roles_of(identifier, records, session=session)
     refuse(find_role_refusal(seats=subject.seats, team_id=team_id, saison_id=saison_id))
-    spiele, vereine = await _pull_team_spiele(
+    spiele, junctions = await _pull_team_spiele(
         spiele_collection=spiele_collection,
         saison_teams_collection=saison_teams_collection,
         saison_id=saison_id,
@@ -455,13 +454,13 @@ async def get_team_spiele(
     )
 
     def served(spiel: Mapping[str, Any]) -> dict[str, Any]:
-        spielbestaetigung = _spielbestaetigung_of(spiel, team_id=team_id, vereine=vereine, now=now)
+        spielbestaetigung = _spielbestaetigung_of(spiel, team_id=team_id, junctions=junctions, now=germany_now)
 
         return {
             **spiel,
             **matchday_of(spiel),
             "spielbestaetigung": None if spielbestaetigung is None else spielbestaetigung.state,
-            "aufstellung": _marks_of(spiel, now),
+            "aufstellung": _marks_of(spiel, germany_now),
         }
 
     return FLTeamSpieleResponse(

@@ -138,7 +138,7 @@ async function readCreate(list: Promise<FLTeamsAdminListResponse>, params: Props
     children: (
       <TeamEntryFields
         saison={saison}
-        clubs={entry.clubs.map((club) => ({ id: club.id, label: { record: club.name } }))}
+        clubs={entry.teams.map((club) => ({ id: club.id, label: { record: club.name } }))}
         gruppen={gruppeOptions(entry.gruppen, null)}
         colours={trikotOptions(entry.taken)}
         rules={TEAM_ENTRY_RULES}

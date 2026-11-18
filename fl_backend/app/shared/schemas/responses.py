@@ -17,10 +17,6 @@ class BaseReadModel(BaseModel):
     model_config = ConfigDict(json_schema_serialization_defaults_required=True)
 
 
-class BaseAPIResponse(BaseReadModel):
-    """Every response body's base."""
-
-
 class BasePayload(BaseModel):
     """Every request body's base, and the base of each model one nests: a key the model does not declare is refused.
 
@@ -60,13 +56,13 @@ class FLFailureBody(BaseModel):
     fields: list[FLRefusedField]
 
 
-class FLCreatedResponse(BaseAPIResponse):
+class FLCreatedResponse(BaseReadModel):
     """The id a create minted, which the caller reads the new record by."""
 
     created_id: CustomObjectId
 
 
-class FLSweepSaisonsResponse(BaseAPIResponse):
+class FLSweepSaisonsResponse(BaseReadModel):
     """The seasons a system pass visits, for its caller to sweep one by one in the order given."""
 
     saison_ids: list[str]

@@ -12,7 +12,7 @@ from app.shared.schemas.literals import (
     FLKontaktKenntnisnahmeScope,
     FLKontaktRolle,
 )
-from app.shared.schemas.responses import BaseAPIResponse, BasePayload
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 
 class FLAccountEinwilligung(BaseModel):
@@ -112,7 +112,7 @@ class FLAccountAddressChangeOpen(BaseModel):
     expired: bool
 
 
-class FLAccountAddressChangeResponse(BaseAPIResponse):
+class FLAccountAddressChangeResponse(BaseReadModel):
     """The change pending on the signed-in address."""
 
     open: FLAccountAddressChangeOpen | None
@@ -122,7 +122,7 @@ class FLAccountAddressChangePayload(BasePayload):
     email: CustomEmail
 
 
-class FLAccountAddressChangeMintResponse(BaseAPIResponse):
+class FLAccountAddressChangeMintResponse(BaseReadModel):
     """The change started, whose link reaches the address on file by mail alone."""
 
     id: CustomObjectId
@@ -131,7 +131,7 @@ class FLAccountAddressChangeMintResponse(BaseAPIResponse):
     email: str
 
 
-class FLAccountEinwilligungenResponse(BaseAPIResponse):
+class FLAccountEinwilligungenResponse(BaseReadModel):
     """Every confirmed consent record the signed-in address holds, empty where it holds none.
 
     The referees a list where the pupil is one: `spieler.email` is unique, a referee's typed address is not.

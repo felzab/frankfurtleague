@@ -71,7 +71,7 @@ def _spieler(key: str, first_name: str, last_name: str | None) -> dict[str, Any]
     return spieler_document(SPIELER_OIDS[key], first_name, last_name, einwilligung=_consent("kader_public"))
 
 
-def _squad_row(
+def _kader_row(
     key: str,
     *,
     nummer: str | None,
@@ -85,7 +85,7 @@ def _squad_row(
     )
 
 
-def _club(*saison_ids: str) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+def _team(*saison_ids: str) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """The club's document and its junction row in each season named."""
 
     return team_document(TEAM_OID, TEAM_NAME, TEAM_SHORTHAND), [
@@ -93,13 +93,13 @@ def _club(*saison_ids: str) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     ]
 
 
-async def _enter_the_club(database: AsyncDatabase, *saison_ids: str) -> None:
-    club, rows = _club(*saison_ids)
-    await database.teams.insert_one(club)
+async def _enter_the_team(database: AsyncDatabase, *saison_ids: str) -> None:
+    team, rows = _team(*saison_ids)
+    await database.teams.insert_one(team)
     await database.saison_teams.insert_many(rows)
 
 
-async def club_page(database: AsyncDatabase) -> FLTeamPageResponse:
+async def team_page(database: AsyncDatabase) -> FLTeamPageResponse:
     """The club's page in the season, whose squad is the one base-tier read of a squad."""
 
     return await get_team(
@@ -126,7 +126,7 @@ class TestTheBaseTierShape:
     def test_it_serves_exactly_the_public_fields(self):
         assert set(FLSpielerPublic.model_fields) == PUBLIC_FIELDS
 
-    def test_the_club_page_serves_the_public_shape(self):
+    def test_the_team_page_serves_the_public_shape(self):
         assert FLTeamPageResponse.model_fields["kader"].annotation == list[FLSpielerPublic]
 
 
@@ -155,14 +155,14 @@ class TestTheBaseTierReadExecuted:
         """The page's own answer, dumped as the wire carries it -- the only shape that can show nothing leaked."""
 
         async def body(database: AsyncDatabase) -> Any:
-            return (await club_page(database)).model_dump(mode="json", by_alias=True)
+            return (await team_page(database)).model_dump(mode="json", by_alias=True)
 
         return await on_a_database(url, body)
 
     async def _by_first_name(self, url: str) -> dict[str, dict[str, Any]]:
         return {row["first_name"]: row for row in (await self._read(url))["kader"]}
 
-    async def test_a_retired_squad_row_stays_out(self, seeded_url: str):
+    async def test_a_retired_kader_row_stays_out(self, seeded_url: str):
         """The retirement this read filters on."""
         assert RETIRED_ROW_FIRST_NAME not in await self._by_first_name(seeded_url)
 
@@ -181,7 +181,7 @@ async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
 
     async def seed(database: AsyncDatabase) -> None:
         await database.saisons.insert_one(saison_document(SAISON, "active"))
-        await _enter_the_club(database, SAISON)
+        await _enter_the_team(database, SAISON)
         await database.spieler.insert_many(
             [
                 # Distinct forenames, none of them holding a surname as a substring: the rows
@@ -195,11 +195,11 @@ async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
         )
         await database.saison_spieler.insert_many(
             [
-                _squad_row("Mueller", nummer="7", position="Angriff", stufe="Q3", rolle="kapitaen"),
-                _squad_row("Adler", nummer="3", position="Abwehr", stufe="E1"),
-                _squad_row("Oeztuerk", nummer="5", position="Mittelfeld", stufe="Q1"),
-                _squad_row("Weber", nummer="1", position="Tor", stufe="Q2"),
-                _squad_row("Kraus", nummer="12", position="Angriff", stufe="Q4", inactive_since="2026-03-01"),
+                _kader_row("Mueller", nummer="7", position="Angriff", stufe="Q3", rolle="kapitaen"),
+                _kader_row("Adler", nummer="3", position="Abwehr", stufe="E1"),
+                _kader_row("Oeztuerk", nummer="5", position="Mittelfeld", stufe="Q1"),
+                _kader_row("Weber", nummer="1", position="Tor", stufe="Q2"),
+                _kader_row("Kraus", nummer="12", position="Angriff", stufe="Q4", inactive_since="2026-03-01"),
             ]
         )
 
@@ -223,14 +223,14 @@ class MaskedRow(NamedTuple):
 
 # Each served pair is written out rather than composed from `public_initial`, which would compare the
 # redaction with itself. No forename holds a surname as a substring: one case greps the whole payload.
-MASKED_SQUAD = {
+MASKED_KADER = {
     "Offen": MaskedRow(ObjectId("6890a1b2c3d4e5f607390031"), "Alina", "Falk", _consent("kader_public"), "Alina", "F."),
     "Internal": MaskedRow(ObjectId("6890a1b2c3d4e5f607390032"), "Bruno", "Gerber", _consent("internal"), None, None),
 }
 
 # A shirt per row. Both play one position, so the order by position and forename alone would put the withheld row,
 # whose served forename is null, first.
-MASK_NUMMERN = {case: str(place) for place, case in enumerate(MASKED_SQUAD, start=1)}
+MASK_NUMMERN = {case: str(place) for place, case in enumerate(MASKED_KADER, start=1)}
 
 # Both rows hold a captaincy, and the read serves the one beside a published name alone.
 MASK_ROLLEN = {"Offen": "kapitaen", "Internal": "co_kapitaen"}
@@ -246,7 +246,7 @@ class TestThePublicationGate:
 
     async def _read(self, url: str) -> dict[str, Any]:
         async def body(database: AsyncDatabase) -> Any:
-            return (await club_page(database)).model_dump(mode="json", by_alias=True)
+            return (await team_page(database)).model_dump(mode="json", by_alias=True)
 
         return await _on_the_mask_database(url, body)
 
@@ -269,20 +269,20 @@ class TestThePublicationGate:
     @pytest.mark.parametrize("case", ["Internal"])
     async def test_no_pupil_s_record_id_appears_anywhere_in_the_response(self, masked_url: str, case: str):
         """Against the SERIALISED body: an id outlives every season and team, so it would tie a withheld row to its others."""
-        assert str(MASKED_SQUAD[case].oid) not in json.dumps(await self._read(masked_url))
+        assert str(MASKED_KADER[case].oid) not in json.dumps(await self._read(masked_url))
 
     async def _read_one(self, url: str, case: str) -> dict[str, Any]:
         async def body(database: AsyncDatabase) -> Any:
-            response = await get_spieler_by_id(spieler_id=MASKED_SQUAD[case].oid, spieler_collection=database.spieler)
+            response = await get_spieler_by_id(spieler_id=MASKED_KADER[case].oid, spieler_collection=database.spieler)
 
             return response.model_dump(mode="json", by_alias=True)
 
         return await _on_the_mask_database(url, body)
 
-    @pytest.mark.parametrize("case", MASKED_SQUAD)
+    @pytest.mark.parametrize("case", MASKED_KADER)
     async def test_the_single_read_answers_the_same_two_names(self, masked_url: str, case: str):
         """The second base-tier path: one predicate, so a `find` and an aggregation cannot disagree about one person."""
-        row = MASKED_SQUAD[case]
+        row = MASKED_KADER[case]
 
         assert await self._read_one(masked_url, case) == {
             "spieler_id": str(row.oid),
@@ -297,17 +297,17 @@ async def masked_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
 
     async def seed(database: AsyncDatabase) -> None:
         await database.saisons.insert_one(saison_document(SAISON, "active"))
-        await _enter_the_club(database, SAISON)
+        await _enter_the_team(database, SAISON)
         await database.spieler.insert_many(
-            [spieler_document(row.oid, row.first_name, row.last_name, einwilligung=row.einwilligung) for row in MASKED_SQUAD.values()]
+            [spieler_document(row.oid, row.first_name, row.last_name, einwilligung=row.einwilligung) for row in MASKED_KADER.values()]
         )
         await database.saison_spieler.insert_many(
             [
                 {
-                    **_squad_row("Mueller", nummer=MASK_NUMMERN[case], position="Angriff", stufe="Q3", rolle=MASK_ROLLEN[case]),
+                    **_kader_row("Mueller", nummer=MASK_NUMMERN[case], position="Angriff", stufe="Q3", rolle=MASK_ROLLEN[case]),
                     "spieler_id": row.oid,
                 }
-                for case, row in MASKED_SQUAD.items()
+                for case, row in MASKED_KADER.items()
             ]
         )
 
@@ -344,7 +344,7 @@ class TestTheOrderIsNoOracleForAWithheldName:
         """Each row's served forename, in the club page's order: `None` is the withheld row, the corpus holding one."""
 
         async def body(database: AsyncDatabase) -> Any:
-            return [row.first_name for row in (await club_page(database)).kader]
+            return [row.first_name for row in (await team_page(database)).kader]
 
         return await body(shared_client(url)[SORT_ORACLE_DATABASE_NAMES[corpus]])
 
@@ -361,7 +361,7 @@ async def sort_oracle_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
     def withholding(withheld_forename: str) -> Callable[[AsyncDatabase], Coroutine[Any, Any, None]]:
         async def seed(database: AsyncDatabase) -> None:
             await database.saisons.insert_one(saison_document(SAISON, "active"))
-            await _enter_the_club(database, SAISON)
+            await _enter_the_team(database, SAISON)
             await database.spieler.insert_many(
                 [
                     spieler_document(SORT_ORACLE_OIDS["Zurueckgehalten"], withheld_forename, "Kessler", einwilligung=_consent("internal")),
@@ -372,7 +372,7 @@ async def sort_oracle_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
             await database.saison_spieler.insert_many(
                 [
                     {
-                        **_squad_row("Mueller", nummer=SORT_ORACLE_NUMMER, position=SORT_ORACLE_POSITION, stufe="Q3"),
+                        **_kader_row("Mueller", nummer=SORT_ORACLE_NUMMER, position=SORT_ORACLE_POSITION, stufe="Q3"),
                         "spieler_id": oid,
                     }
                     for oid in SORT_ORACLE_OIDS.values()

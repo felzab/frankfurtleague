@@ -7,7 +7,7 @@ from app.core.exceptions import rule_refusal
 from app.shared.schemas.bounds import BAN_REASON_MAX_LENGTH, SAISON_ID_LENGTH
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomNonEmptyString, CustomObjectId
 from app.shared.schemas.kontakt import CustomEmail, CustomStoredAddress
-from app.shared.schemas.responses import BaseAPIResponse, BasePayload
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 # A deliverable shape and never a bare `@`: „Nach Absprache @ Schulleitung" is German prose an
 # administrator writes, and refusing it catches the rare case by refusing the ordinary one.
@@ -65,17 +65,17 @@ class FLPostBanListEntryPayload(BasePayload):
     ]
 
 
-class FLBanListResponse(BaseAPIResponse):
+class FLBanListResponse(BaseReadModel):
     """Every ban, newest first."""
 
     ban_list: list[FLBanListRow]
 
 
-class FLPostBanListEntryResponse(BaseAPIResponse):
+class FLPostBanListEntryResponse(BaseReadModel):
     created_id: CustomObjectId
 
 
-class FLBanListWriteResponse(BaseAPIResponse):
+class FLBanListWriteResponse(BaseReadModel):
     """The id of the ban lifted, whose row is gone."""
 
     ban_list_entry_id: CustomObjectId

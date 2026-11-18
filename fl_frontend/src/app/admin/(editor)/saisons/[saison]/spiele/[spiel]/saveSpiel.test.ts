@@ -21,7 +21,7 @@ const STORED: FLSpielJoinedAdmin = {
   team2_quelle: { type: "spiel", spiel_nr: 26, ausgang: "sieger" },
   date: "2027-03-14",
   time: "15:30:00",
-  spielort: { spielort_id: "64b000000000000000000005", name: "Sportpark Nord", maps_link: "Sportpark Nord, Frankfurt", mietpreis: 60 },
+  spielort: { spielort_id: "64b000000000000000000005", name: "Sportpark Nord", maps_query: "Sportpark Nord, Frankfurt", mietpreis: 60 },
   schiedsrichter: { schiedsrichter_id: "64b000000000000000000006", name: "Lena Brandt", payment: 25 },
   ergebnis: "2:2",
   elfmeterschiessen: { team1: 4, team2: 3 },
@@ -50,7 +50,7 @@ const SENT_AS_STORED = {
   note: "Flutlicht",
   version: 3,
   // The later results the save deletes, as its dry run answered: none here.
-  voided_results: [],
+  voided_ergebnisse: [],
 } satisfies FLPatchSpielDataPayload;
 
 /** The write's answer where it moved no other fixture: the fixture's version after the save. */
@@ -59,7 +59,7 @@ const NOTHING_MOVED: FLPatchSpielDataResponse = {
   released_sides: [],
   version: 4,
   recipients: null,
-  voided_results: [],
+  voided_ergebnisse: [],
 };
 
 const VOIDED_NONE = { voided_ergebnis: null, voided_elfmeterschiessen: null, voided_sonderereignis: null };
@@ -224,7 +224,7 @@ describe("the match editor's question before it deletes a later result", () => {
         { spiel_id: "64b000000000000000000008", spiel_nr: 32, ...VOIDED_NONE },
       ],
       released_sides: [{ ...VOIDED_31, side: "team1", team_name: "Linde" }],
-      voided_results: [VOIDED_31, VOIDED_33],
+      voided_ergebnisse: [VOIDED_31, VOIDED_33],
     } satisfies FLPatchSpielDataResponse;
   });
 
@@ -252,7 +252,7 @@ describe("the match editor's question before it deletes a later result", () => {
     expect(answer).toMatchObject({ ok: true, value: 4 });
     expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([DRY_RUN, DRY_RUN, `/spiele/${SPIEL_ID}`]);
     // The write is the gate: it deletes these and refuses where its own transaction would delete others.
-    expect(state.sent).toMatchObject([{ voided_results: [VOIDED_31, VOIDED_33] }]);
+    expect(state.sent).toMatchObject([{ voided_ergebnisse: [VOIDED_31, VOIDED_33] }]);
   });
 
   it("names under its question whom the save mails, by the dry run's names in their order, and asks again where they change", async () => {
@@ -290,8 +290,8 @@ describe("the match editor's question before it deletes a later result", () => {
       [{ ...VOIDED_31, voided_ergebnis: "3:0" }, VOIDED_33],
     ];
 
-    for (const voided_results of since) {
-      state.dryRun = { ...(state.dryRun as FLPatchSpielDataResponse), voided_results };
+    for (const voided_ergebnisse of since) {
+      state.dryRun = { ...(state.dryRun as FLPatchSpielDataResponse), voided_ergebnisse };
       expect(await saveSpiel({ ...saving({ tore1: "3", tore2: "1" }), confirm })).toMatchObject({ ok: false, ask: {} });
     }
     expect(state.sent).toEqual([]);

@@ -393,7 +393,7 @@ class TestTheGroupPhaseIsEachGroupsOwnRoundRobin:
     that read the difference.
     """
 
-    async def test_each_group_plays_every_pair_of_its_own_clubs_once(self, mongo_replica_set_url: str):
+    async def test_each_group_plays_every_pair_of_its_own_teams_once(self, mongo_replica_set_url: str):
         """The whole round robin, not merely a legal-looking one.
 
         A repeated pair leaves two clubs that never meet, and a table neither of them was ranked by.
@@ -407,16 +407,16 @@ class TestTheGroupPhaseIsEachGroupsOwnRoundRobin:
             gruppe = junction[row["team1"]["team_id"]]["gruppe"]
             played.setdefault(gruppe, []).append(frozenset((row["team1"]["team_id"], row["team2"]["team_id"])))
 
-        squads: dict[Any, list[Any]] = {}
+        teams_by_gruppe: dict[Any, list[Any]] = {}
         for row in drawn.entered:
-            squads.setdefault(row["gruppe"], []).append(row["team_id"])
+            teams_by_gruppe.setdefault(row["gruppe"], []).append(row["team_id"])
 
-        for gruppe, ids in squads.items():
+        for gruppe, ids in teams_by_gruppe.items():
             pairs = played.get(gruppe, [])
             assert len(pairs) == len(set(pairs)), f"gruppe {gruppe} draws a pair more than once"
             assert set(pairs) == {frozenset(pair) for pair in combinations(ids, 2)}
 
-    async def test_each_side_is_stored_as_the_club_the_junction_holds(self, mongo_replica_set_url: str):
+    async def test_each_side_is_stored_as_the_team_the_junction_holds(self, mongo_replica_set_url: str):
         """The club and no goals, a drawn fixture having not happened, and no name, which every read joins off the row."""
 
         drawn = await a_drawn_season(mongo_replica_set_url)
@@ -818,7 +818,7 @@ async def a_referees_first_report(database: AsyncDatabase, client: AsyncMongoCli
             spielberichte_collection=database[Collection.SPIELBERICHTE],
             records=record_collections(database),
             db=client,
-            now=REPORTED_AT,
+            germany_now=REPORTED_AT,
         )
     )
 

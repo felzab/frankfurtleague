@@ -45,7 +45,7 @@ from app.core import clock
 from app.core.collections import Collection
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.literals import KONTAKT_ROLLEN
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.responses import BaseReadModel
 
 # The four cards, in the urgency order the page shows them: what is due by a deadline, the results, the fixtures'
 # slots and casts, then the applications.
@@ -88,7 +88,7 @@ QUEUE_ROWS_AS: Final = "queue_rows"
 HELD_ROWS_AS: Final = "held_rows"
 SPIELBERICHTE_AS: Final = "spielberichte"
 BEWERBUNGEN_AS: Final = "bewerbungen"
-PICKED_CLUB_AS: Final = "picked_club"
+PICKED_TEAM_AS: Final = "picked_team"
 
 # The stored keys of a confirmation row this module reads raw, named once so the stored rename finds them: no model
 # of the rows serves the subset a card needs.
@@ -195,7 +195,7 @@ class FLOverviewCard(BaseModel):
     rows: list[FLOverviewRow]
 
 
-class FLSaisonOverviewResponse(BaseAPIResponse):
+class FLSaisonOverviewResponse(BaseReadModel):
     # All four cards in `CARDS`' order, an empty one included, so the page keeps one shape every day.
     cards: list[FLOverviewCard]
 
@@ -260,11 +260,11 @@ def build_overview_pipeline(*, saison_id: str, today: str) -> list[Mapping[str, 
                             "localField": "team_id",
                             "foreignField": "_id",
                             "pipeline": [{"$project": {"_id": 0, "name": 1}}],
-                            "as": PICKED_CLUB_AS,
+                            "as": PICKED_TEAM_AS,
                         }
                     },
                     # The seats for their confirmation alone; nothing of a person is served.
-                    {"$project": {"schule.team_name": 1, "kontakte": 1, PICKED_CLUB_AS: 1}},
+                    {"$project": {"schule.team_name": 1, "kontakte": 1, PICKED_TEAM_AS: 1}},
                 ],
                 "as": BEWERBUNGEN_AS,
             }
@@ -402,7 +402,7 @@ def overview_of(
     rows.extend(FLOverviewBracketFaultRow(kind="bracket_fault", spiel=by_id[fault.spiel_id], fault=fault) for fault in faults)
 
     for bewerbung in read[BEWERBUNGEN_AS]:
-        picked = bewerbung[PICKED_CLUB_AS]
+        picked = bewerbung[PICKED_TEAM_AS]
         rows.append(
             FLOverviewBewerbungRow(
                 kind="bewerbung",

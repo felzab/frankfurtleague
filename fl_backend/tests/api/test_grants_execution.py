@@ -124,7 +124,7 @@ async def add(
                 outbox_collection=outbox if outbox is not None else database[Collection.OUTBOX],
                 db=client,
                 operator=acting_as,
-                now=now,
+                germany_now=now,
             )
         ).grant_id
 
@@ -139,7 +139,7 @@ async def remove(
             outbox_collection=outbox if outbox is not None else database[Collection.OUTBOX],
             db=client,
             operator=acting_as,
-            now=NOW,
+            germany_now=NOW,
         )
 
 
@@ -160,7 +160,7 @@ async def hand_over(
             outbox_collection=database[Collection.OUTBOX],
             db=client,
             operator=acting_as,
-            now=now,
+            germany_now=now,
         )
 
 
@@ -172,7 +172,7 @@ async def stop(database: AsyncDatabase, client: AsyncMongoClient, grant_id: Obje
             outbox_collection=database[Collection.OUTBOX],
             db=client,
             operator=acting_as,
-            now=NOW,
+            germany_now=NOW,
         )
 
 
@@ -188,7 +188,7 @@ async def pass_at(
         grants_collection=grants if grants is not None else database[Collection.GRANTS],
         outbox_collection=outbox if outbox is not None else database[Collection.OUTBOX],
         db=client,
-        now=now,
+        germany_now=now,
     )
 
     return answer.handed_over

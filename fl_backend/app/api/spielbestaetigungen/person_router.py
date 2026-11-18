@@ -10,7 +10,7 @@ from app.api.identity.crud import roles_of
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.schemas import FLSubjectSeat
 from app.api.identity.services import rollen_on
-from app.api.spielbestaetigungen.crud import JUDGED_VEREIN_FIELDS, OWN_ROW_FIELDS, VEREIN_FIELDS, pull_ansetzung_state
+from app.api.spielbestaetigungen.crud import JUDGED_JUNCTION_FIELDS, JUNCTION_FIELDS, OWN_ROW_FIELDS, pull_ansetzung_state
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAnswerResponse,
     FLSpielbestaetigungAppointment,
@@ -54,9 +54,9 @@ from app.core.exceptions import DocumentNotFoundError
 from app.core.recording import ACT_BY_KONTAKT, ACT_BY_SCHIEDSRICHTER, record_act
 from app.core.routing import by_id
 from app.core.security import PERSON_TIER, PersonIdentifier
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLKontaktRolle
 
 # A referee and a club's seat holder answer here, each answer recorded under the answering party's Funktion.
@@ -85,7 +85,7 @@ def _answering_seat(*, spielbestaetigung_raw: Mapping[str, Any] | None, seats: I
     summary="Accept or decline one of the signed-in referee's own fixture assignments",
 )
 async def post_schiedsrichter_answer(
-    spielbestaetigung_id: CustomRouteObjectId,
+    spielbestaetigung_id: CustomObjectId,
     answer_data: FLSpielbestaetigungSchiedsrichterAnswerPayload,
     identifier: PersonIdentifier,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
@@ -94,7 +94,7 @@ async def post_schiedsrichter_answer(
     saisons_collection: SaisonsCollection,
     records: SubjectLookup,
     db: DBClient,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLSpielbestaetigungSchiedsrichterAnswerResponse:
     """Record the signed-in referee's first answer about a fixture they are booked on, until its kick-off: accept, or decline giving a reason.
 
@@ -102,7 +102,7 @@ async def post_schiedsrichter_answer(
     either answer can move the referee's name on the public fixture.
     """
 
-    today = clock.german_day(now)
+    today = clock.german_day(germany_now)
 
     async def answer(session: AsyncClientSession) -> FLSpielbestaetigungSchiedsrichterAnswerResponse:
         """Judge, then write. Everything judged is read in-session, so a retry re-judges it."""
@@ -131,12 +131,12 @@ async def post_schiedsrichter_answer(
             spiele_collection=spiele_collection,
             saison_teams_collection=saison_teams_collection,
             spielbestaetigung_raw=row,
-            verein_projection=JUDGED_VEREIN_FIELDS,
+            junction_projection=JUDGED_JUNCTION_FIELDS,
             session=session,
         )
         # One snapshot with the row, and the fixture is removed with its rows in one transaction.
         assert ansetzung_state is not None
-        refuse(find_unanswerable_refusal(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, now=now))
+        refuse(find_unanswerable_refusal(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, now=germany_now))
 
         try:
             await patch_one_in_db(
@@ -182,17 +182,16 @@ async def post_schiedsrichter_answer(
                 spiele_collection=spiele_collection,
                 saison_teams_collection=saison_teams_collection,
                 spielbestaetigung_raw=row,
-                verein_projection=JUDGED_VEREIN_FIELDS,
+                junction_projection=JUDGED_JUNCTION_FIELDS,
                 session=None,
             )
             # An undraw removing the fixture deletes this row in its transaction, a write conflict while this one holds it.
             assert current is not None
-            refuse(find_unanswerable_refusal(spielbestaetigung_raw=row, ansetzung_state=current, now=now))
+            refuse(find_unanswerable_refusal(spielbestaetigung_raw=row, ansetzung_state=current, now=germany_now))
 
         return FLSpielbestaetigungSchiedsrichterAnswerResponse(spielbestaetigung_id=spielbestaetigung_id, state=answer_data.answer)
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(answer)
+    return await transact(db, answer)
 
 
 @router.post(
@@ -200,7 +199,7 @@ async def post_schiedsrichter_answer(
     summary="Confirm a fixture's Ansetzung as the team's seat holder, or decline it proposing another date",
 )
 async def post_team_answer(
-    spielbestaetigung_id: CustomRouteObjectId,
+    spielbestaetigung_id: CustomObjectId,
     answer_data: FLSpielbestaetigungTeamAnswerPayload,
     identifier: PersonIdentifier,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
@@ -209,7 +208,7 @@ async def post_team_answer(
     spieltage_collection: SpieltageReadCollection,
     records: SubjectLookup,
     db: DBClient,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLSpielbestaetigungAnswerResponse:
     """Record one club's answer about one Ansetzung, from whichever of its confirmed seats presses first, and the seat it came from.
 
@@ -217,7 +216,7 @@ async def post_team_answer(
     administrator's own save of that date would be.
     """
 
-    today = clock.german_day(now)
+    today = clock.german_day(germany_now)
     vorschlag = (
         None
         if answer_data.vorschlag is None
@@ -238,7 +237,7 @@ async def post_team_answer(
             spiele_collection=spiele_collection,
             saison_teams_collection=saison_teams_collection,
             spielbestaetigung_raw=row,
-            verein_projection=VEREIN_FIELDS,
+            junction_projection=JUNCTION_FIELDS,
             session=session,
         )
         # One snapshot with the row, and the fixture is removed with its rows in one transaction.
@@ -247,7 +246,7 @@ async def post_team_answer(
         async def judge(current: AnsetzungState, reads: AsyncClientSession | None) -> None:
             """Every refusal after the seat's, over this Ansetzung and reads under `reads`: asked in the transaction, then again outside it."""
 
-            refuse(find_unanswerable_refusal(spielbestaetigung_raw=row, ansetzung_state=current, now=now))
+            refuse(find_unanswerable_refusal(spielbestaetigung_raw=row, ansetzung_state=current, now=germany_now))
 
             if vorschlag is not None:
                 refuse(find_vorschlag_past_refusal(vorschlag=vorschlag, today=today))
@@ -302,7 +301,9 @@ async def post_team_answer(
             collection=spielbestaetigungen_collection,
             action="spielbestaetigung.answered",
             by=ACT_BY_KONTAKT,
-            team=next((str(verein["name"]) for verein in ansetzung_state.vereine if verein["team_id"] == row["party"]["team_id"]), None),
+            team=next(
+                (str(junction["name"]) for junction in ansetzung_state.junctions if junction["team_id"] == row["party"]["team_id"]), None
+            ),
             record_id=spielbestaetigung_id,
             label=str(row["saison_id"]),
             session=session,
@@ -316,7 +317,7 @@ async def post_team_answer(
             spiele_collection=spiele_collection,
             saison_teams_collection=saison_teams_collection,
             spielbestaetigung_raw=row,
-            verein_projection=VEREIN_FIELDS,
+            junction_projection=JUNCTION_FIELDS,
             session=None,
         )
         # An undraw removing the fixture deletes this row in its transaction, a write conflict while this one holds it.
@@ -327,5 +328,4 @@ async def post_team_answer(
             state=answer_data.answer, answered_by=FLSpielbestaetigungByKontakt(kind="kontakt", rolle=seat), vorschlag=vorschlag
         )
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(answer)
+    return await transact(db, answer)

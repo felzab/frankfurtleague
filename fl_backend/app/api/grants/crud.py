@@ -11,12 +11,12 @@ from app.api.grants.services import ADMINISTRATION, OWNER, Notice, compose_hando
 from app.api.outbox.schemas import FLGrantData
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.core.crud import (
-    aggregate_many_from_db,
     anchor_in_db,
     delete_many_from_db,
     patch_many_in_db,
     patch_one_in_db,
     post_one_to_db,
+    pull_whole_from_db,
 )
 from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_SYSTEM, record_act
@@ -26,9 +26,11 @@ from app.shared.schemas.literals import FLAdminTier
 
 
 async def read_grants(*, grants_collection: ReadCollection, session: AsyncClientSession | None = None) -> list[Mapping[str, Any]]:
-    """Every grant as stored, by address, a waiting row among them, and unbounded: the judgements read the whole list."""
+    """Every grant as stored, by address, a waiting row among them: the judgements read the whole list."""
 
-    return await aggregate_many_from_db(collection=grants_collection, pipeline=[{"$sort": {"address": ASCENDING}}], session=session)
+    return await pull_whole_from_db(
+        collection=grants_collection, db_filter={}, what="the grants", sort_by=[("address", ASCENDING)], session=session
+    )
 
 
 async def pull_the_list_to_judge(

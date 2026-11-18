@@ -51,7 +51,7 @@ def judge(
     proposed: FLSaisonRules | None = None,
     occupancy: dict[FLGruppenNames, int] | None = None,
     platz: int = 0,
-    largest_squad: int = 0,
+    largest_kader: int = 0,
     attached: Mapping[FLSaisonPhase, int] | None = None,
     drawn: int = 0,
     started: bool = False,
@@ -69,7 +69,7 @@ def judge(
         proposed=proposed,
         occupancy_by_gruppe=occupancy or {},
         highest_wired_platz=platz,
-        largest_squad=largest_squad,
+        largest_kader=largest_kader,
         attached_by_phase=attached,
         drawn_spiele=drawn,
     )
@@ -190,7 +190,7 @@ class TestEachRefusalNamesItsBound:
                 id="a loss is worth at most a draw",
             ),
             pytest.param(
-                {"stored": rules(kader=18), "proposed": rules(kader=10), "largest_squad": 12},
+                {"stored": rules(kader=18), "proposed": rules(kader=10), "largest_kader": 12},
                 Code.RULES_KADER_BELOW_USE,
                 ("rules", "max_kader_size"),
                 {"min": 12},

@@ -28,7 +28,7 @@ class TestSpieler:
         "extra",
         [pytest.param({"team_id": str(ObjectId())}, id="team_id"), pytest.param({"is_nachnominiert": True}, id="is_nachnominiert")],
     )
-    def test_a_squad_edit_refuses_a_field_it_does_not_declare(self, extra: dict[str, Any], assert_rejects):
+    def test_a_kader_edit_refuses_a_field_it_does_not_declare(self, extra: dict[str, Any], assert_rejects):
         """A seat holder's edit `$set`s this model's fields, and each of these two is refused by `extra="forbid"` alone.
 
         `team_id` would move a pupil to another club, and `is_nachnominiert` would let a seat holder stand a row outside

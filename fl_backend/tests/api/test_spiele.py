@@ -106,7 +106,7 @@ class TestPatchPayload:
         ("model", "composed"),
         [
             (FLSpielTeamFieldPayload, {"name", "shorthand"}),
-            (FLSpielortFieldPayload, {"name", "maps_link"}),
+            (FLSpielortFieldPayload, {"name", "maps_query"}),
             (FLSpielSchiedsrichterFieldPayload, {"name"}),
         ],
         ids=["a side", "a venue", "a referee"],

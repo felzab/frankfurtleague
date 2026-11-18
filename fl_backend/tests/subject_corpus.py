@@ -73,7 +73,7 @@ BYSTANDER_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607820039")
 # The name the junction row was entered under, and the one the club has taken since. They differ so
 # that serving the club's own would be observable.
 ROW_NAME_A = "Helmholtz"
-CLUB_NAME_A_NOW = "Helmholtz-Gymnasium"
+TEAM_NAME_A_NOW = "Helmholtz-Gymnasium"
 ROW_NAME_B = "Lessing"
 
 STAMP = "2026-01-20"
@@ -107,7 +107,7 @@ def _junction(row_id: ObjectId, saison_id: str, team_id: ObjectId, *, name: str,
     )
 
 
-def _club(team_id: ObjectId, name: str, shorthand: str) -> dict[str, Any]:
+def _team(team_id: ObjectId, name: str, shorthand: str) -> dict[str, Any]:
     # `shorthand` per club rather than one for all: `app/core/constraints.py :: uniq_shorthand`
     # indexes it, so a seed sharing one refuses its second club and fails every case here.
     return team_document(team_id, name, shorthand, website_url=None)
@@ -133,7 +133,7 @@ async def the_subjects_corpus(database: AsyncDatabase) -> None:
         ]
     )
     await database[Collection.TEAMS].insert_many(
-        [_club(TEAM_A_OID, CLUB_NAME_A_NOW, "HEX"), _club(TEAM_B_OID, ROW_NAME_B, "LEX"), _club(TEAM_C_OID, "Krautzberg", "KRX")]
+        [_team(TEAM_A_OID, TEAM_NAME_A_NOW, "HEX"), _team(TEAM_B_OID, ROW_NAME_B, "LEX"), _team(TEAM_C_OID, "Krautzberg", "KRX")]
     )
     await database[Collection.SAISON_TEAMS].insert_many(
         [

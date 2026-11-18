@@ -35,8 +35,8 @@ from app.core.dependencies import (
 from app.core.journal import Journal
 from app.core.routing import SAFE
 from app.core.security import BASE_TIER
-from app.core.transactions import transaction_session
-from app.shared.schemas.bounds import BEWERBUNG_KONTAKT_MAX_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
+from app.core.transactions import transact
+from app.shared.schemas.bounds import BIRTH_DATE_MAX_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.einwilligung import by_choice
 from app.shared.tokens import hash_token
@@ -82,7 +82,7 @@ async def get_confirmation_view(
         # Served rather than retyped on the page: the floor the write is judged by is the one the
         # paragraph a person reads before consenting has to state.
         minimum_age=SCHIEDSRICHTER_MIN_AGE_YEARS,
-        maximum_age=BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
+        maximum_age=BIRTH_DATE_MAX_AGE_YEARS,
         deadline=block["deadline"],
         answered_at=answered_at_of(state=state, einwilligung=einwilligung, confirmation=block),
     )
@@ -153,8 +153,7 @@ async def post_confirmation(
             confirmed_at=today,
         )
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(answer_for_the_person)
+    return await transact(db, answer_for_the_person)
 
 
 @router.post(
@@ -197,5 +196,4 @@ async def post_decline(
         journal.note("objection", [f"{Collection.SCHIEDSRICHTER}/{raw['_id']}"])
 
     async with journal:
-        async with transaction_session(db) as session:
-            await session.with_transaction(object_for_the_person)
+        await transact(db, object_for_the_person)

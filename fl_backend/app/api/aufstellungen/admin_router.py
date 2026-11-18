@@ -18,7 +18,7 @@ from app.core.dependencies import (
     SpielerReadCollection,
 )
 from app.core.routing import by_id
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 
 router = APIRouter(
     prefix="/aufstellungen",
@@ -30,14 +30,14 @@ AUFSTELLUNG_PATH = f"{by_id('spiel_id')}{by_id('team_id')}"
 
 @router.get(AUFSTELLUNG_PATH, summary="One club's line-up for one fixture as an administrator reads it")
 async def get_aufstellung(
-    spiel_id: CustomRouteObjectId,
-    team_id: CustomRouteObjectId,
+    spiel_id: CustomObjectId,
+    team_id: CustomObjectId,
     spiele_collection: SpieleReadCollection,
     saison_spieler_collection: SaisonSpielerReadCollection,
     spieler_collection: SpielerReadCollection,
     aufstellungen_collection: AufstellungenReadCollection,
     session: SnapshotSession,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLAufstellungResponse:
     """The line-up screen of one club for one fixture, as the club's own seat holders read it."""
 
@@ -51,7 +51,7 @@ async def get_aufstellung(
             spieler=spieler_collection,
             aufstellungen=aufstellungen_collection,
         ),
-        now=now,
+        now=germany_now,
         session=session,
     )
 
@@ -62,8 +62,8 @@ async def get_aufstellung(
     responses={201: {"model": FLAufstellungResponse, "description": "The line-up did not stand before, and this save created it"}},
 )
 async def put_aufstellung(
-    spiel_id: CustomRouteObjectId,
-    team_id: CustomRouteObjectId,
+    spiel_id: CustomObjectId,
+    team_id: CustomObjectId,
     aufstellung_data: FLAufstellungPayload,
     response: Response,
     spiele_collection: SpieleReadCollection,
@@ -72,7 +72,7 @@ async def put_aufstellung(
     spieler_collection: SpielerCollection,
     aufstellungen_collection: AufstellungenCollection,
     db: DBClient,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLAufstellungResponse:
     """Save the whole line-up of one club for one fixture at any time, the hour before kick-off included.
 
@@ -94,7 +94,7 @@ async def put_aufstellung(
         saisons_collection=saisons_collection,
         spieler_collection=spieler_collection,
         db=db,
-        now=now,
+        now=germany_now,
     )
 
     # RFC 9110's PUT: a save creating the line-up says so.

@@ -6,7 +6,7 @@ from app.core.crud import pull_one_from_db
 from app.core.dependencies import SpielerReadCollection
 from app.core.routing import by_id
 from app.core.security import BASE_TIER
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 
 router = APIRouter(
     prefix="/spieler",
@@ -15,7 +15,7 @@ router = APIRouter(
 
 
 @router.get(by_id("spieler_id"), summary="One Spieler")
-async def get_spieler_by_id(spieler_id: CustomRouteObjectId, spieler_collection: SpielerReadCollection) -> FLSpielerSingleResponse:
+async def get_spieler_by_id(spieler_id: CustomObjectId, spieler_collection: SpielerReadCollection) -> FLSpielerSingleResponse:
     """One player's id, forename and surname initial, both names `null` where the pupil's consent does not publish them."""
 
     # Not the flattened squad shape a club page's squad serves: those are season-scoped, and picking a season

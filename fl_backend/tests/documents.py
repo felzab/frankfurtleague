@@ -243,7 +243,7 @@ def joined_spiel_document(spiel: Mapping[str, Any]) -> dict[str, Any]:
         return None if stored is None else {"name": "Carl-Schurz", "shorthand": "CSX", "austritt": None, "austritt_type": None, **stored}
 
     def ground(stored: Mapping[str, Any] | None) -> dict[str, Any] | None:
-        return None if stored is None else {"name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", **stored}
+        return None if stored is None else {"name": "Sportplatz Ost", "maps_query": "Sportplatz Ost, Frankfurt", **stored}
 
     def referee(stored: Mapping[str, Any] | None) -> dict[str, Any] | None:
         return None if stored is None else {"name": "A. Referee", **stored}
@@ -405,7 +405,7 @@ def spielort_document(spielort_id: Any, name: str, *, default_mietpreis: int = 8
             "_id": spielort_id,
             "name": name,
             "address": dict(ADDRESS),
-            "maps_link": f"{name}, Frankfurt",
+            "maps_query": f"{name}, Frankfurt",
             "default_mietpreis": default_mietpreis,
             "inactive_since": None,
             "version": 0,

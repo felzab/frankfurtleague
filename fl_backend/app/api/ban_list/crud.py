@@ -4,7 +4,7 @@ from typing import Any
 from pymongo import DESCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.core.crud import aggregate_many_from_db, pull_many_from_db
+from app.core.crud import pull_many_from_db, pull_whole_from_db
 from app.core.readonly import ReadCollection
 from app.shared.folding import sign_in_identifier
 
@@ -21,9 +21,12 @@ async def read_ban_list(*, ban_list_collection: ReadCollection) -> list[Mapping[
     not at all.
     """
 
-    return await aggregate_many_from_db(
+    return await pull_whole_from_db(
         collection=ban_list_collection,
-        pipeline=[{"$sort": {"created_at": DESCENDING, "_id": DESCENDING}}, {"$project": dict(SERVED_FIELDS)}],
+        db_filter={},
+        what="the ban list",
+        sort_by=[("created_at", DESCENDING), ("_id", DESCENDING)],
+        projection=dict(SERVED_FIELDS),
     )
 
 

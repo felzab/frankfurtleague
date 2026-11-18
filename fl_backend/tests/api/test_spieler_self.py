@@ -64,7 +64,7 @@ BYSTANDER_OID = ObjectId("6890a1b2c3d4e5f607840019")
 # club's own would be observable.
 ROW_NAME_A_PAST = "Helmholtz"
 ROW_NAME_A_ACTIVE = "Helmholtz-Gymnasium"
-CLUB_NAME_A_NOW = "Helmholtzschule Frankfurt"
+TEAM_NAME_A_NOW = "Helmholtzschule Frankfurt"
 ROW_NAME_B = "Lessing"
 
 ADULT_BIRTHDATE = "2000-05-09"
@@ -132,7 +132,7 @@ def _person(email: str) -> StampedHeaders:
 async def _seed(database: AsyncDatabase) -> None:
     await database[Collection.SAISONS].insert_many([saison_document(PAST_SAISON, "past"), saison_document(ACTIVE_SAISON, "active")])
     await database[Collection.TEAMS].insert_many(
-        [team_document(TEAM_A_OID, CLUB_NAME_A_NOW, "HEX"), team_document(TEAM_B_OID, ROW_NAME_B, "LEX")]
+        [team_document(TEAM_A_OID, TEAM_NAME_A_NOW, "HEX"), team_document(TEAM_B_OID, ROW_NAME_B, "LEX")]
     )
     await database[Collection.SAISON_TEAMS].insert_many(
         [
@@ -207,7 +207,7 @@ def _saison_path(saison_id: str) -> str:
     return f"/api/v{API_VERSION}/spieler/self/{saison_id}"
 
 
-def _club_spiel(spiel_nr: int, team1: ObjectId, team2: ObjectId | None, *, spieltag_id: ObjectId = SPIELTAG_2_OID) -> dict[str, Any]:
+def _team_spiel(spiel_nr: int, team1: ObjectId, team2: ObjectId | None, *, spieltag_id: ObjectId = SPIELTAG_2_OID) -> dict[str, Any]:
     return spiel_document(
         spiel_id=ObjectId(f"6890a1b2c3d4e5f6078400{50 + spiel_nr}"),
         saison_id=ACTIVE_SAISON,
@@ -220,12 +220,12 @@ def _club_spiel(spiel_nr: int, team1: ObjectId, team2: ObjectId | None, *, spiel
 
 # Club A's fixtures beside the seeded first, each placing the pupil apart in A's line-up: benched, unnamed, none stored.
 BENCHED, UNNAMED, NONE_STORED = (
-    _club_spiel(2, TEAM_B_OID, TEAM_A_OID),
-    _club_spiel(3, TEAM_A_OID, TEAM_B_OID),
-    _club_spiel(4, TEAM_B_OID, TEAM_A_OID),
+    _team_spiel(2, TEAM_B_OID, TEAM_A_OID),
+    _team_spiel(3, TEAM_A_OID, TEAM_B_OID),
+    _team_spiel(4, TEAM_B_OID, TEAM_A_OID),
 )
 # Club B's alone, its other side still empty.
-NOT_THE_CLUBS = _club_spiel(5, TEAM_B_OID, None)
+NOT_THE_TEAMS = _team_spiel(5, TEAM_B_OID, None)
 
 
 async def _seed_the_season(database: AsyncDatabase) -> None:
@@ -234,7 +234,7 @@ async def _seed_the_season(database: AsyncDatabase) -> None:
     await database[Collection.SPIELTAGE].insert_many(
         [spieltag_document(oid, ACTIVE_SAISON, position) for oid, position in ((SPIELTAG_1_OID, 1), (SPIELTAG_2_OID, 2))]
     )
-    await database[Collection.SPIELE].insert_many([BENCHED, UNNAMED, NONE_STORED, NOT_THE_CLUBS])
+    await database[Collection.SPIELE].insert_many([BENCHED, UNNAMED, NONE_STORED, NOT_THE_TEAMS])
     await database[Collection.AUFSTELLUNGEN].insert_many(
         [
             aufstellung_document(SPIEL, TEAM_A_OID, starters=[PUPIL_OID]),
@@ -265,7 +265,7 @@ class TestTheOwnSeasons:
 
 @pytest.mark.db
 class TestTheOwnSeason:
-    async def test_the_row_and_the_clubs_fixtures_each_with_where_its_line_up_puts_the_pupil(self, mongo_replica_set_url: str):
+    async def test_the_row_and_the_teams_fixtures_each_with_where_its_line_up_puts_the_pupil(self, mongo_replica_set_url: str):
         response = await served(mongo_replica_set_url, _read_after_seeding(IDENTIFIER, path=_saison_path(ACTIVE_SAISON)))
 
         assert response.status_code == 200, response.text

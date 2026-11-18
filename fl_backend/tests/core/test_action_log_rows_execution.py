@@ -188,7 +188,7 @@ async def _revive_referee(database: AsyncDatabase, client: AsyncMongoClient) -> 
         outbox_collection=database[Collection.OUTBOX],
         db=client,
         today=TODAY,
-        now=AT,
+        germany_now=AT,
     )
 
 

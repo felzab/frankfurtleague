@@ -16,10 +16,10 @@ from app.shared.schemas.bounds import (
     ADDRESS_DISTRICT_MAX_LENGTH,
     BEWERBUNG_DECISION_REASON_MAX_LENGTH,
     BEWERBUNG_KADER_SIZE_MAX,
-    BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     BEWERBUNG_STUFENGROESSE_MAX,
     BEWERBUNG_TRIKOT_SET_MAX_LENGTH,
     BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
+    BIRTH_DATE_MAX_AGE_YEARS,
     SAISON_ID_LENGTH,
     TEAM_FULL_NAME_MAX_LENGTH,
     TEAM_NAME_MAX_LENGTH,
@@ -47,7 +47,7 @@ from app.shared.schemas.literals import (
     FLSchulform,
     FLTrikotFarbe,
 )
-from app.shared.schemas.responses import BaseAPIResponse, BasePayload, BaseReadModel
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 # `submitted` is the only state a submission arrives in; the other two are the triage's, written by an administrator's
 # decision alone.
@@ -268,7 +268,7 @@ class FLBewerbungListRow(BaseReadModel):
     unmailed: bool
 
 
-class FLBewerbungenAdminListResponse(BaseAPIResponse):
+class FLBewerbungenAdminListResponse(BaseReadModel):
     """The season's applications and what an acceptance would meet there."""
 
     saison: FLBewerbungEntryOffer
@@ -285,7 +285,7 @@ class FLBewerbungEntry(BaseModel):
     trikot_farbe: FLTrikotFarbe | None
 
 
-class FLBewerbungSingleResponse(BaseAPIResponse):
+class FLBewerbungSingleResponse(BaseReadModel):
     """One application, with what an acceptance of it would meet."""
 
     bewerbung: FLBewerbung
@@ -301,7 +301,7 @@ class FLBewerbungSingleResponse(BaseAPIResponse):
     saison: FLBewerbungEntryOffer
 
 
-class FLAcceptBewerbungResponse(BaseAPIResponse):
+class FLAcceptBewerbungResponse(BaseReadModel):
     """What the acceptance wrote beyond the application: the club in the season, and where; its mails are owed in the same write."""
 
     # The club now standing in the season: the one the applicant picked, or the one this acceptance
@@ -316,7 +316,7 @@ class FLAcceptBewerbungResponse(BaseAPIResponse):
     trikot_farbe: FLTrikotFarbe | None
 
 
-class FLDeclineBewerbungResponse(BaseAPIResponse):
+class FLDeclineBewerbungResponse(BaseReadModel):
     """The declined application; its mails are owed in the same write."""
 
     id: CustomObjectId
@@ -335,7 +335,7 @@ def age_outside_the_bounds(*, birth_date: str, today: str, minimum_age: int) -> 
     age = whole_years_between(born=birth_date, today=today)
 
     # The caller's floor, never a constant read here: a person's is the highest of the seats they hold.
-    return not minimum_age <= age <= BEWERBUNG_KONTAKT_MAX_AGE_YEARS
+    return not minimum_age <= age <= BIRTH_DATE_MAX_AGE_YEARS
 
 
 class FLBewerbungKontaktpersonPayload(_KontaktpersonWritablePayload):
@@ -430,7 +430,7 @@ class FLBewerbungKaderPayload(FLBewerbungKader, BasePayload):
     good_spieler: int = Field(ge=0, le=BEWERBUNG_KADER_SIZE_MAX)
 
     @model_validator(mode="after")
-    def the_strong_players_are_a_subset_of_the_squad(self) -> Self:
+    def the_strong_players_are_a_subset_of_the_kader(self) -> Self:
         """A subset cannot outnumber the whole, and both figures are one school's own estimate.
 
         A 422 like the distinctness rule: a shape rule about the body, judged against no database.
@@ -512,7 +512,7 @@ class FLBewerbungFormWindow(BaseModel):
     state: FLBewerbungWindowState
 
 
-class FLBewerbungFormResponse(BaseAPIResponse):
+class FLBewerbungFormResponse(BaseReadModel):
     """What one season's application form shows, whichever state its page takes."""
 
     # Null where the season records no window.
@@ -538,7 +538,7 @@ FLEinwilligungQuelle = Literal["bewerbung", "saison"]
 type FLEinwilligungOutcome = Literal["confirmed", "declined"]
 
 
-class FLBewerbungEinwilligungViewResponse(BaseAPIResponse):
+class FLBewerbungEinwilligungViewResponse(BaseReadModel):
     """What the page renders for one seat, and nothing of the person."""
 
     quelle: FLEinwilligungQuelle
@@ -596,7 +596,7 @@ class FLBewerbungEinwilligungDeclined(BasePayload):
 FLBewerbungEinwilligungAnswerPayload = Annotated[FLBewerbungEinwilligungGiven | FLBewerbungEinwilligungDeclined, Field(discriminator="answer")]
 
 
-class FLBewerbungEinwilligungAnswerResponse(BaseAPIResponse):
+class FLBewerbungEinwilligungAnswerResponse(BaseReadModel):
     """What the answer did; a Widerspruch's notice to the Ansprechperson is owed in the same write."""
 
     quelle: Literal["bewerbung"] = "bewerbung"
@@ -608,7 +608,7 @@ class FLBewerbungEinwilligungAnswerResponse(BaseAPIResponse):
     media: bool
 
 
-class FLSaisonTeamEinwilligungAnswerResponse(BaseAPIResponse):
+class FLSaisonTeamEinwilligungAnswerResponse(BaseReadModel):
     """What an answer on a season row's link did; nobody is told, so nothing composes a message."""
 
     quelle: Literal["saison"] = "saison"
@@ -625,7 +625,7 @@ FLEinwilligungAnswerResponse = Annotated[
 ]
 
 
-class FLBewerbungEinwilligungResendResponse(BaseAPIResponse):
+class FLBewerbungEinwilligungResendResponse(BaseReadModel):
     """The seat whose link was replaced and where its fresh one is owed; the old one opens nothing."""
 
     rolle: FLKontaktRolle
@@ -642,7 +642,7 @@ class FLBewerbungKontaktSeatPayload(_KontaktpersonWritablePayload):
     version: CustomVersion
 
 
-class FLBewerbungKontaktSeatResponse(BaseAPIResponse):
+class FLBewerbungKontaktSeatResponse(BaseReadModel):
     """A seat's address as the write left it; the link is owed there in the same write."""
 
     # Answered rather than re-derived by the caller, so one function decides the form a message is sent to.
@@ -650,7 +650,7 @@ class FLBewerbungKontaktSeatResponse(BaseAPIResponse):
 
 
 # Counts alone: nothing a person's record holds leaves the backend in the retention sweep's answer.
-class FLBewerbungSweepResponse(BaseAPIResponse):
+class FLBewerbungSweepResponse(BaseReadModel):
     """One season's pass: each clock's count, every reminder and deletion notice owed in the write it belongs to."""
 
     saison_id: str

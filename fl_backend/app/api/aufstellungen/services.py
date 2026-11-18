@@ -262,10 +262,10 @@ def public_aufstellungen_lookup() -> Mapping[str, Any]:
                             {"$match": {"$expr": {"$and": [{"$eq": ["$saison_id", "$$saison_id"]}, {"$eq": ["$team_id", "$$team_id"]}]}}},
                             {"$project": {"_id": 0, "spieler_id": 1, "nummer": 1, "position": 1, "rolle": 1}},
                         ],
-                        "as": "squad_rows",
+                        "as": "kader_rows",
                     }
                 },
-                {"$project": {"_id": 0, "team_id": 1, "spieler": 1, "persons": 1, "squad_rows": 1}},
+                {"$project": {"_id": 0, "team_id": 1, "spieler": 1, "persons": 1, "kader_rows": 1}},
             ],
             "as": PUBLIC_AUFSTELLUNGEN_AS,
         }
@@ -279,15 +279,15 @@ def compose_public_aufstellungen(spiel_raw: Mapping[str, Any]) -> FLAufstellunge
     ones. A line-up holding no entry stands as none.
     """
 
-    by_club = {row["team_id"]: row for row in spiel_raw[PUBLIC_AUFSTELLUNGEN_AS]}
+    by_team = {row["team_id"]: row for row in spiel_raw[PUBLIC_AUFSTELLUNGEN_AS]}
 
     def side_of(side: FLSpielSide) -> dict[str, Any] | None:
-        row = by_club.get(team_id_of(spiel_raw, side))
+        row = by_team.get(team_id_of(spiel_raw, side))
         if row is None or not aufstellung_stands(row):
             return None
 
         persons = {person["_id"]: person for person in row["persons"]}
-        squad_rows = {squad_row["spieler_id"]: squad_row for squad_row in row["squad_rows"]}
+        kader_rows = {kader_row["spieler_id"]: kader_row for kader_row in row["kader_rows"]}
 
         def entry(stored: Mapping[str, Any]) -> dict[str, Any]:
             # A null forename is the mask's answer for a withheld name, and an entry naming nobody joins no person.
@@ -295,13 +295,13 @@ def compose_public_aufstellungen(spiel_raw: Mapping[str, Any]) -> FLAufstellunge
             if person.get("first_name") is None:
                 return {"first_name": None, "last_name": None, "nummer": None, "position": None, "rolle": None, "starts": stored["starts"]}
 
-            squad_row = squad_rows.get(stored["spieler_id"], {})
+            kader_row = kader_rows.get(stored["spieler_id"], {})
             return {
                 "first_name": person["first_name"],
                 "last_name": person.get("last_name"),
-                "nummer": squad_row.get("nummer"),
-                "position": squad_row.get("position"),
-                "rolle": squad_row.get("rolle"),
+                "nummer": kader_row.get("nummer"),
+                "position": kader_row.get("position"),
+                "rolle": kader_row.get("rolle"),
                 "starts": stored["starts"],
             }
 

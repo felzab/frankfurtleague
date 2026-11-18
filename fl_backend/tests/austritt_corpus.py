@@ -32,7 +32,7 @@ SPIELTAG = ObjectId("6890a1b2c3d4e5f6077600b1")
 NAMES = {DEPARTED: "Goethe", OPPONENT: "Schiller", EARLIER_OPPONENT: "Lessing", GONE_TOO: "Kleist"}
 
 
-def club(team_id: ObjectId, **fields: Any) -> dict[str, Any]:
+def team(team_id: ObjectId, **fields: Any) -> dict[str, Any]:
     name = NAMES[team_id]
 
     return documents.saison_team_document(
@@ -51,11 +51,11 @@ def club(team_id: ObjectId, **fields: Any) -> dict[str, Any]:
     )
 
 
-def clubs() -> list[dict[str, Any]]:
+def teams() -> list[dict[str, Any]]:
     # An exit on the fixture's day takes the fixture from this opponent as much as from the departed club.
     gone = {"type": "rueckzug", "reason": "Schulwechsel", "date": LATER}
 
-    return [{**club(DEPARTED), "_id": DEPARTED_ROW}, club(OPPONENT), club(EARLIER_OPPONENT), club(GONE_TOO, austritt=gone)]
+    return [{**team(DEPARTED), "_id": DEPARTED_ROW}, team(OPPONENT), team(EARLIER_OPPONENT), team(GONE_TOO, austritt=gone)]
 
 
 def addresses(team_id: ObjectId) -> list[str]:
@@ -88,7 +88,7 @@ async def the_league(database: AsyncDatabase, *, spiele: list[dict[str, Any]]) -
     """The running season, its four clubs, and `spiele` on them."""
 
     await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
-    await database[Collection.SAISON_TEAMS].insert_many(clubs())
+    await database[Collection.SAISON_TEAMS].insert_many(teams())
     await database[Collection.SPIELE].insert_many(spiele)
 
 

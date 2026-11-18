@@ -65,7 +65,7 @@ class TestTheWholeSeason:
 
         schedule = schedule_for(rules())
 
-        assert [(entry.phase, entry.spieltage, entry.matches_per_spieltag) for entry in schedule] == [
+        assert [(entry.phase, entry.spieltage, entry.spiele_per_spieltag) for entry in schedule] == [
             ("gruppenphase", 3, 8),
             ("viertelfinale", 1, 4),
             ("halbfinale", 1, 2),
@@ -77,7 +77,7 @@ class TestTheWholeSeason:
 
         schedule = schedule_for(rules(groups=4, per_group=6, qualifiers=4))
 
-        assert [(entry.phase, entry.matches_per_spieltag) for entry in schedule] == [
+        assert [(entry.phase, entry.spiele_per_spieltag) for entry in schedule] == [
             ("gruppenphase", 12),
             ("achtelfinale", 8),
             ("viertelfinale", 4),

@@ -372,7 +372,7 @@ def compose_bewerbung_seats_self(
         if not rollen:
             continue
         held = [row["kontakte"][slot] for slot in rollen]
-        schule = bewerbung_schule(bewerbung_raw=row, club_name=(teams.get(row.get("team_id")) or {}).get("name"))
+        schule = bewerbung_schule(bewerbung_raw=row, team_name=(teams.get(row.get("team_id")) or {}).get("name"))
         entries.append(
             {
                 "bewerbung_id": row["_id"],

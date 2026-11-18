@@ -14,7 +14,7 @@ from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle
 WITHOUT_TOKEN_HASH: Mapping[str, int] = {"token_hashes": 0}
 
 
-# `find_squad_refusal` asks the same question of the same junction and is pinned to its own callers, so this slice
+# `find_kader_team_refusal` asks the same question of the same junction and is pinned to its own callers, so this slice
 # asks it again rather than widening that one.
 def find_team_in_saison_refusal(*, entered: bool) -> WriteRefusal | None:
     """`invitation_team_not_entered`: the season holds no junction row for this team.

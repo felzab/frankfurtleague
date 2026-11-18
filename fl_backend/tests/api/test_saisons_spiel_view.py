@@ -188,7 +188,7 @@ def test_a_line_ups_nameless_rows_read_alike_after_its_named_ones():
         "team_id": HOME,
         "spieler": stored,
         "persons": [{"_id": INTERNAL, "first_name": None, "last_name": None}, {"_id": NAMED, "first_name": "Maxim", "last_name": "M."}],
-        "squad_rows": [
+        "kader_rows": [
             {"spieler_id": INTERNAL, "nummer": "4", "position": "Abwehr", "rolle": "co_kapitaen"},
             {"spieler_id": NAMED, "nummer": "7", "position": "Angriff", "rolle": None},
         ],
@@ -229,7 +229,7 @@ async def test_a_report_naming_only_pupils_joins_each_by_their_id(seeded_url: st
 
 
 @pytest.mark.db
-async def test_each_side_serves_the_line_up_of_its_club_through_the_mask(seeded_url: str):
+async def test_each_side_serves_the_line_up_of_its_team_through_the_mask(seeded_url: str):
     """In the order the club entered it, the captaincy beside a published name alone; the replaced club's line-up never."""
 
     aufstellungen = (await the_page(seeded_url)).aufstellungen

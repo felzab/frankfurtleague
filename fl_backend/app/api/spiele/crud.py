@@ -59,7 +59,7 @@ from app.api.spiele.services import (
     find_slot_claims,
     find_spiel_date_refusal,
     find_state_refusal,
-    find_voided_results_refusal,
+    find_voided_ergebnisse_refusal,
     find_wiring_refusal,
     judge_spieltag_occupancy,
     recipients_named,
@@ -68,7 +68,7 @@ from app.api.spiele.services import (
     slots_booked_against,
     spiel_label,
     stored_in_slice,
-    voided_results_of,
+    voided_ergebnisse_of,
 )
 from app.api.teams.schemas import FLTeamListAdapter
 from app.api.teams.services import (
@@ -279,9 +279,10 @@ async def pull_saison_membership(
     this season must see its row.
     """
 
-    rows = await pull_many_from_db(
+    rows = await pull_whole_from_db(
         collection=saison_teams_collection,
         db_filter={"saison_id": saison_id},
+        what=f"season {saison_id}'s clubs",
         projection={"team_id": 1, "austritt": 1, "name": 1},
         session=session,
     )
@@ -335,11 +336,11 @@ async def pull_booked_venue(
     if spielort_id is None:
         return None
 
-    row = await spielorte_collection.find_one({"_id": spielort_id}, {"name": 1, "maps_link": 1, "inactive_since": 1}, session=session)
+    row = await spielorte_collection.find_one({"_id": spielort_id}, {"name": 1, "maps_query": 1, "inactive_since": 1}, session=session)
     if row is None:
         return None
 
-    return BookedVenue(name=row["name"], maps_link=row["maps_link"], inactive_since=row["inactive_since"])
+    return BookedVenue(name=row["name"], maps_query=row["maps_query"], inactive_since=row["inactive_since"])
 
 
 async def pull_booked_referee(
@@ -855,7 +856,7 @@ async def preview_spiel_save(
     return FLPatchSpielDataResponse(
         advanced_to=advanced_to,
         released_sides=released_sides,
-        voided_results=voided_results_of([*advanced_to, *released_sides]),
+        voided_ergebnisse=voided_ergebnisse_of([*advanced_to, *released_sides]),
         version=judged.patched.version,
         recipients=recipients_named(told, names=names),
     )
@@ -898,7 +899,7 @@ async def _save_moving_nothing(
     """
 
     await _hold_the_read_version(spiel_id=spiel_id, stored=stored, payload=payload, collections=collections, session=session)
-    refuse(find_voided_results_refusal(confirmed=payload.voided_results, voided=[]))
+    refuse(find_voided_ergebnisse_refusal(confirmed=payload.voided_ergebnisse, voided=[]))
 
     if adopts_bericht is not None:
         stamped = await stamp_the_adoption(
@@ -912,7 +913,7 @@ async def _save_moving_nothing(
         if not stamped:
             raise APIError(HTTPStatus.CONFLICT, Code.VERSION_STALE)
 
-    return FLPatchSpielDataResponse(voided_results=[], version=stored.version, recipients=None)
+    return FLPatchSpielDataResponse(voided_ergebnisse=[], version=stored.version, recipients=None)
 
 
 async def _bracket_moves(judged: _JudgedSave, *, collections: SpielSaveCollections, session: AsyncClientSession) -> bool:
@@ -1015,8 +1016,8 @@ async def save_spiel_in_session(
 
     # Here, in the transaction deleting them and after both rewrites: a result another write entered or changed since the
     # dry run asked is refused rather than deleted unasked, and the whole save goes back with the refusal.
-    voided_results = voided_results_of([*advanced_to, *released_sides])
-    refuse(find_voided_results_refusal(confirmed=payload.voided_results, voided=voided_results))
+    voided_ergebnisse = voided_ergebnisse_of([*advanced_to, *released_sides])
+    refuse(find_voided_ergebnisse_refusal(confirmed=payload.voided_ergebnisse, voided=voided_ergebnisse))
 
     # A retirement, the erasure and a rival save at the same hour each judge fixtures and write none of this pass's,
     # so only a write to a row puts what this pass judged in their write sets.
@@ -1049,7 +1050,7 @@ async def save_spiel_in_session(
     return FLPatchSpielDataResponse(
         advanced_to=advanced_to,
         released_sides=released_sides,
-        voided_results=voided_results,
+        voided_ergebnisse=voided_ergebnisse,
         version=saved[VERSION_FIELD],
         recipients=None,
     )

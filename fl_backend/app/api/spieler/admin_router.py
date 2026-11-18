@@ -7,7 +7,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.grants.guard import ADMIN_TIER
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spieler.crud import (
-    refuse_a_full_squad,
+    refuse_a_full_kader,
     refuse_a_taken_rolle,
 )
 from app.api.spieler.schemas import (
@@ -23,7 +23,7 @@ from app.api.spieler.services import (
     build_held_rollen_filter,
     build_kader_pipeline,
     find_kader_stufe_refusal,
-    find_squad_refusal,
+    find_kader_team_refusal,
     mark_shared_nummern,
 )
 from app.api.teams.crud import pull_saison_team_names
@@ -35,8 +35,8 @@ from app.core.crud import (
     composite_version,
     find_stale_save_refusal,
     patch_one_in_db,
-    pull_many_from_db,
     pull_one_from_db,
+    pull_whole_from_db,
     refuse,
     set_inactive_since,
 )
@@ -54,8 +54,8 @@ from app.core.dependencies import (
 )
 from app.core.recording import record_act
 from app.core.routing import by_id
-from app.core.transactions import transaction_session
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.core.transactions import transact
+from app.shared.schemas.custom import CustomObjectId
 
 router = APIRouter(
     prefix="/spieler",
@@ -101,7 +101,7 @@ async def get_spieler_admin(
     summary="What the Spieler editor shows, in one read",
 )
 async def get_spieler_saison(
-    spieler_id: CustomRouteObjectId,
+    spieler_id: CustomObjectId,
     saison_id: str,
     spieler_collection: SpielerReadCollection,
     saison_spieler_collection: SaisonSpielerReadCollection,
@@ -122,10 +122,11 @@ async def get_spieler_saison(
         pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules"]),
     )
     team_id = row_raw["team_id"]
-    held, club = await concurrently(
-        pull_many_from_db(
+    held, team = await concurrently(
+        pull_whole_from_db(
             collection=saison_spieler_collection,
             db_filter=build_held_rollen_filter(saison_id=saison_id, team_id=team_id, excluding_spieler_id=spieler_id),
+            what=f"team {team_id}'s held roles in season {saison_id}",
             projection=["rolle"],
         ),
         # `find_one`: a club a replacement took out of the season holds no row, and this page still opens.
@@ -135,7 +136,7 @@ async def get_spieler_saison(
     return FLSpielerSaisonAdminResponse(
         version=composite_version(person_raw, row_raw),
         person=FLSpielerSaisonPerson.model_validate(person_raw),
-        kader=FLSpielerSaisonKader.model_validate({**row_raw, "team_name": (club or {}).get("name")}),
+        kader=FLSpielerSaisonKader.model_validate({**row_raw, "team_name": (team or {}).get("name")}),
         allowed_stufen=FLSaisonRules.model_validate(saison_raw["rules"]).allowed_stufen,
         taken_rollen=[row["rolle"] for row in held],
     )
@@ -146,7 +147,7 @@ async def get_spieler_saison(
     summary="Save the Spieler editor: the person and their squad row of the season, in one transaction",
 )
 async def patch_spieler_saison(
-    spieler_id: CustomRouteObjectId,
+    spieler_id: CustomObjectId,
     saison_id: str,
     spieler_data: FLPatchSpielerSaisonPayload,
     spieler_collection: SpielerCollection,
@@ -221,9 +222,8 @@ async def patch_spieler_saison(
         return FLPatchSpielerSaisonResponse(version=composite_version(person_raw, row_raw))
 
     # One transaction, or a refusal of the row's part leaves the person's half saved under an editor reading it as failed.
-    # `with_transaction` is safe to retry, every write deriving from the payload and an in-session read.
-    async with transaction_session(db) as session:
-        return await session.with_transaction(save_the_person_and_their_row)
+    # `transact` is safe to retry, every write deriving from the payload and an in-session read.
+    return await transact(db, save_the_person_and_their_row)
 
 
 @router.delete(
@@ -232,7 +232,7 @@ async def patch_spieler_saison(
     summary="Remove a Spieler from a squad",
 )
 async def delete_saison_spieler(
-    spieler_id: CustomRouteObjectId,
+    spieler_id: CustomObjectId,
     saison_id: str,
     saison_spieler_collection: SaisonSpielerCollection,
     db: DBClient,
@@ -256,8 +256,7 @@ async def delete_saison_spieler(
                 collection=saison_spieler_collection, action="spieler.deregistered", record_id=spieler_id, label=saison_id, session=session
             )
 
-    async with transaction_session(db) as session:
-        await session.with_transaction(take_the_player_out)
+    await transact(db, take_the_player_out)
 
 
 @router.post(
@@ -266,7 +265,7 @@ async def delete_saison_spieler(
     summary="Put a Spieler back in a squad they left",
 )
 async def reactivate_saison_spieler(
-    spieler_id: CustomRouteObjectId,
+    spieler_id: CustomObjectId,
     saison_id: str,
     saison_spieler_collection: SaisonSpielerCollection,
     saison_teams_collection: SaisonTeamsCollection,
@@ -295,10 +294,10 @@ async def reactivate_saison_spieler(
         ) > 0
         # Asked before the cap, as both siblings ask it: a full squad is not a fact worth reporting
         # about a club the season does not hold.
-        refuse(find_squad_refusal(team_in_saison=team_in_saison))
+        refuse(find_kader_team_refusal(team_in_saison=team_in_saison))
 
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules"], session=session)
-        await refuse_a_full_squad(
+        await refuse_a_full_kader(
             saison_spieler_collection=saison_spieler_collection,
             saisons_collection=saisons_collection,
             saison_id=saison_id,
@@ -330,5 +329,4 @@ async def reactivate_saison_spieler(
                 collection=saison_spieler_collection, action="spieler.reactivated", record_id=spieler_id, label=saison_id, session=session
             )
 
-    async with transaction_session(db) as session:
-        await session.with_transaction(bring_the_player_back)
+    await transact(db, bring_the_player_back)

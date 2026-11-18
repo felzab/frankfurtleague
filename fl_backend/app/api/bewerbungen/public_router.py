@@ -43,7 +43,7 @@ from app.api.bewerbungen.services import (
     find_already_answered_refusal,
     find_already_entered_refusal,
     find_expired_token_refusal,
-    find_picked_club_refusal,
+    find_picked_team_refusal,
     find_repeated_contact_refusal,
     find_saison_deadline_refusal,
     find_saison_past_einwilligung_refusal,
@@ -108,8 +108,8 @@ from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import Journal
 from app.core.routing import SAFE
 from app.core.security import BASE_TIER
-from app.core.transactions import transaction_session
-from app.shared.schemas.bounds import BEWERBUNG_KONTAKT_MAX_AGE_YEARS
+from app.core.transactions import transact
+from app.shared.schemas.bounds import BIRTH_DATE_MAX_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.einwilligung import by_choice
 from app.shared.schemas.responses import FLCreatedResponse
@@ -239,7 +239,7 @@ async def post_bewerbung(
         schule, team_raw = bewerbung_data.schule, None
         if schule is None:
             team_raw = await teams_collection.find_one({"_id": bewerbung_data.team_id}, {"inactive_since": 1, "name": 1}, session=session)
-            refuse(find_picked_club_refusal(team_raw=team_raw))
+            refuse(find_picked_team_refusal(team_raw=team_raw))
 
             entered = await saison_teams_collection.count_documents(
                 {"saison_id": bewerbung_data.saison_id, "team_id": bewerbung_data.team_id}, limit=1, session=session
@@ -311,23 +311,22 @@ async def post_bewerbung(
         return FLCreatedResponse(created_id=created.inserted_id)
 
     # The key lookup is the transaction's first read: a first press committed before this snapshot is
-    # found, and one committed after it makes the anchors or the insert a write conflict `with_transaction` retries.
-    async with transaction_session(db) as session:
-        return await session.with_transaction(store_or_replay)
+    # found, and one committed after it makes the anchors or the insert a write conflict `transact` retries.
+    return await transact(db, store_or_replay)
 
 
 async def _schule_name(*, bewerbung_raw: Mapping[str, Any], teams_collection: TeamsReadCollection) -> str:
     """The school's name as submitted, or the picked club's own."""
 
     if isinstance(bewerbung_raw.get("schule"), Mapping):
-        return bewerbung_schule(bewerbung_raw=bewerbung_raw, club_name=None)
+        return bewerbung_schule(bewerbung_raw=bewerbung_raw, team_name=None)
 
     # `find_one` rather than `pull_one_from_db`: an application without its own school names a club,
     # and no team is ever deleted, so a miss is a broken invariant rather than a 404 the view answers.
     team_raw = await teams_collection.find_one({"_id": bewerbung_raw["team_id"]}, projection={"name": 1})
     assert team_raw is not None
 
-    return bewerbung_schule(bewerbung_raw=bewerbung_raw, club_name=team_raw.get("name"))
+    return bewerbung_schule(bewerbung_raw=bewerbung_raw, team_name=team_raw.get("name"))
 
 
 async def _saison_view(
@@ -365,7 +364,7 @@ async def _saison_view(
         rolle=seat,
         also_rolle=also,
         minimum_age=minimum_age_for(seats),
-        maximum_age=BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
+        maximum_age=BIRTH_DATE_MAX_AGE_YEARS,
         deadline=seat_deadline_of(confirmations=row.get("confirmations"), seat=seat),
         answered_at=seat_answered_at(kontakte=row.get("kontakte"), confirmations=row.get("confirmations"), seat=seat),
     )
@@ -426,7 +425,7 @@ async def get_einwilligung_view(
         rolle=seat,
         also_rolle=also,
         minimum_age=minimum_age_for(seats),
-        maximum_age=BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
+        maximum_age=BIRTH_DATE_MAX_AGE_YEARS,
         deadline=seat_deadline_of(confirmations=bewerbung_raw.get("confirmations"), seat=seat),
         answered_at=seat_answered_at(kontakte=bewerbung_raw.get("kontakte"), confirmations=bewerbung_raw.get("confirmations"), seat=seat),
     )
@@ -653,5 +652,4 @@ async def post_einwilligung(
         )
 
     async with journal:
-        async with transaction_session(db) as session:
-            return await session.with_transaction(answer_for_the_person)
+        return await transact(db, answer_for_the_person)

@@ -89,7 +89,7 @@ async def on_a_league(
         return await body(database)
 
 
-def club_fields(**changed: Any) -> dict[str, Any]:
+def team_fields(**changed: Any) -> dict[str, Any]:
     return {
         "name": "Adler",
         "shorthand": "ADL",
@@ -102,12 +102,12 @@ def club_fields(**changed: Any) -> dict[str, Any]:
     }
 
 
-async def save(database: AsyncDatabase, *, version: int = 0, gruppe: str = "A", trikot_farbe: str | None = None, **club: Any) -> Any:
+async def save(database: AsyncDatabase, *, version: int = 0, gruppe: str = "A", trikot_farbe: str | None = None, **team: Any) -> Any:
     return await patch_team_saison(
         team_id=ADLER,
         saison_id=SAISON_ID,
         team_data=FLPatchTeamSaisonPayload.model_validate(
-            {**club_fields(**club), "gruppe": gruppe, "trikot_farbe": trikot_farbe, "version": version}
+            {**team_fields(**team), "gruppe": gruppe, "trikot_farbe": trikot_farbe, "version": version}
         ),
         teams_collection=database[Collection.TEAMS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
@@ -134,7 +134,7 @@ async def editor(database: AsyncDatabase, team_id: ObjectId = ADLER, *, referees
             schiedsrichter_collection=database[Collection.SCHIEDSRICHTER] if referees is None else referees,
             session=session,
             today=TODAY,
-            now=clock.german_instant(TODAY, "12:00:00"),
+            germany_now=clock.german_instant(TODAY, "12:00:00"),
         )
 
 
@@ -147,10 +147,10 @@ async def listing(database: AsyncDatabase, *, state: FLTeamListState | None = No
     )
 
 
-async def enter(database: AsyncDatabase, club: dict[str, Any], *, gruppe: str = "A", trikot_farbe: str | None = "rot") -> Any:
+async def enter(database: AsyncDatabase, team: dict[str, Any], *, gruppe: str = "A", trikot_farbe: str | None = "rot") -> Any:
     return await post_team_entry(
         saison_id=SAISON_ID,
-        entry_data=FLPostTeamEntryPayload.model_validate({"club": club, "gruppe": gruppe, "trikot_farbe": trikot_farbe}),
+        entry_data=FLPostTeamEntryPayload.model_validate({"team": team, "gruppe": gruppe, "trikot_farbe": trikot_farbe}),
         teams_collection=database[Collection.TEAMS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
@@ -158,7 +158,7 @@ async def enter(database: AsyncDatabase, club: dict[str, Any], *, gruppe: str = 
     )
 
 
-async def club_now(database: AsyncDatabase) -> Mapping[str, Any]:
+async def team_now(database: AsyncDatabase) -> Mapping[str, Any]:
     return await the_row(database, Collection.TEAMS, {"_id": ADLER})
 
 
@@ -169,16 +169,16 @@ async def row_now(database: AsyncDatabase, saison_id: str = SAISON_ID) -> Mappin
 class TestTheOneSave:
     """The editor's save spans two collections, so its harm is a half: a field shown as saved that is not, or the reverse."""
 
-    async def test_a_refused_row_part_saves_none_of_the_club(self, mongo_replica_set_url: str):
+    async def test_a_refused_row_part_saves_none_of_the_team(self, mongo_replica_set_url: str):
         """Judged ahead of every write: a group move the row refuses leaves the rename unsaved, so the save is whole or nothing."""
 
         async def body(database: AsyncDatabase) -> Any:
-            return await refused_code(save(database, gruppe="B", name="Adler neu")), await club_now(database), await row_now(database)
+            return await refused_code(save(database, gruppe="B", name="Adler neu")), await team_now(database), await row_now(database)
 
-        code, club, row = await on_a_league(mongo_replica_set_url, body)
+        code, team, row = await on_a_league(mongo_replica_set_url, body)
 
         assert code == Code.ENTRY_GRUPPE_FULL
-        assert (club["name"], club["version"]) == ("Adler", 0)
+        assert (team["name"], team["version"]) == ("Adler", 0)
         assert (row["name"], row["version"]) == ("Adler", 0)
 
     async def test_a_colour_moved_onto_another_row_s_is_refused(self, mongo_replica_set_url: str):
@@ -194,14 +194,14 @@ class TestTheOneSave:
         assert (refusal.error_code, refusal.fields) == (Code.TRIKOT_FARBE_TAKEN, (("trikot_farbe",),))
         assert row["trikot_farbe"] is None
 
-    async def test_a_stored_pair_of_colours_locks_neither_club_s_other_fields(self, mongo_replica_set_url: str):
+    async def test_a_stored_pair_of_colours_locks_neither_team_s_other_fields(self, mongo_replica_set_url: str):
         """A pair the ruling found standing: refused on every save, the rename would need the other club's colour moved first."""
 
         async def body(database: AsyncDatabase) -> Any:
             await database[Collection.SAISON_TEAMS].update_many({"team_id": {"$in": [ADLER, BIEBER]}}, {"$set": {"trikot_farbe": "rot"}})
             await save(database, trikot_farbe="rot", name="Adler neu")
 
-            return await club_now(database)
+            return await team_now(database)
 
         assert (await on_a_league(mongo_replica_set_url, body))["name"] == "Adler neu"
 
@@ -214,7 +214,7 @@ class TestTheOneSave:
             await database[moved].update_one(
                 {"team_id": ADLER} if moved == Collection.SAISON_TEAMS else {"_id": ADLER}, {"$inc": {"version": 1}}
             )
-            return await refused_code(save(database, version=served, name="Adler neu")), (await club_now(database))["name"]
+            return await refused_code(save(database, version=served, name="Adler neu")), (await team_now(database))["name"]
 
         assert await on_a_league(mongo_replica_set_url, body) == (Code.VERSION_STALE, "Adler")
 
@@ -234,32 +234,32 @@ class TestTheOneSave:
         assert second > first
         assert colour == "blau"
 
-    async def test_a_finished_season_takes_the_club_and_keeps_its_row(self, mongo_replica_set_url: str):
+    async def test_a_finished_season_takes_the_team_and_keeps_its_row(self, mongo_replica_set_url: str):
         """A past season's row is the name it was played under, so the rename stops at the club."""
 
         async def body(database: AsyncDatabase) -> Any:
             answer = await save(database, name="Adler neu")
 
-            return answer.version, await club_now(database), await row_now(database)
+            return answer.version, await team_now(database), await row_now(database)
 
-        version, club, row = await on_a_league(mongo_replica_set_url, body, saison_status="past")
+        version, team, row = await on_a_league(mongo_replica_set_url, body, saison_status="past")
 
-        assert club["name"] == "Adler neu"
+        assert team["name"] == "Adler neu"
         assert (row["name"], row["version"]) == ("Adler", 0)
-        assert version == club["version"]
+        assert version == team["version"]
 
     @pytest.mark.parametrize("changed", [{"gruppe": "B"}, {"trikot_farbe": "rot"}], ids=["the group", "the colour"])
     async def test_a_finished_season_refuses_its_row_moving_and_saves_nothing(self, mongo_replica_set_url: str, changed: dict[str, Any]):
         """Its table and podium are read off these rows, whatever else the save carries."""
 
         async def body(database: AsyncDatabase) -> Any:
-            return await refused_code(save(database, name="Adler neu", **changed)), (await club_now(database))["name"]
+            return await refused_code(save(database, name="Adler neu", **changed)), (await team_now(database))["name"]
 
         assert await on_a_league(mongo_replica_set_url, body, saison_status="past") == (Code.SAISON_PAST, "Adler")
 
 
 class TestTheRetirement:
-    async def test_a_club_in_a_running_season_stays_in_the_league(self, mongo_replica_set_url: str):
+    async def test_a_team_in_a_running_season_stays_in_the_league(self, mongo_replica_set_url: str):
         """Only a stale page reaches this, the button being locked: retired, the club drops out of the reads and placings shift."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -274,27 +274,27 @@ class TestTheRetirement:
                         today=TODAY,
                     )
                 ),
-                (await club_now(database))["inactive_since"],
+                (await team_now(database))["inactive_since"],
             )
 
         assert await on_a_league(mongo_replica_set_url, body, saison_status="active") == (Code.RETIRE_BLOCKED, None)
 
 
 class TestTheEntry:
-    async def test_a_refused_entry_founds_no_club(self, mongo_replica_set_url: str):
+    async def test_a_refused_entry_founds_no_team(self, mongo_replica_set_url: str):
         """The club is written first, so outside one transaction a full group leaves it in the league for nobody's asking."""
 
         async def body(database: AsyncDatabase) -> Any:
             return (
-                await refused_code(enter(database, {"kind": "new", "team": club_fields(name="Eschborn", shorthand="ESC")}, gruppe="B")),
+                await refused_code(enter(database, {"kind": "new", "team": team_fields(name="Eschborn", shorthand="ESC")}, gruppe="B")),
                 await database[Collection.TEAMS].count_documents({"name": "Eschborn"}),
             )
 
         assert await on_a_league(mongo_replica_set_url, body) == (Code.ENTRY_GRUPPE_FULL, 0)
 
-    async def test_a_new_club_is_founded_and_entered_with_its_colour(self, mongo_replica_set_url: str):
+    async def test_a_new_team_is_founded_and_entered_with_its_colour(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            answer = await enter(database, {"kind": "new", "team": club_fields(name="Eschborn", shorthand="ESC")})
+            answer = await enter(database, {"kind": "new", "team": team_fields(name="Eschborn", shorthand="ESC")})
             acts = database[Collection.ACTION_LOG].find({"action": "team.entered"})
 
             return await database[Collection.SAISON_TEAMS].find_one({"team_id": ObjectId(answer.team_id)}), [act["label"] async for act in acts]
@@ -311,13 +311,13 @@ class TestTheEntry:
 
         async def body(database: AsyncDatabase) -> Any:
             with pytest.raises(APIError) as refused:
-                await enter(database, {"kind": "new", "team": club_fields(name="Eschborn", shorthand="DOR")})
+                await enter(database, {"kind": "new", "team": team_fields(name="Eschborn", shorthand="DOR")})
 
             return refused.value.error_code, refused.value.fields
 
         assert await on_a_league(mongo_replica_set_url, body) == (Code.DUPLICATE_KEY, (("shorthand",),))
 
-    async def test_a_club_the_season_holds_is_refused_by_its_code(self, mongo_replica_set_url: str):
+    async def test_a_team_the_season_holds_is_refused_by_its_code(self, mongo_replica_set_url: str):
         """A dialog left open over an acceptance: named by its code, so the screen words it where the unique index would not."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -355,7 +355,7 @@ class TestTheList:
         assert everyone == ["Adler", "Bieber", "Eule"]
         assert retired == ["Dornbusch"]
 
-    async def test_a_departed_club_stands_under_its_own_state(self, mongo_replica_set_url: str):
+    async def test_a_departed_team_stands_under_its_own_state(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
             await database[Collection.SAISON_TEAMS].update_one({"team_id": BIEBER}, {"$set": {"austritt": EXIT}})
 
@@ -387,7 +387,7 @@ class TestTheList:
 
         assert [(row.seats_filled, row.seats_confirmed) for row in rows] == [(2, 1)]
 
-    async def test_the_entry_offers_the_clubs_it_would_take(self, mongo_replica_set_url: str):
+    async def test_the_entry_offers_the_teams_it_would_take(self, mongo_replica_set_url: str):
         """Neither a club already entered, which the unique index refuses, nor a retired one, which `team_retired` does."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -395,7 +395,7 @@ class TestTheList:
 
         offer = await on_a_league(mongo_replica_set_url, body)
 
-        assert [club.name for club in offer.clubs] == ["Cronberg"]
+        assert [team.name for team in offer.teams] == ["Cronberg"]
         assert [(group.gruppe, group.full) for group in offer.gruppen] == [("A", False), ("B", True)]
         assert offer.closed is False
 
@@ -408,7 +408,7 @@ class TestTheList:
 
 
 class TestTheEditorRead:
-    async def test_a_club_outside_the_season_answers_with_no_row(self, mongo_replica_set_url: str):
+    async def test_a_team_outside_the_season_answers_with_no_row(self, mongo_replica_set_url: str):
         """A retired club's page is its way back, so the read answers rather than 404s."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -420,7 +420,7 @@ class TestTheEditorRead:
         assert view.link is None
         assert view.team.inactive_since == "2025-07-01"
 
-    async def test_a_club_s_own_colour_stays_open_to_it_where_the_entry_counts_it_taken(self, mongo_replica_set_url: str):
+    async def test_a_team_s_own_colour_stays_open_to_it_where_the_entry_counts_it_taken(self, mongo_replica_set_url: str):
         """An editor closing its own colour would read as refusing the save that keeps it; a row with no colour holds none."""
 
         async def body(database: AsyncDatabase) -> Any:

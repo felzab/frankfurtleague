@@ -86,12 +86,12 @@ class TestTheMintFirstAsksInsideItsWindow:
 
         assert request_is_due(spiel=spiel(date=TODAY), austritte={}, now=NOW, asked_before=False) is False
 
-    def test_a_club_gone_after_the_spiel_is_still_asked(self):
+    def test_a_team_gone_after_the_spiel_is_still_asked(self):
         """Its exit the day after the fixture, the club still plays it: only an exit by the fixture's day shuts the row."""
 
         assert request_is_due(spiel=spiel(), austritte={ALPHA: days_after(day=spiel()["date"], days=1)}, now=NOW, asked_before=False) is True
 
-    def test_a_club_gone_on_the_spiels_day_is_not_asked(self):
+    def test_a_team_gone_on_the_spiels_day_is_not_asked(self):
         """The next close shuts a row its club left by the fixture's day, so a request here would be minted afresh every pass."""
 
         assert request_is_due(spiel=spiel(), austritte={ALPHA: spiel()["date"]}, now=NOW, asked_before=False) is False
@@ -269,7 +269,7 @@ class TestASaveNamesOnlyThoseItsOwnChangeTells:
 
         assert told == [[TEAM], []]
 
-    def test_an_asked_move_names_the_discarded_club_its_request_tells(self):
+    def test_an_asked_move_names_the_discarded_team_its_request_tells(self):
         """The mint asks the discarded club about the new slot, naming the slot left: a mail of the move, so the question names it."""
 
         opponent = {"kind": "team", "team_id": BETA}
@@ -293,7 +293,7 @@ class TestATeamsPagesDropARowItsMatchDecided:
         """Kept until the hourly close, an unanswered row reads „Abgelaufen“ and „Die Liga entscheidet“ about a match decided."""
 
         unclosed = row(TEAM, deadline=TODAY, answer=answer, closed=None)
-        state = AnsetzungState(spiel=spiel(**decided), vereine=[])
+        state = AnsetzungState(spiel=spiel(**decided), junctions=[])
 
         assert (
             team_state_of(spielbestaetigung_raw=unclosed, ansetzung_state=state, now=KICK_OFF + timedelta(hours=2), vorschlag_open=None) is None
@@ -304,6 +304,6 @@ class TestATeamsPagesDropARowItsMatchDecided:
         """Inside its deadline, an exit ends the question: kept until the close, the row would read „Abgelaufen“ or as its answer."""
 
         unclosed = row(TEAM, deadline=TODAY, answer=answer, closed=None)
-        state = AnsetzungState(spiel=spiel(), vereine=[{"team_id": BETA, "austritt": {"date": TODAY}}])
+        state = AnsetzungState(spiel=spiel(), junctions=[{"team_id": BETA, "austritt": {"date": TODAY}}])
 
         assert team_state_of(spielbestaetigung_raw=unclosed, ansetzung_state=state, now=NOW, vorschlag_open=None) is None

@@ -34,9 +34,9 @@ from app.core.dependencies import (
 from app.core.journal import Journal
 from app.core.routing import by_id
 from app.core.security import PERSON_TIER, PersonIdentifier
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.einwilligung_evidence import FLEinwilligungChoice
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.einwilligung import FLSchiedsrichterAccountEinwilligungPayload, by_choice
 
 # A person's own router, apart from the admin one and the confirmation one.
@@ -52,7 +52,7 @@ router = APIRouter(
     summary="Change a signed-in referee's own publication and media consent",
 )
 async def patch_einwilligung(
-    schiedsrichter_id: CustomRouteObjectId,
+    schiedsrichter_id: CustomObjectId,
     einwilligung_data: FLSchiedsrichterAccountEinwilligungPayload,
     identifier: PersonIdentifier,
     schiedsrichter_collection: SchiedsrichterCollection,
@@ -106,8 +106,7 @@ async def patch_einwilligung(
             journal.note("withdrawal", [f"{Collection.SCHIEDSRICHTER}/{row['_id']}"], choices=list(choices))
 
     async with journal:
-        async with transaction_session(db) as session:
-            await session.with_transaction(write)
+        await transact(db, write)
 
 
 @router.get(
@@ -120,7 +119,7 @@ async def get_self_spiele(
     spiele_collection: SpieleReadCollection,
     records: SubjectLookup,
     session: SnapshotSession,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLSchiedsrichterSpieleResponse:
     """Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, open work first.
 
@@ -140,7 +139,7 @@ async def get_self_spiele(
     )
 
     return FLSchiedsrichterSpieleResponse(
-        saison_id=saison_id, spiele=order_self_spiele([compose_self_spiel(spiel, now=now) for spiel in spiele])
+        saison_id=saison_id, spiele=order_self_spiele([compose_self_spiel(spiel, now=germany_now) for spiel in spiele])
     )
 
 

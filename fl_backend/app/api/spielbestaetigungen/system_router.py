@@ -12,9 +12,9 @@ from app.api.aufstellungen.services import aufstellung_marks, aufstellung_remind
 from app.api.invitations.services import confirmed_recipients
 from app.api.outbox.schemas import (
     FLAufstellungReminderData,
-    FLOutboxClub,
     FLOutboxData,
     FLOutboxReference,
+    FLOutboxTeam,
     FLSpielEinteilungData,
     FLSpielMailAppointment,
     FLSpielRequestData,
@@ -51,6 +51,7 @@ from app.api.spielbestaetigungen.services import (
     compose_reminder_update,
     compose_spielbestaetigung,
     decision_of,
+    junction_names_of,
     moved_notice_of,
     notice_data_of,
     notice_owed,
@@ -65,7 +66,6 @@ from app.api.spielbestaetigungen.services import (
     spiel_mail_slot_of,
     still_a_party,
     team_mails,
-    vereinsnamen_of,
     view_ansetzung_of,
     was_discarded,
 )
@@ -272,7 +272,7 @@ async def sweep_spielbestaetigungen(
     aufstellungen_collection: AufstellungenReadCollection,
     db: DBClient,
     today: GermanDay,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLSpielbestaetigungSweepResponse:
     """Close, mint and remind one season's fixture confirmations as of today, owing each mail with its row, and answer what it did, counted.
 
@@ -316,14 +316,14 @@ async def sweep_spielbestaetigungen(
             return spiele[row["spiel_id"]]
 
         def reason_of(row: Mapping[str, Any]) -> FLSpielbestaetigungClosedReason | None:
-            return reason_to_close(row=row, spiel=spiel_of(row), austritte=austritte, now=now)
+            return reason_to_close(row=row, spiel=spiel_of(row), austritte=austritte, now=germany_now)
 
         reasons: dict[Any, FLSpielbestaetigungClosedReason] = {
             row["_id"]: reason
             for row, reason in batch.judged(rows, reason_of)
             # A move whose new slot the mint asks today is the mint's to close, its request the one mail telling of it.
             if reason is not None
-            and not (reason == "ansetzung_changed" and asked_with_its_move(row=row, spiel=spiel_of(row), austritte=austritte, now=now))
+            and not (reason == "ansetzung_changed" and asked_with_its_move(row=row, spiel=spiel_of(row), austritte=austritte, now=germany_now))
         }
         taken = batch.took([row for row in rows if row["_id"] in reasons][: batch.share])
         refuse_a_stalled_page(read=len(rows), moved=len(taken) + len(batch.refused), page=SWEEP_PAGE, clock="close", saison_id=saison_id)
@@ -332,7 +332,7 @@ async def sweep_spielbestaetigungen(
         if taken:
             await anchor_the_spiele_acted_on(spiele_collection=spiele_collection, spiel_ids=[row["spiel_id"] for row in taken], session=session)
 
-        owing = [row for row in taken if notice_owed(row=row, reason=reasons[row["_id"]], spiel=spiele[row["spiel_id"]], now=now)]
+        owing = [row for row in taken if notice_owed(row=row, reason=reasons[row["_id"]], spiel=spiele[row["spiel_id"]], now=germany_now)]
         addresses = await _referee_addresses(
             schiedsrichter_collection=schiedsrichter_collection,
             ids=[row["party"]["schiedsrichter_id"] for row in owing if row["party"]["kind"] == "schiedsrichter"],
@@ -340,13 +340,13 @@ async def sweep_spielbestaetigungen(
         )
 
         mails: list[OwedMail] = []
-        told_clubs: set[Any] = set()
+        told_teams: set[Any] = set()
         told_referees: set[Any] = set()
         for row in owing:
             reason, party = reasons[row["_id"]], row["party"]
             # The clubs the row asked about, off the season rows read by its own clubs.
-            names = vereinsnamen_of(
-                spielbestaetigung_raw=row, ansetzung_state=AnsetzungState(spiel=spiele[row["spiel_id"]], vereine=list(junctions.values()))
+            names = junction_names_of(
+                spielbestaetigung_raw=row, ansetzung_state=AnsetzungState(spiel=spiele[row["spiel_id"]], junctions=list(junctions.values()))
             )
             appointment = spiel_mail_appointment_of(spielbestaetigung_raw=row, names=names)
             data: FLOutboxData
@@ -382,14 +382,14 @@ async def sweep_spielbestaetigungen(
                 continue
             told = team_mails(spielbestaetigung_raw=row, kontakte=junction.get("kontakte"), data=data, occasion=reason)
             if told:
-                told_clubs.add(junction["_id"])
+                told_teams.add(junction["_id"])
                 mails += told
 
         # Ahead of the writes: what each mail's mailbox was read off, so a seat emptied or an address moved beside this
         # step conflicts with it rather than leaving the replaced mailbox told.
-        if told_clubs:
+        if told_teams:
             await anchor_the_mailboxes_told(
-                saison_teams_collection=saison_teams_collection, saison_team_ids=sorted(told_clubs, key=str), session=session
+                saison_teams_collection=saison_teams_collection, saison_team_ids=sorted(told_teams, key=str), session=session
             )
         if told_referees:
             await anchor_the_referees_told(
@@ -412,7 +412,7 @@ async def sweep_spielbestaetigungen(
                 expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
-        await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=mails, now=now)
+        await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=mails, now=germany_now)
 
         return _Closed(closed=len(taken), mails=len(mails))
 
@@ -467,7 +467,7 @@ async def sweep_spielbestaetigungen(
             session=session,
         )
         austritte = _austritte(junctions)
-        vereine = list(junctions.values())
+        junction_rows = list(junctions.values())
 
         # Each row holding its party's question about an Ansetzung its fixture left, a discard as an agreement, the mint's
         # to close where its party is asked about the new one now, oldest first, so the newest is the slot a request
@@ -478,7 +478,7 @@ async def sweep_spielbestaetigungen(
             spiel = by_id[row["spiel_id"]]
             if row["ansetzung"]["digest"] == digests[spiel["_id"]]:
                 continue
-            if asked_with_its_move(row=row, spiel=spiel, austritte=austritte, now=now):
+            if asked_with_its_move(row=row, spiel=spiel, austritte=austritte, now=germany_now):
                 moved.setdefault((spiel["_id"], party_key(row["party"])), []).append(row)
             else:
                 waiting.add(spiel["_id"])
@@ -492,7 +492,7 @@ async def sweep_spielbestaetigungen(
         def plan_of(spiel: Mapping[str, Any]) -> _MintPlan:
             plan = _MintPlan()
             asked_before = any(spiel_id == spiel["_id"] for spiel_id, _ in moved)
-            if spiel["_id"] in waiting or not request_is_due(spiel=spiel, austritte=austritte, now=now, asked_before=asked_before):
+            if spiel["_id"] in waiting or not request_is_due(spiel=spiel, austritte=austritte, now=germany_now, asked_before=asked_before):
                 return plan
 
             digest = digests[spiel["_id"]]
@@ -510,13 +510,15 @@ async def sweep_spielbestaetigungen(
                     )
                 # The slot the move left, the newest asked about, where the party was asked about it and either day is
                 # still to come.
-                told = left[-1] if left and notice_owed(row=left[-1], reason="ansetzung_changed", spiel=spiel, now=now) else None
+                told = left[-1] if left and notice_owed(row=left[-1], reason="ansetzung_changed", spiel=spiel, now=germany_now) else None
                 moved_from = (
                     None
                     if told is None
                     else spiel_mail_appointment_of(
                         spielbestaetigung_raw=told,
-                        names=vereinsnamen_of(spielbestaetigung_raw=told, ansetzung_state=AnsetzungState(spiel=spiel, vereine=vereine)),
+                        names=junction_names_of(
+                            spielbestaetigung_raw=told, ansetzung_state=AnsetzungState(spiel=spiel, junctions=junction_rows)
+                        ),
                     )
                 )
 
@@ -619,7 +621,7 @@ async def sweep_spielbestaetigungen(
                     return_document=ReturnDocument.BEFORE,
                 )
         mails = [mail for _, plan in taken for mail in plan.mails]
-        await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=mails, now=now)
+        await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=mails, now=germany_now)
 
         return _Minted(
             written=sum(plan.written for _, plan in taken),
@@ -655,7 +657,7 @@ async def sweep_spielbestaetigungen(
         def reminder_of(row: Mapping[str, Any]) -> list[OwedMail]:
             spiel = spiele[row["spiel_id"]]
             # A row the close would shut answers no press, so a reminder of it would ask for nothing.
-            if reason_to_close(row=row, spiel=spiel, austritte=austritte, now=now) is not None:
+            if reason_to_close(row=row, spiel=spiel, austritte=austritte, now=germany_now) is not None:
                 return []
 
             return _request(row=row, spiel=spiel, kontakte=junctions[row["party"]["team_id"]].get("kontakte"), kind="spiel_reminder")
@@ -685,7 +687,9 @@ async def sweep_spielbestaetigungen(
                 expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
-        await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=[mail for _, mails in taken for mail in mails], now=now)
+        await enqueue_mails(
+            outbox_collection=outbox_collection, session=session, mails=[mail for _, mails in taken for mail in mails], now=germany_now
+        )
 
         return [len(mails) for _, mails in taken]
 
@@ -705,7 +709,7 @@ async def sweep_spielbestaetigungen(
                 session=session,
             )
         )
-        due = [spiel for spiel in spiele if aufstellung_reminder_owed(date=spiel.get("date"), time=spiel.get("time"), now=now)]
+        due = [spiel for spiel in spiele if aufstellung_reminder_owed(date=spiel.get("date"), time=spiel.get("time"), now=germany_now)]
         if not due:
             return 0
 
@@ -729,25 +733,28 @@ async def sweep_spielbestaetigungen(
         )
         austritte = _austritte(junctions)
 
-        def clubs_owed(spiel: Mapping[str, Any]) -> list[Any]:
+        def teams_owed(spiel: Mapping[str, Any]) -> list[Any]:
             """The fixture's clubs holding no line-up for it that stands (`aufstellung_stands`), the fixture still theirs to play on its day."""
 
-            clubs = [spiel[side]["team_id"] for side in ("team1", "team2")]
-            if decision_of(spiel=spiel, austritte=[austritte[club] for club in clubs if club in austritte], tag=spiel["date"]) is not None:
+            team_ids = [spiel[side]["team_id"] for side in ("team1", "team2")]
+            if (
+                decision_of(spiel=spiel, austritte=[austritte[team_id] for team_id in team_ids if team_id in austritte], tag=spiel["date"])
+                is not None
+            ):
                 return []
 
             # Every club a fixture fields holds its season row: no write removes one, and a replacement moves the fixtures.
-            return [club for club in clubs if (spiel["_id"], club) not in stored]
+            return [team_id for team_id in team_ids if (spiel["_id"], team_id) not in stored]
 
-        owed = [(spiel, club) for spiel, clubs in batch.judged(due, clubs_owed) for club in clubs]
+        owed = [(spiel, team_id) for spiel, team_ids in batch.judged(due, teams_owed) for team_id in team_ids]
         reminded = {
             row["key"]
             for row in await outbox_collection.find(
                 {
                     "key": {
                         "$in": [
-                            aufstellung_reminder_key(spiel_id=spiel["_id"], team_id=club, seat=seat)
-                            for spiel, club in owed
+                            aufstellung_reminder_key(spiel_id=spiel["_id"], team_id=team_id, seat=seat)
+                            for spiel, team_id in owed
                             for seat in KONTAKT_ROLLEN
                         ]
                     }
@@ -759,17 +766,17 @@ async def sweep_spielbestaetigungen(
 
         mails: list[OwedMail] = []
         told: dict[Any, set[Any]] = {}
-        for spiel, club in owed:
+        for spiel, team_id in owed:
             # Any seat's key stored is the club reminded, whoever holds its seats now.
-            if any(aufstellung_reminder_key(spiel_id=spiel["_id"], team_id=club, seat=seat) in reminded for seat in KONTAKT_ROLLEN):
+            if any(aufstellung_reminder_key(spiel_id=spiel["_id"], team_id=team_id, seat=seat) in reminded for seat in KONTAKT_ROLLEN):
                 continue
-            marks = aufstellung_marks(date=spiel["date"], time=spiel["time"], stored=False, now=now)
+            marks = aufstellung_marks(date=spiel["date"], time=spiel["time"], stored=False, now=germany_now)
             assert marks is not None
-            junction = junctions[club]
+            junction = junctions[team_id]
             data = FLAufstellungReminderData(
                 kind="aufstellung_reminder",
                 team=junction["name"],
-                team_id=club,
+                team_id=team_id,
                 saison_id=saison_id,
                 # As the fixture's request states it, its ground among the rest.
                 appointment=spiel_mail_ansetzung_of(view_ansetzung_of(spiel)),
@@ -777,13 +784,13 @@ async def sweep_spielbestaetigungen(
             )
             owed_here = [
                 OwedMail(
-                    key=aufstellung_reminder_key(spiel_id=spiel["_id"], team_id=club, seat=recipient.rolle),
+                    key=aufstellung_reminder_key(spiel_id=spiel["_id"], team_id=team_id, seat=recipient.rolle),
                     to=recipient.email,
                     data=data,
                     reference=FLOutboxReference(collection=Collection.SAISON_TEAMS, id=junction["_id"], seat=None),
                     # Given up at the due mark: sent later, it would ask for the line-up by a moment gone by.
                     valid_until=marks.due_at,
-                    club=FLOutboxClub(saison_id=saison_id, team_id=club),
+                    team=FLOutboxTeam(saison_id=saison_id, team_id=team_id),
                 )
                 for recipient in confirmed_recipients(kontakte=junction.get("kontakte"))
             ]
@@ -803,7 +810,7 @@ async def sweep_spielbestaetigungen(
                 saison_team_ids=sorted({row_id for row_ids in told.values() for row_id in row_ids}, key=str),
                 session=session,
             )
-        await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=mails, now=now)
+        await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=mails, now=germany_now)
 
         return len(mails)
 

@@ -234,10 +234,10 @@ def saison() -> PayloadFactory:
             "registrierung": None,
             # Derived and on no document; spelled out rather than computed, so a `schedule_for` change shows here.
             "schedule": [
-                {"phase": "gruppenphase", "spieltage": 3, "matches_per_spieltag": 8},
-                {"phase": "viertelfinale", "spieltage": 1, "matches_per_spieltag": 4},
-                {"phase": "halbfinale", "spieltage": 1, "matches_per_spieltag": 2},
-                {"phase": "finale", "spieltage": 1, "matches_per_spieltag": 2},
+                {"phase": "gruppenphase", "spieltage": 3, "spiele_per_spieltag": 8},
+                {"phase": "viertelfinale", "spieltage": 1, "spiele_per_spieltag": 4},
+                {"phase": "halbfinale", "spieltage": 1, "spiele_per_spieltag": 2},
+                {"phase": "finale", "spieltage": 1, "spiele_per_spieltag": 2},
             ],
         }
     )

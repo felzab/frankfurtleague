@@ -2335,7 +2335,7 @@ export interface FLEinwilligung {
 /**
  * A club the league holds, picked from the list's create dialog.
  */
-export interface FLEntryKnownClub {
+export interface FLEntryKnownTeam {
   kind: "known";
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
@@ -2366,7 +2366,7 @@ export interface FLPostTeamPayload {
 /**
  * A club the entry founds, in the transaction that enters it.
  */
-export interface FLEntryNewClub {
+export interface FLEntryNewTeam {
   kind: "new";
   team: FLPostTeamPayload;
 }
@@ -2773,7 +2773,7 @@ export interface FLSpielSchiedsrichterFieldPublic {
  */
 export interface FLSpielortFieldPublic {
   /** @minLength 1 */
-  maps_link: string;
+  maps_query: string;
   /** @minLength 1 */
   name: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -3403,7 +3403,7 @@ export interface FLSpielSchiedsrichterField {
  */
 export interface FLSpielortField {
   /** @minLength 1 */
-  maps_link: string;
+  maps_query: string;
   /** @minimum 0 */
   mietpreis: number;
   /** @minLength 1 */
@@ -3807,7 +3807,7 @@ export interface FLSpielTeamFieldPayload {
 /**
  * A later fixture's stored result that a save deletes: its ground score, its shoot-out and a no-show, each null where it held none.
  */
-export interface FLSpielVoidedResult {
+export interface FLSpielVoidedErgebnis {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;
   /** @exclusiveMinimum 0 */
@@ -3831,7 +3831,7 @@ export interface FLPatchSpielDataPayload {
   time: string | null;
   /** @minimum 0 */
   version: number;
-  voided_results?: FLSpielVoidedResult[];
+  voided_ergebnisse?: FLSpielVoidedErgebnis[];
 }
 
 /**
@@ -3868,7 +3868,7 @@ export interface FLSpielReleasedSide {
 /**
  * Every fixture the save moved beyond its own edit, each with the result it destroyed, and the fixture's `version` after it.
  *
- * `voided_results` is the set a save names in its body to delete those results, and `recipients`, on a `dry_run` alone,
+ * `voided_ergebnisse` is the set a save names in its body to delete those results, and `recipients`, on a `dry_run` alone,
  * every party the confirmation pass would mail of the change.
  */
 export interface FLPatchSpielDataResponse {
@@ -3876,7 +3876,7 @@ export interface FLPatchSpielDataResponse {
   recipients: (FLSpielRecipientTeam | FLSpielRecipientSchiedsrichter)[] | null;
   released_sides: FLSpielReleasedSide[];
   version: number;
-  voided_results: FLSpielVoidedResult[];
+  voided_ergebnisse: FLSpielVoidedErgebnis[];
 }
 
 /**
@@ -4106,8 +4106,8 @@ export interface FLPostSpielortPayload {
  * One club's entry into a season, the club known or new. One field rather than two nullable ones, so no body names both.
  */
 export interface FLPostTeamEntryPayload {
-  club: FLEntryKnownClub | FLEntryNewClub;
   gruppe: FLGruppenNames;
+  team: FLEntryKnownTeam | FLEntryNewTeam;
   trikot_farbe: FLTrikotFarbe | null;
 }
 
@@ -4320,9 +4320,9 @@ export interface FLSaisonBewerbung {
  * phases the season plays, in playing order.
  */
 export interface FLSaisonPhaseSchedule {
-  /** @minimum 0 */
-  matches_per_spieltag: number;
   phase: FLSaisonPhase;
+  /** @minimum 0 */
+  spiele_per_spieltag: number;
   /** @minimum 0 */
   spieltage: number;
 }
@@ -5486,7 +5486,7 @@ export interface FLSpielort {
   id: string;
   inactive_since: string | null;
   /** @minLength 1 */
-  maps_link: string;
+  maps_query: string;
   /** @minLength 1 */
   name: string;
   version: number;
@@ -5738,16 +5738,6 @@ export interface FLTeam {
 }
 
 /**
- * A club the entry's picker offers: one still in the league that holds no row of the season.
- */
-export interface FLTeamEntryClub {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-  name: string;
-  shorthand: string;
-}
-
-/**
  * One group a season offers, closed where it is full.
  */
 export interface FLTeamGruppeOffer {
@@ -5756,13 +5746,23 @@ export interface FLTeamGruppeOffer {
 }
 
 /**
+ * A club the entry's picker offers: one still in the league that holds no row of the season.
+ */
+export interface FLTeamEntryTeam {
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  name: string;
+  shorthand: string;
+}
+
+/**
  * What the list's create dialog offers, and why the entry would be refused now.
  */
 export interface FLTeamEntryOffer {
   closed: boolean;
-  clubs: FLTeamEntryClub[];
   gruppen: FLTeamGruppeOffer[];
   taken: FLTrikotFarbe[];
+  teams: FLTeamEntryTeam[];
 }
 
 /**
@@ -5882,29 +5882,6 @@ export interface FLTeamOverviewResponse {
 }
 
 /**
- * The club as its page in one season shows it: the school, its group, and how it left the season if it did.
- *
- * The whole `austritt` record, reason and day: this page is the one that publishes them.
- */
-export interface FLTeamPageClub {
-  address: FLAddress;
-  austritt: FLAustritt | null;
-  /** @maxLength 4096 */
-  description: string;
-  /** @minLength 1 */
-  full_name: string;
-  gruppe: FLGruppenNames;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-  /** @minLength 1 */
-  name: string;
-  schulform: FLSchulform | null;
-  /** @pattern ^[A-Z]{3}$ */
-  shorthand: string;
-  website_url: string | null;
-}
-
-/**
  * One of a club's matches with its matchday's `position` and its phase's count of matchdays, which the page names the matchday by.
  */
 export interface FLTeamPageSpiel {
@@ -5941,6 +5918,29 @@ export interface FLTeamPageSpiel {
 }
 
 /**
+ * The club as its page in one season shows it: the school, its group, and how it left the season if it did.
+ *
+ * The whole `austritt` record, reason and day: this page is the one that publishes them.
+ */
+export interface FLTeamPageTeam {
+  address: FLAddress;
+  austritt: FLAustritt | null;
+  /** @maxLength 4096 */
+  description: string;
+  /** @minLength 1 */
+  full_name: string;
+  gruppe: FLGruppenNames;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  /** @minLength 1 */
+  name: string;
+  schulform: FLSchulform | null;
+  /** @pattern ^[A-Z]{3}$ */
+  shorthand: string;
+  website_url: string | null;
+}
+
+/**
  * One club's page in one season: the club, its row of the Tabelle, its matches and its squad.
  *
  * `standing` is null for a club no group of the Tabelle lists, one that left the league; `spiele` are in the order the
@@ -5951,7 +5951,7 @@ export interface FLTeamPageResponse {
   kader: FLSpielerPublic[];
   spiele: FLTeamPageSpiel[];
   standing: FLTabelleRow | null;
-  team: FLTeamPageClub;
+  team: FLTeamPageTeam;
 }
 
 /**

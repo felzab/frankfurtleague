@@ -409,7 +409,7 @@ class TestReportingAFault:
     def test_a_spiel_naming_itself_is_reported(self, spiel_at: SpielFactory, side: SideFactory):
         assert faults([spiel_at(29, team1=side(1), quelle1=sieger(29))]) == [(29, "reference_cycle")]
 
-    def test_two_sources_resolving_to_one_club_are_reported(self, spiel_at: SpielFactory, side: SideFactory):
+    def test_two_sources_resolving_to_one_team_are_reported(self, spiel_at: SpielFactory, side: SideFactory):
         spiele = [
             spiel_at(25, team1=side(1, 3), team2=side(2, 1), ergebnis="3:1"),
             spiel_at(29, quelle1=sieger(25), quelle2=sieger(25)),

@@ -84,7 +84,7 @@ from app.api.schiedsrichter.services import compose_confirmation_update as compo
 from app.api.schiedsrichter.services import compose_mint_update
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment
 from app.api.spielbestaetigungen.services import compose_answer_update, compose_schiedsrichter_answer_update, compose_spielbestaetigung
-from app.api.spielorte.services import compose_maps_link
+from app.api.spielorte.services import compose_maps_query
 from app.api.teams.services import compose_kontakt_confirmation
 from app.core import clock
 from app.core.collections import Collection
@@ -208,7 +208,7 @@ SEASON_COLOURS: Final = ("blau", "gruen", "rot", "gelb", "orange", "weiss", "sch
 
 # Pappel joined through its application for the planned season. Buche left the league and stands in no season, the
 # retired filter being the one way back to it.
-CLUB_NAMES: Final = ("Ahorn", "Birke", "Eiche", "Linde", "Ulme", "Esche", "Kastanie", "Weide", "Pappel", "Buche")
+TEAM_NAMES: Final = ("Ahorn", "Birke", "Eiche", "Linde", "Ulme", "Esche", "Kastanie", "Weide", "Pappel", "Buche")
 
 # The finished season. Both groups play one pattern of scores, each fixture's taken by its place in its group's round:
 # group A ends Ahorn 7, Birke 6, Eiche 4, Linde 0 points and group B Ulme, Esche, Kastanie, Weide alike, which is who the
@@ -225,8 +225,8 @@ KNOCKOUT_SCORES: Final[Mapping[int, Mapping[str, Any]]] = {
 POSITIONS: Final = ("Tor", "Abwehr", "Mittelfeld", "Angriff")
 
 # With Mia and Jonas, Ahorn's squad fills the rules' `max_kader_size`, so a full squad and a nominee outside its count
-# stand together (`CAPPED_SQUAD_ROW`), and the retired nominee's reactivation passes the cap.
-AHORN_SQUAD: Final = (
+# stand together (`CAPPED_KADER_ROW`), and the retired nominee's reactivation passes the cap.
+AHORN_KADER: Final = (
     ("Noah", "Adler"),
     ("Lea", "Bauer"),
     ("Finn", "Claus"),
@@ -248,7 +248,7 @@ AHORN_SQUAD: Final = (
 # Ulme's squad, the phone's contact seat's line-up to enter, at the cap as Ahorn's is; and Kastanie's beside Lena, the
 # club's line-up for match 10. No name holds either `squadded` pupil's, whom the administration's journey opens by a link
 # whose name holds theirs.
-ULME_SQUAD: Final = (
+ULME_KADER: Final = (
     ("Anton", "Umbach"),
     ("Clara", "Unger"),
     ("David", "Uhl"),
@@ -268,7 +268,7 @@ ULME_SQUAD: Final = (
     ("Tilda", "Umlauf"),
     ("Vincent", "Unland"),
 )
-KASTANIE_SQUAD: Final = (
+KASTANIE_KADER: Final = (
     ("Mila", "Kolbe"),
     ("Jonte", "Kramer"),
     ("Smilla", "Kurz"),
@@ -338,13 +338,13 @@ class MadeUpLeague:
 
     def __post_init__(self) -> None:
         self.today = clock.german_day(self.now)
-        self._clubs()
+        self._teams()
         self._venues_and_referees()
         self._grants()
         self.played: list[Season] = []
         self.spielbestaetigungen: list[dict[str, Any]] = []
         self.spieler: list[dict[str, Any]] = []
-        self.squads: list[dict[str, Any]] = []
+        self.kader_rows: list[dict[str, Any]] = []
         self.invitations: dict[str, dict[str, Any]] = {}
         self.registrierungen: list[dict[str, Any]] = []
         self.spielberichte: list[dict[str, Any]] = []
@@ -354,7 +354,7 @@ class MadeUpLeague:
             self.played = [self.finished, self.running]
             self._seats()
             self._requests()
-            self._squads()
+            self._kader_rows()
             self._registrations()
         self._planned_season()
         self._access()
@@ -371,12 +371,12 @@ class MadeUpLeague:
 
     # --- The clubs ------------------------------------------------------------------------------------------------
 
-    def _clubs(self) -> None:
+    def _teams(self) -> None:
         self.teams = [
-            team_document(ObjectId(), name, name[:3].upper(), description="", **school(name, index)) for index, name in enumerate(CLUB_NAMES)
+            team_document(ObjectId(), name, name[:3].upper(), description="", **school(name, index)) for index, name in enumerate(TEAM_NAMES)
         ]
-        self.club = {row["name"]: row for row in self.teams}
-        self.club["Buche"]["inactive_since"] = self.day(-400)
+        self.team_by_name = {row["name"]: row for row in self.teams}
+        self.team_by_name["Buche"]["inactive_since"] = self.day(-400)
 
     # --- Venues and referees --------------------------------------------------------------------------------------
 
@@ -387,7 +387,7 @@ class MadeUpLeague:
                 name,
                 default_mietpreis=rent,
                 address=at,
-                maps_link=compose_maps_link(name, FLAddress(**at)),
+                maps_query=compose_maps_query(name, FLAddress(**at)),
                 inactive_since=inactive_since,
             )
 
@@ -536,9 +536,9 @@ class MadeUpLeague:
         rows = [
             saison_team_document(
                 saison_id,
-                self.club[name]["_id"],
+                self.team_by_name[name]["_id"],
                 name,
-                self.club[name]["shorthand"],
+                self.team_by_name[name]["shorthand"],
                 _id=ObjectId(),
                 gruppe=gruppe,
                 trikot_farbe=SEASON_COLOURS[index],
@@ -561,7 +561,7 @@ class MadeUpLeague:
         ]
 
         def side(name: str, tore: int | None) -> dict[str, Any]:
-            return {"team_id": self.club[name]["_id"], "tore": tore}
+            return {"team_id": self.team_by_name[name]["_id"], "tore": tore}
 
         spiele = []
         for drawn_spiel in spielplan.spiele:
@@ -804,18 +804,18 @@ class MadeUpLeague:
     def row_seats(self, owner: str, sent_on: int, states: Mapping[str, SeatState]) -> dict[str, Any]:
         return self.seats(Mail(owner, sent_on, False), states)
 
-    def journey_seat(self, club_name: str, trainer: Mapping[str, str], ansprechperson: SeatState | None = None) -> None:
-        """One Trainer the league seated a month ago on `club_name`'s running season, confirmed through their own link.
+    def journey_seat(self, team_name: str, trainer: Mapping[str, str], ansprechperson: SeatState | None = None) -> None:
+        """One Trainer the league seated a month ago on `team_name`'s running season, confirmed through their own link.
 
         Confirmed the next day, the club's other seats empty, and never a departing club's, which an Austritt journey's
         notice reaches.
         """
 
-        if club_name in {project["departing"]["club"] for project in PROJECTS}:
-            raise ValueError(f"{club_name} holds a journey's seat and departs in another journey")
-        self.running.row(club_name).update(
+        if team_name in {project["departing"]["club"] for project in PROJECTS}:
+            raise ValueError(f"{team_name} holds a journey's seat and departs in another journey")
+        self.running.row(team_name).update(
             self.row_seats(
-                f"{club_name.lower()}-{RUNNING}",
+                f"{team_name.lower()}-{RUNNING}",
                 -30,
                 {
                     "trainer": self.confirmed_seat(trainer["first_name"], trainer["last_name"], trainer["address"]),
@@ -879,8 +879,8 @@ class MadeUpLeague:
         )
         return read_back_document(Collection.SPIELBESTAETIGUNGEN, {**minted, **fields})
 
-    def team_party(self, club_name: str) -> dict[str, Any]:
-        return {"kind": "team", "team_id": self.club[club_name]["_id"]}
+    def team_party(self, team_name: str) -> dict[str, Any]:
+        return {"kind": "team", "team_id": self.team_by_name[team_name]["_id"]}
 
     @staticmethod
     def schiedsrichter_of(spiel: Mapping[str, Any]) -> dict[str, Any]:
@@ -958,10 +958,10 @@ class MadeUpLeague:
             einwilligung=consent,
         )
 
-    def squad_row(
+    def kader_row(
         self,
         person: Mapping[str, Any],
-        club_name: str,
+        team_name: str,
         nummer: str,
         *,
         saison: str = RUNNING,
@@ -973,7 +973,7 @@ class MadeUpLeague:
         return saison_spieler_document(
             person["_id"],
             saison,
-            self.club[club_name]["_id"],
+            self.team_by_name[team_name]["_id"],
             _id=ObjectId(),
             is_nachnominiert=nominee,
             rolle=rolle,
@@ -982,40 +982,40 @@ class MadeUpLeague:
             inactive_since=None if retired_on is None else self.day(retired_on),
         )
 
-    def _squads(self) -> None:
+    def _kader_rows(self) -> None:
         mia, desktop, phone = PEOPLE["others"]["pupil"], *(project["squadded"] for project in PROJECTS)
         self.mia = self.pupil(mia["first_name"], mia["last_name"], email=mia["address"])
         self.jonas = self.pupil(desktop, "Ahornberg")
         self.lena = self.pupil(phone, "Kastner")
-        self.ahorn = [self.pupil(*name) for name in AHORN_SQUAD]
+        self.ahorn = [self.pupil(*name) for name in AHORN_KADER]
         nominee = self.pupil("Karl", "Quast")
         retired_nominee = self.pupil("Rosa", "Reiter")
         # In no squad of the finished season or a later one: the scheduler's first pass erases them, the deletion a season
         # after.
         season_after = self.pupil("Till", "Thalberg")
-        self.kastanie = [self.pupil(*name) for name in KASTANIE_SQUAD]
-        ulme = [self.pupil(*name) for name in ULME_SQUAD]
-        for squad in (AHORN_SQUAD, KASTANIE_SQUAD, ULME_SQUAD):
-            if any(pupil in f"{first} {last}" for first, last in squad for pupil in (desktop, phone)):
+        self.kastanie = [self.pupil(*name) for name in KASTANIE_KADER]
+        ulme = [self.pupil(*name) for name in ULME_KADER]
+        for kader in (AHORN_KADER, KASTANIE_KADER, ULME_KADER):
+            if any(pupil in f"{first} {last}" for first, last in kader for pupil in (desktop, phone)):
                 raise ValueError(f"a squad name holds {desktop} or {phone}, whom the administration's journey opens by a name holding theirs")
         self.spieler = [self.mia, self.jonas, self.lena, *self.ahorn, nominee, retired_nominee, season_after, *self.kastanie, *ulme]
 
-        def positioned(people: Sequence[Mapping[str, Any]], club_name: str, first: int) -> list[dict[str, Any]]:
+        def positioned(people: Sequence[Mapping[str, Any]], team_name: str, first: int) -> list[dict[str, Any]]:
             return [
-                self.squad_row(person, club_name, str(first + index), position=POSITIONS[index % len(POSITIONS)])
+                self.kader_row(person, team_name, str(first + index), position=POSITIONS[index % len(POSITIONS)])
                 for index, person in enumerate(people)
             ]
 
         # Mia captains Ahorn and Jonas is its Co-Kapitän, each mark standing on the squad and on match 1's line-up; Mia
         # played for Ahorn in the finished season too, a pupil's own page holding a past season beside the running one.
-        self.squads = [
-            self.squad_row(self.mia, "Ahorn", "9", saison=FINISHED),
-            self.squad_row(self.mia, "Ahorn", "9", rolle="kapitaen"),
-            self.squad_row(self.jonas, "Ahorn", "4", rolle="co_kapitaen"),
+        self.kader_rows = [
+            self.kader_row(self.mia, "Ahorn", "9", saison=FINISHED),
+            self.kader_row(self.mia, "Ahorn", "9", rolle="kapitaen"),
+            self.kader_row(self.jonas, "Ahorn", "4", rolle="co_kapitaen"),
             *positioned(self.ahorn, "Ahorn", 10),
-            self.squad_row(nominee, "Ahorn", "30", nominee=True),
-            self.squad_row(retired_nominee, "Ahorn", "31", nominee=True, retired_on=-5),
-            self.squad_row(self.lena, "Kastanie", "7"),
+            self.kader_row(nominee, "Ahorn", "30", nominee=True),
+            self.kader_row(retired_nominee, "Ahorn", "31", nominee=True, retired_on=-5),
+            self.kader_row(self.lena, "Kastanie", "7"),
             *positioned(self.kastanie, "Kastanie", 8),
             *positioned(ulme, "Ulme", 1),
         ]
@@ -1026,10 +1026,10 @@ class MadeUpLeague:
         # Each minted for copying. Group A's stay open past the window's end, the registration journeys' among them, and
         # Weide's opens as the link no longer valid (`find_team_departed_refusal`).
         self.invitations = {
-            club_name: invitation_document(
-                ObjectId(), saison_id=RUNNING, team_id=self.club[club_name]["_id"], token=f"made-up-{club_name.lower()}-invitation"
+            team_name: invitation_document(
+                ObjectId(), saison_id=RUNNING, team_id=self.team_by_name[team_name]["_id"], token=f"made-up-{team_name.lower()}-invitation"
             )
-            for club_name in ("Ahorn", "Eiche", "Ulme", "Kastanie", "Weide")
+            for team_name in ("Ahorn", "Eiche", "Ulme", "Kastanie", "Weide")
         }
         for project in PROJECTS:
             registering = project["registering"]
@@ -1043,7 +1043,7 @@ class MadeUpLeague:
             person: Mapping[str, Any],
             submitted_on: int,
             *,
-            club_name: str = "Kastanie",
+            team_name: str = "Kastanie",
             confirmed: bool = False,
             decision: Mapping[str, Any] | None = None,
         ) -> dict[str, Any]:
@@ -1054,7 +1054,7 @@ class MadeUpLeague:
                 ObjectId(),
                 person["email"],
                 saison_id=RUNNING,
-                team_id=self.club[club_name]["_id"],
+                team_id=self.team_by_name[team_name]["_id"],
                 first_name=person["first_name"],
                 last_name=person["last_name"],
                 token=f"made-up-{person['first_name'].lower()}-registration",
@@ -1071,7 +1071,7 @@ class MadeUpLeague:
                 )
                 if confirmed
                 else None,
-                invitation_id=self.invitations[club_name]["_id"],
+                invitation_id=self.invitations[team_name]["_id"],
                 keyed=False,
                 **({} if decision is None else {"status": "declined", "decision": dict(decision)}),
             )
@@ -1086,7 +1086,7 @@ class MadeUpLeague:
                 registration(
                     self.pupil(project["contact"]["pupil"]["first_name"], project["contact"]["pupil"]["last_name"], -1),
                     -2,
-                    club_name=project["contact"]["club"],
+                    team_name=project["contact"]["club"],
                     confirmed=True,
                 )
                 for project in PROJECTS
@@ -1126,9 +1126,9 @@ class MadeUpLeague:
             return [person["_id"] for person in people]
 
         self.aufstellungen = [
-            aufstellung_document(reported, self.club["Ahorn"]["_id"], starters=ids(eleven), bench=ids(self.ahorn[9:12])),
-            aufstellung_document(reported, self.club["Kastanie"]["_id"], starters=ids([self.lena])),
-            aufstellung_document(self.running.spiel(10), self.club["Kastanie"]["_id"], starters=ids([self.lena, *self.kastanie])),
+            aufstellung_document(reported, self.team_by_name["Ahorn"]["_id"], starters=ids(eleven), bench=ids(self.ahorn[9:12])),
+            aufstellung_document(reported, self.team_by_name["Kastanie"]["_id"], starters=ids([self.lena])),
+            aufstellung_document(self.running.spiel(10), self.team_by_name["Kastanie"]["_id"], starters=ids([self.lena, *self.kastanie])),
         ]
 
     # --- The planned season ---------------------------------------------------------------------------------------
@@ -1164,7 +1164,7 @@ class MadeUpLeague:
             confirmations=blocks["confirmations"],
             submitted_at=self.day(submitted_on),
             # The club an acceptance of a new school made, or the one the form picked.
-            team_id=outcome.pop("team_id", None if picked is None else self.club[picked]["_id"]),
+            team_id=outcome.pop("team_id", None if picked is None else self.team_by_name[picked]["_id"]),
             schule=schule,
             trikot={"existing_set": "", "wunschfarbe": wunschfarbe},
             wunschgegner=wunschgegner,
@@ -1189,7 +1189,7 @@ class MadeUpLeague:
             return {"made_at": self.day(made_on), "reason": reason}
 
         accepted_new_school = self.application(
-            new_school=("Pappel", CLUB_NAMES.index("Pappel")),
+            new_school=("Pappel", TEAM_NAMES.index("Pappel")),
             submitted_on=-20,
             wunschfarbe="gelb",
             states={
@@ -1198,10 +1198,10 @@ class MadeUpLeague:
                 "stellvertretung": self.confirmed_seat("Petra", "Pohl"),
             },
             status="accepted",
-            team_id=self.club["Pappel"]["_id"],
+            team_id=self.team_by_name["Pappel"]["_id"],
             decision=decision_on(-4),
         )
-        accepted_club = self.application(
+        accepted_team = self.application(
             picked="Ulme",
             submitted_on=-18,
             wunschfarbe="blau",
@@ -1320,16 +1320,16 @@ class MadeUpLeague:
                 decision=decision_on(-3, "Die Gruppen sind voll"),
             ),
             accepted_new_school,
-            accepted_club,
+            accepted_team,
         ]
 
-        def planned_row(club_name: str, gruppe: str, trikot_farbe: str, people: Mapping[str, Any] | None = None) -> dict[str, Any]:
-            club = self.club[club_name]
+        def planned_row(team_name: str, gruppe: str, trikot_farbe: str, people: Mapping[str, Any] | None = None) -> dict[str, Any]:
+            team = self.team_by_name[team_name]
             return saison_team_document(
                 PLANNED,
-                club["_id"],
-                club["name"],
-                club["shorthand"],
+                team["_id"],
+                team["name"],
+                team["shorthand"],
                 _id=ObjectId(),
                 gruppe=gruppe,
                 trikot_farbe=trikot_farbe,
@@ -1341,7 +1341,7 @@ class MadeUpLeague:
         # nobody yet; the clubs the journeys' rejected applications pick and the clubs the administration's journeys enter
         # are left to enter, so none holds a row.
         self.planned_rows = [
-            planned_row("Ulme", "B", "blau", {"kontakte": accepted_club["kontakte"]}),
+            planned_row("Ulme", "B", "blau", {"kontakte": accepted_team["kontakte"]}),
             planned_row("Pappel", "B", "gelb", {"kontakte": accepted_new_school["kontakte"]}),
             planned_row("Esche", "B", "gold"),
             planned_row(
@@ -1375,9 +1375,9 @@ class MadeUpLeague:
         ]
         entered = {row["name"] for row in self.planned_rows}
         for project in PROJECTS:
-            for club_name in (project["applicants"]["declined"], project["entered"]["club"]):
-                if club_name in entered:
-                    raise ValueError(f"a journey enters {club_name} into the planned season, which the seed has entered already")
+            for team_name in (project["applicants"]["declined"], project["entered"]["club"]):
+                if team_name in entered:
+                    raise ValueError(f"a journey enters {team_name} into the planned season, which the seed has entered already")
 
     # --- Mail, bans, address changes and the log ------------------------------------------------------------------
 
@@ -1490,7 +1490,7 @@ class MadeUpLeague:
             Collection.SPIELTAGE: [spieltag for season in self.played for spieltag in season.spieltage],
             Collection.SPIELE: [spiel for season in self.played for spiel in season.spiele],
             Collection.SPIELER: self.spieler,
-            Collection.SAISON_SPIELER: self.squads,
+            Collection.SAISON_SPIELER: self.kader_rows,
             Collection.SPIELBERICHTE: self.spielberichte,
             Collection.AUFSTELLUNGEN: self.aufstellungen,
             Collection.BEWERBUNGEN: self.bewerbungen,
@@ -1551,7 +1551,7 @@ def played(
     """`row` played as `tore` says, its sides named where the knockout has none yet."""
 
     for key, name, goals in zip(("team1", "team2"), sides or (None, None), tore, strict=True):
-        row[key] = {"team_id": league.club[name]["_id"], "tore": goals} if name is not None else {**row[key], "tore": goals}
+        row[key] = {"team_id": league.team_by_name[name]["_id"], "tore": goals} if name is not None else {**row[key], "tore": goals}
     row.update(ergebnis=f"{tore[0]}:{tore[1]}", elfmeterschiessen=elfmeterschiessen)
 
 

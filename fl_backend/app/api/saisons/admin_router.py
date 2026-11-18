@@ -81,7 +81,7 @@ from app.api.saisons.services import (
 from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
 from app.api.spielberichte.crud import anchor_the_season_reported_in, count_submitted_berichte
 from app.api.spiele.schemas import FLSpielListAdapter
-from app.api.spieler.services import CAPPED_SQUAD_ROW
+from app.api.spieler.services import CAPPED_KADER_ROW
 from app.api.teams.services import (
     TAKEN_PLACE_FIELDS,
     find_gruppe_swap_refusal,
@@ -130,7 +130,7 @@ from app.core.exceptions import WriteRefusal
 from app.core.logging import fl_logger
 from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_SYSTEM, record_act
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.schemas.literals import FLGruppenNames
 
 router = APIRouter(
@@ -193,7 +193,7 @@ async def get_saisons_admin(
     """
 
     # Oldest first: a season's id is its starting year.
-    saisons_raw = await pull_many_from_db(collection=saisons_collection, db_filter={}, sort_by=[("_id", 1)])
+    saisons_raw = await pull_whole_from_db(collection=saisons_collection, db_filter={}, what="the seasons", sort_by=[("_id", 1)])
 
     saison_ids = [str(raw["_id"]) for raw in saisons_raw]
     taken_place, finale_by_saison, teams_by_saison, spiele_by_saison, create_state = await concurrently(
@@ -248,7 +248,7 @@ async def get_saison_admin(
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id})
     saison_status = str(saison_raw["status"])
 
-    rows, count_spieltage, clubs, finale_by_saison, activation, recorded_rows, berichte, planned = await concurrently(
+    rows, count_spieltage, teams, finale_by_saison, activation, recorded_rows, berichte, planned = await concurrently(
         # Whole, as the bracket's advance reads its season: a truncated list offers a club the replacement refuses as
         # entered.
         pull_whole_from_db(
@@ -331,7 +331,7 @@ async def get_saison_admin(
     return FLSaisonAdminResponse(
         saison=saison,
         teams=[FLSaisonAdminTeam.model_validate(row) for row in rows],
-        incoming_teams=[FLSaisonAdminIncomingTeam.model_validate(club) for club in clubs if club["_id"] not in entered],
+        incoming_teams=[FLSaisonAdminIncomingTeam.model_validate(team) for team in teams if team["_id"] not in entered],
         shapes=workable_shapes(saison.rules),
         spielplan=spielplan,
         refusals=FLSaisonActRefusals(
@@ -400,8 +400,7 @@ async def post_saison(
 
         return created
 
-    async with transaction_session(db) as session:
-        post_operation = await session.with_transaction(enter_the_season)
+    post_operation = await transact(db, enter_the_season)
 
     return FLPostSaisonResponse(
         created_id=str(post_operation.inserted_id),
@@ -484,10 +483,10 @@ async def patch_saison(
             if phase is not None:
                 attached_by_phase[phase] = max(attached_by_phase.get(phase, 0), attached)
 
-        largest_squad_rows = await (
+        largest_kader_rows = await (
             await saison_spieler_collection.aggregate(
                 [
-                    {"$match": {"saison_id": saison_id, **CAPPED_SQUAD_ROW}},
+                    {"$match": {"saison_id": saison_id, **CAPPED_KADER_ROW}},
                     {"$group": {"_id": "$team_id", "held": {"$sum": 1}}},
                     {"$sort": {"held": -1}},
                     {"$limit": 1},
@@ -495,7 +494,7 @@ async def patch_saison(
                 session=session,
             )
         ).to_list(length=1)
-        largest_squad = int(largest_squad_rows[0]["held"]) if largest_squad_rows else 0
+        largest_kader = int(largest_kader_rows[0]["held"]) if largest_kader_rows else 0
 
         # Dated rows only, filtered in the query rather than after `str()`: a generated matchday carries
         # no span until somebody sets one, and a null stringified to "None" sorts above every date and
@@ -546,7 +545,7 @@ async def patch_saison(
                 proposed=saison_data.rules,
                 occupancy_by_gruppe=occupancy,
                 highest_wired_platz=highest_platz,
-                largest_squad=largest_squad,
+                largest_kader=largest_kader,
                 attached_by_phase=attached_by_phase,
                 drawn_spiele=drawn_spiele,
             )
@@ -579,11 +578,10 @@ async def patch_saison(
 
         return FLPatchSaisonResponse(version=patched[VERSION_FIELD])
 
-    # `with_transaction`, not a bare `start_transaction`: a draw and an undraw write `saisons` too,
+    # `transact`, not a bare `start_transaction`: a draw and an undraw write `saisons` too,
     # so one landing under a `$set` that changes something conflicts, and the retry judges the
     # season as that rival left it.
-    async with transaction_session(db) as session:
-        patched = await session.with_transaction(judge_and_write_the_rules)
+    patched = await transact(db, judge_and_write_the_rules)
 
     return patched
 
@@ -604,9 +602,10 @@ async def _judge_the_activation(
     """
 
     # `$ne` on the target, so re-activating the current season is not blocked by its own fixtures.
-    outgoing = await pull_many_from_db(
+    outgoing = await pull_whole_from_db(
         collection=saisons_collection,
         db_filter={"status": "active", "_id": {"$ne": saison_id}},
+        what="the active seasons",
         projection={"_id": 1},
         session=session,
     )
@@ -617,7 +616,12 @@ async def _judge_the_activation(
     if outgoing_ids:
         unplayed = unplayed_spiel_nrs(
             FLSpielListAdapter.validate_python(
-                await pull_many_from_db(collection=spiele_collection, db_filter={"saison_id": {"$in": outgoing_ids}}, session=session)
+                await pull_whole_from_db(
+                    collection=spiele_collection,
+                    db_filter={"saison_id": {"$in": outgoing_ids}},
+                    what="the outgoing seasons' fixtures",
+                    session=session,
+                )
             )
         )
 
@@ -749,11 +753,10 @@ async def activate_saison(
 
         return FLActivateSaisonResponse(deactivated=demoted.modified_count)
 
-    # `with_transaction`, not a bare `start_transaction`: a draw filling the outgoing season or an
+    # `transact`, not a bare `start_transaction`: a draw filling the outgoing season or an
     # undraw emptying the target writes a season this one writes too, so it conflicts and the
     # retry judges the league again rather than closing it blind.
-    async with transaction_session(db) as session:
-        rolled_over = await session.with_transaction(judge_and_roll_the_league_over)
+    rolled_over = await transact(db, judge_and_roll_the_league_over)
 
     return rolled_over
 
@@ -787,9 +790,10 @@ async def swap_gruppen(
 
         # Through the session: a retry after a write conflict has to judge these rows as they are
         # then, not as this request first saw them.
-        rows = await pull_many_from_db(
+        rows = await pull_whole_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "team_id": {"$in": both_ids}},
+            what=f"season {saison_id}'s two swapped clubs",
             projection=["team_id", "gruppe"],
             session=session,
         )
@@ -812,13 +816,14 @@ async def swap_gruppen(
             )
         )
 
-        gruppenphase_spiele = await pull_many_from_db(
+        gruppenphase_spiele = await pull_whole_from_db(
             collection=spiele_collection,
             db_filter={
                 "saison_id": saison_id,
                 "saison_phase": "gruppenphase",
                 "$or": [{"team1.team_id": {"$in": both_ids}}, {"team2.team_id": {"$in": both_ids}}],
             },
+            what=f"season {saison_id}'s group fixtures of the two swapped clubs",
             projection=["team1.team_id", "team2.team_id"],
             session=session,
         )
@@ -856,10 +861,9 @@ async def swap_gruppen(
 
         return swapped
 
-    # `with_transaction`, not a bare `start_transaction`: two admins on one season can write-conflict,
+    # `transact`, not a bare `start_transaction`: two admins on one season can write-conflict,
     # and a retry judges these rows as the rival left them.
-    async with transaction_session(db) as session:
-        return await session.with_transaction(exchange_the_two_gruppen)
+    return await transact(db, exchange_the_two_gruppen)
 
 
 @router.post(
@@ -1065,10 +1069,9 @@ async def post_spielplan(
             removed_spiele=removed_spiele,
         )
 
-    # `with_transaction`, not a bare `start_transaction`, and a retry is safe because the draw
+    # `transact`, not a bare `start_transaction`, and a retry is safe because the draw
     # generates its own ids and wires by `spiel_nr`, never by one.
-    async with transaction_session(db) as session:
-        drawn_response = await session.with_transaction(draw_the_whole_season)
+    drawn_response = await transact(db, draw_the_whole_season)
 
     return drawn_response
 
@@ -1156,10 +1159,9 @@ async def delete_spielplan(
             watermark_cleared=before.get("spielplan") is not None,
         )
 
-    # `with_transaction`, not a bare `start_transaction`, and a retry is safe because the undraw
+    # `transact`, not a bare `start_transaction`, and a retry is safe because the undraw
     # removes a set by filter rather than by any id it read.
-    async with transaction_session(db) as session:
-        undrawn = await session.with_transaction(undraw_the_whole_season)
+    undrawn = await transact(db, undraw_the_whole_season)
 
     return undrawn
 
@@ -1309,8 +1311,7 @@ async def _mail_one_team(
     # Caught outside the session: a failure the session never sees leaves the transaction open on the
     # server.
     try:
-        async with transaction_session(db) as session:
-            return await session.with_transaction(mint_where_the_team_qualifies)
+        return await transact(db, mint_where_the_team_qualifies)
     except PyMongoError as failure:
         # Per team: every team already done is committed with its mails. A commit sent and never answered may have revoked
         # this team's link and owed its mails too, so its line says unknown rather than failed.

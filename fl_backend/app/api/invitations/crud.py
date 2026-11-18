@@ -2,7 +2,7 @@ from collections.abc import Sequence
 from typing import Any, Final
 
 from app.api.invitations.services import InvitationRecipient
-from app.api.outbox.schemas import FLInvitationData, FLOutboxClub, FLOutboxLink, FLOutboxReference
+from app.api.outbox.schemas import FLInvitationData, FLOutboxLink, FLOutboxReference, FLOutboxTeam
 from app.api.outbox.services import OwedMail
 from app.core.collections import Collection
 
@@ -32,7 +32,7 @@ def owed_invitation_mails(
             data=FLInvitationData(kind="invitation", team=team_name, saison_id=saison_id),
             reference=invitation_reference(invitation_id),
             link=INVITATION_LINK,
-            club=FLOutboxClub(saison_id=saison_id, team_id=team_id),
+            team=FLOutboxTeam(saison_id=saison_id, team_id=team_id),
         )
         for person in recipient
     ]

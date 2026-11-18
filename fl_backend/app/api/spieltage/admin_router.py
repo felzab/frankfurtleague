@@ -34,8 +34,8 @@ from app.core.dependencies import (
 )
 from app.core.recording import record_act
 from app.core.routing import by_id
-from app.core.transactions import transaction_session
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.core.transactions import transact
+from app.shared.schemas.custom import CustomObjectId
 
 router = APIRouter(
     prefix="/spieltage",
@@ -50,7 +50,7 @@ router = APIRouter(
     summary="One Spieltag for the admin editor",
 )
 async def get_spieltag_admin(
-    spieltag_id: CustomRouteObjectId,
+    spieltag_id: CustomObjectId,
     spieltage_collection: SpieltageReadCollection,
     saisons_collection: SaisonsReadCollection,
 ) -> FLSpieltagAdminResponse:
@@ -135,7 +135,7 @@ async def _refuse_an_out_of_order_start(
     summary="Re-date a Spieltag",
 )
 async def patch_spieltag(
-    spieltag_id: CustomRouteObjectId,
+    spieltag_id: CustomObjectId,
     spieltag_data: FLPatchSpieltagPayload,
     spieltage_collection: SpieltageCollection,
     saisons_collection: SaisonsCollection,
@@ -203,7 +203,6 @@ async def patch_spieltag(
         return FLSpieltagWriteResponse(spieltag_id=spieltag_id, version=FLSpieltagRecord.model_validate(updated_raw).version)
 
     # One transaction over the span and the season write inside `_refuse_an_out_of_order_start`,
-    # which is what makes two matchdays of one phase contend. `with_transaction` is safe to retry,
+    # which is what makes two matchdays of one phase contend. `transact` is safe to retry,
     # the callback re-reading its neighbours.
-    async with transaction_session(db) as session:
-        return await session.with_transaction(redate_the_matchday)
+    return await transact(db, redate_the_matchday)

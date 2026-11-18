@@ -2,7 +2,7 @@ from typing import Annotated, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, Field, model_validator
 
-from app.api.spieler.schemas import SQUAD_NUMMER_PATTERN, FLEinwilligung
+from app.api.spieler.schemas import KADER_NUMMER_PATTERN, FLEinwilligung
 from app.shared.schemas.confirmation import CustomToken, FLConfirmation
 from app.shared.schemas.custom import (
     CustomDateString,
@@ -25,7 +25,7 @@ from app.shared.schemas.literals import (
     FLSpielerPosition,
     FLSpielerStufe,
 )
-from app.shared.schemas.responses import BaseAPIResponse, BasePayload, BaseReadModel
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 # --- The invite's read, the submission and the administrator's read of what it stored. Every
 # payload below is reached from a request body alone, so each forbids an undeclared key; the read
@@ -86,7 +86,7 @@ class FLRegistrierungRecord(_RegistrierungStored):
     idempotency_key: str | None = None
 
 
-class FLInvitationViewResponse(BaseAPIResponse):
+class FLInvitationViewResponse(BaseReadModel):
     """What an invite's holder is told before they type anything, and the bounds the form is held to."""
 
     team: CustomNonEmptyString
@@ -120,11 +120,11 @@ class FLPostRegistrierungPayload(BasePayload):
     # three are: the answer is then the pupil's and not a default nobody chose.
     position: FLSpielerPosition | None
     # Tightened on the write side alone, as a squad row's is.
-    nummer: str | None = Field(pattern=SQUAD_NUMMER_PATTERN)
+    nummer: str | None = Field(pattern=KADER_NUMMER_PATTERN)
     stufe: FLSpielerStufe | None
 
 
-class FLPostRegistrierungResponse(BaseAPIResponse):
+class FLPostRegistrierungResponse(BaseReadModel):
     """The stored registration, the one a replayed key wrote first; its confirmation mail is owed in the same write."""
 
     registrierung_id: CustomObjectId
@@ -146,7 +146,7 @@ class FLRegistrierungAdminRow(BaseReadModel):
     unmailed: bool
 
 
-class FLRegistrierungenAdminListResponse(BaseAPIResponse):
+class FLRegistrierungenAdminListResponse(BaseReadModel):
     """One season's pending registrations, newest first."""
 
     registrierungen: list[FLRegistrierungAdminRow]
@@ -158,7 +158,7 @@ class FLRegistrierungenAdminListResponse(BaseAPIResponse):
 # both endpoints are base-tier and every payload forbids an undeclared key.
 
 
-class FLRegistrierungConfirmationViewResponse(BaseAPIResponse):
+class FLRegistrierungConfirmationViewResponse(BaseReadModel):
     """What one confirmation link opens, and no field past the ones declared here."""
 
     state: FLConfirmationState
@@ -199,7 +199,7 @@ class FLRegistrierungConfirmationPayload(BasePayload):
         return self
 
 
-class FLRegistrierungConfirmationResponse(BaseAPIResponse):
+class FLRegistrierungConfirmationResponse(BaseReadModel):
     """What the pupil just recorded, echoed so the answer panel states it rather than opening the link a second time."""
 
     # One member: this page has no Widerspruch door. A pupil who does not want to be registered lets
@@ -213,7 +213,7 @@ class FLRegistrierungConfirmationResponse(BaseAPIResponse):
 # --- The retention sweep, system tier. The backend decides and erases; nothing a pupil's record holds leaves here.
 
 
-class FLRegistrierungSweepResponse(BaseAPIResponse):
+class FLRegistrierungSweepResponse(BaseReadModel):
     """One season's pass: the erasures made, each committed."""
 
     saison_id: str
@@ -262,7 +262,7 @@ class FLOpenRegistrierung(BaseModel):
     person: FLRegistrierungPerson | None
 
 
-class FLOpenRegistrierungenResponse(BaseAPIResponse):
+class FLOpenRegistrierungenResponse(BaseReadModel):
     """One team's pending registrations for one season, newest first."""
 
     team_id: CustomObjectId
@@ -280,7 +280,7 @@ class FLRegistrierungAdmitPayload(BasePayload):
     spieler_id: CustomObjectId | None
 
 
-class FLRegistrierungAdmissionResponse(BaseAPIResponse):
+class FLRegistrierungAdmissionResponse(BaseReadModel):
     """The squad entry the admission wrote, and the person it belongs to."""
 
     # The admitted registration's id, deleted with it, so a caller can drop the row it pressed.
@@ -309,7 +309,7 @@ class FLRegistrierungDeclinePayload(BasePayload):
     reason: FLRegistrierungDecisionReason | None
 
 
-class FLRegistrierungDeclineResponse(BaseAPIResponse):
+class FLRegistrierungDeclineResponse(BaseReadModel):
     """The declined registration, and the first name the seat holder is told the decision by."""
 
     registrierung_id: CustomObjectId

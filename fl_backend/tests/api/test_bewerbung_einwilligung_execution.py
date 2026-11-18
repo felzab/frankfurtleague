@@ -14,7 +14,7 @@ from app.core.clock import utc_stamp
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
-from app.shared.schemas.bounds import BEWERBUNG_KONTAKT_MAX_AGE_YEARS
+from app.shared.schemas.bounds import BIRTH_DATE_MAX_AGE_YEARS
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
 from tests import documents
@@ -38,9 +38,9 @@ NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 
 # Fixed rather than generated, so a failure names the same row every run.
 BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607950001")
-CLUB_OID = ObjectId("6890a1b2c3d4e5f607950011")
+TEAM_OID = ObjectId("6890a1b2c3d4e5f607950011")
 
-CLUB_NAME = "Adler"
+TEAM_NAME = "Adler"
 SCHOOL_NAME = "Zorbanax"
 
 # The raw tokens the seeded links carry, and what the database holds for each.
@@ -102,7 +102,7 @@ async def on_a_league(url: str, body: Body, *, documents: list[dict[str, Any]] |
     """A clean database carrying the shipped indexes."""
 
     async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-        await database[Collection.TEAMS].insert_one(team_document(CLUB_OID, CLUB_NAME, "ADX", website_url=None, schulform="gymnasium_g9"))
+        await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, TEAM_NAME, "ADX", website_url=None, schulform="gymnasium_g9"))
         await database[Collection.BEWERBUNGEN].insert_many(documents if documents is not None else [bewerbung_document()])
 
         return await body(database, client)
@@ -277,7 +277,7 @@ class TestTheDaysTheViewNames:
         trainer, ansprechperson = await on_a_league(mongo_replica_set_url, body, documents=[fresher])
 
         assert (trainer.deadline, ansprechperson.deadline) == ("2026-04-09", "2026-04-03")
-        assert (trainer.answered_at, trainer.maximum_age) == (None, BEWERBUNG_KONTAKT_MAX_AGE_YEARS)
+        assert (trainer.answered_at, trainer.maximum_age) == (None, BIRTH_DATE_MAX_AGE_YEARS)
 
     @pytest.mark.parametrize("given", [pytest.param({}, id="a confirmation"), pytest.param({"answer": "declined"}, id="an objection")])
     async def test_a_reopened_link_names_the_day_it_was_answered(self, mongo_replica_set_url: str, given: Mapping[str, Any]):

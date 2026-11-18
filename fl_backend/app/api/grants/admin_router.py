@@ -34,9 +34,9 @@ from app.core.dependencies import (
 from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import by_id
 from app.core.security import ActorEmail
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 
 router = APIRouter(
     prefix="/grants",
@@ -77,7 +77,7 @@ async def post_grant(
     outbox_collection: OutboxCollection,
     db: DBClient,
     operator: ActorEmail,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLGrantWriteResponse:
     """Add an address as `administration`, holding once its wait has passed; only the owner adds one, and no request grants `owner`.
 
@@ -103,7 +103,7 @@ async def post_grant(
                 address_changes_collection=address_changes_collection,
                 db_filter={"_id": live["_id"]},
                 kind="discarded",
-                now=now,
+                now=germany_now,
                 session=session,
             )
 
@@ -111,24 +111,23 @@ async def post_grant(
             address=address,
             grants_collection=grants_collection,
             outbox_collection=outbox_collection,
-            now=now,
+            now=germany_now,
             session=session,
         )
 
         return FLGrantWriteResponse(grant_id=grant_id)
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(judge_and_grant)
+    return await transact(db, judge_and_grant)
 
 
 @router.delete(by_id("grant_id"), summary="Remove an administrator, or withdraw a waiting addition")
 async def delete_grant(
-    grant_id: CustomRouteObjectId,
+    grant_id: CustomObjectId,
     grants_collection: GrantsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
     operator: ActorEmail,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLGrantWriteResponse:
     """Remove a grant for good, its address losing access on its next request, or withdraw an addition still waiting.
 
@@ -154,25 +153,24 @@ async def delete_grant(
             grant=grant,
             grants_collection=grants_collection,
             outbox_collection=outbox_collection,
-            now=now,
+            now=germany_now,
             session=session,
         )
 
-    async with transaction_session(db) as session:
-        await session.with_transaction(judge_and_revoke)
+    await transact(db, judge_and_revoke)
 
     return FLGrantWriteResponse(grant_id=grant_id)
 
 
 @router.post(f"{by_id('grant_id')}/handover", summary="Hand the owner role over to an administrator")
 async def post_handover(
-    grant_id: CustomRouteObjectId,
+    grant_id: CustomObjectId,
     grants_collection: GrantsCollection,
     ban_list_collection: BanListCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
     operator: ActorEmail,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLGrantWriteResponse:
     """Start handing the owner role to an administrator in effect, completing once its wait has passed; the owner stays the owner until then.
 
@@ -190,7 +188,7 @@ async def post_handover(
             raise DocumentNotFoundError()
 
         refuse(find_owner_row_refusal(grant=grant))
-        refuse(find_handover_refusal(grant=grant, grants=grants, now=now))
+        refuse(find_handover_refusal(grant=grant, grants=grants, now=germany_now))
         refuse(
             find_barred_refusal(
                 barred=await address_is_barred(ban_list_collection=ban_list_collection, address=str(grant["address"]), session=session)
@@ -200,24 +198,23 @@ async def post_handover(
             grant,
             grants_collection=grants_collection,
             outbox_collection=outbox_collection,
-            now=now,
+            now=germany_now,
             session=session,
         )
 
-    async with transaction_session(db) as session:
-        await session.with_transaction(judge_and_start)
+    await transact(db, judge_and_start)
 
     return FLGrantWriteResponse(grant_id=grant_id)
 
 
 @router.delete(f"{by_id('grant_id')}/handover", summary="Stop a waiting handover")
 async def delete_handover(
-    grant_id: CustomRouteObjectId,
+    grant_id: CustomObjectId,
     grants_collection: GrantsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
     operator: ActorEmail,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLGrantWriteResponse:
     """Stop a waiting handover, the role staying with the owner; only the owner stops one, and every holder in effect is told."""
 
@@ -235,11 +232,10 @@ async def delete_handover(
             grant,
             grants_collection=grants_collection,
             outbox_collection=outbox_collection,
-            now=now,
+            now=germany_now,
             session=session,
         )
 
-    async with transaction_session(db) as session:
-        await session.with_transaction(judge_and_stop)
+    await transact(db, judge_and_stop)
 
     return FLGrantWriteResponse(grant_id=grant_id)

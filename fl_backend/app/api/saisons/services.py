@@ -151,7 +151,7 @@ def find_saison_create_refusal(*, future_stands: bool) -> WriteRefusal | None:
 
     Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction. Two creates racing
     each other read the same snapshot and mint one id; the second's insert meets the first's as a write conflict, which
-    `with_transaction` retries, and the retry reads the planned season and is refused here.
+    `transact` retries, and the retry reads the planned season and is refused here.
     """
 
     if not future_stands:
@@ -230,7 +230,7 @@ def total_season_spiele(rules: FLSaisonRules) -> int:
     `schedule_for` would drift the moment a phase moved.
     """
 
-    return sum(entry.spieltage * entry.matches_per_spieltag for entry in schedule_for(rules))
+    return sum(entry.spieltage * entry.spiele_per_spieltag for entry in schedule_for(rules))
 
 
 def _forfeit_unentschieden_in_a_knockout(rules: FLSaisonRules) -> bool:
@@ -271,7 +271,7 @@ def find_rules_refusal(
     proposed: FLSaisonRules,
     occupancy_by_gruppe: dict[FLGruppenNames, int],
     highest_wired_platz: int,
-    largest_squad: int = 0,
+    largest_kader: int = 0,
     # The largest count any single matchday of a phase holds, never the sum.
     attached_by_phase: Mapping[FLSaisonPhase, int] | None = None,
     drawn_spiele: int = 0,
@@ -386,12 +386,12 @@ def find_rules_refusal(
 
     # Only where the patch lowers it, on `rules_capacity_below_use`'s shape: a cap left where it stands is not
     # this edit's doing, and refusing it would bar the very edit that repairs the season.
-    if proposed.max_kader_size < stored.max_kader_size and largest_squad > proposed.max_kader_size:
+    if proposed.max_kader_size < stored.max_kader_size and largest_kader > proposed.max_kader_size:
         return WriteRefusal(
             error_code=Code.RULES_KADER_BELOW_USE,
             status=HTTPStatus.CONFLICT,
             fields=(("rules", "max_kader_size"),),
-            bounds={"min": largest_squad},
+            bounds={"min": largest_kader},
         )
 
     # Only where the patch lowers it: `rules` is required, so a dates-only edit resubmits a count
@@ -708,7 +708,7 @@ def find_spielplan_refusal(
     # club that withdrew before the draw keeps its place, and the group is still the size it owes.
     off_size = any(occupancy_by_gruppe.get(gruppe, 0) != rules.teams_per_gruppe for gruppe in offered)
 
-    # A key outside `offered` is clubs the draw would put in no round robin at all. `_squads` raises
+    # A key outside `offered` is clubs the draw would put in no round robin at all. `_teams_by_gruppe` raises
     # on these states too, as its own contract against a caller that skipped this rule; the endpoint
     # is where they become an answer an admin can act on.
     off_size = off_size or any(held > 0 and gruppe not in offered for gruppe, held in occupancy_by_gruppe.items())

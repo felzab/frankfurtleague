@@ -166,12 +166,12 @@ def as_person(email: str) -> StampedHeaders:
     return StampedHeaders(email, ADMIN_KEY, lane="person")
 
 
-def squad_url(team_id: ObjectId = TEAM_A, saison_id: str = ACTIVE_SAISON) -> str:
+def kader_url(team_id: ObjectId = TEAM_A, saison_id: str = ACTIVE_SAISON) -> str:
     return f"{KADER_PATH}/{team_id}/{saison_id}"
 
 
 def row_url(spieler_id: ObjectId, team_id: ObjectId = TEAM_A, saison_id: str = ACTIVE_SAISON) -> str:
-    return f"{squad_url(team_id, saison_id)}/{spieler_id}"
+    return f"{kader_url(team_id, saison_id)}/{spieler_id}"
 
 
 async def send(url: str, method: str, path: str, email: str, body: Mapping[str, Any] | None = None) -> Response:
@@ -204,13 +204,13 @@ async def refused_and_untouched(
     return await on_a_league(url, run)
 
 
-class TestTheSquadRead:
+class TestTheKaderRead:
     """What a seat holder is served: whole surnames, the shirt marker, the season's Stufen, and nobody's address."""
 
     async def _read(self, url: str, email: str) -> Response:
-        return await on_a_league(url, lambda database, client: send(url, "GET", squad_url(), email))
+        return await on_a_league(url, lambda database, client: send(url, "GET", kader_url(), email))
 
-    async def test_a_seat_holder_reads_every_row_of_the_squad_with_whole_surnames(self, mongo_replica_set_url: str):
+    async def test_a_seat_holder_reads_every_row_of_the_kader_with_whole_surnames(self, mongo_replica_set_url: str):
         response = await self._read(mongo_replica_set_url, ANSPRECH)
 
         assert response.status_code == 200, response.text
@@ -251,7 +251,7 @@ class TestTheSquadRead:
 # grants no panel.
 NOT_HELD = [
     pytest.param(
-        B_ANSPRECH, TEAM_A, ACTIVE_SAISON, "GET", lambda team_id, saison_id: squad_url(team_id, saison_id), None, id="another team-GET"
+        B_ANSPRECH, TEAM_A, ACTIVE_SAISON, "GET", lambda team_id, saison_id: kader_url(team_id, saison_id), None, id="another team-GET"
     ),
     pytest.param(
         ANSPRECH,
@@ -332,7 +332,7 @@ class TestATrainerOnlySeat:
 
     async def test_it_reads_edits_all_four_fields_and_retires(self, mongo_replica_set_url: str):
         async def run(database: AsyncDatabase, _: AsyncMongoClient) -> list[tuple[int, Any]]:
-            read = await send(mongo_replica_set_url, "GET", squad_url(), TRAINER_ALONE)
+            read = await send(mongo_replica_set_url, "GET", kader_url(), TRAINER_ALONE)
             edit = await send(
                 mongo_replica_set_url,
                 "PATCH",
@@ -432,7 +432,7 @@ class TestTheCaptaincy:
         """
 
         async def give_the_armband(
-            database: AsyncDatabase, client: AsyncMongoClient, spieler_id: ObjectId, saisons: Any, squad_rows: Any = None
+            database: AsyncDatabase, client: AsyncMongoClient, spieler_id: ObjectId, saisons: Any, kader_rows: Any = None
         ) -> Any:
             return await patch_kader_row(
                 team_id=TEAM_A,
@@ -440,7 +440,7 @@ class TestTheCaptaincy:
                 spieler_id=spieler_id,
                 row_data=FLPatchKaderRowPayload(nummer=None, position=None, stufe=None, rolle="co_kapitaen", version=0),
                 identifier=ANSPRECH,
-                saison_spieler_collection=squad_rows if squad_rows is not None else database[Collection.SAISON_SPIELER],
+                saison_spieler_collection=kader_rows if kader_rows is not None else database[Collection.SAISON_SPIELER],
                 saisons_collection=saisons,
                 records=record_collections(database),
                 db=client,
@@ -451,8 +451,8 @@ class TestTheCaptaincy:
                 await give_the_armband(database, client, ZERO_SEVEN, database[Collection.SAISONS])
 
             seasons = InterleavedCollection(database[Collection.SAISONS], the_rival_takes_the_armband, before="update_many")
-            squad_rows = SquadRowsRunningTheSameRival(database[Collection.SAISON_SPIELER], seasons)
-            outcome = await outcome_of(give_the_armband(database, client, SHARES_THE_SEVEN, seasons, squad_rows))
+            kader_rows = KaderRowsRunningTheSameRival(database[Collection.SAISON_SPIELER], seasons)
+            outcome = await outcome_of(give_the_armband(database, client, SHARES_THE_SEVEN, seasons, kader_rows))
             holders = await database[Collection.SAISON_SPIELER].count_documents(
                 {"saison_id": ACTIVE_SAISON, "team_id": TEAM_A, "rolle": "co_kapitaen", "inactive_since": None}
             )
@@ -467,7 +467,7 @@ class TestTheCaptaincy:
         )
 
 
-class SquadRowsRunningTheSameRival:
+class KaderRowsRunningTheSameRival:
     """A `saison_spieler` stand-in handing the captaincy's count to the season stand-in's one-shot rival.
 
     So a write taking no anchor still meets the rival inside its transaction, where it can only miss it.

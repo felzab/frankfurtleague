@@ -72,7 +72,7 @@ async def landing_over(url: str, database_name: str, collections: dict[str, list
 
 
 @pytest.mark.db
-async def test_a_place_decided_after_its_club_left_is_served_vacant_and_the_season_decided(mongo_replica_set_url: str):
+async def test_a_place_decided_after_its_team_left_is_served_vacant_and_the_season_decided(mongo_replica_set_url: str):
     """Cara left the season the day before the match for third place, which it lost: fourth is in, and nobody's."""
 
     cara = ObjectId("6890a1b2c3d4e5f607440004")

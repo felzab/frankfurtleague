@@ -57,7 +57,7 @@ from app.core.dependencies import (
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.core.security import PERSON_TIER, PersonIdentifier
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.folding import sign_in_identifier
 
 # Its one write is the address change, which crosses every record the address holds.
@@ -204,8 +204,7 @@ async def post_address_change(
 
         return FLAccountAddressChangeMintResponse(id=address_change_id, valid_until=record["valid_until"], email=email)
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(start_the_change)
+    return await transact(db, start_the_change)
 
 
 @router.delete(
@@ -250,5 +249,4 @@ async def delete_address_change(
             session=session,
         )
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(stop_the_change)
+    return await transact(db, stop_the_change)

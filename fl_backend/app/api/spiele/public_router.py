@@ -8,7 +8,7 @@ from app.core.dependencies import SaisonsReadCollection, SpieleReadCollection
 from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import by_id
 from app.core.security import BASE_TIER
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 
 router = APIRouter(
     prefix="/spiele",
@@ -18,7 +18,7 @@ router = APIRouter(
 
 @router.get(by_id("spiel_id"), summary="One Spiel")
 async def get_spiel(
-    spiel_id: CustomRouteObjectId,
+    spiel_id: CustomObjectId,
     spiele_collection: SpieleReadCollection,
     saisons_collection: SaisonsReadCollection,
 ) -> FLSpieleSingleResponse:

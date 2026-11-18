@@ -10,7 +10,7 @@ from app.core.dependencies import SaisonsReadCollection, TeamsReadCollection
 from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import by_id
 from app.core.security import BASE_TIER
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 
 router = APIRouter(
     prefix="/teams",
@@ -20,7 +20,7 @@ router = APIRouter(
 
 @router.get(by_id("team_id"), summary="One team")
 async def get_team(
-    team_id: CustomRouteObjectId,
+    team_id: CustomObjectId,
     teams_collection: TeamsReadCollection,
     saisons_collection: SaisonsReadCollection,
     filters: Annotated[FLTeamSingleFilterParams, Depends()],

@@ -33,7 +33,7 @@ class FLAddress(BaseModel):
 
     @property
     def to_string(self) -> str:
-        # Joined, so a blank part leaves no „Feldweg , 60437“ in the stored `maps_link`.
+        # Joined, so a blank part leaves no „Feldweg , 60437“ in the stored `maps_query`.
         street = _join_present((self.street, self.house_number), " ")
         locality = _join_present((self.postcode, self.district, self.city), " ")
 

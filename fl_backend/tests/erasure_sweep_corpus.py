@@ -50,7 +50,7 @@ def pupil(spieler_id: ObjectId, email: str, *, last_name: str = "Muster", **fiel
     return spieler_document(spieler_id, "Quintessa", last_name, email=email, **fields)
 
 
-def squad_row(spieler_id: ObjectId, saison_id: str, **fields: Any) -> dict[str, Any]:
+def kader_row(spieler_id: ObjectId, saison_id: str, **fields: Any) -> dict[str, Any]:
     return saison_spieler_document(spieler_id, saison_id, TEAM_OID, **fields)
 
 
@@ -77,7 +77,7 @@ def a_due_pupil(position: int) -> dict[Collection, list[dict[str, Any]]]:
 
     return {
         Collection.SPIELER: [pupil(spieler_id, address_of(position))],
-        Collection.SAISON_SPIELER: [squad_row(spieler_id, "2023"), squad_row(spieler_id, "2024")],
+        Collection.SAISON_SPIELER: [kader_row(spieler_id, "2023"), kader_row(spieler_id, "2024")],
         Collection.REGISTRIERUNGEN: [registration(numbered(5000 + position), address_of(position), declined=True)],
     }
 

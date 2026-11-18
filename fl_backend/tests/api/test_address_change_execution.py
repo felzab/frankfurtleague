@@ -789,7 +789,7 @@ class TestTheNewAddressesOwnRecords:
                 ban_list_collection=database[Collection.BAN_LIST],
                 db=database,
                 db_client=client,
-                now=AFTER_THE_DEADLINE,
+                germany_now=AFTER_THE_DEADLINE,
             )
             return [mail.data.kind for mail in late.mails], late.abandoned
 
@@ -805,7 +805,7 @@ class TestTheNewAddressesOwnRecords:
                 ban_list_collection=database[Collection.BAN_LIST],
                 db=database,
                 db_client=client,
-                now=AFTER_THE_DEADLINE,
+                germany_now=AFTER_THE_DEADLINE,
             )
             return late.mails, late.abandoned
 

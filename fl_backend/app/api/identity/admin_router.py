@@ -47,7 +47,7 @@ from app.core.journal import Journal
 from app.core.recording import record_act
 from app.core.routing import SAFE
 from app.core.security import ActorEmail
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.folding import sign_in_identifier
 
 router = APIRouter(
@@ -73,7 +73,7 @@ async def get_erasure_view(
     address_changes_collection: AddressChangeReadCollection,
     session: SnapshotSession,
     operator: ActorEmail,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLErasureViewResponse:
     """Count what `POST /identity/erasure` would remove or empty for this address, by kind, naming nothing and storing nothing.
 
@@ -126,7 +126,7 @@ async def get_erasure_view(
         address_change_rows=[row for row in subject.address_change if row not in withheld],
         grant_rows=subject.grants,
         # Partitioned as the erasure partitions them, so the count is the bookings it takes off.
-        spiele=sum(not is_played(date=spiel.get("date"), time=spiel.get("time"), now=now) for spiel in booked),
+        spiele=sum(not is_played(date=spiel.get("date"), time=spiel.get("time"), now=germany_now) for spiel in booked),
     )
 
 
@@ -215,5 +215,5 @@ async def post_erasure(
         await record_act(collection=action_log_collection, action="erasure.on_request", label=erasure_data.reason, session=session)
         journal.note("erasure", erasure.records, seats=erasure.seats, rows=erasure.rows)
 
-    async with journal, transaction_session(db) as session:
-        await session.with_transaction(erase_the_address)
+    async with journal:
+        await transact(db, erase_the_address)

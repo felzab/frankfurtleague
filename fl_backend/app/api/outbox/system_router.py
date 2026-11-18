@@ -39,7 +39,7 @@ from app.core.crud import ANCHOR_FIELD, patch_many_in_db, patch_past_the_version
 from app.core.dependencies import DB, BanListReadCollection, BewerbungenCollection, DBClient, GermanyNow, OutboxCollection
 from app.core.logging import fl_logger
 from app.core.security import SYSTEM_TIER
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import mint_token
 
@@ -87,14 +87,14 @@ def _link_record_filter(row: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _club_seat_filter(row: Mapping[str, Any]) -> dict[str, Any]:
+def _team_seat_filter(row: Mapping[str, Any]) -> dict[str, Any]:
     """The club's season row a mail to its contact seats names, while a confirmed seat there still holds the mail's address."""
 
-    club = row["club"]
+    team = row["team"]
 
     return {
-        "saison_id": club["saison_id"],
-        "team_id": club["team_id"],
+        "saison_id": team["saison_id"],
+        "team_id": team["team_id"],
         "$or": [{f"kontakte.{seat}.email": row["to"], f"kontakte.{seat}.einwilligung.confirmed_at": {"$ne": None}} for seat in KONTAKT_ROLLEN],
     }
 
@@ -114,7 +114,7 @@ async def post_handout(
     ban_list_collection: BanListReadCollection,
     db: DB,
     db_client: DBClient,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLOutboxHandoutResponse:
     """Claim a page of the mails owed now, the sign-in library's first, and hand each out with the link minted for it.
 
@@ -126,8 +126,8 @@ async def post_handout(
         # A mail past its deadline is given up rather than handed out.
         overdue = await patch_many_in_db(
             collection=outbox_collection,
-            db_filter={**_free(now), "deadline": {"$lte": now}},
-            update=final_update("abandoned", now=now),
+            db_filter={**_free(germany_now), "deadline": {"$lte": germany_now}},
+            update=final_update("abandoned", now=germany_now),
             session=session,
         )
         # The sign-in library's mails first, then the rest, each oldest first: a sign-in mail has one attempt, and a queue
@@ -139,7 +139,7 @@ async def post_handout(
                 break
             due += await pull_many_from_db(
                 collection=outbox_collection,
-                db_filter={**_free(now), "deadline": {"$gt": now}, "kind": kind_filter},
+                db_filter={**_free(germany_now), "deadline": {"$gt": germany_now}, "kind": kind_filter},
                 sort_by=[("recorded_at", ASCENDING), ("_id", ASCENDING)],
                 limit=PAGE - len(due),
                 session=session,
@@ -153,7 +153,7 @@ async def post_handout(
             await patch_many_in_db(
                 collection=outbox_collection,
                 db_filter={"_id": {"$in": [row["_id"] for row in unreadable]}},
-                update=final_update("abandoned", now=now),
+                update=final_update("abandoned", now=germany_now),
                 session=session,
             )
             given_up = {row["_id"] for row in unreadable}
@@ -170,12 +170,12 @@ async def post_handout(
         for row in due:
             if row["_id"] in barred_ids:
                 continue
-            if row.get("club") is not None:
+            if row.get("team") is not None:
                 # An anchor on the seat's row, judged by its filter: a seat edit landing beside this claim conflicts with
                 # it, and the retry reads the seat as it then stands.
                 held = await patch_past_the_version_in_db(
                     collection=db[Collection.SAISON_TEAMS],
-                    db_filter=_club_seat_filter(row),
+                    db_filter=_team_seat_filter(row),
                     update={"$inc": {ANCHOR_FIELD: 1}},
                     session=session,
                 )
@@ -202,14 +202,14 @@ async def post_handout(
             await patch_many_in_db(
                 collection=outbox_collection,
                 db_filter={"_id": {"$in": barred_ids}},
-                update=final_update("barred", now=now),
+                update=final_update("barred", now=germany_now),
                 session=session,
             )
         if dropped_ids:
             await patch_many_in_db(
                 collection=outbox_collection,
                 db_filter={"_id": {"$in": dropped_ids}},
-                update=final_update("dropped", now=now),
+                update=final_update("dropped", now=germany_now),
                 session=session,
             )
 
@@ -223,7 +223,7 @@ async def post_handout(
         await patch_many_in_db(
             collection=outbox_collection,
             db_filter={"_id": {"$in": [row["_id"] for row in handed]}},
-            update={"$set": {"lease": lease, "leased_until": now.astimezone(UTC) + LEASE_DURATION}, "$inc": {"attempts": 1}},
+            update={"$set": {"lease": lease, "leased_until": germany_now.astimezone(UTC) + LEASE_DURATION}, "$inc": {"attempts": 1}},
             session=session,
         )
 
@@ -244,8 +244,7 @@ async def post_handout(
             unreadable,
         )
 
-    async with transaction_session(db_client) as session:
-        mails, lease, abandoned, unreadable = await session.with_transaction(claim)
+    mails, lease, abandoned, unreadable = await transact(db_client, claim)
 
     # Past the commit, so a retried claim logs each once; the kind and the row alone, the facts holding addresses.
     for row in unreadable:
@@ -262,7 +261,7 @@ async def post_handout(
 async def post_result(
     result_data: FLOutboxResultPayload,
     outbox_collection: OutboxCollection,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLOutboxResultResponse:
     """Settle the named mail by its send's outcome where the named claim still holds it, counting a mail it does not hold in `ignored`.
 
@@ -283,11 +282,11 @@ async def post_result(
     result = result_data.result
     state = FINAL_STATE[result]
     # A send to be tried again ends here only where it may not be: a sign-in mail, or one past its deadline.
-    ends = {"$or": [{"kind": {"$in": list(SIGN_IN_KINDS)}}, {"deadline": {"$lte": now}}]} if result == "retry" else {}
+    ends = {"$or": [{"kind": {"$in": list(SIGN_IN_KINDS)}}, {"deadline": {"$lte": germany_now}}]} if result == "retry" else {}
     counted: str
-    if await settled(final_update(state, now=now, message_id=result_data.message_id), ends):
+    if await settled(final_update(state, now=germany_now, message_id=result_data.message_id), ends):
         counted = state
-    elif result == "retry" and await settled(retry_update(now=now), {}):
+    elif result == "retry" and await settled(retry_update(now=germany_now), {}):
         counted = "repeated"
     else:
         counted = "ignored"
@@ -299,7 +298,7 @@ async def post_result(
 async def post_sign_in(
     sign_in_data: FLOutboxSignInPayload,
     outbox_collection: OutboxCollection,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> None:
     """Owe one mail the sign-in library sends, such as a code, a passkey notice or the deletion link, to the address named.
 
@@ -311,7 +310,7 @@ async def post_sign_in(
     mail = OwedMail(key=f"{sign_in_data.data.kind}/{ObjectId()}", to=sign_in_data.to, data=sign_in_data.data)
     await post_one_to_db(
         collection=outbox_collection,
-        document=row_of(mail, now=now, secret=sign_in_data.secret, valid_until=sign_in_data.valid_until),
+        document=row_of(mail, now=germany_now, secret=sign_in_data.secret, valid_until=sign_in_data.valid_until),
     )
 
 
@@ -375,5 +374,4 @@ async def post_event(
 
         return applied
 
-    async with transaction_session(db_client) as session:
-        return FLOutboxEventResponse(applied=await session.with_transaction(record))
+    return FLOutboxEventResponse(applied=await transact(db_client, record))

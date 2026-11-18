@@ -36,7 +36,7 @@ TODAY = "2026-03-15"
 OID = "6890a1b2c3d4e5f6079a{:04x}"
 HOME, AWAY, PICKED = ObjectId(OID.format(0x101)), ObjectId(OID.format(0x102)), ObjectId(OID.format(0x103))
 SPIELORT, SCHIEDSRICHTER = ObjectId(OID.format(0x201)), ObjectId(OID.format(0x202))
-NEW_SCHOOL, PICKED_CLUB, DECIDED = ObjectId(OID.format(0x301)), ObjectId(OID.format(0x302)), ObjectId(OID.format(0x303))
+NEW_SCHOOL, PICKED_TEAM, DECIDED = ObjectId(OID.format(0x301)), ObjectId(OID.format(0x302)), ObjectId(OID.format(0x303))
 CLASH_SPIELTAG = ObjectId(OID.format(0x400))
 
 # One fixture per kind, numbered so a failure names it.
@@ -68,7 +68,7 @@ def spiel(nr: int, date: str | None, *, saison_id: str = SAISON, **fields: Any) 
     return documents.spiel_document(spiel_id=ObjectId(OID.format(nr)), saison_id=saison_id, spiel_nr=nr, **{**set_for, **fields})
 
 
-def club_row(spiel: dict[str, Any], team_id: ObjectId, **fields: Any) -> dict[str, Any]:
+def team_row(spiel: dict[str, Any], team_id: ObjectId, **fields: Any) -> dict[str, Any]:
     return documents.spielbestaetigung_document(spiel, party={"kind": "team", "team_id": team_id}, **fields)
 
 
@@ -94,11 +94,11 @@ SPIELE = {
 }
 
 ROWS = [
-    club_row(SPIELE[OVERDUE], HOME, deadline="2026-03-14", asked_at="2026-03-10"),
-    club_row(SPIELE[DUE_TODAY], AWAY, deadline=TODAY, asked_at=None),
+    team_row(SPIELE[OVERDUE], HOME, deadline="2026-03-14", asked_at="2026-03-10"),
+    team_row(SPIELE[DUE_TODAY], AWAY, deadline=TODAY, asked_at=None),
     # Minted for the day the fixture was set for before it moved: it speaks for an Ansetzung the fixture has left.
-    club_row({**SPIELE[MOVED], "date": "2026-03-22"}, HOME, deadline="2026-03-14", asked_at="2026-03-10"),
-    club_row(
+    team_row({**SPIELE[MOVED], "date": "2026-03-22"}, HOME, deadline="2026-03-14", asked_at="2026-03-10"),
+    team_row(
         SPIELE[PROPOSED],
         AWAY,
         deadline="2026-03-20",
@@ -121,7 +121,7 @@ ROWS = [
     documents.spielbestaetigung_document(SPIELE[OVERDUE], party=REFEREE_PARTY, deadline="2026-03-14", asked_at="2026-03-10"),
     # The proposal's other club, asked and agreed, and its referee, never asked: an adoption has the pass tell the
     # first of the move and not the second.
-    club_row(
+    team_row(
         SPIELE[PROPOSED],
         HOME,
         deadline="2026-03-20",
@@ -180,7 +180,7 @@ async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
         await database[Collection.BEWERBUNGEN].insert_many(
             [
                 application(NEW_SCHOOL, "submitted", "2026-02-01", schule=documents.new_schule_document("Riedberg")),
-                application(PICKED_CLUB, "submitted", "2026-02-10", team_id=PICKED),
+                application(PICKED_TEAM, "submitted", "2026-02-10", team_id=PICKED),
                 application(DECIDED, "declined", "2026-01-20", schule=documents.new_schule_document("Westend")),
             ]
         )
@@ -303,7 +303,7 @@ class TestWhatASpielStillLacks:
     def test_a_dated_spiel_with_no_time_still_lacks_its_date(self):
         assert _gaps(joined(time=None), today=TODAY) == ["appointment_missing"]
 
-    def test_a_knockout_side_awaiting_its_source_is_no_missing_club(self):
+    def test_a_knockout_side_awaiting_its_source_is_no_missing_team(self):
         """Its club arrives with the bracket's resolution: listed, it asks the administrator to pick a club the draw will place."""
 
         sourced = joined(saison_phase="halbfinale", team2=None, team2_quelle={"type": "gruppe", "gruppe": "A", "platz": 1})

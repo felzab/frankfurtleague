@@ -2478,7 +2478,7 @@ export const getSpielePatchSpielUrl = (spielId: string, params?: SpielePatchSpie
  * A save storing what stands, where the bracket's resolution would move nothing either, writes no fixture and raises
  * no `version`: with `adopts_bericht` it stamps the Spielbericht alone, and it is refused where that stamp matches
  * nothing. A `dry_run` writes nothing and answers the same report, with the parties the confirmation pass would mail and the
- * later results the save would delete, which the save's `voided_results` must name back.
+ * later results the save would delete, which the save's `voided_ergebnisse` must name back.
  * @summary Update a Spiel
  */
 export const spielePatchSpiel = async (
@@ -2778,8 +2778,6 @@ export const getSpielorteGetSpielorteUrl = (params?: SpielorteGetSpielorteParams
 
 /**
  * Every venue in name order, the retired ones too where `include_inactive` asks for them.
- *
- * `maps_link` is a Maps search string, not a URL.
  * @summary List Spielorte
  */
 export const spielorteGetSpielorte = async (
@@ -2797,7 +2795,7 @@ export const getSpielortePostSpielortUrl = () => {
 };
 
 /**
- * Create a venue, its `maps_link` derived from the name and the address.
+ * Create a venue, its `maps_query` derived from the name and the address.
  *
  * A name another venue holds, a retired one included, is refused.
  * @summary Create a Spielort
@@ -2856,7 +2854,7 @@ export const getSpielortePatchSpielortUrl = (spielortId: string) => {
 /**
  * Save a venue on the `version` it was read at, answering the version stored.
  *
- * Every fixture at the venue shows its new name and `maps_link`, and keeps the `mietpreis` agreed for it.
+ * Every fixture at the venue shows its new name and `maps_query`, and keeps the `mietpreis` agreed for it.
  * @summary Update a Spielort
  */
 export const spielortePatchSpielort = async (

@@ -41,7 +41,7 @@ SPIEL_FIELDS: Final[Mapping[str, int]] = {
     "ergebnis": 1,
     "elfmeterschiessen": 1,
     # The ground the form's lead names, never its rent.
-    **dict.fromkeys(("spielort.spielort_id", "spielort.name", "spielort.maps_link"), 1),
+    **dict.fromkeys(("spielort.spielort_id", "spielort.name", "spielort.maps_query"), 1),
 }
 
 

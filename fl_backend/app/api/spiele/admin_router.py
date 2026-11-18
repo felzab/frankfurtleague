@@ -47,9 +47,9 @@ from app.core.dependencies import (
     TeamsCollection,
 )
 from app.core.routing import SAFE_WHEN, by_id
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 
 router = APIRouter(
     prefix="/spiele",
@@ -94,7 +94,7 @@ async def get_spiele_spielplan(
     summary="One Spiel and all the match editor offers and shows beside it",
 )
 async def get_spiel_admin(
-    spiel_id: CustomRouteObjectId,
+    spiel_id: CustomObjectId,
     spiele_collection: SpieleReadCollection,
     saisons_collection: SaisonsReadCollection,
     spielorte_collection: SpielorteReadCollection,
@@ -105,7 +105,7 @@ async def get_spiel_admin(
     spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
     aufstellungen_collection: AufstellungenReadCollection,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLSpieleAdminSingleResponse:
     """
     The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.
@@ -126,7 +126,7 @@ async def get_spiel_admin(
         spielbestaetigungen_collection=spielbestaetigungen_collection,
         saison_teams_collection=saison_teams_collection,
         aufstellungen_collection=aufstellungen_collection,
-        now=now,
+        now=germany_now,
     )
 
 
@@ -142,7 +142,7 @@ async def previewing(
     openapi_extra=SAFE_WHEN,
 )
 async def patch_spiel(
-    spiel_id: CustomRouteObjectId,
+    spiel_id: CustomObjectId,
     spiel_data: FLPatchSpielDataPayload,
     db: DBClient,
     spiele_collection: SpieleCollection,
@@ -156,7 +156,7 @@ async def patch_spiel(
     aufstellungen_collection: AufstellungenCollection,
     # Read on a `dry_run` alone, for whom the confirmation pass would mail of the save.
     spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
-    now: GermanyNow,
+    germany_now: GermanyNow,
     adopts_bericht: Annotated[
         int | None,
         Query(ge=0, description="The `version` of the fixture's Spielbericht the editor was seeded from, to stamp it adopted"),
@@ -169,7 +169,7 @@ async def patch_spiel(
     A save storing what stands, where the bracket's resolution would move nothing either, writes no fixture and raises
     no `version`: with `adopts_bericht` it stamps the Spielbericht alone, and it is refused where that stamp matches
     nothing. A `dry_run` writes nothing and answers the same report, with the parties the confirmation pass would mail and the
-    later results the save would delete, which the save's `voided_results` must name back.
+    later results the save would delete, which the save's `voided_ergebnisse` must name back.
     """
 
     collections = SpielSaveCollections(
@@ -193,17 +193,16 @@ async def patch_spiel(
                 payload=spiel_data,
                 collections=collections,
                 spielbestaetigungen_collection=spielbestaetigungen_collection,
-                now=now,
+                now=germany_now,
                 session=session,
             )
 
     async def write_and_resolve_the_bracket(session: AsyncClientSession) -> FLPatchSpielDataResponse:
         return await save_spiel_in_session(
-            spiel_id=spiel_id, payload=spiel_data, collections=collections, adopts_bericht=adopts_bericht, now=now, session=session
+            spiel_id=spiel_id, payload=spiel_data, collections=collections, adopts_bericht=adopts_bericht, now=germany_now, session=session
         )
 
-    # `with_transaction` rather than a bare `start_transaction`: two saves in one season can
+    # `transact` rather than a bare `start_transaction`: two saves in one season can
     # write-conflict on the same advanced fixture, and the callback is safe to retry, every pass
     # re-reading what it judges.
-    async with transaction_session(db) as session:
-        return await session.with_transaction(write_and_resolve_the_bracket)
+    return await transact(db, write_and_resolve_the_bracket)

@@ -38,7 +38,7 @@ def test_rejects_a_website_url_that_is_not_http(team):
 class TestTheTabellesGroups:
     """Every group the season offers, a map built from the clubs present dropping a group nobody has entered yet."""
 
-    def test_a_row_carries_the_standings_fields_and_no_club_detail(self, team):
+    def test_a_row_carries_the_standings_fields_and_no_team_detail(self, team):
         """A public CLIENT component renders this, so every field listed is serialised into the page -- and an address here is a school's."""
         response = FLTabelleResponse(
             gruppen=build_tabelle([FLTeam.model_validate(team(gruppe="A"))], spiele=[], rules=RULES),

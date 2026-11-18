@@ -142,7 +142,7 @@ async def a_pupil_with_a_history(database: AsyncDatabase, *, first_name: str, te
     return spieler_id
 
 
-async def a_pupil_who_never_joined_a_squad(database: AsyncDatabase) -> ObjectId:
+async def a_pupil_who_never_joined_a_kader(database: AsyncDatabase) -> ObjectId:
     """A person seeded who holds no squad row."""
 
     document = person_row(LONE_FIRST_NAME)
@@ -163,7 +163,7 @@ async def erase_the_pupil(database: AsyncDatabase, client: AsyncMongoClient, spi
 class TestARetiredPupilIsErasedWhole:
     """Through the endpoint: the person and their squad rows."""
 
-    async def test_every_squad_row_they_held_is_gone(self, mongo_replica_set_url: str):
+    async def test_every_kader_row_they_held_is_gone(self, mongo_replica_set_url: str):
         """Catches removing the person alone: the squad read `$lookup`s outward from `spieler`, so an orphan is invisible."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -177,7 +177,7 @@ class TestARetiredPupilIsErasedWhole:
 
         assert (held, remaining) == (2, 0)
 
-    async def test_another_pupil_keeps_their_squad_row(self, mongo_replica_set_url: str):
+    async def test_another_pupil_keeps_their_kader_row(self, mongo_replica_set_url: str):
         """The over-breadth floor: catches a removal filtered on the collection rather than on `spieler_id`."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -217,12 +217,12 @@ class TestNothingOfTheirsIsLeftAnywhere:
         assert held[f"{OTHER_FIRST_NAME}-Musterfrau"]
 
 
-class TestAPupilWhoNeverJoinedASquad:
+class TestAPupilWhoNeverJoinedAKader:
     async def test_their_own_record_is_erased_all_the_same(self, mongo_replica_set_url: str):
         """Catches an erasure that only reaches a person who held a squad row."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            spieler_id = await a_pupil_who_never_joined_a_squad(database)
+            spieler_id = await a_pupil_who_never_joined_a_kader(database)
             await erase_the_pupil(database, client, spieler_id)
 
             return await database[Collection.SPIELER].count_documents({"_id": spieler_id}), await where_held(database, LONE_FIRST_NAME)

@@ -24,7 +24,7 @@ from app.api.spielberichte.schemas import (
     FLSpielberichtVorschlag,
 )
 from app.api.spielberichte.services import SIDES, bericht_state_of
-from app.api.spielbestaetigungen.crud import JUDGED_VEREIN_FIELDS, pull_admin_rows
+from app.api.spielbestaetigungen.crud import JUDGED_JUNCTION_FIELDS, pull_admin_rows
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigung, FLSpielbestaetigungState
 from app.api.spielbestaetigungen.services import AnsetzungState, austritte_of, due_by_of, lapsed_on, reason_of, state_of
 from app.api.spiele.crud import pull_saison_membership
@@ -45,7 +45,7 @@ from app.shared.einwilligung import is_confirmed
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.literals import FLSaisonStatus, FLSpielSide
-from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
+from app.shared.schemas.responses import BaseReadModel
 
 
 class FLSpielEditorSpielort(BaseReadModel):
@@ -134,7 +134,7 @@ class FLSpielbestaetigungEditorRow(FLSpielbestaetigung):
     lapsed_on: CustomDateString | None
 
 
-class FLSpieleAdminSingleResponse(BaseAPIResponse):
+class FLSpieleAdminSingleResponse(BaseReadModel):
     """One fixture for the match editor, money and `version` included, and all its sections offer and show beside it."""
 
     spiel: FLSpielJoinedAdmin
@@ -157,17 +157,20 @@ class FLSpieleAdminSingleResponse(BaseAPIResponse):
     aufstellung_marks: FLSpielEditorAufstellungMarks
 
 
-async def _vereine_of(rows: Sequence[Mapping[str, Any]], *, saison_id: str, saison_teams_collection: ReadCollection) -> list[Mapping[str, Any]]:
+async def _junctions_of(
+    rows: Sequence[Mapping[str, Any]], *, saison_id: str, saison_teams_collection: ReadCollection
+) -> list[Mapping[str, Any]]:
     """The season rows of every club the confirmation rows' Ansetzungen name, as `state_of` judges a row against them."""
 
-    clubs = {club for row in rows for club in (row["ansetzung"]["team1_id"], row["ansetzung"]["team2_id"])}
-    if not clubs:
+    team_ids = {team_id for row in rows for team_id in (row["ansetzung"]["team1_id"], row["ansetzung"]["team2_id"])}
+    if not team_ids:
         return []
 
-    return await pull_many_from_db(
+    return await pull_whole_from_db(
         collection=saison_teams_collection,
-        db_filter={"saison_id": saison_id, "team_id": {"$in": list(clubs)}},
-        projection=JUDGED_VEREIN_FIELDS,
+        db_filter={"saison_id": saison_id, "team_id": {"$in": list(team_ids)}},
+        what=f"season {saison_id}'s clubs the confirmations name",
+        projection=JUDGED_JUNCTION_FIELDS,
     )
 
 
@@ -282,15 +285,16 @@ async def _aufstellungen_of(
     """
 
     fielded = {side: field.team_id for side in SIDES if (field := getattr(spiel, side)) is not None}
-    stored_raw = await pull_many_from_db(
+    stored_raw = await pull_whole_from_db(
         collection=aufstellungen_collection,
         db_filter={"spiel_id": spiel.id, "team_id": {"$in": list(fielded.values())}},
+        what=f"fixture {spiel.id}'s line-ups",
         projection=["team_id", "spieler.starts"],
     )
-    stored_by_club: dict[Any, Mapping[str, Any]] = {row["team_id"]: row for row in stored_raw}
+    stored_by_team: dict[Any, Mapping[str, Any]] = {row["team_id"]: row for row in stored_raw}
 
     def summary_of(side: FLSpielSide) -> FLAufstellungSummary | None:
-        saved = None if side not in fielded else stored_by_club.get(fielded[side])
+        saved = None if side not in fielded else stored_by_team.get(fielded[side])
         if saved is None:
             return None
         entries = saved["spieler"]
@@ -299,7 +303,7 @@ async def _aufstellungen_of(
     def marks_of(side: FLSpielSide) -> FLAufstellungMarks | None:
         if side not in fielded:
             return None
-        stored = aufstellung_stands(stored_by_club.get(fielded[side]))
+        stored = aufstellung_stands(stored_by_team.get(fielded[side]))
         return aufstellung_marks(date=spiel.date, time=spiel.time, stored=stored, now=now)
 
     return (
@@ -373,8 +377,8 @@ async def read_spiel_editor(
         ),
         _aufstellungen_of(spiel=spiel, aufstellungen_collection=aufstellungen_collection, now=now),
     )
-    vereine = await _vereine_of(confirmations, saison_id=spiel.saison_id, saison_teams_collection=saison_teams_collection)
-    ansetzung_state = AnsetzungState(spiel=spiele_raw[0], vereine=vereine)
+    junctions = await _junctions_of(confirmations, saison_id=spiel.saison_id, saison_teams_collection=saison_teams_collection)
+    ansetzung_state = AnsetzungState(spiel=spiele_raw[0], junctions=junctions)
     austritte = austritte_of(ansetzung_state)
 
     def editor_row(row: Mapping[str, Any]) -> FLSpielbestaetigungEditorRow:

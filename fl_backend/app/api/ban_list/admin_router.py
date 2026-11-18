@@ -34,9 +34,9 @@ from app.core.dependencies import (
 )
 from app.core.recording import record_act
 from app.core.routing import by_id
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 
 router = APIRouter(
     prefix="/ban_list",
@@ -95,7 +95,7 @@ async def post_ban_list_entry(
     outbox_collection: OutboxCollection,
     db: DBClient,
     today: GermanDay,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLPostBanListEntryResponse:
     """Ban an address: it cannot sign in, and no mail leaves for it but the ban's own notice, sent where `notify` is set.
 
@@ -141,13 +141,12 @@ async def post_ban_list_entry(
                         data=FLBanData(kind="ban", ban_reason=ban_list_data.ban_reason, barred_until_saison_id=barred_until_saison_id),
                     )
                 ],
-                now=now,
+                now=germany_now,
             )
 
         return created
 
-    async with transaction_session(db) as session:
-        post_operation = await session.with_transaction(judge_and_ban)
+    post_operation = await transact(db, judge_and_ban)
 
     return FLPostBanListEntryResponse(created_id=post_operation.inserted_id)
 
@@ -157,7 +156,7 @@ async def post_ban_list_entry(
     summary="Lift a ban",
 )
 async def delete_ban_list_entry(
-    ban_list_entry_id: CustomRouteObjectId,
+    ban_list_entry_id: CustomObjectId,
     ban_list_collection: BanListCollection,
     db: DBClient,
 ) -> FLBanListWriteResponse:
@@ -172,7 +171,6 @@ async def delete_ban_list_entry(
         await delete_many_from_db(collection=ban_list_collection, db_filter={"_id": ban_list_entry_id}, session=session)
         await record_act(collection=ban_list_collection, action="ban.removed", record_id=ban_list_entry_id, session=session)
 
-    async with transaction_session(db) as session:
-        await session.with_transaction(lift_the_ban)
+    await transact(db, lift_the_ban)
 
     return FLBanListWriteResponse(ban_list_entry_id=ban_list_entry_id)

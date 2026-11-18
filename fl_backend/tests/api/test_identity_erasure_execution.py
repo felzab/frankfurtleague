@@ -75,9 +75,9 @@ from tests.erasure_corpus import (
     TEAM_CONFIRMATION_OID,
     THEIR_CONFIRMATION_OID,
     THEIR_GRANT_OID,
+    THEIR_KADER_ROW_OID,
     THEIR_REMARKS,
     THEIR_REPORT_OID,
-    THEIR_SQUAD_ROW_OID,
     THEIR_VALUES,
     TYPED,
     YESTERDAY,
@@ -114,7 +114,7 @@ TO_COME_SPIEL_OID = ObjectId("6890a1b2c3d4e5f607b00064")
 THEIR_CHANGE_OID = ObjectId("6890a1b2c3d4e5f607b000c5")
 # Every record of their own the erasure removes, each id looked for in the whole database afterwards: a reference left
 # naming one names nobody.
-THEIR_RECORDS = (PUPIL_OID, THEIR_SQUAD_ROW_OID, REFEREE_OID, PENDING_OID, DECLINED_OID, THEIR_CONFIRMATION_OID)
+THEIR_RECORDS = (PUPIL_OID, THEIR_KADER_ROW_OID, REFEREE_OID, PENDING_OID, DECLINED_OID, THEIR_CONFIRMATION_OID)
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -697,9 +697,9 @@ class TestAnAdmissionInsideTheErasure:
                 await database[Collection.REGISTRIERUNGEN].count_documents({}),
             )
 
-        registrations, pupils, squad_rows, left = await on_a_league_of_its_own(mongo_replica_set_url, body)
+        registrations, pupils, kader_rows, left = await on_a_league_of_its_own(mongo_replica_set_url, body)
 
-        assert (pupils, squad_rows, left) == (0, 0, 0)
+        assert (pupils, kader_rows, left) == (0, 0, 0)
         # The premise last, so a stale subject fails on the pupil it left rather than on the count of reads.
         registrations.assert_landed_inside(serially=1)
 

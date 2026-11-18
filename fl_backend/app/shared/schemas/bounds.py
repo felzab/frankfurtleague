@@ -32,10 +32,11 @@ SPIEL_NOTE_MAX_LENGTH: Final = 4096
 # into an outbound email as well as stored. Named so the frontend mirror refuses at the same length.
 BEWERBUNG_DECISION_REASON_MAX_LENGTH: Final = 1000
 
-# The ceiling refuses a mistyped century rather than a real age.
 type FLBewerbungKontaktMinAgeYears = Literal[16]
 BEWERBUNG_KONTAKT_MIN_AGE_YEARS: Final[FLBewerbungKontaktMinAgeYears] = 16
-BEWERBUNG_KONTAKT_MAX_AGE_YEARS: Final = 120
+
+# Every birth date's ceiling, in each flow taking one: it refuses a mistyped century rather than a real age.
+BIRTH_DATE_MAX_AGE_YEARS: Final = 120
 
 # The Ansprechperson's floor and the Stellvertretung's: those two sign what binds the school, which
 # asks contractual capacity rather than the age a person consents for themselves at.
@@ -72,7 +73,7 @@ TEAM_NAME_MAX_LENGTH: Final = 60
 # the place suffix a short name drops -- "… Kooperative Gesamtschule der Stadt Frankfurt am Main".
 TEAM_FULL_NAME_MAX_LENGTH: Final = 120
 
-# A ground's name, which every fixture at it shows and `maps_link` composes: a school's full name's width.
+# A ground's name, which every fixture at it shows and `maps_query` composes: a school's full name's width.
 SPIELORT_NAME_MAX_LENGTH: Final = 120
 # The school a referee teaches at, named as a school's full name is.
 SCHIEDSRICHTER_SCHULE_MAX_LENGTH: Final = 120
@@ -105,7 +106,7 @@ TEAM_SHORTHAND_LENGTH: Final[FLTeamShorthandLength] = 3
 
 SAISON_ID_LENGTH: Final = 4
 
-# The most rows one list read takes: no request names a page size, so every list is cut here alone.
+# The most rows one list read takes: no request names a page size, so a list is cut here and a whole read refuses a set past it.
 LIST_LIMIT_DEFAULT: Final = 1024
 
 # The most addresses one references call judges, each costing about a millisecond, so one call stays far inside the

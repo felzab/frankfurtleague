@@ -5277,7 +5277,7 @@
           }
         ]
       },
-      "FLEntryKnownClub": {
+      "FLEntryKnownTeam": {
         "additionalProperties": false,
         "description": "A club the league holds, picked from the list's create dialog.",
         "properties": {
@@ -5296,10 +5296,10 @@
           "kind",
           "team_id"
         ],
-        "title": "FLEntryKnownClub",
+        "title": "FLEntryKnownTeam",
         "type": "object"
       },
-      "FLEntryNewClub": {
+      "FLEntryNewTeam": {
         "additionalProperties": false,
         "description": "A club the entry founds, in the transaction that enters it.",
         "properties": {
@@ -5316,7 +5316,7 @@
           "kind",
           "team"
         ],
-        "title": "FLEntryNewClub",
+        "title": "FLEntryNewTeam",
         "type": "object"
       },
       "FLErasureAddressPayload": {
@@ -8360,11 +8360,11 @@
             "title": "Version",
             "type": "integer"
           },
-          "voided_results": {
+          "voided_ergebnisse": {
             "items": {
-              "$ref": "#/components/schemas/FLSpielVoidedResult"
+              "$ref": "#/components/schemas/FLSpielVoidedErgebnis"
             },
-            "title": "Voided Results",
+            "title": "Voided Ergebnisse",
             "type": "array"
           }
         },
@@ -8386,7 +8386,7 @@
         "type": "object"
       },
       "FLPatchSpielDataResponse": {
-        "description": "Every fixture the save moved beyond its own edit, each with the result it destroyed, and the fixture's `version` after it.\n\n`voided_results` is the set a save names in its body to delete those results, and `recipients`, on a `dry_run` alone,\nevery party the confirmation pass would mail of the change.",
+        "description": "Every fixture the save moved beyond its own edit, each with the result it destroyed, and the fixture's `version` after it.\n\n`voided_ergebnisse` is the set a save names in its body to delete those results, and `recipients`, on a `dry_run` alone,\nevery party the confirmation pass would mail of the change.",
         "properties": {
           "advanced_to": {
             "items": {
@@ -8434,18 +8434,18 @@
             "title": "Version",
             "type": "integer"
           },
-          "voided_results": {
+          "voided_ergebnisse": {
             "items": {
-              "$ref": "#/components/schemas/FLSpielVoidedResult"
+              "$ref": "#/components/schemas/FLSpielVoidedErgebnis"
             },
-            "title": "Voided Results",
+            "title": "Voided Ergebnisse",
             "type": "array"
           }
         },
         "required": [
           "advanced_to",
           "released_sides",
-          "voided_results",
+          "voided_ergebnisse",
           "version",
           "recipients"
         ],
@@ -9074,26 +9074,26 @@
         "additionalProperties": false,
         "description": "One club's entry into a season, the club known or new. One field rather than two nullable ones, so no body names both.",
         "properties": {
-          "club": {
+          "gruppe": {
+            "$ref": "#/components/schemas/FLGruppenNames"
+          },
+          "team": {
             "discriminator": {
               "mapping": {
-                "known": "#/components/schemas/FLEntryKnownClub",
-                "new": "#/components/schemas/FLEntryNewClub"
+                "known": "#/components/schemas/FLEntryKnownTeam",
+                "new": "#/components/schemas/FLEntryNewTeam"
               },
               "propertyName": "kind"
             },
             "oneOf": [
               {
-                "$ref": "#/components/schemas/FLEntryKnownClub"
+                "$ref": "#/components/schemas/FLEntryKnownTeam"
               },
               {
-                "$ref": "#/components/schemas/FLEntryNewClub"
+                "$ref": "#/components/schemas/FLEntryNewTeam"
               }
             ],
-            "title": "Club"
-          },
-          "gruppe": {
-            "$ref": "#/components/schemas/FLGruppenNames"
+            "title": "Team"
           },
           "trikot_farbe": {
             "anyOf": [
@@ -9107,7 +9107,7 @@
           }
         },
         "required": [
-          "club",
+          "team",
           "gruppe",
           "trikot_farbe"
         ],
@@ -10511,13 +10511,13 @@
       "FLSaisonPhaseSchedule": {
         "description": "One phase of a season: how many matchdays it takes, and how many matches each holds.\n\nA phase the bracket does not reach is absent rather than present with zeroes, so the list is the\nphases the season plays, in playing order.",
         "properties": {
-          "matches_per_spieltag": {
-            "minimum": 0.0,
-            "title": "Matches Per Spieltag",
-            "type": "integer"
-          },
           "phase": {
             "$ref": "#/components/schemas/FLSaisonPhase"
+          },
+          "spiele_per_spieltag": {
+            "minimum": 0.0,
+            "title": "Spiele Per Spieltag",
+            "type": "integer"
           },
           "spieltage": {
             "minimum": 0.0,
@@ -10528,7 +10528,7 @@
         "required": [
           "phase",
           "spieltage",
-          "matches_per_spieltag"
+          "spiele_per_spieltag"
         ],
         "title": "FLSaisonPhaseSchedule",
         "type": "object"
@@ -13222,7 +13222,7 @@
         "title": "FLSpielTeamFieldPayload",
         "type": "object"
       },
-      "FLSpielVoidedResult": {
+      "FLSpielVoidedErgebnis": {
         "additionalProperties": false,
         "description": "A later fixture's stored result that a save deletes: its ground score, its shoot-out and a no-show, each null where it held none.",
         "properties": {
@@ -13276,7 +13276,7 @@
           "voided_elfmeterschiessen",
           "voided_sonderereignis"
         ],
-        "title": "FLSpielVoidedResult",
+        "title": "FLSpielVoidedErgebnis",
         "type": "object"
       },
       "FLSpielVorschlagDiscardedData": {
@@ -15669,9 +15669,9 @@
             ],
             "title": "Inactive Since"
           },
-          "maps_link": {
+          "maps_query": {
             "minLength": 1,
-            "title": "Maps Link",
+            "title": "Maps Query",
             "type": "string"
           },
           "name": {
@@ -15690,7 +15690,7 @@
           "name",
           "default_mietpreis",
           "id",
-          "maps_link",
+          "maps_query",
           "inactive_since",
           "version"
         ],
@@ -15700,9 +15700,9 @@
       "FLSpielortField": {
         "description": "The venue as the admin reads serve it, the rent included.",
         "properties": {
-          "maps_link": {
+          "maps_query": {
             "minLength": 1,
-            "title": "Maps Link",
+            "title": "Maps Query",
             "type": "string"
           },
           "mietpreis": {
@@ -15724,7 +15724,7 @@
         "required": [
           "spielort_id",
           "name",
-          "maps_link",
+          "maps_query",
           "mietpreis"
         ],
         "title": "FLSpielortField",
@@ -15755,9 +15755,9 @@
       "FLSpielortFieldPublic": {
         "description": "The venue as the public reads serve it: which ground, its current name and where to find it, without the rent.",
         "properties": {
-          "maps_link": {
+          "maps_query": {
             "minLength": 1,
-            "title": "Maps Link",
+            "title": "Maps Query",
             "type": "string"
           },
           "name": {
@@ -15774,7 +15774,7 @@
         "required": [
           "spielort_id",
           "name",
-          "maps_link"
+          "maps_query"
         ],
         "title": "FLSpielortFieldPublic",
         "type": "object"
@@ -16639,7 +16639,45 @@
         "title": "FLTeam",
         "type": "object"
       },
-      "FLTeamEntryClub": {
+      "FLTeamEntryOffer": {
+        "description": "What the list's create dialog offers, and why the entry would be refused now.",
+        "properties": {
+          "closed": {
+            "title": "Closed",
+            "type": "boolean"
+          },
+          "gruppen": {
+            "items": {
+              "$ref": "#/components/schemas/FLTeamGruppeOffer"
+            },
+            "title": "Gruppen",
+            "type": "array"
+          },
+          "taken": {
+            "items": {
+              "$ref": "#/components/schemas/FLTrikotFarbe"
+            },
+            "title": "Taken",
+            "type": "array"
+          },
+          "teams": {
+            "items": {
+              "$ref": "#/components/schemas/FLTeamEntryTeam"
+            },
+            "title": "Teams",
+            "type": "array"
+          }
+        },
+        "required": [
+          "teams",
+          "gruppen",
+          "closed",
+          "taken"
+        ],
+        "title": "FLTeamEntryOffer",
+        "type": "object"
+      },
+      "FLTeamEntryTeam": {
         "description": "A club the entry's picker offers: one still in the league that holds no row of the season.",
         "properties": {
           "id": {
@@ -16661,45 +16699,7 @@
           "name",
           "shorthand"
         ],
-        "title": "FLTeamEntryClub",
-        "type": "object"
-      },
-      "FLTeamEntryOffer": {
-        "description": "What the list's create dialog offers, and why the entry would be refused now.",
-        "properties": {
-          "closed": {
-            "title": "Closed",
-            "type": "boolean"
-          },
-          "clubs": {
-            "items": {
-              "$ref": "#/components/schemas/FLTeamEntryClub"
-            },
-            "title": "Clubs",
-            "type": "array"
-          },
-          "gruppen": {
-            "items": {
-              "$ref": "#/components/schemas/FLTeamGruppeOffer"
-            },
-            "title": "Gruppen",
-            "type": "array"
-          },
-          "taken": {
-            "items": {
-              "$ref": "#/components/schemas/FLTrikotFarbe"
-            },
-            "title": "Taken",
-            "type": "array"
-          }
-        },
-        "required": [
-          "clubs",
-          "gruppen",
-          "closed",
-          "taken"
-        ],
-        "title": "FLTeamEntryOffer",
+        "title": "FLTeamEntryTeam",
         "type": "object"
       },
       "FLTeamGruppeOffer": {
@@ -16931,87 +16931,6 @@
         "title": "FLTeamOverviewResponse",
         "type": "object"
       },
-      "FLTeamPageClub": {
-        "description": "The club as its page in one season shows it: the school, its group, and how it left the season if it did.\n\nThe whole `austritt` record, reason and day: this page is the one that publishes them.",
-        "properties": {
-          "address": {
-            "$ref": "#/components/schemas/FLAddress"
-          },
-          "austritt": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLAustritt"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "description": {
-            "maxLength": 4096,
-            "title": "Description",
-            "type": "string"
-          },
-          "full_name": {
-            "minLength": 1,
-            "title": "Full Name",
-            "type": "string"
-          },
-          "gruppe": {
-            "$ref": "#/components/schemas/FLGruppenNames"
-          },
-          "id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id",
-            "type": "string"
-          },
-          "name": {
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
-          },
-          "schulform": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSchulform"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "shorthand": {
-            "pattern": "^[A-Z]{3}$",
-            "title": "Shorthand",
-            "type": "string"
-          },
-          "website_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Website Url"
-          }
-        },
-        "required": [
-          "name",
-          "shorthand",
-          "description",
-          "full_name",
-          "schulform",
-          "website_url",
-          "address",
-          "id",
-          "gruppe",
-          "austritt"
-        ],
-        "title": "FLTeamPageClub",
-        "type": "object"
-      },
       "FLTeamPageResponse": {
         "description": "One club's page in one season: the club, its row of the Tabelle, its matches and its squad.\n\n`standing` is null for a club no group of the Tabelle lists, one that left the league; `spiele` are in the order the\ndraw numbered them, each with its matchday's `position`; the squad is the base tier's, names withheld where the\npupil's consent does not publish them.",
         "properties": {
@@ -17040,7 +16959,7 @@
             ]
           },
           "team": {
-            "$ref": "#/components/schemas/FLTeamPageClub"
+            "$ref": "#/components/schemas/FLTeamPageTeam"
           }
         },
         "required": [
@@ -17256,6 +17175,87 @@
           "count_spieltage_in_phase"
         ],
         "title": "FLTeamPageSpiel",
+        "type": "object"
+      },
+      "FLTeamPageTeam": {
+        "description": "The club as its page in one season shows it: the school, its group, and how it left the season if it did.\n\nThe whole `austritt` record, reason and day: this page is the one that publishes them.",
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/FLAddress"
+          },
+          "austritt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLAustritt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": {
+            "maxLength": 4096,
+            "title": "Description",
+            "type": "string"
+          },
+          "full_name": {
+            "minLength": 1,
+            "title": "Full Name",
+            "type": "string"
+          },
+          "gruppe": {
+            "$ref": "#/components/schemas/FLGruppenNames"
+          },
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "schulform": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSchulform"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "shorthand": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Shorthand",
+            "type": "string"
+          },
+          "website_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Website Url"
+          }
+        },
+        "required": [
+          "name",
+          "shorthand",
+          "description",
+          "full_name",
+          "schulform",
+          "website_url",
+          "address",
+          "id",
+          "gruppe",
+          "austritt"
+        ],
+        "title": "FLTeamPageTeam",
         "type": "object"
       },
       "FLTeamPanelAufstellung": {
@@ -26752,7 +26752,7 @@
         ]
       },
       "patch": {
-        "description": "Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.\n\nA save storing what stands, where the bracket's resolution would move nothing either, writes no fixture and raises\nno `version`: with `adopts_bericht` it stamps the Spielbericht alone, and it is refused where that stamp matches\nnothing. A `dry_run` writes nothing and answers the same report, with the parties the confirmation pass would mail and the\nlater results the save would delete, which the save's `voided_results` must name back.",
+        "description": "Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.\n\nA save storing what stands, where the bracket's resolution would move nothing either, writes no fixture and raises\nno `version`: with `adopts_bericht` it stamps the Spielbericht alone, and it is refused where that stamp matches\nnothing. A `dry_run` writes nothing and answers the same report, with the parties the confirmation pass would mail and the\nlater results the save would delete, which the save's `voided_ergebnisse` must name back.",
         "operationId": "spiele_patch_spiel",
         "parameters": [
           {
@@ -27962,7 +27962,7 @@
     },
     "/api/v0/spielorte": {
       "get": {
-        "description": "Every venue in name order, the retired ones too where `include_inactive` asks for them.\n\n`maps_link` is a Maps search string, not a URL.",
+        "description": "Every venue in name order, the retired ones too where `include_inactive` asks for them.",
         "operationId": "spielorte_get_spielorte",
         "parameters": [
           {
@@ -28039,7 +28039,7 @@
         ]
       },
       "post": {
-        "description": "Create a venue, its `maps_link` derived from the name and the address.\n\nA name another venue holds, a retired one included, is refused.",
+        "description": "Create a venue, its `maps_query` derived from the name and the address.\n\nA name another venue holds, a retired one included, is refused.",
         "operationId": "spielorte_post_spielort",
         "requestBody": {
           "content": {
@@ -28263,7 +28263,7 @@
         ]
       },
       "patch": {
-        "description": "Save a venue on the `version` it was read at, answering the version stored.\n\nEvery fixture at the venue shows its new name and `maps_link`, and keeps the `mietpreis` agreed for it.",
+        "description": "Save a venue on the `version` it was read at, answering the version stored.\n\nEvery fixture at the venue shows its new name and `maps_query`, and keeps the `mietpreis` agreed for it.",
         "operationId": "spielorte_patch_spielort",
         "parameters": [
           {

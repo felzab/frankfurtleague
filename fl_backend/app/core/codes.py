@@ -245,7 +245,7 @@ class Code(StrEnum):
     # the club: a resend answers the same, and the way out is the wiring the resolution followed or a
     # result that changes who advances.
     SPIELTAG_OCCUPIED_BY_THE_RESOLUTION = auto()
-    # A fixture's save deleting later results other than those its body confirms (`voided_results`), judged inside its
+    # A fixture's save deleting later results other than those its body confirms (`voided_ergebnisse`), judged inside its
     # transaction: the question its dry run asked is of a season that has moved since, so no result goes unasked.
     VOIDED_RESULTS_STALE = auto()
     # The same dangling reference `eligibility_team_not_in_saison` refuses on the match side.

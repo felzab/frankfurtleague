@@ -46,8 +46,8 @@ from app.core.dependencies import (
 from app.core.recording import ACT_BY_SCHIEDSRICHTER, record_act
 from app.core.routing import by_id
 from app.core.security import PERSON_TIER, PersonIdentifier
-from app.core.transactions import transaction_session
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.core.transactions import transact
+from app.shared.schemas.custom import CustomObjectId
 
 # The referee's own router: the person's identifier is bound at router level, and each handler judges their referee
 # records in its own session.
@@ -64,7 +64,7 @@ BERICHT_PATH = f"{by_id('spiel_id')}/bericht"
     summary="One fixture's report as its referee reads it",
 )
 async def get_spielbericht_bericht(
-    spiel_id: CustomRouteObjectId,
+    spiel_id: CustomObjectId,
     identifier: PersonIdentifier,
     spiele_collection: SpieleReadCollection,
     saisons_collection: SaisonsReadCollection,
@@ -73,7 +73,7 @@ async def get_spielbericht_bericht(
     spielberichte_collection: SpielberichteReadCollection,
     records: SubjectLookup,
     session: SnapshotSession,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLSpielberichtSchiedsrichterResponse:
     """What the booked referee's report form reads: the fixture, both clubs' live squads, and the stored report or null.
 
@@ -96,7 +96,7 @@ async def get_spielbericht_bericht(
 
     # After the season, the referee's page is a view of the report: no squad to pick from, no write.
     completed = is_concluded(context)
-    kader_open = kader_is_open(context, now=now)
+    kader_open = kader_is_open(context, now=germany_now)
     document = await spielberichte_collection.find_one({"spiel_id": spiel_id}, session=session)
     named = await pull_named(
         spieler_collection=spieler_collection,
@@ -119,7 +119,7 @@ async def get_spielbericht_bericht(
     },
 )
 async def put_spielbericht_bericht(
-    spiel_id: CustomRouteObjectId,
+    spiel_id: CustomObjectId,
     bericht_data: FLSpielberichtPayload,
     response: Response,
     identifier: PersonIdentifier,
@@ -130,7 +130,7 @@ async def put_spielbericht_bericht(
     spielberichte_collection: SpielberichteCollection,
     records: SubjectLookup,
     db: DBClient,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLSpielberichtSchiedsrichterResponse:
     """Write the whole report of one fixture as its booked referee, replacing what stood, and never the fixture's result.
 
@@ -159,7 +159,7 @@ async def put_spielbericht_bericht(
         refuse(find_not_refereed_refusal(spiel_raw=context.spiel, schiedsrichter_ids=own))
         refuse(find_saison_ended_refusal(context))
         refuse(find_stale_first_save_refusal(saved, version=bericht_data.version))
-        judge_bericht(context=context, payload=payload, new=new, now=now)
+        judge_bericht(context=context, payload=payload, new=new, now=germany_now)
 
         await anchor_the_pupils_named(spieler_collection=spieler_collection, spieler_ids=set().union(*new.values()), session=session)
         document = await write_bericht(
@@ -167,7 +167,7 @@ async def put_spielbericht_bericht(
             spiel_raw=context.spiel,
             saved=saved,
             payload=payload,
-            now=now,
+            now=germany_now,
             version=bericht_data.version,
             session=session,
         )
@@ -207,15 +207,14 @@ async def put_spielbericht_bericht(
             )
         )
         refuse(find_saison_ended_refusal(current))
-        judge_bericht(context=current, payload=payload, new=new, now=now)
+        judge_bericht(context=current, payload=payload, new=new, now=germany_now)
 
         created = saved is None
         view = {**compose_view(context, kader_open=True, named=named, document=document), "completed": False, "reportable": True}
 
         return FLSpielberichtSchiedsrichterResponse.model_validate(view), created
 
-    async with transaction_session(db) as session:
-        answer, created = await session.with_transaction(write_the_report)
+    answer, created = await transact(db, write_the_report)
 
     # RFC 9110's PUT: a write creating the report says so.
     if created:

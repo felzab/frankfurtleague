@@ -15,7 +15,7 @@ from app.shared.schemas.custom import (
     parse_empty_string_to_none,
 )
 from app.shared.schemas.literals import FLSaisonPhase, FLSonderereignis, FLSpielSide
-from app.shared.schemas.responses import BaseAPIResponse, BasePayload, BaseReadModel
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 # The minute as the DFB's report writes it: the played minute, and stoppage time after a plus, `45+2`.
 MINUTE_PATTERN = r"^[0-9]{1,3}(\+[0-9]{1,2})?$"
@@ -223,7 +223,7 @@ class FLSpielberichtKader(BaseModel):
     team2: list[FLSpielberichtSpieler]
 
 
-class FLSpielberichtSchiedsrichterResponse(BaseAPIResponse):
+class FLSpielberichtSchiedsrichterResponse(BaseReadModel):
     """The booked referee's form, the stored remarks included."""
 
     spiel: FLSpielberichtSpiel

@@ -86,7 +86,7 @@ async def _read(
         )
 
 
-async def test_an_answer_stands_past_its_deadline_and_a_club_out_by_the_match_day_lapses_in_time(mongo_replica_set_url: str):
+async def test_an_answer_stands_past_its_deadline_and_a_team_out_by_the_match_day_lapses_in_time(mongo_replica_set_url: str):
     """The home club agreed before its deadline passed; the away club's row is still in time, but the club leaves before the day.
 
     Neither lapsed, so neither is dated. The referee's row about the slot the match left on 25 April lapsed at that

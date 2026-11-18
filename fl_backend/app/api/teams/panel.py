@@ -14,7 +14,7 @@ from app.api.spiele.schemas import FLSpielRecipient
 from app.api.teams.schemas import FLTeamGruppeOffer, FLTeamMembership, FLTeamRecord, FLTeamSaisonFacts, FLTeamSeat
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.literals import FLKontaktRolle, FLSpielerPosition, FLSpielerStufe, FLSpielSide, FLTrikotFarbe
-from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
+from app.shared.schemas.responses import BaseReadModel
 
 
 class FLTeamPanelSpielbestaetigung(BaseModel):
@@ -63,7 +63,7 @@ class FLTeamPanelRegistrierung(BaseModel):
     admissible: bool
 
 
-class FLTeamOverviewResponse(BaseAPIResponse):
+class FLTeamOverviewResponse(BaseReadModel):
     """A team's Übersicht in one read: who the team is, the work open for it, and its three seats.
 
     The three lists are open work alone and carry no totals: the dates awaiting the team's answer or the league's
@@ -100,7 +100,7 @@ class FLTeamPanelSpiel(FLTeamPageSpiel):
     aufstellung: FLAufstellungMarks | None
 
 
-class FLTeamSpieleResponse(BaseAPIResponse):
+class FLTeamSpieleResponse(BaseReadModel):
     """Every fixture of one team in one season, in the order the draw numbered them."""
 
     team_id: CustomObjectId
@@ -117,7 +117,7 @@ class FLAustrittRecipients(BaseReadModel):
     recipients: list[FLSpielRecipient]
 
 
-class FLTeamSaisonAdminResponse(BaseAPIResponse):
+class FLTeamSaisonAdminResponse(BaseReadModel):
     """What the team editor shows in one read: the club, its row of the season, and what each of its acts would meet."""
 
     # The one count this page saves on (`composite_version`).

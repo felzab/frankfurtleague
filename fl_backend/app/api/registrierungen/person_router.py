@@ -45,8 +45,8 @@ from app.api.registrierungen.services import (
     person_deviates,
     registrierung_is_confirmed,
 )
-from app.api.spieler.crud import pull_squad_room, refuse_a_full_squad
-from app.api.spieler.services import find_full_squad_refusal
+from app.api.spieler.crud import pull_kader_room, refuse_a_full_kader
+from app.api.spieler.services import find_full_kader_refusal
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
 from app.core.crud import (
@@ -78,10 +78,10 @@ from app.core.journal import Journal
 from app.core.recording import ACT_BY_KONTAKT, record_act
 from app.core.routing import by_id
 from app.core.security import PERSON_TIER, PersonIdentifier
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.einwilligung_evidence import FLEinwilligungChoice
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload, by_choice
 
 # A person's route in place of `bind_actor`: a seat holder signs in by code and holds no grant, so the
@@ -94,7 +94,7 @@ router = APIRouter(prefix="/registrierungen", dependencies=PERSON_TIER)
     summary="A team's pending registrations for one season",
 )
 async def get_open_registrierungen(
-    team_id: CustomRouteObjectId,
+    team_id: CustomObjectId,
     saison_id: str,
     identifier: PersonIdentifier,
     registrierungen_collection: RegistrierungenReadCollection,
@@ -139,7 +139,7 @@ async def get_open_registrierungen(
     )
     # Nobody excluded: the one a row resolves to has no capped row here, or the admission refuses them as already in
     # a squad before it reaches the cap.
-    room = await pull_squad_room(
+    room = await pull_kader_room(
         saison_spieler_collection=saison_spieler_collection,
         saison_id=saison_id,
         team_id=team_id,
@@ -176,7 +176,7 @@ async def get_open_registrierungen(
                 "position": row.get("position"),
                 "stufe": row.get("stufe"),
                 "admissible": admissible,
-                "kader_full": find_full_squad_refusal(room=room, nominee=nominee) is not None,
+                "kader_full": find_full_kader_refusal(room=room, nominee=nominee) is not None,
                 "nummer_double": row.get("nummer") in worn,
                 "person": None
                 if person is None
@@ -229,7 +229,7 @@ async def _pull_the_teams_open_row(
     summary="Admit a registration into the team's squad",
 )
 async def admit(
-    registrierung_id: CustomRouteObjectId,
+    registrierung_id: CustomObjectId,
     admit_data: FLRegistrierungAdmitPayload,
     identifier: PersonIdentifier,
     registrierungen_collection: RegistrierungenCollection,
@@ -287,7 +287,7 @@ async def admit(
             kader_raw=kader_raw, registrierung=saison_raw.get("registrierung"), submitted_at=registrierung_raw["submitted_at"]
         )
 
-        await refuse_a_full_squad(
+        await refuse_a_full_kader(
             saison_spieler_collection=saison_spieler_collection,
             saisons_collection=saisons_collection,
             saison_id=saison_id,
@@ -378,8 +378,7 @@ async def admit(
         )
 
     # The squad cap's own write moved the season.
-    async with transaction_session(db) as session:
-        return await session.with_transaction(admit_the_pupil)
+    return await transact(db, admit_the_pupil)
 
 
 @router.post(
@@ -387,7 +386,7 @@ async def admit(
     summary="Decline a registration",
 )
 async def decline(
-    registrierung_id: CustomRouteObjectId,
+    registrierung_id: CustomObjectId,
     decline_data: FLRegistrierungDeclinePayload,
     identifier: PersonIdentifier,
     registrierungen_collection: RegistrierungenCollection,
@@ -477,8 +476,7 @@ async def decline(
 
         return FLRegistrierungDeclineResponse(registrierung_id=registrierung_id, first_name=registrierung_raw["first_name"])
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(decline_for_the_team)
+    return await transact(db, decline_for_the_team)
 
 
 # A prefix of its own: a pending registrant reaches their own row, and no team's.
@@ -491,7 +489,7 @@ spieler_router = APIRouter(prefix="/registrierungen/account", dependencies=PERSO
     summary="Withdraw a pupil's own publication and media consent on their pending registration",
 )
 async def patch_einwilligung(
-    registrierung_id: CustomRouteObjectId,
+    registrierung_id: CustomObjectId,
     einwilligung_data: FLAccountEinwilligungPayload,
     identifier: PersonIdentifier,
     registrierungen_collection: RegistrierungenCollection,
@@ -539,5 +537,4 @@ async def patch_einwilligung(
             journal.note("withdrawal", [f"{Collection.REGISTRIERUNGEN}/{row['_id']}"], choices=list(moved))
 
     async with journal:
-        async with transaction_session(db) as session:
-            await session.with_transaction(write)
+        await transact(db, write)

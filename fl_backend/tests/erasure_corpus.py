@@ -83,7 +83,7 @@ THEIR_VALUES = (
 HOME_TEAM_OID = ObjectId("6890a1b2c3d4e5f607b00001")
 OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607b00002")
 PUPIL_OID = ObjectId("6890a1b2c3d4e5f607b00011")
-THEIR_SQUAD_ROW_OID = ObjectId("6890a1b2c3d4e5f607b00013")
+THEIR_KADER_ROW_OID = ObjectId("6890a1b2c3d4e5f607b00013")
 OTHER_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607b00012")
 REFEREE_OID = ObjectId("6890a1b2c3d4e5f607b00021")
 OTHER_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607b00022")
@@ -274,7 +274,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
     )
     await database[Collection.SAISON_SPIELER].insert_many(
         [
-            saison_spieler_document(PUPIL_OID, SAISON_ID, HOME_TEAM_OID, _id=THEIR_SQUAD_ROW_OID, nummer="7"),
+            saison_spieler_document(PUPIL_OID, SAISON_ID, HOME_TEAM_OID, _id=THEIR_KADER_ROW_OID, nummer="7"),
             saison_spieler_document(OTHER_PUPIL_OID, SAISON_ID, HOME_TEAM_OID, nummer="8"),
         ]
     )

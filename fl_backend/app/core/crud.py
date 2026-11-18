@@ -57,7 +57,8 @@ async def pull_many_from_db(
     *,
     collection: ReadCollection,
     db_filter: Mapping[str, Any],
-    limit: int = LIST_LIMIT_DEFAULT,
+    # Stated by every caller, since a set past it is cut in silence; a judgement over a whole set reads `pull_whole_from_db`.
+    limit: int,
     sort_by: Sequence[tuple[str, int]] | None = None,
     projection: Mapping[str, Any] | list[str] | None = None,
     collation: Mapping[str, Any] | None = None,

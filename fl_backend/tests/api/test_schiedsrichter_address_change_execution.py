@@ -73,7 +73,7 @@ async def on_a_league(url: str, body: Body) -> Any:
             outbox_collection=database[Collection.OUTBOX],
             db=client,
             today=TODAY,
-            now=MAIL_NOW,
+            germany_now=MAIL_NOW,
         )
         (mail,) = await drained(database, client)
         await post_confirmation(
@@ -113,7 +113,7 @@ async def save(database: AsyncDatabase, client: AsyncMongoClient, *, email: str)
         outbox_collection=database[Collection.OUTBOX],
         db=client,
         today=TODAY,
-        now=MAIL_NOW,
+        germany_now=MAIL_NOW,
     )
 
 

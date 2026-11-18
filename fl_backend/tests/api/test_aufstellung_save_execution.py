@@ -145,7 +145,7 @@ async def seat_saves(
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         records=record_collections(database),
         db=client,
-        now=now,
+        germany_now=now,
     )
     return answer, response.status_code
 
@@ -175,7 +175,7 @@ async def admin_saves(
             spieler_collection=database[Collection.SPIELER],
             aufstellungen_collection=database[Collection.AUFSTELLUNGEN] if aufstellungen is None else aufstellungen,
             db=client,
-            now=now,
+            germany_now=now,
         )
     return answer, response.status_code
 
@@ -202,7 +202,7 @@ async def seat_reads(
             aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
             records=record_collections(database),
             session=session,
-            now=now,
+            germany_now=now,
         )
 
 
@@ -220,7 +220,7 @@ async def admin_reads(
             spieler_collection=database[Collection.SPIELER],
             aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
             session=session,
-            now=now,
+            germany_now=now,
         )
 
 
@@ -296,7 +296,7 @@ async def test_an_undated_fixture_takes_no_line_up_from_anybody(mongo_replica_se
     assert await on_a_season(mongo_replica_set_url, body) == ((Code.AUFSTELLUNG_SPIEL_UNDATED, []),) * 2
 
 
-async def test_another_clubs_seat_is_refused_the_club(mongo_replica_set_url: str):
+async def test_another_teams_seat_is_refused_the_team(mongo_replica_set_url: str):
     """On the read as on the save."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, ...]:
@@ -336,7 +336,7 @@ async def test_a_seat_is_asked_for_the_fixtures_season_and_a_stranger_learns_of_
     )
 
 
-async def test_a_pupil_the_line_up_names_outside_the_clubs_squad_is_named_off_their_record(mongo_replica_set_url: str):
+async def test_a_pupil_the_line_up_names_outside_the_teams_kader_is_named_off_their_record(mongo_replica_set_url: str):
     """The pupil's one squad row of the season is another club's, as admitting a pupil ausgetragen here to that club leaves it.
 
     The screen names them off their person record as it reads, and as the save keeping them answers.
@@ -358,7 +358,7 @@ async def test_a_pupil_the_line_up_names_outside_the_clubs_squad_is_named_off_th
     assert await on_a_season(mongo_replica_set_url, body) == ([named], [named])
 
 
-async def test_a_save_judges_its_names_against_the_squad_and_the_stored_line_up(mongo_replica_set_url: str):
+async def test_a_save_judges_its_names_against_the_kader_and_the_stored_line_up(mongo_replica_set_url: str):
     """The club's squad is read for the judgement, and so is the stored line-up, which keeps a pupil ausgetragen since.
 
     What the judgement decides is `test_aufstellung_save_rules.py`'s, on the default tier.
@@ -601,7 +601,7 @@ class LineUpsRunningARivalBeforeTheirInsert(InterleavedCollection):
         return await self._collection.insert_one(*args, **kwargs)
 
 
-async def test_a_clubs_second_first_save_meets_the_first_and_is_told_the_page_is_stale(mongo_replica_set_url: str):
+async def test_a_teams_second_first_save_meets_the_first_and_is_told_the_page_is_stale(mongo_replica_set_url: str):
     """Two seats of one club open the empty screen and both save: one line-up stands, the earlier one.
 
     The later save's insert conflicts with the earlier's commit, and its retry reads the line-up now standing. What this
@@ -622,7 +622,7 @@ async def test_a_clubs_second_first_save_meets_the_first_and_is_told_the_page_is
     assert await on_a_season(mongo_replica_set_url, body) == (str(Code.VERSION_STALE), [(HOME, [OLE], 0)])
 
 
-async def test_the_other_clubs_first_save_for_the_same_fixture_stands_beside_it(mongo_replica_set_url: str):
+async def test_the_other_teams_first_save_for_the_same_fixture_stands_beside_it(mongo_replica_set_url: str):
     """And its save and its read answer its own line-up, never the home club's written before it."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

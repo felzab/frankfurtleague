@@ -51,7 +51,7 @@ from app.core.logging import fl_logger
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.routing import SAFE
 from app.core.security import SYSTEM_TIER
-from app.core.transactions import UNKNOWN_COMMIT_RESULT, diagnosis_of, transaction_session
+from app.core.transactions import UNKNOWN_COMMIT_RESULT, diagnosis_of, transact
 from app.shared.folding import sign_in_identifier
 
 # System tier: the key is held by the frontend process alone, which is exactly who may ask which
@@ -210,8 +210,7 @@ async def _erase_one(
 
         return erased
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(erase_the_pupil_if_still_due)
+    return await transact(db, erase_the_pupil_if_still_due)
 
 
 @router.post(
@@ -288,7 +287,7 @@ async def sweep_erasure(
         # Any class, or the next pass stops at this pupil again and holds back everyone behind them;
         # not `BaseException`, so a cancellation still ends the call.
         except Exception as failure:
-            # The only branch an unanswered commit reaches: `with_transaction` retries one until the deadline and
+            # The only branch an unanswered commit reaches: `transact` retries one until the deadline and
             # raises it as a timeout keeping the label.
             if isinstance(failure, PyMongoError) and failure.timeout:
                 uncertain = failure.has_error_label(UNKNOWN_COMMIT_RESULT)

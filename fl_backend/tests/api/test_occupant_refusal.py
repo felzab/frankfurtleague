@@ -228,8 +228,8 @@ ANOTHER_SCHIEDSRICHTER = "6890a1b2c3d4e5f607230002"
 A_DIFFERENT_SPIELORT = {"spielort_id": ANOTHER_SPIELORT, "mietpreis": 95}
 A_DIFFERENT_SCHIEDSRICHTER = {"schiedsrichter_id": ANOTHER_SCHIEDSRICHTER, "payment": 35}
 
-LIVE_SPIELORT = BookedVenue(name="Sportplatz Nord", maps_link="Sportplatz Nord, Frankfurt", inactive_since=None)
-RETIRED_SPIELORT = BookedVenue(name="Sportplatz Nord", maps_link="Sportplatz Nord, Frankfurt", inactive_since="2026-02-01")
+LIVE_SPIELORT = BookedVenue(name="Sportplatz Nord", maps_query="Sportplatz Nord, Frankfurt", inactive_since=None)
+RETIRED_SPIELORT = BookedVenue(name="Sportplatz Nord", maps_query="Sportplatz Nord, Frankfurt", inactive_since="2026-02-01")
 LIVE_SCHIEDSRICHTER = BookedReferee(inactive_since=None, confirmed=True)
 RETIRED_SCHIEDSRICHTER = BookedReferee(inactive_since="2026-02-01", confirmed=True)
 # A referee an administrator entered whose own confirmation has not come in.
@@ -673,12 +673,12 @@ class TestEligibility:
 
         assert eligibility_for(saison, 1, {**ALL_ELIGIBLE, ADLER: BEFORE_THE_SPIEL}, date=AFTER_THE_SPIEL) == Code.ELIGIBILITY_DISQUALIFIED
 
-    def test_clearing_the_date_of_a_spiel_a_departed_club_stands_on_is_refused(self, saison):
+    def test_clearing_the_date_of_a_spiel_a_departed_team_stands_on_is_refused(self, saison):
         """Refuse-by-default reaches an unmoved side too: an unscheduled fixture is more often ahead than behind."""
 
         assert eligibility_for(saison, 1, {**ALL_ELIGIBLE, ADLER: BEFORE_THE_SPIEL}, date=None) == Code.ELIGIBILITY_DISQUALIFIED
 
-    def test_clearing_the_event_that_permitted_a_departed_club_is_refused(self, spiel_at, saison):
+    def test_clearing_the_event_that_permitted_a_departed_team_is_refused(self, spiel_at, saison):
         """The carve-out is not a one-way door.
 
         The refusal tells an admin to cancel the fixture. Skipping on the side alone would let the
@@ -732,7 +732,7 @@ class TestSpieltagOccupancy:
         assert verdict.refusal.error_code == Code.SPIELTAG_OCCUPIED
         assert verdict.releases == []
 
-    def test_one_club_on_both_sides_is_refused(self, saison):
+    def test_one_team_on_both_sides_is_refused(self, saison):
         """The wiring rules cannot see this shape, and the only side to empty is one the caller just filled."""
         verdict = occupancy_for(saison, 30, team1=team(BIEBER, "Bieber"), team2=team(BIEBER, "Bieber"))
 
@@ -965,10 +965,10 @@ def double_entries(*spiele: dict[str, Any]) -> list:
     return find_double_entries(FLSpielJoinedInternalListAdapter.validate_python([documents.joined_spiel_document(spiel) for spiel in spiele]))
 
 
-class TestTheClubFieldedTwiceFault:
+class TestTheTeamFieldedTwiceFault:
     """`spieltag_occupied` refuses this shape at the write, so a stored one arrived another way and is REPORTED rather than refused."""
 
-    def test_a_club_on_two_spiele_of_one_spieltag_is_reported_on_both(self, spiel_at):
+    def test_a_team_on_two_spiele_of_one_spieltag_is_reported_on_both(self, spiel_at):
         """One entry per appearance: which of the two to correct is a competition decision, so neither is picked here."""
 
         faults = double_entries(
@@ -978,7 +978,7 @@ class TestTheClubFieldedTwiceFault:
 
         assert [(fault.spiel_nr, fault.side) for fault in faults] == [(1, "team1"), (2, "team1")]
 
-    def test_a_club_on_both_sides_of_one_spiel_is_the_same_fault(self, spiel_at):
+    def test_a_team_on_both_sides_of_one_spiel_is_the_same_fault(self, spiel_at):
         """Counted in SIDES rather than in matches: two sides naming one club are one fault."""
 
         faults = double_entries(spiel_at(1, "gruppenphase", SPIELTAG_ONE, team1=team(ADLER, "Adler"), team2=team(ADLER, "Adler")))
@@ -1108,10 +1108,10 @@ class _SaisonCollection:
         raise AssertionError(f"the resolution wrote {arguments['filter']} before the occupancy refusal was asked")
 
 
-class TestTheResolutionNeverFieldsAClubTwice:
+class TestTheResolutionNeverFieldsATeamTwice:
     """`spieltag_occupied_by_the_resolution`. The advance fields its sides from the wiring; `judge_spieltag_occupancy` sees only a REQUEST's."""
 
-    def test_a_resolution_seating_a_club_beside_itself_is_refused(self, unresolved_slot_beside_a_hand_set_one):
+    def test_a_resolution_seating_a_team_beside_itself_is_refused(self, unresolved_slot_beside_a_hand_set_one):
         """Gruppe A's first place settles on Adler, which the slot then seats on the Spieltag Adler already stands on."""
 
         saison = unresolved_slot_beside_a_hand_set_one
@@ -1120,7 +1120,7 @@ class TestTheResolutionNeverFieldsAClubTwice:
         assert refusal is not None
         assert refusal.error_code == Code.SPIELTAG_OCCUPIED_BY_THE_RESOLUTION
 
-    def test_a_resolution_seating_a_club_beside_itself_in_the_second_side_is_refused(self, unresolved_slot_beside_a_hand_set_one):
+    def test_a_resolution_seating_a_team_beside_itself_in_the_second_side_is_refused(self, unresolved_slot_beside_a_hand_set_one):
         """The resolution fills either side, so a rule reading only `team1` would seat a club twice through `team2` unrefused."""
 
         saison = unresolved_slot_beside_a_hand_set_one
@@ -1129,7 +1129,7 @@ class TestTheResolutionNeverFieldsAClubTwice:
         assert refusal is not None
         assert refusal.error_code == Code.SPIELTAG_OCCUPIED_BY_THE_RESOLUTION
 
-    async def test_the_save_refuses_a_resolution_that_would_field_a_club_twice(self, a_decided_gruppe_seating_its_winner_twice, gruppe_a):
+    async def test_the_save_refuses_a_resolution_that_would_field_a_team_twice(self, a_decided_gruppe_seating_its_winner_twice, gruppe_a):
         """Driven through the write path, because a refusal computed and discarded reads the same at the call site as one raised."""
 
         assert (
@@ -1311,7 +1311,7 @@ def filled_bracket_slot(spiel: PayloadFactory) -> list[FLSpielJoinedInternal]:
     )
 
 
-class TestABracketSlotHeldByADisqualifiedClub:
+class TestABracketSlotHeldByADisqualifiedTeam:
     """That the resolution leaves standing a slot it filled whose club was disqualified afterwards."""
 
     def test_the_resolution_rewrites_nothing(self, filled_bracket_slot):
@@ -1336,7 +1336,7 @@ GROUND_RETIRED_ON = "2026-02-01"
 RETIRED_GROUND_BOOKING = {
     "spielort_id": RETIRED_GROUND,
     "name": "Bezirkssportanlage West",
-    "maps_link": "Bezirkssportanlage West",
+    "maps_query": "Bezirkssportanlage West",
     "mietpreis": 40,
 }
 
@@ -1387,7 +1387,7 @@ class TestARetiredBookingOnAReopenedSpiel:
         resolved = ResolvedReferences(
             teams={},
             spielort=BookedVenue(
-                name=RETIRED_GROUND_BOOKING["name"], maps_link=RETIRED_GROUND_BOOKING["maps_link"], inactive_since=GROUND_RETIRED_ON
+                name=RETIRED_GROUND_BOOKING["name"], maps_query=RETIRED_GROUND_BOOKING["maps_query"], inactive_since=GROUND_RETIRED_ON
             ),
         )
 
@@ -1487,7 +1487,7 @@ class TestADoubleBookingALiftedNoShowLeaves:
         assert _clash_refusal_of(lifted, holders, time="13:00:00") is None
 
 
-A_SECOND_GROUND = {"spielort_id": "6890a1b2c3d4e5f607240002", "name": "Sportplatz Nord", "maps_link": "Sportplatz Nord", "mietpreis": 40}
+A_SECOND_GROUND = {"spielort_id": "6890a1b2c3d4e5f607240002", "name": "Sportplatz Nord", "maps_query": "Sportplatz Nord", "mietpreis": 40}
 AT_THE_FIRST_GROUND_NR, AN_HOUR_LATER_AT_THE_SECOND_NR = 32, 33
 
 

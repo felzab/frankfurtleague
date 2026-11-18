@@ -159,7 +159,7 @@ class TestASpielNamesItsVenueAsItIsCalledNow:
 
         async def body(database: AsyncDatabase) -> Mapping[str, Any]:
             await database[Collection.SPIELORTE].update_one(
-                {"_id": VERDICT_SPIELORT_ID}, {"$set": {"name": "Sporthalle Ost", "maps_link": "Sporthalle Ost, Frankfurt"}}
+                {"_id": VERDICT_SPIELORT_ID}, {"$set": {"name": "Sporthalle Ost", "maps_query": "Sporthalle Ost, Frankfurt"}}
             )
             return (await joined(database))["spielort"]
 
@@ -169,12 +169,12 @@ class TestASpielNamesItsVenueAsItIsCalledNow:
             "spielort_id": VERDICT_SPIELORT_ID,
             "mietpreis": 80,
             "name": "Sporthalle Ost",
-            "maps_link": "Sporthalle Ost, Frankfurt",
+            "maps_query": "Sporthalle Ost, Frankfurt",
         }
 
 
 class TestTheVerdictReadsTheAnsetzungAsItStandsNow:
-    async def test_a_club_yet_to_answer_leaves_it_provisional(self, mongo_replica_set_url: str):
+    async def test_a_team_yet_to_answer_leaves_it_provisional(self, mongo_replica_set_url: str):
         spiel = a_spiel()
         rows = [a_row(spiel, VERDICT_HOME, answer=agreed()), a_row(spiel, VERDICT_AWAY)]
 
@@ -213,7 +213,7 @@ class TestTheVerdictReadsTheAnsetzungAsItStandsNow:
         # The rows the verdict was read from are scratch: kept, every read would carry each fixture's rows and their party ids.
         assert SPIELBESTAETIGUNGEN_AS_NAME not in after
 
-    async def test_two_agreements_of_one_club_leave_it_provisional(self, mongo_replica_set_url: str):
+    async def test_two_agreements_of_one_team_leave_it_provisional(self, mongo_replica_set_url: str):
         """Nothing in the database stops a second open row once a club has answered: counting rows would confirm without the other club."""
 
         spiel = a_spiel()
