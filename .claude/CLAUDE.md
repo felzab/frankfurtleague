@@ -203,7 +203,9 @@ whose copy is the session's own: brief a changed rule to each agent in words.
 
 ## 9. Commands and refusals
 
-Commands live in `.claude/commands/` and are slash-only — **never launch one from prose.**
+**A slash command, or the procedure it runs, starts only on the owner's own words**: the command
+the owner types, or the owner's words to the same effect, never an agent's own reading of a
+situation, such as that the owner has left.
 
 **Comply with every refusal from a permission rule or a hook, and never route around it.** Write a
 multi-line file with the `Write` tool, never a heredoc. Give each shell command one purpose: a deny
