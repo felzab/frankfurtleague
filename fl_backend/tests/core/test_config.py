@@ -65,6 +65,9 @@ STANDING_IN = Withheld(
     }
 )
 
+# The admin key holding the base key's value, every key valid alone.
+SHARED = Withheld({**KEYS, "internal_api_key_admin": KEYS["internal_api_key_base"]})
+
 # TEST-NET-1 (RFC 5737), which no host answers, on a port no `mongod` this repository starts listens on: the ping fails
 # for the one reason its case is about wherever it runs, after the driver's own server selection.
 UNREACHABLE_HOST = "192.0.2.1"
@@ -77,6 +80,7 @@ BOOTS = {
     "missing": ({}, Withheld({**VARIABLES, **STANDING_IN})),
     "misspelled": (Withheld({MONGODB_URI_FILE: NO_SERVER_URI, **KEYS}), {"DB_BASE_NAMES": VARIABLES["DB_BASE_NAME"]}),
     "unreachable": (Withheld({**UNREACHABLE_URI, **KEYS}), VARIABLES),
+    "shared": (Withheld({MONGODB_URI_FILE: NO_SERVER_URI, **SHARED}), VARIABLES),
 }
 
 
@@ -121,6 +125,17 @@ class TestASecretFile:
         assert (boot.code, boot.events) == (BOOT_REFUSED, ["system.config_refused"])
         assert names(boot.record("system.config_refused")["refusal"], "Invalid secret files") == set(SECRET_FILES)
         assert boot.leaked(STANDING_IN) == []
+
+
+class TestTwoKeysHoldingOneValue:
+    def test_refuse_the_boot_naming_the_later_file(self, boots: dict[str, Boot]):
+        """Two tiers holding one key are one tier, so a holder of the base key would reach every signed-in route."""
+
+        boot = boots["shared"]
+
+        assert (boot.code, boot.events) == (BOOT_REFUSED, ["system.config_refused"])
+        assert names(boot.record("system.config_refused")["refusal"], "Invalid secret files") == {"internal_api_key_admin"}
+        assert boot.leaked(SHARED) == []
 
 
 class TestAMisspelledVariable:

@@ -1533,8 +1533,8 @@ docker compose ps --format '{{.Service}} {{.State}} {{.Health}}' frontend backen
 deploy prints them. A missing file is written, an unreadable one is given the user and mode above,
 and a blank one is written again.
 
-**Where it names an `INTERNAL_API_KEY_*`, that key carries a character outside the class**
-([`spec.md`](spec.md) §1.2). Generate all three again on the server, each with
+**Where it names an `INTERNAL_API_KEY_*`, that key carries a character outside the class or holds
+another internal key's value** ([`spec.md`](spec.md) §1.2). Generate all three again on the server, each with
 `openssl rand -hex 32 | tr -d '\r\n' | sudo install -o root -g 1003 -m 440 /dev/stdin secrets/<key>`,
 and update the password-manager entry. Both containers are recreated by the command above, so the
 new keys never meet the old.
