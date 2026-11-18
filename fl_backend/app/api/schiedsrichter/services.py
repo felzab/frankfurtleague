@@ -60,8 +60,7 @@ def find_referee_name_refusal(*, taken: bool) -> APIError | None:
 def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> APIError | None:
     """Why retiring this referee must be refused, or `None`.
 
-    `upcoming_spiel_nrs` is `unplayed_spiel_nrs`'s definition of "still to come", named with its count on the path's
-    id as the venue's refusal names it.
+    `upcoming_spiel_nrs` are the fixtures still to be played that book them, named with their count on the path's id.
     """
 
     if not upcoming_spiel_nrs:
@@ -76,8 +75,8 @@ def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> APIErro
     )
 
 
-# --- The confirmation link. Every predicate below reads a missing `confirmation` block as "nothing
-# was ever mailed": a retired referee whose corrected address was stored unmailed holds none.
+# Every predicate below reads a missing `confirmation` block as "nothing was ever mailed": a retired referee whose
+# corrected address was stored unmailed holds none.
 
 
 # The record's confirmation block, under which the hand-out stores the hashes it mints.
@@ -381,7 +380,7 @@ CONFIRMATION_ANSWER_FIELDS: Mapping[str, int] = {
     DECLINED_AT_PATH: 1,
 }
 
-# What the re-send and the reactivation judge, and the address they mail.
+# What a fresh link is judged on, and the address it is mailed to.
 INVITE_FIELDS: Mapping[str, int] = {
     "inactive_since": 1,
     "kontakt.email": 1,
@@ -522,7 +521,7 @@ def compose_self_spiel(spiel: Mapping[str, Any], *, now: datetime) -> FLSchiedsr
     spielort = spiel.get("spielort")
     # A club out by the fixture's day ends the booking, as the pass's notice told the referee.
     officiates = not exit_ends_the_booking(spiel)
-    # As the report's own read judges its form open, in `kader_is_open`.
+    # As the report's own read judges its form open.
     reportable = officiates and takes_a_bericht(spiel, now=now) and not season_has_ended(saison_status=saison["status"])
     submitted_at = None if bericht is None else bericht.get("submitted_at")
 

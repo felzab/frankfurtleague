@@ -163,8 +163,6 @@ async def delete_spielort(
     """
 
     async def retire_the_venue(session: AsyncClientSession) -> None:
-        """Judge the venue's unplayed fixtures, then stamp it. Everything judged is read in-session, so a retry re-judges it."""
-
         booked = await pull_whole_from_db(
             collection=spiele_collection,
             db_filter=build_unplayed_booking_filter(spielort_id),

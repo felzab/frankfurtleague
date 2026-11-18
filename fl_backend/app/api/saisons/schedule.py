@@ -70,7 +70,7 @@ def schedule_for(rules: FLSaisonRules) -> tuple[PhaseSchedule, ...]:
 
     remaining = qualifier_count(rules)
     for phase in knockout_phases_for(remaining):
-        # The Finale's matchday also holds the match for third place, which every bracket plays (`draw_spielplan`).
+        # The Finale's matchday also holds the match for third place, which every bracket plays.
         matches = remaining // 2 + (1 if phase == "finale" else 0)
         schedule.append(PhaseSchedule(phase=phase, spieltage=1, spiele_per_spieltag=matches))
         remaining //= 2

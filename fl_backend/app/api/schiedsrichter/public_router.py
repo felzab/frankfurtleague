@@ -108,10 +108,9 @@ async def post_confirmation(
     token_hash = hash_token(answer_data.token)
 
     async def answer_for_the_person(session: AsyncClientSession) -> FLSchiedsrichterConfirmationResponse:
-        """Judge, then write, everything judged read in-session.
+        """One transaction for a single update, so a second press landing between the read and the write is refused by the stamp.
 
-        One transaction for a single update, so a second press landing between the read and the
-        write is refused by the stamp rather than overwriting the answer already given.
+        Outside one, it would overwrite the answer already given.
         """
 
         raw = await schiedsrichter_collection.find_one(
@@ -178,7 +177,7 @@ async def post_decline(
 
     @journal.attempted
     async def object_for_the_person(session: AsyncClientSession) -> None:
-        """Judge, then write, everything judged read in-session, so a second press is refused by the first answer."""
+        """One transaction for a single update, so a second press landing between the read and the write is refused by the first answer."""
 
         raw = await schiedsrichter_collection.find_one(
             build_token_filter(token_hash=token_hash), projection=dict(CONFIRMATION_ANSWER_FIELDS), session=session

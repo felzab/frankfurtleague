@@ -149,8 +149,6 @@ async def patch_spieltag(
     """
 
     async def redate_the_matchday(session: AsyncClientSession) -> FLSpieltagWriteResponse:
-        """Judge, then move the span. Everything judged is read in-session, the phase's neighbours inside `_refuse_an_out_of_order_start`."""
-
         stored_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id}, session=session)
 
         # The season bounds the span. Its `status` read here stays current through the write: the order's judgement
@@ -203,6 +201,5 @@ async def patch_spieltag(
         return FLSpieltagWriteResponse(spieltag_id=spieltag_id, version=FLSpieltagRecord.model_validate(updated_raw).version)
 
     # One transaction over the span and the season write inside `_refuse_an_out_of_order_start`,
-    # which is what makes two matchdays of one phase contend. `transact` is safe to retry,
-    # the callback re-reading its neighbours.
+    # which is what makes two matchdays of one phase contend.
     return await transact(db, redate_the_matchday)

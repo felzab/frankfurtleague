@@ -160,8 +160,8 @@ _IN_A_PUBLIC_SAISON: tuple[Mapping[str, Any], ...] = (
     {"$match": {"public_saison": {"$ne": []}}},
 )
 
-# A club a season's Teams page lists, as `build_retirement_stages` keeps it: one that has not left the league, or one
-# that left it after a season now `past`, which keeps its place there.
+# A club a season's Teams page lists: one that has not left the league, or one that left it after a season now `past`,
+# which keeps its place there.
 _LISTED_TEAM: tuple[Mapping[str, Any], ...] = (
     {
         "$lookup": {

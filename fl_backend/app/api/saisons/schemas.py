@@ -18,8 +18,7 @@ from app.api.spielberichte.schemas import FLSpielberichtPublic
 from app.api.spiele.schemas import FLSpielJoined
 from app.api.spieler.schemas import FLSpielerPublic, FLSpielerSelfKaderRow
 
-# Imported rather than restated. Acyclic: no model of `teams` imports this file --
-# `teams/services.py` and `teams/standings.py` do, and no model there.
+# Imported rather than restated. Acyclic: no model of `teams` imports this file.
 from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS, FLAustritt, FLSaisonTeamEntry, FLTabelleRow, FLTeamPageTeam
 from app.core import clock
 from app.core.codes import Code, Rule
@@ -291,9 +290,9 @@ FIRST_SAISON_RULES: Final = FLSaisonRules(
 )
 
 
-# The season's two days alone: the create makes the next season, which the server names
-# (`next_saison_id`) and gives the newest season's rules, so no typed year can name one
-# out of turn and no client restates the carry-over; its windows start closed, each set in the season's own editor.
+# The season's two days alone: the create makes the next season, which the server names and gives the newest season's
+# rules, so no typed year can name one out of turn and no client restates the carry-over; its windows start closed,
+# each set in the season's own editor.
 class FLPostSaisonPayload(_SaisonSpanPayload):
     pass
 
