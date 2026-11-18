@@ -354,7 +354,9 @@ class TestReissuingALink:
 
         assert replaced is not None
         assert replaced.error_code == Code.DOCUMENT_NOT_FOUND
-        assert replaced == guessed
+        assert guessed is not None
+        # By what each answers, since an exception compares by identity.
+        assert (replaced.status_code, replaced.error_code, replaced.fields) == (guessed.status_code, guessed.error_code, guessed.fields)
 
 
 class TestTwoMintsAtOnce:
