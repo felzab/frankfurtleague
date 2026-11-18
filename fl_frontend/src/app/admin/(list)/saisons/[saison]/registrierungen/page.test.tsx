@@ -1,8 +1,8 @@
-import { serveBackend } from "@/test-support/backend";
-import { signedInRequest } from "@/test-support/session";
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
 
 import type { FLRegistrierungAdminRow } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";

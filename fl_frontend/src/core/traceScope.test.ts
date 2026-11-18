@@ -1,7 +1,8 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { beginRenderPass, serveServerReact } from "@/test-support/cacheScope";
 import { NEXT_HEADERS_DOUBLE } from "@/test-support/nextRequest";
 import { timeoutSignalsOnFakeTimers } from "@/test-support/timeoutSignals";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Only the scope's own module: a render pass is what the server build's scope stands in for.
 serveServerReact();

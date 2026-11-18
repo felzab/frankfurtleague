@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 
+import { assert, beforeEach, describe, expect, it, vi } from "vitest";
+
 import {
   ADMIN_EMAIL,
   Barrier,
@@ -16,7 +18,6 @@ import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/test-support/nextRequest";
 import { replicaSetUrl, startReplicaSet } from "@/test-support/replicaSet";
 import { signInIndexesForTheFile } from "@/test-support/signInIndexes";
 import { captureLog } from "@/test-support/stdoutCapture";
-import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { MongoClient } from "mongodb";
 

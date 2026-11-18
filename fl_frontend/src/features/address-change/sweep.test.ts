@@ -1,7 +1,7 @@
-import { networkFailure, serveBackend } from "@/test-support/backend";
 import { describe, expect, it } from "vitest";
 
 import { APINetworkError } from "@/core/errors";
+import { networkFailure, serveBackend } from "@/test-support/backend";
 
 import type { FLAddressChangeSweepResponse } from "@/core/generated/client/types";
 

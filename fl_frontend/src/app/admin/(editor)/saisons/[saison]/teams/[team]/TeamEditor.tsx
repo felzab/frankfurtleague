@@ -2,6 +2,12 @@
 
 import { useState } from "react";
 
+import { COPY } from "@/core/copy";
+import { FLAustrittType } from "@/core/generated/client/types";
+import { SHORTHAND_LENGTH } from "@/features/bewerbungen/constants";
+import { seatActKinds } from "@/features/teams/components/forms/seatActKinds";
+import { SeatActs } from "@/features/teams/components/forms/SeatActs";
+import { schulformOptions } from "@/features/teams/options";
 import { AddressFields } from "@/kit/AddressFields";
 import { Segmented } from "@/kit/ChoiceButtons";
 import { DateField } from "@/kit/DateField";
@@ -11,13 +17,6 @@ import { SeatRows } from "@/kit/SeatRows";
 import { Select } from "@/kit/Select";
 import { TextField } from "@/kit/TextField";
 import { useEditor } from "@/kit/useEditor";
-
-import { COPY } from "@/core/copy";
-import { FLAustrittType } from "@/core/generated/client/types";
-import { SHORTHAND_LENGTH } from "@/features/bewerbungen/constants";
-import { seatActKinds } from "@/features/teams/components/forms/seatActKinds";
-import { SeatActs } from "@/features/teams/components/forms/SeatActs";
-import { schulformOptions } from "@/features/teams/options";
 
 import { exitFactsOf } from "./exitFacts";
 import { FormInvitationSection } from "./FormInvitationSection";

@@ -16,6 +16,9 @@
  *   answered it, and `answerTheLookup(() => null)` inside a case names an outage for that case alone.
  * - Every lookup and mail the helper answers is on the backend's `served`, beside the case's own `sent`.
  */
+import { beforeEach } from "vitest";
+
+import { asSignInIdentifier } from "@/core/emailAddress";
 import {
   ADMIN_EMAIL,
   answerTheLookup,
@@ -29,9 +32,6 @@ import {
 } from "@/test-support/authDoubles";
 import { arriveWith, doubleNextRequest } from "@/test-support/nextRequest";
 import { NO_RECORDS } from "@/test-support/subjectFixtures";
-import { beforeEach } from "vitest";
-
-import { asSignInIdentifier } from "@/core/emailAddress";
 
 import type { SubjectSession } from "@/core/subject";
 import type { MemoryStore } from "@/test-support/authDoubles";

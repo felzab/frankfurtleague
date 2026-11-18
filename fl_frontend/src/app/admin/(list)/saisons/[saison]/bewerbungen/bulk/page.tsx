@@ -1,11 +1,10 @@
 import { notFound } from "next/navigation";
 
-import { StepsPage } from "@/kit/StepsPage";
-
 import { ROUTES } from "@/core/routes";
 import { ACCEPT_RULES } from "@/features/bewerbungen/fieldRules";
 import { getBewerbungenOfSaison } from "@/features/bewerbungen/queries";
 import { standingOf } from "@/features/bewerbungen/standing";
+import { StepsPage } from "@/kit/StepsPage";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 

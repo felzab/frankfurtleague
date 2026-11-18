@@ -1,8 +1,7 @@
 "use client";
 
-import { ConfirmDialog } from "@/kit/ConfirmDialog";
-
 import { COPY } from "@/core/copy";
+import { ConfirmDialog } from "@/kit/ConfirmDialog";
 
 import { adoptVorschlag, discardVorschlag } from "./adoptVorschlag";
 

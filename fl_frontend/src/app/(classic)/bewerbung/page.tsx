@@ -1,11 +1,10 @@
 import { connection } from "next/server";
 
-import { MailedPage } from "@/kit/MailedPage";
-
 import { COPY } from "@/core/copy";
 import { dayOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { MailedPage } from "@/kit/MailedPage";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 

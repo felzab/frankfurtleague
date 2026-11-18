@@ -1,12 +1,11 @@
-import { Callout } from "@/kit/Callout";
-import { FieldGroup } from "@/kit/FieldGroup";
-import { Select } from "@/kit/Select";
-import { TextField } from "@/kit/TextField";
-
 import { COPY } from "@/core/copy";
 import { SHORTHAND_LENGTH } from "@/features/bewerbungen/constants";
 import { trikotFarbeLabel } from "@/features/teams/constants";
 import { trikotOptions } from "@/features/teams/options";
+import { Callout } from "@/kit/Callout";
+import { FieldGroup } from "@/kit/FieldGroup";
+import { Select } from "@/kit/Select";
+import { TextField } from "@/kit/TextField";
 
 import type { FLBewerbungGruppeOffer, FLTrikotFarbe } from "@/core/generated/client/types";
 import type { AcceptRules } from "@/features/bewerbungen/fieldRules";

@@ -1,10 +1,6 @@
 // @vitest-environment jsdom
 import { Suspense } from "react";
 
-import { serveBackend } from "@/test-support/backend";
-import { renderUnderNext } from "@/test-support/nextContexts";
-import { signedInRequest } from "@/test-support/session";
-import { seat, SEAT } from "@/test-support/subjectFixtures";
 import { act, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -12,6 +8,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { COPY } from "@/core/copy";
 import { formatPeriod } from "@/core/format";
 import { ROUTES } from "@/core/routes";
+import { serveBackend } from "@/test-support/backend";
+import { renderUnderNext } from "@/test-support/nextContexts";
+import { signedInRequest } from "@/test-support/session";
+import { seat, SEAT } from "@/test-support/subjectFixtures";
 
 import type { CalendarDay } from "@/core/format";
 

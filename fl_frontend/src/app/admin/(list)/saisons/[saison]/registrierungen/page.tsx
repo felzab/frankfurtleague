@@ -1,15 +1,14 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { filterValue } from "@/kit/filterValue";
-import { ListPage } from "@/kit/ListPage";
-import { CONFIRMED_CHIP, NOT_SENT_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
-
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getRegistrierungenAdmin } from "@/features/registrierungen/queries";
+import { filterValue } from "@/kit/filterValue";
+import { ListPage } from "@/kit/ListPage";
+import { CONFIRMED_CHIP, NOT_SENT_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 

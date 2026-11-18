@@ -1,5 +1,3 @@
-import { AccountPage } from "@/kit/AccountPage";
-
 import { requires } from "@/core/action";
 import { passkeysOf } from "@/core/auth/passkeys";
 import { COPY } from "@/core/copy";
@@ -7,6 +5,7 @@ import { ROUTES } from "@/core/routes";
 import { requireAccountSession } from "@/features/account/account";
 import { getAccountAddressChange } from "@/features/account/queries";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
+import { AccountPage } from "@/kit/AccountPage";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { SignInBoxes } from "./SignInBoxes";

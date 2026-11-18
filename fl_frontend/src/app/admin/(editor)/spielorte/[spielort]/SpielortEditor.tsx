@@ -1,12 +1,11 @@
 "use client";
 
+import { COPY } from "@/core/copy";
 import { AddressFields } from "@/kit/AddressFields";
 import { EditorPage } from "@/kit/EditorPage";
 import { ACTIVE_CHIP, RETIRED_CHIP } from "@/kit/stateChips";
 import { TextField } from "@/kit/TextField";
 import { useEditor } from "@/kit/useEditor";
-
-import { COPY } from "@/core/copy";
 
 import type { ActionAnswer } from "@/core/action";
 import type { DangerAct } from "@/kit/EditorPage";

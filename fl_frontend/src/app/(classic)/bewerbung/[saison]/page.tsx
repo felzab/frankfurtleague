@@ -1,8 +1,7 @@
 import { notFound } from "next/navigation";
 
-import { MailedPage } from "@/kit/MailedPage";
-
 import { ROUTES } from "@/core/routes";
+import { MailedPage } from "@/kit/MailedPage";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 

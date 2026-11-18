@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
-import { renderHookUnderNext } from "@/test-support/nextContexts";
 import { act } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { renderHookUnderNext } from "@/test-support/nextContexts";
 
 import { useEditor } from "./useEditor";
 

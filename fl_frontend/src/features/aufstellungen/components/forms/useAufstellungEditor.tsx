@@ -1,9 +1,8 @@
 "use client";
 
+import { COPY } from "@/core/copy";
 import { Lineup, lineupMoves, lineupStarters, lineupValue } from "@/kit/Lineup";
 import { useEditor } from "@/kit/useEditor";
-
-import { COPY } from "@/core/copy";
 
 import { STARTERS_MAX } from "../../constants";
 import { REFUSED_ROW } from "../../payload";

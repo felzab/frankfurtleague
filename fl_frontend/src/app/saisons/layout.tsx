@@ -1,12 +1,11 @@
 import { connection } from "next/server";
 
-import { RailFrame } from "@/kit/RailFrame";
-import { RailFrameBoundary } from "@/kit/RailFrameBoundary";
-
 import { COPY } from "@/core/copy";
 import { dayOf, formatPeriod } from "@/core/format";
 import { ROUTES, SAISON_PAGES } from "@/core/routes";
 import { getSaisonFrame } from "@/features/saisons/queries";
+import { RailFrame } from "@/kit/RailFrame";
+import { RailFrameBoundary } from "@/kit/RailFrameBoundary";
 
 import type { Saisons } from "@/kit/FrameNav";
 import type { ReactNode } from "react";

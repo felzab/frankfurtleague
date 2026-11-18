@@ -1,7 +1,8 @@
+import { describe, expect, it } from "vitest";
+
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
 import { seat } from "@/test-support/subjectFixtures";
-import { describe, expect, it } from "vitest";
 
 import type { FLAufstellungResponse, FLAufstellungSpieler } from "@/core/generated/client/types";
 

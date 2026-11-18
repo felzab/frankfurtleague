@@ -1,11 +1,10 @@
-import { RailFrame } from "@/kit/RailFrame";
-import { RailFrameBoundary } from "@/kit/RailFrameBoundary";
-
 import { dayOf, formatPeriod } from "@/core/format";
 import { rolesOf } from "@/core/roles";
 import { ROUTES } from "@/core/routes";
 import { getSubjectSession } from "@/core/subject";
 import { readAccount } from "@/features/account/account";
+import { RailFrame } from "@/kit/RailFrame";
+import { RailFrameBoundary } from "@/kit/RailFrameBoundary";
 
 import { AREA_HOME } from "../areaHome";
 

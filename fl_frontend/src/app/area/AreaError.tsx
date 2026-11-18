@@ -1,8 +1,7 @@
 "use client";
 
-import { StatusPage } from "@/kit/StatusPage";
-
 import { COPY } from "@/core/copy";
+import { StatusPage } from "@/kit/StatusPage";
 import { useReportClientCrash } from "@/shared/hooks/useReportClientCrash";
 
 import { AREA_HOME } from "./areaHome";

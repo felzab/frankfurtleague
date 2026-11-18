@@ -1,9 +1,10 @@
+import { assert, beforeEach, describe, expect, it } from "vitest";
+
 import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, overriding, registerAuthDoubles, signInByCode } from "@/test-support/authDoubles";
 import { beginRenderPass, serveServerReact } from "@/test-support/cacheScope";
 import { emptyStore } from "@/test-support/emptyStore";
 import { replicaSetUrl, startReplicaSet } from "@/test-support/replicaSet";
 import { signInIndexesForTheFile } from "@/test-support/signInIndexes";
-import { assert, beforeEach, describe, expect, it } from "vitest";
 
 import type { MongoClient } from "mongodb";
 

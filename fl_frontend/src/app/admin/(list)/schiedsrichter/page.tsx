@@ -1,9 +1,8 @@
-import { ListPage } from "@/kit/ListPage";
-
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { refereeChip } from "@/features/schiedsrichter/confirmationState";
 import { getSchiedsrichter } from "@/features/schiedsrichter/queries";
+import { ListPage } from "@/kit/ListPage";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { createSchiedsrichter } from "./createSchiedsrichter";

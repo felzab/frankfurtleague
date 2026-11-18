@@ -1,9 +1,10 @@
 // The sign-in doubles' default lookup, which every suite registering them without an answer of its own relies on:
 // it answers the administrator alone, and a read for anyone else fails the case unless the case answered it.
+import { describe, expect, it } from "vitest";
+
 import { ADMIN_EMAIL, answerTheLookup, memoryAdapterDouble, memoryStore, ORIGIN, registerAuthDoubles } from "@/test-support/authDoubles";
 import { serveBackend } from "@/test-support/backend";
 import { caseFailures } from "@/test-support/caseFailures";
-import { describe, expect, it } from "vitest";
 
 /** An address no answer of this file names. */
 const STRANGER = "fremde@example.org";

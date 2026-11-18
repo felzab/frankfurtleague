@@ -1,6 +1,5 @@
-import { ACTIVE_CHIP, RETIRED_CHIP } from "@/kit/stateChips";
-
 import { COPY } from "@/core/copy";
+import { ACTIVE_CHIP, RETIRED_CHIP } from "@/kit/stateChips";
 
 import type { Copy } from "@/core/copy";
 import type { FLAustrittType, FLKontaktRolle, FLTrainerAlso, FLTrikotFarbe } from "@/core/generated/client/types";

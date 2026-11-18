@@ -1,7 +1,8 @@
 import path from "node:path";
 
-import { filesUnder } from "@/test-support/treeWalk";
 import { describe, expect, it } from "vitest";
+
+import { filesUnder } from "@/test-support/treeWalk";
 
 import { ROUTES } from "./routes";
 

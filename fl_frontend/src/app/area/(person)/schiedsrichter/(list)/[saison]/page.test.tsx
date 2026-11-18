@@ -1,9 +1,9 @@
-import { serveBackend } from "@/test-support/backend";
-import { signedInRequest } from "@/test-support/session";
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
 
 import type { FLSchiedsrichterSpiel } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";

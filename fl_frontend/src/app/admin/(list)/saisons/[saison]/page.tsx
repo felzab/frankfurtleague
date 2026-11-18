@@ -1,9 +1,5 @@
 import { notFound, redirect } from "next/navigation";
 
-import { ListPage } from "@/kit/ListPage";
-import { DECLINED_CHIP, EXPIRED_CHIP } from "@/kit/stateChips";
-import { TextField } from "@/kit/TextField";
-
 import { requires } from "@/core/action";
 import { COPY } from "@/core/copy";
 import { dayOf, formatList, timeOf } from "@/core/format";
@@ -15,6 +11,9 @@ import {
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getSaisonOverview } from "@/features/saisons/queries";
+import { ListPage } from "@/kit/ListPage";
+import { DECLINED_CHIP, EXPIRED_CHIP } from "@/kit/stateChips";
+import { TextField } from "@/kit/TextField";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 

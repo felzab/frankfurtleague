@@ -1,6 +1,7 @@
+import { describe, expect, it } from "vitest";
+
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
-import { describe, expect, it } from "vitest";
 
 import type { FLSpielberichtSchiedsrichterResponse } from "@/core/generated/client/types";
 import type { Option } from "@/kit/OptionList";

@@ -2,13 +2,13 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { renderUnderNext } from "@/test-support/nextContexts";
-import { filesUnder } from "@/test-support/treeWalk";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { renderUnderNext } from "@/test-support/nextContexts";
+import { filesUnder } from "@/test-support/treeWalk";
 
 import { AccountBox } from "./AccountBox";
 import { Dialog } from "./Dialog";

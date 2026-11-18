@@ -1,5 +1,8 @@
 import { randomUUID } from "node:crypto";
 
+import { MongoServerError } from "mongodb";
+import { assert, beforeEach, describe, expect, it } from "vitest";
+
 import {
   ADMIN_EMAIL,
   Barrier,
@@ -18,8 +21,6 @@ import { signInIndexesForTheFile } from "@/test-support/signInIndexes";
 import { captureLog } from "@/test-support/stdoutCapture";
 import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures";
 import { registrationFor } from "@/test-support/testAuthenticator";
-import { MongoServerError } from "mongodb";
-import { assert, beforeEach, describe, expect, it } from "vitest";
 
 import type { LookupFixture } from "@/test-support/subjectFixtures";
 import type { MongoClient } from "mongodb";

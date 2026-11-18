@@ -1,8 +1,5 @@
 import { cache } from "react";
 
-import { ListPage } from "@/kit/ListPage";
-import { CONFIRMED_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
-
 import { KONTAKT_EMAIL, KONTAKT_MAILTO } from "@/core/brand";
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate } from "@/core/format";
@@ -11,6 +8,8 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { getOpenRegistrierungen } from "@/features/registrierungen/queries";
 import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
 import { kaderName } from "@/features/spieler/constants";
+import { ListPage } from "@/kit/ListPage";
+import { CONFIRMED_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { RegistrierungTable } from "./RegistrierungTable";

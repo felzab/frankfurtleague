@@ -1,9 +1,5 @@
 import { notFound } from "next/navigation";
 
-import { Button } from "@/kit/Button";
-import { Link } from "@/kit/Link";
-import { ReadPage } from "@/kit/ReadPage";
-
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate, formatNumber } from "@/core/format";
 import { ROUTES } from "@/core/routes";
@@ -14,6 +10,9 @@ import { STANDING_CHIP, standingOf, TEAM_DOUBLE } from "@/features/bewerbungen/s
 import { seatActKinds } from "@/features/teams/components/forms/seatActKinds";
 import { SeatActs } from "@/features/teams/components/forms/SeatActs";
 import { trikotFarbeLabel } from "@/features/teams/constants";
+import { Button } from "@/kit/Button";
+import { Link } from "@/kit/Link";
+import { ReadPage } from "@/kit/ReadPage";
 import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";

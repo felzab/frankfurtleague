@@ -1,7 +1,6 @@
+import { SERVER_COPY } from "@/core/serverCopy";
 import { RailColumn } from "@/kit/RailFrame";
 import { StatusPage } from "@/kit/StatusPage";
-
-import { SERVER_COPY } from "@/core/serverCopy";
 
 import { AREA_HOME } from "../areaHome";
 import { AreaNotFound } from "../AreaNotFound";

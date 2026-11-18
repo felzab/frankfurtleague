@@ -2,10 +2,11 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { serveBackend, serveHost } from "@/test-support/backend";
-import { signedInRequest } from "@/test-support/session";
 import { render } from "@testing-library/react";
 import { assert, describe, expect, it } from "vitest";
+
+import { serveBackend, serveHost } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
 
 import type { ReactElement } from "react";
 

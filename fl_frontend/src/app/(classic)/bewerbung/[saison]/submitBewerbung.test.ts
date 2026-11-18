@@ -1,11 +1,11 @@
-import { serveBackend, serveHost } from "@/test-support/backend";
-import { doubleNextRequest } from "@/test-support/nextRequest";
-import { posted } from "@/test-support/posted";
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
+import { serveBackend, serveHost } from "@/test-support/backend";
+import { doubleNextRequest } from "@/test-support/nextRequest";
+import { posted } from "@/test-support/posted";
 
 import { NO_SECOND_SEAT, REPLAY_FIELD } from "./application";
 import { SUBMITTED } from "./ends";

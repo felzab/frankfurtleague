@@ -1,6 +1,5 @@
-import { RailColumn } from "@/kit/RailFrame";
-
 import { readAreaBack } from "@/features/account/account";
+import { RailColumn } from "@/kit/RailFrame";
 
 import type { ReactNode } from "react";
 

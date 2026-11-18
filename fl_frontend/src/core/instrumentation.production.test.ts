@@ -1,5 +1,6 @@
-import { documentsWrittenByAsync } from "@/test-support/stdoutCapture";
 import { describe, expect, it } from "vitest";
+
+import { documentsWrittenByAsync } from "@/test-support/stdoutCapture";
 
 import { APIBadStatusError, APINetworkError, MailSendError } from "./errors";
 import { onRequestError } from "./instrumentation";

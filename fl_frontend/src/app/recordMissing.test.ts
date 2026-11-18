@@ -1,8 +1,8 @@
-import { refusal, serveBackend } from "@/test-support/backend";
-import { signedInRequest } from "@/test-support/session";
 import { describe, expect, it } from "vitest";
 
 import { APIBadStatusError } from "@/core/errors";
+import { refusal, serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
 
 import type { Code } from "@/core/generated/client/types";
 

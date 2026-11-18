@@ -1,10 +1,9 @@
-import { ListPage } from "@/kit/ListPage";
-import { ACTIVE_CHIP, RETIRED_CHIP } from "@/kit/stateChips";
-
 import { COPY } from "@/core/copy";
 import { formatEuro } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { getSpielorte } from "@/features/spielorte/queries";
+import { ListPage } from "@/kit/ListPage";
+import { ACTIVE_CHIP, RETIRED_CHIP } from "@/kit/stateChips";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { createSpielort } from "../../createSpielort";

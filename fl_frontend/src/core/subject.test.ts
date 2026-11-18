@@ -1,3 +1,5 @@
+import { assert, beforeEach, describe, expect, it, vi } from "vitest";
+
 import {
   ADMIN_EMAIL,
   configDouble,
@@ -12,7 +14,6 @@ import { serveBackend } from "@/test-support/backend";
 import { beginRenderPass, leaveRenderPass, serveServerReact } from "@/test-support/cacheScope";
 import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures";
 import { timeoutSignalsOnFakeTimers } from "@/test-support/timeoutSignals";
-import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { SessionRow } from "@/test-support/authDoubles";
 import type { LookupFixture } from "@/test-support/subjectFixtures";

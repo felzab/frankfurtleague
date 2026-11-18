@@ -1,9 +1,8 @@
-import { RailColumn } from "@/kit/RailFrame";
-import { StatusPage } from "@/kit/StatusPage";
-
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { RailColumn } from "@/kit/RailFrame";
+import { StatusPage } from "@/kit/StatusPage";
 
 /**
  * A record the administration does not hold, in the rail frame: this boundary stands inside the frame's layout and

@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 import { Suspense } from "react";
 
-import { serveBackend } from "@/test-support/backend";
-import { renderUnderNext } from "@/test-support/nextContexts";
-import { doubleNextRequest } from "@/test-support/nextRequest";
 import { act, screen } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { serveBackend } from "@/test-support/backend";
+import { renderUnderNext } from "@/test-support/nextContexts";
+import { doubleNextRequest } from "@/test-support/nextRequest";
 
 import type { FLSaisonFrameResponse } from "@/core/generated/client/types";
 import type { NextContexts } from "@/test-support/nextContexts";

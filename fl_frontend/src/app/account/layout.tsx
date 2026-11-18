@@ -1,9 +1,8 @@
-import { RailFrame } from "@/kit/RailFrame";
-import { RailFrameBoundary } from "@/kit/RailFrameBoundary";
-
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { readAccount, readAreaBack } from "@/features/account/account";
+import { RailFrame } from "@/kit/RailFrame";
+import { RailFrameBoundary } from "@/kit/RailFrameBoundary";
 
 import { ACCOUNT_ENTRIES, ACCOUNT_HOME } from "./entries";
 

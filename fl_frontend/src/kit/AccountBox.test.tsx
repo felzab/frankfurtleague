@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
-import { renderUnderNext } from "@/test-support/nextContexts";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { renderUnderNext } from "@/test-support/nextContexts";
 
 import { AccountBox, AccountRows } from "./AccountBox";
 

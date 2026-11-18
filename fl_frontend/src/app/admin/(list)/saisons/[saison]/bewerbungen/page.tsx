@@ -1,15 +1,14 @@
 import { notFound } from "next/navigation";
 
-import { filterValue } from "@/kit/filterValue";
-import { ListPage } from "@/kit/ListPage";
-import { NOT_SENT_CHIP, outOfPlayChip } from "@/kit/stateChips";
-
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getBewerbungenOfSaison } from "@/features/bewerbungen/queries";
 import { SEATS, STANDING_CHIP, standingOf, TEAM_DOUBLE } from "@/features/bewerbungen/standing";
+import { filterValue } from "@/kit/filterValue";
+import { ListPage } from "@/kit/ListPage";
+import { NOT_SENT_CHIP, outOfPlayChip } from "@/kit/stateChips";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 

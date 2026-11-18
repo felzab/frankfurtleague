@@ -1,12 +1,12 @@
 // Under a production build's logger, which writes each line as the JSON document a failure's every field reaches:
 // the plain line other projects write drops an `error` that is no `Error`, so a value handed there would pass unseen.
+import { describe, expect, it, onTestFinished } from "vitest";
+
+import { COPY } from "@/core/copy";
 import { ADMIN_EMAIL } from "@/test-support/authDoubles";
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
 import { captureLog } from "@/test-support/stdoutCapture";
-import { describe, expect, it, onTestFinished } from "vitest";
-
-import { COPY } from "@/core/copy";
 
 /** The address the administrator erases. */
 const ERASED = "max@example.org";

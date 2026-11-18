@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
-import { serveBackend } from "@/test-support/backend";
-import { underNext } from "@/test-support/nextContexts";
-import { signedInRequest } from "@/test-support/session";
 import { prerender } from "react-dom/static";
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { serveBackend } from "@/test-support/backend";
+import { underNext } from "@/test-support/nextContexts";
+import { signedInRequest } from "@/test-support/session";
 
 import type { FLSpielerSaisonSelfResponse, FLSpielerSaisonSelfSpiel } from "@/core/generated/client/types";
 

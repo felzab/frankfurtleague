@@ -1,6 +1,7 @@
+import { describe, expect, it, vi } from "vitest";
+
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
-import { describe, expect, it, vi } from "vitest";
 
 /** Every request the backend was sent, with the key it carried, cumulative across this file. */
 const reads: { path: string; authorization: string | null }[] = [];

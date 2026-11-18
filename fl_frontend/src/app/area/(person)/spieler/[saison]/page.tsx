@@ -1,8 +1,6 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { ReadPage } from "@/kit/ReadPage";
-
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { readAsRoleHolder } from "@/features/roles/resolvers";
@@ -10,6 +8,7 @@ import { isPublicSaison } from "@/features/saisons/resolvers";
 import { headedMatchOf } from "@/features/spiele/blocks";
 import { getSpielerSaisonSelf } from "@/features/spieler/queries";
 import { rowChip } from "@/features/spieler/rowChip";
+import { ReadPage } from "@/kit/ReadPage";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 

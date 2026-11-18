@@ -1,18 +1,17 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { Link } from "@/kit/Link";
-import { ListPage } from "@/kit/ListPage";
-import { SpielList } from "@/kit/SpielRow";
-import { SpieltagHead } from "@/kit/SpieltagHead";
-import { chosenTab } from "@/kit/tabChoice";
-
 import { COPY } from "@/core/copy";
 import { dayOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { adminSpielChipOf, matchRowOf } from "@/features/spiele/blocks";
 import { getAdminSpielplan } from "@/features/spiele/queries";
 import { spieltagNamer } from "@/features/spieltage/utils";
+import { Link } from "@/kit/Link";
+import { ListPage } from "@/kit/ListPage";
+import { SpielList } from "@/kit/SpielRow";
+import { SpieltagHead } from "@/kit/SpieltagHead";
+import { chosenTab } from "@/kit/tabChoice";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 

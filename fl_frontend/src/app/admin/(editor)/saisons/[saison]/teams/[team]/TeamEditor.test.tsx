@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-import { renderUnderNext } from "@/test-support/nextContexts";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -7,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import { COPY } from "@/core/copy";
 import { dayOf, formatList } from "@/core/format";
 import { AUSTRITT_RULES, SEAT_RULES, TEAM_DESCRIPTION_MAX, TEAM_SAVE_RULES } from "@/features/teams/fieldRules";
+import { renderUnderNext } from "@/test-support/nextContexts";
 
 import { TeamEditor } from "./TeamEditor";
 

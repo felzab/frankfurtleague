@@ -2,12 +2,6 @@
 
 import { useId } from "react";
 
-import { AccountBox } from "@/kit/AccountBox";
-import { Checkbox } from "@/kit/Checkbox";
-import { ConsentLine } from "@/kit/ConsentLine";
-import { Facts } from "@/kit/Facts";
-import { RadioGroup } from "@/kit/RadioGroup";
-
 import {
   SCHIEDSRICHTER_TEXT_VERSIONS,
   SCHIEDSRICHTER_WORDINGS,
@@ -24,6 +18,11 @@ import {
   saveSeatConsent,
   saveSpielerConsent,
 } from "@/features/account/personActions";
+import { AccountBox } from "@/kit/AccountBox";
+import { Checkbox } from "@/kit/Checkbox";
+import { ConsentLine } from "@/kit/ConsentLine";
+import { Facts } from "@/kit/Facts";
+import { RadioGroup } from "@/kit/RadioGroup";
 
 import type { Copy, Words } from "@/core/copy";
 import type { FLEinwilligungScope, FLEinwilligungState, FLKontaktKenntnisnahmeScope } from "@/core/generated/client/types";

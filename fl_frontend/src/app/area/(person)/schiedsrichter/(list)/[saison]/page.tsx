@@ -1,10 +1,6 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { ListPage } from "@/kit/ListPage";
-import { AGREED_CHIP, DECLINED_CHIP, EXPIRED_CHIP, owedChip } from "@/kit/stateChips";
-import { TextField } from "@/kit/TextField";
-
 import { requires } from "@/core/action";
 import { COPY, textOf } from "@/core/copy";
 import { dayOf, formatDate, timeOf } from "@/core/format";
@@ -17,6 +13,9 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { readAsRoleHolder } from "@/features/roles/resolvers";
 import { getOwnSpiele } from "@/features/schiedsrichter/queries";
 import { eventChipOf, matchName } from "@/features/spiele/blocks";
+import { ListPage } from "@/kit/ListPage";
+import { AGREED_CHIP, DECLINED_CHIP, EXPIRED_CHIP, owedChip } from "@/kit/stateChips";
+import { TextField } from "@/kit/TextField";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 

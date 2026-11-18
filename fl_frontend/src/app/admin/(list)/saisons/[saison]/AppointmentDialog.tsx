@@ -1,12 +1,11 @@
 "use client";
 
 import { saveSpiel } from "@/app/admin/(editor)/saisons/[saison]/spiele/[spiel]/saveSpiel";
+import { COPY } from "@/core/copy";
 import { DateField } from "@/kit/DateField";
 import { Dialog } from "@/kit/Dialog";
 import { FieldPair } from "@/kit/FieldPair";
 import { TimeField } from "@/kit/TimeField";
-
-import { COPY } from "@/core/copy";
 
 import type { ActionAnswer } from "@/core/action";
 import type { CalendarDay, TimeOfDay } from "@/core/format";

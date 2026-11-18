@@ -3,14 +3,13 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { COPY, rollenText } from "@/core/copy";
 import { Dialog } from "@/kit/Dialog";
 import { useLocked } from "@/kit/draftUnsaved";
 import { SideActs } from "@/kit/SideActs";
 import { TextField } from "@/kit/TextField";
 import { toastAnswer } from "@/kit/Toast";
 import { answering } from "@/kit/useFormAction";
-
-import { COPY, rollenText } from "@/core/copy";
 
 import { seatActKinds } from "./seatActKinds";
 

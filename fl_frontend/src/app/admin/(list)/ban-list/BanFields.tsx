@@ -1,5 +1,3 @@
-import { TextField } from "@/kit/TextField";
-
 import { requires } from "@/core/action";
 import { COPY } from "@/core/copy";
 import {
@@ -8,6 +6,7 @@ import {
   banListPostBanListEntryBodyEmailMax,
 } from "@/core/generated/zod/inputs";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
+import { TextField } from "@/kit/TextField";
 
 /**
  * The ban dialog's inputs: the address and the Grund, which a mail hands to the address, so it holds no names. Drawn on

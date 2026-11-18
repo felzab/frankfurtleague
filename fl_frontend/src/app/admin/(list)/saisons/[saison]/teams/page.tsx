@@ -1,8 +1,5 @@
 import { notFound } from "next/navigation";
 
-import { filterValue } from "@/kit/filterValue";
-import { ListPage } from "@/kit/ListPage";
-
 import { COPY } from "@/core/copy";
 import { FLGruppenNames, FLTeamListState } from "@/core/generated/client/types";
 import { ROUTES } from "@/core/routes";
@@ -11,6 +8,8 @@ import { adminTeamChip, trikotFarbeLabel } from "@/features/teams/constants";
 import { TEAM_CLUB_REQUIRED, TEAM_ENTRY_RULES } from "@/features/teams/fieldRules";
 import { gruppeOptions, trikotOptions } from "@/features/teams/options";
 import { getTeamsAdmin } from "@/features/teams/queries";
+import { filterValue } from "@/kit/filterValue";
+import { ListPage } from "@/kit/ListPage";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 

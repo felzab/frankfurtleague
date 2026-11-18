@@ -1,8 +1,7 @@
-import { SpielPopup } from "@/kit/SpielHead";
-
 import { ROUTES } from "@/core/routes";
 import { resolvePublicSaisonParam } from "@/features/saisons/resolvers";
 import { spielPopupOf } from "@/features/spiele/popup";
+import { SpielPopup } from "@/kit/SpielHead";
 import { resolveObjectIdParam } from "@/shared/utils/routeParams";
 
 import type { SpielPopupContent } from "@/kit/SpielHead";

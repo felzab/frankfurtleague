@@ -1,9 +1,8 @@
 "use client";
 
+import { COPY } from "@/core/copy";
 import { RailColumn } from "@/kit/RailFrame";
 import { StatusPage } from "@/kit/StatusPage";
-
-import { COPY } from "@/core/copy";
 import { useReportClientCrash } from "@/shared/hooks/useReportClientCrash";
 
 import { ACCOUNT_HOME } from "./entries";

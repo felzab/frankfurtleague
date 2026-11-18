@@ -1,9 +1,5 @@
 import { cache } from "react";
 
-import { ListPage } from "@/kit/ListPage";
-import { PressAct } from "@/kit/PressAct";
-import { AGREED_CHIP, CONFIRMED_CHIP, DECLINED_CHIP, EXPIRED_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
-
 import { now } from "@/core/clock";
 import { COPY } from "@/core/copy";
 import { dayIn, dayOf, timeOf } from "@/core/format";
@@ -13,6 +9,9 @@ import { AUFSTELLUNG_CHIP } from "@/features/aufstellungen/constants";
 import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
 import { matchName } from "@/features/spiele/blocks";
 import { getTeamOverview } from "@/features/teams/queries";
+import { ListPage } from "@/kit/ListPage";
+import { PressAct } from "@/kit/PressAct";
+import { AGREED_CHIP, CONFIRMED_CHIP, DECLINED_CHIP, EXPIRED_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { agreeSpielbestaetigung } from "./answerSpielbestaetigung";

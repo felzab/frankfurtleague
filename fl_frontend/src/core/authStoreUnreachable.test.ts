@@ -1,5 +1,6 @@
-import { configDouble, registerAuthDoubles } from "@/test-support/authDoubles";
 import { assert, describe, it } from "vitest";
+
+import { configDouble, registerAuthDoubles } from "@/test-support/authDoubles";
 
 /* The library builds its adapter inside its init, which `auth.$context` is the promise of: a factory refusing here
    rejects that promise, as a store unreachable at the first use does. */

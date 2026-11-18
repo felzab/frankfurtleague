@@ -1,8 +1,5 @@
 import { cache } from "react";
 
-import { mailedMetadata } from "@/kit/mailedLinkState";
-import { MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
-
 import { requires } from "@/core/action";
 import { MEDIA_MIN_AGE } from "@/core/bounds";
 import { now } from "@/core/clock";
@@ -15,6 +12,8 @@ import { SchiedsrichterPostConfirmationBody } from "@/core/generated/zod/inputs"
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
+import { mailedMetadata } from "@/kit/mailedLinkState";
+import { MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
 
 import { ConfirmationFields } from "../ConfirmationFields";
 import { linkViewOf } from "../linkView";

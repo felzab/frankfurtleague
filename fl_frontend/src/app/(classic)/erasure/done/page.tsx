@@ -1,8 +1,7 @@
-import { ClassicStatusPage } from "@/kit/StatusCard";
-
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { ClassicStatusPage } from "@/kit/StatusCard";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { Metadata, ResolvingMetadata } from "next";

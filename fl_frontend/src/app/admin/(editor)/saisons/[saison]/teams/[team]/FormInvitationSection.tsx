@@ -2,13 +2,12 @@
 
 import { useState } from "react";
 
+import { COPY } from "@/core/copy";
+import { mailInvitation, mintInvitation, revokeInvitation } from "@/features/invitations/actions";
 import { Callout } from "@/kit/Callout";
 import { Facts } from "@/kit/Facts";
 import { SectionAct } from "@/kit/SectionAct";
 import { appToast } from "@/kit/Toast";
-
-import { COPY } from "@/core/copy";
-import { mailInvitation, mintInvitation, revokeInvitation } from "@/features/invitations/actions";
 import { copyTextToClipboard } from "@/shared/utils/clipboard";
 
 import type { ActionAnswer } from "@/core/action";
