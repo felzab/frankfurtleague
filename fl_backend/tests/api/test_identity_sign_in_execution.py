@@ -311,7 +311,7 @@ def test_every_role_list_is_drawn_from_the_own_records():
 
     assert [seat.seat for seat in subject.seats] == ["trainer"]
     assert {("seats", (seat.team_id, seat.saison_id)) for seat in subject.seats} | {
-        ("spieler", e.spieler_id) for e in subject.spieler
+        ("spieler", e.spieler_id) for e in [subject.spieler] if e is not None
     } <= entries
     assert subject.schiedsrichter == []
 

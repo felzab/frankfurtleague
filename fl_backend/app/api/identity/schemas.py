@@ -60,16 +60,16 @@ class FLSubjectSchiedsrichter(BaseModel):
 
 
 class FLSubject(BaseModel):
-    """Which confirmed, live records one mailbox matches, as three lists rather than three optional records.
+    """Which confirmed, live records one mailbox matches: its seats and referee records as lists, and its pupil record or null.
 
-    One person holds seats at two clubs, and nothing enforces one pupil record per address.
+    One person holds seats at two clubs, and the unique index `uniq_spieler_email` holds one pupil record per address.
     """
 
     seats: list[FLSubjectSeat]
-    spieler: list[FLSubjectSpieler]
+    spieler: FLSubjectSpieler | None
     schiedsrichter: list[FLSubjectSchiedsrichter]
-    # Its own field and never read off empty lists: set, the mailbox holds records that could grant a
-    # panel and none is confirmed, which empty lists alone would report as nothing held.
+    # Its own field and never read off the records: set, the mailbox holds records that could grant a
+    # panel and none is confirmed, which the records' fields alone would report as nothing held.
     unconfirmed: bool
 
 
@@ -153,7 +153,8 @@ class FLAccountErasureRegistrierung(BaseModel):
 class FLAccountErasureView(BaseModel):
     """What an erasure of one address would remove, by kind and by name, and never an address or a birthdate."""
 
-    spieler: list[FLAccountErasureSpieler]
+    # Null where the address holds no pupil record, and never more than one: `uniq_spieler_email` holds one per address.
+    spieler: FLAccountErasureSpieler | None
     schiedsrichter: list[FLAccountErasureSchiedsrichter]
     seats: list[FLAccountErasureSeat]
     bewerbungen: list[FLAccountErasureBewerbung]

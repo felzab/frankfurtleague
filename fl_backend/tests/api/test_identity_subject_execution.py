@@ -67,14 +67,12 @@ async def _no_body(_: AsyncDatabase) -> None:
 
 
 async def call_subject(database: AsyncDatabase, email: str) -> FLSubjectResponse:
-    async with database.client.start_session(snapshot=True) as session:
-        return await get_subject(
-            subject_data=FLSubjectPayload(email=email),
-            records=record_collections(database),
-            grants_collection=database[Collection.GRANTS],
-            session=session,
-            germany_now=NOW,
-        )
+    return await get_subject(
+        subject_data=FLSubjectPayload(email=email),
+        records=record_collections(database),
+        grants_collection=database[Collection.GRANTS],
+        germany_now=NOW,
+    )
 
 
 async def answered(url: str, email: str = IDENTIFIER) -> FLSubjectResponse:
@@ -87,7 +85,7 @@ async def test_an_address_sharing_only_a_local_part_with_unconfirmed_records_awa
 
     answer = await answered(mongo_replica_set_url, UNCONFIRMED_ELSEWHERE)
 
-    assert (answer.unconfirmed, answer.seats, answer.spieler, answer.schiedsrichter) == (False, [], [], [])
+    assert (answer.unconfirmed, answer.seats, answer.spieler, answer.schiedsrichter) == (False, [], None, [])
 
 
 @pytest.mark.db
@@ -118,7 +116,7 @@ async def test_the_mounted_route_answers_a_retired_person_as_it_answers_nobody(m
     assert response.status_code == 200
     assert response.json() == {
         "seats": [],
-        "spieler": [],
+        "spieler": None,
         "schiedsrichter": [],
         "unconfirmed": False,
         "admin_tier": None,

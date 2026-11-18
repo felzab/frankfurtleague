@@ -24,7 +24,7 @@ serveBackend(({ method, path }) => {
   return undefined;
 });
 // A pupil, signed in by a typed code.
-signedInRequest({ email: "pia@example.org", records: { spieler: [{ spieler_id: "64b0000000000000000000ee" }] } });
+signedInRequest({ email: "pia@example.org", records: { spieler: { spieler_id: "64b0000000000000000000ee" } } });
 const { default: SpielerOverviewPage } = await import("./page");
 
 const SPIEL: FLSpielerSaisonSelfSpiel = {

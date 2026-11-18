@@ -49,7 +49,7 @@ describe("the seats at a team page's address", () => {
     const { roles } = rolesOf(
       person({
         seats: [seat({ saison_id: "2627", saison_status: "future" }), seat({ team_id: "6890a1b2c3d4e5f607250099" }), here],
-        spieler: [{ spieler_id: "6890a1b2c3d4e5f607250077" }],
+        spieler: { spieler_id: "6890a1b2c3d4e5f607250077" },
       }),
     );
 

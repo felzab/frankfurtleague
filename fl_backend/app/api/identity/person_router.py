@@ -4,33 +4,20 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.address_change.crud import known_to_the_new_mailbox, others_naming
 from app.api.grants.crud import read_grants
 from app.api.identity.crud import EACH_PERSON_GROUP, erase_everything, resolve_subject
+from app.api.identity.lookup import ErasureHandles
 from app.api.identity.schemas import FLAccountErasureViewResponse
 from app.api.identity.services import build_season_team_pipeline, compose_account_erasure_view, find_owner_erasure_refusal
 from app.core.crud import aggregate_many_from_db, refuse
 from app.core.dependencies import (
-    ActionLogCollection,
-    AddressChangeCollection,
     AddressChangeReadCollection,
-    AufstellungenCollection,
-    BewerbungenCollection,
     BewerbungenReadCollection,
     DBClient,
     GermanyNow,
-    GrantsCollection,
     GrantsReadCollection,
-    OutboxCollection,
-    RegistrierungenCollection,
     RegistrierungenReadCollection,
-    SaisonSpielerCollection,
-    SaisonTeamsCollection,
     SaisonTeamsReadCollection,
-    SchiedsrichterCollection,
     SchiedsrichterReadCollection,
     SnapshotSession,
-    SpielberichteCollection,
-    SpielbestaetigungenCollection,
-    SpieleCollection,
-    SpielerCollection,
     SpielerReadCollection,
 )
 from app.core.journal import Journal
@@ -52,20 +39,7 @@ router = APIRouter(
 )
 async def post_account_erasure(
     identifier: PersonIdentifier,
-    spieler_collection: SpielerCollection,
-    saison_spieler_collection: SaisonSpielerCollection,
-    saison_teams_collection: SaisonTeamsCollection,
-    bewerbungen_collection: BewerbungenCollection,
-    schiedsrichter_collection: SchiedsrichterCollection,
-    spiele_collection: SpieleCollection,
-    spielbestaetigungen_collection: SpielbestaetigungenCollection,
-    spielberichte_collection: SpielberichteCollection,
-    aufstellungen_collection: AufstellungenCollection,
-    registrierungen_collection: RegistrierungenCollection,
-    action_log_collection: ActionLogCollection,
-    grants_collection: GrantsCollection,
-    outbox_collection: OutboxCollection,
-    address_changes_collection: AddressChangeCollection,
+    collections: ErasureHandles,
     db: DBClient,
     germany_now: GermanyNow,
 ) -> None:
@@ -79,7 +53,7 @@ async def post_account_erasure(
 
     @journal.attempted
     async def erase_the_address(session: AsyncClientSession) -> None:
-        grants = await read_grants(grants_collection=grants_collection, session=session)
+        grants = await read_grants(grants_collection=collections.grants_collection, session=session)
         # Before any write, since nobody else could name an owner. A handover finishing meanwhile writes the row this
         # erasure deletes, so the two conflict and the retry reads the new owner.
         refuse(find_owner_erasure_refusal(identifier=identifier, grants=grants))
@@ -87,24 +61,11 @@ async def post_account_erasure(
         erasure = await erase_everything(
             identifier,
             scope=EACH_PERSON_GROUP,
-            spieler_collection=spieler_collection,
-            saison_spieler_collection=saison_spieler_collection,
-            saison_teams_collection=saison_teams_collection,
-            bewerbungen_collection=bewerbungen_collection,
-            schiedsrichter_collection=schiedsrichter_collection,
-            spiele_collection=spiele_collection,
-            spielbestaetigungen_collection=spielbestaetigungen_collection,
-            spielberichte_collection=spielberichte_collection,
-            aufstellungen_collection=aufstellungen_collection,
-            registrierungen_collection=registrierungen_collection,
-            action_log_collection=action_log_collection,
-            grants_collection=grants_collection,
-            outbox_collection=outbox_collection,
-            address_changes_collection=address_changes_collection,
+            collections=collections,
             now=germany_now,
             session=session,
         )
-        await record_act(collection=action_log_collection, action="erasure.own", by=ACT_BY_PERSON, session=session)
+        await record_act(collection=collections.action_log_collection, action="erasure.own", by=ACT_BY_PERSON, session=session)
         journal.note("erasure", erasure.records, seats=erasure.seats, rows=erasure.rows)
 
     async with journal:
@@ -146,7 +107,7 @@ async def get_account_erasure_view(
         session=session,
     )
     # A registration holds its team's id alone, and the season row is what names the club that season.
-    junctions = (
+    registrierung_junctions = (
         await aggregate_many_from_db(
             collection=saison_teams_collection, pipeline=build_season_team_pipeline(subject.registrierungen), session=session
         )
@@ -162,11 +123,11 @@ async def get_account_erasure_view(
         saison_team_rows=subject.saison_teams,
         bewerbung_rows=subject.bewerbungen,
         referee_rows=subject.schiedsrichter,
-        pupil_rows=subject.spieler,
+        pupil_row=subject.spieler,
         registrierung_rows=subject.registrierungen,
         # The person's own preview counts only what reached their mailbox, which an administrator's request has not yet.
         address_change_rows=known_to_the_new_mailbox(others_naming(subject.address_change, identifier)),
-        junctions=junctions,
+        registrierung_junctions=registrierung_junctions,
     )
 
     return FLAccountErasureViewResponse(**view.model_dump(), admin_tier=None if own is None else own["admin_tier"])

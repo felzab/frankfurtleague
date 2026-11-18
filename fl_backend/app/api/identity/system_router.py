@@ -10,7 +10,7 @@ from pymongo.errors import PyMongoError
 from app.api.ban_list.crud import address_is_barred
 from app.api.grants.crud import read_admin_tier_of
 from app.api.identity.crud import erase_if_still_due, erasure_due_page, find_sign_in, find_subject, saison_statuses, unreferenced_of
-from app.api.identity.lookup import SubjectLookup
+from app.api.identity.lookup import ErasureCollections, ErasureHandles, SubjectLookup
 from app.api.identity.schemas import (
     FLErasure,
     FLErasureSweepParams,
@@ -25,27 +25,12 @@ from app.api.identity.services import completed_saison_id
 from app.core.codes import Code
 from app.core.concurrency import concurrently
 from app.core.dependencies import (
-    ActionLogCollection,
-    AddressChangeCollection,
     AddressChangeReadCollection,
-    AufstellungenCollection,
     BanListReadCollection,
-    BewerbungenCollection,
     DBClient,
     GermanyNow,
-    GrantsCollection,
     GrantsReadCollection,
-    OutboxCollection,
-    RegistrierungenCollection,
     SaisonsCollection,
-    SaisonSpielerCollection,
-    SaisonTeamsCollection,
-    SchiedsrichterCollection,
-    SnapshotSession,
-    SpielberichteCollection,
-    SpielbestaetigungenCollection,
-    SpieleCollection,
-    SpielerCollection,
 )
 from app.core.logging import fl_logger
 from app.core.recording import ACT_BY_SYSTEM, record_act
@@ -71,13 +56,12 @@ async def get_subject(
     subject_data: FLSubjectPayload,
     records: SubjectLookup,
     grants_collection: GrantsReadCollection,
-    session: SnapshotSession,
     germany_now: GermanyNow,
 ) -> FLSubjectResponse:
     """Answer which confirmed, live contact seats, pupil records and referee records one mailbox holds, with its grant.
 
-    The address is matched on the sign-in fold, and a mailbox the league holds nothing for is answered with three empty lists rather
-    than a 404.
+    The address is matched on the sign-in fold, and a mailbox the league holds nothing for is answered with empty lists and no pupil
+    rather than a 404.
     """
 
     identifier = sign_in_identifier(str(subject_data.email))
@@ -86,7 +70,7 @@ async def get_subject(
     # the grant cost the longer of the two rather than their sum.
     subject, grant = await concurrently(
         find_subject(identifier, records),
-        read_admin_tier_of(grants_collection=grants_collection, address=identifier, now=germany_now, session=session),
+        read_admin_tier_of(grants_collection=grants_collection, address=identifier, now=germany_now),
     )
     admin_tier, granted_since = (None, None) if grant is None else grant
 
@@ -103,7 +87,6 @@ async def get_sign_in(
     records: SubjectLookup,
     ban_list_collection: BanListReadCollection,
     grants_collection: GrantsReadCollection,
-    session: SnapshotSession,
     germany_now: GermanyNow,
 ) -> FLSignInResponse:
     """Answer what the sign-in gate decides on for one mailbox: two flags, its ban and its grant's tier, and never a record.
@@ -117,7 +100,7 @@ async def get_sign_in(
     sign_in, barred, grant = await concurrently(
         find_sign_in(identifier, records),
         address_is_barred(ban_list_collection=ban_list_collection, address=identifier),
-        read_admin_tier_of(grants_collection=grants_collection, address=identifier, now=germany_now, session=session),
+        read_admin_tier_of(grants_collection=grants_collection, address=identifier, now=germany_now),
     )
 
     return FLSignInResponse(**sign_in.model_dump(), barred=barred, admin_tier=None if grant is None else grant[0])
@@ -156,20 +139,7 @@ async def _erase_one(
     spieler_id: Any,
     *,
     saisons_collection: AsyncCollection,
-    spieler_collection: AsyncCollection,
-    saison_spieler_collection: AsyncCollection,
-    saison_teams_collection: AsyncCollection,
-    bewerbungen_collection: AsyncCollection,
-    schiedsrichter_collection: AsyncCollection,
-    spiele_collection: AsyncCollection,
-    spielbestaetigungen_collection: AsyncCollection,
-    spielberichte_collection: AsyncCollection,
-    aufstellungen_collection: AsyncCollection,
-    registrierungen_collection: AsyncCollection,
-    action_log_collection: AsyncCollection,
-    grants_collection: AsyncCollection,
-    outbox_collection: AsyncCollection,
-    address_changes_collection: AsyncCollection,
+    collections: ErasureCollections,
     db: AsyncMongoClient,
     saison_id: str | None,
     now: datetime,
@@ -180,27 +150,14 @@ async def _erase_one(
         erased = await erase_if_still_due(
             spieler_id,
             saisons_collection=saisons_collection,
-            spieler_collection=spieler_collection,
-            saison_spieler_collection=saison_spieler_collection,
-            saison_teams_collection=saison_teams_collection,
-            bewerbungen_collection=bewerbungen_collection,
-            schiedsrichter_collection=schiedsrichter_collection,
-            spiele_collection=spiele_collection,
-            spielbestaetigungen_collection=spielbestaetigungen_collection,
-            spielberichte_collection=spielberichte_collection,
-            aufstellungen_collection=aufstellungen_collection,
-            registrierungen_collection=registrierungen_collection,
-            action_log_collection=action_log_collection,
-            grants_collection=grants_collection,
-            outbox_collection=outbox_collection,
-            address_changes_collection=address_changes_collection,
+            collections=collections,
             now=now,
             session=session,
         )
         # In the pupil's transaction, so no deletion stands without its row.
         if erased is not None:
             await record_act(
-                collection=spieler_collection,
+                collection=collections.spieler_collection,
                 action="retention.spieler",
                 by=ACT_BY_SYSTEM,
                 label=saison_id,
@@ -220,20 +177,7 @@ async def _erase_one(
 async def sweep_erasure(
     params: Annotated[FLErasureSweepParams, Query()],
     saisons_collection: SaisonsCollection,
-    spieler_collection: SpielerCollection,
-    saison_spieler_collection: SaisonSpielerCollection,
-    saison_teams_collection: SaisonTeamsCollection,
-    bewerbungen_collection: BewerbungenCollection,
-    schiedsrichter_collection: SchiedsrichterCollection,
-    spiele_collection: SpieleCollection,
-    spielbestaetigungen_collection: SpielbestaetigungenCollection,
-    spielberichte_collection: SpielberichteCollection,
-    aufstellungen_collection: AufstellungenCollection,
-    registrierungen_collection: RegistrierungenCollection,
-    action_log_collection: ActionLogCollection,
-    grants_collection: GrantsCollection,
-    outbox_collection: OutboxCollection,
-    address_changes_collection: AddressChangeCollection,
+    collections: ErasureHandles,
     db: DBClient,
     germany_now: GermanyNow,
 ) -> FLErasureSweepResponse:
@@ -249,8 +193,8 @@ async def sweep_erasure(
         statuses,
         after=params.after,
         size=ERASURES_PER_PASS + 1,
-        spieler_collection=spieler_collection,
-        registrierungen_collection=registrierungen_collection,
+        spieler_collection=collections.spieler_collection,
+        registrierungen_collection=collections.registrierungen_collection,
     )
     share = page[:ERASURES_PER_PASS]
 
@@ -266,20 +210,7 @@ async def sweep_erasure(
             erased = await _erase_one(
                 row["_id"],
                 saisons_collection=saisons_collection,
-                spieler_collection=spieler_collection,
-                saison_spieler_collection=saison_spieler_collection,
-                saison_teams_collection=saison_teams_collection,
-                bewerbungen_collection=bewerbungen_collection,
-                schiedsrichter_collection=schiedsrichter_collection,
-                spiele_collection=spiele_collection,
-                spielbestaetigungen_collection=spielbestaetigungen_collection,
-                spielberichte_collection=spielberichte_collection,
-                aufstellungen_collection=aufstellungen_collection,
-                registrierungen_collection=registrierungen_collection,
-                action_log_collection=action_log_collection,
-                grants_collection=grants_collection,
-                outbox_collection=outbox_collection,
-                address_changes_collection=address_changes_collection,
+                collections=collections,
                 db=db,
                 saison_id=completed_saison_id(statuses),
                 now=germany_now,

@@ -60,7 +60,12 @@ async def pull_the_list_to_judge(
 
 
 async def read_admin_tier_of(
-    *, grants_collection: ReadCollection, address: str, now: datetime, session: AsyncClientSession
+    *,
+    grants_collection: ReadCollection,
+    address: str,
+    now: datetime,
+    # The admin guard's snapshot, which an admin view shares; a caller reading the grant alone needs none.
+    session: AsyncClientSession | None = None,
 ) -> tuple[FLAdminTier, datetime] | None:
     """The tier this folded address holds at `now`, and when it took effect, or `None`, a waiting row holding nothing yet.
 

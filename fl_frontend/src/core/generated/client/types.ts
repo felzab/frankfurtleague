@@ -489,7 +489,7 @@ export interface FLAccountErasureViewResponse {
   registrierungen: FLAccountErasureRegistrierung[];
   schiedsrichter: FLAccountErasureSchiedsrichter[];
   seats: FLAccountErasureSeat[];
-  spieler: FLAccountErasureSpieler[];
+  spieler: FLAccountErasureSpieler | null;
 }
 
 export type FLAction = (typeof FLAction)[keyof typeof FLAction];
@@ -5090,7 +5090,7 @@ export interface FLSubjectResponse {
   granted_since: string | null;
   schiedsrichter: FLSubjectSchiedsrichter[];
   seats: FLSubjectSeat[];
-  spieler: FLSubjectSpieler[];
+  spieler: FLSubjectSpieler | null;
   unconfirmed: boolean;
 }
 

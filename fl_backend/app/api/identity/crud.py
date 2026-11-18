@@ -17,7 +17,7 @@ from app.api.address_change.crud import (
 from app.api.address_change.services import build_owed_carry_filter, masked_address
 from app.api.grants.crud import read_grants
 from app.api.grants.erasure import erase_grants_in_session
-from app.api.identity.lookup import RecordCollections
+from app.api.identity.lookup import ErasureCollections, RecordCollections
 from app.api.identity.schemas import FLErasure, FLSignIn, FLSubject, FLSubjectSchiedsrichter, FLSubjectSeat, FLSubjectSpieler
 from app.api.identity.services import (
     EntryKind,
@@ -52,6 +52,7 @@ from app.api.identity.services import (
     open_addresses,
     own_entries,
     own_seats,
+    referee_address,
     referenced_addresses,
     seat_is_confirmed,
     seat_saisons,
@@ -101,7 +102,7 @@ def _judged(identifier: str, seat_rows: Rows, referee_rows: Rows, pupil_rows: Ro
     # Live rows alone, here and in the flag: a retired referee and a withdrawn team grant nothing, and
     # confirming one would open nothing.
     live_seat_rows = [row for row in seat_rows if not_exited(row)]
-    live_schiedsrichter = [row for row in referee_rows if is_live(row) and folds_to((row.get("kontakt") or {}).get("email"), identifier)]
+    live_schiedsrichter = [row for row in referee_rows if is_live(row) and folds_to(referee_address(row), identifier)]
 
     # Every live seat naming the address and not only its confirmed ones: the flag below reads an
     # unconfirmed seat's season too, so a seat whose season has no row stays loud whichever list counts it.
@@ -128,7 +129,8 @@ def _judged(identifier: str, seat_rows: Rows, referee_rows: Rows, pupil_rows: Ro
             for row in live_seat_rows
             for slot in own_seats(row, identifier)
         ],
-        spieler=[FLSubjectSpieler(spieler_id=row["_id"]) for row in pupil_rows if is_own_spieler(row)],
+        # One row at most, `uniq_spieler_email` holding one pupil per address, which the selection matches by equality.
+        spieler=next((FLSubjectSpieler(spieler_id=row["_id"]) for row in pupil_rows if is_own_spieler(row)), None),
         schiedsrichter=[
             FLSubjectSchiedsrichter(schiedsrichter_id=row["_id"]) for row in live_schiedsrichter if is_own_schiedsrichter(row, identifier)
         ],
@@ -320,8 +322,9 @@ class Subject:
         return _read(self._schiedsrichter, "schiedsrichter")
 
     @property
-    def spieler(self) -> Rows:
-        return _read(self._spieler, "spieler")
+    def spieler(self) -> Mapping[str, Any] | None:
+        # One row at most, `uniq_spieler_email` holding one pupil per address, which the selection matches by equality.
+        return next(iter(_read(self._spieler, "spieler")), None)
 
     @property
     def registrierungen(self) -> Rows:
@@ -341,9 +344,10 @@ class Subject:
         A seat's row holds up to three people and another address's change names a second one, so neither stands here.
         """
 
+        pupil = self.spieler
         kinds: tuple[tuple[Collection, Rows], ...] = (
             (Collection.SCHIEDSRICHTER, self.schiedsrichter),
-            (Collection.SPIELER, self.spieler),
+            (Collection.SPIELER, [] if pupil is None else [pupil]),
             (Collection.REGISTRIERUNGEN, self.registrierungen),
             (Collection.ADDRESS_CHANGES, [row for row in self.address_change if row["address"] == self.identifier]),
             (Collection.GRANTS, self.grants),
@@ -529,22 +533,7 @@ async def erase_everything(
     identifier: str,
     *,
     scope: frozenset[PersonGroup],
-    # Each by its own name, as every route hands a collection on: the static traces resolve a
-    # collection by its parameter's spelling, never through an attribute of a bundle.
-    spieler_collection: AsyncCollection,
-    saison_spieler_collection: AsyncCollection,
-    saison_teams_collection: AsyncCollection,
-    bewerbungen_collection: AsyncCollection,
-    schiedsrichter_collection: AsyncCollection,
-    spiele_collection: AsyncCollection,
-    spielbestaetigungen_collection: AsyncCollection,
-    spielberichte_collection: AsyncCollection,
-    aufstellungen_collection: AsyncCollection,
-    registrierungen_collection: AsyncCollection,
-    action_log_collection: AsyncCollection,
-    grants_collection: AsyncCollection,
-    outbox_collection: AsyncCollection,
-    address_changes_collection: AsyncCollection,
+    collections: ErasureCollections,
     now: datetime,
     # The caller's transaction, every step committing together or none.
     session: AsyncClientSession,
@@ -557,22 +546,22 @@ async def erase_everything(
 
     subject = await resolve_subject(
         identifier,
-        saison_teams_collection=saison_teams_collection,
-        bewerbungen_collection=bewerbungen_collection,
-        schiedsrichter_collection=schiedsrichter_collection,
-        spieler_collection=spieler_collection,
-        registrierungen_collection=registrierungen_collection,
-        address_changes_collection=address_changes_collection,
-        grants_collection=grants_collection,
+        saison_teams_collection=collections.saison_teams_collection,
+        bewerbungen_collection=collections.bewerbungen_collection,
+        schiedsrichter_collection=collections.schiedsrichter_collection,
+        spieler_collection=collections.spieler_collection,
+        registrierungen_collection=collections.registrierungen_collection,
+        address_changes_collection=collections.address_changes_collection,
+        grants_collection=collections.grants_collection,
         session=session,
         scope=scope,
     )
 
     if _runs(erase_kontaktperson_in_session, scope):
         await erase_kontaktperson_in_session(
-            saison_teams_collection=saison_teams_collection,
-            bewerbungen_collection=bewerbungen_collection,
-            spielbestaetigungen_collection=spielbestaetigungen_collection,
+            saison_teams_collection=collections.saison_teams_collection,
+            bewerbungen_collection=collections.bewerbungen_collection,
+            spielbestaetigungen_collection=collections.spielbestaetigungen_collection,
             identifier=identifier,
             saison_team_rows=subject.saison_teams,
             bewerbung_rows=subject.bewerbungen,
@@ -581,9 +570,9 @@ async def erase_everything(
 
     if _runs(end_the_address_changes_in_session, scope):
         await end_the_address_changes_in_session(
-            address_changes_collection=address_changes_collection,
-            grants_collection=grants_collection,
-            outbox_collection=outbox_collection,
+            address_changes_collection=collections.address_changes_collection,
+            grants_collection=collections.grants_collection,
+            outbox_collection=collections.outbox_collection,
             identifier=identifier,
             rows=subject.address_change,
             now=now,
@@ -593,9 +582,9 @@ async def erase_everything(
     if _runs(erase_referee_in_session, scope):
         for row in subject.schiedsrichter:
             await erase_referee_in_session(
-                schiedsrichter_collection=schiedsrichter_collection,
-                spiele_collection=spiele_collection,
-                spielbestaetigungen_collection=spielbestaetigungen_collection,
+                schiedsrichter_collection=collections.schiedsrichter_collection,
+                spiele_collection=collections.spiele_collection,
+                spielbestaetigungen_collection=collections.spielbestaetigungen_collection,
                 schiedsrichter_id=row["_id"],
                 now=now,
                 session=session,
@@ -604,37 +593,30 @@ async def erase_everything(
     registrierungen = 0
     if _runs(erase_registrierungen_in_session, scope):
         registrierungen = await erase_registrierungen_in_session(
-            registrierungen_collection=registrierungen_collection,
+            registrierungen_collection=collections.registrierungen_collection,
             registrierungen=subject.registrierungen,
             session=session,
         )
 
     spieler, saison_spieler = 0, 0
-    if _runs(erase_person_in_session, scope):
-        for row in subject.spieler:
-            erased = await erase_person_in_session(
-                spieler_collection=spieler_collection,
-                saison_spieler_collection=saison_spieler_collection,
-                spielberichte_collection=spielberichte_collection,
-                aufstellungen_collection=aufstellungen_collection,
-                spieler_id=row["_id"],
-                now=now,
-                session=session,
-            )
-            spieler += erased.spieler
-            saison_spieler += erased.saison_spieler
+    # The scope first: an unread pupil raises rather than reading as none.
+    if _runs(erase_person_in_session, scope) and (pupil := subject.spieler) is not None:
+        erased = await erase_person_in_session(
+            spieler_collection=collections.spieler_collection,
+            saison_spieler_collection=collections.saison_spieler_collection,
+            spielberichte_collection=collections.spielberichte_collection,
+            aufstellungen_collection=collections.aufstellungen_collection,
+            spieler_id=pupil["_id"],
+            now=now,
+            session=session,
+        )
+        spieler, saison_spieler = erased.spieler, erased.saison_spieler
 
     if _runs(end_an_emptied_change_in_session, scope):
         await end_an_emptied_change_in_session(
-            address_changes_collection=address_changes_collection,
-            grants_collection=grants_collection,
-            records=RecordCollections(
-                saison_teams_collection=saison_teams_collection,
-                spieler_collection=spieler_collection,
-                schiedsrichter_collection=schiedsrichter_collection,
-                bewerbungen_collection=bewerbungen_collection,
-                registrierungen_collection=registrierungen_collection,
-            ),
+            address_changes_collection=collections.address_changes_collection,
+            grants_collection=collections.grants_collection,
+            records=collections.records,
             identifier=identifier,
             now=now,
             session=session,
@@ -643,8 +625,8 @@ async def erase_everything(
     named: list[str] = []
     if _runs(erase_grants_in_session, scope):
         await erase_grants_in_session(
-            grants_collection=grants_collection,
-            outbox_collection=outbox_collection,
+            grants_collection=collections.grants_collection,
+            outbox_collection=collections.outbox_collection,
             identifier=identifier,
             now=now,
             session=session,
@@ -652,12 +634,12 @@ async def erase_everything(
         named += subject.changes_naming_it()
 
     if _runs(erase_the_mails_in_session, scope):
-        named += await erase_the_mails_in_session(outbox_collection=outbox_collection, identifier=identifier, session=session)
+        named += await erase_the_mails_in_session(outbox_collection=collections.outbox_collection, identifier=identifier, session=session)
 
     if _runs(reattribute_administrator_in_session, scope):
-        named += await log_rows_naming(action_log_collection=action_log_collection, identifier=identifier, session=session)
+        named += await log_rows_naming(action_log_collection=collections.action_log_collection, identifier=identifier, session=session)
         await reattribute_administrator_in_session(
-            action_log_collection=action_log_collection, identifier=identifier, value=ERASED_ACTOR_MARKER, session=session
+            action_log_collection=collections.action_log_collection, identifier=identifier, value=ERASED_ACTOR_MARKER, session=session
         )
 
     return Erasure(
@@ -765,20 +747,7 @@ async def erase_if_still_due(
     spieler_id: Any,
     *,
     saisons_collection: AsyncCollection,
-    spieler_collection: AsyncCollection,
-    saison_spieler_collection: AsyncCollection,
-    saison_teams_collection: AsyncCollection,
-    bewerbungen_collection: AsyncCollection,
-    schiedsrichter_collection: AsyncCollection,
-    spiele_collection: AsyncCollection,
-    spielbestaetigungen_collection: AsyncCollection,
-    spielberichte_collection: AsyncCollection,
-    aufstellungen_collection: AsyncCollection,
-    registrierungen_collection: AsyncCollection,
-    action_log_collection: AsyncCollection,
-    grants_collection: AsyncCollection,
-    outbox_collection: AsyncCollection,
-    address_changes_collection: AsyncCollection,
+    collections: ErasureCollections,
     now: datetime,
     # The judgement and the erasure commit together, so a squad row or a registration
     # landing between the population read and this transaction keeps the person.
@@ -802,17 +771,19 @@ async def erase_if_still_due(
         await anchor_in_db(collection=saisons_collection, db_filter={"_id": {"$in": skipped}}, session=session)
 
     pupils = await aggregate_many_from_db(
-        collection=spieler_collection, pipeline=[{"$match": {"_id": spieler_id}}, {"$project": {"email": 1}}], session=session
+        collection=collections.spieler_collection, pipeline=[{"$match": {"_id": spieler_id}}, {"$project": {"email": 1}}], session=session
     )
     email = pupils[0].get("email") if pupils else None
     if not isinstance(email, str):
         return None
 
     kader = await aggregate_many_from_db(
-        collection=saison_spieler_collection, pipeline=[{"$match": {"spieler_id": spieler_id}}, {"$project": {"saison_id": 1}}], session=session
+        collection=collections.saison_spieler_collection,
+        pipeline=[{"$match": {"spieler_id": spieler_id}}, {"$project": {"saison_id": 1}}],
+        session=session,
     )
     registrierungen = await aggregate_many_from_db(
-        collection=registrierungen_collection,
+        collection=collections.registrierungen_collection,
         pipeline=[{"$match": build_own_registrierung_filter(email)}, {"$project": {"status": 1, "email": 1}}],
         session=session,
     )
@@ -827,20 +798,7 @@ async def erase_if_still_due(
     erasure = await erase_everything(
         email,
         scope=SPIELER_ONLY,
-        spieler_collection=spieler_collection,
-        saison_spieler_collection=saison_spieler_collection,
-        saison_teams_collection=saison_teams_collection,
-        bewerbungen_collection=bewerbungen_collection,
-        schiedsrichter_collection=schiedsrichter_collection,
-        spiele_collection=spiele_collection,
-        spielbestaetigungen_collection=spielbestaetigungen_collection,
-        spielberichte_collection=spielberichte_collection,
-        aufstellungen_collection=aufstellungen_collection,
-        registrierungen_collection=registrierungen_collection,
-        action_log_collection=action_log_collection,
-        grants_collection=grants_collection,
-        outbox_collection=outbox_collection,
-        address_changes_collection=address_changes_collection,
+        collections=collections,
         now=now,
         session=session,
     )

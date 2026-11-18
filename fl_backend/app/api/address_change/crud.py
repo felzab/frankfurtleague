@@ -29,7 +29,7 @@ from app.api.address_change.services import (
 from app.api.grants.crud import move_the_grant_in_session, owe_in_session, pull_the_list_to_judge
 from app.api.grants.schemas import FLGrantNoticeStage
 from app.api.grants.services import compose_notice
-from app.api.identity.lookup import RecordCollections
+from app.api.identity.lookup import MoveCollections, RecordCollections
 from app.api.identity.services import is_own_schiedsrichter, is_own_spieler, own_seats
 from app.api.kontakte.services import rows_seating, same_address
 from app.api.outbox.schemas import (
@@ -537,16 +537,7 @@ async def move_the_address_in_session(
     *,
     record: Mapping[str, Any],
     holdings: Holdings,
-    address_changes_collection: AsyncCollection,
-    spieler_collection: AsyncCollection,
-    schiedsrichter_collection: AsyncCollection,
-    saison_teams_collection: AsyncCollection,
-    bewerbungen_collection: AsyncCollection,
-    registrierungen_collection: AsyncCollection,
-    grants_collection: AsyncCollection,
-    outbox_collection: AsyncCollection,
-    action_log_collection: AsyncCollection,
-    mailbox_anchors_collection: AsyncCollection,
+    collections: MoveCollections,
     now: datetime,
     session: AsyncClientSession,
 ) -> None:
@@ -560,7 +551,7 @@ async def move_the_address_in_session(
     if holdings.spieler is not None:
         # Folded as every start stores it, and again here: the sign-in seam joins on this field by equality.
         await patch_one_in_db(
-            collection=spieler_collection,
+            collection=collections.spieler_collection,
             db_filter={"_id": holdings.spieler["_id"]},
             update={"$set": {"email": sign_in_identifier(new_address)}},
             session=session,
@@ -570,7 +561,7 @@ async def move_the_address_in_session(
 
     for row in holdings.schiedsrichter:
         await patch_one_in_db(
-            collection=schiedsrichter_collection,
+            collection=collections.schiedsrichter_collection,
             db_filter={"_id": row["_id"]},
             update={"$set": {"kontakt.email": new_address}},
             session=session,
@@ -580,7 +571,7 @@ async def move_the_address_in_session(
 
     for row, slots in holdings.seats:
         await patch_one_in_db(
-            collection=saison_teams_collection,
+            collection=collections.saison_teams_collection,
             db_filter={"_id": row["_id"]},
             update=_seat_move(slots, new_address),
             session=session,
@@ -590,7 +581,7 @@ async def move_the_address_in_session(
 
     for row, slots in holdings.bewerbung_seats:
         await patch_one_in_db(
-            collection=bewerbungen_collection,
+            collection=collections.bewerbungen_collection,
             db_filter={"_id": row["_id"]},
             update=_seat_move(slots, new_address),
             session=session,
@@ -602,21 +593,25 @@ async def move_the_address_in_session(
         await _move_the_registrierung_in_session(
             row,
             new_address=new_address,
-            registrierungen_collection=registrierungen_collection,
-            saison_teams_collection=saison_teams_collection,
-            mailbox_anchors_collection=mailbox_anchors_collection,
-            outbox_collection=outbox_collection,
+            registrierungen_collection=collections.registrierungen_collection,
+            saison_teams_collection=collections.saison_teams_collection,
+            mailbox_anchors_collection=collections.mailbox_anchors_collection,
+            outbox_collection=collections.outbox_collection,
             now=now,
             session=session,
         )
 
     if holdings.grant is not None:
         await move_the_grant_in_session(
-            holdings.grant, new_address=sign_in_identifier(new_address), grants_collection=grants_collection, now=now, session=session
+            holdings.grant,
+            new_address=sign_in_identifier(new_address),
+            grants_collection=collections.grants_collection,
+            now=now,
+            session=session,
         )
 
     await end_the_change_in_session(
-        address_changes_collection=address_changes_collection,
+        address_changes_collection=collections.address_changes_collection,
         db_filter={"_id": record["_id"]},
         kind="effective",
         now=now,
@@ -625,10 +620,12 @@ async def move_the_address_in_session(
 
     # A record the effect leaves naming the replaced address by address alone would outlive the person's erasure at the new one.
     old, new = holdings.identifier, sign_in_identifier(new_address)
-    await reattribute_administrator_in_session(action_log_collection=action_log_collection, identifier=old, value=new, session=session)
+    await reattribute_administrator_in_session(
+        action_log_collection=collections.action_log_collection, identifier=old, value=new, session=session
+    )
     if holdings.grant is not None:
         await record_act(
-            collection=address_changes_collection,
+            collection=collections.address_changes_collection,
             action="grant.address_switched",
             by=ACT_BY_SYSTEM,
             record_id=record["_id"],
@@ -637,14 +634,14 @@ async def move_the_address_in_session(
         )
     # An earlier effect's carry still owed takes its account to where the person is now, and an erasure there finds it.
     await patch_many_in_db(
-        collection=address_changes_collection, db_filter={"move.new": old}, update={"$set": {"move.new": new}}, session=session
+        collection=collections.address_changes_collection, db_filter={"move.new": old}, update={"$set": {"move.new": new}}, session=session
     )
-    await _carry_the_mail(outbox_collection, old, new, session=session)
+    await _carry_the_mail(collections.outbox_collection, old, new, session=session)
     # The lost-mailbox way carries no account: whatever its old mailbox's holder enrolled meanwhile would follow. The carry is
     # owed on the ended record itself, in this transaction, so a commit whose answer was lost still owes it.
     if record["way"] != "waiting_period":
         await patch_many_in_db(
-            collection=address_changes_collection,
+            collection=collections.address_changes_collection,
             db_filter={"_id": record["_id"]},
             update={"$set": {"move": {"old": old, "new": new}}},
             session=session,
@@ -654,7 +651,7 @@ async def move_the_address_in_session(
     # later, at the hourly pass, and tells the replaced mailbox then.
     if record["way"] != "account" or record.get("confirmed_at") is not None:
         await enqueue_mails(
-            outbox_collection=outbox_collection,
+            outbox_collection=collections.outbox_collection,
             session=session,
             mails=[
                 OwedMail(
@@ -670,8 +667,8 @@ async def move_the_address_in_session(
             record,
             stage="completed",
             effective_from=None,
-            grants_collection=grants_collection,
-            outbox_collection=outbox_collection,
+            grants_collection=collections.grants_collection,
+            outbox_collection=collections.outbox_collection,
             now=now,
             session=session,
         )

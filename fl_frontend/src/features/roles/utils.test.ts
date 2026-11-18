@@ -26,7 +26,7 @@ describe("where a person's landing sends them", () => {
   it("sends a person holding one place to that place, whatever its kind", () => {
     expect(landingOf(person({ seats: [TEAM] }))).toBe(ROUTES.teamOverview.path(TEAM.team_id, TEAM.saison_id));
     expect(landingOf(person({ seats: [TEAM, seat({ seat: "trainer" })] }))).toBe(ROUTES.teamOverview.path(TEAM.team_id, TEAM.saison_id));
-    expect(landingOf(person({ spieler: [{ spieler_id: "6890a1b2c3d4e5f607250031" }] }))).toBe(ROUTES.areaSpieler.path());
+    expect(landingOf(person({ spieler: { spieler_id: "6890a1b2c3d4e5f607250031" } }))).toBe(ROUTES.areaSpieler.path());
     expect(landingOf(person({ schiedsrichter: [{ schiedsrichter_id: "6890a1b2c3d4e5f607250041" }] }))).toBe(ROUTES.areaSchiedsrichter.path());
     expect(landingOf(person({ admin_tier: "administration" }, true))).toBe(ROUTES.admin.path());
   });

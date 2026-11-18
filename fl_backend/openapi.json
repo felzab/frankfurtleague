@@ -669,11 +669,14 @@
             "type": "array"
           },
           "spieler": {
-            "items": {
-              "$ref": "#/components/schemas/FLAccountErasureSpieler"
-            },
-            "title": "Spieler",
-            "type": "array"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLAccountErasureSpieler"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -14574,11 +14577,14 @@
             "type": "array"
           },
           "spieler": {
-            "items": {
-              "$ref": "#/components/schemas/FLSubjectSpieler"
-            },
-            "title": "Spieler",
-            "type": "array"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSubjectSpieler"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "unconfirmed": {
             "title": "Unconfirmed",
@@ -18334,7 +18340,7 @@
     },
     "/api/identity/subject": {
       "post": {
-        "description": "Answer which confirmed, live contact seats, pupil records and referee records one mailbox holds, with its grant.\n\nThe address is matched on the sign-in fold, and a mailbox the league holds nothing for is answered with three empty lists rather\nthan a 404.",
+        "description": "Answer which confirmed, live contact seats, pupil records and referee records one mailbox holds, with its grant.\n\nThe address is matched on the sign-in fold, and a mailbox the league holds nothing for is answered with empty lists and no pupil\nrather than a 404.",
         "operationId": "identity_get_subject",
         "requestBody": {
           "content": {

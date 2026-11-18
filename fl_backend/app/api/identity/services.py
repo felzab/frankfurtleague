@@ -194,8 +194,8 @@ def _registrierung_entry(row: Mapping[str, Any], team_names: Mapping[tuple[Any, 
     }
 
 
-def _team_names(junctions: Iterable[Mapping[str, Any]]) -> dict[tuple[Any, Any], Any]:
-    return {(row["saison_id"], row["team_id"]): row.get("name") for row in junctions}
+def _team_names(registrierung_junctions: Iterable[Mapping[str, Any]]) -> dict[tuple[Any, Any], Any]:
+    return {(row["saison_id"], row["team_id"]): row.get("name") for row in registrierung_junctions}
 
 
 def compose_account_erasure_view(
@@ -204,18 +204,19 @@ def compose_account_erasure_view(
     saison_team_rows: Sequence[Mapping[str, Any]],
     bewerbung_rows: Sequence[Mapping[str, Any]],
     referee_rows: Sequence[Mapping[str, Any]],
-    pupil_rows: Sequence[Mapping[str, Any]],
+    pupil_row: Mapping[str, Any] | None,
     registrierung_rows: Sequence[Mapping[str, Any]],
     address_change_rows: Sequence[Mapping[str, Any]],
-    junctions: Sequence[Mapping[str, Any]],
+    # The season rows of the registrations' teams, which name each club that season; the seats are `saison_team_rows`.
+    registrierung_junctions: Sequence[Mapping[str, Any]],
 ) -> FLAccountErasureView:
     """The preview, from the rows the erasure's own subject read holds; no address and no birthdate reaches it."""
 
-    team_names = _team_names(junctions)
+    team_names = _team_names(registrierung_junctions)
 
     return FLAccountErasureView.model_validate(
         {
-            "spieler": [_pupil_entry(row) for row in pupil_rows],
+            "spieler": None if pupil_row is None else _pupil_entry(pupil_row),
             "schiedsrichter": [_referee_entry(row) for row in referee_rows],
             "seats": [{**_seat_entry(row, slot), "team_name": row.get("name")} for row, slot in seats_naming(saison_team_rows, identifier)],
             "bewerbungen": [_seat_entry(row, slot) for row, slot in seats_naming(bewerbung_rows, identifier)],
@@ -231,7 +232,7 @@ def compose_erasure_view(
     saison_team_rows: Sequence[Mapping[str, Any]],
     bewerbung_rows: Sequence[Mapping[str, Any]],
     referee_rows: Sequence[Mapping[str, Any]],
-    pupil_rows: Sequence[Mapping[str, Any]],
+    pupil_row: Mapping[str, Any] | None,
     registrierung_rows: Sequence[Mapping[str, Any]],
     address_change_rows: Sequence[Mapping[str, Any]],
     grant_rows: Sequence[Mapping[str, Any]],
@@ -240,7 +241,7 @@ def compose_erasure_view(
     """The administrator's counts, from the rows the erasure's own subject read holds, a contact counted per seat."""
 
     return FLErasureViewResponse(
-        spieler=len(pupil_rows),
+        spieler=int(pupil_row is not None),
         schiedsrichter=len(referee_rows),
         kontakt_seats=len(seats_naming(saison_team_rows, identifier)),
         bewerbung_seats=len(seats_naming(bewerbung_rows, identifier)),
@@ -326,7 +327,7 @@ def is_own_spieler(row: Mapping[str, Any]) -> bool:
 
 
 def is_own_schiedsrichter(row: Mapping[str, Any], identifier: str) -> bool:
-    return folds_to((row.get("kontakt") or {}).get("email"), identifier) and is_confirmed(row.get("einwilligung"))
+    return folds_to(referee_address(row), identifier) and is_confirmed(row.get("einwilligung"))
 
 
 def is_own_registrierung(row: Mapping[str, Any], identifier: str) -> bool:
