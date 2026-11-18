@@ -67,7 +67,7 @@ const backend = serveBackend(({ method, path }) => {
   if (method === "GET") return reading.stored;
   if (method !== "PUT") return undefined;
   if (refusing.write !== null) return refusing.write();
-  return { ...STORED, version: 4 };
+  return { version: 4 };
 });
 // An administrator's session, made by passkey, which the save's guard admits.
 signedInRequest();

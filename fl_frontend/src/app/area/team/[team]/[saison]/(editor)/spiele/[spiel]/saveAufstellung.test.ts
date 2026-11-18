@@ -53,7 +53,7 @@ const STORED: FLAufstellungResponse = {
 const backend = serveBackend(({ method, path }) => {
   if (path !== `/aufstellungen/spiele/${SPIEL}/teams/${TEAM}`) return undefined;
   if (method === "GET") return STORED;
-  return method === "PUT" ? { ...STORED, version: 4 } : undefined;
+  return method === "PUT" ? { version: 4 } : undefined;
 });
 // A person holding seats on two clubs of the season, so a save sent for the wrong one would pass the seat's claim.
 signedInRequest({
