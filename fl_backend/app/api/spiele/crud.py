@@ -179,7 +179,7 @@ async def bracket_faults_of(
     # record, so it sits beside the walk and covers group fixtures too.
     faults.extend(find_departed_occupants(spiele))
 
-    # Beside the walk for the same reason, and over whatever the read returned. Nothing ties a
+    # Beside the walk too, so it covers group fixtures, and over whatever the read returned. Nothing ties a
     # fixture's `saison_id` to its matchday's, so a scoped read cannot report a clash spanning two.
     faults.extend(find_double_entries(spiele))
 

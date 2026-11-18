@@ -1008,7 +1008,7 @@ class ComposedResult:
 
 
 def compose_result(payload: FLPatchSpielDataPayload, rules: FLSaisonRules) -> ComposedResult:
-    """The result as the save composes it, for the document and for `booking_unknown_resource`'s question whether it stays unplayed."""
+    """The result as the save composes it."""
 
     # An unresolved slot has nobody to score, so an unresolved fixture carries no goals rather than
     # the partial result `build_statistik_lookup_stage` has to filter against.
@@ -1874,7 +1874,6 @@ def find_wiring_refusal(
     return None
 
 
-# Where `build_party_name_stages` sets a confirmation row's party's name.
 PARTY_NAME_FIELD: Final = "party_name"
 
 

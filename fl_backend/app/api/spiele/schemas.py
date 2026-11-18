@@ -102,7 +102,7 @@ def records_an_absence(*, side: str, sonderereignis: FLSonderereignis | None, sa
 
 
 def is_unplayed(*, ergebnis: str | None, sonderereignis: FLSonderereignis | None) -> bool:
-    """Whether a fixture is still to be played, which every retirement, the rollover and `booking_unknown_resource` ask alike.
+    """Whether a fixture is still to be played.
 
     `unplayed_filter` is the same partition asked of stored fixtures.
     """
@@ -197,7 +197,7 @@ class FLSpielTeamFieldJoined(FLSpielTeamField):
 
 
 class FLSpielTeamFieldJoinedInternal(FLSpielTeamFieldJoined):
-    """The same side with the record behind the type, for `find_departed_occupants` and `podium_of`.
+    """The same side with the record behind the type.
 
     On no endpoint, so no response carries a reason: the walk orders a fault, and the podium a place,
     on the day a club left, which the type cannot answer.
@@ -555,7 +555,8 @@ class FLPatchSpielDataPayload(BasePayload):
     team1_quelle: FLSpielQuelle | None
     team2_quelle: FLSpielQuelle | None
 
-    # Here for the same `$set` reason; the handler discards it unless the goals are level.
+    # Required too, since the `$set` overwrites a field the request omits; the handler discards it unless the goals are
+    # level.
     elfmeterschiessen: FLSpielElfmeterschiessenPayload | None
 
     date: CustomOptionalDateString
@@ -563,7 +564,8 @@ class FLPatchSpielDataPayload(BasePayload):
     spielort: FLSpielortFieldPayload | None
     schiedsrichter: FLSpielSchiedsrichterFieldPayload | None
 
-    # Here for the same `$set` reason; "" becomes None below, which is how a note is removed.
+    # Required too, since the `$set` overwrites a field the request omits; "" becomes None below, which is how a note is
+    # removed.
     note: str | None = Field(max_length=SPIEL_NOTE_MAX_LENGTH)
 
     # The `version` the editor was served, with no default: the save is refused once another write has raised it
@@ -676,7 +678,8 @@ class FLSpielJoined(FLSpielCommon):
     # the next save. Required: only the join composes it.
     ansetzung_confirmed: bool | None
 
-    # Whether this is the match for third place, the one rule every reader and the podium read; on the same grounds.
+    # Whether this is the match for third place, the one rule every reader and the podium read. Here and required too:
+    # only the join composes it, and a stored shape carrying it would write it onto the fixture.
     for_third_place: bool
 
     # The acceptance gate ahead of the consent gate; `FLSpielJoinedAdmin`

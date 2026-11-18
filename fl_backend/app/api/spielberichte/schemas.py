@@ -149,7 +149,6 @@ class FLSpielberichtBerichtPayload(BasePayload):
 
         credited = {"team1": 0, "team2": 0}
         for tor in self.scorers:
-            # An own goal is scored by `side` and counts for the other side.
             credited[("team2" if tor.side == "team1" else "team1") if tor.eigentor else tor.side] += 1
 
         return FLSpielberichtVorschlag(team1_tore=credited["team1"], team2_tore=credited["team2"], **vorschlag.model_dump())
