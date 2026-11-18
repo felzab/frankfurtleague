@@ -61,7 +61,7 @@ from app.core.dependencies import (
 )
 from app.core.journal import Journal
 from app.core.readonly import ReadCollection
-from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
+from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_evidence import FLEinwilligungChoice
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -70,7 +70,7 @@ from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle, FLSpielS
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/teams",
-    dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
+    dependencies=PERSON_TIER,
 )
 
 

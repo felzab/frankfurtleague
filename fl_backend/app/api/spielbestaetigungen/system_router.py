@@ -86,7 +86,7 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
-from app.core.security import verify_access_system
+from app.core.security import SYSTEM_TIER
 from app.core.transactions import SWEEP_PAGE, Batch, refuse_a_stalled_page, run_isolated
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.literals import KONTAKT_ROLLEN
@@ -95,7 +95,7 @@ from app.shared.schemas.responses import FLSweepSaisonsResponse
 # System tier: the timer holds no session.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spielbestaetigungen/sweep",
-    dependencies=[Depends(verify_access_system)],
+    dependencies=SYSTEM_TIER,
 )
 
 # Each close costs one command; the three shares below fit the request's deadline together, each step's mails owed in

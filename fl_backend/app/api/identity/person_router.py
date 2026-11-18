@@ -38,13 +38,13 @@ from app.core.dependencies import (
 )
 from app.core.journal import Journal
 from app.core.recording import ACT_BY_PERSON, record_act
-from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
+from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transaction_session
 
 # No Funktion asked: a person erases themselves holding none at all.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/identity/account",
-    dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
+    dependencies=PERSON_TIER,
 )
 
 

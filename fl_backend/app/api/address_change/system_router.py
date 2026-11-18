@@ -51,7 +51,7 @@ from app.core.exceptions import DocumentNotFoundError
 from app.core.logging import fl_logger
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.routing import SAFE
-from app.core.security import verify_access_system
+from app.core.security import SYSTEM_TIER
 from app.core.transactions import UNKNOWN_COMMIT_RESULT, diagnosis_of, transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
@@ -60,7 +60,7 @@ from app.shared.tokens import hash_token
 # System tier: the clock ends a lapsed change and makes a due one take effect, and no administrator pressed anything.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/address_change",
-    dependencies=[Depends(verify_access_system)],
+    dependencies=SYSTEM_TIER,
 )
 
 # A call's share, each due change a transaction of its own inside the request's deadline, `REQUEST_DEADLINE_S`; a dearer

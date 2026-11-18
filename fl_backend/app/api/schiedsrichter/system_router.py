@@ -11,13 +11,13 @@ from app.core.config import API_VERSION
 from app.core.crud import pull_many_from_db
 from app.core.dependencies import DBClient, SchiedsrichterCollection, SpielbestaetigungenCollection, SpieleCollection, get_germany_now
 from app.core.recording import ACT_BY_SYSTEM, record_act
-from app.core.security import verify_access_system
+from app.core.security import SYSTEM_TIER
 from app.core.transactions import Batch, drain
 
 # System tier: the clock erases, and no administrator pressed anything.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/schiedsrichter/sweep",
-    dependencies=[Depends(verify_access_system)],
+    dependencies=SYSTEM_TIER,
 )
 
 # One transaction's referees: each erasure costs fewer commands than a pupil's, and the pupils' pass of the same size

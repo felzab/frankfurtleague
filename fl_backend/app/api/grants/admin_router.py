@@ -15,7 +15,7 @@ from app.api.grants.crud import (
     start_the_handover_in_session,
     stop_the_handover_in_session,
 )
-from app.api.grants.guard import verify_actor_is_admin
+from app.api.grants.guard import ADMIN_TIER
 from app.api.grants.schemas import FLGrantRow, FLGrantsListResponse, FLGrantWriteResponse, FLPostGrantPayload
 from app.api.grants.services import (
     find_barred_refusal,
@@ -37,14 +37,14 @@ from app.core.dependencies import (
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import by_id
-from app.core.security import bind_actor, get_actor_email, verify_access_admin
+from app.core.security import get_actor_email
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/grants",
-    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
+    dependencies=ADMIN_TIER,
 )
 
 

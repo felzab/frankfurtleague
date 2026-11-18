@@ -6,7 +6,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.address_change.crud import others_naming
 from app.api.grants.crud import read_grants
-from app.api.grants.guard import verify_actor_is_admin
+from app.api.grants.guard import ADMIN_TIER
 from app.api.identity.crud import EACH_PERSON_GROUP, erase_everything, resolve_subject
 from app.api.identity.schemas import FLErasureAddressPayload, FLErasurePayload, FLErasureViewResponse
 from app.api.identity.services import (
@@ -50,13 +50,13 @@ from app.core.dependencies import (
 from app.core.journal import Journal
 from app.core.recording import record_act
 from app.core.routing import SAFE
-from app.core.security import bind_actor, get_actor_email, verify_access_admin
+from app.core.security import get_actor_email
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/identity",
-    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
+    dependencies=ADMIN_TIER,
 )
 
 

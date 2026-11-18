@@ -109,7 +109,7 @@ from app.core.dependencies import (
 from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import Journal
 from app.core.routing import SAFE
-from app.core.security import verify_access_base
+from app.core.security import BASE_TIER
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import BEWERBUNG_KONTAKT_MAX_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
@@ -120,7 +120,7 @@ from app.shared.tokens import hash_token
 # Base-tier at the prefix the admin and person routers share: a member of the public applies here, and nothing served
 # below carries a person's details. The confirmation link's two endpoints are base-tier too: its token is the whole
 # credential, as a sign-in code is.
-router = APIRouter(prefix=f"/api/v{API_VERSION}/bewerbungen", dependencies=[Depends(verify_access_base)])
+router = APIRouter(prefix=f"/api/v{API_VERSION}/bewerbungen", dependencies=BASE_TIER)
 
 
 # The state a submission arrives in, and the only one it may arrive in: the other two are the triage's.

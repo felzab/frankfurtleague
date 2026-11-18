@@ -17,7 +17,7 @@ from app.api.ban_list.schemas import (
 )
 from app.api.ban_list.services import compose_barred_until_saison_id, find_admin_refusal, find_no_saison_refusal
 from app.api.grants.crud import pull_the_list_to_judge
-from app.api.grants.guard import verify_actor_is_admin
+from app.api.grants.guard import ADMIN_TIER
 from app.api.outbox.schemas import FLBanData
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.saisons.crud import pull_governing_saison_id
@@ -36,14 +36,13 @@ from app.core.dependencies import (
 )
 from app.core.recording import record_act
 from app.core.routing import by_id
-from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/ban_list",
-    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
+    dependencies=ADMIN_TIER,
 )
 
 

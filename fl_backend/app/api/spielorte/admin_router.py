@@ -5,7 +5,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.results import InsertOneResult
 
-from app.api.grants.guard import verify_actor_is_admin
+from app.api.grants.guard import ADMIN_TIER
 from app.api.spielorte.schemas import (
     FLPatchSpielortPayload,
     FLPatchSpielortResponse,
@@ -31,7 +31,6 @@ from app.core.crud import (
 from app.core.dependencies import DBClient, SpieleCollection, SpielorteCollection, SpielorteReadCollection, get_german_date_str
 from app.core.recording import record_act
 from app.core.routing import by_id
-from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.responses import FLCreatedResponse
@@ -41,7 +40,7 @@ from app.shared.schemas.responses import FLCreatedResponse
 # the address whole.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spielorte",
-    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
+    dependencies=ADMIN_TIER,
 )
 
 

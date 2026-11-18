@@ -37,7 +37,7 @@ from app.core.dependencies import (
 )
 from app.core.journal import Journal
 from app.core.routing import by_id
-from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
+from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_evidence import FLEinwilligungChoice
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -46,7 +46,7 @@ from app.shared.schemas.einwilligung import FLSchiedsrichterAccountEinwilligungP
 # A person's own router, apart from the admin one and the confirmation one.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/schiedsrichter",
-    dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
+    dependencies=PERSON_TIER,
 )
 
 

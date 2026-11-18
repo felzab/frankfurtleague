@@ -62,14 +62,14 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.recording import ACT_BY_SYSTEM, record_act
-from app.core.security import verify_access_system
+from app.core.security import SYSTEM_TIER
 from app.core.transactions import SWEEP_PAGE, Batch, drain, refuse_a_stalled_page, run_isolated
 from app.shared.schemas.bounds import DECLINED_RETENTION_DAYS, LIST_LIMIT_DEFAULT
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle
 from app.shared.schemas.responses import FLSweepSaisonsResponse
 
 # System tier: the sweep holds no session, so `bind_actor` would refuse it.
-router = APIRouter(prefix=f"/api/v{API_VERSION}/bewerbungen/sweep", dependencies=[Depends(verify_access_system)])
+router = APIRouter(prefix=f"/api/v{API_VERSION}/bewerbungen/sweep", dependencies=SYSTEM_TIER)
 
 # Sized with the blocks' share below, each row one command beside the worst call's others, so a pass ends well inside
 # `REQUEST_DEADLINE_S`.

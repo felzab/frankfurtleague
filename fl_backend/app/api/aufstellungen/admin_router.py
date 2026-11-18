@@ -6,7 +6,7 @@ from fastapi import APIRouter, Body, Depends, Response
 
 from app.api.aufstellungen.schemas import FLAufstellungPayload, FLAufstellungResponse
 from app.api.aufstellungen.screen import AufstellungReads, read_aufstellung_screen, save_aufstellung_screen
-from app.api.grants.guard import verify_actor_is_admin
+from app.api.grants.guard import ADMIN_TIER
 from app.core.config import API_VERSION
 from app.core.dependencies import (
     AufstellungenCollection,
@@ -21,12 +21,11 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.routing import by_id
-from app.core.security import bind_actor, verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/aufstellungen",
-    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
+    dependencies=ADMIN_TIER,
 )
 
 AUFSTELLUNG_PATH = f"{by_id('spiel_id')}{by_id('team_id')}"

@@ -10,7 +10,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aufstellungen.crud import remove_the_seasons_aufstellungen
 from app.api.bewerbungen.services import assigned_trikot_farben, seat_named
-from app.api.grants.guard import verify_actor_is_admin
+from app.api.grants.guard import ADMIN_TIER
 from app.api.invitations.crud import invitation_reference, owed_invitation_mails
 from app.api.invitations.schemas import (
     FLInvitationMailPayload,
@@ -140,10 +140,6 @@ from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.core.recording import record_act
 from app.core.routing import by_id
-from app.core.security import (
-    bind_actor,
-    verify_access_admin,
-)
 from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.literals import KONTAKT_ROLLEN
@@ -151,7 +147,7 @@ from app.shared.tokens import mint_token
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/teams",
-    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
+    dependencies=ADMIN_TIER,
 )
 
 

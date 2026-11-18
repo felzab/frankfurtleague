@@ -18,7 +18,7 @@ from app.core.config import API_VERSION
 from app.core.crud import patch_past_the_version_in_db, refuse
 from app.core.dependencies import BewerbungenCollection, DBClient, get_germany_now
 from app.core.journal import Journal
-from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
+from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_evidence import FLEinwilligungChoice
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -27,7 +27,7 @@ from app.shared.schemas.literals import KONTAKT_ROLLEN
 
 # A person's route in place of `bind_actor`: a seat holder signs in by code and holds no grant, so the administrator's
 # actor check would refuse every one of them.
-router = APIRouter(prefix=f"/api/v{API_VERSION}/bewerbungen", dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)])
+router = APIRouter(prefix=f"/api/v{API_VERSION}/bewerbungen", dependencies=PERSON_TIER)
 
 
 # `/account/einwilligung`, its own segment: the admin router serves this application under its own paths, and one path in

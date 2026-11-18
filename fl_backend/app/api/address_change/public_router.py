@@ -72,7 +72,7 @@ from app.core.dependencies import (
 )
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.routing import SAFE
-from app.core.security import verify_access_base
+from app.core.security import BASE_TIER
 from app.core.transactions import transaction_session
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
@@ -80,7 +80,7 @@ from app.shared.tokens import hash_token
 # The token is the whole credential, so these endpoints are base-tier.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/address_change/confirmation",
-    dependencies=[Depends(verify_access_base)],
+    dependencies=BASE_TIER,
 )
 
 # What a link's view reads: the addresses for the judgement alone, and the new link's hashes, which say

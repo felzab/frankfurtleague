@@ -40,7 +40,7 @@ from app.api.address_change.services import (
     waits_on,
 )
 from app.api.grants.crud import read_grants
-from app.api.grants.guard import verify_actor_is_admin
+from app.api.grants.guard import ADMIN_TIER
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import address_change_viewable_denied, find_admin_address_refusal, find_own_address_refusal
 from app.api.outbox.schemas import FLOutboxStatus
@@ -63,7 +63,7 @@ from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.core.recording import record_act
 from app.core.routing import by_id
-from app.core.security import bind_actor, get_actor_email, verify_access_admin
+from app.core.security import get_actor_email
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -71,7 +71,7 @@ from app.shared.schemas.literals import FLAddressChangeWay, FLAdminTier
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/address_change",
-    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
+    dependencies=ADMIN_TIER,
 )
 
 

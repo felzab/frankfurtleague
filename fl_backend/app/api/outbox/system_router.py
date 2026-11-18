@@ -39,7 +39,7 @@ from app.core.config import API_VERSION
 from app.core.crud import ANCHOR_FIELD, patch_many_in_db, patch_past_the_version_in_db, post_one_to_db, pull_many_from_db
 from app.core.dependencies import DB, BanListReadCollection, BewerbungenCollection, DBClient, OutboxCollection, get_germany_now
 from app.core.logging import fl_logger
-from app.core.security import verify_access_system
+from app.core.security import SYSTEM_TIER
 from app.core.transactions import transaction_session
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import mint_token
@@ -47,7 +47,7 @@ from app.shared.tokens import mint_token
 # System tier and the system actor: the drain, the sign-in library and the provider's callback hold no session.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/outbox",
-    dependencies=[Depends(verify_access_system)],
+    dependencies=SYSTEM_TIER,
 )
 
 

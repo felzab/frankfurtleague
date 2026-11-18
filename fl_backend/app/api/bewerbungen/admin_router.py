@@ -60,7 +60,7 @@ from app.api.bewerbungen.services import (
     seats_confirmed_of,
     with_delivery,
 )
-from app.api.grants.guard import verify_actor_is_admin
+from app.api.grants.guard import ADMIN_TIER
 from app.api.outbox.crud import states_of
 from app.api.outbox.schemas import FLBewerbungAbsageData, FLBewerbungZusageData, FLOutboxClub
 from app.api.outbox.services import OwedMail, enqueue_mails
@@ -99,7 +99,6 @@ from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.core.recording import record_act
 from app.core.routing import by_id
-from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -110,7 +109,7 @@ from app.shared.schemas.literals import FLKontaktRolle
 # serves no person's details.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/bewerbungen",
-    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
+    dependencies=ADMIN_TIER,
 )
 
 

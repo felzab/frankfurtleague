@@ -67,7 +67,7 @@ from app.core.dependencies import (
 )
 from app.core.readonly import ReadCollection
 from app.core.routing import SAFE
-from app.core.security import verify_access_base
+from app.core.security import BASE_TIER
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
@@ -78,7 +78,7 @@ from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.einwilligung import by_choice
 from app.shared.tokens import hash_token
 
-router = APIRouter(prefix=f"/api/v{API_VERSION}/registrierungen", dependencies=[Depends(verify_access_base)])
+router = APIRouter(prefix=f"/api/v{API_VERSION}/registrierungen", dependencies=BASE_TIER)
 
 
 # What a season read serves this tier: the two rules a form is bounded by, the window, whose `end`

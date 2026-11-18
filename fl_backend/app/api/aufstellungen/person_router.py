@@ -22,12 +22,12 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.routing import by_id
-from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
+from app.core.security import PERSON_TIER, PersonIdentifier
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/aufstellungen",
-    dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
+    dependencies=PERSON_TIER,
 )
 
 # `/self`, its own segment: the admin router serves the same fixture and club under the bare path, and one path in

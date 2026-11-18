@@ -4,7 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends, Query
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.grants.guard import verify_actor_is_admin
+from app.api.grants.guard import ADMIN_TIER
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.crud import (
     SpielSaveCollections,
@@ -49,14 +49,13 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.routing import SAFE_WHEN, by_id
-from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spiele",
-    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
+    dependencies=ADMIN_TIER,
 )
 
 

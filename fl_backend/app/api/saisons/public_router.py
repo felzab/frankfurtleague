@@ -70,13 +70,13 @@ from app.core.dependencies import (
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.core.routing import by_id
-from app.core.security import verify_access_base
+from app.core.security import BASE_TIER
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/saisons",
-    dependencies=[Depends(verify_access_base)],
+    dependencies=BASE_TIER,
 )
 
 

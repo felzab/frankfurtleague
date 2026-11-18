@@ -1,8 +1,8 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Query
 
-from app.api.grants.guard import verify_actor_is_admin
+from app.api.grants.guard import ADMIN_TIER
 from app.api.registrierungen.schemas import (
     FLRegistrierungAdminRow,
     FLRegistrierungenAdminFilterParams,
@@ -20,7 +20,6 @@ from app.core.concurrency import concurrently
 from app.core.config import API_VERSION
 from app.core.crud import pull_many_from_db, pull_one_from_db
 from app.core.dependencies import RegistrierungenReadCollection, SaisonsReadCollection, SaisonTeamsReadCollection
-from app.core.security import bind_actor, verify_access_admin
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 # Admin-guarded, not base, as the application's own list is: a registration holds a pupil's name,
@@ -30,7 +29,7 @@ from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 # link it was handed opens.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/registrierungen",
-    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
+    dependencies=ADMIN_TIER,
 )
 
 

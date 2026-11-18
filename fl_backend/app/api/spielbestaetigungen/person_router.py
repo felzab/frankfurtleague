@@ -55,7 +55,7 @@ from app.core.dependencies import (
 from app.core.exceptions import DocumentNotFoundError
 from app.core.recording import ACT_BY_KONTAKT, ACT_BY_SCHIEDSRICHTER, record_act
 from app.core.routing import by_id
-from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
+from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -64,7 +64,7 @@ from app.shared.schemas.literals import FLKontaktRolle
 # A referee and a club's seat holder answer here, each answer recorded under the answering party's Funktion.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spielbestaetigungen",
-    dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
+    dependencies=PERSON_TIER,
 )
 
 

@@ -48,7 +48,7 @@ from app.core.dependencies import (
 )
 from app.core.recording import ACT_BY_SCHIEDSRICHTER, record_act
 from app.core.routing import by_id
-from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
+from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomRouteObjectId
 
@@ -56,7 +56,7 @@ from app.shared.schemas.custom import CustomRouteObjectId
 # records in its own session.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spielberichte",
-    dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
+    dependencies=PERSON_TIER,
 )
 
 BERICHT_PATH = f"{by_id('spiel_id')}/bericht"

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Body, Depends, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.grants.guard import verify_actor_is_admin
+from app.api.grants.guard import ADMIN_TIER
 from app.api.outbox.crud import state_of
 from app.api.outbox.schemas import FLOutboxReference
 from app.api.schiedsrichter.crud import owe_the_confirmation
@@ -65,10 +65,6 @@ from app.core.dependencies import (
 )
 from app.core.recording import record_act
 from app.core.routing import by_id
-from app.core.security import (
-    bind_actor,
-    verify_access_admin,
-)
 from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomRouteObjectId
 
@@ -76,7 +72,7 @@ from app.shared.schemas.custom import CustomRouteObjectId
 # which is money.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/schiedsrichter",
-    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
+    dependencies=ADMIN_TIER,
 )
 
 

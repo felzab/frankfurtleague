@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
 from app.api.saisons.visibility import resolve_public_saison
 from app.api.spieltage.schemas import FLSpieltag, FLSpieltageSingleResponse
@@ -7,12 +7,12 @@ from app.core.config import API_VERSION
 from app.core.crud import pull_one_from_db
 from app.core.dependencies import SaisonsReadCollection, SpieltageReadCollection
 from app.core.routing import by_id
-from app.core.security import verify_access_base
+from app.core.security import BASE_TIER
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spieltage",
-    dependencies=[Depends(verify_access_base)],
+    dependencies=BASE_TIER,
 )
 
 

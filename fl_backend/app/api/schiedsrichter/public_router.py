@@ -38,7 +38,7 @@ from app.core.dependencies import (
 )
 from app.core.journal import Journal
 from app.core.routing import SAFE
-from app.core.security import verify_access_base
+from app.core.security import BASE_TIER
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import BEWERBUNG_KONTAKT_MAX_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
@@ -49,7 +49,7 @@ from app.shared.tokens import hash_token
 # these three endpoints alone are base-tier.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/schiedsrichter/confirmation",
-    dependencies=[Depends(verify_access_base)],
+    dependencies=BASE_TIER,
 )
 
 

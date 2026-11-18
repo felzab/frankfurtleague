@@ -57,14 +57,14 @@ from app.core.dependencies import (
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
-from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
+from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 
 # Its one write is the address change, which crosses every record the address holds.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/account",
-    dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
+    dependencies=PERSON_TIER,
 )
 
 

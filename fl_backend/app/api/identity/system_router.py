@@ -51,7 +51,7 @@ from app.core.dependencies import (
 from app.core.logging import fl_logger
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.routing import SAFE
-from app.core.security import verify_access_system
+from app.core.security import SYSTEM_TIER
 from app.core.transactions import UNKNOWN_COMMIT_RESULT, diagnosis_of, transaction_session
 from app.shared.folding import sign_in_identifier
 
@@ -59,7 +59,7 @@ from app.shared.folding import sign_in_identifier
 # records a mailbox matches, and no session stands behind the caller.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/identity",
-    dependencies=[Depends(verify_access_system)],
+    dependencies=SYSTEM_TIER,
 )
 
 

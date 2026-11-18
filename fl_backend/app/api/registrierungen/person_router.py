@@ -79,7 +79,7 @@ from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import Journal
 from app.core.recording import ACT_BY_KONTAKT, record_act
 from app.core.routing import by_id
-from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
+from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_evidence import FLEinwilligungChoice
 from app.shared.folding import sign_in_identifier
@@ -88,7 +88,7 @@ from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload, by_cho
 
 # A person's route in place of `bind_actor`: a seat holder signs in by code and holds no grant, so the
 # administrator's actor check would refuse every one of them.
-router = APIRouter(prefix=f"/api/v{API_VERSION}/registrierungen", dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)])
+router = APIRouter(prefix=f"/api/v{API_VERSION}/registrierungen", dependencies=PERSON_TIER)
 
 
 @router.get(
@@ -487,9 +487,7 @@ async def decline(
 
 
 # A prefix of its own: a pending registrant reaches their own row, and no team's.
-spieler_router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/registrierungen/account", dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)]
-)
+spieler_router = APIRouter(prefix=f"/api/v{API_VERSION}/registrierungen/account", dependencies=PERSON_TIER)
 
 
 @spieler_router.patch(

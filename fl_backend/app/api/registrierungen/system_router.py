@@ -22,11 +22,11 @@ from app.core.dependencies import (
     get_german_date_str,
 )
 from app.core.recording import ACT_BY_SYSTEM, record_act
-from app.core.security import verify_access_system
+from app.core.security import SYSTEM_TIER
 from app.core.transactions import SWEEP_PAGE, Batch, drain, refuse_a_stalled_page
 
 # System tier, as the application sweep's own router is: this pass holds no session, so `bind_actor` would refuse it.
-router = APIRouter(prefix=f"/api/v{API_VERSION}/registrierungen/sweep", dependencies=[Depends(verify_access_system)])
+router = APIRouter(prefix=f"/api/v{API_VERSION}/registrierungen/sweep", dependencies=SYSTEM_TIER)
 
 
 @router.post(

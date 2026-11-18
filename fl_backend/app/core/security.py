@@ -193,3 +193,11 @@ def get_person_identifier(actor: Annotated[SessionActor, Depends(verify_person_a
 
 
 PersonIdentifier = Annotated[str, Depends(get_person_identifier)]
+
+
+# Each tier's guards as its routers declare them, in the order they run: the key before any actor. Tuples, so no
+# router can append to the guards another shares. The administrator's tier also reads the grants, so it is declared
+# beside them, which keeps the core free of any slice.
+BASE_TIER: Final = (Depends(verify_access_base),)
+SYSTEM_TIER: Final = (Depends(verify_access_system),)
+PERSON_TIER: Final = (Depends(verify_access_admin), Depends(get_person_identifier))
