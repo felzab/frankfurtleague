@@ -13,7 +13,7 @@ from typing import Any
 import pytest
 from bson import ObjectId
 
-from app.api.spiele.editor import FLSpieleAdminSingleResponse, read_spiel_editor
+from app.api.spiele.editor import FLSpielbestaetigungEditorRow, FLSpieleAdminSingleResponse, read_spiel_editor
 from app.core import clock
 from app.core.collections import Collection
 from tests import documents
@@ -26,6 +26,8 @@ DATABASE_NAME = worker_database("fl_spiel_editor_read_test")
 
 SAISON_ID = "2026"
 HOME, AWAY = (ObjectId(f"6890a1b2c3d4e5f6074600{n:02d}") for n in (1, 2))
+
+REFEREE = ObjectId("6890a1b2c3d4e5f607460041")
 
 AGREED = {"kind": "agreed", "at": "2026-04-20", "by": {"kind": "kontakt", "seat": "trainer"}, "vorschlag": None, "reason": None}
 
@@ -44,6 +46,12 @@ def _spiel(**fields: Any) -> dict[str, Any]:
         time="16:00:00",
         **fields,
     )
+
+
+def _party_id(row: FLSpielbestaetigungEditorRow) -> Any:
+    """The club or referee a served row is about: the editor tells a party's rows apart by it."""
+
+    return row.party.team_id if row.party.kind == "team" else row.party.schiedsrichter_id
 
 
 async def _read(
@@ -98,17 +106,17 @@ async def test_an_answer_stands_past_its_deadline_and_a_team_out_by_the_match_da
     left = documents.spielbestaetigung_document(spiel, party={"kind": "team", "team_id": AWAY}, deadline="2026-04-29")
     referees = documents.spielbestaetigung_document(
         {**spiel, "date": "2026-04-25"},
-        party={"kind": "schiedsrichter", "schiedsrichter_id": ObjectId()},
+        party={"kind": "schiedsrichter", "schiedsrichter_id": REFEREE},
         deadline="2026-04-18",
         closed={"reason": "spiel_past"},
     )
 
     answer = await _read(mongo_replica_set_url, spiel, rows=[agreed, left, referees])
 
-    assert {str(row.id): (row.state, row.lapsed_on, row.due_by) for row in answer.spielbestaetigungen} == {
-        str(agreed["_id"]): ("agreed", None, "2026-04-25"),
-        str(left["_id"]): ("expired", None, "2026-04-29"),
-        str(referees["_id"]): ("expired", "2026-04-25", "2026-04-25"),
+    assert {_party_id(row): (row.state, row.lapsed_on, row.due_by) for row in answer.spielbestaetigungen} == {
+        HOME: ("agreed", None, "2026-04-25"),
+        AWAY: ("expired", None, "2026-04-29"),
+        REFEREE: ("expired", "2026-04-25", "2026-04-25"),
     }
 
 
@@ -127,9 +135,9 @@ async def test_a_row_an_exit_or_a_move_ended_before_its_answer_was_due_is_dated_
 
     answer = await _read(mongo_replica_set_url, spiel, rows=[left, moved], today="2026-05-03")
 
-    assert {str(row.id): (row.state, row.lapsed_on) for row in answer.spielbestaetigungen} == {
-        str(left["_id"]): ("expired", None),
-        str(moved["_id"]): ("invalid", None),
+    assert {_party_id(row): (row.state, row.lapsed_on) for row in answer.spielbestaetigungen} == {
+        AWAY: ("expired", None),
+        HOME: ("invalid", None),
     }
 
 

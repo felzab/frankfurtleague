@@ -252,17 +252,11 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   // A Spielbestätigung moved since the page offering an act on it was read: answered or closed, its proposal no longer
   // open, no longer the referee's own, or due to be shut by the close pass's next run, its Ansetzung left by the
   // fixture or the fixture decided, called off, kicked off or fielding a club gone by its day.
-  "ansetzung_not_enterable",
-  "ansetzung_not_discardable",
-  "ansetzung_not_adoptable",
+  "ansetzung_not_actionable",
   "ansetzung_foreign_row",
   // A team's or a referee's own answer to a fixture someone answered first, the league closed or decided, or the
   // fixture left, or one pressed past the deadline on a page read before it.
-  "ansetzung_answered",
-  "ansetzung_closed",
-  "ansetzung_decided",
-  "ansetzung_changed",
-  "ansetzung_deadline_past",
+  "ansetzung_unanswerable",
   // A team's proposed day that the date passed between the dialog's drawing and its press, past midnight: the reloaded
   // page draws the box from the new today, which then refuses that day itself.
   "ansetzung_vorschlag_past",

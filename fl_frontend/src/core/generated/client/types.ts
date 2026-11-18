@@ -20,17 +20,11 @@ export const Code = {
   address_change_unchanged: "address_change_unchanged",
   address_change_started_recently: "address_change_started_recently",
   address_change_nothing: "address_change_nothing",
-  ansetzung_answered: "ansetzung_answered",
-  ansetzung_deadline_past: "ansetzung_deadline_past",
-  ansetzung_changed: "ansetzung_changed",
-  ansetzung_decided: "ansetzung_decided",
+  ansetzung_unanswerable: "ansetzung_unanswerable",
   ansetzung_vorschlag_past: "ansetzung_vorschlag_past",
   ansetzung_vorschlag_past_as_stored: "ansetzung_vorschlag_past_as_stored",
   ansetzung_vorschlag_unchanged: "ansetzung_vorschlag_unchanged",
-  ansetzung_closed: "ansetzung_closed",
-  ansetzung_not_enterable: "ansetzung_not_enterable",
-  ansetzung_not_discardable: "ansetzung_not_discardable",
-  ansetzung_not_adoptable: "ansetzung_not_adoptable",
+  ansetzung_not_actionable: "ansetzung_not_actionable",
   ansetzung_foreign_row: "ansetzung_foreign_row",
   access_key_refused: "access_key_refused",
   missing_actor: "missing_actor",
@@ -3343,7 +3337,7 @@ export const FLOverviewVorschlagRowKind = {
 } as const;
 
 /**
- * A date and time without a ground: a team's proposal, and the slot a moved fixture left.
+ * A date and time without a ground: a team's proposal, and the slot a row asked about, one a moved fixture left among them.
  */
 export interface FLSpielbestaetigungAppointment {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -4678,25 +4672,6 @@ export interface FLSpielberichtSchiedsrichterResponse {
   version: number | null;
 }
 
-/**
- * The Ansetzung a row answers about: every input of `digest`, stored beside it.
- *
- * A digest is opaque to an aggregation, so the public fixture's verdict compares these five values
- * rather than `digest`.
- */
-export interface FLSpielbestaetigungAnsetzung {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  date: string;
-  digest: string;
-  spielort_id: string | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team1_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team2_id: string;
-  /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$ */
-  time: string;
-}
-
 export type FLSpielbestaetigungByKontaktKind = (typeof FLSpielbestaetigungByKontaktKind)[keyof typeof FLSpielbestaetigungByKontaktKind];
 
 export const FLSpielbestaetigungByKontaktKind = {
@@ -4743,23 +4718,6 @@ export interface FLSpielbestaetigungAnswer {
   vorschlag: FLSpielbestaetigungAppointment | null;
 }
 
-export type FLSpielbestaetigungClosedReason = (typeof FLSpielbestaetigungClosedReason)[keyof typeof FLSpielbestaetigungClosedReason];
-
-export const FLSpielbestaetigungClosedReason = {
-  ansetzung_changed: "ansetzung_changed",
-  austritt: "austritt",
-  spiel_decided: "spiel_decided",
-  cancelled: "cancelled",
-  schiedsrichter_switched: "schiedsrichter_switched",
-  schiedsrichter_declined: "schiedsrichter_declined",
-  discarded: "discarded",
-  spiel_past: "spiel_past",
-} as const;
-
-export interface FLSpielbestaetigungClosed {
-  reason: FLSpielbestaetigungClosedReason;
-}
-
 export type FLSpielbestaetigungEditorRowState = (typeof FLSpielbestaetigungEditorRowState)[keyof typeof FLSpielbestaetigungEditorRowState];
 
 export const FLSpielbestaetigungEditorRowState = {
@@ -4778,22 +4736,13 @@ export const FLSpielbestaetigungEditorRowState = {
  * Never `vorschlag`, which only a club's own page tells: an open row reads `valid` while its party may still answer.
  */
 export interface FLSpielbestaetigungEditorRow {
-  ansetzung: FLSpielbestaetigungAnsetzung;
+  ansetzung: FLSpielbestaetigungAppointment;
   answer: FLSpielbestaetigungAnswer | null;
   asked_at: string | null;
-  closed: FLSpielbestaetigungClosed | null;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  deadline: string;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   due_by: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
   lapsed_on: string | null;
   party: FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter;
-  reminded_at: string | null;
-  saison_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
   state: FLSpielbestaetigungEditorRowState;
 }
 

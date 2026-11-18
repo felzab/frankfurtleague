@@ -24,7 +24,6 @@ from app.api.spielbestaetigungen.schemas import (
 )
 from app.api.spielbestaetigungen.services import (
     TEAM_ANSWER_FIELDS,
-    ansetzung_left_refusal,
     build_answerable_filter,
     compose_answer_update,
     compose_schiedsrichter_answer_update,
@@ -32,10 +31,10 @@ from app.api.spielbestaetigungen.services import (
     find_unanswerable_refusal,
     find_vorschlag_past_refusal,
     find_vorschlag_unchanged_refusal,
-    first_press_refusal,
     foreign_row_refusal,
     judged_as_a_proposal,
     proposal_payload,
+    unanswerable_refusal,
 )
 from app.api.spiele.crud import pull_booked_slots, pull_saison_membership, pull_spieltag_span
 from app.api.spiele.schemas import FLSpiel
@@ -148,7 +147,7 @@ async def post_schiedsrichter_answer(
                 return_document=ReturnDocument.BEFORE,
             )
         except DocumentNotFoundError:
-            refuse(first_press_refusal())
+            refuse(unanswerable_refusal())
 
         await record_act(
             collection=spielbestaetigungen_collection,
@@ -174,7 +173,7 @@ async def post_schiedsrichter_answer(
             except DocumentNotFoundError:
                 # Unreachable: the snapshot judged above books them, and a write since conflicts rather than missing.
                 # Mapped to that judgement's refusal, so no `document_not_found` is published for a miss no caller meets.
-                refuse(ansetzung_left_refusal())
+                refuse(unanswerable_refusal())
         else:
             # What the acceptance judged and does not write, so a move, a reassignment or a club's exit landing under it
             # conflicts with it, and the retry judges what that write left.
@@ -249,8 +248,7 @@ async def post_team_answer(
             membership = await pull_saison_membership(
                 saison_teams_collection=saison_teams_collection, saison_id=stored.saison_id, session=session
             )
-            # The composer spelled at the call: its kept sides are what disarm this check's no-membership code here.
-            refuse(judged_as_a_proposal(find_eligibility_refusal(stored.id, proposal_payload(stored, vorschlag), [stored], membership)))
+            refuse(judged_as_a_proposal(find_eligibility_refusal(stored.id, proposed, [stored], membership)))
 
             span = await pull_spieltag_span(spieltage_collection=spieltage_collection, spieltag_id=stored.spieltag_id, session=session)
             if span is not None:
@@ -275,7 +273,7 @@ async def post_team_answer(
         except DocumentNotFoundError:
             # Never a seat answering under this press, which conflicts with the write and meets the retry's judgement:
             # the filter repeats that judgement on the write.
-            refuse(first_press_refusal())
+            refuse(unanswerable_refusal())
 
         # Both clubs' season rows: the seat was judged off its own club's, so an erasure or a Widerspruch emptying the seat
         # under this answer conflicts with it, and no reason typed from a seat its holder has left outlives the step taking

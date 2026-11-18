@@ -13,7 +13,7 @@ from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_saison_past_refusal, has_started
 from app.api.spielberichte.crud import stamp_the_adoption
 from app.api.spielberichte.services import sides_of
-from app.api.spielbestaetigungen.services import CLOSE_FIELDS, build_holding_filter, parties_told_of_the_change
+from app.api.spielbestaetigungen.services import CLOSE_FIELDS, build_holding_filter, parties_mailed, parties_told_of_the_change
 from app.api.spiele.schemas import (
     SPIEL_PATCH_WRITTEN_FIELDS,
     FLBracketFault,
@@ -813,6 +813,20 @@ async def preview_spiel_save(
         changed_austritte=austritte,
         now=now,
     )
+    # The told clubs' seats in the same snapshot, which the pass mails through: a club holding no confirmed seat is told nothing.
+    told_teams = [party["team_id"] for party in told if party["kind"] == "team"]
+    seats = (
+        await pull_whole_from_db(
+            collection=collections.saison_teams,
+            db_filter={"saison_id": judged.saison_id, "team_id": {"$in": told_teams}},
+            what=f"fixture {spiel_id}'s told clubs",
+            projection=["team_id", "kontakte"],
+            session=session,
+        )
+        if told_teams
+        else []
+    )
+    told = parties_mailed(told, kontakte={row["team_id"]: row.get("kontakte") for row in seats})
     names = await pull_party_names(
         parties=told, membership=judged.membership, schiedsrichter_collection=collections.schiedsrichter, session=session
     )

@@ -107,7 +107,10 @@ def row(**overrides: Any) -> dict[str, Any]:
 
 
 class TestADecidedSpielTakesNoAnswer:
-    """`ansetzung_decided`, which nothing else refuses: an answered row, a move and a lapsed deadline each have a route case."""
+    """An open row in time on a decided fixture, which the close's judgement alone refuses.
+
+    An answered row, a move and a lapsed deadline each have a route case.
+    """
 
     @pytest.mark.parametrize(
         "situation",
@@ -122,7 +125,7 @@ class TestADecidedSpielTakesNoAnswer:
 
         refusal = find_unanswerable_refusal(spielbestaetigung_raw=row(), ansetzung_state=ansetzung_state(**situation), now=NOW)
 
-        assert refusal is not None and refusal.error_code == Code.ANSETZUNG_DECIDED
+        assert refusal is not None and refusal.error_code == Code.ANSETZUNG_UNANSWERABLE
 
 
 class Recorded(Mapping[str, Any]):
@@ -268,7 +271,7 @@ class TestARefereeAnswersUntilTheKickOff:
         )
 
         assert before is None
-        assert at is not None and at.error_code == Code.ANSETZUNG_DEADLINE_PAST
+        assert at is not None and at.error_code == Code.ANSETZUNG_UNANSWERABLE
 
     def test_a_minute_before_it_the_booking_reads_open_and_from_it_lapsed(self):
         """Read by the day instead, the referee's list would offer „Zusagen“ and „Ablehnen“ until midnight beside the report it owes."""
@@ -416,7 +419,7 @@ class TestATeamAnswersUntilItsDeadline:
         )
 
         assert on is None
-        assert after is not None and after.error_code == Code.ANSETZUNG_DEADLINE_PAST
+        assert after is not None and after.error_code == Code.ANSETZUNG_UNANSWERABLE
 
 
 # The two ways a save or an exit overtakes a row the pass has yet to shut: the match called off, a club gone by its day.
@@ -442,7 +445,7 @@ class TestTheAdministratorSettlesAnOpenRowAlone:
     def test_the_settle(self, fields: dict[str, Any], situation: dict[str, Any], now: datetime, refused: bool):
         refusal = find_enter_refusal(spielbestaetigung_raw=row(**fields), ansetzung_state=ansetzung_state(**situation), now=now)
 
-        assert (None if refusal is None else refusal.error_code) == (Code.ANSETZUNG_NOT_ENTERABLE if refused else None)
+        assert (None if refusal is None else refusal.error_code) == (Code.ANSETZUNG_NOT_ACTIONABLE if refused else None)
 
 
 class TestADiscardAndAnAdoptionActOnAnOpenProposalAlone:

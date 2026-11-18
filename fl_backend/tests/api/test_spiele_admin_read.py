@@ -42,7 +42,6 @@ LATER_SAISON_ID = "2027"
 LINA = ObjectId("6890a1b2c3d4e5f607230031")
 OLE = ObjectId("6890a1b2c3d4e5f607230032")
 MIA = ObjectId("6890a1b2c3d4e5f607230033")
-BERICHT_CONFIRMATION_ID = ObjectId("6890a1b2c3d4e5f607230041")
 # Raised past the create's 0 by later writes: the one an adoption names.
 BERICHT_VERSION = 3
 
@@ -161,7 +160,7 @@ def spielbestaetigungen_rows(spiele: list[dict[str, Any]]) -> list[dict[str, Any
     bericht_spiel, other_spiel, _ = spiele
     return [
         documents.spielbestaetigung_document(other_spiel, party={"kind": "team", "team_id": HOME}),
-        documents.spielbestaetigung_document(bericht_spiel, party={"kind": "team", "team_id": AWAY}, _id=BERICHT_CONFIRMATION_ID),
+        documents.spielbestaetigung_document(bericht_spiel, party={"kind": "team", "team_id": AWAY}),
     ]
 
 
@@ -310,7 +309,7 @@ async def test_the_editor_lists_this_fixtures_confirmation_rows_alone(seeded_url
 
     answer = (await answered(seeded_url, _editor_path(BERICHT_SPIEL_ID), ADMIN_AUTH)).json()
 
-    assert [row["id"] for row in answer["spielbestaetigungen"]] == [str(BERICHT_CONFIRMATION_ID)]
+    assert [row["party"] for row in answer["spielbestaetigungen"]] == [{"kind": "team", "team_id": str(AWAY)}]
 
 
 @pytest.mark.db

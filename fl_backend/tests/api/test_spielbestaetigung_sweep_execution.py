@@ -666,7 +666,7 @@ class TestAMovedSpielAsksAgain:
         assert (answered["answer"]["kind"], answered["answer"]["by"]["seat"]) == ("agreed", "trainer")
         assert next(row for row in closed if row["_id"] == answered_id)["answer"] == answered["answer"]
         assert [row["answer"] for row in closed if row["_id"] != answered_id] == [None, None]
-        assert refusals == [Code.ANSETZUNG_ANSWERED, Code.ANSETZUNG_CLOSED]
+        assert refusals == [Code.ANSETZUNG_UNANSWERABLE, Code.ANSETZUNG_UNANSWERABLE]
         assert {row["ansetzung"]["time"] for row in standing} == {"19:00:00"}
         assert len(standing) == 3
         assert second.closed == 3
@@ -965,6 +965,34 @@ class TestASideReFieldedNamesThePairingEachPartyWasAskedAbout:
         ] == [(("Alpha", "Beta"), None, False, sorted(address(ALPHA, seat) for seat in KONTAKT_SEATS))]
         assert [(request.team, request.moved_from) for request in second.requests] == [("Beta", left)]
         assert [(einteilung.address, einteilung.moved_from) for einteilung in second.einteilungen] == [(REFEREE_EMAIL, left)]
+
+
+class TestASideReFieldedWithADepartedClubIsToldAtOnce:
+    """No request can ask about a pairing fielding a club out by the fixture's day, so the close tells of it at once.
+
+    Judged by its rows' own clubs alone, the close would leave the change to the mint, which asks nothing about such a
+    pairing: the parties still on the fixture would hear nothing until its day.
+    """
+
+    async def test_every_row_closes_and_each_party_is_told(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await sweep(database, client)
+            await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"team1": side(GAMMA)}})
+
+            return await sweep(database, client), await rows(database)
+
+        second, stored = await on_a_league(
+            mongo_replica_set_url,
+            body,
+            spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)],
+            junctions=[junction(ALPHA), junction(BETA), documents.saison_team_document(SAISON_ID, GAMMA, *NAMES[GAMMA], **AUSTRITT_ON_THE_DAY)],
+        )
+
+        assert Counter(row["closed"]["reason"] for row in stored if row["closed"] is not None) == {"ansetzung_changed": 3}
+        # Alpha, off the fixture, is told it no longer plays; Beta and the referee that the match they are still on changed.
+        assert sorted(notice.stays for notice in second.new_ansetzungen) == [False, True]
+        assert [notice.stays for notice in second.schiedsrichter_new_ansetzungen] == [True]
+        assert (second.requests, second.einteilungen) == ([], [])
 
 
 class TestARowClosesOnceItsDayHasPassed:

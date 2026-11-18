@@ -133,6 +133,10 @@ ROWS = [
 ]
 
 
+# The away club alone holds a confirmed seat, so it alone of the two clubs is mailed: the home club holds none.
+SEATS = {AWAY: documents.kontakte_document(trainer=documents.kontaktperson_document("Greta", confirmed_at="2026-03-01"))}
+
+
 def application(bewerbung_id: ObjectId, status: str, submitted_at: str, **fields: Any) -> dict[str, Any]:
     """Two of its three seats confirmed by their own people."""
 
@@ -163,7 +167,7 @@ async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
         )
         await database[Collection.SAISON_TEAMS].insert_many(
             [
-                documents.saison_team_document(SAISON, team_id, name, name[:3].upper())
+                documents.saison_team_document(SAISON, team_id, name, name[:3].upper(), kontakte=SEATS.get(team_id))
                 for team_id, name in ((HOME, "Lessing"), (AWAY, "Goethe"), (PICKED, "Schiller"))
             ]
         )
@@ -252,8 +256,9 @@ class TestEachKindLandsOnItsCard:
             {"kind": "team", "team_id": str(HOME)},
             {"kind": "schiedsrichter", "schiedsrichter_id": str(SCHIEDSRICHTER)},
         )
-        # Each recipient by the name its season row holds, so the questions name a party no fixture shows.
-        assert sorted(proposed["adoption_recipients"], key=str) == sorted([{**away, "name": "Goethe"}, {**home, "name": "Lessing"}], key=str)
+        # Each recipient by the name its season row holds, so the questions name a party no fixture shows; the home club,
+        # holding no confirmed seat, is mailed nothing, so no question names it.
+        assert proposed["adoption_recipients"] == [{**away, "name": "Goethe"}]
         assert proposed["discard_recipients"] == [{**away, "name": "Goethe"}]
         assert sorted(overdue["parties"], key=str) == sorted(
             [

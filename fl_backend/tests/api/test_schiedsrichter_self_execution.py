@@ -286,7 +286,7 @@ class TestTheSeasonsFixtures:
         assert {entry.time for entry in by_id.values()} == {"18:30:00"}
 
     async def test_a_closed_row_reads_by_the_reason_it_was_closed_for(self, mongo_replica_set_url: str):
-        """Its fixture moved back to the slot the row asked about, it still offers no answer: the press would meet `ansetzung_closed`."""
+        """Its fixture moved back to the slot the row asked about, it still offers no answer: the press would meet `ansetzung_unanswerable`."""
 
         moved_back = spiel(MOVED_BACK, 15, "2027-05-29")
 

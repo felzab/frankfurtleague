@@ -49,19 +49,17 @@ class Code(StrEnum):
     # A 429: a person's own start pressed again inside the interval its last mail stands for.
     ADDRESS_CHANGE_STARTED_RECENTLY = auto()
     ADDRESS_CHANGE_NOTHING = auto()
-    ANSETZUNG_ANSWERED = auto()
-    ANSETZUNG_DEADLINE_PAST = auto()
-    ANSETZUNG_CHANGED = auto()
-    ANSETZUNG_DECIDED = auto()
+    # A party's answer to a row that takes none: answered, closed, its Ansetzung left or decided, or its deadline gone by.
+    # One code, since a page tells the reader alike that the question moved on, and the row as it stands says why.
+    ANSETZUNG_UNANSWERABLE = auto()
     ANSETZUNG_VORSCHLAG_PAST = auto()
     # The adoption's twin: it judges the stored proposal, the request carrying no body, so a day gone by is a 409.
     ANSETZUNG_VORSCHLAG_PAST_AS_STORED = auto()
     # A decline proposing the slot the fixture already holds: adopted, it would save nothing and leave the proposal open.
     ANSETZUNG_VORSCHLAG_UNCHANGED = auto()
-    ANSETZUNG_CLOSED = auto()
-    ANSETZUNG_NOT_ENTERABLE = auto()
-    ANSETZUNG_NOT_DISCARDABLE = auto()
-    ANSETZUNG_NOT_ADOPTABLE = auto()
+    # An administrator's settle, discard or adoption of a row that no longer takes it, one code for the three as for a
+    # party's answer: a 409, the row's current state refusing the act.
+    ANSETZUNG_NOT_ACTIONABLE = auto()
     ANSETZUNG_FOREIGN_ROW = auto()
     # A tier's key missing or wrong, whichever tier: the path names the tier.
     ACCESS_KEY_REFUSED = auto()

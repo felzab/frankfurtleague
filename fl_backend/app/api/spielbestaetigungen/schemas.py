@@ -65,7 +65,7 @@ class FLSpielbestaetigungAnsetzung(BaseModel):
 
 
 class FLSpielbestaetigungAppointment(BaseModel):
-    """A date and time without a ground: a team's proposal, and the slot a moved fixture left."""
+    """A date and time without a ground: a team's proposal, and the slot a row asked about, one a moved fixture left among them."""
 
     date: CustomDateString
     time: CustomTimeString
@@ -106,12 +106,8 @@ class FLSpielbestaetigungAnswer(BaseModel):
     reason: CustomNonEmptyString | None
 
 
-class FLSpielbestaetigungClosed(BaseReadModel):
+class FLSpielbestaetigungClosedRecord(BaseModel):
     reason: FLSpielbestaetigungClosedReason
-
-
-class FLSpielbestaetigungClosedRecord(FLSpielbestaetigungClosed):
-    # Both served to nobody, the row's state being what a page reads.
     # True on a discard the pass closed again, `reason` then naming that end: ended for neither a move nor a call-off,
     # the row reads as the agreement the public fixture counted where it answered the fixture at its end (`matched`),
     # and as `reason` reads otherwise. Absent from a row no such close wrote.
@@ -122,8 +118,11 @@ class FLSpielbestaetigungClosedRecord(FLSpielbestaetigungClosed):
     matched: bool | None = None
 
 
-class _FLSpielbestaetigungFields(BaseModel):
-    """Every field a confirmation row stores and an administrator reads alike: all but the anchor."""
+class FLSpielbestaetigungRecord(Anchored):
+    """One confirmation as `spielbestaetigungen` stores it.
+
+    The close reaches an answered row too, so an agreement a move overtook records why it stopped applying.
+    """
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     saison_id: str
@@ -137,20 +136,6 @@ class _FLSpielbestaetigungFields(BaseModel):
     # The day the one reminder went, null until it does.
     reminded_at: CustomOptionalDateString
     answer: FLSpielbestaetigungAnswer | None
-    closed: FLSpielbestaetigungClosed | None
-
-
-class FLSpielbestaetigung(_FLSpielbestaetigungFields):
-    """One party's confirmation of one Ansetzung, as an administrator reads it.
-
-    The close reaches an answered row too, so an agreement a move overtook records why it stopped
-    applying.
-    """
-
-
-class FLSpielbestaetigungRecord(_FLSpielbestaetigungFields, Anchored):
-    """One confirmation as `spielbestaetigungen` stores it, with the anchor and the close's judgement no read serves."""
-
     closed: FLSpielbestaetigungClosedRecord | None
 
 

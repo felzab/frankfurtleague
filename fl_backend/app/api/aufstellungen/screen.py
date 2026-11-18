@@ -38,7 +38,8 @@ from app.api.identity.schemas import FLSubjectSeat
 from app.api.identity.services import find_role_refusal
 from app.api.saisons.services import SAISON_AS, SAISON_LOOKUP, SPIELTAG_POSITION_LOOKUP, find_saison_past_refusal, matchday_of
 from app.api.spielberichte.crud import anchor_the_pupils_named
-from app.api.spielberichte.services import SIDES, team_id_of
+from app.api.spielberichte.services import SIDES
+from app.api.spiele.schemas import team_id_of
 from app.api.spiele.services import build_spiele_pipeline, spiel_label
 from app.core.codes import Code
 from app.core.crud import (

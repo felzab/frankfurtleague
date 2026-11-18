@@ -2,11 +2,11 @@
 
 The read is anchored on the season's own document, and every collection a card draws on is joined to it by an
 uncorrelated `$lookup`: the fixtures through `build_spiele_pipeline`, the confirmation rows in the administrator's
-queue and every row holding its party's question, the reports and the undecided applications. That makes one round
-trip and one document. Each kind is judged here in Python, by the predicates the confirmations, the reports and the
-applications already hold, so no rule is spelled a second time in a query. The bracket faults are the exception: they
-need the standings walk, so they are judged over the same fixtures by `bracket_faults_of`, whose own reads are the
-ones no aggregation can fold in.
+queue and every row holding its party's question, the clubs' seats, the reports and the undecided applications. That
+makes one round trip and one document. Each kind is judged here in Python, by the predicates the confirmations, the
+reports and the applications already hold, so no rule is spelled a second time in a query. The bracket faults are the
+exception: they need the standings walk, so they are judged over the same fixtures by `bracket_faults_of`, whose own
+reads are the ones no aggregation can fold in.
 """
 
 from collections.abc import Iterable, Mapping, Sequence
@@ -28,6 +28,7 @@ from app.api.spielbestaetigungen.services import (
     build_triage_rows_filter,
     due_by_of,
     lapsed_on,
+    parties_mailed,
     parties_told_of_the_change,
     party_key,
     reason_to_close,
@@ -86,6 +87,7 @@ CARDS: Final[tuple[FLOverviewCardName, ...]] = get_args(FLOverviewCardName.__val
 SPIELE_AS: Final = "spiele"
 QUEUE_ROWS_AS: Final = "queue_rows"
 HELD_ROWS_AS: Final = "held_rows"
+JUNCTIONS_AS: Final = "junctions"
 SPIELBERICHTE_AS: Final = "spielberichte"
 BEWERBUNGEN_AS: Final = "bewerbungen"
 PICKED_TEAM_AS: Final = "picked_team"
@@ -242,6 +244,14 @@ def build_overview_pipeline(*, saison_id: str, today: str) -> list[Mapping[str, 
                 "as": HELD_ROWS_AS,
             }
         },
+        # Every club's seats, which decide whether an act's mail reaches it, judged below as the pass judges them.
+        {
+            "$lookup": {
+                "from": Collection.SAISON_TEAMS,
+                "pipeline": [{"$match": {"saison_id": saison_id}}, {"$project": {"_id": 0, "team_id": 1, "kontakte": 1}}],
+                "as": JUNCTIONS_AS,
+            }
+        },
         {"$lookup": {"from": Collection.SPIELBERICHTE, "pipeline": build_state_pipeline(saison_id=saison_id), "as": SPIELBERICHTE_AS}},
         {
             "$lookup": {
@@ -339,6 +349,7 @@ def overview_of(
     for row in read[HELD_ROWS_AS]:
         held.setdefault(row["spiel_id"], []).append(row)
     names = {party_key(row[ROW_PARTY]): row.get(PARTY_NAME_FIELD) for row in read[HELD_ROWS_AS]}
+    kontakte = {row["team_id"]: row.get("kontakte") for row in read[JUNCTIONS_AS]}
 
     parties: dict[Any, list[FLOverviewParty]] = {}
     for row in read[QUEUE_ROWS_AS]:
@@ -360,17 +371,20 @@ def overview_of(
                     team_id=row[ROW_PARTY]["team_id"],
                     vorschlag=vorschlag,
                     adoption_recipients=recipients_named(
-                        parties_told_of_the_change(
-                            rows=held.get(spiel.id, []),
-                            stored=spiel_raw,
-                            changed=adopted,
-                            stored_austritte=austritte,
-                            changed_austritte=austritte,
-                            now=now,
+                        parties_mailed(
+                            parties_told_of_the_change(
+                                rows=held.get(spiel.id, []),
+                                stored=spiel_raw,
+                                changed=adopted,
+                                stored_austritte=austritte,
+                                changed_austritte=austritte,
+                                now=now,
+                            ),
+                            kontakte=kontakte,
                         ),
                         names=names,
                     ),
-                    discard_recipients=recipients_named([row[ROW_PARTY]], names=names),
+                    discard_recipients=recipients_named(parties_mailed([row[ROW_PARTY]], kontakte=kontakte), names=names),
                 )
             )
             continue

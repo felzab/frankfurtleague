@@ -73,6 +73,7 @@ from app.api.spielbestaetigungen.services import (
     view_ansetzung_of,
     was_discarded,
 )
+from app.api.spiele.schemas import team_id_of
 from app.core.collections import Collection
 from app.core.crud import patch_one_in_db, post_many_to_db, pull_many_from_db, pull_one_from_db, pull_whole_from_db
 from app.core.dependencies import (
@@ -136,10 +137,22 @@ async def _spiele(
 
 
 async def _junctions(
-    *, saison_teams_collection: AsyncCollection, saison_id: str, team_ids: Iterable[Any], session: AsyncClientSession
+    *,
+    saison_teams_collection: AsyncCollection,
+    saison_id: str,
+    spiele: Iterable[Mapping[str, Any]],
+    rows: Iterable[Mapping[str, Any]],
+    session: AsyncClientSession,
 ) -> dict[Any, Mapping[str, Any]]:
-    """The clubs' season rows: their seats as they stand now, their exit, and the name they play under."""
+    """The season rows of the clubs `spiele` field now and `rows` asked about: their seats as they stand now, their exit, and their name.
 
+    Both sets where a step asks `asked_with_its_move`, which judges a row's own clubs and its fixture's current sides.
+    """
+
+    team_ids = [
+        *(team_id_of(spiel, side) for spiel in spiele for side in ("team1", "team2")),
+        *(row["ansetzung"][key] for row in rows for key in ("team1_id", "team2_id")),
+    ]
     wanted = list({team_id for team_id in team_ids if team_id is not None})
     if not wanted:
         return {}
@@ -305,11 +318,9 @@ async def sweep_spielbestaetigungen(
             )
         )
         spiele = await _spiele(spiele_collection=spiele_collection, saison_id=saison_id, ids=[row["spiel_id"] for row in rows], session=session)
+        # The fixtures' current sides too, as the mint reads them: whether a move is the mint's to close turns on their exits.
         junctions = await _junctions(
-            saison_teams_collection=saison_teams_collection,
-            saison_id=saison_id,
-            team_ids=[row["ansetzung"][side] for row in rows for side in ("team1_id", "team2_id")],
-            session=session,
+            saison_teams_collection=saison_teams_collection, saison_id=saison_id, spiele=spiele.values(), rows=rows, session=session
         )
         austritte = _austritte(junctions)
 
@@ -453,16 +464,10 @@ async def sweep_spielbestaetigungen(
         digests = {spiel["_id"]: ansetzung_digest_of(spiel) for spiel in spiele}
         by_id = {spiel["_id"]: spiel for spiel in spiele}
 
-        # The clubs each row asked about too, as the close step reads them: a move's notice names the slot left by them,
-        # and its rows are judged against their exits.
+        # The clubs each row asked about too: a move's notice names the slot left by them, and its rows are judged
+        # against their exits.
         junctions = await _junctions(
-            saison_teams_collection=saison_teams_collection,
-            saison_id=saison_id,
-            team_ids=[
-                *(spiel[side]["team_id"] for spiel in spiele for side in ("team1", "team2")),
-                *(row["ansetzung"][side] for row in read for side in ("team1_id", "team2_id")),
-            ],
-            session=session,
+            saison_teams_collection=saison_teams_collection, saison_id=saison_id, spiele=spiele, rows=read, session=session
         )
         austritte = _austritte(junctions)
         junction_rows = list(junctions.values())
@@ -643,11 +648,9 @@ async def sweep_spielbestaetigungen(
             )
         )
         spiele = await _spiele(spiele_collection=spiele_collection, saison_id=saison_id, ids=[row["spiel_id"] for row in rows], session=session)
+        # The rows' own clubs alone: a reminder asks `reason_to_close`, which judges no other.
         junctions = await _junctions(
-            saison_teams_collection=saison_teams_collection,
-            saison_id=saison_id,
-            team_ids=[row["ansetzung"][side] for row in rows for side in ("team1_id", "team2_id")],
-            session=session,
+            saison_teams_collection=saison_teams_collection, saison_id=saison_id, spiele=[], rows=rows, session=session
         )
         austritte = _austritte(junctions)
 
@@ -719,12 +722,7 @@ async def sweep_spielbestaetigungen(
             )
             if aufstellung_stands(row)
         }
-        junctions = await _junctions(
-            saison_teams_collection=saison_teams_collection,
-            saison_id=saison_id,
-            team_ids=[spiel[side]["team_id"] for spiel in due for side in ("team1", "team2")],
-            session=session,
-        )
+        junctions = await _junctions(saison_teams_collection=saison_teams_collection, saison_id=saison_id, spiele=due, rows=[], session=session)
         austritte = _austritte(junctions)
 
         def teams_owed(spiel: Mapping[str, Any]) -> list[Any]:

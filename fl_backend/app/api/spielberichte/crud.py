@@ -24,8 +24,8 @@ from app.api.spielberichte.services import (
     live_kader,
     named_ids_of,
     sides_of,
-    team_id_of,
 )
+from app.api.spiele.schemas import team_id_of
 from app.api.spiele.services import build_named_spiele_pipeline
 from app.core.crud import (
     GERMAN_COLLATION,
