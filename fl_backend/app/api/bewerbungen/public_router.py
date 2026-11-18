@@ -31,8 +31,8 @@ from app.api.bewerbungen.services import (
     compose_confirmations,
     compose_decline_update,
     compose_kontakte,
-    compose_saison_decline_update,
     confirmation_deadline_from,
+    deadline_passed,
     deletion_day,
     find_age_refusal,
     find_already_answered_refusal,
@@ -40,13 +40,13 @@ from app.api.bewerbungen.services import (
     find_expired_token_refusal,
     find_picked_team_refusal,
     find_repeated_contact_refusal,
-    find_saison_deadline_refusal,
     find_saison_past_einwilligung_refusal,
     find_submission_subject_refusal,
     find_unknown_token_refusal,
     find_window_refusal,
     form_window_state,
     leaving_moves_the_deletion_day,
+    link_is_over,
     minimum_age_for,
     objection_is_announced,
     open_links_on,
@@ -464,7 +464,8 @@ async def post_confirmation(
         assert row is not None and seat is not None
 
         kontakte, confirmations = row.get("kontakte"), row.get("confirmations")
-        refuse(find_saison_deadline_refusal(deadline=seat_deadline_of(confirmations=confirmations, seat=seat), today=today))
+        # The deadline alone: a season row has no decision to end its link.
+        refuse(find_expired_token_refusal(over=deadline_passed(deadline=seat_deadline_of(confirmations=confirmations, seat=seat), today=today)))
         refuse(find_already_answered_refusal(kontakte=kontakte, confirmations=confirmations, seat=seat))
 
         other = saison_link_pair(kontakte=kontakte, confirmations=confirmations, seat=seat, token_hash=token_hash)
@@ -509,7 +510,8 @@ async def post_confirmation(
         before = await patch_one_in_db(
             collection=saison_teams_collection,
             db_filter={"_id": row["_id"]},
-            update=compose_saison_decline_update(seats=seats, today=today),
+            # Never announced: a season row carries no deletion notice.
+            update=compose_decline_update(seats=seats, today=today, announced=False),
             session=session,
             expected_version=None,
             return_document=ReturnDocument.BEFORE,
@@ -543,7 +545,9 @@ async def post_confirmation(
         kontakte, confirmations = bewerbung_raw.get("kontakte"), bewerbung_raw.get("confirmations")
         refuse(
             find_expired_token_refusal(
-                deadline=seat_deadline_of(confirmations=confirmations, seat=seat), status=bewerbung_raw.get("status"), today=today
+                over=link_is_over(
+                    deadline=seat_deadline_of(confirmations=confirmations, seat=seat), status=bewerbung_raw.get("status"), today=today
+                )
             )
         )
         refuse(find_already_answered_refusal(kontakte=kontakte, confirmations=confirmations, seat=seat))

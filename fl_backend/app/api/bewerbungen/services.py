@@ -394,7 +394,13 @@ def _is_decided(status: Any) -> bool:
     return status != "submitted"
 
 
-def _deadline_passed(*, deadline: Any, today: str) -> bool:
+def deadline_passed(*, deadline: Any, today: str) -> bool:
+    """Whether this seat's day is strictly behind `today`, the link answering on the day itself.
+
+    A season row's link ends on this alone, both in its press (`link_expired`) and in the editor. An erased seat holds
+    no deadline and is not past one: the fourteen-day clock and the lapsed-seat clock both read it so.
+    """
+
     return isinstance(deadline, str) and deadline < today
 
 
@@ -409,16 +415,17 @@ def seat_deadline_of(*, confirmations: Any, seat: str) -> Any:
 def link_is_over(*, deadline: Any, status: Any, today: str) -> bool:
     """Whether the link is over: its seat's deadline has passed, or the application was decided while the seat stood open."""
 
-    return _is_decided(status) or _deadline_passed(deadline=deadline, today=today)
+    return _is_decided(status) or deadline_passed(deadline=deadline, today=today)
 
 
-def find_expired_token_refusal(*, deadline: Any, status: Any, today: str) -> APIError | None:
+def find_expired_token_refusal(*, over: bool) -> APIError | None:
     """Why this link is over, or `None`. Judged before the seat: a seat on a decided application is never answered again.
 
-    410: no write moves a live link's deadline, a re-send minting another token.
+    `over` is the record's own reading: `link_is_over` on an application, `deadline_passed` on a season row, which has no
+    decision to end its link. 410: no write moves a live link's deadline, a re-send minting another token.
     """
 
-    if link_is_over(deadline=deadline, status=status, today=today):
+    if over:
         return APIError(HTTPStatus.GONE, Code.LINK_EXPIRED)
 
     return None
@@ -523,12 +530,6 @@ SAISON_EINWILLIGUNG_ANSWER_FIELDS: Mapping[str, int] = {
 }
 
 
-def saison_link_is_over(*, deadline: Any, today: str) -> bool:
-    """Whether a season row's seat link is past its own deadline: what its press refuses (`link_expired`) and the editor shows."""
-
-    return _deadline_passed(deadline=deadline, today=today)
-
-
 def row_takes_confirmations(*, saison_status: Any, austritt: Any) -> bool:
     """Whether a season row's seat still asks its person to confirm it: not once its season ended or its team left it.
 
@@ -542,7 +543,7 @@ def saison_state_of(*, row: Mapping[str, Any], seat: str, today: str, saison_sta
     """What a reopened season-row link shows, its own deadline ending it, a closed row stopping its consent."""
 
     confirmations = row.get("confirmations")
-    over = saison_link_is_over(deadline=seat_deadline_of(confirmations=confirmations, seat=seat), today=today)
+    over = deadline_passed(deadline=seat_deadline_of(confirmations=confirmations, seat=seat), today=today)
     state = _seat_state_of(kontakte=row.get("kontakte"), confirmations=confirmations, seat=seat, over=over)
 
     # Below the deadline, as the press refuses: past it the link takes no Widerspruch either
@@ -551,18 +552,6 @@ def saison_state_of(*, row: Mapping[str, Any], seat: str, today: str, saison_sta
         return "saison_past"
 
     return state
-
-
-def find_saison_deadline_refusal(*, deadline: Any, today: str) -> APIError | None:
-    """Why a season row's link takes no answer past its own deadline, or `None`.
-
-    410: no write moves this deadline, a re-send minting another token.
-    """
-
-    if not saison_link_is_over(deadline=deadline, today=today):
-        return None
-
-    return APIError(HTTPStatus.GONE, Code.LINK_EXPIRED)
 
 
 def find_saison_past_einwilligung_refusal(*, saison_status: Any, austritt: Any) -> APIError | None:
@@ -594,17 +583,6 @@ def saison_link_pair(*, kontakte: Any, confirmations: Any, seat: str, token_hash
         return None
 
     return other
-
-
-def compose_saison_decline_update(*, seats: Sequence[str], today: str) -> Mapping[str, Any]:
-    """A Widerspruch empties the person's slots and records the day on the link entry beside each, where the emptying cannot reach."""
-
-    written: dict[str, Any] = {}
-    for seat in seats:
-        written[f"kontakte.{seat}"] = None
-        written[f"confirmations.{seat}.declined_at"] = today
-
-    return {"$set": written}
 
 
 def pending_seats(*, kontakte: Any) -> list[FLKontaktSeat]:
@@ -821,7 +799,8 @@ def objection_is_announced(*, kontakte: Any, confirmations: Any, seats: Sequence
 def compose_decline_update(*, seats: Sequence[str], today: str, announced: bool) -> Mapping[str, Any]:
     """A decline empties the person's slot and records the day beside it, where the emptying cannot reach.
 
-    `announced` where the objection notice goes out: it names the deletion day, so it is the deletion notice too.
+    On an application or a season row alike. `announced` where the objection notice goes out: it names the deletion
+    day, so it is the deletion notice too. Never on a season row, which carries no deletion notice.
     """
 
     written: dict[str, Any] = {}
@@ -1032,7 +1011,7 @@ def seat_reminder_is_due(*, kontakte: Any, confirmations: Any, seat: str, today:
     if entry.get("reminded_at") is not None or entry.get("chase_closed_at") is not None or not isinstance(entry.get("sent_at"), str):
         return False
 
-    if _deadline_passed(deadline=entry.get("deadline"), today=today):
+    if deadline_passed(deadline=entry.get("deadline"), today=today):
         return False
 
     # A seat gets one reminder, and spending it on an address the provider has refused, or whose person reported the mail
@@ -1155,7 +1134,7 @@ def deletion_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) -> bool:
 
     kontakte, confirmations = bewerbung_raw.get("kontakte"), bewerbung_raw.get("confirmations")
     day = deletion_day(kontakte=kontakte, confirmations=confirmations)
-    if _deadline_passed(deadline=day, today=today):
+    if deadline_passed(deadline=day, today=today):
         return True
 
     days = [seat_deadline_of(confirmations=confirmations, seat=seat) for seat in KONTAKT_SEATS]
@@ -1223,14 +1202,14 @@ def build_deletion_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
 def lapsed_seats(*, kontakte: Any, confirmations: Any, today: str) -> list[FLKontaktSeat]:
     """The seats of a season row whose link's day has passed with no confirmation, in declaration order.
 
-    Strictly past, as `saison_link_is_over` ends the link. A confirmed seat keeps its entry, an erased one holds no
+    Strictly past, as `deadline_passed` ends the link. A confirmed seat keeps its entry, an erased one holds no
     deadline, and a seat a Widerspruch emptied still holds its link, which goes on the same day.
     """
 
     return [
         seat
         for seat in KONTAKT_SEATS
-        if saison_link_is_over(deadline=seat_deadline_of(confirmations=confirmations, seat=seat), today=today)
+        if deadline_passed(deadline=seat_deadline_of(confirmations=confirmations, seat=seat), today=today)
         and not _seat_is_confirmed(kontakte, seat)
     ]
 
