@@ -24,6 +24,7 @@ from app.api.spielbestaetigungen.services import (
     austritt_notices_of,
     austritt_recipients_of,
     compose_ansetzung,
+    moved_notice_of,
     spiel_mail_slot_of,
     team_mails,
 )
@@ -149,6 +150,22 @@ def test_a_move_s_notice_names_the_ground_the_fixture_moved_to():
     slot = spiel_mail_slot_of(spiel)
 
     assert slot is not None and slot.spielort == "Halle Nord"
+
+
+def test_a_move_off_its_ground_tells_the_parties_of_no_ground():
+    """A ground read off a fixture holding none raises inside the pass, which then tells nobody the fixture moved."""
+
+    spiel = {
+        "date": "2026-05-02",
+        "time": "10:00:00",
+        "team1": {"team_id": OWN, "name": "Adler"},
+        "team2": {"team_id": OPPONENT, "name": "Bieber"},
+        "spielort": None,
+    }
+
+    notice = moved_notice_of(party_kind="team", appointment=APPOINTMENT, moved_to=spiel_mail_slot_of(spiel), stays=True)
+
+    assert notice.moved_to is not None and notice.moved_to.spielort is None
 
 
 def test_a_move_s_notice_queued_before_it_named_the_ground_and_the_party_still_reads():
