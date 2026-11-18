@@ -26,13 +26,11 @@ from app.api.spielbestaetigungen.services import (
     build_discardable_filter,
     compose_closing_update,
     compose_enter_update,
-    discard_refusal,
-    enter_refusal,
-    find_adoption_refusal,
-    find_discard_refusal,
     find_enter_refusal,
+    find_proposal_refusal,
     find_vorschlag_past_refusal,
     junction_names_of,
+    not_actionable_refusal,
     notice_data_of,
     proposal_payload,
     spiel_mail_appointment_of,
@@ -121,7 +119,7 @@ async def enter_spielbestaetigung(
                 return_document=ReturnDocument.AFTER,
             )
         except DocumentNotFoundError as miss:
-            raise enter_refusal() from miss
+            raise not_actionable_refusal() from miss
 
         await record_act(
             collection=spielbestaetigungen_collection,
@@ -186,7 +184,7 @@ async def discard_spielbestaetigung(
             session=session,
         )
         state = AnsetzungState(spiel=found[0], junctions=junctions)
-        refuse(find_discard_refusal(spielbestaetigung_raw=row, ansetzung_state=state, now=germany_now))
+        refuse(find_proposal_refusal(spielbestaetigung_raw=row, ansetzung_state=state, now=germany_now))
         # A save moving the match writes the fixture, and a club's exit every fixture of its season, so either landing
         # beside this write conflicts with it and the retry judges the fixture it left, rather than the club being told
         # that a slot stands which the match has left.
@@ -202,7 +200,7 @@ async def discard_spielbestaetigung(
                 return_document=ReturnDocument.AFTER,
             )
         except DocumentNotFoundError as miss:
-            raise discard_refusal() from miss
+            raise not_actionable_refusal() from miss
 
         await record_act(
             collection=spielbestaetigungen_collection,
@@ -286,7 +284,7 @@ async def adopt_spielbestaetigung(
         )
         if state is None:
             raise DocumentNotFoundError()
-        refuse(find_adoption_refusal(spielbestaetigung_raw=row, ansetzung_state=state, now=germany_now))
+        refuse(find_proposal_refusal(spielbestaetigung_raw=row, ansetzung_state=state, now=germany_now))
         vorschlag = FLSpielbestaetigungAppointment.model_validate(row["answer"]["vorschlag"])
         refuse(as_judged_on_stored_state(find_vorschlag_past_refusal(vorschlag=vorschlag, today=today), twins=ADOPTION_TWINS))
 

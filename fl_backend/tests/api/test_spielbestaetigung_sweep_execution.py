@@ -666,7 +666,7 @@ class TestAMovedSpielAsksAgain:
         assert (answered["answer"]["kind"], answered["answer"]["by"]["seat"]) == ("agreed", "trainer")
         assert next(row for row in closed if row["_id"] == answered_id)["answer"] == answered["answer"]
         assert [row["answer"] for row in closed if row["_id"] != answered_id] == [None, None]
-        assert refusals == [Code.ANSETZUNG_ANSWERED, Code.ANSETZUNG_CLOSED]
+        assert refusals == [Code.ANSETZUNG_UNANSWERABLE, Code.ANSETZUNG_UNANSWERABLE]
         assert {row["ansetzung"]["time"] for row in standing} == {"19:00:00"}
         assert len(standing) == 3
         assert second.closed == 3
