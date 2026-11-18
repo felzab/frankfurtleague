@@ -21,7 +21,6 @@ from app.api.bewerbungen.services import (
     EINWILLIGUNG_ANSWER_FIELDS,
     EINWILLIGUNG_VIEW_FIELDS,
     OPEN_LINK_FIELDS,
-    OPEN_LINKS_PER_MAILBOX,
     SAISON_EINWILLIGUNG_ANSWER_FIELDS,
     SAISON_EINWILLIGUNG_FIELDS,
     ansprechperson_mailbox,
@@ -29,7 +28,6 @@ from app.api.bewerbungen.services import (
     bewerbung_reference,
     bewerbung_schule,
     build_form_pipeline,
-    build_key_filter,
     build_open_links_filter,
     build_token_filter,
     compose_confirmation_update,
@@ -52,8 +50,6 @@ from app.api.bewerbungen.services import (
     find_window_refusal,
     form_window_state,
     leaving_moves_the_deletion_day,
-    mailbox_anchor_ids,
-    mailbox_of,
     minimum_age_for,
     objection_is_announced,
     open_links_on,
@@ -109,6 +105,8 @@ from app.core.routing import SAFE
 from app.core.security import BASE_TIER
 from app.core.transactions import transact
 from app.shared.einwilligung import find_self_media_refusal
+from app.shared.idempotency import build_key_filter
+from app.shared.mailbox import OPEN_LINKS_PER_MAILBOX, mailbox_anchor_ids, mailbox_of
 from app.shared.schemas.bounds import BIRTH_DATE_MAX_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.einwilligung import by_choice

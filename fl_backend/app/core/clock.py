@@ -5,7 +5,7 @@ Ruff's `banned-api` refuses a read anywhere else. A request reads it through `ge
 a test substitutes.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Final
 from zoneinfo import ZoneInfo
 
@@ -22,6 +22,10 @@ def german_day(instant: datetime) -> str:
     """The German day `instant` falls on, as every stored and served day is spelled."""
 
     return instant.astimezone(GERMANY).strftime("%Y-%m-%d")
+
+
+def days_after(*, day: str, days: int) -> str:
+    return (date.fromisoformat(day) + timedelta(days=days)).isoformat()
 
 
 def german_instant(day: str, wall_time: str) -> datetime:

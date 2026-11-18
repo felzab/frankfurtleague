@@ -1,6 +1,4 @@
-import hashlib
 from collections.abc import Container, Iterable, Mapping, Sequence
-from datetime import date, timedelta
 from http import HTTPStatus
 from typing import Any, Final, Literal, TypeIs, get_args
 
@@ -22,13 +20,15 @@ from app.api.outbox.schemas import (
 )
 from app.api.outbox.services import OwedMail
 from app.api.teams.schemas import FLPostTeamPayload, normalise_phone
+from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.crud import literal_pattern
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_evidence import TextVersions, compose_choices
 from app.shared.folding import sign_in_identifier
+from app.shared.mailbox import OPEN_LINKS_PER_MAILBOX, mailbox_of, mailbox_pattern
+from app.shared.saison import season_has_ended
 from app.shared.schemas.bounds import (
     BEWERBUNG_CONFIRMATION_DEADLINE_DAYS,
     BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
@@ -177,11 +177,6 @@ def form_window_state(*, saison_status: Any, bewerbung: Mapping[str, Any], today
     return "upcoming" if bewerbung["open"] and today < str(bewerbung["start"]) else "closed"
 
 
-# `season_has_ended`'s negation for a read that narrows in the query. Every write stores a season's status, which is why
-# the readers of this filter's rows subscript it.
-SAISON_NOT_ENDED_FILTER: Final[Mapping[str, Any]] = {"status": {"$ne": "past"}}
-
-
 def find_window_refusal(*, saison_status: Any, bewerbung: Any, today: str) -> WriteRefusal | None:
     """Why this season is taking no application today, or `None`.
 
@@ -247,15 +242,6 @@ def find_already_entered_refusal(*, entered: bool) -> WriteRefusal | None:
     return None
 
 
-def build_key_filter(*, key: str) -> Mapping[str, Any]:
-    """The key lookup, carrying the unique index's partial term.
-
-    An equality alone does not imply `$type`, so without the term the planner scans the whole collection.
-    """
-
-    return {"idempotency_key": {"$eq": key, "$type": "string"}}
-
-
 def compose_einwilligung(*, today: str) -> dict[str, Any]:
     """The contact seat's record as the server writes it at the seating: nothing its person answered.
 
@@ -313,10 +299,6 @@ def compose_kontakte(*, kontakte: Mapping[str, Any], today: str) -> dict[str, An
 
 KONTAKT_SCOPE = "kontakt_data"
 KONTAKT_SCOPE_WHATSAPP = "kontakt_data_whatsapp"
-
-
-def days_after(*, day: str, days: int) -> str:
-    return (date.fromisoformat(day) + timedelta(days=days)).isoformat()
 
 
 def confirmation_deadline_from(*, today: str) -> str:
@@ -841,46 +823,6 @@ def build_own_bewerbung_filter(*identifiers: str) -> Mapping[str, Any]:
     return {"status": "submitted", **rows_seating(*identifiers)}
 
 
-# The form's unanswered links of one season a mailbox may hold before a press naming it mails that mailbox nothing. What a
-# stranger can do through a public form is make the league mail an address, and each link owes a reminder and a notice
-# after it, so this bounds the mail and refuses nobody: a refusal would be a lock a stranger can aim at a real school. An
-# answer frees its link, and two schools sharing a person stay under it. A real person's seat can still stand past it behind a
-# stranger's presses, unmailed until an administrator sends its link, which is why both lists say so. The application form
-# and the registration form each count their own and each season its own, so two forms or two running seasons double it.
-# The count is exact: a press it leaves room writes that mailbox's document (`mailbox_anchor_ids`), so a rival committed
-# since the transaction's snapshot, which the count read, is a write conflict and the retry reads its row. After the count
-# and never before it, the snapshot keeping that order exact: a press finding the mailbox full mails nothing and so writes
-# nothing, and a flood contends only until the bound, where a write ahead of the count serves one mailbox one press a second
-# at production's round trip and fails the rest, a real school's among them, at the request's deadline. One document a
-# mailbox, because one on the season stalls every school's press and every season write the same way.
-OPEN_LINKS_PER_MAILBOX: Final = 3
-
-
-def mailbox_of(address: str) -> str:
-    """The mailbox a stored address reaches, its plus-tag off. A provider's own aliases, such as Gmail's dots, stay out of reach."""
-
-    local, _, domain = address.rpartition("@")
-
-    return f"{local.partition('+')[0]}@{domain}"
-
-
-def mailbox_anchor_ids(*, addresses: Iterable[str]) -> list[str]:
-    """Each of these addresses' mailbox as its document's `_id`, one hashed document, sorted so two presses meet in one order.
-
-    Unkeyed: the id is a write-conflict key that lapses in an hour, for a press whose row holds the address plain.
-    """
-
-    return sorted({hashlib.sha256(mailbox_of(address).encode("utf-8")).hexdigest() for address in addresses})
-
-
-def mailbox_pattern(address: str) -> str:
-    """A `$regex` matching this address's mailbox and each plus-tagged form of it, on the stored fold; its fixed prefix keeps it on an index."""
-
-    local, _, domain = mailbox_of(address).rpartition("@")
-
-    return f"^{literal_pattern(local)}(\\+[^@]*)?@{literal_pattern(domain)}$"
-
-
 # What `open_links_on` judges a row by.
 OPEN_LINK_FIELDS: Mapping[str, int] = {**_per_seat("kontakte", "email", "einwilligung.confirmed_at"), **_per_seat("confirmations", "sent_at")}
 
@@ -1389,23 +1331,13 @@ def decline_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) -> b
     return isinstance(made_at, str) and days_after(day=made_at, days=DECLINED_RETENTION_DAYS) <= today
 
 
-def season_has_ended(*, saison_status: Any) -> bool:
-    """Whether a season is over, read off `saisons.status` rather than computed from a date; a season not yet created is not past."""
-
-    return saison_status == "past"
-
-
-def season_after_has_ended(*, later_saison_status: Any) -> bool:
-    """The accepted clock and the contact block share one test: any season after the one applied for has ended.
+def acceptance_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], later_saison_status: Any) -> bool:
+    """The accepted clock, whose test the contact block shares: any season after the one applied for has ended.
 
     The router asks it only while the season applied for is not `active`, the rule's other half.
     """
 
-    return season_has_ended(saison_status=later_saison_status)
-
-
-def acceptance_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], later_saison_status: Any) -> bool:
-    return bewerbung_raw.get("status") == "accepted" and season_after_has_ended(later_saison_status=later_saison_status)
+    return bewerbung_raw.get("status") == "accepted" and season_has_ended(saison_status=later_saison_status)
 
 
 def undecided_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], saison_status: Any) -> bool:

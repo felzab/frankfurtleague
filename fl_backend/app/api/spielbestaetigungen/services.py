@@ -5,7 +5,6 @@ from datetime import datetime
 from http import HTTPStatus
 from typing import Any, Final, Literal, NamedTuple
 
-from app.api.bewerbungen.services import days_after
 from app.api.invitations.services import confirmed_recipients
 from app.api.outbox.schemas import (
     FLAustrittNoticeData,
@@ -44,6 +43,7 @@ from app.api.spiele.schemas import (
 )
 from app.api.teams.services import has_taken_place, is_played
 from app.core import clock
+from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import Twins, WriteRefusal

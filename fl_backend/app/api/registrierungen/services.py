@@ -7,10 +7,10 @@ from collections.abc import Iterable, Mapping, Sequence
 from http import HTTPStatus
 from typing import Any, Final
 
-from app.api.bewerbungen.services import days_after, mailbox_pattern, season_has_ended
 from app.api.outbox.schemas import FLOutboxLink, FLOutboxReference, FLRegistrierungLinkData
 from app.api.outbox.services import OwedMail
 from app.api.saisons.services import entry_is_a_nominee
+from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
@@ -18,6 +18,8 @@ from app.shared.age import whole_years_between
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_evidence import TextVersions, compose_initial, compose_renewed
 from app.shared.folding import person_name_key, sign_in_identifier
+from app.shared.mailbox import mailbox_pattern
+from app.shared.saison import season_has_ended
 from app.shared.schemas.bounds import (
     BIRTH_DATE_MAX_AGE_YEARS,
     DECLINED_RETENTION_DAYS,

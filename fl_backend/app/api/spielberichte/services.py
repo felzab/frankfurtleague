@@ -5,7 +5,6 @@ from typing import Any, Final, Literal, NamedTuple, TypeIs, get_args
 
 from bson import ObjectId
 
-from app.api.bewerbungen.services import season_has_ended
 from app.api.spielberichte.schemas import (
     FLSpielberichtBericht,
     FLSpielberichtBerichtPayload,
@@ -22,6 +21,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import VERSION_FIELD, refuse
 from app.core.exceptions import WriteRefusal
+from app.shared.saison import season_has_ended
 from app.shared.schemas.literals import FLSpielSide
 
 SIDES: Final[tuple[FLSpielSide, ...]] = ("team1", "team2")

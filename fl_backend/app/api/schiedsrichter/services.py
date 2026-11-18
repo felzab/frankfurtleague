@@ -3,7 +3,6 @@ from datetime import date, datetime, time, timedelta
 from http import HTTPStatus
 from typing import Any, Final
 
-from app.api.bewerbungen.services import days_after, season_has_ended
 from app.api.saisons.schemas import SAISON_FRAME_FIELDS, SAISON_FRAME_ORDER
 from app.api.saisons.services import SAISON_AS, SAISON_LOOKUP
 from app.api.schiedsrichter.schemas import FLSchiedsrichterConfirmationState, FLSchiedsrichterSpiel
@@ -14,6 +13,7 @@ from app.api.spiele.schemas import SONDEREREIGNIS_KEEPING_ITS_SLOT, FLSpielortFi
 from app.api.spiele.services import build_named_spiele_pipeline
 from app.api.teams.services import is_played
 from app.core import clock
+from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
@@ -21,6 +21,7 @@ from app.shared.age import whole_years_between
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_evidence import TextVersions, compose_initial
 from app.shared.folding import league_address, sign_in_identifier
+from app.shared.saison import season_has_ended
 from app.shared.schemas.bounds import (
     BIRTH_DATE_MAX_AGE_YEARS,
     SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS,

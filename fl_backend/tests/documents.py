@@ -23,7 +23,7 @@ from zoneinfo import ZoneInfo
 from bson import ObjectId
 
 from app.api.address_change.services import compose_record
-from app.api.bewerbungen.services import compose_confirmations, compose_einwilligung, confirmation_deadline_from, mailbox_anchor_ids
+from app.api.bewerbungen.services import compose_confirmations, compose_einwilligung, confirmation_deadline_from
 from app.api.invitations.services import compose_invitation
 from app.api.outbox.schemas import FLBanData, FLOutboxData, FLOutboxReference
 from app.api.outbox.services import OwedMail, row_of
@@ -36,6 +36,7 @@ from app.core.crud import ANCHOR_FIELD, VERSION_FIELD
 from app.readback import RECORD_MODELS
 from app.shared.einwilligung_evidence import CHOICES, EVIDENCE, TextVersions, compose_initial, compose_receipt
 from app.shared.folding import league_address
+from app.shared.mailbox import mailbox_anchor_ids
 from app.shared.schemas.einwilligung import FLMediaTextVersion, FLNameKaderTextVersion, FLNameSpielplanTextVersion, FLWhatsappTextVersion
 from app.shared.schemas.literals import KONTAKT_SEATS, FLAddressChangeWay
 from app.shared.tokens import hash_token
