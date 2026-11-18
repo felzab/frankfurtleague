@@ -5,6 +5,17 @@
     "pr": "",
     "sessionUrl": false
   },
+  "extraKnownMarketplaces": {
+    "orchestra": {
+      "source": {
+        "source": "github",
+        "repo": "felzab/orchestra"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "orchestra@orchestra": true
+  },
   "permissions": {
     "deny": [
       "Read(//**/.env*)",
@@ -46,38 +57,14 @@
       "Bash(pnpm run lint)",
       "Bash(pnpm run knip)",
       "Bash(pnpm run knip:prod)",
-      "Bash(git status:*)",
-      "Bash(git log:*)",
-      "Bash(git diff:*)",
-      "Bash(git branch)",
-      "Bash(git branch -v:*)",
-      "Bash(git branch -vv:*)",
-      "Bash(git branch -a:*)",
-      "Bash(git branch -r:*)",
-      "Bash(git branch --list:*)",
-      "Bash(git branch --show-current)",
-      "Bash(git show:*)",
-      "Bash(pnpm exec tsc:*)",
-      "Bash(pnpm exec eslint:*)",
-      "Bash(pnpm exec prettier --check:*)",
-      "Bash(pnpm test:*)",
-      "Bash(./scripts/gate/verify.sh:*)",
-      "Bash(./scripts/gate/selfcheck.sh:*)"
+      "Bash(pnpm exec eslint *)",
+      "Bash(pnpm exec prettier --check *)",
+      "Bash(./scripts/gate/verify.sh *)",
+      "Bash(./scripts/gate/selfcheck.sh *)",
+      "Bash(orchestra *)"
     ]
   },
   "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "^(mcp__.*|Skill)$",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/writer-tools.sh\"",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write",
@@ -86,40 +73,6 @@
             "type": "command",
             "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/format-written.sh\"",
             "timeout": 30
-          }
-        ]
-      },
-      {
-        "matcher": "SendMessage",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/orchestration-messages.sh\"",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
-    "SubagentStart": [
-      {
-        "matcher": "implementer|driving-reauditor|researcher|cold-auditor|reader",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/agent-definition.sh\"",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
-    "SessionStart": [
-      {
-        "matcher": "compact",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/orchestration-compact.sh\"",
-            "timeout": 10
           }
         ]
       }
