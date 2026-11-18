@@ -4,8 +4,7 @@ A soccer league site: Next.js in front of FastAPI and MongoDB, deployed with Doc
 nginx. Its pages are built from the component kit in `fl_frontend/src/kit/`, on React Aria
 Components. The corpus entry point is [`docs/README.md`](../docs/README.md). The domain vocabulary
 is German and load-bearing: **open a term's entry in [`docs/glossary.md`](../docs/glossary.md)
-before you first write that term** — in a
-name, a schema field, a commit message or a sentence.
+before you first write that term** — in a name, a schema field, a commit message or a sentence.
 
 This folder holds only what exists because AI agents write this repository: the quality bar, how a
 change ships and the writer's traps. `docs/` describes the system, and nothing outside `.claude/`
@@ -83,11 +82,10 @@ before then needs no gate run: the pull request's CI runs on every push, the jou
 job bounded by its own `timeout-minutes` and by no other time budget.
 
 - **Let the command finish, and report its result by quoting the gate's closing line and its exit
-  code, read from the gate's own command as the very next command**, never through a pipe or past
-  Bash's byte mask: `verify.sh --docs | tail -5` reports `tail`'s 0 while the gate exited 1, and a
-  child's 2304 reads as 0. A code read past a pipe or a semicolon, or a background notice's summary,
-  is not the gate's. Never the word "passing", and never one tool standing in for the scope that
-  runs it.
+  code, read from the gate's own command as the very next command**: a code read past a pipe, a
+  semicolon or Bash's byte mask, or a background notice's summary, is not the gate's —
+  `verify.sh --docs | tail -5` reports `tail`'s 0 while the gate exited 1, and a child's 2304 reads
+  as 0. Never the word "passing", and never one tool standing in for the scope that runs it.
 
 ## 3. Quality bar
 
@@ -183,12 +181,11 @@ makes the change.
 
 @../docs/decisions.md
 
-**Before proposing a change on a surface, open the rules file for a surface you are about to touch
-even if no read has pulled it in.** The files under `.claude/rules/` —
-[`backend.md`](rules/backend.md), [`frontend.md`](rules/frontend.md),
-[`cross-surface.md`](rules/cross-surface.md) and [`stack.md`](rules/stack.md) — hold the traps each
-surface springs. A rules file written during a session does not load in that session, and does load
-in an agent the session dispatches after writing it.
+**Before proposing a change on a surface, open the rules file for one you are about to touch even if
+no read has pulled it in.** The files under `.claude/rules/` — [`backend.md`](rules/backend.md),
+[`frontend.md`](rules/frontend.md), [`cross-surface.md`](rules/cross-surface.md) and
+[`stack.md`](rules/stack.md) — hold the traps each surface springs. A rules file written during a
+session does not load in that session, and does load in an agent it dispatches afterwards.
 
 ## 8. Documentation
 
@@ -205,9 +202,8 @@ whose copy is the session's own: brief a changed rule to each agent in words.
 
 ## 9. Commands and refusals
 
-**A slash command, or the procedure it runs, starts only on the owner's own words**: the command
-the owner types, or the owner's words to the same effect, never an agent's own reading of a
-situation, such as that the owner has left.
+**A slash command, or the procedure it runs, starts only on the owner's own words**, typed as the
+command or said to the same effect, never on an agent's own reading, such as that the owner left.
 
 **Comply with every refusal from a permission rule or a hook, and never route around it.** Write a
 multi-line file with the `Write` tool, never a heredoc. Give each shell command one purpose: a deny
