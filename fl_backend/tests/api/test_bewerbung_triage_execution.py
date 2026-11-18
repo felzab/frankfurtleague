@@ -27,7 +27,6 @@ from app.api.teams.crud import found_a_team
 from app.api.teams.schemas import FLPostTeamPayload
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.db import new_client
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.transactions import transaction_session
@@ -265,7 +264,7 @@ async def through_the_app(
     """
 
     headers = {**ADMIN_AUTH} if actor is None else StampedHeaders(actor, ADMIN_KEY)
-    path = f"/api/v{API_VERSION}/bewerbungen/{bewerbung_id}/{endpoint}"
+    path = f"/api/bewerbungen/{bewerbung_id}/{endpoint}"
 
     # A client of its own rather than the seeding one: the seeding client has to outlive the
     # request, every caller reading `database` afterwards to assert what the request wrote.
@@ -1579,7 +1578,7 @@ async def answer_for(database: AsyncDatabase, client: AsyncMongoClient, token: s
     """A hand-built block would let this suite agree with itself while disagreeing with the endpoint.
 
     The state a reseat runs on is whatever the Widerspruch actually leaves
-    (`fl_backend/app/api/bewerbungen/public_router.py :: post_einwilligung`).
+    (`fl_backend/app/api/bewerbungen/public_router.py :: post_confirmation`).
     """
 
     return await answered(

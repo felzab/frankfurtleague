@@ -25,11 +25,11 @@ from app.core.transactions import SWEEP_PAGE, Batch, drain, refuse_a_stalled_pag
 from app.shared.saison import season_has_ended
 
 # System tier: this pass holds no session, so `bind_actor` would refuse it.
-router = APIRouter(prefix="/registrierungen/sweep", dependencies=SYSTEM_TIER)
+router = APIRouter(prefix="/registrierungen", dependencies=SYSTEM_TIER)
 
 
 @router.post(
-    "/{saison_id}",
+    "/saisons/{saison_id}/sweep",
     summary="Run one season's registration retention clocks",
 )
 async def sweep_registrierungen(

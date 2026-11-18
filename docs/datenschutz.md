@@ -252,8 +252,7 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   `fl_frontend/src/app/admin/(list)/saisons/[saison]/bewerbungen/[bewerbung]/AcceptFields.tsx`).
   **Datenschutzexperte consulted.**
 - **A pupil's name is published only on their own consent, given alone from 16.** Every public read
-  of a pupil decides by `fl_backend/app/api/spieler/services.py :: name_is_public`, or its
-  expression at a join, `fl_backend/app/shared/einwilligung.py :: NAME_IS_PUBLIC`. It asks that the
+  of a pupil decides by `fl_backend/app/shared/einwilligung.py :: NAME_IS_PUBLIC`. It asks that the
   record be present, its `scope` `kader_public` and its `confirmed_at` stamped. Every other row is a
   nameless slot, „anonym“, served after the named rows. It carries no number, no position and no
   record id, which would say whose it is or link its seasons

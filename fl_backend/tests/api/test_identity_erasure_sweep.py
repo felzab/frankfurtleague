@@ -26,7 +26,6 @@ from app.api.identity.system_router import ERASURES_PER_PASS
 from app.api.saisons.admin_router import activate_saison
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.logging import JSONFormatter
 from tests.acts import deletions_of
 from tests.app_client import app_client, app_under_test
@@ -62,7 +61,7 @@ from tests.worker import worker_database
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_erasure_sweep_test")
-PATH = f"/api/v{API_VERSION}/identity/erasure/sweep"
+PATH = "/api/identity/erasure/sweep"
 
 TODAY = "2026-04-01"
 

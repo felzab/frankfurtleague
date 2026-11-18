@@ -310,7 +310,14 @@ describe("the pass's one line", () => {
      among them; a warning where the pass left anything owed, so a level above INFO still shows it. */
   it("writes one line counting every job and every drain since the last pass, a warning where one did not finish", async () => {
     answers.set("GET /spielbestaetigungen/sweep", () => ({ saison_ids: ["2627"] }));
-    answers.set("POST /spielbestaetigungen/sweep/2627", () => ({ saison_id: "2627", closed: 1, asked: 2, reminded: 0, mails: 2, failed: 0 }));
+    answers.set("POST /spielbestaetigungen/saisons/2627/sweep", () => ({
+      saison_id: "2627",
+      closed: 1,
+      asked: 2,
+      reminded: 0,
+      mails: 2,
+      failed: 0,
+    }));
     await register();
     // A write's drain inside the hour, as `afterResponse.ts :: drainSoon` runs it behind a response: one mail sent.
     handouts = [HANDING_OUT_ONE, NOTHING_HANDED_OUT, HANDING_OUT_ONE];

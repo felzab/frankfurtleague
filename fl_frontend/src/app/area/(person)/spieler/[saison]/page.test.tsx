@@ -20,7 +20,7 @@ serveBackend(({ method, path }) => {
   if (method !== "GET") return undefined;
   if (path === "/spieler/self/saisons") return { saisons: [SAISON_2027] };
   if (path === "/saisons/frame") return { active_saison_id: "2027", saisons: [SAISON_2027] };
-  if (path === "/spieler/self/2027") return own.read ?? undefined;
+  if (path === "/spieler/self/saisons/2027") return own.read ?? undefined;
   return undefined;
 });
 // A pupil, signed in by a typed code.

@@ -52,7 +52,7 @@ const state = { read: READ };
 // The report's read and its write, each answered only at the match the case names: a save reaching for another match
 // goes unanswered and fails the case.
 const backend = serveBackend(({ method, path }) => {
-  if (path !== `/spielberichte/${SPIEL_ID}/bericht`) return undefined;
+  if (path !== `/spielberichte/spiele/${SPIEL_ID}`) return undefined;
   if (method === "GET") return state.read;
   return method === "PUT" ? { ...state.read, version: 4 } : undefined;
 });
@@ -77,8 +77,8 @@ describe("the report's save", () => {
 
     expect(answer).toStrictEqual({ ok: true, value: 4 });
     expect(backend.sent.map(({ method, path }) => [method, path])).toStrictEqual([
-      ["GET", `/spielberichte/${SPIEL_ID}/bericht`],
-      ["PUT", `/spielberichte/${SPIEL_ID}/bericht`],
+      ["GET", `/spielberichte/spiele/${SPIEL_ID}`],
+      ["PUT", `/spielberichte/spiele/${SPIEL_ID}`],
     ]);
     expect(backend.sent.some(({ path }) => path.includes(OTHER_SPIEL_ID))).toBe(false);
     expect(sentPayload()?.version).toBe(3);

@@ -716,10 +716,6 @@ FLSpielJoinedListAdapter = TypeAdapter(list[FLSpielJoined])
 FLSpielJoinedInternalListAdapter = TypeAdapter(list[FLSpielJoinedInternal])
 
 
-class FLSpieleSingleResponse(BaseReadModel):
-    spiel: FLSpielJoined
-
-
 class FLSpielAdvancement(FLSpielVoidedErgebnis):
     """One fixture the bracket resolution rewrote, and the result that rewrite destroyed.
 

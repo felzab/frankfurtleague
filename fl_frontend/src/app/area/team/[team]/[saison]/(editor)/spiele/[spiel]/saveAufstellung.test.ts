@@ -51,7 +51,7 @@ const STORED: FLAufstellungResponse = {
 // The merge's read and the write, each answered only at the line-up of the match and the club the case names: a save
 // reaching for another club's line-up goes unanswered and fails the case.
 const backend = serveBackend(({ method, path }) => {
-  if (path !== `/aufstellungen/${SPIEL}/${TEAM}/self`) return undefined;
+  if (path !== `/aufstellungen/spiele/${SPIEL}/teams/${TEAM}`) return undefined;
   if (method === "GET") return STORED;
   return method === "PUT" ? { ...STORED, version: 4 } : undefined;
 });
@@ -71,9 +71,9 @@ describe("a line-up's save", () => {
 
     expect(backend.sent.map(({ path, method, body }) => ({ path, method, body }))).toStrictEqual([
       // The merge reads the line-up of the same match and club it writes, of the two clubs the person holds seats on.
-      { path: `/aufstellungen/${SPIEL}/${TEAM}/self`, method: "GET", body: undefined },
+      { path: `/aufstellungen/spiele/${SPIEL}/teams/${TEAM}`, method: "GET", body: undefined },
       {
-        path: `/aufstellungen/${SPIEL}/${TEAM}/self`,
+        path: `/aufstellungen/spiele/${SPIEL}/teams/${TEAM}`,
         method: "PUT",
         // In shirt-number order, on the version the editor read.
         body: {

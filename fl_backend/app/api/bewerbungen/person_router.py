@@ -27,10 +27,8 @@ from app.shared.schemas.literals import KONTAKT_SEATS
 router = APIRouter(prefix="/bewerbungen", dependencies=PERSON_TIER)
 
 
-# `/account/einwilligung`, its own segment: the admin router serves this application under its own paths, and one path in
-# both routers would be answered by whichever was mounted first.
 @router.patch(
-    f"{by_id('bewerbung_id')}/account/einwilligung",
+    f"{by_id('bewerbung_id')}/einwilligung",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Withdraw a seat holder's own WhatsApp and media consent on a pending Bewerbung",
 )

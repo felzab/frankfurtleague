@@ -52,7 +52,7 @@ const LINEUP: FLAufstellungResponse = {
   marks: { stored: false, phase: "locked", due_at: "2026-11-13T15:00:00Z" },
   saison_status: "active",
 };
-serveBackend(({ method, path }) => (method === "GET" && path === `/aufstellungen/${SPIEL}/${TEAM}` ? LINEUP : undefined));
+serveBackend(({ method, path }) => (method === "GET" && path === `/aufstellungen/spiele/${SPIEL}/teams/${TEAM}/admin` ? LINEUP : undefined));
 // An administrator's session, made by passkey, which the read's guard admits.
 signedInRequest();
 

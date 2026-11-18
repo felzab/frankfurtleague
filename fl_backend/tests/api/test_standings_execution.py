@@ -7,7 +7,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.spiele.schemas import FLSpiel
-from app.api.teams.schemas import FLTeamStatistik, FLTeamStatistikScope
+from app.api.teams.schemas import FLTeamStatistik
 from app.api.teams.services import ZERO_STATISTIK, build_statistik_by_team, build_team_pipeline
 from app.core.collections import Collection
 from app.shared.schemas.literals import FLSonderereignis, FLSpielerStufe
@@ -119,13 +119,13 @@ def spiel_documents() -> list[dict[str, Any]]:
         spiel_document(4, "gruppenphase", CARO, DIRK, None, None, ergebnis=None),
         # An `ergebnis` with no goal counts behind it, which would group as a 0:0 draw uncaught.
         spiel_document(5, "gruppenphase", ANNA, BODO, None, None, ergebnis="3:0"),
-        # The whole difference between the two scopes.
+        # A knockout result, which no figure of the table counts.
         spiel_document(6, "viertelfinale", ANNA, CARO, 5, 0, ergebnis="5:0"),
         spiel_document(7, "gruppenphase", CARO, DIRK, None, None, ergebnis=None, sonderereignis="ausgefallen"),
         spiel_document(8, "gruppenphase", DIRK, ANNA, None, None, ergebnis=None, sonderereignis="annulliert"),
         # Abandoned with the score that stood: played, and never an absage.
         spiel_document(9, "gruppenphase", ANNA, BODO, 4, 1, ergebnis="4:1", sonderereignis="abgebrochen"),
-        # An unfilled bracket slot, so a null side is proved against both derivations.
+        # An unfilled bracket slot, which the phase keeps out of the table with its null side.
         spiel_document(10, "viertelfinale", None, DIRK, None, None, ergebnis=None),
         # Last season: both sides hold 2026 season rows a 2025 fixture must not pick up.
         spiel_document(11, "gruppenphase", ANNA, BODO, 7, 0, ergebnis="7:0", saison_id=PRIOR_SAISON_ID),
@@ -136,18 +136,18 @@ def spiel_documents() -> list[dict[str, Any]]:
         # seed from a table the page never showed.
         spiel_document(13, "gruppenphase", BODO, BODO, 2, 2, ergebnis="2:2"),
         spiel_document(14, "gruppenphase", EMIL, EXTERN, 1, 1, ergebnis="1:1"),
-        # Called off in the knockout, so the absage obeys the scope like every figure beside it.
+        # Called off in the knockout, so the absage obeys the phase like every figure beside it.
         spiel_document(15, "halbfinale", FRIDA, EXTERN, None, None, ergebnis=None, sonderereignis="ausgefallen"),
     ]
 
 
-def season_in_scope(scope: FLTeamStatistikScope) -> list[FLSpiel]:
+def group_phase() -> list[FLSpiel]:
     """The fixtures a caller of `build_statistik_by_team` must hand it: the `$lookup`'s `$match`, spelled as a filter."""
 
     return [
         FLSpiel.model_validate(document)
         for document in spiel_documents()
-        if document["saison_id"] == SAISON_ID and (scope == "total" or document["saison_phase"] == "gruppenphase")
+        if document["saison_id"] == SAISON_ID and document["saison_phase"] == "gruppenphase"
     ]
 
 
@@ -164,7 +164,7 @@ def figures(played: int, won: int, drawn: int, lost: int, scored: int, conceded:
     )
 
 
-# Worked by hand from `spiel_documents` under `RULES`: what each club's row of the table reads, by scope.
+# Worked by hand from `spiel_documents` under `RULES`: what each club's row of the table reads.
 GRUPPENPHASE: Mapping[ObjectId, FLTeamStatistik] = {
     # Fixtures 1, 2 and 9 counted, 5 not; 8 annulled.
     ANNA: figures(3, 2, 1, 0, 9, 4, 10, 1),
@@ -179,27 +179,16 @@ GRUPPENPHASE: Mapping[ObjectId, FLTeamStatistik] = {
     EXTERN: figures(2, 0, 1, 1, 1, 3, 3, 0),
 }
 
-TOTAL: Mapping[ObjectId, FLTeamStatistik] = {
-    **GRUPPENPHASE,
-    # The Viertelfinale 5:0 added.
-    ANNA: figures(4, 3, 1, 0, 14, 4, 14, 1),
-    CARO: figures(3, 1, 1, 1, 4, 7, 7, 1),
-    # The bracket slot fixture 10 leaves Dirk as he was, and the Halbfinale called off counts for Extern and Frida.
-    EXTERN: figures(2, 0, 1, 1, 1, 3, 3, 1),
-    FRIDA: figures(0, 0, 0, 0, 0, 0, 0, 1),
-}
-
 
 class TestEachBranchOfTheCountingRule:
     """Unmarked: `build_statistik_by_team` reads a list, and the differential below ties the pipeline to it."""
 
-    @pytest.mark.parametrize(("scope", "table"), [("gruppenphase", GRUPPENPHASE), ("total", TOTAL)])
-    def test_each_team_reads_the_figures_worked_by_hand(self, scope: FLTeamStatistikScope, table: Mapping[ObjectId, FLTeamStatistik]):
-        """The derivation filters nothing, so the scope moves the figures only through the fixtures the caller hands it."""
+    def test_each_team_reads_the_figures_worked_by_hand(self):
+        """The derivation filters nothing, so the figures move only through the fixtures the caller hands it."""
 
-        derived = build_statistik_by_team(season_in_scope(scope), RULES)
+        derived = build_statistik_by_team(group_phase(), RULES)
 
-        assert {NAMES[team_id]: row for team_id, row in derived.items()} == {NAMES[team_id]: row for team_id, row in table.items()}
+        assert {NAMES[team_id]: row for team_id, row in derived.items()} == {NAMES[team_id]: row for team_id, row in GRUPPENPHASE.items()}
 
 
 @pytest.fixture(scope="module")
@@ -219,8 +208,8 @@ async def seeded(mongo_replica_set_url: str) -> AsyncIterator[AsyncDatabase]:
         yield database
 
 
-async def standings(database: AsyncDatabase, **scope: Any) -> dict[str, Mapping[str, Any]]:
-    pipeline = build_team_pipeline(saison_id=SAISON_ID, rules=RULES, **scope)
+async def standings(database: AsyncDatabase) -> dict[str, Mapping[str, Any]]:
+    pipeline = build_team_pipeline(saison_id=SAISON_ID, rules=RULES)
 
     return {row["name"]: row for row in await (await database[Collection.TEAMS].aggregate(pipeline)).to_list(length=None)}
 
@@ -229,21 +218,12 @@ async def standings(database: AsyncDatabase, **scope: Any) -> dict[str, Mapping[
 class TestTheTwoDerivationsAgree:
     """The pipeline reads the collection and `build_statistik_by_team` reads a list; the bracket resolution trusts the second."""
 
-    @pytest.mark.parametrize(
-        ("scope", "pipeline_scope"),
-        [
-            ("gruppenphase", {"statistik_scope": "gruppenphase"}),
-            ("total", {"statistik_scope": "total"}),
-            # Named by no caller: a read forgetting the scope counts the league's own results alone.
-            pytest.param("gruppenphase", {}, id="the default"),
-        ],
-    )
-    async def test_the_figures_match_the_pipelines_over_the_same_spiele(
-        self, seeded: AsyncDatabase, scope: FLTeamStatistikScope, pipeline_scope: dict[str, Any]
-    ):
-        rows = await standings(seeded, **pipeline_scope)
+    async def test_the_figures_match_the_pipelines_over_the_same_spiele(self, seeded: AsyncDatabase):
+        """The pipeline filters the season's fixtures to its group phase itself, so the knockout ones seeded here count nowhere."""
 
-        derived = build_statistik_by_team(season_in_scope(scope), RULES)
+        rows = await standings(seeded)
+
+        derived = build_statistik_by_team(group_phase(), RULES)
 
         # Guarded rather than assumed: an empty read, or a table of zeros, would agree with anything.
         assert set(rows) == {"Anna", "Bodo", "Caro", "Dirk", "Emil", "Frida"}

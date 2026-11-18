@@ -29,10 +29,34 @@ for that tier**:
 
 Two files are named otherwise: `saisons/overview_router.py`, an administrator's router of its
 own for a season's overview, and `system/router.py`, the unguarded probes' (under
-Authorization). A person's file serving two Funktionen holds one `APIRouter` per prefix
-(`spieler/person_router.py`). `app/main.py` mounts them all under the version's prefix,
-`/api/v{API_VERSION}`, so a router's own prefix names only its slice's segment. Each is mounted
-under its slice's tag, which with the handler's name makes the operation's id in `openapi.json`.
+Authorization). A person's file serving two Funktionen holds one `APIRouter` per Funktion
+(`spieler/person_router.py`). `app/main.py` mounts them all under `/api`, so a router's own prefix
+names only its slice's segment. Each is mounted under its slice's tag, which with the handler's
+name makes the operation's id in `openapi.json`.
+
+## Addresses
+
+**Every address is built by one rule**, which `fl_backend/tests/core/test_address_rule.py` holds
+over the mounted routes, so a reader of a log line or a route table meets one shape:
+
+1. `/api`, which carries no version: the one caller is the frontend built from the same commit.
+2. The slice, which is the router's tag: `/teams`.
+3. The records the call is about, each id after its collection's name. The slice's own record
+   follows the slice directly (`/teams/{team_id}`), any other follows the name of its collection
+   (`/aufstellungen/spiele/{spiel_id}/teams/{team_id}`).
+4. `saisons/{saison_id}` last of those records where the address is season-scoped
+   (`/teams/{team_id}/saisons/{saison_id}`), a part of the season's row after it
+   (`/kontakte/{seat}`). In the saisons slice the season is the slice's own record and stands
+   first (`/saisons/{saison_id}/teams/{team_id}`).
+5. The act, in words with no id (`/confirmation/resend`, `/sweep`).
+
+The signed-in person's own record takes `self` in the place of its id (`/spieler/self/saisons`),
+since the session names it. **The tier is marked only where two tiers answer one method at one
+address**, the administration's address then ending in `/admin`
+(`/aufstellungen/spiele/{spiel_id}/teams/{team_id}/admin` beside the seat holder's): FastAPI serves
+one route per method and path, and the first mounted would answer both. An id naming what the call
+addresses is a path segment and a filter of a list a query, as
+[the decisions record](../decisions.md)'s **routing** line requires: a malformed path id answers 404 and a query one 422.
 
 ## Authorization
 

@@ -11,7 +11,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.registrierungen.system_router import sweep_registrierungen
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.transactions import SWEEP_PAGE
 from app.shared.tokens import hash_token
 from tests.app_client import app_client, app_under_test
@@ -284,7 +283,7 @@ async def through_the_app(url: str, path: str, *, auth: Mapping[str, str]) -> tu
         )
 
         async with app_client(url, app=app_under_test(), now=NOW) as http:
-            response = await http.post(f"/api/v{API_VERSION}{path}", json=None, headers=dict(auth))
+            response = await http.post(f"/api{path}", json=None, headers=dict(auth))
 
         return response.status_code, await database[Collection.ACTION_LOG].find({"action": "retention.registrierungen"}).to_list(length=None)
 
@@ -293,7 +292,7 @@ class TestTheSystemTierOverTheWire:
     """On the replica set: the erasure runs in a transaction, which a standalone mongod refuses outright."""
 
     async def test_the_erasure_answers_on_the_system_tier_and_writes_its_row(self, mongo_replica_set_url: str):
-        status, rows = await through_the_app(mongo_replica_set_url, f"/registrierungen/sweep/{SAISON_ID}", auth=SYSTEM_AUTH)
+        status, rows = await through_the_app(mongo_replica_set_url, f"/registrierungen/saisons/{SAISON_ID}/sweep", auth=SYSTEM_AUTH)
 
         assert status == 200
         assert [(row["by"], row["label"], row["count"]) for row in rows] == [("system", SAISON_ID, 1)]
@@ -302,7 +301,7 @@ class TestTheSystemTierOverTheWire:
     async def test_neither_other_key_reaches_it(self, mongo_replica_set_url: str, auth: Mapping[str, str]):
         """The other two keys are refused as the wrong credential before any body is read, so nothing is erased."""
 
-        status, rows = await through_the_app(mongo_replica_set_url, f"/registrierungen/sweep/{SAISON_ID}", auth=auth)
+        status, rows = await through_the_app(mongo_replica_set_url, f"/registrierungen/saisons/{SAISON_ID}/sweep", auth=auth)
 
         assert status == 401
         assert rows == []

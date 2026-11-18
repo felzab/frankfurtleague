@@ -18,7 +18,7 @@ import type { FLRefusedField } from "./generated/client/types";
 export const FETCH_TIMEOUT_MS = 15000;
 
 /** The path every endpoint is spelled under, as the contract writes it into each of its paths. */
-export const BASE_FETCH_PATH = "/api/v0";
+export const BASE_FETCH_PATH = "/api";
 
 /** Whether the URL parser left an endpoint's path as the call site spelled it. */
 function isPathAsSpelled(endpoint: string, builtPathname: string, basePathname: string): boolean {

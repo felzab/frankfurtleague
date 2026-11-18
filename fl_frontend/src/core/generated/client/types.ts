@@ -4296,6 +4296,19 @@ export interface FLReplaceSaisonTeamResponse {
 }
 
 /**
+ * Why each of the editor's season acts would be refused if pressed now, judged by its write's own rules; null where it takes it.
+ *
+ * `activate` and `undraw` are their writes' whole judgement, and `create` and `recreate` the draw's judgement of the
+ * stored rules over the clubs entered, `recreate` then the reports it would delete.
+ */
+export interface FLSaisonActRefusals {
+  activate: Code | null;
+  create: Code | null;
+  recreate: Code | null;
+  undraw: Code | null;
+}
+
+/**
  * When the league accepts applications for this season: while today lies between `start` and `end`, both included.
  *
  * `open` pauses the form alone, its dates untouched and the applications already received staying in triage.
@@ -4320,33 +4333,6 @@ export interface FLSaisonPhaseSchedule {
   spiele_per_spieltag: number;
   /** @minimum 0 */
   spieltage: number;
-}
-
-export interface FLSaison {
-  bewerbung: FLSaisonBewerbung | null;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  end_date: string;
-  id: string;
-  registrierung: FLSaisonRegistrierung | null;
-  rules: FLSaisonRules;
-  schedule: FLSaisonPhaseSchedule[];
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  start_date: string;
-  status: FLSaisonStatus;
-  version: number;
-}
-
-/**
- * Why each of the editor's season acts would be refused if pressed now, judged by its write's own rules; null where it takes it.
- *
- * `activate` and `undraw` are their writes' whole judgement, and `create` and `recreate` the draw's judgement of the
- * stored rules over the clubs entered, `recreate` then the reports it would delete.
- */
-export interface FLSaisonActRefusals {
-  activate: Code | null;
-  create: Code | null;
-  recreate: Code | null;
-  undraw: Code | null;
 }
 
 /**
@@ -4516,11 +4502,6 @@ export interface FLSaisonsAdminListResponse {
   next_saison_id: string;
   refusals: FLSaisonsAdminRefusals;
   saisons: FLSaisonAdminListed[];
-}
-
-export interface FLSaisonsSingleResponse {
-  format: "single";
-  saison: FLSaison;
 }
 
 /**
@@ -5286,10 +5267,6 @@ export interface FLSpieleAdminSingleResponse {
   teams: FLSpielEditorTeam[] | null;
 }
 
-export interface FLSpieleSingleResponse {
-  spiel: FLSpielJoined;
-}
-
 /**
  * One matchday as the administrator's Spiele list shows it, its matches in the admin shape.
  */
@@ -5463,16 +5440,6 @@ export interface FLSpielerSaisonSelfResponse {
   spiele: FLSpielerSaisonSelfSpiel[];
 }
 
-/**
- * One player as an anonymous visitor may read them, the surname an initial and no squad field of any season.
- */
-export interface FLSpielerSingleResponse {
-  first_name: string | null;
-  last_name: string | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spieler_id: string;
-}
-
 export interface FLSpielort {
   address: FLAddress;
   /** @minimum 0 */
@@ -5504,24 +5471,6 @@ export interface FLSpielorteSingleResponse {
 export interface FLSpielplanResponse {
   current_spieltag_id: string | null;
   spieltage: FLSpielplanSpieltag[];
-}
-
-export interface FLSpieltag {
-  /** @minimum 0 */
-  count_spiele: number;
-  end: string | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-  /** @minimum 1 */
-  position: number;
-  /**
-   * @minLength 4
-   * @maxLength 4
-   */
-  saison_id: string;
-  saison_phase: FLSaisonPhase;
-  start: string | null;
-  version: number;
 }
 
 /**
@@ -5559,10 +5508,6 @@ export interface FLSpieltagWriteResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieltag_id: string;
   version: number;
-}
-
-export interface FLSpieltageSingleResponse {
-  spieltag: FLSpieltag;
 }
 
 /**
@@ -5710,26 +5655,6 @@ export interface FLTabelleResponse {
   gruppen: FLTabelle;
   /** @exclusiveMinimum 0 */
   qualifiers_per_gruppe: number;
-}
-
-export interface FLTeam {
-  address: FLAddress;
-  austritt: FLAustritt | null;
-  /** @maxLength 4096 */
-  description: string;
-  /** @minLength 1 */
-  full_name: string;
-  gruppe: FLGruppenNames;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-  inactive_since: string | null;
-  /** @minLength 1 */
-  name: string;
-  schulform: FLSchulform | null;
-  /** @pattern ^[A-Z]{3}$ */
-  shorthand: string;
-  statistik: FLTeamStatistik;
-  website_url: string | null;
 }
 
 /**
@@ -6076,14 +6001,6 @@ export interface FLTeamsAdminListResponse {
 }
 
 /**
- * One team, from `GET /teams/{team_id}`.
- */
-export interface FLTeamsSingleResponse {
-  format: "single";
-  team: FLTeam;
-}
-
-/**
  * The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.
  */
 export interface FLTokenPayload {
@@ -6237,15 +6154,3 @@ export type TeamsGetTeamsAdminParams = {
   gruppe?: FLGruppenNames | null;
   state?: FLTeamListState | null;
 };
-
-export type TeamsGetTeamParams = {
-  saison_id?: string | null;
-  statistik_scope?: TeamsGetTeamStatistikScope;
-};
-
-export type TeamsGetTeamStatistikScope = (typeof TeamsGetTeamStatistikScope)[keyof typeof TeamsGetTeamStatistikScope];
-
-export const TeamsGetTeamStatistikScope = {
-  gruppenphase: "gruppenphase",
-  total: "total",
-} as const;

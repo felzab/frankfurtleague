@@ -10,7 +10,7 @@ from app.api.spieler.schemas import FLSpielerRolle
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from app.shared.einwilligung import NAME_IS_PUBLIC, is_confirmed
+from app.shared.einwilligung import NAME_IS_PUBLIC
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId
 
@@ -30,62 +30,12 @@ PUBLIC_LAST_NAME: Mapping[str, Any] = {
     }
 }
 
-
-def public_initial(last_name: str | None) -> str | None:
-    """The surname's initial where a `find` serves the read and no aggregation runs.
-
-    `PUBLIC_LAST_NAME` above is the same rule as a Mongo expression. Slicing is by code point, as
-    `$substrCP` is.
-    """
-
-    # By type, as `PUBLIC_LAST_NAME`'s `$type` test is, and not by `is None`: the two are stated as one
-    # rule, so anything the aggregation answers `None` for has to answer `None` here rather than raise.
-    if not isinstance(last_name, str):
-        return None
-
-    return f"{last_name[:1]}."
-
-
-def name_is_public(einwilligung: Mapping[str, Any] | None) -> bool:
-    """Whether a base-tier read may serve this person's name at all.
-
-    Fails closed, so an absent record, a scope no enum holds and an unconfirmed one each withhold.
-    """
-
-    if einwilligung is None:
-        return False
-
-    # Both, never the scope alone: publication rests on the person's own confirmation, so a name is
-    # withheld unless the stamp reads as one.
-    return einwilligung.get("scope") == "kader_public" and is_confirmed(einwilligung)
-
-
 # The two name fields alone: what a read serves beside a withheld name is that read's to withhold. The
 # record is read here and projected nowhere.
 PUBLIC_PERSON: Mapping[str, Any] = {
     "first_name": {"$cond": {"if": NAME_IS_PUBLIC, "then": "$first_name", "else": None}},
     "last_name": {"$cond": {"if": NAME_IS_PUBLIC, "then": PUBLIC_LAST_NAME, "else": None}},
 }
-
-
-class PublicPerson(NamedTuple):
-    """The two name fields as the base tier serves them."""
-
-    first_name: str | None
-    last_name: str | None
-
-
-def public_person(*, first_name: str | None, last_name: str | None, einwilligung: Mapping[str, Any] | None) -> PublicPerson:
-    """`PUBLIC_PERSON` above where a `find` serves the read and no aggregation runs.
-
-    A name handed over as null is served as null: the predicate decides publication and never
-    whether a name is there to publish.
-    """
-
-    if not name_is_public(einwilligung):
-        return PublicPerson(first_name=None, last_name=None)
-
-    return PublicPerson(first_name=first_name, last_name=public_initial(last_name))
 
 
 # The key a nameless row sorts by, true where the join withheld the name, so those rows come after the named ones.

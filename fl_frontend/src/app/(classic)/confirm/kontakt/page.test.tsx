@@ -17,7 +17,7 @@ const carriesToken = (body: unknown) => typeof body === "object" && body !== nul
 
 // The link's one read, for its own token alone: any other request goes unanswered, which fails the case.
 serveBackend(({ method, path, body }) =>
-  method === "POST" && path === "/bewerbungen/einwilligung/view" && carriesToken(body) ? view : undefined,
+  method === "POST" && path === "/bewerbungen/confirmation/view" && carriesToken(body) ? view : undefined,
 );
 // The read runs under the trace the edge sent, read off `next/headers`, which answers only inside Next's request.
 doubleNextRequest();

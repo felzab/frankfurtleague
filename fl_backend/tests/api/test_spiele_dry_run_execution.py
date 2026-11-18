@@ -20,7 +20,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.spiele.schemas import FLPatchSpielDataPayload
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from tests import documents
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_AUTH, grants_for_the_suite
@@ -146,7 +145,7 @@ async def previewed(url: str, body: dict[str, Any]) -> Response:
 
     async with app_client(url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
         return await http.patch(
-            f"/api/v{API_VERSION}/spiele/{VIERTELFINALE}",
+            f"/api/spiele/{VIERTELFINALE}",
             params={"dry_run": "true", "adopts_bericht": BERICHT_VERSION},
             json=body,
             headers=ADMIN_AUTH,

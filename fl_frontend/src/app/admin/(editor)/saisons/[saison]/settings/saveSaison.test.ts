@@ -39,7 +39,7 @@ const state = { sent: [] as unknown[], saison: null as unknown };
 // The backend answers the editor's read with the stored season and the write with its new version, so the save runs
 // through the real guard, read, generated call and dispatch.
 serveBackend(({ method, path, body }) => {
-  if (method === "GET" && path === "/saisons/2027/admin") return { saison: state.saison };
+  if (method === "GET" && path === "/saisons/2027") return { saison: state.saison };
   if (method === "PATCH" && path === "/saisons/2027") {
     state.sent.push(body);
     return { version: 4 };

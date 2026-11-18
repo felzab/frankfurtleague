@@ -21,7 +21,6 @@ from app.api.spieler.person_router import patch_kader_row
 from app.api.spieler.schemas import FLPatchKaderRowPayload
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.shared.schemas.literals import KONTAKT_SEATS
 from tests.acts import acts_of
 from tests.app_client import app_client, app_under_test
@@ -76,7 +75,7 @@ B_ANSPRECH = "b.ansprech.kader@schule.example.org"
 SEAT_PHONE = "+49 69 90009199"
 PUPIL_EMAIL_DOMAIN = "pupil.example.net"
 
-KADER_PATH = f"/api/v{API_VERSION}/spieler/kader"
+SPIELER_PATH = "/api/spieler"
 
 PAYLOAD: Mapping[str, Any] = {"nummer": "11", "position": "Tor", "stufe": "Q1", "rolle": None, "version": 0}
 
@@ -167,11 +166,11 @@ def as_person(email: str) -> StampedHeaders:
 
 
 def kader_url(team_id: ObjectId = TEAM_A, saison_id: str = ACTIVE_SAISON) -> str:
-    return f"{KADER_PATH}/{team_id}/{saison_id}"
+    return f"{SPIELER_PATH}/teams/{team_id}/saisons/{saison_id}"
 
 
 def row_url(spieler_id: ObjectId, team_id: ObjectId = TEAM_A, saison_id: str = ACTIVE_SAISON) -> str:
-    return f"{kader_url(team_id, saison_id)}/{spieler_id}"
+    return f"{SPIELER_PATH}/{spieler_id}/teams/{team_id}/saisons/{saison_id}"
 
 
 async def send(url: str, method: str, path: str, email: str, body: Mapping[str, Any] | None = None) -> Response:

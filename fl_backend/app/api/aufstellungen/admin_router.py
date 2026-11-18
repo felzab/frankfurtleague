@@ -25,7 +25,9 @@ router = APIRouter(
     dependencies=ADMIN_TIER,
 )
 
-AUFSTELLUNG_PATH = f"{by_id('spiel_id')}{by_id('team_id')}"
+# `/admin`, its own segment: the seat holder's router serves the same line-up at the bare path, and one path in both
+# routers would be answered by whichever was mounted first.
+AUFSTELLUNG_PATH = f"/spiele{by_id('spiel_id')}/teams{by_id('team_id')}/admin"
 
 
 @router.get(AUFSTELLUNG_PATH, summary="One club's line-up for one fixture as an administrator reads it")

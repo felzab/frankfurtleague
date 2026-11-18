@@ -202,8 +202,8 @@ REFEREE_STATES = [
 
 # The two base-tier reads listing a season's fixtures, each with the fields its answer holds beside the matchdays.
 SCHEDULE_READS = [
-    pytest.param("/api/v0/saisons/{saison_id}/spielplan", {"current_spieltag_id": None}, id="Spielplan"),
-    pytest.param("/api/v0/saisons/{saison_id}/ko_runde", {}, id="K.-o.-Runde"),
+    pytest.param("/api/saisons/{saison_id}/spielplan", {"current_spieltag_id": None}, id="Spielplan"),
+    pytest.param("/api/saisons/{saison_id}/ko_runde", {}, id="K.-o.-Runde"),
 ]
 
 
@@ -262,7 +262,7 @@ class TestTheSpielShapes:
         assert set(FLSpielJoined.model_fields) == BASE_TIER_SPIEL_FIELDS
 
     def test_the_base_tier_spiel_drops_the_reason_and_the_day(self):
-        """`FLSpielJoined` is what the Spielplan and `GET /spiele/{spiel_id}` answer with, and Pydantic ignores an undeclared key."""
+        """`FLSpielJoined` is what the Spielplan and a match's page answer with, and Pydantic ignores an undeclared key."""
 
         dumped = FLSpielJoined.model_validate(joined_document()).model_dump()
 

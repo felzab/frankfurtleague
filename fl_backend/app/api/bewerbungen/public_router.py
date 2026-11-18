@@ -127,7 +127,7 @@ SUBMITTED = "submitted"
 WINDOW_PROJECTION = ["bewerbung", "status"]
 
 
-@router.get("/form/{saison_id}", summary="What one Saison's application form shows")
+@router.get("/saisons/{saison_id}/form", summary="What one Saison's application form shows")
 async def get_form(saison_id: str, saisons_collection: SaisonsReadCollection, today: GermanDay) -> FLBewerbungFormResponse:
     """A season's application window, and while it runs the clubs a school may apply as and the colours taken.
 
@@ -370,11 +370,11 @@ async def _saison_view(
 
 # A POST that reads, so the token travels in the body.
 @router.post(
-    "/einwilligung/view",
+    "/confirmation/view",
     summary="What one confirmation link opens",
     openapi_extra=SAFE,
 )
-async def get_einwilligung_view(
+async def get_confirmation_view(
     view_data: FLTokenPayload,
     bewerbungen_collection: BewerbungenReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
@@ -430,11 +430,11 @@ async def get_einwilligung_view(
 
 
 @router.post(
-    "/einwilligung",
+    "/confirmation",
     response_model=FLEinwilligungAnswerResponse,
     summary="Confirm or decline one seat of a Bewerbung or of a team's season row",
 )
-async def post_einwilligung(
+async def post_confirmation(
     answer_data: FLBewerbungEinwilligungAnswerPayload,
     bewerbungen_collection: BewerbungenCollection,
     saison_teams_collection: SaisonTeamsCollection,

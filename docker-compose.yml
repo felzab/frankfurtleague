@@ -113,9 +113,7 @@ services:
     healthcheck:
       # `/system/is_live` is the one probe that needs no key, and it deliberately does not touch
       # MongoDB — a liveness check that needs the database fails for reasons a restart cannot fix.
-      # The API version in its path is typed here rather than read from the backend's
-      # `API_VERSION`, so a bump of that constant moves it by hand.
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v0/system/is_live', timeout=10)"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/system/is_live', timeout=10)"]
       interval: 30s
       timeout: 10s
       retries: 3

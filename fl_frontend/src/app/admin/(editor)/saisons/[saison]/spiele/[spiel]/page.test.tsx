@@ -56,7 +56,7 @@ let served = VIEW;
 
 // The page's one read, the editor's whole view of the match its address names, through the real guard, query and
 // generated call.
-serveBackend(({ method, path }) => (method === "GET" && path === `/spiele/${SPIEL_ID}/admin` ? served : undefined));
+serveBackend(({ method, path }) => (method === "GET" && path === `/spiele/${SPIEL_ID}` ? served : undefined));
 // An administrator's session, made by passkey, which the read's guard admits.
 signedInRequest();
 

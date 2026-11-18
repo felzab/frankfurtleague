@@ -24,7 +24,7 @@ SLICE_GUARDS: set[Callable[..., Any]] = {verify_access_base, verify_access_admin
 
 # `/system/is_live` is the container healthcheck and `/system/is_ready` a monitor's: a probe that needs
 # a secret fails for the wrong reasons (`app/core/security.py`).
-UNGUARDED_BY_DESIGN = frozenset({"/api/v0/system/is_live", "/api/v0/system/is_ready"})
+UNGUARDED_BY_DESIGN = frozenset({"/api/system/is_live", "/api/system/is_ready"})
 
 # FastAPI drops the convertor when it builds the document (`app/core/routing.py`), so
 # `{spiel_id:objectid}` publishes as `{spiel_id}` and the two spellings need bringing together.
@@ -65,56 +65,56 @@ PUBLISHED_OPERATIONS = sorted(
 # `POST /bewerbungen` is the public application form, base-tier because an anonymous visitor holds
 # no other key. The two cases below assert what takes the guard's place.
 PUBLIC_WRITES = [
-    ("/api/v0/bewerbungen", "post"),
-    ("/api/v0/bewerbungen/einwilligung/view", "post"),
-    ("/api/v0/bewerbungen/einwilligung", "post"),
+    ("/api/bewerbungen", "post"),
+    ("/api/bewerbungen/confirmation/view", "post"),
+    ("/api/bewerbungen/confirmation", "post"),
     # A referee's own confirmation link, on a base-tier router under an otherwise admin-tier prefix:
     # the token is the whole credential, so the guard here would have no session to check.
-    ("/api/v0/schiedsrichter/confirmation/view", "post"),
-    ("/api/v0/schiedsrichter/confirmation", "post"),
-    ("/api/v0/schiedsrichter/confirmation/decline", "post"),
+    ("/api/schiedsrichter/confirmation/view", "post"),
+    ("/api/schiedsrichter/confirmation", "post"),
+    ("/api/schiedsrichter/confirmation/decline", "post"),
     # The address change's links, the new mailbox's and the stop link, on a base-tier router of their own for the same reason.
-    ("/api/v0/address_change/confirmation/view", "post"),
-    ("/api/v0/address_change/confirmation", "post"),
-    ("/api/v0/address_change/confirmation/stop", "post"),
+    ("/api/address_change/confirmation/view", "post"),
+    ("/api/address_change/confirmation", "post"),
+    ("/api/address_change/confirmation/stop", "post"),
     # A pupil's own confirmation link, on a third base-tier router under the registration prefix:
     # the token is the whole credential, so the guard here would have no session to check.
-    ("/api/v0/registrierungen/confirmation/view", "post"),
-    ("/api/v0/registrierungen/confirmation", "post"),
+    ("/api/registrierungen/confirmation/view", "post"),
+    ("/api/registrierungen/confirmation", "post"),
     # The invite's own read and the registration it leads to: a pupil holds a link and no session,
     # and the first is a POST because the link value travels in the body.
-    ("/api/v0/registrierungen/invitation/view", "post"),
-    ("/api/v0/registrierungen", "post"),
+    ("/api/registrierungen/invitation/view", "post"),
+    ("/api/registrierungen", "post"),
 ]
 
 # The retention sweep's writes, made by the application to itself on the SYSTEM key: no session
 # and no person, so the admin guard would have nothing to check and `bind_actor` would refuse.
 SYSTEM_WRITES = [
-    ("/api/v0/bewerbungen/sweep/{saison_id}", "post"),
-    ("/api/v0/registrierungen/sweep/{saison_id}", "post"),
-    ("/api/v0/spielbestaetigungen/sweep/{saison_id}", "post"),
+    ("/api/bewerbungen/saisons/{saison_id}/sweep", "post"),
+    ("/api/registrierungen/saisons/{saison_id}/sweep", "post"),
+    ("/api/spielbestaetigungen/saisons/{saison_id}/sweep", "post"),
     # A POST that stores nothing: the address travels in a body, so `MUTATIONS` would cover it, and
     # this exemption leaves its one guard the system tier's.
-    ("/api/v0/identity/subject", "post"),
-    ("/api/v0/identity/sign_in", "post"),
-    ("/api/v0/identity/references", "post"),
+    ("/api/identity/subject", "post"),
+    ("/api/identity/sign_in", "post"),
+    ("/api/identity/references", "post"),
     # The grants' comparison: the hourly pass holds no session, and a change made in the database directly has no
     # administrator to attribute it to.
-    ("/api/v0/grants/handover", "post"),
+    ("/api/grants/handover", "post"),
     # The season-after rule, the lapsed address's clock and the unconfirmed referee's, whichever caller runs them: a
     # timer holds no session, and an activation's press deletes nobody in the administrator's name.
-    ("/api/v0/identity/erasure/sweep", "post"),
-    ("/api/v0/address_change/sweep", "post"),
-    ("/api/v0/schiedsrichter/sweep", "post"),
+    ("/api/identity/erasure/sweep", "post"),
+    ("/api/address_change/sweep", "post"),
+    ("/api/schiedsrichter/sweep", "post"),
     # The sign-in accounts the address changes still owe to carry, reported carried by the frontend, which holds the store.
-    ("/api/v0/address_change/sweep/moves/done", "post"),
+    ("/api/address_change/sweep/moves/done", "post"),
     # The Postausgang's drain, the sign-in library's mails and the provider's events: none holds a session.
-    ("/api/v0/outbox/handout", "post"),
-    ("/api/v0/outbox/result", "post"),
-    ("/api/v0/outbox/sign_in", "post"),
-    ("/api/v0/outbox/event", "post"),
+    ("/api/outbox/handout", "post"),
+    ("/api/outbox/result", "post"),
+    ("/api/outbox/sign_in", "post"),
+    ("/api/outbox/event", "post"),
     # A POST storing nothing, exempt for the identity reads' reason: the frontend's server asks a live change's new address.
-    ("/api/v0/address_change/address", "post"),
+    ("/api/address_change/address", "post"),
 ]
 
 MUTATIONS = [
@@ -147,8 +147,8 @@ def requested(path: str) -> str:
 def test_every_operation_is_answered_by_its_own_route():
     """Matched as Starlette matches, the first route in mount order taking the path and the method.
 
-    What every guard case here assumes: a literal segment such as `/spieler/self/saisons` reaching a
-    route mounted earlier, `/spieler/self/{saison_id}`, would be served under that route's guard.
+    What every guard case here assumes: a literal segment such as `/saisons/frame` reaching a route
+    mounted earlier, `/saisons/{saison_id}`, would be served under that route's guard.
     Not parametrised, so one failure names every shadowed operation at once.
     """
 
@@ -187,35 +187,35 @@ def test_every_operation_carries_exactly_one_guard(path: str, method: str):
 # is a person no grant names: the one exemption from the check below, by name.
 PERSON_OPERATIONS: frozenset[tuple[str, str]] = frozenset(
     {
-        ("/api/v0/spieler/kader/{team_id}/{saison_id}", "get"),
-        ("/api/v0/spieler/kader/{team_id}/{saison_id}/{spieler_id}", "patch"),
-        ("/api/v0/spieler/kader/{team_id}/{saison_id}/{spieler_id}", "delete"),
-        ("/api/v0/registrierungen/kader/{team_id}/{saison_id}", "get"),
-        ("/api/v0/registrierungen/{registrierung_id}/admit", "post"),
-        ("/api/v0/registrierungen/{registrierung_id}/decline", "post"),
-        ("/api/v0/teams/{team_id}/saisons/{saison_id}/self/overview", "get"),
-        ("/api/v0/teams/{team_id}/saisons/{saison_id}/self/spiele", "get"),
-        ("/api/v0/aufstellungen/{spiel_id}/{team_id}/self", "get"),
-        ("/api/v0/aufstellungen/{spiel_id}/{team_id}/self", "put"),
-        ("/api/v0/spieler/self/saisons", "get"),
-        ("/api/v0/spieler/self/{saison_id}", "get"),
-        ("/api/v0/spieler/account/einwilligung", "patch"),
-        ("/api/v0/schiedsrichter/self/saisons", "get"),
-        ("/api/v0/schiedsrichter/self/spiele/{saison_id}", "get"),
-        ("/api/v0/schiedsrichter/account/{schiedsrichter_id}/einwilligung", "patch"),
-        ("/api/v0/account/einwilligungen", "get"),
-        ("/api/v0/teams/{team_id}/saisons/{saison_id}/account/einwilligung", "patch"),
-        ("/api/v0/bewerbungen/{bewerbung_id}/account/einwilligung", "patch"),
-        ("/api/v0/registrierungen/account/{registrierung_id}/einwilligung", "patch"),
-        ("/api/v0/identity/account/erasure", "post"),
-        ("/api/v0/identity/account/erasure/view", "get"),
-        ("/api/v0/spielbestaetigungen/{spielbestaetigung_id}/answer", "post"),
-        ("/api/v0/spielbestaetigungen/{spielbestaetigung_id}/answer/team", "post"),
-        ("/api/v0/spielberichte/{spiel_id}/bericht", "get"),
-        ("/api/v0/spielberichte/{spiel_id}/bericht", "put"),
-        ("/api/v0/account/address_change", "get"),
-        ("/api/v0/account/address_change", "post"),
-        ("/api/v0/account/address_change", "delete"),
+        ("/api/spieler/teams/{team_id}/saisons/{saison_id}", "get"),
+        ("/api/spieler/{spieler_id}/teams/{team_id}/saisons/{saison_id}", "patch"),
+        ("/api/spieler/{spieler_id}/teams/{team_id}/saisons/{saison_id}", "delete"),
+        ("/api/registrierungen/teams/{team_id}/saisons/{saison_id}", "get"),
+        ("/api/registrierungen/{registrierung_id}/admit", "post"),
+        ("/api/registrierungen/{registrierung_id}/decline", "post"),
+        ("/api/teams/{team_id}/saisons/{saison_id}/overview", "get"),
+        ("/api/teams/{team_id}/saisons/{saison_id}/spiele", "get"),
+        ("/api/aufstellungen/spiele/{spiel_id}/teams/{team_id}", "get"),
+        ("/api/aufstellungen/spiele/{spiel_id}/teams/{team_id}", "put"),
+        ("/api/spieler/self/saisons", "get"),
+        ("/api/spieler/self/saisons/{saison_id}", "get"),
+        ("/api/spieler/self/einwilligung", "patch"),
+        ("/api/schiedsrichter/self/saisons", "get"),
+        ("/api/schiedsrichter/self/saisons/{saison_id}/spiele", "get"),
+        ("/api/schiedsrichter/{schiedsrichter_id}/einwilligung", "patch"),
+        ("/api/account/einwilligungen", "get"),
+        ("/api/teams/{team_id}/saisons/{saison_id}/einwilligung", "patch"),
+        ("/api/bewerbungen/{bewerbung_id}/einwilligung", "patch"),
+        ("/api/registrierungen/{registrierung_id}/einwilligung", "patch"),
+        ("/api/identity/self/erasure", "post"),
+        ("/api/identity/self/erasure/view", "get"),
+        ("/api/spielbestaetigungen/{spielbestaetigung_id}/answer", "post"),
+        ("/api/spielbestaetigungen/{spielbestaetigung_id}/answer/team", "post"),
+        ("/api/spielberichte/spiele/{spiel_id}", "get"),
+        ("/api/spielberichte/spiele/{spiel_id}", "put"),
+        ("/api/account/address_change", "get"),
+        ("/api/account/address_change", "post"),
+        ("/api/account/address_change", "delete"),
     }
 )
 
@@ -291,32 +291,27 @@ def test_a_public_write_is_unreachable_without_the_base_key():
 # the rule keeps a `future` season off the base one, and the seasons taking
 # applications are exactly those.
 SYSTEM_READS = [
-    ("/api/v0/bewerbungen/sweep", "get"),
+    ("/api/bewerbungen/sweep", "get"),
     # The confirmation pass's own bookkeeping, asked by the timer running it and by no page: the
     # seasons it lists are `active`, which the base tier serves, so the rule is not its reason.
-    ("/api/v0/spielbestaetigungen/sweep", "get"),
+    ("/api/spielbestaetigungen/sweep", "get"),
     # Read by the frontend's server alone: each owed carry names two addresses.
-    ("/api/v0/address_change/sweep/moves", "get"),
+    ("/api/address_change/sweep/moves", "get"),
 ]
 
 
 # The reads a visitor's page makes, which are therefore NOT admin-guarded: enumerated as the public
 # writes are, since nothing about a GET tells which tier it belongs to.
 BASE_READS = [
-    ("/api/v0/bewerbungen/form/{saison_id}", "get"),
-    ("/api/v0/saisons/frame", "get"),
-    ("/api/v0/saisons/landing", "get"),
-    ("/api/v0/saisons/{saison_id}", "get"),
-    ("/api/v0/saisons/{saison_id}/ko_runde", "get"),
-    ("/api/v0/saisons/{saison_id}/spiele/{spiel_id}", "get"),
-    ("/api/v0/saisons/{saison_id}/spielplan", "get"),
-    ("/api/v0/saisons/{saison_id}/tabelle", "get"),
-    ("/api/v0/saisons/{saison_id}/teams", "get"),
-    ("/api/v0/saisons/{saison_id}/teams/{team_id}", "get"),
-    ("/api/v0/spiele/{spiel_id}", "get"),
-    ("/api/v0/spieler/{spieler_id}", "get"),
-    ("/api/v0/spieltage/{spieltag_id}", "get"),
-    ("/api/v0/teams/{team_id}", "get"),
+    ("/api/bewerbungen/saisons/{saison_id}/form", "get"),
+    ("/api/saisons/frame", "get"),
+    ("/api/saisons/landing", "get"),
+    ("/api/saisons/{saison_id}/ko_runde", "get"),
+    ("/api/saisons/{saison_id}/spiele/{spiel_id}", "get"),
+    ("/api/saisons/{saison_id}/spielplan", "get"),
+    ("/api/saisons/{saison_id}/tabelle", "get"),
+    ("/api/saisons/{saison_id}/teams", "get"),
+    ("/api/saisons/{saison_id}/teams/{team_id}", "get"),
 ]
 
 

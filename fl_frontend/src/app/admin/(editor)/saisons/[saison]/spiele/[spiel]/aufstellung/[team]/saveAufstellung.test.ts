@@ -58,7 +58,7 @@ beforeEach(() => {
 });
 
 /** The one address the save's merge read and its write share: the line-up of the match and club it names. */
-const ENDPOINT = `/aufstellungen/${SPIEL}/${TEAM}`;
+const ENDPOINT = `/aufstellungen/spiele/${SPIEL}/teams/${TEAM}/admin`;
 
 // Answered by method and path alone, so a read or a write of another match's or club's line-up is unanswered and
 // fails the case.
@@ -85,9 +85,9 @@ describe("the league's save of a line-up", () => {
 
     expect(calls.map(({ path, method, body }) => ({ endpoint: path, method, body: body ?? null }))).toStrictEqual([
       // The merge reads the line-up of the same match and club it writes.
-      { endpoint: `/aufstellungen/${SPIEL}/${TEAM}`, method: "GET", body: null },
+      { endpoint: `/aufstellungen/spiele/${SPIEL}/teams/${TEAM}/admin`, method: "GET", body: null },
       {
-        endpoint: `/aufstellungen/${SPIEL}/${TEAM}`,
+        endpoint: `/aufstellungen/spiele/${SPIEL}/teams/${TEAM}/admin`,
         method: "PUT",
         // In shirt-number order, on the version the editor read.
         body: {

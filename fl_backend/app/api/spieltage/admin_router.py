@@ -43,10 +43,8 @@ router = APIRouter(
 )
 
 
-# A static suffix rather than a second `GET /{spieltag_id}`, as the Spiel editor's read has: the
-# public router owns that path at this same prefix, so whichever router registered first would answer both.
 @router.get(
-    f"{by_id('spieltag_id')}/admin",
+    by_id("spieltag_id"),
     summary="One Spieltag for the admin editor",
 )
 async def get_spieltag_admin(

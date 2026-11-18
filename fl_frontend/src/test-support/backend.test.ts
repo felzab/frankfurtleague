@@ -10,7 +10,7 @@ import { BACKEND_ORIGIN, networkFailure, serveBackend, serveHost } from "@/test-
 import { caseFailures } from "@/test-support/caseFailures";
 
 /** The backend's own address for `path`, as the real client spells one. */
-const endpoint = (path: string): string => `${BACKEND_ORIGIN}/api/v0${path}`;
+const endpoint = (path: string): string => `${BACKEND_ORIGIN}/api${path}`;
 
 /** A host that cannot resolve (RFC 2606's `.invalid`): a request sent for real fails on its name, never on a server. */
 const NOWHERE = "https://nowhere.invalid";

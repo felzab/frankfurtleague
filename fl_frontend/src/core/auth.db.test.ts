@@ -146,7 +146,7 @@ const { sent } = registerAuthDoubles({
 let gateAnswer: Pick<LookupFixture, "seats" | "barred" | "account"> = { seats: [], barred: false, account: false };
 
 /** The path a person's own erasure posts to, which the library's hook asks before it deletes the account. */
-const ERASURE_PATH = "/api/v0/identity/account/erasure";
+const ERASURE_PATH = "/api/identity/self/erasure";
 
 /** How many erasures the backend has been asked for. */
 let erasuresAsked = 0;
@@ -154,7 +154,7 @@ let erasuresAsked = 0;
 // The backend alone: a request to any other host fails its case.
 serveBackend(({ path: endpoint, body }) => {
   // Under the base path the client sends it on, as the cases spell every path they compare.
-  const path = `/api/v0${endpoint}`;
+  const path = `/api${endpoint}`;
   if (path === ERASURE_PATH) {
     erasuresAsked += 1;
     return new Response(null, { status: 204 });

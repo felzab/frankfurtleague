@@ -40,7 +40,7 @@ from app.core.transactions import transact
 
 # No Funktion asked: a person erases themselves holding none at all.
 router = APIRouter(
-    prefix="/identity/account",
+    prefix="/identity/self",
     dependencies=PERSON_TIER,
 )
 
@@ -126,7 +126,7 @@ async def get_account_erasure_view(
     grants_collection: GrantsReadCollection,
     session: SnapshotSession,
 ) -> FLAccountErasureViewResponse:
-    """What `POST /identity/account/erasure` would remove or empty for the signed-in address, by kind and by name, and nothing else.
+    """What `POST /identity/self/erasure` would remove or empty for the signed-in address, by kind and by name, and nothing else.
 
     Another address's pending change naming this one is counted and not named once its link has reached this mailbox,
     since its records are not this address's until it takes effect.

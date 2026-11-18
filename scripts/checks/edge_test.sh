@@ -598,7 +598,7 @@ for (( _n = 0; _n <= AUTH_BURST + 10; _n++ )); do
   action_request auth-flood "${PROD_BASE}/api/auth/probe"
 done
 spent_request auth-landing -H "Accept: ${NAVIGATION_ACCEPT}" "${PROD_BASE}/signin/continue"
-spent_request auth-ready "${PROD_BASE}/api/v0/system/is_ready"
+spent_request auth-ready "${PROD_BASE}/api/system/is_ready"
 spent_request auth-code "${PROD_BASE}/api/auth/sign-in/email-otp"
 
 # The link pages' zone, every request it meters a page render or the proxy's redirect into one, with

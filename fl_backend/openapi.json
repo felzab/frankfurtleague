@@ -9887,75 +9887,6 @@
         "title": "FLReplaceSaisonTeamResponse",
         "type": "object"
       },
-      "FLSaison": {
-        "properties": {
-          "bewerbung": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSaisonBewerbung"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "end_date": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "End Date",
-            "type": "string"
-          },
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "registrierung": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSaisonRegistrierung"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "rules": {
-            "$ref": "#/components/schemas/FLSaisonRules"
-          },
-          "schedule": {
-            "items": {
-              "$ref": "#/components/schemas/FLSaisonPhaseSchedule"
-            },
-            "title": "Schedule",
-            "type": "array"
-          },
-          "start_date": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Start Date",
-            "type": "string"
-          },
-          "status": {
-            "$ref": "#/components/schemas/FLSaisonStatus"
-          },
-          "version": {
-            "default": 0,
-            "title": "Version",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "start_date",
-          "end_date",
-          "rules",
-          "bewerbung",
-          "registrierung",
-          "id",
-          "status",
-          "version",
-          "schedule"
-        ],
-        "title": "FLSaison",
-        "type": "object"
-      },
       "FLSaisonActRefusals": {
         "description": "Why each of the editor's season acts would be refused if pressed now, judged by its write's own rules; null where it takes it.\n\n`activate` and `undraw` are their writes' whole judgement, and `create` and `recreate` the draw's judgement of the\nstored rules over the clubs entered, `recreate` then the reports it would delete.",
         "properties": {
@@ -10931,25 +10862,6 @@
           "create"
         ],
         "title": "FLSaisonsAdminRefusals",
-        "type": "object"
-      },
-      "FLSaisonsSingleResponse": {
-        "properties": {
-          "format": {
-            "const": "single",
-            "default": "single",
-            "title": "Format",
-            "type": "string"
-          },
-          "saison": {
-            "$ref": "#/components/schemas/FLSaison"
-          }
-        },
-        "required": [
-          "format",
-          "saison"
-        ],
-        "title": "FLSaisonsSingleResponse",
         "type": "object"
       },
       "FLSchiedsrichter": {
@@ -14816,18 +14728,6 @@
         "title": "FLSpieleAdminSingleResponse",
         "type": "object"
       },
-      "FLSpieleSingleResponse": {
-        "properties": {
-          "spiel": {
-            "$ref": "#/components/schemas/FLSpielJoined"
-          }
-        },
-        "required": [
-          "spiel"
-        ],
-        "title": "FLSpieleSingleResponse",
-        "type": "object"
-      },
       "FLSpieleSpielplanAdminResponse": {
         "description": "A season's matchdays and knockout rounds in playing order, matches in the admin shape, and the one to open on.\n\n`current_spieltag_id` is the Spielplan's own: the first matchday holding a match still to be played, else the last,\nand the last in a finished season; null for a season with no matchday.",
         "properties": {
@@ -15570,45 +15470,6 @@
         "title": "FLSpielerSelfKaderRow",
         "type": "object"
       },
-      "FLSpielerSingleResponse": {
-        "description": "One player as an anonymous visitor may read them, the surname an initial and no squad field of any season.",
-        "properties": {
-          "first_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "First Name"
-          },
-          "last_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Name"
-          },
-          "spieler_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spieler Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "spieler_id",
-          "first_name",
-          "last_name"
-        ],
-        "title": "FLSpielerSingleResponse",
-        "type": "object"
-      },
       "FLSpielerStufe": {
         "enum": [
           "E1",
@@ -16019,75 +15880,6 @@
         "title": "FLSpielplanSpieltagAdmin",
         "type": "object"
       },
-      "FLSpieltag": {
-        "properties": {
-          "count_spiele": {
-            "minimum": 0.0,
-            "title": "Count Spiele",
-            "type": "integer"
-          },
-          "end": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "End"
-          },
-          "id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id",
-            "type": "string"
-          },
-          "position": {
-            "minimum": 1.0,
-            "title": "Position",
-            "type": "integer"
-          },
-          "saison_id": {
-            "maxLength": 4,
-            "minLength": 4,
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "saison_phase": {
-            "$ref": "#/components/schemas/FLSaisonPhase"
-          },
-          "start": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Start"
-          },
-          "version": {
-            "default": 0,
-            "title": "Version",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "id",
-          "start",
-          "end",
-          "position",
-          "saison_phase",
-          "saison_id",
-          "version",
-          "count_spiele"
-        ],
-        "title": "FLSpieltag",
-        "type": "object"
-      },
       "FLSpieltagAdmin": {
         "description": "A matchday as its editor reads it, with how many matchdays its phase holds, by which a page names a round's legs.",
         "properties": {
@@ -16198,18 +15990,6 @@
           "version"
         ],
         "title": "FLSpieltagWriteResponse",
-        "type": "object"
-      },
-      "FLSpieltageSingleResponse": {
-        "properties": {
-          "spieltag": {
-            "$ref": "#/components/schemas/FLSpieltag"
-          }
-        },
-        "required": [
-          "spieltag"
-        ],
-        "title": "FLSpieltageSingleResponse",
         "type": "object"
       },
       "FLSubjectPayload": {
@@ -16536,103 +16316,6 @@
           "platz"
         ],
         "title": "FLTabelleRow",
-        "type": "object"
-      },
-      "FLTeam": {
-        "properties": {
-          "address": {
-            "$ref": "#/components/schemas/FLAddress"
-          },
-          "austritt": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLAustritt"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "description": {
-            "maxLength": 4096,
-            "title": "Description",
-            "type": "string"
-          },
-          "full_name": {
-            "minLength": 1,
-            "title": "Full Name",
-            "type": "string"
-          },
-          "gruppe": {
-            "$ref": "#/components/schemas/FLGruppenNames"
-          },
-          "id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id",
-            "type": "string"
-          },
-          "inactive_since": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Inactive Since"
-          },
-          "name": {
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
-          },
-          "schulform": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSchulform"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "shorthand": {
-            "pattern": "^[A-Z]{3}$",
-            "title": "Shorthand",
-            "type": "string"
-          },
-          "statistik": {
-            "$ref": "#/components/schemas/FLTeamStatistik"
-          },
-          "website_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Website Url"
-          }
-        },
-        "required": [
-          "name",
-          "shorthand",
-          "description",
-          "full_name",
-          "schulform",
-          "website_url",
-          "address",
-          "id",
-          "gruppe",
-          "statistik",
-          "austritt",
-          "inactive_since"
-        ],
-        "title": "FLTeam",
         "type": "object"
       },
       "FLTeamEntryOffer": {
@@ -18079,26 +17762,6 @@
         "title": "FLTeamsAdminRow",
         "type": "object"
       },
-      "FLTeamsSingleResponse": {
-        "description": "One team, from `GET /teams/{team_id}`.",
-        "properties": {
-          "format": {
-            "const": "single",
-            "default": "single",
-            "title": "Format",
-            "type": "string"
-          },
-          "team": {
-            "$ref": "#/components/schemas/FLTeam"
-          }
-        },
-        "required": [
-          "format",
-          "team"
-        ],
-        "title": "FLTeamsSingleResponse",
-        "type": "object"
-      },
       "FLTokenPayload": {
         "additionalProperties": false,
         "description": "The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.",
@@ -18238,7 +17901,7 @@
   },
   "openapi": "3.1.0",
   "paths": {
-    "/api/v0/account/address_change": {
+    "/api/account/address_change": {
       "delete": {
         "description": "Stop the change pending on the signed-in address at any step, its new address going; a holder's change in its wait tells every holder.",
         "operationId": "account_delete_address_change",
@@ -18445,7 +18108,7 @@
         ]
       }
     },
-    "/api/v0/account/einwilligungen": {
+    "/api/account/einwilligungen": {
       "get": {
         "description": "Every confirmed consent record the signed-in address holds, pending applications and registrations as withdraw-only.\n\nAn address holding nothing is answered empty, never refused, and retired and past records are served too, so a\nwithdrawal stays open wherever a consent stands.",
         "operationId": "account_get_einwilligungen",
@@ -18512,7 +18175,7 @@
         ]
       }
     },
-    "/api/v0/action_log/view": {
+    "/api/action_log/view": {
       "post": {
         "description": "The newest 50 acts the filters keep, starting after `cursor` where one is given.",
         "operationId": "action_log_get_action_log",
@@ -18590,7 +18253,7 @@
         "x-safe": true
       }
     },
-    "/api/v0/address_change": {
+    "/api/address_change": {
       "get": {
         "description": "Every running change this administrator may act on, newest first, with its two addresses and the step it waits on.",
         "operationId": "address_change_get_address_changes",
@@ -18732,7 +18395,7 @@
         ]
       }
     },
-    "/api/v0/address_change/address": {
+    "/api/address_change/address": {
       "post": {
         "description": "The new address, folded, of the live change a new-mailbox link token or a change id names.\n\nA token or id naming no live change is answered null rather than refused, so a lapsed or answered link costs no error.",
         "operationId": "address_change_get_address_change_address",
@@ -18810,7 +18473,7 @@
         "x-safe": true
       }
     },
-    "/api/v0/address_change/confirmation": {
+    "/api/address_change/confirmation": {
       "post": {
         "description": "Record whether the mailbox this link was sent to is the person's: `confirmed` confirms it, `declined` ends the change.\n\nThe new mailbox's confirmation moves everything the address holds unless the change waits, as `effective` and\n`effective_from` say; the address on file's confirmation of the person's own change only mails the new mailbox its link.",
         "operationId": "address_change_post_address_change_answer",
@@ -18887,7 +18550,7 @@
         ]
       }
     },
-    "/api/v0/address_change/confirmation/stop": {
+    "/api/address_change/confirmation/stop": {
       "post": {
         "description": "Stop the change the address on file was mailed about, its new address going, at any time until the change ends.\n\nThe person's own change offers this link no stop until its address on file confirmed it.",
         "operationId": "address_change_post_address_change_stop",
@@ -18964,7 +18627,7 @@
         ]
       }
     },
-    "/api/v0/address_change/confirmation/view": {
+    "/api/address_change/confirmation/view": {
       "post": {
         "description": "What this token opens: the new mailbox's link, the link the address on file was mailed, or how either's change ended.\n\nEach side is served in the state its press would meet, and an ended change's links answer for as long as its record\nis kept.",
         "operationId": "address_change_get_address_change_view",
@@ -19042,7 +18705,7 @@
         "x-safe": true
       }
     },
-    "/api/v0/address_change/sweep": {
+    "/api/address_change/sweep": {
       "post": {
         "description": "End a share of the changes whose step lapsed, and make each due one take effect, or end it where its judgement now refuses it.\n\nA pass is a run of calls, each handing the next the `after` the last answered, ending at the call answering `after`\nnull; `remaining` is no stopping condition.",
         "operationId": "address_change_sweep_address_change",
@@ -19128,7 +18791,7 @@
         ]
       }
     },
-    "/api/v0/address_change/sweep/moves": {
+    "/api/address_change/sweep/moves": {
       "get": {
         "description": "The ended changes still owing to carry a sign-in account to their new address, oldest first and a page at a time.\n\nThe caller reports the ones it moved to `POST /address_change/sweep/moves/done`, and the next call lists the rest again.",
         "operationId": "address_change_get_address_change_moves",
@@ -19195,7 +18858,7 @@
         ]
       }
     },
-    "/api/v0/address_change/sweep/moves/done": {
+    "/api/address_change/sweep/moves/done": {
       "post": {
         "description": "Take the owed carry off each named change, counting the ones that owed one; an id owing none is left alone.",
         "operationId": "address_change_post_address_change_moves_done",
@@ -19272,7 +18935,7 @@
         ]
       }
     },
-    "/api/v0/address_change/{address_change_id}": {
+    "/api/address_change/{address_change_id}": {
       "delete": {
         "description": "Discard the change this id names, the address on file staying.\n\nA holder's change in its wait tells every holder, and nobody else is mailed.",
         "operationId": "address_change_delete_address_change",
@@ -19351,10 +19014,10 @@
         ]
       }
     },
-    "/api/v0/address_change/{address_change_id}/invite": {
+    "/api/address_change/{address_change_id}/confirmation/resend": {
       "post": {
         "description": "Mail the new mailbox a fresh link for the change this id names, its deadline restarting now.\n\nThe previous link stops working once the fresh one is handed out, and only a change waiting on the new mailbox has a\nlink to re-send.",
-        "operationId": "address_change_invite_address_change",
+        "operationId": "address_change_resend_confirmation",
         "parameters": [
           {
             "in": "path",
@@ -19430,203 +19093,7 @@
         ]
       }
     },
-    "/api/v0/aufstellungen/{spiel_id}/{team_id}": {
-      "get": {
-        "description": "The line-up screen of one club for one fixture, as the club's own seat holders read it.",
-        "operationId": "aufstellungen_get_aufstellung",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "spiel_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Spiel Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "team_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Team Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLAufstellungResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "One club's line-up for one fixture as an administrator reads it",
-        "tags": [
-          "aufstellungen"
-        ]
-      },
-      "put": {
-        "description": "Save the whole line-up of one club for one fixture at any time, the hour before kick-off included.\n\nAn entry naming nobody stands for a pupil erased after the match was played, and a save keeps it by sending it back.",
-        "operationId": "aufstellungen_put_aufstellung",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "spiel_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Spiel Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "team_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Team Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLAufstellungPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLAufstellungResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLAufstellungResponse"
-                }
-              }
-            },
-            "description": "The line-up did not stand before, and this save created it"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Save one club's line-up for one fixture as an administrator",
-        "tags": [
-          "aufstellungen"
-        ]
-      }
-    },
-    "/api/v0/aufstellungen/{spiel_id}/{team_id}/self": {
+    "/api/aufstellungen/spiele/{spiel_id}/teams/{team_id}": {
       "get": {
         "description": "The line-up screen of one club for one fixture, for a person holding any contact seat on that club in the fixture's season.\n\nA finished season grants no seat, so its line-ups are an administrator's to read.",
         "operationId": "aufstellungen_get_aufstellung_self",
@@ -19822,7 +19289,203 @@
         ]
       }
     },
-    "/api/v0/ban_list": {
+    "/api/aufstellungen/spiele/{spiel_id}/teams/{team_id}/admin": {
+      "get": {
+        "description": "The line-up screen of one club for one fixture, as the club's own seat holders read it.",
+        "operationId": "aufstellungen_get_aufstellung",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "spiel_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spiel Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "team_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Team Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLAufstellungResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "One club's line-up for one fixture as an administrator reads it",
+        "tags": [
+          "aufstellungen"
+        ]
+      },
+      "put": {
+        "description": "Save the whole line-up of one club for one fixture at any time, the hour before kick-off included.\n\nAn entry naming nobody stands for a pupil erased after the match was played, and a save keeps it by sending it back.",
+        "operationId": "aufstellungen_put_aufstellung",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "spiel_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spiel Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "team_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Team Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLAufstellungPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLAufstellungResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLAufstellungResponse"
+                }
+              }
+            },
+            "description": "The line-up did not stand before, and this save created it"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "Save one club's line-up for one fixture as an administrator",
+        "tags": [
+          "aufstellungen"
+        ]
+      }
+    },
+    "/api/ban_list": {
       "get": {
         "description": "Every ban, newest first, with the address, why, on which day and the last season it covers.",
         "operationId": "ban_list_get_ban_list_entries",
@@ -19964,7 +19627,7 @@
         ]
       }
     },
-    "/api/v0/ban_list/{ban_list_entry_id}": {
+    "/api/ban_list/{ban_list_entry_id}": {
       "delete": {
         "description": "Lift a ban before it lapses, deleting its row for good.",
         "operationId": "ban_list_delete_ban_list_entry",
@@ -20043,7 +19706,83 @@
         ]
       }
     },
-    "/api/v0/bewerbungen": {
+    "/api/bewerbungen": {
+      "get": {
+        "description": "The season's applications, newest first, holding nothing of a person, and what an acceptance would meet there.\n\nA long list is cut, as `complete` says, but every application with a confirmed seat is served past the cut.",
+        "operationId": "bewerbungen_get_bewerbungen_admin",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBewerbungenAdminListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "One Saison's Bewerbungen for its list",
+        "tags": [
+          "bewerbungen"
+        ]
+      },
       "post": {
         "description": "Store one school's application to play one season, and mail each contact person their confirmation link, one per person.\n\nA second press with an `Idempotency-Key` already stored answers the application that key holds and stores nothing.",
         "operationId": "bewerbungen_post_bewerbung",
@@ -20132,10 +19871,10 @@
         ]
       }
     },
-    "/api/v0/bewerbungen/einwilligung": {
+    "/api/bewerbungen/confirmation": {
       "post": {
         "description": "Record one person's consent or Widerspruch for the seat their link opens, and for a second seat they hold.\n\nA Widerspruch empties the slot, and on an application it tells the Ansprechperson who still stands, in a notice that\nis the deletion notice too.",
-        "operationId": "bewerbungen_post_einwilligung",
+        "operationId": "bewerbungen_post_confirmation",
         "requestBody": {
           "content": {
             "application/json": {
@@ -20181,7 +19920,7 @@
                       "$ref": "#/components/schemas/FLSaisonTeamEinwilligungAnswerResponse"
                     }
                   ],
-                  "title": "Response Bewerbungen Post Einwilligung"
+                  "title": "Response Bewerbungen Post Confirmation"
                 }
               }
             },
@@ -20239,10 +19978,10 @@
         ]
       }
     },
-    "/api/v0/bewerbungen/einwilligung/view": {
+    "/api/bewerbungen/confirmation/view": {
       "post": {
         "description": "What the confirmation page renders for the seat this token opens, and nothing of the person.\n\nA confirmed, declined or expired link is served in that state; only a token no seat holds is refused.",
-        "operationId": "bewerbungen_get_einwilligung_view",
+        "operationId": "bewerbungen_get_confirmation_view",
         "requestBody": {
           "content": {
             "application/json": {
@@ -20317,7 +20056,7 @@
         "x-safe": true
       }
     },
-    "/api/v0/bewerbungen/form/{saison_id}": {
+    "/api/bewerbungen/saisons/{saison_id}/form": {
       "get": {
         "description": "A season's application window, and while it runs the clubs a school may apply as and the colours taken.\n\nA closed or paused window and a season recording none are served too, and each club is served as its name alone.",
         "operationId": "bewerbungen_get_form",
@@ -20395,152 +20134,7 @@
         ]
       }
     },
-    "/api/v0/bewerbungen/list/admin": {
-      "get": {
-        "description": "The season's applications, newest first, holding nothing of a person, and what an acceptance would meet there.\n\nA long list is cut, as `complete` says, but every application with a confirmed seat is served past the cut.",
-        "operationId": "bewerbungen_get_bewerbungen_admin",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "saison_id",
-            "required": true,
-            "schema": {
-              "title": "Saison Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLBewerbungenAdminListResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "One Saison's Bewerbungen for its list",
-        "tags": [
-          "bewerbungen"
-        ]
-      }
-    },
-    "/api/v0/bewerbungen/sweep": {
-      "get": {
-        "description": "Every season's id, oldest first, for the caller to sweep one at a time.",
-        "operationId": "bewerbungen_get_sweep_saisons",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSweepSaisonsResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "SystemKey": []
-          }
-        ],
-        "summary": "Every season the sweep has to visit",
-        "tags": [
-          "bewerbungen"
-        ]
-      }
-    },
-    "/api/v0/bewerbungen/sweep/{saison_id}": {
+    "/api/bewerbungen/saisons/{saison_id}/sweep": {
       "post": {
         "description": "Run one season's retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.\n\nA row that cannot be written is passed over, counted in `failed`, and met again by the next pass.",
         "operationId": "bewerbungen_sweep_saison",
@@ -20618,7 +20212,74 @@
         ]
       }
     },
-    "/api/v0/bewerbungen/{bewerbung_id}": {
+    "/api/bewerbungen/sweep": {
+      "get": {
+        "description": "Every season's id, oldest first, for the caller to sweep one at a time.",
+        "operationId": "bewerbungen_get_sweep_saisons",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSweepSaisonsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "SystemKey": []
+          }
+        ],
+        "summary": "Every season the sweep has to visit",
+        "tags": [
+          "bewerbungen"
+        ]
+      }
+    },
+    "/api/bewerbungen/{bewerbung_id}": {
       "get": {
         "description": "One application, each seat's state judged today and `duplicate` taken over every open application of the season.",
         "operationId": "bewerbungen_get_bewerbung",
@@ -20697,7 +20358,7 @@
         ]
       }
     },
-    "/api/v0/bewerbungen/{bewerbung_id}/accept": {
+    "/api/bewerbungen/{bewerbung_id}/accept": {
       "post": {
         "description": "Accept an application once every contact person confirmed their seat, entering its club into the season and creating it for a new school.\n\nIt cannot be undone, as an entered club leaves only by an `austritt`, and every person of the application is mailed\nthe acceptance.",
         "operationId": "bewerbungen_accept_bewerbung",
@@ -20786,89 +20447,7 @@
         ]
       }
     },
-    "/api/v0/bewerbungen/{bewerbung_id}/account/einwilligung": {
-      "patch": {
-        "description": "Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application; a grant is refused.",
-        "operationId": "bewerbungen_patch_einwilligung",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "bewerbung_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Bewerbung Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLSeatEinwilligungPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Withdraw a seat holder's own WhatsApp and media consent on a pending Bewerbung",
-        "tags": [
-          "bewerbungen"
-        ]
-      }
-    },
-    "/api/v0/bewerbungen/{bewerbung_id}/decline": {
+    "/api/bewerbungen/{bewerbung_id}/decline": {
       "post": {
         "description": "Decline an application with the reason given, mailed verbatim to each person the application mailed.\n\nWhat the school submitted stays as it was, the record the decision was taken against.",
         "operationId": "bewerbungen_decline_bewerbung",
@@ -20957,10 +20536,10 @@
         ]
       }
     },
-    "/api/v0/bewerbungen/{bewerbung_id}/einwilligung/{seat}/resend": {
-      "post": {
-        "description": "Void one seat's link and mail its person a fresh one, that seat's deadline and reminder starting again from today.\n\nWhere one person holds two seats both are replaced and one link answers both, and the answer names the address and\nseats as the write found them.",
-        "operationId": "bewerbungen_resend_einwilligung",
+    "/api/bewerbungen/{bewerbung_id}/einwilligung": {
+      "patch": {
+        "description": "Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application; a grant is refused.",
+        "operationId": "bewerbungen_patch_einwilligung",
         "parameters": [
           {
             "in": "path",
@@ -20971,26 +20550,20 @@
               "title": "Bewerbung Id",
               "type": "string"
             }
-          },
-          {
-            "in": "path",
-            "name": "seat",
-            "required": true,
-            "schema": {
-              "title": "Seat",
-              "type": "string"
-            }
           }
         ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLBewerbungEinwilligungResendResponse"
-                }
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSeatEinwilligungPayload"
               }
-            },
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -21039,13 +20612,13 @@
             "AdminKey": []
           }
         ],
-        "summary": "Re-send one seat's confirmation link",
+        "summary": "Withdraw a seat holder's own WhatsApp and media consent on a pending Bewerbung",
         "tags": [
           "bewerbungen"
         ]
       }
     },
-    "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}": {
+    "/api/bewerbungen/{bewerbung_id}/kontakte/{seat}": {
       "post": {
         "description": "Write a person into one seat, whatever its state, and mail them a fresh link; an acceptance waits on their answer.\n\nWhere one person holds two seats both are written, the last holder's link opens nothing afterwards, and the seat's\ndeadline starts again from today.",
         "operationId": "bewerbungen_post_kontakt_seat",
@@ -21143,7 +20716,95 @@
         ]
       }
     },
-    "/api/v0/grants": {
+    "/api/bewerbungen/{bewerbung_id}/kontakte/{seat}/confirmation/resend": {
+      "post": {
+        "description": "Void one seat's link and mail its person a fresh one, that seat's deadline and reminder starting again from today.\n\nWhere one person holds two seats both are replaced and one link answers both, and the answer names the address and\nseats as the write found them.",
+        "operationId": "bewerbungen_resend_kontakt_confirmation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "bewerbung_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Bewerbung Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "seat",
+            "required": true,
+            "schema": {
+              "title": "Seat",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBewerbungEinwilligungResendResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "Re-send one seat's confirmation link",
+        "tags": [
+          "bewerbungen"
+        ]
+      }
+    },
+    "/api/grants": {
       "get": {
         "description": "Every grant by address: its tier, when it holds, and when a handover to it completes.\n\nA future `effective_from` is an addition still waiting, and `owner_from` a handover still waiting.",
         "operationId": "grants_get_grants",
@@ -21285,7 +20946,7 @@
         ]
       }
     },
-    "/api/v0/grants/handover": {
+    "/api/grants/handover": {
       "post": {
         "description": "Move the owner role to the row whose `owner_from` has passed, the old owner staying an administrator, and tell every holder.\n\nLate rather than early where a pass is missed: nothing moves until one runs, and a quiet pass writes nothing.",
         "operationId": "grants_post_handover_pass",
@@ -21352,7 +21013,7 @@
         ]
       }
     },
-    "/api/v0/grants/{grant_id}": {
+    "/api/grants/{grant_id}": {
       "delete": {
         "description": "Remove a grant for good, its address losing access on its next request, or withdraw an addition still waiting.\n\nOnly the owner removes one, the owner's own row leaving only by a handover; every holder in effect and the address named are told.",
         "operationId": "grants_delete_grant",
@@ -21431,7 +21092,7 @@
         ]
       }
     },
-    "/api/v0/grants/{grant_id}/handover": {
+    "/api/grants/{grant_id}/handover": {
       "delete": {
         "description": "Stop a waiting handover, the role staying with the owner; only the owner stops one, and every holder in effect is told.",
         "operationId": "grants_delete_handover",
@@ -21587,134 +21248,7 @@
         ]
       }
     },
-    "/api/v0/identity/account/erasure": {
-      "post": {
-        "description": "Erase every record the signed-in address holds, at once and as one write; the owner is refused until a handover.\n\nA played match keeps its report, its line-ups and its booking, each naming nobody in the person's place, and the\nsign-in account is the caller's to delete once this has answered.",
-        "operationId": "identity_post_account_erasure",
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Erase every record the signed-in address holds",
-        "tags": [
-          "identity"
-        ]
-      }
-    },
-    "/api/v0/identity/account/erasure/view": {
-      "get": {
-        "description": "What `POST /identity/account/erasure` would remove or empty for the signed-in address, by kind and by name, and nothing else.\n\nAnother address's pending change naming this one is counted and not named once its link has reached this mailbox,\nsince its records are not this address's until it takes effect.",
-        "operationId": "identity_get_account_erasure_view",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLAccountErasureViewResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Show what an erasure of the signed-in address would remove",
-        "tags": [
-          "identity"
-        ]
-      }
-    },
-    "/api/v0/identity/erasure": {
+    "/api/identity/erasure": {
       "post": {
         "description": "Erase every record an address holds, on a request that person made by mail, at once and as one write, as their own erasure does.\n\nNothing about the person's own state refuses it, and the sign-in account is the caller's to delete once this has answered.",
         "operationId": "identity_post_erasure",
@@ -21784,7 +21318,7 @@
         ]
       }
     },
-    "/api/v0/identity/erasure/sweep": {
+    "/api/identity/erasure/sweep": {
       "post": {
         "description": "Delete a bounded share of the pupils whose last squad season is over by a whole season, and answer what went and how many remain.\n\nA pass is a run of calls, each handing the next the `after` the last answered, and it ends at the call answering\n`after` null; `remaining` counts the pupils still due, the failed among them, so it is no stopping condition.",
         "operationId": "identity_sweep_erasure",
@@ -21870,7 +21404,7 @@
         ]
       }
     },
-    "/api/v0/identity/erasure/view": {
+    "/api/identity/erasure/view": {
       "post": {
         "description": "Count what `POST /identity/erasure` would remove or empty for this address, by kind, naming nothing and storing nothing.\n\nIt is refused as that erasure is, and leaves out of `address_change` a grant holder's change this administrator may not see.",
         "operationId": "identity_get_erasure_view",
@@ -21948,7 +21482,7 @@
         "x-safe": true
       }
     },
-    "/api/v0/identity/references": {
+    "/api/identity/references": {
       "post": {
         "description": "Answer which of these sign-in addresses no league record references, each once and in the spelling it was asked in.",
         "operationId": "identity_get_references",
@@ -22026,7 +21560,134 @@
         "x-safe": true
       }
     },
-    "/api/v0/identity/sign_in": {
+    "/api/identity/self/erasure": {
+      "post": {
+        "description": "Erase every record the signed-in address holds, at once and as one write; the owner is refused until a handover.\n\nA played match keeps its report, its line-ups and its booking, each naming nobody in the person's place, and the\nsign-in account is the caller's to delete once this has answered.",
+        "operationId": "identity_post_account_erasure",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "Erase every record the signed-in address holds",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/identity/self/erasure/view": {
+      "get": {
+        "description": "What `POST /identity/self/erasure` would remove or empty for the signed-in address, by kind and by name, and nothing else.\n\nAnother address's pending change naming this one is counted and not named once its link has reached this mailbox,\nsince its records are not this address's until it takes effect.",
+        "operationId": "identity_get_account_erasure_view",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLAccountErasureViewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "Show what an erasure of the signed-in address would remove",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/identity/sign_in": {
       "post": {
         "description": "Answer what the sign-in gate decides on for one mailbox: two flags, its ban and its grant's tier, and never a record.\n\nThe address is matched on the sign-in fold, and a mailbox the league holds nothing for is answered with both flags false.",
         "operationId": "identity_get_sign_in",
@@ -22104,7 +21765,7 @@
         "x-safe": true
       }
     },
-    "/api/v0/identity/subject": {
+    "/api/identity/subject": {
       "post": {
         "description": "Answer which confirmed, live contact seats, pupil records and referee records one mailbox holds, with its grant.\n\nThe address is matched on the sign-in fold, and a mailbox the league holds nothing for is answered with three empty lists rather\nthan a 404.",
         "operationId": "identity_get_subject",
@@ -22182,7 +21843,7 @@
         "x-safe": true
       }
     },
-    "/api/v0/outbox/event": {
+    "/api/outbox/event": {
       "post": {
         "description": "Record what the mail provider reported about one message on its mail's row, where the row's state may follow into it.\n\nA redelivered or out-of-order event changes nothing, and a delivery of a mail about an application reopens the\nclosed chase of every seat holding its address.",
         "operationId": "outbox_post_event",
@@ -22259,7 +21920,7 @@
         ]
       }
     },
-    "/api/v0/outbox/handout": {
+    "/api/outbox/handout": {
       "post": {
         "description": "Claim a page of the mails owed now, the sign-in library's first, and hand each out with the link minted for it.\n\nThe caller sends each under the idempotency key its `attempt` names and reports every outcome with `lease` before the\nlease lapses, after which the next claim hands the mail out again.",
         "operationId": "outbox_post_handout",
@@ -22326,7 +21987,7 @@
         ]
       }
     },
-    "/api/v0/outbox/result": {
+    "/api/outbox/result": {
       "post": {
         "description": "Settle the named mail by its send's outcome where the named claim still holds it, counting a mail it does not hold in `ignored`.\n\n`held` reports a deployment that sends no mail, `abandon` a refusal every send would meet (any 4xx but a 429), and\n`retry` a 429, a 5xx or a send that never reached the provider, which hands the mail back unless it is a sign-in\nmail or past its deadline.",
         "operationId": "outbox_post_result",
@@ -22403,7 +22064,7 @@
         ]
       }
     },
-    "/api/v0/outbox/sign_in": {
+    "/api/outbox/sign_in": {
       "post": {
         "description": "Owe one mail the sign-in library sends, such as a code, a passkey notice or the deletion link, to the address named.\n\n`secret` is stored as it arrives and dropped once the mail is settled; `valid_until` is both the last moment a send\nmay happen and when the row is deleted.",
         "operationId": "outbox_post_sign_in",
@@ -22473,7 +22134,83 @@
         ]
       }
     },
-    "/api/v0/registrierungen": {
+    "/api/registrierungen": {
+      "get": {
+        "description": "One season's pending registrations, newest first, each with its club and whether its pupil confirmed it.\n\n`unmailed` marks a row owed no mail, its mailbox already holding the most open links, and `complete` says whether\nthe read's cap cut the list.",
+        "operationId": "registrierungen_get_registrierungen_admin",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLRegistrierungenAdminListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "One Saison's pending Registrierungen for its list",
+        "tags": [
+          "registrierungen"
+        ]
+      },
       "post": {
         "description": "Store one pupil's registration for the team and season the link belongs to, and owe its confirmation mail.\n\nA press repeating a stored `Idempotency-Key` answers the registration the first one stored, whatever its body says,\nand owes no second mail.",
         "operationId": "registrierungen_post_registrierung",
@@ -22569,89 +22306,7 @@
         ]
       }
     },
-    "/api/v0/registrierungen/account/{registrierung_id}/einwilligung": {
-      "patch": {
-        "description": "Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.\n\nA grant is refused, and a request moving neither choice writes nothing.",
-        "operationId": "registrierungen_patch_einwilligung",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "registrierung_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Registrierung Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLAccountEinwilligungPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Withdraw a pupil's own publication and media consent on their pending registration",
-        "tags": [
-          "registrierungen"
-        ]
-      }
-    },
-    "/api/v0/registrierungen/confirmation": {
+    "/api/registrierungen/confirmation": {
       "post": {
         "description": "Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.",
         "operationId": "registrierungen_post_confirmation",
@@ -22728,7 +22383,7 @@
         ]
       }
     },
-    "/api/v0/registrierungen/confirmation/view": {
+    "/api/registrierungen/confirmation/view": {
       "post": {
         "description": "What the registration this confirmation link opens shows, and nothing of the pupil but the day they answered.\n\nA confirmed or expired link is served in that state, and a link whose club has left the season reads expired.",
         "operationId": "registrierungen_get_confirmation_view",
@@ -22806,7 +22461,7 @@
         "x-safe": true
       }
     },
-    "/api/v0/registrierungen/invitation/view": {
+    "/api/registrierungen/invitation/view": {
       "post": {
         "description": "Answer what this registration link is for: the team, its school, the season, and what the form may offer.\n\nA paused or ended window is a state here, so such a link reads as closed rather than as invalid.",
         "operationId": "registrierungen_post_invitation_view",
@@ -22884,7 +22539,85 @@
         "x-safe": true
       }
     },
-    "/api/v0/registrierungen/kader/{team_id}/{saison_id}": {
+    "/api/registrierungen/saisons/{saison_id}/sweep": {
+      "post": {
+        "description": "Erase one season's due registrations, as of today in Europe/Berlin.\n\nA declined one goes once its wait after the decision has run out, an unconfirmed one past its deadline, and every one\nstill undecided once the season is `past`; one whose erasure fails is counted in `failed` and met again next pass.",
+        "operationId": "registrierungen_sweep_registrierungen",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLRegistrierungSweepResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "SystemKey": []
+          }
+        ],
+        "summary": "Run one season's registration retention clocks",
+        "tags": [
+          "registrierungen"
+        ]
+      }
+    },
+    "/api/registrierungen/teams/{team_id}/saisons/{saison_id}": {
       "get": {
         "description": "Every pending registration of this team's season, newest first, each marked by whether its pupil confirmed it.\n\nA confirmed row names the stored person its address resolves to, flagged where their name or birthdate differs,\n`kader_full` marks a row whose admission would meet the squad's cap, and no address, telephone number, birthdate or\nconsent record is served for anybody.",
         "operationId": "registrierungen_get_open_registrierungen",
@@ -22972,163 +22705,7 @@
         ]
       }
     },
-    "/api/v0/registrierungen/list/admin": {
-      "get": {
-        "description": "One season's pending registrations, newest first, each with its club and whether its pupil confirmed it.\n\n`unmailed` marks a row owed no mail, its mailbox already holding the most open links, and `complete` says whether\nthe read's cap cut the list.",
-        "operationId": "registrierungen_get_registrierungen_admin",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "saison_id",
-            "required": true,
-            "schema": {
-              "title": "Saison Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLRegistrierungenAdminListResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "One Saison's pending Registrierungen for its list",
-        "tags": [
-          "registrierungen"
-        ]
-      }
-    },
-    "/api/v0/registrierungen/sweep/{saison_id}": {
-      "post": {
-        "description": "Erase one season's due registrations, as of today in Europe/Berlin.\n\nA declined one goes once its wait after the decision has run out, an unconfirmed one past its deadline, and every one\nstill undecided once the season is `past`; one whose erasure fails is counted in `failed` and met again next pass.",
-        "operationId": "registrierungen_sweep_registrierungen",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "saison_id",
-            "required": true,
-            "schema": {
-              "title": "Saison Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLRegistrierungSweepResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "SystemKey": []
-          }
-        ],
-        "summary": "Run one season's registration retention clocks",
-        "tags": [
-          "registrierungen"
-        ]
-      }
-    },
-    "/api/v0/registrierungen/{registrierung_id}/admit": {
+    "/api/registrierungen/{registrierung_id}/admit": {
       "post": {
         "description": "Admit one confirmed registration: the person holding its address, or a new one, joins the team's squad.\n\n`spieler_id` names that person where their name or birthdate differs and is null where nobody holds the address;\nthe registration and every other pending one of its address this season are erased, and nobody is mailed.",
         "operationId": "registrierungen_admit",
@@ -23217,7 +22794,7 @@
         ]
       }
     },
-    "/api/v0/registrierungen/{registrierung_id}/decline": {
+    "/api/registrierungen/{registrierung_id}/decline": {
       "post": {
         "description": "Decline one pending registration, confirmed or not, for a reason from a closed set or none.\n\nA pupil who confirmed their address is mailed the decision; an unconfirmed address may be a stranger's, and is\nmailed nothing.",
         "operationId": "registrierungen_decline",
@@ -23306,7 +22883,154 @@
         ]
       }
     },
-    "/api/v0/saisons": {
+    "/api/registrierungen/{registrierung_id}/einwilligung": {
+      "patch": {
+        "description": "Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.\n\nA grant is refused, and a request moving neither choice writes nothing.",
+        "operationId": "registrierungen_patch_einwilligung",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "registrierung_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Registrierung Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLAccountEinwilligungPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "Withdraw a pupil's own publication and media consent on their pending registration",
+        "tags": [
+          "registrierungen"
+        ]
+      }
+    },
+    "/api/saisons": {
+      "get": {
+        "description": "Every season, the `future` ones included, each with its start, play and decision states and its counts.\n\n`next_saison_id` is the id the next create mints, and `refusals.create` the code that create would be refused with\nnow, or null.",
+        "operationId": "saisons_get_saisons_admin",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSaisonsAdminListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "Every Saison for the admin surfaces",
+        "tags": [
+          "saisons"
+        ]
+      },
       "post": {
         "description": "Create the next season, always `future`, from its two days, answering the id it minted.\n\nIts id follows the newest stored season's and its rules carry on from it, its two windows start closed, and a league\nholds at most one planned season.",
         "operationId": "saisons_post_saison",
@@ -23383,7 +23107,7 @@
         ]
       }
     },
-    "/api/v0/saisons/frame": {
+    "/api/saisons/frame": {
       "get": {
         "description": "Every season the public may read, the newest first, and the one the site is on; that one is null for a league that has none.",
         "operationId": "saisons_get_frame",
@@ -23450,7 +23174,7 @@
         ]
       }
     },
-    "/api/v0/saisons/landing": {
+    "/api/saisons/landing": {
       "get": {
         "description": "The season the site is on, `before_start`, `running` or `decided`, null for a league that has none.\n\nBeside it, the application windows and the league's figures over every season the public reads, counted on every read.",
         "operationId": "saisons_get_landing",
@@ -23517,16 +23241,27 @@
         ]
       }
     },
-    "/api/v0/saisons/list/admin": {
+    "/api/saisons/{saison_id}": {
       "get": {
-        "description": "Every season, the `future` ones included, each with its start, play and decision states and its counts.\n\n`next_saison_id` is the id the next create mints, and `refusals.create` the code that create would be refused with\nnow, or null.",
-        "operationId": "saisons_get_saisons_admin",
+        "description": "What the season editor shows in one read: its season, clubs, shapes and matchdays, its acts' states and its links.\n\nThe season is served a `future` one included, and every flag and every refusal is judged as the write it stands for\njudges it, so an act is offered exactly where its write takes it.",
+        "operationId": "saisons_get_saison_admin",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSaisonsAdminListResponse"
+                  "$ref": "#/components/schemas/FLSaisonAdminResponse"
                 }
               }
             },
@@ -23578,85 +23313,7 @@
             "AdminKey": []
           }
         ],
-        "summary": "Every Saison for the admin surfaces",
-        "tags": [
-          "saisons"
-        ]
-      }
-    },
-    "/api/v0/saisons/{saison_id}": {
-      "get": {
-        "description": "One season the public may read, by its id.\n\n404 where no season carries it or it is a `future` one.",
-        "operationId": "saisons_get_saison",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "saison_id",
-            "required": true,
-            "schema": {
-              "title": "Saison Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSaisonsSingleResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "BaseKey": []
-          }
-        ],
-        "summary": "One Saison",
+        "summary": "One Saison for the admin editor",
         "tags": [
           "saisons"
         ]
@@ -23748,7 +23405,7 @@
         ]
       }
     },
-    "/api/v0/saisons/{saison_id}/activate": {
+    "/api/saisons/{saison_id}/activate": {
       "post": {
         "description": "Make this the active season, moving whichever holds `active` to `past`.\n\nThe outgoing season must be finished, and every matchday of the target dated.",
         "operationId": "saisons_activate_saison",
@@ -23826,85 +23483,7 @@
         ]
       }
     },
-    "/api/v0/saisons/{saison_id}/admin": {
-      "get": {
-        "description": "What the season editor shows in one read: its season, clubs, shapes and matchdays, its acts' states and its links.\n\nThe season is served a `future` one included, and every flag and every refusal is judged as the write it stands for\njudges it, so an act is offered exactly where its write takes it.",
-        "operationId": "saisons_get_saison_admin",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "saison_id",
-            "required": true,
-            "schema": {
-              "title": "Saison Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSaisonAdminResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "One Saison for the admin editor",
-        "tags": [
-          "saisons"
-        ]
-      }
-    },
-    "/api/v0/saisons/{saison_id}/gruppen/swap": {
+    "/api/saisons/{saison_id}/gruppen/swap": {
       "post": {
         "description": "Exchange the groups of two clubs entered in this season, as one write.\n\nEvery group fixture fielding either club has that side rewritten with it, so each group stays a round robin; neither\n`tore` nor `austritt` moves.",
         "operationId": "saisons_swap_gruppen",
@@ -23992,7 +23571,7 @@
         ]
       }
     },
-    "/api/v0/saisons/{saison_id}/invitations/dispatch": {
+    "/api/saisons/{saison_id}/invitations/dispatch": {
       "post": {
         "description": "Give every admitted team of this season a fresh registration link, revoking any it held, mailed to its confirmed seats.\n\nA team that has left the season, holds no confirmed seat or was already sent its live link is skipped and left as it\nwas, so pressing twice mails nobody twice.",
         "operationId": "saisons_post_invitations_dispatch",
@@ -24070,7 +23649,7 @@
         ]
       }
     },
-    "/api/v0/saisons/{saison_id}/ko_runde": {
+    "/api/saisons/{saison_id}/ko_runde": {
       "get": {
         "description": "Every knockout matchday of one season with its matches in playing order, a side not yet known null beside its `quelle`.\n\nEmpty before the draw; 404 for a season this tier may not read.",
         "operationId": "saisons_get_ko_runde",
@@ -24148,7 +23727,7 @@
         ]
       }
     },
-    "/api/v0/saisons/{saison_id}/overview": {
+    "/api/saisons/{saison_id}/overview": {
       "get": {
         "description": "The administrator's Übersicht for one season: its open work on the cards `due`, `ergebnisse`, `dates` and `bewerbungen`.\n\nEvery card is served, an empty one included, and each row carries what its act needs, the fixture with its `version`\namong it.",
         "operationId": "saisons_get_saison_overview",
@@ -24226,7 +23805,7 @@
         ]
       }
     },
-    "/api/v0/saisons/{saison_id}/spiele/{spiel_id}": {
+    "/api/saisons/{saison_id}/spiele/{spiel_id}": {
       "get": {
         "description": "One match as its page and its pop-up show it, each side of a group match with its group and `platz`; 404 outside a readable season.\n\nEach side's line-up from the moment its club stores one, the scorers and cards only while the report is adopted\nand unchanged since, every pupil through the public mask.",
         "operationId": "saisons_get_spiel",
@@ -24314,7 +23893,7 @@
         ]
       }
     },
-    "/api/v0/saisons/{saison_id}/spielplan": {
+    "/api/saisons/{saison_id}/spielplan": {
       "delete": {
         "description": "Return the season to undrawn: its matchdays and fixtures, their confirmations, reports and line-ups, and the draw's day.\n\nUndoing the draw reopens the shape rules to an edit and the groups to an entry.",
         "operationId": "saisons_delete_spielplan",
@@ -24553,7 +24132,7 @@
         ]
       }
     },
-    "/api/v0/saisons/{saison_id}/tabelle": {
+    "/api/saisons/{saison_id}/tabelle": {
       "get": {
         "description": "Each group's standing over the group phase with its goals counted on every read, and how many of each group advance.\n\nA club that left the season keeps its row; it holds no `platz` where it left before its group was decided, and\nneither does a club that has played no match, listed after every club that has; 404 for a season this tier may not\nread.",
         "operationId": "saisons_get_tabelle",
@@ -24631,7 +24210,7 @@
         ]
       }
     },
-    "/api/v0/saisons/{saison_id}/teams": {
+    "/api/saisons/{saison_id}/teams": {
       "get": {
         "description": "The clubs of one season by name, each under the name and shorthand it plays that season under.\n\n404 for a season this tier may not read.",
         "operationId": "saisons_get_teams",
@@ -24709,7 +24288,7 @@
         ]
       }
     },
-    "/api/v0/saisons/{saison_id}/teams/{team_id}": {
+    "/api/saisons/{saison_id}/teams/{team_id}": {
       "get": {
         "description": "One club in one season: the club, its row of the Tabelle, its matches and its squad.\n\n404 for a season this tier may not read and for a club the season does not hold.",
         "operationId": "saisons_get_team",
@@ -24797,7 +24376,7 @@
         ]
       }
     },
-    "/api/v0/schiedsrichter": {
+    "/api/schiedsrichter": {
       "get": {
         "description": "Every referee in name order, retired ones included where `include_inactive` asks, since a played match still names them.",
         "operationId": "schiedsrichter_get_schiedsrichter",
@@ -24951,89 +24530,7 @@
         ]
       }
     },
-    "/api/v0/schiedsrichter/account/{schiedsrichter_id}/einwilligung": {
-      "patch": {
-        "description": "Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.\n\nThe public fixture list reads the scope off this row, so the caller drops its cached copy after a successful answer.",
-        "operationId": "schiedsrichter_patch_einwilligung",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "schiedsrichter_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Schiedsrichter Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLSchiedsrichterAccountEinwilligungPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Change a signed-in referee's own publication and media consent",
-        "tags": [
-          "schiedsrichter"
-        ]
-      }
-    },
-    "/api/v0/schiedsrichter/confirmation": {
+    "/api/schiedsrichter/confirmation": {
       "post": {
         "description": "Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.\n\nThe caller drops the cached fixture list after a successful answer, or a withheld name goes on being served for as\nlong as that entry lives.",
         "operationId": "schiedsrichter_post_confirmation",
@@ -25110,7 +24607,7 @@
         ]
       }
     },
-    "/api/v0/schiedsrichter/confirmation/decline": {
+    "/api/schiedsrichter/confirmation/decline": {
       "post": {
         "description": "Record the referee's objection to the entry their link opens: its day, and nothing else of the person.\n\nThe entry is erased at the midnight after its link's deadline, and until then no booking takes it and nobody asks\nthe person again.",
         "operationId": "schiedsrichter_post_decline",
@@ -25180,7 +24677,7 @@
         ]
       }
     },
-    "/api/v0/schiedsrichter/confirmation/view": {
+    "/api/schiedsrichter/confirmation/view": {
       "post": {
         "description": "What this token opens: the link's state and deadline, the age bounds and the day of the person's own answer.\n\nA confirmed or an expired link is served in that state rather than refused, so a reopened link shows what became of it.",
         "operationId": "schiedsrichter_get_confirmation_view",
@@ -25258,7 +24755,7 @@
         "x-safe": true
       }
     },
-    "/api/v0/schiedsrichter/self/saisons": {
+    "/api/schiedsrichter/self/saisons": {
       "get": {
         "description": "Every season in which a fixture is booked to one of the signed-in address's live, confirmed referee records, the newest first.",
         "operationId": "schiedsrichter_get_self_saisons",
@@ -25325,7 +24822,7 @@
         ]
       }
     },
-    "/api/v0/schiedsrichter/self/spiele/{saison_id}": {
+    "/api/schiedsrichter/self/saisons/{saison_id}/spiele": {
       "get": {
         "description": "Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, open work first.\n\nNobody's address is served, and no reason an administrator entered.",
         "operationId": "schiedsrichter_get_self_spiele",
@@ -25403,7 +24900,7 @@
         ]
       }
     },
-    "/api/v0/schiedsrichter/sweep": {
+    "/api/schiedsrichter/sweep": {
       "post": {
         "description": "Erase every referee entry nobody confirmed, or whose person objected, once the midnight after its link's last day has passed.\n\nEach goes as a person's own erasure takes a referee entry, and one whose erasure fails is counted in `failed` and\nstays due for the next pass.",
         "operationId": "schiedsrichter_sweep_schiedsrichter",
@@ -25470,7 +24967,7 @@
         ]
       }
     },
-    "/api/v0/schiedsrichter/{schiedsrichter_id}": {
+    "/api/schiedsrichter/{schiedsrichter_id}": {
       "delete": {
         "description": "Deactivate a referee, who stays on record because a played match names them by id.\n\nRefused while a fixture still to be played books them.",
         "operationId": "schiedsrichter_delete_schiedsrichter",
@@ -25706,10 +25203,10 @@
         ]
       }
     },
-    "/api/v0/schiedsrichter/{schiedsrichter_id}/confirmation/invite": {
+    "/api/schiedsrichter/{schiedsrichter_id}/confirmation/resend": {
       "post": {
         "description": "Owe this referee a fresh confirmation link, which the Postausgang mints and mails, and answer where it goes.\n\nThe previous link stops working at once and the deadline restarts from today; a referee who has already answered is\nrefused, since the new link could never be spent.",
-        "operationId": "schiedsrichter_invite_schiedsrichter",
+        "operationId": "schiedsrichter_resend_confirmation",
         "parameters": [
           {
             "in": "path",
@@ -25785,7 +25282,89 @@
         ]
       }
     },
-    "/api/v0/schiedsrichter/{schiedsrichter_id}/reactivate": {
+    "/api/schiedsrichter/{schiedsrichter_id}/einwilligung": {
+      "patch": {
+        "description": "Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.\n\nThe public fixture list reads the scope off this row, so the caller drops its cached copy after a successful answer.",
+        "operationId": "schiedsrichter_patch_einwilligung",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "schiedsrichter_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Schiedsrichter Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSchiedsrichterAccountEinwilligungPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "Change a signed-in referee's own publication and media consent",
+        "tags": [
+          "schiedsrichter"
+        ]
+      }
+    },
+    "/api/schiedsrichter/{schiedsrichter_id}/reactivate": {
       "post": {
         "description": "Bring a retired referee back into the picker and every default read.\n\nOne who has not answered is owed a fresh link, named in `confirmation`, since a retired referee's save mails nothing.",
         "operationId": "schiedsrichter_reactivate_schiedsrichter",
@@ -25864,7 +25443,7 @@
         ]
       }
     },
-    "/api/v0/spielberichte/{spiel_id}/bericht": {
+    "/api/spielberichte/spiele/{spiel_id}": {
       "get": {
         "description": "What the booked referee's report form reads: the fixture, both clubs' live squads, and the stored report or null.\n\nWhere `reportable` is false or `completed` true, both squads are empty and every pupil the report names is in `named`.",
         "operationId": "spielberichte_get_spielbericht_bericht",
@@ -26040,74 +25619,7 @@
         ]
       }
     },
-    "/api/v0/spielbestaetigungen/sweep": {
-      "get": {
-        "description": "Every `active` season's id, oldest first: a confirmation serves no purpose once its season is over.",
-        "operationId": "spielbestaetigungen_get_sweep_saisons",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSweepSaisonsResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "SystemKey": []
-          }
-        ],
-        "summary": "Every season the confirmation pass visits",
-        "tags": [
-          "spielbestaetigungen"
-        ]
-      }
-    },
-    "/api/v0/spielbestaetigungen/sweep/{saison_id}": {
+    "/api/spielbestaetigungen/saisons/{saison_id}/sweep": {
       "post": {
         "description": "Close, mint and remind one season's fixture confirmations as of today, owing each mail with its row, and answer what it did, counted.\n\nEach step takes a bounded share and leaves the rest due, and a season that is not `active` is passed by whole.",
         "operationId": "spielbestaetigungen_sweep_spielbestaetigungen",
@@ -26185,7 +25697,74 @@
         ]
       }
     },
-    "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/adopt": {
+    "/api/spielbestaetigungen/sweep": {
+      "get": {
+        "description": "Every `active` season's id, oldest first: a confirmation serves no purpose once its season is over.",
+        "operationId": "spielbestaetigungen_get_sweep_saisons",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSweepSaisonsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "SystemKey": []
+          }
+        ],
+        "summary": "Every season the confirmation pass visits",
+        "tags": [
+          "spielbestaetigungen"
+        ]
+      }
+    },
+    "/api/spielbestaetigungen/{spielbestaetigung_id}/adopt": {
       "post": {
         "description": "Move a fixture to the date and hour a club's open decline proposes, through the fixture's own save and refused as it is.\n\nThe next confirmation pass closes every party's row about the slot left, tells each of the move and asks about the\nnew slot.",
         "operationId": "spielbestaetigungen_adopt_spielbestaetigung",
@@ -26257,7 +25836,7 @@
         ]
       }
     },
-    "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/answer": {
+    "/api/spielbestaetigungen/{spielbestaetigung_id}/answer": {
       "post": {
         "description": "Record the signed-in referee's first answer about a fixture they are booked on, until its kick-off: accept, or decline giving a reason.\n\nA decline takes them off the fixture, and the caller drops the cached fixture list after a successful answer, since\neither answer can move the referee's name on the public fixture.",
         "operationId": "spielbestaetigungen_post_schiedsrichter_answer",
@@ -26346,7 +25925,7 @@
         ]
       }
     },
-    "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/answer/team": {
+    "/api/spielbestaetigungen/{spielbestaetigung_id}/answer/team": {
       "post": {
         "description": "Record one club's answer about one Ansetzung, from whichever of its confirmed seats presses first, and the seat it came from.\n\nIt writes no fixture: a decline's proposal is the administrator's to act on, and is refused wherever the\nadministrator's own save of that date would be.",
         "operationId": "spielbestaetigungen_post_team_answer",
@@ -26435,7 +26014,7 @@
         ]
       }
     },
-    "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/discard": {
+    "/api/spielbestaetigungen/{spielbestaetigung_id}/discard": {
       "post": {
         "description": "Close a club's open decline proposing another date, which then stands as that club's one answer to this Ansetzung.\n\nThe public fixture counts it as the club's agreement, and the club is told that the date stands.",
         "operationId": "spielbestaetigungen_discard_spielbestaetigung",
@@ -26507,7 +26086,7 @@
         ]
       }
     },
-    "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/enter": {
+    "/api/spielbestaetigungen/{spielbestaetigung_id}/enter": {
       "post": {
         "description": "Record that the party of an open confirmation agreed to its Ansetzung elsewhere than signed in, the reason saying how.\n\nThe answer is the league's record of how a date was agreed and is never rewritten; it names nobody, and its reason\ngoes at the season's end.",
         "operationId": "spielbestaetigungen_enter_spielbestaetigung",
@@ -26589,7 +26168,7 @@
         ]
       }
     },
-    "/api/v0/spiele/spielplan": {
+    "/api/spiele": {
       "get": {
         "description": "Every matchday and knockout round of one season, a planned one included, its matches in the admin shape, in play order.\n\n`current_spieltag_id` is the matchday to open on: the first holding a match still to be played, else the last.",
         "operationId": "spiele_get_spiele_spielplan",
@@ -26669,10 +26248,10 @@
         ]
       }
     },
-    "/api/v0/spiele/{spiel_id}": {
+    "/api/spiele/{spiel_id}": {
       "get": {
-        "description": "Return one match by its id, answering 404 for a match of a season this tier may not read.",
-        "operationId": "spiele_get_spiel",
+        "description": "The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.\n\nBeside it come the venues and referees to book, the clubs a knockout fixture may field, and the fixture's report,\nconfirmation rows and line-up counts.",
+        "operationId": "spiele_get_spiel_admin",
         "parameters": [
           {
             "in": "path",
@@ -26690,7 +26269,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSpieleSingleResponse"
+                  "$ref": "#/components/schemas/FLSpieleAdminSingleResponse"
                 }
               }
             },
@@ -26739,10 +26318,10 @@
         },
         "security": [
           {
-            "BaseKey": []
+            "AdminKey": []
           }
         ],
-        "summary": "One Spiel",
+        "summary": "One Spiel and all the match editor offers and shows beside it",
         "tags": [
           "spiele"
         ]
@@ -26867,18 +26446,17 @@
         "x-safe-when": "dry_run"
       }
     },
-    "/api/v0/spiele/{spiel_id}/admin": {
+    "/api/spieler": {
       "get": {
-        "description": "The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.\n\nBeside it come the venues and referees to book, the clubs a knockout fixture may field, and the fixture's report,\nconfirmation rows and line-up counts.",
-        "operationId": "spiele_get_spiel_admin",
+        "description": "Every squad row of the season, live and ausgetragen alike, each named and with its club.\n\n`nummer_double` marks a live row whose number another live row of its own squad wears, compared as stored.",
+        "operationId": "spieler_get_spieler_admin",
         "parameters": [
           {
-            "in": "path",
-            "name": "spiel_id",
+            "in": "query",
+            "name": "saison_id",
             "required": true,
             "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Spiel Id",
+              "title": "Saison Id",
               "type": "string"
             }
           }
@@ -26888,7 +26466,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSpieleAdminSingleResponse"
+                  "$ref": "#/components/schemas/FLSpielerAdminListResponse"
                 }
               }
             },
@@ -26940,13 +26518,13 @@
             "AdminKey": []
           }
         ],
-        "summary": "One Spiel and all the match editor offers and shows beside it",
+        "summary": "One Saison's squad rows for its list",
         "tags": [
-          "spiele"
+          "spieler"
         ]
       }
     },
-    "/api/v0/spieler/account/einwilligung": {
+    "/api/spieler/self/einwilligung": {
       "patch": {
         "description": "Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.\n\nEach moved choice is written with its evidence, and the caller drops its cached squad lists after a success, since\nthe scope decides whether a name is served.",
         "operationId": "spieler_patch_einwilligung",
@@ -27016,7 +26594,152 @@
         ]
       }
     },
-    "/api/v0/spieler/kader/{team_id}/{saison_id}": {
+    "/api/spieler/self/saisons": {
+      "get": {
+        "description": "Every season the signed-in pupil holds a squad row in, the newest first, each with its span.\n\nA deregistered row's season and a planned season are served as any other.",
+        "operationId": "spieler_get_self_saisons",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLOwnSaisonsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "The seasons a signed-in pupil holds a squad row in",
+        "tags": [
+          "spieler"
+        ]
+      }
+    },
+    "/api/spieler/self/saisons/{saison_id}": {
+      "get": {
+        "description": "The signed-in pupil's squad row of one season, null where they hold none, and their club's fixtures in the draw's order.\n\nEach fixture's `starts` is true where the club's stored line-up starts them, false where it benches them, and null\nwhere it does not name them or none is stored.",
+        "operationId": "spieler_get_self_saison",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielerSaisonSelfResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "A signed-in pupil's own season: their squad row and their team's fixtures",
+        "tags": [
+          "spieler"
+        ]
+      }
+    },
+    "/api/spieler/teams/{team_id}/saisons/{saison_id}": {
       "get": {
         "description": "The squad of one team in one season for a person holding a contact seat on it, ausgetragen rows included.\n\nEach surname is whole, and no address or telephone number of anybody is served.",
         "operationId": "spieler_get_kader",
@@ -27104,7 +26827,351 @@
         ]
       }
     },
-    "/api/v0/spieler/kader/{team_id}/{saison_id}/{spieler_id}": {
+    "/api/spieler/{spieler_id}/saisons/{saison_id}": {
+      "delete": {
+        "description": "Take a player out of a season's squad, the row staying, marked by `inactive_since`.\n\nThe row records that this player wore this number in this squad, which stays true after they leave.",
+        "operationId": "spieler_delete_saison_spieler",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "spieler_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spieler Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "Remove a Spieler from a squad",
+        "tags": [
+          "spieler"
+        ]
+      },
+      "get": {
+        "description": "What the Spieler editor shows: the person, their squad row of the season, and what its boxes may offer.\n\n`version` is what the one save sends, and `taken_rollen` each role another live row of the squad holds.",
+        "operationId": "spieler_get_spieler_saison",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "spieler_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spieler Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielerSaisonAdminResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "What the Spieler editor shows, in one read",
+        "tags": [
+          "spieler"
+        ]
+      },
+      "patch": {
+        "description": "Save the person's own facts and their squad row of the season together, the team staying the stored row's.\n\nA shared `nummer` is permitted.",
+        "operationId": "spieler_patch_spieler_saison",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "spieler_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spieler Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPatchSpielerSaisonPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLPatchSpielerSaisonResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "Save the Spieler editor: the person and their squad row of the season, in one transaction",
+        "tags": [
+          "spieler"
+        ]
+      }
+    },
+    "/api/spieler/{spieler_id}/saisons/{saison_id}/reactivate": {
+      "post": {
+        "description": "Clear a squad row's `inactive_since`, the row returning with the number, position and role it had.",
+        "operationId": "spieler_reactivate_saison_spieler",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "spieler_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spieler Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "Put a Spieler back in a squad they left",
+        "tags": [
+          "spieler"
+        ]
+      }
+    },
+    "/api/spieler/{spieler_id}/teams/{team_id}/saisons/{saison_id}": {
       "delete": {
         "description": "Take a player out of this team's squad for the season, as any contact seat of the team may, the row staying.\n\nThe person stays in the league, and only an administrator brings the row back.",
         "operationId": "spieler_delete_kader_row",
@@ -27308,655 +27375,7 @@
         ]
       }
     },
-    "/api/v0/spieler/list/admin": {
-      "get": {
-        "description": "Every squad row of the season, live and ausgetragen alike, each named and with its club.\n\n`nummer_double` marks a live row whose number another live row of its own squad wears, compared as stored.",
-        "operationId": "spieler_get_spieler_admin",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "saison_id",
-            "required": true,
-            "schema": {
-              "title": "Saison Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielerAdminListResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "One Saison's squad rows for its list",
-        "tags": [
-          "spieler"
-        ]
-      }
-    },
-    "/api/v0/spieler/self/saisons": {
-      "get": {
-        "description": "Every season the signed-in pupil holds a squad row in, the newest first, each with its span.\n\nA deregistered row's season and a planned season are served as any other.",
-        "operationId": "spieler_get_self_saisons",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLOwnSaisonsResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "The seasons a signed-in pupil holds a squad row in",
-        "tags": [
-          "spieler"
-        ]
-      }
-    },
-    "/api/v0/spieler/self/{saison_id}": {
-      "get": {
-        "description": "The signed-in pupil's squad row of one season, null where they hold none, and their club's fixtures in the draw's order.\n\nEach fixture's `starts` is true where the club's stored line-up starts them, false where it benches them, and null\nwhere it does not name them or none is stored.",
-        "operationId": "spieler_get_self_saison",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "saison_id",
-            "required": true,
-            "schema": {
-              "title": "Saison Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielerSaisonSelfResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "A signed-in pupil's own season: their squad row and their team's fixtures",
-        "tags": [
-          "spieler"
-        ]
-      }
-    },
-    "/api/v0/spieler/{spieler_id}": {
-      "get": {
-        "description": "One player's id, forename and surname initial, both names `null` where the pupil's consent does not publish them.",
-        "operationId": "spieler_get_spieler_by_id",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "spieler_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Spieler Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielerSingleResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "BaseKey": []
-          }
-        ],
-        "summary": "One Spieler",
-        "tags": [
-          "spieler"
-        ]
-      }
-    },
-    "/api/v0/spieler/{spieler_id}/saisons/{saison_id}": {
-      "delete": {
-        "description": "Take a player out of a season's squad, the row staying, marked by `inactive_since`.\n\nThe row records that this player wore this number in this squad, which stays true after they leave.",
-        "operationId": "spieler_delete_saison_spieler",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "spieler_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Spieler Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "saison_id",
-            "required": true,
-            "schema": {
-              "title": "Saison Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Remove a Spieler from a squad",
-        "tags": [
-          "spieler"
-        ]
-      }
-    },
-    "/api/v0/spieler/{spieler_id}/saisons/{saison_id}/admin": {
-      "get": {
-        "description": "What the Spieler editor shows: the person, their squad row of the season, and what its boxes may offer.\n\n`version` is what the one save sends, and `taken_rollen` each role another live row of the squad holds.",
-        "operationId": "spieler_get_spieler_saison",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "spieler_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Spieler Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "saison_id",
-            "required": true,
-            "schema": {
-              "title": "Saison Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielerSaisonAdminResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "What the Spieler editor shows, in one read",
-        "tags": [
-          "spieler"
-        ]
-      },
-      "patch": {
-        "description": "Save the person's own facts and their squad row of the season together, the team staying the stored row's.\n\nA shared `nummer` is permitted.",
-        "operationId": "spieler_patch_spieler_saison",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "spieler_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Spieler Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "saison_id",
-            "required": true,
-            "schema": {
-              "title": "Saison Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLPatchSpielerSaisonPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLPatchSpielerSaisonResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Save the Spieler editor: the person and their squad row of the season, in one transaction",
-        "tags": [
-          "spieler"
-        ]
-      }
-    },
-    "/api/v0/spieler/{spieler_id}/saisons/{saison_id}/reactivate": {
-      "post": {
-        "description": "Clear a squad row's `inactive_since`, the row returning with the number, position and role it had.",
-        "operationId": "spieler_reactivate_saison_spieler",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "spieler_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Spieler Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "saison_id",
-            "required": true,
-            "schema": {
-              "title": "Saison Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Put a Spieler back in a squad they left",
-        "tags": [
-          "spieler"
-        ]
-      }
-    },
-    "/api/v0/spielorte": {
+    "/api/spielorte": {
       "get": {
         "description": "Every venue in name order, the retired ones too where `include_inactive` asks for them.",
         "operationId": "spielorte_get_spielorte",
@@ -28110,7 +27529,7 @@
         ]
       }
     },
-    "/api/v0/spielorte/{spielort_id}": {
+    "/api/spielorte/{spielort_id}": {
       "delete": {
         "description": "Retire a venue, which stays readable for every match played there.\n\nRefused while an unplayed fixture is booked at it.",
         "operationId": "spielorte_delete_spielort",
@@ -28346,7 +27765,7 @@
         ]
       }
     },
-    "/api/v0/spielorte/{spielort_id}/reactivate": {
+    "/api/spielorte/{spielort_id}/reactivate": {
       "post": {
         "description": "Return a retired venue to every default read.",
         "operationId": "spielorte_reactivate_spielort",
@@ -28418,10 +27837,10 @@
         ]
       }
     },
-    "/api/v0/spieltage/{spieltag_id}": {
+    "/api/spieltage/{spieltag_id}": {
       "get": {
-        "description": "One matchday by its id, its match count derived from its own season's rules.\n\n404 for a matchday of a season this tier may not read.",
-        "operationId": "spieltage_get_spieltag",
+        "description": "One matchday by its id, a `future` season's included, with how many matchdays its phase holds.\n\nBeside it stands its season's `status`, so a `past` season's matchday, which no re-dating moves, can be shown as\nfinal.",
+        "operationId": "spieltage_get_spieltag_admin",
         "parameters": [
           {
             "in": "path",
@@ -28439,7 +27858,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSpieltageSingleResponse"
+                  "$ref": "#/components/schemas/FLSpieltagAdminResponse"
                 }
               }
             },
@@ -28488,10 +27907,10 @@
         },
         "security": [
           {
-            "BaseKey": []
+            "AdminKey": []
           }
         ],
-        "summary": "One Spieltag",
+        "summary": "One Spieltag for the admin editor",
         "tags": [
           "spieltage"
         ]
@@ -28584,86 +28003,7 @@
         ]
       }
     },
-    "/api/v0/spieltage/{spieltag_id}/admin": {
-      "get": {
-        "description": "One matchday by its id, a `future` season's included, with how many matchdays its phase holds.\n\nBeside it stands its season's `status`, so a `past` season's matchday, which no re-dating moves, can be shown as\nfinal.",
-        "operationId": "spieltage_get_spieltag_admin",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "spieltag_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Spieltag Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpieltagAdminResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "One Spieltag for the admin editor",
-        "tags": [
-          "spieltage"
-        ]
-      }
-    },
-    "/api/v0/system/is_live": {
+    "/api/system/is_live": {
       "get": {
         "description": "Liveness: is this process serving requests?\n\nUnauthenticated, and it does not touch the database: it must not fail for reasons a restart\ncannot fix.",
         "operationId": "system_check_is_live",
@@ -28725,7 +28065,7 @@
         ]
       }
     },
-    "/api/v0/system/is_ready": {
+    "/api/system/is_ready": {
       "get": {
         "description": "Readiness: whether this process reaches its database, 503 where a ping does not return within the request's deadline.\n\nUnauthenticated, for a monitor outside.",
         "operationId": "system_check_is_ready",
@@ -28787,7 +28127,7 @@
         ]
       }
     },
-    "/api/v0/teams/list/admin": {
+    "/api/teams": {
       "get": {
         "description": "One season's clubs, a `future` season's included, each with its seats and state, and what entering another offers.\n\n`state=retired` reads past the season's rows to every retired club, which is the way back to one, and `entry.closed`\nis true where the season, not being `future`, takes no entry.",
         "operationId": "teams_get_teams_admin",
@@ -28897,7 +28237,7 @@
         ]
       }
     },
-    "/api/v0/teams/saisons/{saison_id}/entry": {
+    "/api/teams/saisons/{saison_id}/entry": {
       "post": {
         "description": "Enter a club into a `future` season in a group and a colour, founding it first where it is new.\n\nA club's `shorthand` is unique across every club, retired ones included, and a colour across the season's rows.",
         "operationId": "teams_post_team_entry",
@@ -28985,7 +28325,7 @@
         ]
       }
     },
-    "/api/v0/teams/{team_id}": {
+    "/api/teams/{team_id}": {
       "delete": {
         "description": "Retire a club from the league, its rows of the seasons it played left as they are.\n\nRefused while the club is entered in an `active` or `future` season.",
         "operationId": "teams_delete_team",
@@ -29055,116 +28395,9 @@
         "tags": [
           "teams"
         ]
-      },
-      "get": {
-        "description": "One team with its group and its figures in the season the query names, the season the site is on where it names none.\n\n404 where the team, its row in that season or the season is one this tier may not read.",
-        "operationId": "teams_get_team",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "team_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Team Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "saison_id",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Saison Id"
-            }
-          },
-          {
-            "in": "query",
-            "name": "statistik_scope",
-            "required": false,
-            "schema": {
-              "default": "gruppenphase",
-              "enum": [
-                "gruppenphase",
-                "total"
-              ],
-              "title": "Statistik Scope",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLTeamsSingleResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "BaseKey": []
-          }
-        ],
-        "summary": "One team",
-        "tags": [
-          "teams"
-        ]
       }
     },
-    "/api/v0/teams/{team_id}/reactivate": {
+    "/api/teams/{team_id}/reactivate": {
       "post": {
         "description": "Clear `inactive_since`, restoring a retired club to reads that hide retired ones.",
         "operationId": "teams_reactivate_team",
@@ -29236,98 +28469,7 @@
         ]
       }
     },
-    "/api/v0/teams/{team_id}/saisons/{saison_id}/account/einwilligung": {
-      "patch": {
-        "description": "Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.\n\nEach choice moves only where it differs from the row as the page served it, so seats answered apart keep their\nanswers to a choice not changed.",
-        "operationId": "teams_patch_einwilligung",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "team_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Team Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "saison_id",
-            "required": true,
-            "schema": {
-              "title": "Saison Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLSeatEinwilligungPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Change a seat holder's own WhatsApp and media consent on one team's season",
-        "tags": [
-          "teams"
-        ]
-      }
-    },
-    "/api/v0/teams/{team_id}/saisons/{saison_id}/admin": {
+    "/api/teams/{team_id}/saisons/{saison_id}": {
       "get": {
         "description": "What the team editor shows in one read: the club, its row of the season, and what each act of the page would meet.\n\n`version` is what the one save sends, each flag is judged as its write judges it, and `membership` and `link` are\nnull for a club holding no row of the season.",
         "operationId": "teams_get_team_saison_admin",
@@ -29511,7 +28653,7 @@
         ]
       }
     },
-    "/api/v0/teams/{team_id}/saisons/{saison_id}/austritt": {
+    "/api/teams/{team_id}/saisons/{saison_id}/austritt": {
       "put": {
         "description": "Record how a team left the season, once: an exit is never lifted and never replaced.\n\nAn exit is taken from the season's start date on, before which the replacement takes a club out, and never on a\nfinished season.",
         "operationId": "teams_put_austritt",
@@ -29602,7 +28744,98 @@
         ]
       }
     },
-    "/api/v0/teams/{team_id}/saisons/{saison_id}/invitation": {
+    "/api/teams/{team_id}/saisons/{saison_id}/einwilligung": {
+      "patch": {
+        "description": "Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.\n\nEach choice moves only where it differs from the row as the page served it, so seats answered apart keep their\nanswers to a choice not changed.",
+        "operationId": "teams_patch_einwilligung",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Team Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSeatEinwilligungPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "Change a seat holder's own WhatsApp and media consent on one team's season",
+        "tags": [
+          "teams"
+        ]
+      }
+    },
+    "/api/teams/{team_id}/saisons/{saison_id}/invitation": {
       "delete": {
         "description": "Stamp this team's live registration link revoked, so it opens nothing from here on.\n\nThe row stays, so a delivery event about a mail carrying the link still has somewhere to land.",
         "operationId": "teams_delete_invitation",
@@ -29776,7 +29009,7 @@
         ]
       }
     },
-    "/api/v0/teams/{team_id}/saisons/{saison_id}/invitation/dispatch": {
+    "/api/teams/{team_id}/saisons/{saison_id}/invitation/dispatch": {
       "post": {
         "description": "Owe this team's live registration link to every seat whose own person has confirmed it, one mail each, `mailed` counting them.\n\nEach mail mints a link of its own at its hand-out, so a copied link stays valid beside them, and a second press on\none day owes nothing again.",
         "operationId": "teams_post_invitation_dispatch",
@@ -29874,7 +29107,7 @@
         ]
       }
     },
-    "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte/{seat}": {
+    "/api/teams/{team_id}/saisons/{saison_id}/kontakte/{seat}": {
       "put": {
         "description": "Write the person one seat holds on the row's `version`, a newly seated person owed a fresh link whose address `email` names.\n\nThe same person, address and name folded, keeps the seat's record and link, and where the Trainer holds a second seat\na write on either seat writes both under one link.",
         "operationId": "teams_put_kontakt_seat",
@@ -29981,10 +29214,10 @@
         ]
       }
     },
-    "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/confirmation/invite": {
+    "/api/teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/confirmation/resend": {
       "post": {
         "description": "Owe one contact seat a fresh confirmation link, and its pair where the Trainer holds both and has not confirmed it.\n\nThe previous link opens nothing from this write on, the deadline restarts from today, and the answer names the\naddress the mail is owed to, never the link.",
-        "operationId": "teams_invite_kontakt",
+        "operationId": "teams_resend_kontakt_confirmation",
         "parameters": [
           {
             "in": "path",
@@ -30078,7 +29311,95 @@
         ]
       }
     },
-    "/api/v0/teams/{team_id}/saisons/{saison_id}/replace": {
+    "/api/teams/{team_id}/saisons/{saison_id}/overview": {
+      "get": {
+        "description": "Everything a team's Übersicht shows in one read, for a person holding any contact seat on the team in this season.\n\nNo address, telephone number, birthdate or consent record of anybody is served.",
+        "operationId": "teams_get_team_overview",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Team Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLTeamOverviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "A team's Übersicht in one season",
+        "tags": [
+          "teams"
+        ]
+      }
+    },
+    "/api/teams/{team_id}/saisons/{saison_id}/replace": {
       "post": {
         "description": "Hand this season's row, and every fixture on it, to another club, keeping the schedule.\n\nThe row's exit, colour, contacts and their links are cleared, and the outgoing club's live squad rows retired.",
         "operationId": "teams_replace_saison_team",
@@ -30176,95 +29497,7 @@
         ]
       }
     },
-    "/api/v0/teams/{team_id}/saisons/{saison_id}/self/overview": {
-      "get": {
-        "description": "Everything a team's Übersicht shows in one read, for a person holding any contact seat on the team in this season.\n\nNo address, telephone number, birthdate or consent record of anybody is served.",
-        "operationId": "teams_get_team_overview",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "team_id",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "title": "Team Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "saison_id",
-            "required": true,
-            "schema": {
-              "title": "Saison Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLTeamOverviewResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "A team's Übersicht in one season",
-        "tags": [
-          "teams"
-        ]
-      }
-    },
-    "/api/v0/teams/{team_id}/saisons/{saison_id}/self/spiele": {
+    "/api/teams/{team_id}/saisons/{saison_id}/spiele": {
       "get": {
         "description": "Every fixture of the team in this season in the order the draw numbered them, for a person holding any contact seat on it.\n\nEach carries the state of the date the league asked the team to confirm and its line-up's marks, `spielbestaetigung` null where\nno row asks the team about the fixture as it stands.",
         "operationId": "teams_get_team_spiele",

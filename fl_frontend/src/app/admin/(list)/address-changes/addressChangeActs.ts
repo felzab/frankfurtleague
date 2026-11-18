@@ -5,8 +5,8 @@ import { z } from "zod";
 import { action, PAGE_HOLDER } from "@/core/action";
 import { accountStandsAt } from "@/core/auth/accounts";
 import { COPY } from "@/core/copy";
-import { addressChangeInviteAddressChange, addressChangePostAddressChangeAdmin } from "@/core/generated/client/sdk";
-import { AddressChangeInviteAddressChangeParams } from "@/core/generated/zod/inputs";
+import { addressChangePostAddressChangeAdmin, addressChangeResendConfirmation } from "@/core/generated/client/sdk";
+import { AddressChangeResendConfirmationParams } from "@/core/generated/zod/inputs";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { accountAtNewAddress } from "@/features/address-change/account";
 import { SignInAddressSchema, SignInPayloadSchema } from "@/features/auth/schemas";
@@ -59,13 +59,13 @@ export const resendChangeLink = action({
   lane: "admin",
   passkey: true,
   name: "resendChangeLink",
-  input: AddressChangeInviteAddressChangeParams.extend(PAGE_HOLDER),
+  input: AddressChangeResendConfirmationParams.extend(PAGE_HOLDER),
   ownWords: ["own_address", "admin_address", "address_change_taken"],
   run: async ({ address_change_id }) => {
     if (await accountAtNewAddress({ address_change_id })) {
       return { ok: false, errorCode: "address_change_taken", reason: SERVER_COPY.refusalLine.address_change_taken };
     }
-    await addressChangeInviteAddressChange(address_change_id);
+    await addressChangeResendConfirmation(address_change_id);
     return { ok: true, value: undefined };
   },
 });

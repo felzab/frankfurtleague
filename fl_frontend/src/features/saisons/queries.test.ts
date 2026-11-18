@@ -35,8 +35,8 @@ describe("the admin season list's read", () => {
     await getAdminSaisons();
 
     expect(reads.slice(before).map(({ path, authorization }) => [path, tierOf(authorization)])).toStrictEqual([
-      ["/saisons/list/admin", "admin"],
-      ["/saisons/list/admin", "admin"],
+      ["/saisons", "admin"],
+      ["/saisons", "admin"],
     ]);
     expect(declared, "the administrators' season list is declared into a cache every caller shares").toStrictEqual([]);
   });
@@ -52,8 +52,8 @@ describe("the season editor's read", () => {
     await getAdminSaison("2627");
 
     expect(reads.slice(before).map(({ path, authorization }) => [path, tierOf(authorization)])).toStrictEqual([
-      ["/saisons/2627/admin", "admin"],
-      ["/saisons/2627/admin", "admin"],
+      ["/saisons/2627", "admin"],
+      ["/saisons/2627", "admin"],
     ]);
     expect(declared, "the administrator's read is declared into a cache every caller shares").toStrictEqual([]);
   });

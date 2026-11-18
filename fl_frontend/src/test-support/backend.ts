@@ -4,7 +4,7 @@
  * run, and only the network beneath them is answered.
  *
  * What a test file does:
- * - `serveBackend(answer)` at module level answers the backend at `BACKEND_ORIGIN/api/v0`. `answer` takes each request
+ * - `serveBackend(answer)` at module level answers the backend at `BACKEND_ORIGIN/api`. `answer` takes each request
  *   (the endpoint below the base path, its query, headers and parsed body) and returns a body, answered `200` as JSON,
  *   or a `Response`: `refusal(code)` for a refusal, `networkFailure()` for a backend that never answers. `undefined`
  *   answers nothing. An answer names the method and the path it means and leaves every other request `undefined`, so
@@ -44,7 +44,7 @@ export const BACKEND_ORIGIN = TEST_ENVIRONMENT.API_URL;
  * module loads from the setup file, ahead of every suite's doubles, and so imports no module of the application. A
  * renamed base path leaves every request unanswered, which fails every case.
  */
-const BASE_PATH = "/api/v0";
+const BASE_PATH = "/api";
 
 /** One request as the backend read it: the endpoint below the base path, still percent-encoded, and what it carried. */
 type BackendRequest = {
@@ -350,7 +350,7 @@ export function serveHost(origin: string, answer: HostAnswer): readonly HostRequ
 }
 
 /**
- * The file's backend at `${API_URL}/api/v0`. Every request reaches `answer` until `answerWith` names another for the
+ * The file's backend at `${API_URL}/api`. Every request reaches `answer` until `answerWith` names another for the
  * rest of a case; one `serveBackend` with an answer per file, and any number without one, each reading the same record.
  */
 export function serveBackend(answer?: BackendAnswer): Backend {

@@ -56,7 +56,7 @@ router = APIRouter(
     dependencies=PERSON_TIER,
 )
 
-BERICHT_PATH = f"{by_id('spiel_id')}/bericht"
+BERICHT_PATH = f"/spiele{by_id('spiel_id')}"
 
 
 @router.get(

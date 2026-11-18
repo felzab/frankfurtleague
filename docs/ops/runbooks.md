@@ -414,7 +414,7 @@ sign_in_identifier`) — trimmed and lower-case, ASCII throughout —
 
 ## 4. When the application queue has been flooded
 
-**The state announces itself, and the read degrades rather than refusing.** `GET /bewerbungen/list/admin` serves at
+**The state announces itself, and the read degrades rather than refusing.** `GET /bewerbungen` serves at
 most `LIST_LIMIT_DEFAULT` rows and reads one row past that to answer whether more exist, so it never counts the
 filtered set (`fl_backend/app/api/bewerbungen/admin_router.py :: get_bewerbungen_admin`). Where more do exist it answers
 `complete: false` and the Bewerbungen list stands under a warning, „Nicht alle Bewerbungen sind geladen.“, that cannot
@@ -641,7 +641,7 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   whoever holds it can decline or stop every attempt, and this tool refuses it: the way out is §3's
   recovery write.
 - **Re-send** a link only while the change waits on the new mailbox
-  (`POST /address_change/{address_change_id}/invite`); a new address taken since the start refuses the
+  (`POST /address_change/{address_change_id}/confirmation/resend`); a new address taken since the start refuses the
   re-send (`address_change_taken`). **Discard** a change that turns out to be
   wrong (`DELETE /address_change/{address_change_id}`). A change whose step lapses ends within the hour
   ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)).
@@ -690,15 +690,15 @@ arriving by mail at the control for its record, which the person reaches by sign
 address that record holds:
 
 - **A referee's publication scope and media consent:**
-  `PATCH /schiedsrichter/account/{schiedsrichter_id}/einwilligung`.
+  `PATCH /schiedsrichter/{schiedsrichter_id}/einwilligung`.
 - **A seat's WhatsApp scope and media consent on a team's season row:**
-  `PATCH /teams/{team_id}/saisons/{saison_id}/account/einwilligung`, for every seat the address holds
+  `PATCH /teams/{team_id}/saisons/{saison_id}/einwilligung`, for every seat the address holds
   on that row.
 - **A seat's WhatsApp scope and media consent on a pending application:**
-  `PATCH /bewerbungen/{bewerbung_id}/account/einwilligung`, which withdraws them and never grants
+  `PATCH /bewerbungen/{bewerbung_id}/einwilligung`, which withdraws them and never grants
   either.
 - **A pending registration's publication scope and media consent:**
-  `PATCH /registrierungen/account/{registrierung_id}/einwilligung`, which withdraws them and grants
+  `PATCH /registrierungen/{registrierung_id}/einwilligung`, which withdraws them and grants
   neither. The admission deletes the registration, and its choices then move on the pupil's own
   control above.
 - **A pupil's:** the paragraph below.
@@ -710,7 +710,7 @@ that seat's own link, not by the person's role; a seat on a team's season row is
 - **The seat is unanswered and its link still works.** Their own Widerspruch, on the confirmation
   page the link opens, empties the seat at once and tells the Ansprechperson, where one stands, was
   mailed and is not the person objecting, so the school can name somebody else
-  (`fl_backend/app/api/bewerbungen/public_router.py :: post_einwilligung`).
+  (`fl_backend/app/api/bewerbungen/public_router.py :: post_confirmation`).
   Send them the link again rather than erasing for them; the record then says the person refused
   rather than that an administrator removed them. **A second link to a barred address does not leave**: the hand-out settles it `barred`, and the link
   the address already holds still opens on its form. Once the school has named a replacement, seat them
@@ -729,14 +729,14 @@ that seat's own link, not by the person's role; a seat on a team's season row is
   is live, and the Widerspruch empties the seat and mails nobody, an administrator having entered
   them (`docs/glossary.md :: Bestätigung`). A lost link is sent again, and a lapsed one until the
   hourly pass empties its seat, with „Link senden“ on that seat's row in the team's editor
-  (`fl_backend/app/api/teams/admin_router.py :: invite_kontakt`), which replaces the old link
+  (`fl_backend/app/api/teams/admin_router.py :: resend_kontakt_confirmation`), which replaces the old link
   whole; an emptied seat is typed in again, which mails its own link. „Link senden“ refuses a row whose season has
   ended or whose team has left it (`kontakt_row_without_saison`), though a link
   such a row already holds still takes a Widerspruch. Where no live link is left, or the seat has
   already answered, the route is „Löschungen“.
 
 **A pupil withdrawing the consent that publishes their name does it on their account page.**
-`PATCH /spieler/account/einwilligung` moves the record, and no administrator route writes it. A request arriving
+`PATCH /spieler/self/einwilligung` moves the record, and no administrator route writes it. A request arriving
 by mail instead has two answers, and which one you give is the person's to choose:
 
 - **They want off the website and out of the league.** „Löschungen“ on the address their

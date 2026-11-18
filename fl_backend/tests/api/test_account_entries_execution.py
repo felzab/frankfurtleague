@@ -19,7 +19,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.identity.crud import find_own_entries
 from app.api.registrierungen.services import compose_decline_update
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.shared.einwilligung_evidence import TextVersions
 from app.shared.folding import sign_in_identifier
 from tests.app_client import app_client, app_under_test
@@ -48,7 +47,7 @@ from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_account_entries_test")
 
-ACCOUNT_PATH = f"/api/v{API_VERSION}/account/einwilligungen"
+ACCOUNT_PATH = "/api/account/einwilligungen"
 
 NOW = datetime(2026, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 

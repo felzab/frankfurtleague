@@ -16,7 +16,6 @@ from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from tests import documents
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_KEY
@@ -206,7 +205,7 @@ async def read(url: str, what: str, *, identifier: str = THEO, saison_id: str = 
         await seed(database)
         async with app_client(url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
             response = await http.get(
-                f"/api/v{API_VERSION}/teams/{TEAM}/saisons/{saison_id}/self/{what}",
+                f"/api/teams/{TEAM}/saisons/{saison_id}/{what}",
                 headers=StampedHeaders(identifier, ADMIN_KEY, lane="person"),
             )
 

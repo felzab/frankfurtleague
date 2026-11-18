@@ -132,7 +132,6 @@ import type {
   FLSaisonFrameResponse,
   FLSaisonOverviewResponse,
   FLSaisonsAdminListResponse,
-  FLSaisonsSingleResponse,
   FLSaisonTeamEinwilligungAnswerResponse,
   FLSaisonTeamsResponse,
   FLSchiedsrichterAccountEinwilligungPayload,
@@ -159,15 +158,12 @@ import type {
   FLSpielerAdminListResponse,
   FLSpielerSaisonAdminResponse,
   FLSpielerSaisonSelfResponse,
-  FLSpielerSingleResponse,
-  FLSpieleSingleResponse,
   FLSpieleSpielplanAdminResponse,
   FLSpielorteListResponse,
   FLSpielorteSingleResponse,
   FLSpielPageResponse,
   FLSpielplanResponse,
   FLSpieltagAdminResponse,
-  FLSpieltageSingleResponse,
   FLSpieltagWriteResponse,
   FLSubjectPayload,
   FLSubjectResponse,
@@ -180,7 +176,6 @@ import type {
   FLTeamsAdminListResponse,
   FLTeamSaisonAdminResponse,
   FLTeamSpieleResponse,
-  FLTeamsSingleResponse,
   FLTokenPayload,
   FLUndrawSpielplanResponse,
   IdentitySweepErasureParams,
@@ -190,7 +185,6 @@ import type {
   SpielePatchSpielParams,
   SpielerGetSpielerAdminParams,
   SpielorteGetSpielorteParams,
-  TeamsGetTeamParams,
   TeamsGetTeamsAdminParams,
 } from "./types.ts";
 
@@ -216,7 +210,7 @@ const getHeaders = (...sources: (RequestInit["headers"] | Record<string, string 
 };
 
 export const getAccountDeleteAddressChangeUrl = () => {
-  return `/api/v0/account/address_change`;
+  return `/api/account/address_change`;
 };
 
 /**
@@ -233,7 +227,7 @@ export const accountDeleteAddressChange = async (
 };
 
 export const getAccountGetAddressChangeUrl = () => {
-  return `/api/v0/account/address_change`;
+  return `/api/account/address_change`;
 };
 
 /**
@@ -250,7 +244,7 @@ export const accountGetAddressChange = async (options?: Parameters<typeof adminK
 };
 
 export const getAccountPostAddressChangeUrl = () => {
-  return `/api/v0/account/address_change`;
+  return `/api/account/address_change`;
 };
 
 /**
@@ -273,7 +267,7 @@ export const accountPostAddressChange = async (
 };
 
 export const getAccountGetEinwilligungenUrl = () => {
-  return `/api/v0/account/einwilligungen`;
+  return `/api/account/einwilligungen`;
 };
 
 /**
@@ -291,7 +285,7 @@ export const accountGetEinwilligungen = async (options?: Parameters<typeof admin
 };
 
 export const getActionLogGetActionLogUrl = () => {
-  return `/api/v0/action_log/view`;
+  return `/api/action_log/view`;
 };
 
 /**
@@ -311,7 +305,7 @@ export const actionLogGetActionLog = async (
 };
 
 export const getAddressChangeGetAddressChangesUrl = () => {
-  return `/api/v0/address_change`;
+  return `/api/address_change`;
 };
 
 /**
@@ -328,7 +322,7 @@ export const addressChangeGetAddressChanges = async (
 };
 
 export const getAddressChangePostAddressChangeAdminUrl = () => {
-  return `/api/v0/address_change`;
+  return `/api/address_change`;
 };
 
 /**
@@ -351,7 +345,7 @@ export const addressChangePostAddressChangeAdmin = async (
 };
 
 export const getAddressChangeGetAddressChangeAddressUrl = () => {
-  return `/api/v0/address_change/address`;
+  return `/api/address_change/address`;
 };
 
 /**
@@ -373,7 +367,7 @@ export const addressChangeGetAddressChangeAddress = async (
 };
 
 export const getAddressChangePostAddressChangeAnswerUrl = () => {
-  return `/api/v0/address_change/confirmation`;
+  return `/api/address_change/confirmation`;
 };
 
 /**
@@ -396,7 +390,7 @@ export const addressChangePostAddressChangeAnswer = async (
 };
 
 export const getAddressChangePostAddressChangeStopUrl = () => {
-  return `/api/v0/address_change/confirmation/stop`;
+  return `/api/address_change/confirmation/stop`;
 };
 
 /**
@@ -418,7 +412,7 @@ export const addressChangePostAddressChangeStop = async (
 };
 
 export const getAddressChangeGetAddressChangeViewUrl = () => {
-  return `/api/v0/address_change/confirmation/view`;
+  return `/api/address_change/confirmation/view`;
 };
 
 /**
@@ -443,7 +437,7 @@ export const addressChangeGetAddressChangeView = async (
 export const getAddressChangeSweepAddressChangeUrl = (params?: AddressChangeSweepAddressChangeParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/address_change/sweep?${stringifiedParams}` : `/api/v0/address_change/sweep`;
+  return stringifiedParams.length > 0 ? `/api/address_change/sweep?${stringifiedParams}` : `/api/address_change/sweep`;
 };
 
 /**
@@ -464,7 +458,7 @@ export const addressChangeSweepAddressChange = async (
 };
 
 export const getAddressChangeGetAddressChangeMovesUrl = () => {
-  return `/api/v0/address_change/sweep/moves`;
+  return `/api/address_change/sweep/moves`;
 };
 
 /**
@@ -483,7 +477,7 @@ export const addressChangeGetAddressChangeMoves = async (
 };
 
 export const getAddressChangePostAddressChangeMovesDoneUrl = () => {
-  return `/api/v0/address_change/sweep/moves/done`;
+  return `/api/address_change/sweep/moves/done`;
 };
 
 /**
@@ -503,7 +497,7 @@ export const addressChangePostAddressChangeMovesDone = async (
 };
 
 export const getAddressChangeDeleteAddressChangeUrl = (addressChangeId: string) => {
-  return `/api/v0/address_change/${encodeURIComponent(String(addressChangeId))}`;
+  return `/api/address_change/${encodeURIComponent(String(addressChangeId))}`;
 };
 
 /**
@@ -522,8 +516,8 @@ export const addressChangeDeleteAddressChange = async (
   });
 };
 
-export const getAddressChangeInviteAddressChangeUrl = (addressChangeId: string) => {
-  return `/api/v0/address_change/${encodeURIComponent(String(addressChangeId))}/invite`;
+export const getAddressChangeResendConfirmationUrl = (addressChangeId: string) => {
+  return `/api/address_change/${encodeURIComponent(String(addressChangeId))}/confirmation/resend`;
 };
 
 /**
@@ -533,61 +527,18 @@ export const getAddressChangeInviteAddressChangeUrl = (addressChangeId: string) 
  * link to re-send.
  * @summary Send a pending address a fresh link
  */
-export const addressChangeInviteAddressChange = async (
+export const addressChangeResendConfirmation = async (
   addressChangeId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLAddressChangeIdResponse> => {
-  return adminKeyTransport<FLAddressChangeIdResponse>(getAddressChangeInviteAddressChangeUrl(addressChangeId), {
+  return adminKeyTransport<FLAddressChangeIdResponse>(getAddressChangeResendConfirmationUrl(addressChangeId), {
     ...options,
     method: "POST",
   });
 };
 
-export const getAufstellungenGetAufstellungUrl = (spielId: string, teamId: string) => {
-  return `/api/v0/aufstellungen/${encodeURIComponent(String(spielId))}/${encodeURIComponent(String(teamId))}`;
-};
-
-/**
- * The line-up screen of one club for one fixture, as the club's own seat holders read it.
- * @summary One club's line-up for one fixture as an administrator reads it
- */
-export const aufstellungenGetAufstellung = async (
-  spielId: string,
-  teamId: string,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLAufstellungResponse> => {
-  return adminKeyTransport<FLAufstellungResponse>(getAufstellungenGetAufstellungUrl(spielId, teamId), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getAufstellungenPutAufstellungUrl = (spielId: string, teamId: string) => {
-  return `/api/v0/aufstellungen/${encodeURIComponent(String(spielId))}/${encodeURIComponent(String(teamId))}`;
-};
-
-/**
- * Save the whole line-up of one club for one fixture at any time, the hour before kick-off included.
- *
- * An entry naming nobody stands for a pupil erased after the match was played, and a save keeps it by sending it back.
- * @summary Save one club's line-up for one fixture as an administrator
- */
-export const aufstellungenPutAufstellung = async (
-  spielId: string,
-  teamId: string,
-  fLAufstellungPayload: FLAufstellungPayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLAufstellungResponse> => {
-  return adminKeyTransport<FLAufstellungResponse>(getAufstellungenPutAufstellungUrl(spielId, teamId), {
-    ...options,
-    method: "PUT",
-    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
-    body: JSON.stringify(fLAufstellungPayload),
-  });
-};
-
 export const getAufstellungenGetAufstellungSelfUrl = (spielId: string, teamId: string) => {
-  return `/api/v0/aufstellungen/${encodeURIComponent(String(spielId))}/${encodeURIComponent(String(teamId))}/self`;
+  return `/api/aufstellungen/spiele/${encodeURIComponent(String(spielId))}/teams/${encodeURIComponent(String(teamId))}`;
 };
 
 /**
@@ -608,7 +559,7 @@ export const aufstellungenGetAufstellungSelf = async (
 };
 
 export const getAufstellungenPutAufstellungSelfUrl = (spielId: string, teamId: string) => {
-  return `/api/v0/aufstellungen/${encodeURIComponent(String(spielId))}/${encodeURIComponent(String(teamId))}/self`;
+  return `/api/aufstellungen/spiele/${encodeURIComponent(String(spielId))}/teams/${encodeURIComponent(String(teamId))}`;
 };
 
 /**
@@ -632,8 +583,51 @@ export const aufstellungenPutAufstellungSelf = async (
   });
 };
 
+export const getAufstellungenGetAufstellungUrl = (spielId: string, teamId: string) => {
+  return `/api/aufstellungen/spiele/${encodeURIComponent(String(spielId))}/teams/${encodeURIComponent(String(teamId))}/admin`;
+};
+
+/**
+ * The line-up screen of one club for one fixture, as the club's own seat holders read it.
+ * @summary One club's line-up for one fixture as an administrator reads it
+ */
+export const aufstellungenGetAufstellung = async (
+  spielId: string,
+  teamId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLAufstellungResponse> => {
+  return adminKeyTransport<FLAufstellungResponse>(getAufstellungenGetAufstellungUrl(spielId, teamId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAufstellungenPutAufstellungUrl = (spielId: string, teamId: string) => {
+  return `/api/aufstellungen/spiele/${encodeURIComponent(String(spielId))}/teams/${encodeURIComponent(String(teamId))}/admin`;
+};
+
+/**
+ * Save the whole line-up of one club for one fixture at any time, the hour before kick-off included.
+ *
+ * An entry naming nobody stands for a pupil erased after the match was played, and a save keeps it by sending it back.
+ * @summary Save one club's line-up for one fixture as an administrator
+ */
+export const aufstellungenPutAufstellung = async (
+  spielId: string,
+  teamId: string,
+  fLAufstellungPayload: FLAufstellungPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLAufstellungResponse> => {
+  return adminKeyTransport<FLAufstellungResponse>(getAufstellungenPutAufstellungUrl(spielId, teamId), {
+    ...options,
+    method: "PUT",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(fLAufstellungPayload),
+  });
+};
+
 export const getBanListGetBanListEntriesUrl = () => {
-  return `/api/v0/ban_list`;
+  return `/api/ban_list`;
 };
 
 /**
@@ -648,7 +642,7 @@ export const banListGetBanListEntries = async (options?: Parameters<typeof admin
 };
 
 export const getBanListPostBanListEntryUrl = () => {
-  return `/api/v0/ban_list`;
+  return `/api/ban_list`;
 };
 
 /**
@@ -670,7 +664,7 @@ export const banListPostBanListEntry = async (
 };
 
 export const getBanListDeleteBanListEntryUrl = (banListEntryId: string) => {
-  return `/api/v0/ban_list/${encodeURIComponent(String(banListEntryId))}`;
+  return `/api/ban_list/${encodeURIComponent(String(banListEntryId))}`;
 };
 
 /**
@@ -687,8 +681,30 @@ export const banListDeleteBanListEntry = async (
   });
 };
 
+export const getBewerbungenGetBewerbungenAdminUrl = (params: BewerbungenGetBewerbungenAdminParams) => {
+  const stringifiedParams = serializeQuery(params);
+
+  return stringifiedParams.length > 0 ? `/api/bewerbungen?${stringifiedParams}` : `/api/bewerbungen`;
+};
+
+/**
+ * The season's applications, newest first, holding nothing of a person, and what an acceptance would meet there.
+ *
+ * A long list is cut, as `complete` says, but every application with a confirmed seat is served past the cut.
+ * @summary One Saison's Bewerbungen for its list
+ */
+export const bewerbungenGetBewerbungenAdmin = async (
+  params: BewerbungenGetBewerbungenAdminParams,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLBewerbungenAdminListResponse> => {
+  return adminKeyTransport<FLBewerbungenAdminListResponse>(getBewerbungenGetBewerbungenAdminUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
 export const getBewerbungenPostBewerbungUrl = () => {
-  return `/api/v0/bewerbungen`;
+  return `/api/bewerbungen`;
 };
 
 /**
@@ -709,8 +725,8 @@ export const bewerbungenPostBewerbung = async (
   });
 };
 
-export const getBewerbungenPostEinwilligungUrl = () => {
-  return `/api/v0/bewerbungen/einwilligung`;
+export const getBewerbungenPostConfirmationUrl = () => {
+  return `/api/bewerbungen/confirmation`;
 };
 
 /**
@@ -720,11 +736,11 @@ export const getBewerbungenPostEinwilligungUrl = () => {
  * is the deletion notice too.
  * @summary Confirm or decline one seat of a Bewerbung or of a team's season row
  */
-export const bewerbungenPostEinwilligung = async (
+export const bewerbungenPostConfirmation = async (
   fLBewerbungEinwilligungGivenFLBewerbungEinwilligungDeclined: FLBewerbungEinwilligungGiven | FLBewerbungEinwilligungDeclined,
   options?: Parameters<typeof baseKeyTransport>[1],
 ): Promise<FLBewerbungEinwilligungAnswerResponse | FLSaisonTeamEinwilligungAnswerResponse> => {
-  return baseKeyTransport<FLBewerbungEinwilligungAnswerResponse | FLSaisonTeamEinwilligungAnswerResponse>(getBewerbungenPostEinwilligungUrl(), {
+  return baseKeyTransport<FLBewerbungEinwilligungAnswerResponse | FLSaisonTeamEinwilligungAnswerResponse>(getBewerbungenPostConfirmationUrl(), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -732,8 +748,8 @@ export const bewerbungenPostEinwilligung = async (
   });
 };
 
-export const getBewerbungenGetEinwilligungViewUrl = () => {
-  return `/api/v0/bewerbungen/einwilligung/view`;
+export const getBewerbungenGetConfirmationViewUrl = () => {
+  return `/api/bewerbungen/confirmation/view`;
 };
 
 /**
@@ -742,11 +758,11 @@ export const getBewerbungenGetEinwilligungViewUrl = () => {
  * A confirmed, declined or expired link is served in that state; only a token no seat holds is refused.
  * @summary What one confirmation link opens
  */
-export const bewerbungenGetEinwilligungView = async (
+export const bewerbungenGetConfirmationView = async (
   fLTokenPayload: FLTokenPayload,
   options?: Parameters<typeof baseKeyReadTransport>[1],
 ): Promise<FLBewerbungEinwilligungViewResponse> => {
-  return baseKeyReadTransport<FLBewerbungEinwilligungViewResponse>(getBewerbungenGetEinwilligungViewUrl(), {
+  return baseKeyReadTransport<FLBewerbungEinwilligungViewResponse>(getBewerbungenGetConfirmationViewUrl(), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -755,7 +771,7 @@ export const bewerbungenGetEinwilligungView = async (
 };
 
 export const getBewerbungenGetFormUrl = (saisonId: string) => {
-  return `/api/v0/bewerbungen/form/${encodeURIComponent(String(saisonId))}`;
+  return `/api/bewerbungen/saisons/${encodeURIComponent(String(saisonId))}/form`;
 };
 
 /**
@@ -774,45 +790,8 @@ export const bewerbungenGetForm = async (
   });
 };
 
-export const getBewerbungenGetBewerbungenAdminUrl = (params: BewerbungenGetBewerbungenAdminParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0 ? `/api/v0/bewerbungen/list/admin?${stringifiedParams}` : `/api/v0/bewerbungen/list/admin`;
-};
-
-/**
- * The season's applications, newest first, holding nothing of a person, and what an acceptance would meet there.
- *
- * A long list is cut, as `complete` says, but every application with a confirmed seat is served past the cut.
- * @summary One Saison's Bewerbungen for its list
- */
-export const bewerbungenGetBewerbungenAdmin = async (
-  params: BewerbungenGetBewerbungenAdminParams,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLBewerbungenAdminListResponse> => {
-  return adminKeyTransport<FLBewerbungenAdminListResponse>(getBewerbungenGetBewerbungenAdminUrl(params), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getBewerbungenGetSweepSaisonsUrl = () => {
-  return `/api/v0/bewerbungen/sweep`;
-};
-
-/**
- * Every season's id, oldest first, for the caller to sweep one at a time.
- * @summary Every season the sweep has to visit
- */
-export const bewerbungenGetSweepSaisons = async (options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLSweepSaisonsResponse> => {
-  return systemKeyTransport<FLSweepSaisonsResponse>(getBewerbungenGetSweepSaisonsUrl(), {
-    ...options,
-    method: "GET",
-  });
-};
-
 export const getBewerbungenSweepSaisonUrl = (saisonId: string) => {
-  return `/api/v0/bewerbungen/sweep/${encodeURIComponent(String(saisonId))}`;
+  return `/api/bewerbungen/saisons/${encodeURIComponent(String(saisonId))}/sweep`;
 };
 
 /**
@@ -831,8 +810,23 @@ export const bewerbungenSweepSaison = async (
   });
 };
 
+export const getBewerbungenGetSweepSaisonsUrl = () => {
+  return `/api/bewerbungen/sweep`;
+};
+
+/**
+ * Every season's id, oldest first, for the caller to sweep one at a time.
+ * @summary Every season the sweep has to visit
+ */
+export const bewerbungenGetSweepSaisons = async (options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLSweepSaisonsResponse> => {
+  return systemKeyTransport<FLSweepSaisonsResponse>(getBewerbungenGetSweepSaisonsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
 export const getBewerbungenGetBewerbungUrl = (bewerbungId: string) => {
-  return `/api/v0/bewerbungen/${encodeURIComponent(String(bewerbungId))}`;
+  return `/api/bewerbungen/${encodeURIComponent(String(bewerbungId))}`;
 };
 
 /**
@@ -850,7 +844,7 @@ export const bewerbungenGetBewerbung = async (
 };
 
 export const getBewerbungenAcceptBewerbungUrl = (bewerbungId: string) => {
-  return `/api/v0/bewerbungen/${encodeURIComponent(String(bewerbungId))}/accept`;
+  return `/api/bewerbungen/${encodeURIComponent(String(bewerbungId))}/accept`;
 };
 
 /**
@@ -873,29 +867,8 @@ export const bewerbungenAcceptBewerbung = async (
   });
 };
 
-export const getBewerbungenPatchEinwilligungUrl = (bewerbungId: string) => {
-  return `/api/v0/bewerbungen/${encodeURIComponent(String(bewerbungId))}/account/einwilligung`;
-};
-
-/**
- * Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application; a grant is refused.
- * @summary Withdraw a seat holder's own WhatsApp and media consent on a pending Bewerbung
- */
-export const bewerbungenPatchEinwilligung = async (
-  bewerbungId: string,
-  fLSeatEinwilligungPayload: FLSeatEinwilligungPayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<void> => {
-  return adminKeyTransport<void>(getBewerbungenPatchEinwilligungUrl(bewerbungId), {
-    ...options,
-    method: "PATCH",
-    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
-    body: JSON.stringify(fLSeatEinwilligungPayload),
-  });
-};
-
 export const getBewerbungenDeclineBewerbungUrl = (bewerbungId: string) => {
-  return `/api/v0/bewerbungen/${encodeURIComponent(String(bewerbungId))}/decline`;
+  return `/api/bewerbungen/${encodeURIComponent(String(bewerbungId))}/decline`;
 };
 
 /**
@@ -917,30 +890,29 @@ export const bewerbungenDeclineBewerbung = async (
   });
 };
 
-export const getBewerbungenResendEinwilligungUrl = (bewerbungId: string, seat: string) => {
-  return `/api/v0/bewerbungen/${encodeURIComponent(String(bewerbungId))}/einwilligung/${encodeURIComponent(String(seat))}/resend`;
+export const getBewerbungenPatchEinwilligungUrl = (bewerbungId: string) => {
+  return `/api/bewerbungen/${encodeURIComponent(String(bewerbungId))}/einwilligung`;
 };
 
 /**
- * Void one seat's link and mail its person a fresh one, that seat's deadline and reminder starting again from today.
- *
- * Where one person holds two seats both are replaced and one link answers both, and the answer names the address and
- * seats as the write found them.
- * @summary Re-send one seat's confirmation link
+ * Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application; a grant is refused.
+ * @summary Withdraw a seat holder's own WhatsApp and media consent on a pending Bewerbung
  */
-export const bewerbungenResendEinwilligung = async (
+export const bewerbungenPatchEinwilligung = async (
   bewerbungId: string,
-  seat: string,
+  fLSeatEinwilligungPayload: FLSeatEinwilligungPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLBewerbungEinwilligungResendResponse> => {
-  return adminKeyTransport<FLBewerbungEinwilligungResendResponse>(getBewerbungenResendEinwilligungUrl(bewerbungId, seat), {
+): Promise<void> => {
+  return adminKeyTransport<void>(getBewerbungenPatchEinwilligungUrl(bewerbungId), {
     ...options,
-    method: "POST",
+    method: "PATCH",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(fLSeatEinwilligungPayload),
   });
 };
 
 export const getBewerbungenPostKontaktSeatUrl = (bewerbungId: string, seat: string) => {
-  return `/api/v0/bewerbungen/${encodeURIComponent(String(bewerbungId))}/kontakte/${encodeURIComponent(String(seat))}`;
+  return `/api/bewerbungen/${encodeURIComponent(String(bewerbungId))}/kontakte/${encodeURIComponent(String(seat))}`;
 };
 
 /**
@@ -964,8 +936,30 @@ export const bewerbungenPostKontaktSeat = async (
   });
 };
 
+export const getBewerbungenResendKontaktConfirmationUrl = (bewerbungId: string, seat: string) => {
+  return `/api/bewerbungen/${encodeURIComponent(String(bewerbungId))}/kontakte/${encodeURIComponent(String(seat))}/confirmation/resend`;
+};
+
+/**
+ * Void one seat's link and mail its person a fresh one, that seat's deadline and reminder starting again from today.
+ *
+ * Where one person holds two seats both are replaced and one link answers both, and the answer names the address and
+ * seats as the write found them.
+ * @summary Re-send one seat's confirmation link
+ */
+export const bewerbungenResendKontaktConfirmation = async (
+  bewerbungId: string,
+  seat: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLBewerbungEinwilligungResendResponse> => {
+  return adminKeyTransport<FLBewerbungEinwilligungResendResponse>(getBewerbungenResendKontaktConfirmationUrl(bewerbungId, seat), {
+    ...options,
+    method: "POST",
+  });
+};
+
 export const getGrantsGetGrantsUrl = () => {
-  return `/api/v0/grants`;
+  return `/api/grants`;
 };
 
 /**
@@ -982,7 +976,7 @@ export const grantsGetGrants = async (options?: Parameters<typeof adminKeyTransp
 };
 
 export const getGrantsPostGrantUrl = () => {
-  return `/api/v0/grants`;
+  return `/api/grants`;
 };
 
 /**
@@ -1004,7 +998,7 @@ export const grantsPostGrant = async (
 };
 
 export const getGrantsPostHandoverPassUrl = () => {
-  return `/api/v0/grants/handover`;
+  return `/api/grants/handover`;
 };
 
 /**
@@ -1021,7 +1015,7 @@ export const grantsPostHandoverPass = async (options?: Parameters<typeof systemK
 };
 
 export const getGrantsDeleteGrantUrl = (grantId: string) => {
-  return `/api/v0/grants/${encodeURIComponent(String(grantId))}`;
+  return `/api/grants/${encodeURIComponent(String(grantId))}`;
 };
 
 /**
@@ -1038,7 +1032,7 @@ export const grantsDeleteGrant = async (grantId: string, options?: Parameters<ty
 };
 
 export const getGrantsDeleteHandoverUrl = (grantId: string) => {
-  return `/api/v0/grants/${encodeURIComponent(String(grantId))}/handover`;
+  return `/api/grants/${encodeURIComponent(String(grantId))}/handover`;
 };
 
 /**
@@ -1056,7 +1050,7 @@ export const grantsDeleteHandover = async (
 };
 
 export const getGrantsPostHandoverUrl = (grantId: string) => {
-  return `/api/v0/grants/${encodeURIComponent(String(grantId))}/handover`;
+  return `/api/grants/${encodeURIComponent(String(grantId))}/handover`;
 };
 
 /**
@@ -1072,46 +1066,8 @@ export const grantsPostHandover = async (grantId: string, options?: Parameters<t
   });
 };
 
-export const getIdentityPostAccountErasureUrl = () => {
-  return `/api/v0/identity/account/erasure`;
-};
-
-/**
- * Erase every record the signed-in address holds, at once and as one write; the owner is refused until a handover.
- *
- * A played match keeps its report, its line-ups and its booking, each naming nobody in the person's place, and the
- * sign-in account is the caller's to delete once this has answered.
- * @summary Erase every record the signed-in address holds
- */
-export const identityPostAccountErasure = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<void> => {
-  return adminKeyTransport<void>(getIdentityPostAccountErasureUrl(), {
-    ...options,
-    method: "POST",
-  });
-};
-
-export const getIdentityGetAccountErasureViewUrl = () => {
-  return `/api/v0/identity/account/erasure/view`;
-};
-
-/**
- * What `POST /identity/account/erasure` would remove or empty for the signed-in address, by kind and by name, and nothing else.
- *
- * Another address's pending change naming this one is counted and not named once its link has reached this mailbox,
- * since its records are not this address's until it takes effect.
- * @summary Show what an erasure of the signed-in address would remove
- */
-export const identityGetAccountErasureView = async (
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLAccountErasureViewResponse> => {
-  return adminKeyTransport<FLAccountErasureViewResponse>(getIdentityGetAccountErasureViewUrl(), {
-    ...options,
-    method: "GET",
-  });
-};
-
 export const getIdentityPostErasureUrl = () => {
-  return `/api/v0/identity/erasure`;
+  return `/api/identity/erasure`;
 };
 
 /**
@@ -1135,7 +1091,7 @@ export const identityPostErasure = async (
 export const getIdentitySweepErasureUrl = (params?: IdentitySweepErasureParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/identity/erasure/sweep?${stringifiedParams}` : `/api/v0/identity/erasure/sweep`;
+  return stringifiedParams.length > 0 ? `/api/identity/erasure/sweep?${stringifiedParams}` : `/api/identity/erasure/sweep`;
 };
 
 /**
@@ -1156,7 +1112,7 @@ export const identitySweepErasure = async (
 };
 
 export const getIdentityGetErasureViewUrl = () => {
-  return `/api/v0/identity/erasure/view`;
+  return `/api/identity/erasure/view`;
 };
 
 /**
@@ -1178,7 +1134,7 @@ export const identityGetErasureView = async (
 };
 
 export const getIdentityGetReferencesUrl = () => {
-  return `/api/v0/identity/references`;
+  return `/api/identity/references`;
 };
 
 /**
@@ -1197,8 +1153,46 @@ export const identityGetReferences = async (
   });
 };
 
+export const getIdentityPostAccountErasureUrl = () => {
+  return `/api/identity/self/erasure`;
+};
+
+/**
+ * Erase every record the signed-in address holds, at once and as one write; the owner is refused until a handover.
+ *
+ * A played match keeps its report, its line-ups and its booking, each naming nobody in the person's place, and the
+ * sign-in account is the caller's to delete once this has answered.
+ * @summary Erase every record the signed-in address holds
+ */
+export const identityPostAccountErasure = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<void> => {
+  return adminKeyTransport<void>(getIdentityPostAccountErasureUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getIdentityGetAccountErasureViewUrl = () => {
+  return `/api/identity/self/erasure/view`;
+};
+
+/**
+ * What `POST /identity/self/erasure` would remove or empty for the signed-in address, by kind and by name, and nothing else.
+ *
+ * Another address's pending change naming this one is counted and not named once its link has reached this mailbox,
+ * since its records are not this address's until it takes effect.
+ * @summary Show what an erasure of the signed-in address would remove
+ */
+export const identityGetAccountErasureView = async (
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLAccountErasureViewResponse> => {
+  return adminKeyTransport<FLAccountErasureViewResponse>(getIdentityGetAccountErasureViewUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
 export const getIdentityGetSignInUrl = () => {
-  return `/api/v0/identity/sign_in`;
+  return `/api/identity/sign_in`;
 };
 
 /**
@@ -1220,7 +1214,7 @@ export const identityGetSignIn = async (
 };
 
 export const getIdentityGetSubjectUrl = () => {
-  return `/api/v0/identity/subject`;
+  return `/api/identity/subject`;
 };
 
 /**
@@ -1243,7 +1237,7 @@ export const identityGetSubject = async (
 };
 
 export const getOutboxPostEventUrl = () => {
-  return `/api/v0/outbox/event`;
+  return `/api/outbox/event`;
 };
 
 /**
@@ -1266,7 +1260,7 @@ export const outboxPostEvent = async (
 };
 
 export const getOutboxPostHandoutUrl = () => {
-  return `/api/v0/outbox/handout`;
+  return `/api/outbox/handout`;
 };
 
 /**
@@ -1284,7 +1278,7 @@ export const outboxPostHandout = async (options?: Parameters<typeof systemKeyTra
 };
 
 export const getOutboxPostResultUrl = () => {
-  return `/api/v0/outbox/result`;
+  return `/api/outbox/result`;
 };
 
 /**
@@ -1308,7 +1302,7 @@ export const outboxPostResult = async (
 };
 
 export const getOutboxPostSignInUrl = () => {
-  return `/api/v0/outbox/sign_in`;
+  return `/api/outbox/sign_in`;
 };
 
 /**
@@ -1330,8 +1324,31 @@ export const outboxPostSignIn = async (
   });
 };
 
+export const getRegistrierungenGetRegistrierungenAdminUrl = (params: RegistrierungenGetRegistrierungenAdminParams) => {
+  const stringifiedParams = serializeQuery(params);
+
+  return stringifiedParams.length > 0 ? `/api/registrierungen?${stringifiedParams}` : `/api/registrierungen`;
+};
+
+/**
+ * One season's pending registrations, newest first, each with its club and whether its pupil confirmed it.
+ *
+ * `unmailed` marks a row owed no mail, its mailbox already holding the most open links, and `complete` says whether
+ * the read's cap cut the list.
+ * @summary One Saison's pending Registrierungen for its list
+ */
+export const registrierungenGetRegistrierungenAdmin = async (
+  params: RegistrierungenGetRegistrierungenAdminParams,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLRegistrierungenAdminListResponse> => {
+  return adminKeyTransport<FLRegistrierungenAdminListResponse>(getRegistrierungenGetRegistrierungenAdminUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
 export const getRegistrierungenPostRegistrierungUrl = () => {
-  return `/api/v0/registrierungen`;
+  return `/api/registrierungen`;
 };
 
 /**
@@ -1353,31 +1370,8 @@ export const registrierungenPostRegistrierung = async (
   });
 };
 
-export const getRegistrierungenPatchEinwilligungUrl = (registrierungId: string) => {
-  return `/api/v0/registrierungen/account/${encodeURIComponent(String(registrierungId))}/einwilligung`;
-};
-
-/**
- * Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.
- *
- * A grant is refused, and a request moving neither choice writes nothing.
- * @summary Withdraw a pupil's own publication and media consent on their pending registration
- */
-export const registrierungenPatchEinwilligung = async (
-  registrierungId: string,
-  fLAccountEinwilligungPayload: FLAccountEinwilligungPayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<void> => {
-  return adminKeyTransport<void>(getRegistrierungenPatchEinwilligungUrl(registrierungId), {
-    ...options,
-    method: "PATCH",
-    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
-    body: JSON.stringify(fLAccountEinwilligungPayload),
-  });
-};
-
 export const getRegistrierungenPostConfirmationUrl = () => {
-  return `/api/v0/registrierungen/confirmation`;
+  return `/api/registrierungen/confirmation`;
 };
 
 /**
@@ -1397,7 +1391,7 @@ export const registrierungenPostConfirmation = async (
 };
 
 export const getRegistrierungenGetConfirmationViewUrl = () => {
-  return `/api/v0/registrierungen/confirmation/view`;
+  return `/api/registrierungen/confirmation/view`;
 };
 
 /**
@@ -1419,7 +1413,7 @@ export const registrierungenGetConfirmationView = async (
 };
 
 export const getRegistrierungenPostInvitationViewUrl = () => {
-  return `/api/v0/registrierungen/invitation/view`;
+  return `/api/registrierungen/invitation/view`;
 };
 
 /**
@@ -1440,8 +1434,29 @@ export const registrierungenPostInvitationView = async (
   });
 };
 
+export const getRegistrierungenSweepRegistrierungenUrl = (saisonId: string) => {
+  return `/api/registrierungen/saisons/${encodeURIComponent(String(saisonId))}/sweep`;
+};
+
+/**
+ * Erase one season's due registrations, as of today in Europe/Berlin.
+ *
+ * A declined one goes once its wait after the decision has run out, an unconfirmed one past its deadline, and every one
+ * still undecided once the season is `past`; one whose erasure fails is counted in `failed` and met again next pass.
+ * @summary Run one season's registration retention clocks
+ */
+export const registrierungenSweepRegistrierungen = async (
+  saisonId: string,
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLRegistrierungSweepResponse> => {
+  return systemKeyTransport<FLRegistrierungSweepResponse>(getRegistrierungenSweepRegistrierungenUrl(saisonId), {
+    ...options,
+    method: "POST",
+  });
+};
+
 export const getRegistrierungenGetOpenRegistrierungenUrl = (teamId: string, saisonId: string) => {
-  return `/api/v0/registrierungen/kader/${encodeURIComponent(String(teamId))}/${encodeURIComponent(String(saisonId))}`;
+  return `/api/registrierungen/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}`;
 };
 
 /**
@@ -1463,52 +1478,8 @@ export const registrierungenGetOpenRegistrierungen = async (
   });
 };
 
-export const getRegistrierungenGetRegistrierungenAdminUrl = (params: RegistrierungenGetRegistrierungenAdminParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0 ? `/api/v0/registrierungen/list/admin?${stringifiedParams}` : `/api/v0/registrierungen/list/admin`;
-};
-
-/**
- * One season's pending registrations, newest first, each with its club and whether its pupil confirmed it.
- *
- * `unmailed` marks a row owed no mail, its mailbox already holding the most open links, and `complete` says whether
- * the read's cap cut the list.
- * @summary One Saison's pending Registrierungen for its list
- */
-export const registrierungenGetRegistrierungenAdmin = async (
-  params: RegistrierungenGetRegistrierungenAdminParams,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLRegistrierungenAdminListResponse> => {
-  return adminKeyTransport<FLRegistrierungenAdminListResponse>(getRegistrierungenGetRegistrierungenAdminUrl(params), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getRegistrierungenSweepRegistrierungenUrl = (saisonId: string) => {
-  return `/api/v0/registrierungen/sweep/${encodeURIComponent(String(saisonId))}`;
-};
-
-/**
- * Erase one season's due registrations, as of today in Europe/Berlin.
- *
- * A declined one goes once its wait after the decision has run out, an unconfirmed one past its deadline, and every one
- * still undecided once the season is `past`; one whose erasure fails is counted in `failed` and met again next pass.
- * @summary Run one season's registration retention clocks
- */
-export const registrierungenSweepRegistrierungen = async (
-  saisonId: string,
-  options?: Parameters<typeof systemKeyTransport>[1],
-): Promise<FLRegistrierungSweepResponse> => {
-  return systemKeyTransport<FLRegistrierungSweepResponse>(getRegistrierungenSweepRegistrierungenUrl(saisonId), {
-    ...options,
-    method: "POST",
-  });
-};
-
 export const getRegistrierungenAdmitUrl = (registrierungId: string) => {
-  return `/api/v0/registrierungen/${encodeURIComponent(String(registrierungId))}/admit`;
+  return `/api/registrierungen/${encodeURIComponent(String(registrierungId))}/admit`;
 };
 
 /**
@@ -1532,7 +1503,7 @@ export const registrierungenAdmit = async (
 };
 
 export const getRegistrierungenDeclineUrl = (registrierungId: string) => {
-  return `/api/v0/registrierungen/${encodeURIComponent(String(registrierungId))}/decline`;
+  return `/api/registrierungen/${encodeURIComponent(String(registrierungId))}/decline`;
 };
 
 /**
@@ -1555,8 +1526,49 @@ export const registrierungenDecline = async (
   });
 };
 
+export const getRegistrierungenPatchEinwilligungUrl = (registrierungId: string) => {
+  return `/api/registrierungen/${encodeURIComponent(String(registrierungId))}/einwilligung`;
+};
+
+/**
+ * Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.
+ *
+ * A grant is refused, and a request moving neither choice writes nothing.
+ * @summary Withdraw a pupil's own publication and media consent on their pending registration
+ */
+export const registrierungenPatchEinwilligung = async (
+  registrierungId: string,
+  fLAccountEinwilligungPayload: FLAccountEinwilligungPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<void> => {
+  return adminKeyTransport<void>(getRegistrierungenPatchEinwilligungUrl(registrierungId), {
+    ...options,
+    method: "PATCH",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(fLAccountEinwilligungPayload),
+  });
+};
+
+export const getSaisonsGetSaisonsAdminUrl = () => {
+  return `/api/saisons`;
+};
+
+/**
+ * Every season, the `future` ones included, each with its start, play and decision states and its counts.
+ *
+ * `next_saison_id` is the id the next create mints, and `refusals.create` the code that create would be refused with
+ * now, or null.
+ * @summary Every Saison for the admin surfaces
+ */
+export const saisonsGetSaisonsAdmin = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSaisonsAdminListResponse> => {
+  return adminKeyTransport<FLSaisonsAdminListResponse>(getSaisonsGetSaisonsAdminUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
 export const getSaisonsPostSaisonUrl = () => {
-  return `/api/v0/saisons`;
+  return `/api/saisons`;
 };
 
 /**
@@ -1579,7 +1591,7 @@ export const saisonsPostSaison = async (
 };
 
 export const getSaisonsGetFrameUrl = () => {
-  return `/api/v0/saisons/frame`;
+  return `/api/saisons/frame`;
 };
 
 /**
@@ -1594,7 +1606,7 @@ export const saisonsGetFrame = async (options?: Parameters<typeof baseKeyTranspo
 };
 
 export const getSaisonsGetLandingUrl = () => {
-  return `/api/v0/saisons/landing`;
+  return `/api/saisons/landing`;
 };
 
 /**
@@ -1610,46 +1622,29 @@ export const saisonsGetLanding = async (options?: Parameters<typeof baseKeyTrans
   });
 };
 
-export const getSaisonsGetSaisonsAdminUrl = () => {
-  return `/api/v0/saisons/list/admin`;
+export const getSaisonsGetSaisonAdminUrl = (saisonId: string) => {
+  return `/api/saisons/${encodeURIComponent(String(saisonId))}`;
 };
 
 /**
- * Every season, the `future` ones included, each with its start, play and decision states and its counts.
+ * What the season editor shows in one read: its season, clubs, shapes and matchdays, its acts' states and its links.
  *
- * `next_saison_id` is the id the next create mints, and `refusals.create` the code that create would be refused with
- * now, or null.
- * @summary Every Saison for the admin surfaces
+ * The season is served a `future` one included, and every flag and every refusal is judged as the write it stands for
+ * judges it, so an act is offered exactly where its write takes it.
+ * @summary One Saison for the admin editor
  */
-export const saisonsGetSaisonsAdmin = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSaisonsAdminListResponse> => {
-  return adminKeyTransport<FLSaisonsAdminListResponse>(getSaisonsGetSaisonsAdminUrl(), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getSaisonsGetSaisonUrl = (saisonId: string) => {
-  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}`;
-};
-
-/**
- * One season the public may read, by its id.
- *
- * 404 where no season carries it or it is a `future` one.
- * @summary One Saison
- */
-export const saisonsGetSaison = async (
+export const saisonsGetSaisonAdmin = async (
   saisonId: string,
-  options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLSaisonsSingleResponse> => {
-  return baseKeyTransport<FLSaisonsSingleResponse>(getSaisonsGetSaisonUrl(saisonId), {
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSaisonAdminResponse> => {
+  return adminKeyTransport<FLSaisonAdminResponse>(getSaisonsGetSaisonAdminUrl(saisonId), {
     ...options,
     method: "GET",
   });
 };
 
 export const getSaisonsPatchSaisonUrl = (saisonId: string) => {
-  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}`;
+  return `/api/saisons/${encodeURIComponent(String(saisonId))}`;
 };
 
 /**
@@ -1673,7 +1668,7 @@ export const saisonsPatchSaison = async (
 };
 
 export const getSaisonsActivateSaisonUrl = (saisonId: string) => {
-  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/activate`;
+  return `/api/saisons/${encodeURIComponent(String(saisonId))}/activate`;
 };
 
 /**
@@ -1692,29 +1687,8 @@ export const saisonsActivateSaison = async (
   });
 };
 
-export const getSaisonsGetSaisonAdminUrl = (saisonId: string) => {
-  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/admin`;
-};
-
-/**
- * What the season editor shows in one read: its season, clubs, shapes and matchdays, its acts' states and its links.
- *
- * The season is served a `future` one included, and every flag and every refusal is judged as the write it stands for
- * judges it, so an act is offered exactly where its write takes it.
- * @summary One Saison for the admin editor
- */
-export const saisonsGetSaisonAdmin = async (
-  saisonId: string,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSaisonAdminResponse> => {
-  return adminKeyTransport<FLSaisonAdminResponse>(getSaisonsGetSaisonAdminUrl(saisonId), {
-    ...options,
-    method: "GET",
-  });
-};
-
 export const getSaisonsSwapGruppenUrl = (saisonId: string) => {
-  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/gruppen/swap`;
+  return `/api/saisons/${encodeURIComponent(String(saisonId))}/gruppen/swap`;
 };
 
 /**
@@ -1738,7 +1712,7 @@ export const saisonsSwapGruppen = async (
 };
 
 export const getSaisonsPostInvitationsDispatchUrl = (saisonId: string) => {
-  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/invitations/dispatch`;
+  return `/api/saisons/${encodeURIComponent(String(saisonId))}/invitations/dispatch`;
 };
 
 /**
@@ -1759,7 +1733,7 @@ export const saisonsPostInvitationsDispatch = async (
 };
 
 export const getSaisonsGetKoRundeUrl = (saisonId: string) => {
-  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/ko_runde`;
+  return `/api/saisons/${encodeURIComponent(String(saisonId))}/ko_runde`;
 };
 
 /**
@@ -1776,7 +1750,7 @@ export const saisonsGetKoRunde = async (saisonId: string, options?: Parameters<t
 };
 
 export const getSaisonsGetSaisonOverviewUrl = (saisonId: string) => {
-  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/overview`;
+  return `/api/saisons/${encodeURIComponent(String(saisonId))}/overview`;
 };
 
 /**
@@ -1797,7 +1771,7 @@ export const saisonsGetSaisonOverview = async (
 };
 
 export const getSaisonsGetSpielUrl = (saisonId: string, spielId: string) => {
-  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/spiele/${encodeURIComponent(String(spielId))}`;
+  return `/api/saisons/${encodeURIComponent(String(saisonId))}/spiele/${encodeURIComponent(String(spielId))}`;
 };
 
 /**
@@ -1819,7 +1793,7 @@ export const saisonsGetSpiel = async (
 };
 
 export const getSaisonsDeleteSpielplanUrl = (saisonId: string) => {
-  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/spielplan`;
+  return `/api/saisons/${encodeURIComponent(String(saisonId))}/spielplan`;
 };
 
 /**
@@ -1839,7 +1813,7 @@ export const saisonsDeleteSpielplan = async (
 };
 
 export const getSaisonsGetSpielplanUrl = (saisonId: string) => {
-  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/spielplan`;
+  return `/api/saisons/${encodeURIComponent(String(saisonId))}/spielplan`;
 };
 
 /**
@@ -1856,7 +1830,7 @@ export const saisonsGetSpielplan = async (saisonId: string, options?: Parameters
 };
 
 export const getSaisonsPostSpielplanUrl = (saisonId: string) => {
-  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/spielplan`;
+  return `/api/saisons/${encodeURIComponent(String(saisonId))}/spielplan`;
 };
 
 /**
@@ -1880,7 +1854,7 @@ export const saisonsPostSpielplan = async (
 };
 
 export const getSaisonsGetTabelleUrl = (saisonId: string) => {
-  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/tabelle`;
+  return `/api/saisons/${encodeURIComponent(String(saisonId))}/tabelle`;
 };
 
 /**
@@ -1899,7 +1873,7 @@ export const saisonsGetTabelle = async (saisonId: string, options?: Parameters<t
 };
 
 export const getSaisonsGetTeamsUrl = (saisonId: string) => {
-  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/teams`;
+  return `/api/saisons/${encodeURIComponent(String(saisonId))}/teams`;
 };
 
 /**
@@ -1916,7 +1890,7 @@ export const saisonsGetTeams = async (saisonId: string, options?: Parameters<typ
 };
 
 export const getSaisonsGetTeamUrl = (saisonId: string, teamId: string) => {
-  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/teams/${encodeURIComponent(String(teamId))}`;
+  return `/api/saisons/${encodeURIComponent(String(saisonId))}/teams/${encodeURIComponent(String(teamId))}`;
 };
 
 /**
@@ -1939,7 +1913,7 @@ export const saisonsGetTeam = async (
 export const getSchiedsrichterGetSchiedsrichterUrl = (params?: SchiedsrichterGetSchiedsrichterParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/schiedsrichter?${stringifiedParams}` : `/api/v0/schiedsrichter`;
+  return stringifiedParams.length > 0 ? `/api/schiedsrichter?${stringifiedParams}` : `/api/schiedsrichter`;
 };
 
 /**
@@ -1957,7 +1931,7 @@ export const schiedsrichterGetSchiedsrichter = async (
 };
 
 export const getSchiedsrichterPostSchiedsrichterUrl = () => {
-  return `/api/v0/schiedsrichter`;
+  return `/api/schiedsrichter`;
 };
 
 /**
@@ -1979,31 +1953,8 @@ export const schiedsrichterPostSchiedsrichter = async (
   });
 };
 
-export const getSchiedsrichterPatchEinwilligungUrl = (schiedsrichterId: string) => {
-  return `/api/v0/schiedsrichter/account/${encodeURIComponent(String(schiedsrichterId))}/einwilligung`;
-};
-
-/**
- * Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.
- *
- * The public fixture list reads the scope off this row, so the caller drops its cached copy after a successful answer.
- * @summary Change a signed-in referee's own publication and media consent
- */
-export const schiedsrichterPatchEinwilligung = async (
-  schiedsrichterId: string,
-  fLSchiedsrichterAccountEinwilligungPayload: FLSchiedsrichterAccountEinwilligungPayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<void> => {
-  return adminKeyTransport<void>(getSchiedsrichterPatchEinwilligungUrl(schiedsrichterId), {
-    ...options,
-    method: "PATCH",
-    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
-    body: JSON.stringify(fLSchiedsrichterAccountEinwilligungPayload),
-  });
-};
-
 export const getSchiedsrichterPostConfirmationUrl = () => {
-  return `/api/v0/schiedsrichter/confirmation`;
+  return `/api/schiedsrichter/confirmation`;
 };
 
 /**
@@ -2026,7 +1977,7 @@ export const schiedsrichterPostConfirmation = async (
 };
 
 export const getSchiedsrichterPostDeclineUrl = () => {
-  return `/api/v0/schiedsrichter/confirmation/decline`;
+  return `/api/schiedsrichter/confirmation/decline`;
 };
 
 /**
@@ -2049,7 +2000,7 @@ export const schiedsrichterPostDecline = async (
 };
 
 export const getSchiedsrichterGetConfirmationViewUrl = () => {
-  return `/api/v0/schiedsrichter/confirmation/view`;
+  return `/api/schiedsrichter/confirmation/view`;
 };
 
 /**
@@ -2071,7 +2022,7 @@ export const schiedsrichterGetConfirmationView = async (
 };
 
 export const getSchiedsrichterGetSelfSaisonsUrl = () => {
-  return `/api/v0/schiedsrichter/self/saisons`;
+  return `/api/schiedsrichter/self/saisons`;
 };
 
 /**
@@ -2086,7 +2037,7 @@ export const schiedsrichterGetSelfSaisons = async (options?: Parameters<typeof a
 };
 
 export const getSchiedsrichterGetSelfSpieleUrl = (saisonId: string) => {
-  return `/api/v0/schiedsrichter/self/spiele/${encodeURIComponent(String(saisonId))}`;
+  return `/api/schiedsrichter/self/saisons/${encodeURIComponent(String(saisonId))}/spiele`;
 };
 
 /**
@@ -2106,7 +2057,7 @@ export const schiedsrichterGetSelfSpiele = async (
 };
 
 export const getSchiedsrichterSweepSchiedsrichterUrl = () => {
-  return `/api/v0/schiedsrichter/sweep`;
+  return `/api/schiedsrichter/sweep`;
 };
 
 /**
@@ -2126,7 +2077,7 @@ export const schiedsrichterSweepSchiedsrichter = async (
 };
 
 export const getSchiedsrichterDeleteSchiedsrichterUrl = (schiedsrichterId: string) => {
-  return `/api/v0/schiedsrichter/${encodeURIComponent(String(schiedsrichterId))}`;
+  return `/api/schiedsrichter/${encodeURIComponent(String(schiedsrichterId))}`;
 };
 
 /**
@@ -2146,7 +2097,7 @@ export const schiedsrichterDeleteSchiedsrichter = async (
 };
 
 export const getSchiedsrichterGetSchiedsrichterByIdUrl = (schiedsrichterId: string) => {
-  return `/api/v0/schiedsrichter/${encodeURIComponent(String(schiedsrichterId))}`;
+  return `/api/schiedsrichter/${encodeURIComponent(String(schiedsrichterId))}`;
 };
 
 /**
@@ -2166,7 +2117,7 @@ export const schiedsrichterGetSchiedsrichterById = async (
 };
 
 export const getSchiedsrichterPatchSchiedsrichterUrl = (schiedsrichterId: string) => {
-  return `/api/v0/schiedsrichter/${encodeURIComponent(String(schiedsrichterId))}`;
+  return `/api/schiedsrichter/${encodeURIComponent(String(schiedsrichterId))}`;
 };
 
 /**
@@ -2189,8 +2140,8 @@ export const schiedsrichterPatchSchiedsrichter = async (
   });
 };
 
-export const getSchiedsrichterInviteSchiedsrichterUrl = (schiedsrichterId: string) => {
-  return `/api/v0/schiedsrichter/${encodeURIComponent(String(schiedsrichterId))}/confirmation/invite`;
+export const getSchiedsrichterResendConfirmationUrl = (schiedsrichterId: string) => {
+  return `/api/schiedsrichter/${encodeURIComponent(String(schiedsrichterId))}/confirmation/resend`;
 };
 
 /**
@@ -2200,18 +2151,41 @@ export const getSchiedsrichterInviteSchiedsrichterUrl = (schiedsrichterId: strin
  * refused, since the new link could never be spent.
  * @summary Send a Schiedsrichter a fresh confirmation link
  */
-export const schiedsrichterInviteSchiedsrichter = async (
+export const schiedsrichterResendConfirmation = async (
   schiedsrichterId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLSchiedsrichterMintResponse> => {
-  return adminKeyTransport<FLSchiedsrichterMintResponse>(getSchiedsrichterInviteSchiedsrichterUrl(schiedsrichterId), {
+  return adminKeyTransport<FLSchiedsrichterMintResponse>(getSchiedsrichterResendConfirmationUrl(schiedsrichterId), {
     ...options,
     method: "POST",
   });
 };
 
+export const getSchiedsrichterPatchEinwilligungUrl = (schiedsrichterId: string) => {
+  return `/api/schiedsrichter/${encodeURIComponent(String(schiedsrichterId))}/einwilligung`;
+};
+
+/**
+ * Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.
+ *
+ * The public fixture list reads the scope off this row, so the caller drops its cached copy after a successful answer.
+ * @summary Change a signed-in referee's own publication and media consent
+ */
+export const schiedsrichterPatchEinwilligung = async (
+  schiedsrichterId: string,
+  fLSchiedsrichterAccountEinwilligungPayload: FLSchiedsrichterAccountEinwilligungPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<void> => {
+  return adminKeyTransport<void>(getSchiedsrichterPatchEinwilligungUrl(schiedsrichterId), {
+    ...options,
+    method: "PATCH",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(fLSchiedsrichterAccountEinwilligungPayload),
+  });
+};
+
 export const getSchiedsrichterReactivateSchiedsrichterUrl = (schiedsrichterId: string) => {
-  return `/api/v0/schiedsrichter/${encodeURIComponent(String(schiedsrichterId))}/reactivate`;
+  return `/api/schiedsrichter/${encodeURIComponent(String(schiedsrichterId))}/reactivate`;
 };
 
 /**
@@ -2231,7 +2205,7 @@ export const schiedsrichterReactivateSchiedsrichter = async (
 };
 
 export const getSpielberichteGetSpielberichtBerichtUrl = (spielId: string) => {
-  return `/api/v0/spielberichte/${encodeURIComponent(String(spielId))}/bericht`;
+  return `/api/spielberichte/spiele/${encodeURIComponent(String(spielId))}`;
 };
 
 /**
@@ -2251,7 +2225,7 @@ export const spielberichteGetSpielberichtBericht = async (
 };
 
 export const getSpielberichtePutSpielberichtBerichtUrl = (spielId: string) => {
-  return `/api/v0/spielberichte/${encodeURIComponent(String(spielId))}/bericht`;
+  return `/api/spielberichte/spiele/${encodeURIComponent(String(spielId))}`;
 };
 
 /**
@@ -2274,25 +2248,8 @@ export const spielberichtePutSpielberichtBericht = async (
   });
 };
 
-export const getSpielbestaetigungenGetSweepSaisonsUrl = () => {
-  return `/api/v0/spielbestaetigungen/sweep`;
-};
-
-/**
- * Every `active` season's id, oldest first: a confirmation serves no purpose once its season is over.
- * @summary Every season the confirmation pass visits
- */
-export const spielbestaetigungenGetSweepSaisons = async (
-  options?: Parameters<typeof systemKeyTransport>[1],
-): Promise<FLSweepSaisonsResponse> => {
-  return systemKeyTransport<FLSweepSaisonsResponse>(getSpielbestaetigungenGetSweepSaisonsUrl(), {
-    ...options,
-    method: "GET",
-  });
-};
-
 export const getSpielbestaetigungenSweepSpielbestaetigungenUrl = (saisonId: string) => {
-  return `/api/v0/spielbestaetigungen/sweep/${encodeURIComponent(String(saisonId))}`;
+  return `/api/spielbestaetigungen/saisons/${encodeURIComponent(String(saisonId))}/sweep`;
 };
 
 /**
@@ -2311,8 +2268,25 @@ export const spielbestaetigungenSweepSpielbestaetigungen = async (
   });
 };
 
+export const getSpielbestaetigungenGetSweepSaisonsUrl = () => {
+  return `/api/spielbestaetigungen/sweep`;
+};
+
+/**
+ * Every `active` season's id, oldest first: a confirmation serves no purpose once its season is over.
+ * @summary Every season the confirmation pass visits
+ */
+export const spielbestaetigungenGetSweepSaisons = async (
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLSweepSaisonsResponse> => {
+  return systemKeyTransport<FLSweepSaisonsResponse>(getSpielbestaetigungenGetSweepSaisonsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
 export const getSpielbestaetigungenAdoptSpielbestaetigungUrl = (spielbestaetigungId: string) => {
-  return `/api/v0/spielbestaetigungen/${encodeURIComponent(String(spielbestaetigungId))}/adopt`;
+  return `/api/spielbestaetigungen/${encodeURIComponent(String(spielbestaetigungId))}/adopt`;
 };
 
 /**
@@ -2333,7 +2307,7 @@ export const spielbestaetigungenAdoptSpielbestaetigung = async (
 };
 
 export const getSpielbestaetigungenPostSchiedsrichterAnswerUrl = (spielbestaetigungId: string) => {
-  return `/api/v0/spielbestaetigungen/${encodeURIComponent(String(spielbestaetigungId))}/answer`;
+  return `/api/spielbestaetigungen/${encodeURIComponent(String(spielbestaetigungId))}/answer`;
 };
 
 /**
@@ -2360,7 +2334,7 @@ export const spielbestaetigungenPostSchiedsrichterAnswer = async (
 };
 
 export const getSpielbestaetigungenPostTeamAnswerUrl = (spielbestaetigungId: string) => {
-  return `/api/v0/spielbestaetigungen/${encodeURIComponent(String(spielbestaetigungId))}/answer/team`;
+  return `/api/spielbestaetigungen/${encodeURIComponent(String(spielbestaetigungId))}/answer/team`;
 };
 
 /**
@@ -2384,7 +2358,7 @@ export const spielbestaetigungenPostTeamAnswer = async (
 };
 
 export const getSpielbestaetigungenDiscardSpielbestaetigungUrl = (spielbestaetigungId: string) => {
-  return `/api/v0/spielbestaetigungen/${encodeURIComponent(String(spielbestaetigungId))}/discard`;
+  return `/api/spielbestaetigungen/${encodeURIComponent(String(spielbestaetigungId))}/discard`;
 };
 
 /**
@@ -2404,7 +2378,7 @@ export const spielbestaetigungenDiscardSpielbestaetigung = async (
 };
 
 export const getSpielbestaetigungenEnterSpielbestaetigungUrl = (spielbestaetigungId: string) => {
-  return `/api/v0/spielbestaetigungen/${encodeURIComponent(String(spielbestaetigungId))}/enter`;
+  return `/api/spielbestaetigungen/${encodeURIComponent(String(spielbestaetigungId))}/enter`;
 };
 
 /**
@@ -2430,7 +2404,7 @@ export const spielbestaetigungenEnterSpielbestaetigung = async (
 export const getSpieleGetSpieleSpielplanUrl = (params: SpieleGetSpieleSpielplanParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/spiele/spielplan?${stringifiedParams}` : `/api/v0/spiele/spielplan`;
+  return stringifiedParams.length > 0 ? `/api/spiele?${stringifiedParams}` : `/api/spiele`;
 };
 
 /**
@@ -2449,16 +2423,22 @@ export const spieleGetSpieleSpielplan = async (
   });
 };
 
-export const getSpieleGetSpielUrl = (spielId: string) => {
-  return `/api/v0/spiele/${encodeURIComponent(String(spielId))}`;
+export const getSpieleGetSpielAdminUrl = (spielId: string) => {
+  return `/api/spiele/${encodeURIComponent(String(spielId))}`;
 };
 
 /**
- * Return one match by its id, answering 404 for a match of a season this tier may not read.
- * @summary One Spiel
+ * The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.
+ *
+ * Beside it come the venues and referees to book, the clubs a knockout fixture may field, and the fixture's report,
+ * confirmation rows and line-up counts.
+ * @summary One Spiel and all the match editor offers and shows beside it
  */
-export const spieleGetSpiel = async (spielId: string, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSpieleSingleResponse> => {
-  return baseKeyTransport<FLSpieleSingleResponse>(getSpieleGetSpielUrl(spielId), {
+export const spieleGetSpielAdmin = async (
+  spielId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpieleAdminSingleResponse> => {
+  return adminKeyTransport<FLSpieleAdminSingleResponse>(getSpieleGetSpielAdminUrl(spielId), {
     ...options,
     method: "GET",
   });
@@ -2468,8 +2448,8 @@ export const getSpielePatchSpielUrl = (spielId: string, params?: SpielePatchSpie
   const stringifiedParams = serializeQuery(params);
 
   return stringifiedParams.length > 0
-    ? `/api/v0/spiele/${encodeURIComponent(String(spielId))}?${stringifiedParams}`
-    : `/api/v0/spiele/${encodeURIComponent(String(spielId))}`;
+    ? `/api/spiele/${encodeURIComponent(String(spielId))}?${stringifiedParams}`
+    : `/api/spiele/${encodeURIComponent(String(spielId))}`;
 };
 
 /**
@@ -2495,29 +2475,30 @@ export const spielePatchSpiel = async (
   });
 };
 
-export const getSpieleGetSpielAdminUrl = (spielId: string) => {
-  return `/api/v0/spiele/${encodeURIComponent(String(spielId))}/admin`;
+export const getSpielerGetSpielerAdminUrl = (params: SpielerGetSpielerAdminParams) => {
+  const stringifiedParams = serializeQuery(params);
+
+  return stringifiedParams.length > 0 ? `/api/spieler?${stringifiedParams}` : `/api/spieler`;
 };
 
 /**
- * The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.
+ * Every squad row of the season, live and ausgetragen alike, each named and with its club.
  *
- * Beside it come the venues and referees to book, the clubs a knockout fixture may field, and the fixture's report,
- * confirmation rows and line-up counts.
- * @summary One Spiel and all the match editor offers and shows beside it
+ * `nummer_double` marks a live row whose number another live row of its own squad wears, compared as stored.
+ * @summary One Saison's squad rows for its list
  */
-export const spieleGetSpielAdmin = async (
-  spielId: string,
+export const spielerGetSpielerAdmin = async (
+  params: SpielerGetSpielerAdminParams,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpieleAdminSingleResponse> => {
-  return adminKeyTransport<FLSpieleAdminSingleResponse>(getSpieleGetSpielAdminUrl(spielId), {
+): Promise<FLSpielerAdminListResponse> => {
+  return adminKeyTransport<FLSpielerAdminListResponse>(getSpielerGetSpielerAdminUrl(params), {
     ...options,
     method: "GET",
   });
 };
 
 export const getSpielerPatchEinwilligungUrl = () => {
-  return `/api/v0/spieler/account/einwilligung`;
+  return `/api/spieler/self/einwilligung`;
 };
 
 /**
@@ -2539,98 +2520,8 @@ export const spielerPatchEinwilligung = async (
   });
 };
 
-export const getSpielerGetKaderUrl = (teamId: string, saisonId: string) => {
-  return `/api/v0/spieler/kader/${encodeURIComponent(String(teamId))}/${encodeURIComponent(String(saisonId))}`;
-};
-
-/**
- * The squad of one team in one season for a person holding a contact seat on it, ausgetragen rows included.
- *
- * Each surname is whole, and no address or telephone number of anybody is served.
- * @summary Read a team's squad as its seat holder
- */
-export const spielerGetKader = async (
-  teamId: string,
-  saisonId: string,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLKaderResponse> => {
-  return adminKeyTransport<FLKaderResponse>(getSpielerGetKaderUrl(teamId, saisonId), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getSpielerDeleteKaderRowUrl = (teamId: string, saisonId: string, spielerId: string) => {
-  return `/api/v0/spieler/kader/${encodeURIComponent(String(teamId))}/${encodeURIComponent(String(saisonId))}/${encodeURIComponent(String(spielerId))}`;
-};
-
-/**
- * Take a player out of this team's squad for the season, as any contact seat of the team may, the row staying.
- *
- * The person stays in the league, and only an administrator brings the row back.
- * @summary Take a Spieler out of the squad as its team's seat holder (retire)
- */
-export const spielerDeleteKaderRow = async (
-  teamId: string,
-  saisonId: string,
-  spielerId: string,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLKaderRow> => {
-  return adminKeyTransport<FLKaderRow>(getSpielerDeleteKaderRowUrl(teamId, saisonId, spielerId), {
-    ...options,
-    method: "DELETE",
-  });
-};
-
-export const getSpielerPatchKaderRowUrl = (teamId: string, saisonId: string, spielerId: string) => {
-  return `/api/v0/spieler/kader/${encodeURIComponent(String(teamId))}/${encodeURIComponent(String(saisonId))}/${encodeURIComponent(String(spielerId))}`;
-};
-
-/**
- * Replace a live squad row's `nummer`, `position`, `stufe` and `rolle`, as any contact seat of its team may.
- *
- * The team and the Nachnominierung flag stay the stored row's, and a shared `nummer` is permitted.
- * @summary Update a squad entry as its team's seat holder
- */
-export const spielerPatchKaderRow = async (
-  teamId: string,
-  saisonId: string,
-  spielerId: string,
-  fLPatchKaderRowPayload: FLPatchKaderRowPayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLKaderRow> => {
-  return adminKeyTransport<FLKaderRow>(getSpielerPatchKaderRowUrl(teamId, saisonId, spielerId), {
-    ...options,
-    method: "PATCH",
-    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
-    body: JSON.stringify(fLPatchKaderRowPayload),
-  });
-};
-
-export const getSpielerGetSpielerAdminUrl = (params: SpielerGetSpielerAdminParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0 ? `/api/v0/spieler/list/admin?${stringifiedParams}` : `/api/v0/spieler/list/admin`;
-};
-
-/**
- * Every squad row of the season, live and ausgetragen alike, each named and with its club.
- *
- * `nummer_double` marks a live row whose number another live row of its own squad wears, compared as stored.
- * @summary One Saison's squad rows for its list
- */
-export const spielerGetSpielerAdmin = async (
-  params: SpielerGetSpielerAdminParams,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielerAdminListResponse> => {
-  return adminKeyTransport<FLSpielerAdminListResponse>(getSpielerGetSpielerAdminUrl(params), {
-    ...options,
-    method: "GET",
-  });
-};
-
 export const getSpielerGetSelfSaisonsUrl = () => {
-  return `/api/v0/spieler/self/saisons`;
+  return `/api/spieler/self/saisons`;
 };
 
 /**
@@ -2647,7 +2538,7 @@ export const spielerGetSelfSaisons = async (options?: Parameters<typeof adminKey
 };
 
 export const getSpielerGetSelfSaisonUrl = (saisonId: string) => {
-  return `/api/v0/spieler/self/${encodeURIComponent(String(saisonId))}`;
+  return `/api/spieler/self/saisons/${encodeURIComponent(String(saisonId))}`;
 };
 
 /**
@@ -2667,26 +2558,29 @@ export const spielerGetSelfSaison = async (
   });
 };
 
-export const getSpielerGetSpielerByIdUrl = (spielerId: string) => {
-  return `/api/v0/spieler/${encodeURIComponent(String(spielerId))}`;
+export const getSpielerGetKaderUrl = (teamId: string, saisonId: string) => {
+  return `/api/spieler/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}`;
 };
 
 /**
- * One player's id, forename and surname initial, both names `null` where the pupil's consent does not publish them.
- * @summary One Spieler
+ * The squad of one team in one season for a person holding a contact seat on it, ausgetragen rows included.
+ *
+ * Each surname is whole, and no address or telephone number of anybody is served.
+ * @summary Read a team's squad as its seat holder
  */
-export const spielerGetSpielerById = async (
-  spielerId: string,
-  options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLSpielerSingleResponse> => {
-  return baseKeyTransport<FLSpielerSingleResponse>(getSpielerGetSpielerByIdUrl(spielerId), {
+export const spielerGetKader = async (
+  teamId: string,
+  saisonId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLKaderResponse> => {
+  return adminKeyTransport<FLKaderResponse>(getSpielerGetKaderUrl(teamId, saisonId), {
     ...options,
     method: "GET",
   });
 };
 
 export const getSpielerDeleteSaisonSpielerUrl = (spielerId: string, saisonId: string) => {
-  return `/api/v0/spieler/${encodeURIComponent(String(spielerId))}/saisons/${encodeURIComponent(String(saisonId))}`;
+  return `/api/spieler/${encodeURIComponent(String(spielerId))}/saisons/${encodeURIComponent(String(saisonId))}`;
 };
 
 /**
@@ -2707,7 +2601,7 @@ export const spielerDeleteSaisonSpieler = async (
 };
 
 export const getSpielerGetSpielerSaisonUrl = (spielerId: string, saisonId: string) => {
-  return `/api/v0/spieler/${encodeURIComponent(String(spielerId))}/saisons/${encodeURIComponent(String(saisonId))}/admin`;
+  return `/api/spieler/${encodeURIComponent(String(spielerId))}/saisons/${encodeURIComponent(String(saisonId))}`;
 };
 
 /**
@@ -2728,7 +2622,7 @@ export const spielerGetSpielerSaison = async (
 };
 
 export const getSpielerPatchSpielerSaisonUrl = (spielerId: string, saisonId: string) => {
-  return `/api/v0/spieler/${encodeURIComponent(String(spielerId))}/saisons/${encodeURIComponent(String(saisonId))}/admin`;
+  return `/api/spieler/${encodeURIComponent(String(spielerId))}/saisons/${encodeURIComponent(String(saisonId))}`;
 };
 
 /**
@@ -2752,7 +2646,7 @@ export const spielerPatchSpielerSaison = async (
 };
 
 export const getSpielerReactivateSaisonSpielerUrl = (spielerId: string, saisonId: string) => {
-  return `/api/v0/spieler/${encodeURIComponent(String(spielerId))}/saisons/${encodeURIComponent(String(saisonId))}/reactivate`;
+  return `/api/spieler/${encodeURIComponent(String(spielerId))}/saisons/${encodeURIComponent(String(saisonId))}/reactivate`;
 };
 
 /**
@@ -2770,10 +2664,57 @@ export const spielerReactivateSaisonSpieler = async (
   });
 };
 
+export const getSpielerDeleteKaderRowUrl = (spielerId: string, teamId: string, saisonId: string) => {
+  return `/api/spieler/${encodeURIComponent(String(spielerId))}/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}`;
+};
+
+/**
+ * Take a player out of this team's squad for the season, as any contact seat of the team may, the row staying.
+ *
+ * The person stays in the league, and only an administrator brings the row back.
+ * @summary Take a Spieler out of the squad as its team's seat holder (retire)
+ */
+export const spielerDeleteKaderRow = async (
+  spielerId: string,
+  teamId: string,
+  saisonId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLKaderRow> => {
+  return adminKeyTransport<FLKaderRow>(getSpielerDeleteKaderRowUrl(spielerId, teamId, saisonId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getSpielerPatchKaderRowUrl = (spielerId: string, teamId: string, saisonId: string) => {
+  return `/api/spieler/${encodeURIComponent(String(spielerId))}/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}`;
+};
+
+/**
+ * Replace a live squad row's `nummer`, `position`, `stufe` and `rolle`, as any contact seat of its team may.
+ *
+ * The team and the Nachnominierung flag stay the stored row's, and a shared `nummer` is permitted.
+ * @summary Update a squad entry as its team's seat holder
+ */
+export const spielerPatchKaderRow = async (
+  spielerId: string,
+  teamId: string,
+  saisonId: string,
+  fLPatchKaderRowPayload: FLPatchKaderRowPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLKaderRow> => {
+  return adminKeyTransport<FLKaderRow>(getSpielerPatchKaderRowUrl(spielerId, teamId, saisonId), {
+    ...options,
+    method: "PATCH",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(fLPatchKaderRowPayload),
+  });
+};
+
 export const getSpielorteGetSpielorteUrl = (params?: SpielorteGetSpielorteParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/spielorte?${stringifiedParams}` : `/api/v0/spielorte`;
+  return stringifiedParams.length > 0 ? `/api/spielorte?${stringifiedParams}` : `/api/spielorte`;
 };
 
 /**
@@ -2791,7 +2732,7 @@ export const spielorteGetSpielorte = async (
 };
 
 export const getSpielortePostSpielortUrl = () => {
-  return `/api/v0/spielorte`;
+  return `/api/spielorte`;
 };
 
 /**
@@ -2813,7 +2754,7 @@ export const spielortePostSpielort = async (
 };
 
 export const getSpielorteDeleteSpielortUrl = (spielortId: string) => {
-  return `/api/v0/spielorte/${encodeURIComponent(String(spielortId))}`;
+  return `/api/spielorte/${encodeURIComponent(String(spielortId))}`;
 };
 
 /**
@@ -2830,7 +2771,7 @@ export const spielorteDeleteSpielort = async (spielortId: string, options?: Para
 };
 
 export const getSpielorteGetSpielortUrl = (spielortId: string) => {
-  return `/api/v0/spielorte/${encodeURIComponent(String(spielortId))}`;
+  return `/api/spielorte/${encodeURIComponent(String(spielortId))}`;
 };
 
 /**
@@ -2848,7 +2789,7 @@ export const spielorteGetSpielort = async (
 };
 
 export const getSpielortePatchSpielortUrl = (spielortId: string) => {
-  return `/api/v0/spielorte/${encodeURIComponent(String(spielortId))}`;
+  return `/api/spielorte/${encodeURIComponent(String(spielortId))}`;
 };
 
 /**
@@ -2871,7 +2812,7 @@ export const spielortePatchSpielort = async (
 };
 
 export const getSpielorteReactivateSpielortUrl = (spielortId: string) => {
-  return `/api/v0/spielorte/${encodeURIComponent(String(spielortId))}/reactivate`;
+  return `/api/spielorte/${encodeURIComponent(String(spielortId))}/reactivate`;
 };
 
 /**
@@ -2885,28 +2826,29 @@ export const spielorteReactivateSpielort = async (spielortId: string, options?: 
   });
 };
 
-export const getSpieltageGetSpieltagUrl = (spieltagId: string) => {
-  return `/api/v0/spieltage/${encodeURIComponent(String(spieltagId))}`;
+export const getSpieltageGetSpieltagAdminUrl = (spieltagId: string) => {
+  return `/api/spieltage/${encodeURIComponent(String(spieltagId))}`;
 };
 
 /**
- * One matchday by its id, its match count derived from its own season's rules.
+ * One matchday by its id, a `future` season's included, with how many matchdays its phase holds.
  *
- * 404 for a matchday of a season this tier may not read.
- * @summary One Spieltag
+ * Beside it stands its season's `status`, so a `past` season's matchday, which no re-dating moves, can be shown as
+ * final.
+ * @summary One Spieltag for the admin editor
  */
-export const spieltageGetSpieltag = async (
+export const spieltageGetSpieltagAdmin = async (
   spieltagId: string,
-  options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLSpieltageSingleResponse> => {
-  return baseKeyTransport<FLSpieltageSingleResponse>(getSpieltageGetSpieltagUrl(spieltagId), {
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpieltagAdminResponse> => {
+  return adminKeyTransport<FLSpieltagAdminResponse>(getSpieltageGetSpieltagAdminUrl(spieltagId), {
     ...options,
     method: "GET",
   });
 };
 
 export const getSpieltagePatchSpieltagUrl = (spieltagId: string) => {
-  return `/api/v0/spieltage/${encodeURIComponent(String(spieltagId))}`;
+  return `/api/spieltage/${encodeURIComponent(String(spieltagId))}`;
 };
 
 /**
@@ -2929,29 +2871,8 @@ export const spieltagePatchSpieltag = async (
   });
 };
 
-export const getSpieltageGetSpieltagAdminUrl = (spieltagId: string) => {
-  return `/api/v0/spieltage/${encodeURIComponent(String(spieltagId))}/admin`;
-};
-
-/**
- * One matchday by its id, a `future` season's included, with how many matchdays its phase holds.
- *
- * Beside it stands its season's `status`, so a `past` season's matchday, which no re-dating moves, can be shown as
- * final.
- * @summary One Spieltag for the admin editor
- */
-export const spieltageGetSpieltagAdmin = async (
-  spieltagId: string,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpieltagAdminResponse> => {
-  return adminKeyTransport<FLSpieltagAdminResponse>(getSpieltageGetSpieltagAdminUrl(spieltagId), {
-    ...options,
-    method: "GET",
-  });
-};
-
 export const getSystemCheckIsLiveUrl = () => {
-  return `/api/v0/system/is_live`;
+  return `/api/system/is_live`;
 };
 
 /**
@@ -2969,7 +2890,7 @@ export const systemCheckIsLive = async (options?: Parameters<typeof unkeyedTrans
 };
 
 export const getSystemCheckIsReadyUrl = () => {
-  return `/api/v0/system/is_ready`;
+  return `/api/system/is_ready`;
 };
 
 /**
@@ -2988,7 +2909,7 @@ export const systemCheckIsReady = async (options?: Parameters<typeof unkeyedTran
 export const getTeamsGetTeamsAdminUrl = (params: TeamsGetTeamsAdminParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/teams/list/admin?${stringifiedParams}` : `/api/v0/teams/list/admin`;
+  return stringifiedParams.length > 0 ? `/api/teams?${stringifiedParams}` : `/api/teams`;
 };
 
 /**
@@ -3009,7 +2930,7 @@ export const teamsGetTeamsAdmin = async (
 };
 
 export const getTeamsPostTeamEntryUrl = (saisonId: string) => {
-  return `/api/v0/teams/saisons/${encodeURIComponent(String(saisonId))}/entry`;
+  return `/api/teams/saisons/${encodeURIComponent(String(saisonId))}/entry`;
 };
 
 /**
@@ -3032,7 +2953,7 @@ export const teamsPostTeamEntry = async (
 };
 
 export const getTeamsDeleteTeamUrl = (teamId: string) => {
-  return `/api/v0/teams/${encodeURIComponent(String(teamId))}`;
+  return `/api/teams/${encodeURIComponent(String(teamId))}`;
 };
 
 /**
@@ -3048,33 +2969,8 @@ export const teamsDeleteTeam = async (teamId: string, options?: Parameters<typeo
   });
 };
 
-export const getTeamsGetTeamUrl = (teamId: string, params?: TeamsGetTeamParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0
-    ? `/api/v0/teams/${encodeURIComponent(String(teamId))}?${stringifiedParams}`
-    : `/api/v0/teams/${encodeURIComponent(String(teamId))}`;
-};
-
-/**
- * One team with its group and its figures in the season the query names, the season the site is on where it names none.
- *
- * 404 where the team, its row in that season or the season is one this tier may not read.
- * @summary One team
- */
-export const teamsGetTeam = async (
-  teamId: string,
-  params?: TeamsGetTeamParams,
-  options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLTeamsSingleResponse> => {
-  return baseKeyTransport<FLTeamsSingleResponse>(getTeamsGetTeamUrl(teamId, params), {
-    ...options,
-    method: "GET",
-  });
-};
-
 export const getTeamsReactivateTeamUrl = (teamId: string) => {
-  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/reactivate`;
+  return `/api/teams/${encodeURIComponent(String(teamId))}/reactivate`;
 };
 
 /**
@@ -3088,33 +2984,8 @@ export const teamsReactivateTeam = async (teamId: string, options?: Parameters<t
   });
 };
 
-export const getTeamsPatchEinwilligungUrl = (teamId: string, saisonId: string) => {
-  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/account/einwilligung`;
-};
-
-/**
- * Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.
- *
- * Each choice moves only where it differs from the row as the page served it, so seats answered apart keep their
- * answers to a choice not changed.
- * @summary Change a seat holder's own WhatsApp and media consent on one team's season
- */
-export const teamsPatchEinwilligung = async (
-  teamId: string,
-  saisonId: string,
-  fLSeatEinwilligungPayload: FLSeatEinwilligungPayload,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<void> => {
-  return adminKeyTransport<void>(getTeamsPatchEinwilligungUrl(teamId, saisonId), {
-    ...options,
-    method: "PATCH",
-    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
-    body: JSON.stringify(fLSeatEinwilligungPayload),
-  });
-};
-
 export const getTeamsGetTeamSaisonAdminUrl = (teamId: string, saisonId: string) => {
-  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/admin`;
+  return `/api/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}`;
 };
 
 /**
@@ -3136,7 +3007,7 @@ export const teamsGetTeamSaisonAdmin = async (
 };
 
 export const getTeamsPatchTeamSaisonUrl = (teamId: string, saisonId: string) => {
-  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/admin`;
+  return `/api/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}`;
 };
 
 /**
@@ -3161,7 +3032,7 @@ export const teamsPatchTeamSaison = async (
 };
 
 export const getTeamsPutAustrittUrl = (teamId: string, saisonId: string) => {
-  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/austritt`;
+  return `/api/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/austritt`;
 };
 
 /**
@@ -3185,8 +3056,33 @@ export const teamsPutAustritt = async (
   });
 };
 
+export const getTeamsPatchEinwilligungUrl = (teamId: string, saisonId: string) => {
+  return `/api/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/einwilligung`;
+};
+
+/**
+ * Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.
+ *
+ * Each choice moves only where it differs from the row as the page served it, so seats answered apart keep their
+ * answers to a choice not changed.
+ * @summary Change a seat holder's own WhatsApp and media consent on one team's season
+ */
+export const teamsPatchEinwilligung = async (
+  teamId: string,
+  saisonId: string,
+  fLSeatEinwilligungPayload: FLSeatEinwilligungPayload,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<void> => {
+  return adminKeyTransport<void>(getTeamsPatchEinwilligungUrl(teamId, saisonId), {
+    ...options,
+    method: "PATCH",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(fLSeatEinwilligungPayload),
+  });
+};
+
 export const getTeamsDeleteInvitationUrl = (teamId: string, saisonId: string) => {
-  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/invitation`;
+  return `/api/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/invitation`;
 };
 
 /**
@@ -3207,7 +3103,7 @@ export const teamsDeleteInvitation = async (
 };
 
 export const getTeamsPostInvitationUrl = (teamId: string, saisonId: string) => {
-  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/invitation`;
+  return `/api/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/invitation`;
 };
 
 /**
@@ -3229,7 +3125,7 @@ export const teamsPostInvitation = async (
 };
 
 export const getTeamsPostInvitationDispatchUrl = (teamId: string, saisonId: string) => {
-  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/invitation/dispatch`;
+  return `/api/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/invitation/dispatch`;
 };
 
 /**
@@ -3254,7 +3150,7 @@ export const teamsPostInvitationDispatch = async (
 };
 
 export const getTeamsPutKontaktSeatUrl = (teamId: string, saisonId: string, seat: string) => {
-  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/kontakte/${encodeURIComponent(String(seat))}`;
+  return `/api/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/kontakte/${encodeURIComponent(String(seat))}`;
 };
 
 /**
@@ -3279,8 +3175,8 @@ export const teamsPutKontaktSeat = async (
   });
 };
 
-export const getTeamsInviteKontaktUrl = (teamId: string, saisonId: string, seat: string) => {
-  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/kontakte/${encodeURIComponent(String(seat))}/confirmation/invite`;
+export const getTeamsResendKontaktConfirmationUrl = (teamId: string, saisonId: string, seat: string) => {
+  return `/api/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/kontakte/${encodeURIComponent(String(seat))}/confirmation/resend`;
 };
 
 /**
@@ -3290,20 +3186,41 @@ export const getTeamsInviteKontaktUrl = (teamId: string, saisonId: string, seat:
  * address the mail is owed to, never the link.
  * @summary Send one contact seat a fresh confirmation link
  */
-export const teamsInviteKontakt = async (
+export const teamsResendKontaktConfirmation = async (
   teamId: string,
   saisonId: string,
   seat: string,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLKontaktInviteResponse> => {
-  return adminKeyTransport<FLKontaktInviteResponse>(getTeamsInviteKontaktUrl(teamId, saisonId, seat), {
+  return adminKeyTransport<FLKontaktInviteResponse>(getTeamsResendKontaktConfirmationUrl(teamId, saisonId, seat), {
     ...options,
     method: "POST",
   });
 };
 
+export const getTeamsGetTeamOverviewUrl = (teamId: string, saisonId: string) => {
+  return `/api/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/overview`;
+};
+
+/**
+ * Everything a team's Übersicht shows in one read, for a person holding any contact seat on the team in this season.
+ *
+ * No address, telephone number, birthdate or consent record of anybody is served.
+ * @summary A team's Übersicht in one season
+ */
+export const teamsGetTeamOverview = async (
+  teamId: string,
+  saisonId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLTeamOverviewResponse> => {
+  return adminKeyTransport<FLTeamOverviewResponse>(getTeamsGetTeamOverviewUrl(teamId, saisonId), {
+    ...options,
+    method: "GET",
+  });
+};
+
 export const getTeamsReplaceSaisonTeamUrl = (teamId: string, saisonId: string) => {
-  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/replace`;
+  return `/api/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/replace`;
 };
 
 /**
@@ -3326,29 +3243,8 @@ export const teamsReplaceSaisonTeam = async (
   });
 };
 
-export const getTeamsGetTeamOverviewUrl = (teamId: string, saisonId: string) => {
-  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/self/overview`;
-};
-
-/**
- * Everything a team's Übersicht shows in one read, for a person holding any contact seat on the team in this season.
- *
- * No address, telephone number, birthdate or consent record of anybody is served.
- * @summary A team's Übersicht in one season
- */
-export const teamsGetTeamOverview = async (
-  teamId: string,
-  saisonId: string,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLTeamOverviewResponse> => {
-  return adminKeyTransport<FLTeamOverviewResponse>(getTeamsGetTeamOverviewUrl(teamId, saisonId), {
-    ...options,
-    method: "GET",
-  });
-};
-
 export const getTeamsGetTeamSpieleUrl = (teamId: string, saisonId: string) => {
-  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/self/spiele`;
+  return `/api/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/spiele`;
 };
 
 /**

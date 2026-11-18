@@ -147,7 +147,7 @@ function holdNext(arm: (hold: Hold) => void): { arrived: Promise<void>; release:
 }
 
 /** The path a person's own erasure posts to, which the library's hook asks before it deletes the account. */
-const ERASURE_PATH = "/api/v0/identity/account/erasure";
+const ERASURE_PATH = "/api/identity/self/erasure";
 
 /** The backend's erasure done, as it answers one. */
 const ERASED = (): Promise<Response> => Promise.resolve(new Response(null, { status: 204 }));
@@ -160,7 +160,7 @@ const erasuresAsked = (): number => asked.filter((path) => path === ERASURE_PATH
 
 serveBackend(async ({ path: endpoint, body }) => {
   // Under the base path the client sends it on, as the cases spell every path they compare.
-  const path = `/api/v0${endpoint}`;
+  const path = `/api${endpoint}`;
   asked.push(path);
   // A rejected answer is a request the backend never answered.
   if (path === ERASURE_PATH) return erasureAnswer().catch(() => networkFailure());
@@ -1990,7 +1990,7 @@ describe("which addresses the send gate mails", () => {
     const seated = await askFor(SEATED_EMAIL);
 
     expect(granted.mailed).toStrictEqual([ADMIN_EMAIL]);
-    expect(asked).toStrictEqual(["/api/v0/identity/sign_in", "/api/v0/identity/sign_in"]);
+    expect(asked).toStrictEqual(["/api/identity/sign_in", "/api/identity/sign_in"]);
     expect(granted.answer).toStrictEqual(seated.answer);
   });
 

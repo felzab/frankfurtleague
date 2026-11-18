@@ -21,7 +21,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.bewerbungen.services import SEAT_MIN_AGE_YEARS, confirmation_deadline_from
 from app.api.identity.crud import roles_of
 from app.api.saisons.admin_router import activate_saison
-from app.api.teams.admin_router import invite_kontakt, replace_saison_team
+from app.api.teams.admin_router import replace_saison_team, resend_kontakt_confirmation
 from app.api.teams.schemas import FLReplaceSaisonTeamPayload
 from app.api.teams.services import (
     compose_kontakt_confirmation,
@@ -222,7 +222,7 @@ async def save(database: AsyncDatabase, kontakte: Any) -> Mailed:
 
 
 async def resend(database: AsyncDatabase, seat: str, *, today: str = TODAY) -> Mailed:
-    answer = await invite_kontakt(
+    answer = await resend_kontakt_confirmation(
         team_id=TEAM_OID,
         saison_id=SAISON_ID,
         seat=seat,

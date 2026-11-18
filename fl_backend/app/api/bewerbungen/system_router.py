@@ -66,7 +66,7 @@ from app.shared.schemas.literals import KONTAKT_SEATS, FLKontaktSeat
 from app.shared.schemas.responses import FLSweepSaisonsResponse
 
 # System tier: the sweep holds no session, so `bind_actor` would refuse it.
-router = APIRouter(prefix="/bewerbungen/sweep", dependencies=SYSTEM_TIER)
+router = APIRouter(prefix="/bewerbungen", dependencies=SYSTEM_TIER)
 
 # Sized with the blocks' share below, each row one command beside the worst call's others, so a pass ends well inside
 # `REQUEST_DEADLINE_S`.
@@ -120,7 +120,7 @@ async def pull_the_season_after(
     return later_saison_status
 
 
-@router.get("", summary="Every season the sweep has to visit")
+@router.get("/sweep", summary="Every season the sweep has to visit")
 async def get_sweep_saisons(saisons_collection: SaisonsReadCollection) -> FLSweepSaisonsResponse:
     """Every season's id, oldest first, for the caller to sweep one at a time."""
 
@@ -132,7 +132,7 @@ async def get_sweep_saisons(saisons_collection: SaisonsReadCollection) -> FLSwee
 
 
 @router.post(
-    "/{saison_id}",
+    "/saisons/{saison_id}/sweep",
     summary="Run one season's retention clocks",
 )
 async def sweep_saison(

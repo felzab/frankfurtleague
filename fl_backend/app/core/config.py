@@ -11,10 +11,6 @@ from pydantic import AfterValidator, BaseModel, Field, SecretStr, ValidationErro
 from pydantic_core import ErrorDetails
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SecretsSettingsSource, SettingsConfigDict, SettingsError
 
-# A property of this code, never a deployment's: an environment able to set it could serve
-# `/api/v2/` from code implementing v0.
-API_VERSION = 0
-
 # The length the frontend pins each internal key to. An equality rather than a floor: the pair only
 # works when the two values are identical, so a key one side alone would refuse is a deployment
 # already broken.

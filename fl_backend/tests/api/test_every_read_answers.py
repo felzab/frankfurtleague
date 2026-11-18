@@ -23,7 +23,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.security import verify_access_admin, verify_access_base, verify_access_system, verify_admin_actor, verify_person_actor
 from tests import documents
 from tests.app_client import app_client, app_under_test
@@ -349,8 +348,8 @@ async def test_the_league_stands_in_the_phase_each_seed_names(league: Phase, mon
     featured fixture offers the clubs a knockout fixture's sides are picked from once the group is played.
     """
 
-    landing = (await _get(league, mongo_replica_set_url, f"/api/v{API_VERSION}/saisons/landing", headers=BASE_AUTH)).json()["saison"]
-    editor = await _get(league, mongo_replica_set_url, f"/api/v{API_VERSION}/spiele/{league.featured['_id']}/admin", headers=ADMIN_AUTH)
+    landing = (await _get(league, mongo_replica_set_url, "/api/saisons/landing", headers=BASE_AUTH)).json()["saison"]
+    editor = await _get(league, mongo_replica_set_url, f"/api/spiele/{league.featured['_id']}", headers=ADMIN_AUTH)
 
     assert landing["state"] == league.name
     if league.name == "before_start":

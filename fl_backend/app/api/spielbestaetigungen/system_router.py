@@ -96,7 +96,7 @@ from app.shared.schemas.responses import FLSweepSaisonsResponse
 
 # System tier: the timer holds no session.
 router = APIRouter(
-    prefix="/spielbestaetigungen/sweep",
+    prefix="/spielbestaetigungen",
     dependencies=SYSTEM_TIER,
 )
 
@@ -246,7 +246,7 @@ class _Minted:
     mails: int
 
 
-@router.get("", summary="Every season the confirmation pass visits")
+@router.get("/sweep", summary="Every season the confirmation pass visits")
 async def get_sweep_saisons(saisons_collection: SaisonsReadCollection) -> FLSweepSaisonsResponse:
     """Every `active` season's id, oldest first: a confirmation serves no purpose once its season is over."""
 
@@ -262,7 +262,7 @@ async def get_sweep_saisons(saisons_collection: SaisonsReadCollection) -> FLSwee
 
 
 @router.post(
-    "/{saison_id}",
+    "/saisons/{saison_id}/sweep",
     summary="Run one season's fixture confirmation pass",
 )
 async def sweep_spielbestaetigungen(

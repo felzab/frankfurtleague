@@ -10,7 +10,6 @@ from fastapi import FastAPI
 from starlette.requests import Request
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from app.core.config import API_VERSION
 from app.core.logging import fl_logger, trace_id_var
 
 # W3C Trace Context, version 00 alone: a malformed header is attacker-chosen log text. Anchored
@@ -23,7 +22,7 @@ ZERO_PARENT_ID = "0" * 16
 # The two probes, whose answers would outnumber every other line: Docker's healthcheck asks the first
 # every 30 seconds, a monitor outside asks the second on a schedule of its own, and the edge logs
 # every request from outside. A failed answer is still logged: it marks when the probe began failing.
-PROBE_PATHS: Final = frozenset({f"/api/v{API_VERSION}/system/is_live", f"/api/v{API_VERSION}/system/is_ready"})
+PROBE_PATHS: Final = frozenset({"/api/system/is_live", "/api/system/is_ready"})
 
 # Under the frontend's fetch timeout by what the page's clock counts and this one cannot: the hop
 # in, the queue before this runs, the answer's way back.

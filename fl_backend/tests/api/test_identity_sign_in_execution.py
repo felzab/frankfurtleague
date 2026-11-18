@@ -12,7 +12,6 @@ from app.api.identity.crud import roles_from
 from app.api.identity.schemas import FLSignInResponse
 from app.api.identity.services import own_entries, seat_saisons
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.shared.folding import sign_in_identifier
 from tests.app_client import app_client, app_under_test
 from tests.config import SYSTEM_AUTH
@@ -35,7 +34,7 @@ from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_identity_sign_in_test")
 
-PATH = f"/api/v{API_VERSION}/identity/sign_in"
+PATH = "/api/identity/sign_in"
 
 PAST_SAISON = "2425"
 ACTIVE_SAISON = "2526"

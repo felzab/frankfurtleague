@@ -80,7 +80,7 @@ describe("a re-send, the new address someone's", () => {
       if (method === "POST" && path === "/address_change/address" && (body as FLAddressChangeAddressPayload).address_change_id === ID) {
         return { email: NEW_ADDRESS } satisfies FLAddressChangeAddressResponse;
       }
-      return method === "POST" && path === `/address_change/${ID}/invite` ? refusal("address_change_taken") : undefined;
+      return method === "POST" && path === `/address_change/${ID}/confirmation/resend` ? refusal("address_change_taken") : undefined;
     });
 
     expect(await resendChangeLink({ address_change_id: ID, holder: ADMIN_EMAIL })).toStrictEqual({

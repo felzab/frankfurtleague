@@ -9,7 +9,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from tests.app_client import app_client, app_under_test
 from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database
@@ -30,7 +29,7 @@ from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_identity_references_test")
 
-PATH = f"/api/v{API_VERSION}/identity/references"
+PATH = "/api/identity/references"
 
 PAST_SAISON = "2425"
 ACTIVE_SAISON = "2526"

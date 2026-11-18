@@ -45,7 +45,7 @@ duration, and the `error_code` of a refused request's failure body. A server fai
 its own with its code. When no handler answered the failure, Starlette re-raises it for uvicorn,
 which logs the stack on its own line, `Exception in ASGI application`, right after the request's
 two; it carries `SYSTEM`, the request's trace having ended with its access line. Neither probe,
-`/api/v0/system/is_live` nor `/api/v0/system/is_ready`, writes a line while it is answered with a
+`/api/system/is_live` nor `/api/system/is_ready`, writes a line while it is answered with a
 success; a failed answer writes its line as any request does.
 
 ## What a line holds

@@ -12,7 +12,6 @@ from app.api.spieler.admin_router import get_spieler_saison
 from app.api.spieler.schemas import FLPatchSpielerSaisonPayload
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.shared.einwilligung_evidence import EVIDENCE, evidence_state_of
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_KEY, grants_for_the_suite
@@ -34,9 +33,9 @@ from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_spieler_self_test")
 
-PATCH_PATH = f"/api/v{API_VERSION}/spieler/account/einwilligung"
+PATCH_PATH = "/api/spieler/self/einwilligung"
 # The account page's read, which serves the consent and the evidence a press echoes.
-ACCOUNT_PATH = f"/api/v{API_VERSION}/account/einwilligungen"
+ACCOUNT_PATH = "/api/account/einwilligungen"
 
 NOW = datetime(2026, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 
@@ -197,14 +196,14 @@ def _press(email: str, payload: dict[str, Any], *, before: Callable[[AsyncDataba
     return steps
 
 
-SAISONS_PATH = f"/api/v{API_VERSION}/spieler/self/saisons"
+SAISONS_PATH = "/api/spieler/self/saisons"
 # The two matchdays of the active season's group phase.
 SPIELTAG_1_OID = SPIEL["spieltag_id"]
 SPIELTAG_2_OID = ObjectId("6890a1b2c3d4e5f607840043")
 
 
 def _saison_path(saison_id: str) -> str:
-    return f"/api/v{API_VERSION}/spieler/self/{saison_id}"
+    return f"/api/spieler/self/saisons/{saison_id}"
 
 
 def _team_spiel(spiel_nr: int, team1: ObjectId, team2: ObjectId | None, *, spieltag_id: ObjectId = SPIELTAG_2_OID) -> dict[str, Any]:
@@ -323,7 +322,7 @@ class TestAnEditorReadBeforeThePress:
             # The editor's save as its page sends it, by an administrator the suite's grants hold, on the read's version.
             await database[Collection.GRANTS].insert_many(grants_for_the_suite())
             saved = await http.patch(
-                f"/api/v{API_VERSION}/spieler/{PUPIL_OID}/saisons/{ACTIVE_SAISON}/admin",
+                f"/api/spieler/{PUPIL_OID}/saisons/{ACTIVE_SAISON}",
                 json=FLPatchSpielerSaisonPayload(
                     first_name="Ortrun",
                     last_name="Zwiebelmayer",

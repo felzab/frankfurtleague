@@ -47,7 +47,7 @@ router = APIRouter(
 
 
 @router.patch(
-    f"/account{by_id('schiedsrichter_id')}/einwilligung",
+    f"{by_id('schiedsrichter_id')}/einwilligung",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Change a signed-in referee's own publication and media consent",
 )
@@ -110,7 +110,7 @@ async def patch_einwilligung(
 
 
 @router.get(
-    "/self/spiele/{saison_id}",
+    "/self/saisons/{saison_id}/spiele",
     summary="A signed-in referee's fixtures of one season, one row a fixture",
 )
 async def get_self_spiele(

@@ -19,7 +19,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.schiedsrichter.services import compose_confirmation, confirmation_deadline_from, erase_at_from
 from app.api.teams.services import compose_kontakt_confirmation
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.shared.einwilligung_evidence import TextVersions, evidence_state_of
 from app.shared.tokens import hash_token
 from tests.acts import journal_records
@@ -55,7 +54,7 @@ TODAY = "2126-10-03"
 SAISON_ID = "2026"
 ADULT = "1990-05-09"
 
-V = f"/api/v{API_VERSION}"
+V = "/api"
 
 # One person holding a pupil row, a referee row and two seats.
 PERSON = "ortrud.zwiebelmayer@schule.example.org"
@@ -209,7 +208,7 @@ async def registration_withdrawal(http: AsyncClient, database: AsyncDatabase) ->
     assert stored is not None
 
     return await http.patch(
-        f"{V}/registrierungen/account/{REGISTRATION_OID}/einwilligung",
+        f"{V}/registrierungen/{REGISTRATION_OID}/einwilligung",
         json=withdrawal(SPIELER_TEXT_VERSIONS, stored["einwilligung"], scope="internal", media=True),
         headers=as_person(REGISTRANT),
     )
@@ -221,7 +220,7 @@ Press = Callable[[AsyncClient, AsyncDatabase], Awaitable[Any]]
 PRESSES: dict[str, tuple[Press, str, Collection, ObjectId, list[str]]] = {
     "a pupil's withdrawal": (
         lambda http, _database: http.patch(
-            f"{V}/spieler/account/einwilligung",
+            f"{V}/spieler/self/einwilligung",
             json=withdrawal(SPIELER_TEXT_VERSIONS, own(SPIELER_TEXT_VERSIONS), scope="internal", media=False),
             headers=as_person(PERSON),
         ),
@@ -232,7 +231,7 @@ PRESSES: dict[str, tuple[Press, str, Collection, ObjectId, list[str]]] = {
     ),
     "a referee's withdrawal": (
         lambda http, _database: http.patch(
-            f"{V}/schiedsrichter/account/{REFEREE_OID}/einwilligung",
+            f"{V}/schiedsrichter/{REFEREE_OID}/einwilligung",
             json=withdrawal(SCHIEDSRICHTER_TEXT_VERSIONS, own(SCHIEDSRICHTER_TEXT_VERSIONS), scope="kader_public", media=False),
             headers=as_person(PERSON),
         ),
@@ -243,7 +242,7 @@ PRESSES: dict[str, tuple[Press, str, Collection, ObjectId, list[str]]] = {
     ),
     "a season seat's withdrawal": (
         lambda http, _database: http.patch(
-            f"{V}/teams/{TEAM_OID}/saisons/{SAISON_ID}/account/einwilligung",
+            f"{V}/teams/{TEAM_OID}/saisons/{SAISON_ID}/einwilligung",
             json=withdrawal(SEAT_TEXT_VERSIONS, seat(PERSON)["einwilligung"], scope="kontakt_data", media=True),
             headers=as_person(PERSON),
         ),
@@ -254,7 +253,7 @@ PRESSES: dict[str, tuple[Press, str, Collection, ObjectId, list[str]]] = {
     ),
     "a pending application seat's withdrawal": (
         lambda http, _database: http.patch(
-            f"{V}/bewerbungen/{APPLICATION_OID}/account/einwilligung",
+            f"{V}/bewerbungen/{APPLICATION_OID}/einwilligung",
             json=withdrawal(SEAT_TEXT_VERSIONS, seat(PERSON)["einwilligung"], scope="kontakt_data_whatsapp", media=False),
             headers=as_person(PERSON),
         ),
@@ -265,14 +264,14 @@ PRESSES: dict[str, tuple[Press, str, Collection, ObjectId, list[str]]] = {
     ),
     "a pending registration's withdrawal": (registration_withdrawal, "withdrawal", Collection.REGISTRIERUNGEN, REGISTRATION_OID, []),
     "an objection on an application": (
-        lambda http, _database: http.post(f"{V}/bewerbungen/einwilligung", json=declined(f"{APPLICATION_LINK}-trainer"), headers=BASE_AUTH),
+        lambda http, _database: http.post(f"{V}/bewerbungen/confirmation", json=declined(f"{APPLICATION_LINK}-trainer"), headers=BASE_AUTH),
         "objection",
         Collection.BEWERBUNGEN,
         DECLINED_APPLICATION_OID,
         ["trainer"],
     ),
     "an objection on a season row": (
-        lambda http, _database: http.post(f"{V}/bewerbungen/einwilligung", json=declined(ROW_LINK), headers=BASE_AUTH),
+        lambda http, _database: http.post(f"{V}/bewerbungen/confirmation", json=declined(ROW_LINK), headers=BASE_AUTH),
         "objection",
         Collection.SAISON_TEAMS,
         ROW_OID,

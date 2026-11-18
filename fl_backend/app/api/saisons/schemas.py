@@ -403,11 +403,6 @@ class FLOwnSaisonsResponse(BaseReadModel):
     saisons: list[FLSaisonFrameEntry]
 
 
-class FLSaisonsSingleResponse(BaseReadModel):
-    format: Literal["single"] = "single"
-    saison: FLSaison
-
-
 class FLPostSaisonResponse(BaseReadModel):
     created_id: str
 
