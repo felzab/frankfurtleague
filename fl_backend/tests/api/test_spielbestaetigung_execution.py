@@ -1244,7 +1244,7 @@ class TestASaveFromAnEditorOpenedBeforeTheDecline:
 
 
 # As the dry run serves each party: by the name its own record holds, a club's season row and a referee's.
-CLUB1, CLUB2, OTTOS = (
+TEAM1_PARTY, TEAM2_PARTY, OTTOS = (
     {"kind": "team", "team_id": str(TEAM1), "name": "Adler"},
     {"kind": "team", "team_id": str(TEAM2), "name": "Biber"},
     {"kind": "schiedsrichter", "schiedsrichter_id": str(SCHIEDSRICHTER), "name": REFEREE},
@@ -1257,7 +1257,7 @@ class TestTheDryRunNamesWhomTheSaveHasThePassMail:
     @pytest.mark.parametrize(
         ("overrides", "told"),
         [
-            pytest.param({"time": "19:30:00"}, [CLUB1, CLUB2, OTTOS], id="a-move-tells-every-party-asked"),
+            pytest.param({"time": "19:30:00"}, [TEAM1_PARTY, TEAM2_PARTY, OTTOS], id="a-move-tells-every-party-asked"),
         ],
     )
     async def test_the_dry_run_names_the_parties_the_pass_tells(

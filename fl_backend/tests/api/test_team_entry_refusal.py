@@ -123,7 +123,7 @@ class TestEnteringATeamThroughTheEndpoint:
         # The refusal has to stop the write, not merely accompany it.
         assert rows == []
 
-    async def test_a_club_no_document_names_is_a_404_and_writes_nothing(self, mongo_replica_set_url: str):
+    async def test_a_team_no_document_names_is_a_404_and_writes_nothing(self, mongo_replica_set_url: str):
         """The referential hole the club read closes: without it, the row would name a club `teams` does not hold."""
 
         async def body(database: AsyncDatabase) -> Any:
