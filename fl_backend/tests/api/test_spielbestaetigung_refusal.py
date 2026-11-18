@@ -6,7 +6,7 @@ import pytest
 from bson import ObjectId
 from pydantic import BaseModel, ValidationError
 
-from app.api.spielbestaetigungen.crud import JUDGED_SPIEL_FIELDS, JUDGED_VEREIN_FIELDS
+from app.api.spielbestaetigungen.crud import JUDGED_JUNCTION_FIELDS, JUDGED_SPIEL_FIELDS
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAppointment,
     FLSpielbestaetigungSchiedsrichterAnswerPayload,
@@ -72,7 +72,7 @@ def spiel(**overrides: Any) -> dict[str, Any]:
     }
 
 
-def verein(team_id: ObjectId, *, austritt: str | None = None) -> dict[str, Any]:
+def junction(team_id: ObjectId, *, austritt: str | None = None) -> dict[str, Any]:
     kontakte = {
         seat: {"first_name": first_name, "last_name": last_name, "email": f"{first_name.lower()}@example.com"}
         for seat, (first_name, last_name) in SEATS[team_id].items()
@@ -87,7 +87,7 @@ def verein(team_id: ObjectId, *, austritt: str | None = None) -> dict[str, Any]:
 
 
 def ansetzung_state(*, spiel_overrides: dict[str, Any] | None = None, austritt: str | None = None) -> AnsetzungState:
-    return AnsetzungState(spiel=spiel(**(spiel_overrides or {})), vereine=[verein(TEAM1, austritt=austritt), verein(TEAM2)])
+    return AnsetzungState(spiel=spiel(**(spiel_overrides or {})), junctions=[junction(TEAM1, austritt=austritt), junction(TEAM2)])
 
 
 def row(**overrides: Any) -> dict[str, Any]:
@@ -158,33 +158,34 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
 
     def test_a_rows_state_reads_nothing_its_projections_leave_out(self):
         spiel_seen: set[str] = set()
-        vereine_seen: set[str] = set()
+        junctions_seen: set[str] = set()
         # Undecided, unmoved and open, so every judge reads to its end; the exit after the fixture's day, so its date is read.
         situation = AnsetzungState(
             spiel=Recorded(spiel(), spiel_seen),
-            vereine=[Recorded(verein(TEAM1, austritt="2027-06-01"), vereine_seen), Recorded(verein(TEAM2), vereine_seen)],
+            junctions=[Recorded(junction(TEAM1, austritt="2027-06-01"), junctions_seen), Recorded(junction(TEAM2), junctions_seen)],
         )
 
         assert state_of(spielbestaetigung_raw=row(), ansetzung_state=situation, now=NOW, vorschlag_open=None) == "valid"
         view_ansetzung_of(situation.spiel)
 
         # The premise: `decision_of` read the fixture to its last test.
-        assert {"ergebnis", "sonderereignis", "team2.tore", "austritt.date"} <= spiel_seen | vereine_seen
+        assert {"ergebnis", "sonderereignis", "team2.tore", "austritt.date"} <= spiel_seen | junctions_seen
         assert [path for path in sorted(spiel_seen) if not loaded_by(JUDGED_SPIEL_FIELDS, path)] == []
-        assert [path for path in sorted(vereine_seen) if not loaded_by(JUDGED_VEREIN_FIELDS, path)] == []
+        assert [path for path in sorted(junctions_seen) if not loaded_by(JUDGED_JUNCTION_FIELDS, path)] == []
 
     def test_the_answer_reads_nothing_of_the_clubs_its_projection_leaves_out(self):
         """The fixture it reads whole, a proposal being judged as the stored fixture on a new date."""
 
-        vereine_seen: set[str] = set()
+        junctions_seen: set[str] = set()
         situation = AnsetzungState(
-            spiel=spiel(), vereine=[Recorded(verein(TEAM1, austritt="2027-06-01"), vereine_seen), Recorded(verein(TEAM2), vereine_seen)]
+            spiel=spiel(),
+            junctions=[Recorded(junction(TEAM1, austritt="2027-06-01"), junctions_seen), Recorded(junction(TEAM2), junctions_seen)],
         )
 
         assert find_unanswerable_refusal(spielbestaetigung_raw=row(), ansetzung_state=situation, now=NOW) is None
 
-        assert "austritt.date" in vereine_seen
-        assert [path for path in sorted(vereine_seen) if not loaded_by(JUDGED_VEREIN_FIELDS, path)] == []
+        assert "austritt.date" in junctions_seen
+        assert [path for path in sorted(junctions_seen) if not loaded_by(JUDGED_JUNCTION_FIELDS, path)] == []
 
 
 class TestTheProposalIsTheSpielOnItsNewDate:

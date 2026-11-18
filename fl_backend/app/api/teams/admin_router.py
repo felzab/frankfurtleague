@@ -429,7 +429,7 @@ async def get_team_saison_admin(
             saison_id=saison_id,
             team_id=team_id,
             start_date=str(saison_raw["start_date"]),
-            vereine={row["team_id"]: row for row in season_rows},
+            junctions={row["team_id"]: row for row in season_rows},
             now=germany_now,
             session=session,
         )

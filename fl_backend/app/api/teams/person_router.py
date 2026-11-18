@@ -20,7 +20,7 @@ from app.api.identity.services import find_role_refusal, holds_a_seat, own_seats
 from app.api.registrierungen.crud import pull_open_registrierungen
 from app.api.registrierungen.services import registrierung_is_confirmed
 from app.api.saisons.services import SPIELTAG_POSITION_LOOKUP, matchday_of
-from app.api.spielbestaetigungen.crud import JUDGED_VEREIN_FIELDS
+from app.api.spielbestaetigungen.crud import JUDGED_JUNCTION_FIELDS
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment, FLSpielbestaetigungTeamState
 from app.api.spielbestaetigungen.services import (
     AnsetzungState,
@@ -236,7 +236,7 @@ class _Spielbestaetigung(NamedTuple):
 
 
 def _spielbestaetigung_of(
-    spiel_raw: Mapping[str, Any], *, team_id: Any, vereine: Sequence[Mapping[str, Any]], now: datetime
+    spiel_raw: Mapping[str, Any], *, team_id: Any, junctions: Sequence[Mapping[str, Any]], now: datetime
 ) -> _Spielbestaetigung | None:
     """The team's unclosed row about the fixture's Ansetzung as it stands, where it asks the team anything."""
 
@@ -255,7 +255,7 @@ def _spielbestaetigung_of(
         None,
     )
     vorschlag_open = None if proposal is None else FLSpielbestaetigungAppointment.model_validate(proposal)
-    ansetzung_state = AnsetzungState(spiel=spiel_raw, vereine=vereine)
+    ansetzung_state = AnsetzungState(spiel=spiel_raw, junctions=junctions)
     state = team_state_of(spielbestaetigung_raw=own, ansetzung_state=ansetzung_state, now=now, vorschlag_open=vorschlag_open)
     if state is None:
         return None
@@ -298,11 +298,11 @@ async def _pull_team_spiele(
         collection=spiele_collection, pipeline=_team_spiele_pipeline(saison_id=saison_id, team_id=team_id), session=session
     )
     clubs = {(spiel.get(side) or {}).get("team_id") for spiel in spiele for side in ("team1", "team2")} - {None}
-    vereine = await saison_teams_collection.find(
-        {"saison_id": saison_id, "team_id": {"$in": sorted(clubs, key=str)}}, JUDGED_VEREIN_FIELDS, session=session
+    junctions = await saison_teams_collection.find(
+        {"saison_id": saison_id, "team_id": {"$in": sorted(clubs, key=str)}}, JUDGED_JUNCTION_FIELDS, session=session
     ).to_list(length=None)
 
-    return spiele, vereine
+    return spiele, junctions
 
 
 # `/self/...`, its own segment: the admin router serves this team and season under its own paths, and one path in both
@@ -346,7 +346,7 @@ async def get_team_overview(
     )
     club = await teams_collection.find_one({"_id": team_id}, ["full_name"], session=session)
     assert row is not None and club is not None
-    spiele, vereine = await _pull_team_spiele(
+    spiele, junctions = await _pull_team_spiele(
         spiele_collection=spiele_collection,
         saison_teams_collection=saison_teams_collection,
         saison_id=saison_id,
@@ -360,7 +360,7 @@ async def get_team_overview(
     spielbestaetigungen: list[FLTeamPanelSpielbestaetigung] = []
     aufstellungen: list[FLTeamPanelAufstellung] = []
     for spiel in sorted(spiele, key=lambda spiel: (str(spiel.get("date") or ""), str(spiel.get("time") or ""), spiel["spiel_nr"])):
-        spielbestaetigung = _spielbestaetigung_of(spiel, team_id=team_id, vereine=vereine, now=germany_now)
+        spielbestaetigung = _spielbestaetigung_of(spiel, team_id=team_id, junctions=junctions, now=germany_now)
         if spielbestaetigung is not None and spielbestaetigung.state != "agreed":
             answer = spielbestaetigung.row.get("answer") or {}
             declined = spielbestaetigung.state == "declined"
@@ -445,7 +445,7 @@ async def get_team_spiele(
     # it serves from straddling a commit.
     subject = await roles_of(identifier, records, session=session)
     refuse(find_role_refusal(seats=subject.seats, team_id=team_id, saison_id=saison_id))
-    spiele, vereine = await _pull_team_spiele(
+    spiele, junctions = await _pull_team_spiele(
         spiele_collection=spiele_collection,
         saison_teams_collection=saison_teams_collection,
         saison_id=saison_id,
@@ -454,7 +454,7 @@ async def get_team_spiele(
     )
 
     def served(spiel: Mapping[str, Any]) -> dict[str, Any]:
-        spielbestaetigung = _spielbestaetigung_of(spiel, team_id=team_id, vereine=vereine, now=germany_now)
+        spielbestaetigung = _spielbestaetigung_of(spiel, team_id=team_id, junctions=junctions, now=germany_now)
 
         return {
             **spiel,

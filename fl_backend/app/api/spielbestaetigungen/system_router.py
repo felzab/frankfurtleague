@@ -51,6 +51,7 @@ from app.api.spielbestaetigungen.services import (
     compose_reminder_update,
     compose_spielbestaetigung,
     decision_of,
+    junction_names_of,
     moved_notice_of,
     notice_data_of,
     notice_owed,
@@ -65,7 +66,6 @@ from app.api.spielbestaetigungen.services import (
     spiel_mail_slot_of,
     still_a_party,
     team_mails,
-    vereinsnamen_of,
     view_ansetzung_of,
     was_discarded,
 )
@@ -345,8 +345,8 @@ async def sweep_spielbestaetigungen(
         for row in owing:
             reason, party = reasons[row["_id"]], row["party"]
             # The clubs the row asked about, off the season rows read by its own clubs.
-            names = vereinsnamen_of(
-                spielbestaetigung_raw=row, ansetzung_state=AnsetzungState(spiel=spiele[row["spiel_id"]], vereine=list(junctions.values()))
+            names = junction_names_of(
+                spielbestaetigung_raw=row, ansetzung_state=AnsetzungState(spiel=spiele[row["spiel_id"]], junctions=list(junctions.values()))
             )
             appointment = spiel_mail_appointment_of(spielbestaetigung_raw=row, names=names)
             data: FLOutboxData
@@ -467,7 +467,7 @@ async def sweep_spielbestaetigungen(
             session=session,
         )
         austritte = _austritte(junctions)
-        vereine = list(junctions.values())
+        junction_rows = list(junctions.values())
 
         # Each row holding its party's question about an Ansetzung its fixture left, a discard as an agreement, the mint's
         # to close where its party is asked about the new one now, oldest first, so the newest is the slot a request
@@ -516,7 +516,9 @@ async def sweep_spielbestaetigungen(
                     if told is None
                     else spiel_mail_appointment_of(
                         spielbestaetigung_raw=told,
-                        names=vereinsnamen_of(spielbestaetigung_raw=told, ansetzung_state=AnsetzungState(spiel=spiel, vereine=vereine)),
+                        names=junction_names_of(
+                            spielbestaetigung_raw=told, ansetzung_state=AnsetzungState(spiel=spiel, junctions=junction_rows)
+                        ),
                     )
                 )
 

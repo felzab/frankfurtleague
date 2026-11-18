@@ -52,7 +52,7 @@ def test_every_mail_to_a_club_s_seats_names_the_club_it_goes_to():
     request = FLSpielNoticeData(kind="spiel_cancelled", recipient="team", appointment=APPOINTMENT, sonderereignis="ausgefallen")
     row = {"_id": ObjectId(), "saison_id": SAISON_ID, "party": {"kind": "team", "team_id": OWN}}
     spiel = {"team1": {"team_id": OWN}, "team2": {"team_id": OPPONENT}, "date": "2026-05-02", "time": "10:00:00"}
-    vereine = {
+    junctions = {
         OWN: {"_id": ObjectId(), "team_id": OWN, "name": "Adler", "kontakte": SEATED},
         OPPONENT: {"_id": ObjectId(), "team_id": OPPONENT, "name": "Bieber", "kontakte": SEATED},
     }
@@ -68,7 +68,7 @@ def test_every_mail_to_a_club_s_seats_names_the_club_it_goes_to():
             occasion="dispatch",
         ),
     ]
-    (notice,) = austritt_notices_of(saison_id=SAISON_ID, team_id=OWN, spiele=[spiel], vereine=vereine)[vereine[OPPONENT]["_id"]]
+    (notice,) = austritt_notices_of(saison_id=SAISON_ID, team_id=OWN, spiele=[spiel], junctions=junctions)[junctions[OPPONENT]["_id"]]
 
     assert [mail.club for mail in owed] == [FLOutboxClub(saison_id=SAISON_ID, team_id=OWN)] * 2
     assert notice.club == FLOutboxClub(saison_id=SAISON_ID, team_id=OPPONENT)
@@ -195,7 +195,7 @@ EXIT_READ = datetime(2026, 4, 20, 12, tzinfo=clock.GERMANY)
 def test_an_exit_names_whom_its_write_and_the_pass_mail(spiel: dict[str, Any], kontakte: Any, asked_at: str | None, named: list[str]):
     """Named by fixed words, the exit's question promised a mail to a club no seat reaches and a referee nobody asked."""
 
-    vereine = {
+    junctions = {
         OWN: {"team_id": OWN, "name": "Adler", "kontakte": SEATED, "austritt": None},
         OPPONENT: {"team_id": OPPONENT, "name": "Bieber", "kontakte": kontakte, "austritt": None},
     }
@@ -208,6 +208,6 @@ def test_an_exit_names_whom_its_write_and_the_pass_mail(spiel: dict[str, Any], k
         "closed": None,
     }
 
-    reached = austritt_recipients_of(team_id=OWN, spiele=[spiel], vereine=vereine, rows=[referee_row], now=EXIT_READ)
+    reached = austritt_recipients_of(team_id=OWN, spiele=[spiel], junctions=junctions, rows=[referee_row], now=EXIT_READ)
 
     assert [(day, party["kind"]) for day, party in reached] == [(spiel["date"], kind) for kind in named]

@@ -65,10 +65,10 @@ async def pull_named_spiele(
 
 # What a row's state judges of the clubs' season rows its Ansetzung names: each club's exit, and no seat holder at all.
 # Every read judging a state projects it, so a field a judge comes to read is added once.
-JUDGED_VEREIN_FIELDS: Final[Mapping[str, int]] = {"_id": 0, "team_id": 1, "austritt.date": 1}
+JUDGED_JUNCTION_FIELDS: Final[Mapping[str, int]] = {"_id": 0, "team_id": 1, "austritt.date": 1}
 
 # The clubs' season rows as an answer reads them: what the close judges, and the name the act records.
-VEREIN_FIELDS: Final[Mapping[str, int]] = {**JUDGED_VEREIN_FIELDS, "name": 1}
+JUNCTION_FIELDS: Final[Mapping[str, int]] = {**JUDGED_JUNCTION_FIELDS, "name": 1}
 
 
 async def pull_ansetzung_state(
@@ -76,7 +76,7 @@ async def pull_ansetzung_state(
     spiele_collection: ReadCollection,
     saison_teams_collection: ReadCollection,
     spielbestaetigung_raw: Mapping[str, Any],
-    verein_projection: Mapping[str, Any],
+    junction_projection: Mapping[str, Any],
     session: AsyncClientSession | None = None,
 ) -> AnsetzungState | None:
     """`None` where the fixture is gone: an undraw or a replace removes it with its rows, so a row read outside a transaction can outlive it."""
@@ -87,13 +87,13 @@ async def pull_ansetzung_state(
         return None
 
     snapshot = spielbestaetigung_raw["ansetzung"]
-    vereine = await saison_teams_collection.find(
+    junctions = await saison_teams_collection.find(
         {"saison_id": spielbestaetigung_raw["saison_id"], "team_id": {"$in": [snapshot["team1_id"], snapshot["team2_id"]]}},
-        verein_projection,
+        junction_projection,
         session=session,
     ).to_list(length=None)
 
-    return AnsetzungState(spiel=spiel, vereine=vereine)
+    return AnsetzungState(spiel=spiel, junctions=junctions)
 
 
 # --- The administrator's read.
@@ -248,7 +248,7 @@ async def owe_the_austritt_notices_in_session(
         session=session,
     )
     sides = {(spiel.get(side) or {}).get("team_id") for spiel in spiele for side in ("team1", "team2")}
-    vereine = await pull_whole_from_db(
+    junctions = await pull_whole_from_db(
         collection=saison_teams_collection,
         db_filter={"saison_id": saison_id, "team_id": {"$in": list({team_id, *sides} - {None})}},
         what=f"team {team_id}'s opponents in season {saison_id}",
@@ -256,7 +256,7 @@ async def owe_the_austritt_notices_in_session(
         session=session,
     )
 
-    notices = austritt_notices_of(saison_id=saison_id, team_id=team_id, spiele=spiele, vereine={row["team_id"]: row for row in vereine})
+    notices = austritt_notices_of(saison_id=saison_id, team_id=team_id, spiele=spiele, junctions={row["team_id"]: row for row in junctions})
     if not notices:
         return
 
@@ -280,13 +280,13 @@ async def pull_austritt_recipients(
     saison_id: str,
     team_id: Any,
     start_date: str,
-    vereine: Mapping[Any, Mapping[str, Any]],
+    junctions: Mapping[Any, Mapping[str, Any]],
     now: datetime,
     session: AsyncClientSession,
 ) -> list[tuple[str | None, list[FLSpielRecipient]]]:
     """Whom an exit of the club would mail, each by name beside the day an exit reaches them from (`austritt_recipients_of`).
 
-    `vereine` maps every club of the season to its season row, its seats, exit and name among it. Read in a snapshot
+    `junctions` maps every club of the season to its season row, its seats, exit and name among it. Read in a snapshot
     `session` and outside a transaction, as the page reading it is: a referee erased under it, rows and record in one
     write, is either named or reached by no row, never reached and unnamed.
     """
@@ -310,7 +310,7 @@ async def pull_austritt_recipients(
         if spiele
         else []
     )
-    reached = austritt_recipients_of(team_id=team_id, spiele=spiele, vereine=vereine, rows=rows, now=now)
+    reached = austritt_recipients_of(team_id=team_id, spiele=spiele, junctions=junctions, rows=rows, now=now)
 
     referee_ids = list({party["schiedsrichter_id"] for _, party in reached if party["kind"] == "schiedsrichter"})
     referees = (
@@ -326,7 +326,7 @@ async def pull_austritt_recipients(
         else []
     )
     names = {
-        **{("team", club_id): row.get("name") for club_id, row in vereine.items()},
+        **{("team", club_id): row.get("name") for club_id, row in junctions.items()},
         **{("schiedsrichter", row["_id"]): row["name"] for row in referees},
     }
 

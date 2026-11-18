@@ -10,7 +10,7 @@ from app.api.identity.crud import roles_of
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.schemas import FLSubjectSeat
 from app.api.identity.services import rollen_on
-from app.api.spielbestaetigungen.crud import JUDGED_VEREIN_FIELDS, OWN_ROW_FIELDS, VEREIN_FIELDS, pull_ansetzung_state
+from app.api.spielbestaetigungen.crud import JUDGED_JUNCTION_FIELDS, JUNCTION_FIELDS, OWN_ROW_FIELDS, pull_ansetzung_state
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAnswerResponse,
     FLSpielbestaetigungAppointment,
@@ -131,7 +131,7 @@ async def post_schiedsrichter_answer(
             spiele_collection=spiele_collection,
             saison_teams_collection=saison_teams_collection,
             spielbestaetigung_raw=row,
-            verein_projection=JUDGED_VEREIN_FIELDS,
+            junction_projection=JUDGED_JUNCTION_FIELDS,
             session=session,
         )
         # One snapshot with the row, and the fixture is removed with its rows in one transaction.
@@ -182,7 +182,7 @@ async def post_schiedsrichter_answer(
                 spiele_collection=spiele_collection,
                 saison_teams_collection=saison_teams_collection,
                 spielbestaetigung_raw=row,
-                verein_projection=JUDGED_VEREIN_FIELDS,
+                junction_projection=JUDGED_JUNCTION_FIELDS,
                 session=None,
             )
             # An undraw removing the fixture deletes this row in its transaction, a write conflict while this one holds it.
@@ -237,7 +237,7 @@ async def post_team_answer(
             spiele_collection=spiele_collection,
             saison_teams_collection=saison_teams_collection,
             spielbestaetigung_raw=row,
-            verein_projection=VEREIN_FIELDS,
+            junction_projection=JUNCTION_FIELDS,
             session=session,
         )
         # One snapshot with the row, and the fixture is removed with its rows in one transaction.
@@ -301,7 +301,9 @@ async def post_team_answer(
             collection=spielbestaetigungen_collection,
             action="spielbestaetigung.answered",
             by=ACT_BY_KONTAKT,
-            team=next((str(verein["name"]) for verein in ansetzung_state.vereine if verein["team_id"] == row["party"]["team_id"]), None),
+            team=next(
+                (str(junction["name"]) for junction in ansetzung_state.junctions if junction["team_id"] == row["party"]["team_id"]), None
+            ),
             record_id=spielbestaetigung_id,
             label=str(row["saison_id"]),
             session=session,
@@ -315,7 +317,7 @@ async def post_team_answer(
             spiele_collection=spiele_collection,
             saison_teams_collection=saison_teams_collection,
             spielbestaetigung_raw=row,
-            verein_projection=VEREIN_FIELDS,
+            junction_projection=JUNCTION_FIELDS,
             session=None,
         )
         # An undraw removing the fixture deletes this row in its transaction, a write conflict while this one holds it.

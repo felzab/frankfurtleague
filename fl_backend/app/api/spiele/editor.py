@@ -24,7 +24,7 @@ from app.api.spielberichte.schemas import (
     FLSpielberichtVorschlag,
 )
 from app.api.spielberichte.services import SIDES, bericht_state_of
-from app.api.spielbestaetigungen.crud import JUDGED_VEREIN_FIELDS, pull_admin_rows
+from app.api.spielbestaetigungen.crud import JUDGED_JUNCTION_FIELDS, pull_admin_rows
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigung, FLSpielbestaetigungState
 from app.api.spielbestaetigungen.services import AnsetzungState, austritte_of, due_by_of, lapsed_on, reason_of, state_of
 from app.api.spiele.crud import pull_saison_membership
@@ -157,7 +157,9 @@ class FLSpieleAdminSingleResponse(BaseReadModel):
     aufstellung_marks: FLSpielEditorAufstellungMarks
 
 
-async def _vereine_of(rows: Sequence[Mapping[str, Any]], *, saison_id: str, saison_teams_collection: ReadCollection) -> list[Mapping[str, Any]]:
+async def _junctions_of(
+    rows: Sequence[Mapping[str, Any]], *, saison_id: str, saison_teams_collection: ReadCollection
+) -> list[Mapping[str, Any]]:
     """The season rows of every club the confirmation rows' Ansetzungen name, as `state_of` judges a row against them."""
 
     clubs = {club for row in rows for club in (row["ansetzung"]["team1_id"], row["ansetzung"]["team2_id"])}
@@ -168,7 +170,7 @@ async def _vereine_of(rows: Sequence[Mapping[str, Any]], *, saison_id: str, sais
         collection=saison_teams_collection,
         db_filter={"saison_id": saison_id, "team_id": {"$in": list(clubs)}},
         what=f"season {saison_id}'s clubs the confirmations name",
-        projection=JUDGED_VEREIN_FIELDS,
+        projection=JUDGED_JUNCTION_FIELDS,
     )
 
 
@@ -375,8 +377,8 @@ async def read_spiel_editor(
         ),
         _aufstellungen_of(spiel=spiel, aufstellungen_collection=aufstellungen_collection, now=now),
     )
-    vereine = await _vereine_of(confirmations, saison_id=spiel.saison_id, saison_teams_collection=saison_teams_collection)
-    ansetzung_state = AnsetzungState(spiel=spiele_raw[0], vereine=vereine)
+    junctions = await _junctions_of(confirmations, saison_id=spiel.saison_id, saison_teams_collection=saison_teams_collection)
+    ansetzung_state = AnsetzungState(spiel=spiele_raw[0], junctions=junctions)
     austritte = austritte_of(ansetzung_state)
 
     def editor_row(row: Mapping[str, Any]) -> FLSpielbestaetigungEditorRow:

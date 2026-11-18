@@ -293,7 +293,7 @@ class TestATeamsPagesDropARowItsMatchDecided:
         """Kept until the hourly close, an unanswered row reads „Abgelaufen“ and „Die Liga entscheidet“ about a match decided."""
 
         unclosed = row(TEAM, deadline=TODAY, answer=answer, closed=None)
-        state = AnsetzungState(spiel=spiel(**decided), vereine=[])
+        state = AnsetzungState(spiel=spiel(**decided), junctions=[])
 
         assert (
             team_state_of(spielbestaetigung_raw=unclosed, ansetzung_state=state, now=KICK_OFF + timedelta(hours=2), vorschlag_open=None) is None
@@ -304,6 +304,6 @@ class TestATeamsPagesDropARowItsMatchDecided:
         """Inside its deadline, an exit ends the question: kept until the close, the row would read „Abgelaufen“ or as its answer."""
 
         unclosed = row(TEAM, deadline=TODAY, answer=answer, closed=None)
-        state = AnsetzungState(spiel=spiel(), vereine=[{"team_id": BETA, "austritt": {"date": TODAY}}])
+        state = AnsetzungState(spiel=spiel(), junctions=[{"team_id": BETA, "austritt": {"date": TODAY}}])
 
         assert team_state_of(spielbestaetigung_raw=unclosed, ansetzung_state=state, now=NOW, vorschlag_open=None) is None

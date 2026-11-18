@@ -90,7 +90,7 @@ async def _record_the_seats_act(
 ) -> None:
     """One row of a seat's act on a pupil: the seat's club by its name at the act, the pupil by id alone."""
 
-    verein = await pull_one_from_db(
+    junction = await pull_one_from_db(
         collection=records.saison_teams_collection,
         db_filter={"team_id": team_id, "saison_id": saison_id},
         projection=["name"],
@@ -100,7 +100,7 @@ async def _record_the_seats_act(
         collection=collection,
         action=action,
         by=ACT_BY_KONTAKT,
-        team=str(verein["name"]),
+        team=str(junction["name"]),
         record_id=spieler_id,
         label=saison_id,
         session=session,
