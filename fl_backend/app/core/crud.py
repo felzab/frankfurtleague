@@ -6,7 +6,8 @@ helper raises `DocumentNotFoundError` on a miss and never returns `None`, and a 
 helper returns the empty result and never raises for absence.
 
 A write reaches the driver in this module alone. No helper here records anything: an act records itself, one line inside
-its own transaction.
+its own transaction. A write helper's `session` has no default, so a write outside a transaction says `session=None`
+and a transactional caller cannot leave its write outside by forgetting the argument.
 """
 
 import re
@@ -167,7 +168,7 @@ async def patch_one_in_db(
     db_filter: Mapping[str, Any],
     update: Mapping[str, Any],
     expected_version: int | None,
-    session: AsyncClientSession | None = None,
+    session: AsyncClientSession | None,
     return_document: bool,
 ) -> Mapping[str, Any]:
     """`expected_version` and `return_document` have no default, so a caller weighs whether it checks a version and which state it answers.
@@ -214,7 +215,7 @@ async def patch_many_in_db(
     # "$[<identifier>]" page). Such an update keeps the caller's filter unnarrowed, so that filter
     # has to match only the documents holding an element to change.
     array_filters: Sequence[Mapping[str, Any]] | None = None,
-    session: AsyncClientSession | None = None,
+    session: AsyncClientSession | None,
 ) -> UpdateResult:
     """The driver's result, unwrapped: `modified_count` is reported on the wire, so nothing here may swallow it.
 
@@ -326,7 +327,7 @@ async def post_one_to_db(
     *,
     collection: AsyncCollection,
     document: Mapping[str, Any],
-    session: AsyncClientSession | None = None,
+    session: AsyncClientSession | None,
 ) -> InsertOneResult:
     """The driver's result, unwrapped: every create answers with `inserted_id` and `acknowledged`."""
 
@@ -337,7 +338,7 @@ async def post_many_to_db(
     *,
     collection: AsyncCollection,
     documents: Sequence[Mapping[str, Any]],
-    session: AsyncClientSession | None = None,
+    session: AsyncClientSession | None,
 ) -> InsertManyResult:
     """The driver's result, unwrapped: `inserted_ids` is in input order, so a caller can pair an id back to what it sent."""
 
@@ -439,7 +440,7 @@ async def set_inactive_since(
     collection: AsyncCollection,
     db_filter: Mapping[str, Any],
     when: str | None,
-    session: AsyncClientSession | None = None,
+    session: AsyncClientSession | None,
 ) -> Mapping[str, Any] | None:
     """Retire and revive in one helper: `inactive_since` is one nullable date, so they are one write in two directions.
 
@@ -469,7 +470,7 @@ async def insert_live(
     *,
     collection: AsyncCollection,
     document: Mapping[str, Any],
-    session: AsyncClientSession | None = None,
+    session: AsyncClientSession | None,
 ) -> InsertOneResult:
     """`inactive_since` is on no create payload, so a create states it here rather than in each router."""
 

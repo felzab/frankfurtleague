@@ -276,7 +276,7 @@ async def post_result(
     async def settled(update: Mapping[str, Any], narrowed: Mapping[str, Any]) -> bool:
         # Every report writes its refusal or none, so a mail sent after a failed send keeps no reason it no longer has.
         with_delivery_reason = {**update, "$set": {**update["$set"], "delivery_reason": result_data.delivery_reason}}
-        result = await patch_many_in_db(collection=outbox_collection, db_filter={**held, **narrowed}, update=with_delivery_reason)
+        result = await patch_many_in_db(collection=outbox_collection, db_filter={**held, **narrowed}, update=with_delivery_reason, session=None)
         return result.modified_count > 0
 
     result = result_data.result
@@ -311,6 +311,7 @@ async def post_sign_in(
     await post_one_to_db(
         collection=outbox_collection,
         document=row_of(mail, now=germany_now, secret=sign_in_data.secret, valid_until=sign_in_data.valid_until),
+        session=None,
     )
 
 

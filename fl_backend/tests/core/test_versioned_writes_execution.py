@@ -49,7 +49,7 @@ async def on_two_spiele(url: str, body: Body) -> Any:
 
     async with a_clean_database(url, DATABASE_NAME) as (_, database):
         for spiel_id, spiel_nr in ((FIRST, 1), (SECOND, 2)):
-            await post_one_to_db(collection=database[Collection.SPIELE], document=created(spiel_id, spiel_nr))
+            await post_one_to_db(collection=database[Collection.SPIELE], document=created(spiel_id, spiel_nr), session=None)
 
         return await body(database)
 
@@ -64,6 +64,7 @@ async def save(database: AsyncDatabase, update: dict[str, Any], *, expected_vers
         db_filter={"_id": FIRST},
         update=update,
         expected_version=expected_version,
+        session=None,
         return_document=ReturnDocument.AFTER,
     )
 
@@ -100,7 +101,9 @@ class TestEveryOtherWrite:
         async def body(database: AsyncDatabase) -> tuple[list[int], list[int]]:
             spiele = database[Collection.SPIELE]
             fanned_out = [
-                (await patch_many_in_db(collection=spiele, db_filter={"saison_id": "2026"}, update={"$set": {"note": "all"}})).modified_count
+                (
+                    await patch_many_in_db(collection=spiele, db_filter={"saison_id": "2026"}, update={"$set": {"note": "all"}}, session=None)
+                ).modified_count
                 for _ in range(2)
             ]
 
@@ -162,6 +165,7 @@ class TestAWritePastTheVersion:
                 db_filter={"_id": record["_id"]},
                 update={"$set": edited},
                 expected_version=read_at,
+                session=None,
                 return_document=ReturnDocument.AFTER,
             )
 
