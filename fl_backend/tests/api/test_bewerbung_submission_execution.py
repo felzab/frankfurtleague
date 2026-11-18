@@ -18,7 +18,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.shared.mailbox import OPEN_LINKS_PER_MAILBOX
-from app.shared.schemas.bounds import BEWERBUNG_CONFIRMATION_DEADLINE_DAYS
+from app.shared.schemas.bounds import CONFIRMATION_DEADLINE_DAYS
 from app.shared.schemas.literals import KONTAKT_SEATS
 from app.shared.tokens import hash_token
 from tests.app_client import app_client, app_under_test
@@ -243,7 +243,7 @@ async def owed(database: AsyncDatabase) -> list[Mapping[str, Any]]:
 
 
 def deadline_from_today() -> str:
-    return (date.fromisoformat(TODAY) + timedelta(days=BEWERBUNG_CONFIRMATION_DEADLINE_DAYS)).isoformat()
+    return (date.fromisoformat(TODAY) + timedelta(days=CONFIRMATION_DEADLINE_DAYS)).isoformat()
 
 
 class TestWhatTheCreateOwes:

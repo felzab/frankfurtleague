@@ -20,7 +20,7 @@ from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.links import deadline_passed
 from app.shared.mailbox import mailbox_pattern
 from app.shared.saison import season_has_ended
-from app.shared.schemas.bounds import DECLINED_RETENTION_DAYS
+from app.shared.schemas.bounds import CONFIRMATION_DEADLINE_DAYS
 from app.shared.schemas.literals import FLConfirmationState
 
 # The state a submission arrives in, and the only one it may arrive in: the other is written by the
@@ -373,7 +373,7 @@ def build_decline_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
     one, and the stall refuses the pass.
     """
 
-    return {"saison_id": saison_id, "status": DECLINED, "decision.made_at": {"$lte": days_after(day=today, days=-DECLINED_RETENTION_DAYS)}}
+    return {"saison_id": saison_id, "status": DECLINED, "decision.made_at": {"$lte": days_after(day=today, days=-CONFIRMATION_DEADLINE_DAYS)}}
 
 
 def confirmation_erasure_is_due(*, registrierung_raw: Mapping[str, Any], today: str) -> bool:
@@ -410,7 +410,7 @@ def decline_erasure_is_due(*, registrierung_raw: Mapping[str, Any], today: str) 
     decision = registrierung_raw.get("decision")
     made_at = decision.get("made_at") if isinstance(decision, Mapping) else None
 
-    return isinstance(made_at, str) and days_after(day=made_at, days=DECLINED_RETENTION_DAYS) <= today
+    return isinstance(made_at, str) and days_after(day=made_at, days=CONFIRMATION_DEADLINE_DAYS) <= today
 
 
 def build_open_filter(*, saison_id: str, team_id: Any) -> Mapping[str, Any]:

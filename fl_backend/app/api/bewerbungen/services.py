@@ -29,10 +29,9 @@ from app.shared.links import deadline_passed
 from app.shared.mailbox import OPEN_LINKS_PER_MAILBOX, mailbox_of, mailbox_pattern
 from app.shared.saison import season_has_ended
 from app.shared.schemas.bounds import (
-    BEWERBUNG_CONFIRMATION_DEADLINE_DAYS,
     BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
     BEWERBUNG_REMINDER_DAYS,
-    DECLINED_RETENTION_DAYS,
+    CONFIRMATION_DEADLINE_DAYS,
     SAISON_ID_LENGTH,
     SIGNATORY_MIN_AGE_YEARS,
 )
@@ -251,7 +250,7 @@ def compose_kontakte(*, kontakte: Mapping[str, Any], today: str) -> dict[str, An
 def confirmation_deadline_from(*, today: str) -> str:
     """The day a seat's link stops working, counted from its mail -- a re-send of that seat restarts it."""
 
-    return days_after(day=today, days=BEWERBUNG_CONFIRMATION_DEADLINE_DAYS)
+    return days_after(day=today, days=CONFIRMATION_DEADLINE_DAYS)
 
 
 def compose_confirmation(*, today: str) -> dict[str, Any]:
@@ -1200,7 +1199,7 @@ def decline_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) -> b
     decision = bewerbung_raw.get("decision")
     made_at = None if decision is None else decision.get("made_at")
 
-    return isinstance(made_at, str) and days_after(day=made_at, days=DECLINED_RETENTION_DAYS) <= today
+    return isinstance(made_at, str) and days_after(day=made_at, days=CONFIRMATION_DEADLINE_DAYS) <= today
 
 
 def acceptance_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], later_saison_status: Any) -> bool:

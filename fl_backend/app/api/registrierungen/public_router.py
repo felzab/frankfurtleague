@@ -63,7 +63,7 @@ from app.shared.idempotency import build_key_filter
 from app.shared.links import find_age_refusal
 from app.shared.schemas.bounds import (
     BIRTH_DATE_MAX_AGE_YEARS,
-    REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS,
+    CONFIRMATION_DEADLINE_DAYS,
     REGISTRIERUNG_MIN_AGE_YEARS,
 )
 from app.shared.schemas.confirmation import FLTokenPayload
@@ -263,7 +263,7 @@ async def post_registrierung(
             session=session,
         )
 
-        deadline = days_after(day=today, days=REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS)
+        deadline = days_after(day=today, days=CONFIRMATION_DEADLINE_DAYS)
 
         created = await post_one_to_db(
             collection=registrierungen_collection,

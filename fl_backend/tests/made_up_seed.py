@@ -94,7 +94,7 @@ from app.core.db import new_client
 from app.readback import CRASHED, RECORD_MODELS, REFUSED, UNJUDGED
 from app.shared.einwilligung_evidence import compose_initial
 from app.shared.schemas.addresses import FLAddress
-from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS
+from app.shared.schemas.bounds import CONFIRMATION_DEADLINE_DAYS
 from app.shared.schemas.literals import FLAddressChangeWay
 from app.shared.tokens import hash_token
 from tests.documents import (
@@ -1060,7 +1060,7 @@ class MadeUpLeague:
                 last_name=person["last_name"],
                 token=f"made-up-{person['first_name'].lower()}-registration",
                 submitted_at=self.day(submitted_on),
-                deadline=self.day(submitted_on + REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS),
+                deadline=self.day(submitted_on + CONFIRMATION_DEADLINE_DAYS),
                 position="Abwehr",
                 stufe="Q2",
                 confirmed=registrierung_confirmed(

@@ -21,7 +21,7 @@ from app.shared.einwilligung_evidence import TextVersions, compose_initial
 from app.shared.folding import league_address, sign_in_identifier
 from app.shared.links import deadline_passed
 from app.shared.saison import season_has_ended
-from app.shared.schemas.bounds import SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS
+from app.shared.schemas.bounds import CONFIRMATION_DEADLINE_DAYS
 
 
 def build_assignment_filter(schiedsrichter_id: Any) -> Mapping[str, Any]:
@@ -102,7 +102,7 @@ def build_erasure_due_filter(*, now: datetime) -> Mapping[str, Any]:
 def confirmation_deadline_from(*, today: str) -> str:
     """The day the link stops working, counted from the mint -- a re-send restarts it."""
 
-    return days_after(day=today, days=SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS)
+    return days_after(day=today, days=CONFIRMATION_DEADLINE_DAYS)
 
 
 def erase_at_from(*, deadline: str) -> datetime:

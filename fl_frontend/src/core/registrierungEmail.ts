@@ -1,6 +1,6 @@
 import "server-only";
 
-import { DECLINED_RETENTION_DAYS, REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS } from "./bounds";
+import { CONFIRMATION_DEADLINE_DAYS } from "./bounds";
 import { COPY } from "./copy";
 import { mailOrigin } from "./emailShell";
 import { ROUTES } from "./routes";
@@ -43,7 +43,7 @@ export function buildRegistrierungConfirmationEmail({ team, saison_id: saisonId 
     paragraphs: [
       [SERVER_COPY.registrierungConfirmation.opening({ record: team }, saisonId)],
       [WORDS.confirmation.admission],
-      [WORDS.confirmation.deadlineIn(REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS)],
+      [WORDS.confirmation.deadlineIn(CONFIRMATION_DEADLINE_DAYS)],
     ],
     button: { label: COPY.page.registrierungConfirmation, href: spielerConfirmationLink(site, token) },
   };
@@ -75,7 +75,7 @@ export function buildRegistrierungAbsageEmail({ team, saison_id: saisonId, reaso
     paragraphs: [
       [[{ strong: team }, WORDS.absage.lead.after(saisonId)]],
       DECLINE_NEXT_STEPS[reason ?? "none"],
-      [WORDS.absage.deletion(DECLINED_RETENTION_DAYS)],
+      [WORDS.absage.deletion(CONFIRMATION_DEADLINE_DAYS)],
     ],
     // The league's landing: no record is left to press on.
     button: { label: COPY.shared.end.toHome, href: site },

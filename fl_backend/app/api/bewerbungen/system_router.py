@@ -62,7 +62,7 @@ from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.security import SYSTEM_TIER
 from app.core.transactions import SWEEP_PAGE, Batch, drain, refuse_a_stalled_page, run_isolated
 from app.shared.saison import season_has_ended
-from app.shared.schemas.bounds import DECLINED_RETENTION_DAYS, LIST_LIMIT_DEFAULT
+from app.shared.schemas.bounds import CONFIRMATION_DEADLINE_DAYS, LIST_LIMIT_DEFAULT
 from app.shared.schemas.literals import KONTAKT_SEATS, FLKontaktSeat
 from app.shared.schemas.responses import FLSweepSaisonsResponse
 
@@ -358,7 +358,7 @@ async def sweep_saison(
                     {
                         "saison_id": saison_id,
                         "status": "declined",
-                        "decision.made_at": {"$lte": days_after(day=today, days=-DECLINED_RETENTION_DAYS)},
+                        "decision.made_at": {"$lte": days_after(day=today, days=-CONFIRMATION_DEADLINE_DAYS)},
                     }
                 ),
                 projection=["status", "decision"],

@@ -61,7 +61,7 @@ from app.core.exceptions import APIError, link_expired
 from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS
+from app.shared.schemas.bounds import CONFIRMATION_DEADLINE_DAYS
 from app.shared.schemas.literals import FLAddressChangeEndKind, FLAddressChangeWay, FLAdminTier
 
 _SPIELER_FIELDS: Final[Mapping[str, int]] = {"email": 1, "einwilligung": 1}
@@ -754,9 +754,7 @@ async def _move_the_registrierung_in_session(
     )
     if mailed:
         update["$set"] |= {
-            "confirmation": compose_confirmation(
-                today=today, deadline=days_after(day=today, days=REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS), mailed=True
-            )
+            "confirmation": compose_confirmation(today=today, deadline=days_after(day=today, days=CONFIRMATION_DEADLINE_DAYS), mailed=True)
         }
     else:
         update["$set"] |= {"confirmation.token_hashes": [], "confirmation.sent_at": None}

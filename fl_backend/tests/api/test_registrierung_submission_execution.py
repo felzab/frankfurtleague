@@ -18,7 +18,7 @@ from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.shared.mailbox import OPEN_LINKS_PER_MAILBOX
-from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS
+from app.shared.schemas.bounds import CONFIRMATION_DEADLINE_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
 from tests import documents
 from tests.app_client import app_client, app_under_test
@@ -50,7 +50,7 @@ AFTER_TODAY = "2126-04-20"
 NOW = datetime(2126, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 # The deadline the submission stores, derived from the bound rather than spelled, so the case holds the
 # submission to the bound whatever the bound reads.
-DEADLINE = days_after(day=TODAY, days=REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS)
+DEADLINE = days_after(day=TODAY, days=CONFIRMATION_DEADLINE_DAYS)
 
 # Fixed rather than generated, so a failure names the same row every run.
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607960001")

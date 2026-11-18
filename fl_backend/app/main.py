@@ -63,7 +63,6 @@ from app.shared.schemas.bounds import (
     FLActionLogPageSize,
     FLAufstellungStartersMax,
     FLBanDurationSaisons,
-    FLDeclinedRetentionDays,
     FLTeamShorthandLength,
 )
 from app.shared.schemas.einwilligung import CURRENT_TEXT_VERSIONS
@@ -148,7 +147,6 @@ MIRRORED_CONSTANTS: Final = (
     *ADDRESS_CHANGE_BOUNDS,
     *GRANT_BOUNDS,
     *CONSENT_BOUNDS,
-    FLDeclinedRetentionDays,
     FLActionLogPageSize,
     FLAufstellungStartersMax,
     FLBanDurationSaisons,
