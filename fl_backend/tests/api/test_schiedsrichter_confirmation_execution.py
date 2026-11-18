@@ -253,6 +253,8 @@ class TestTheCreateIsTheInvitation:
         assert row[CONFIRMATION_FIELD]["deadline"] == confirmation_deadline_from(today=TODAY)
         # The clock the TTL index reads: absent, the unanswered entry outlives the fourteen days the notice promises.
         assert row[ERASE_AT_FIELD].replace(tzinfo=UTC) == erase_at_from(deadline=confirmation_deadline_from(today=TODAY))
+        # Stored null, as a registration's: absent, the read and record models requiring the keys refuse the row.
+        assert (row[EINWILLIGUNG_FIELD], row["birth_date"]) == (None, None)
 
 
 class TestANameAnotherRefereeHolds:
@@ -318,7 +320,7 @@ class TestACorrectedAddressReMintsAndRetiresTheOldLink:
 
         assert saved.answer.confirmation is None
         assert row["kontakt"]["email"] == CORRECTED_EMAIL
-        assert CONFIRMATION_FIELD not in row
+        assert row[CONFIRMATION_FIELD] is None
         assert old_link.error_code == Code.LINK_INVALID
         assert row[ERASE_AT_FIELD] == clock
 
@@ -363,7 +365,7 @@ class TestTheReSend:
         refused, row = await on_a_league(mongo_replica_set_url, body)
 
         assert refused.error_code == Code.SCHIEDSRICHTER_RETIRED
-        assert CONFIRMATION_FIELD not in row
+        assert row[CONFIRMATION_FIELD] is None
 
     # No null: every referee record holds an address, which the record model and the read-back hold it to.
     @pytest.mark.parametrize("email", ["no-address"])
@@ -379,7 +381,7 @@ class TestTheReSend:
         refused, row = await on_a_league(mongo_replica_set_url, body, referees=[referee_document(email=email)])
 
         assert (refused.error_code, refused.status_code) == (Code.SCHIEDSRICHTER_NO_ADDRESS, 409)
-        assert CONFIRMATION_FIELD not in row
+        assert row[CONFIRMATION_FIELD] is None
 
     async def test_a_referee_who_has_already_answered_is_refused_and_keeps_their_block(self, mongo_replica_set_url: str):
         """A fresh link for them can never be spent, and minting one would start the deletion clock on a confirmed entry."""
@@ -397,7 +399,7 @@ class TestTheReSend:
 
         assert refused.error_code == Code.CONFIRMATION_EXISTS
         assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(first.token))]
-        assert ERASE_AT_FIELD not in row
+        assert row[ERASE_AT_FIELD] is None
 
 
 async def reactivate(database: AsyncDatabase, client: AsyncMongoClient) -> Mailed:
@@ -446,7 +448,7 @@ class TestTheReactivation:
 
         assert response.token is None
         assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(first.token))]
-        assert ERASE_AT_FIELD not in row
+        assert row[ERASE_AT_FIELD] is None
 
 
 class TestTheConfirmation:
@@ -478,7 +480,7 @@ class TestTheConfirmation:
                 "media": {"at": "2026-04-01T10:30:00+00:00", "text_version": TEXT_VERSIONS["media"]},
             },
         }
-        assert ERASE_AT_FIELD not in row
+        assert row[ERASE_AT_FIELD] is None
 
     async def test_a_second_press_is_refused(self, mongo_replica_set_url: str):
         """A second press writing would replace the publication scope the person chose first."""

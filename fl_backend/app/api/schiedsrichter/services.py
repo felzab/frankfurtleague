@@ -72,7 +72,7 @@ def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> APIErro
     )
 
 
-# Every predicate below reads a missing `confirmation` block as "nothing was ever mailed": a retired referee whose
+# Every predicate below reads a null `confirmation` block as "nothing was ever mailed": a retired referee whose
 # corrected address was stored unmailed holds none.
 
 
@@ -87,7 +87,7 @@ EINWILLIGUNG_FIELD: Final = "einwilligung"
 
 # The instant the hourly pass erases an unanswered entry, its bookings and confirmation rows with it, which a
 # TTL index deleting the row could not do. On the record rather than inside the block: a retired referee's corrected
-# address drops the block, and the entry its person never confirmed still goes on the clock its last link started.
+# address nulls the block, and the entry its person never confirmed still goes on the clock its last link started.
 ERASE_AT_FIELD: Final = "erase_at"
 
 
@@ -113,6 +113,15 @@ def compose_confirmation(*, today: str) -> dict[str, Any]:
     """The bookkeeping every owed link writes: no hash until the hand-out mints one, owed today."""
 
     return {"token_hashes": [], "sent_at": today, "deadline": confirmation_deadline_from(today=today)}
+
+
+def compose_entry(*, today: str) -> dict[str, Any]:
+    """What a create stores beside the payload: no consent and no birthdate yet, as a stored null, and the first link owed.
+
+    Null rather than absent, as a registration stores it, so every referee holds every key its record model requires.
+    """
+
+    return {EINWILLIGUNG_FIELD: None, "birth_date": None, **compose_mint_update(today=today)}
 
 
 def compose_mint_update(*, today: str) -> dict[str, Any]:
@@ -153,7 +162,7 @@ def compose_confirmation_update(
     record = compose_initial(block=compose_einwilligung(scope=scope, media=media, today=today), at=at, text_versions=text_versions)
 
     # The clock goes with the answer: a confirmed entry stays until its person or the league ends it.
-    return {"$set": {"birth_date": birth_date, EINWILLIGUNG_FIELD: record}, "$unset": {ERASE_AT_FIELD: ""}}
+    return {"$set": {"birth_date": birth_date, EINWILLIGUNG_FIELD: record, ERASE_AT_FIELD: None}}
 
 
 def build_token_filter(*, token_hash: str) -> Mapping[str, Any]:
@@ -270,7 +279,7 @@ def compose_correction_update(
         return {"$set": dict(payload)}, False
 
     if stored.get("inactive_since") is not None:
-        return {"$set": dict(payload), "$unset": {CONFIRMATION_FIELD: ""}}, False
+        return {"$set": {**payload, CONFIRMATION_FIELD: None}}, False
 
     # An unconfirmed referee's old link went to a mailbox nobody reads, and leaving it live is a
     # credential in the wrong inbox.

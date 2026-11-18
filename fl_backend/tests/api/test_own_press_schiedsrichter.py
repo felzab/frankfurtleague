@@ -110,4 +110,4 @@ class TestTheEditorsSaveLandsOverTheAnswer:
 
         assert row["schule"] == "Carl-Schurz-Schule"
         assert (row["birth_date"], row["einwilligung"]["confirmed_at"], row["einwilligung"]["media"]) == (BIRTH_DATE, TODAY, True)
-        assert "erase_at" not in row
+        assert row["erase_at"] is None

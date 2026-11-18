@@ -717,11 +717,9 @@ def schiedsrichter_document(
 ) -> dict[str, Any]:
     """One referee row, `name` unique across the collection (`app/core/constraints.py :: uniq_schiedsrichter_name`).
 
-    `einwilligung=None` is the row as the create stores it, before the person's confirmation: with no `birth_date` and
-    no `einwilligung` at all, which only that confirmation writes.
+    `einwilligung=None` is the row before the person's confirmation: `birth_date` and `einwilligung` null, which only
+    that confirmation writes. No link is owed and no clock runs unless `fields` names them.
     """
-
-    confirmed = {} if einwilligung is None else {"birth_date": None, "einwilligung": dict(einwilligung)}
 
     return read_back_document(
         Collection.SCHIEDSRICHTER,
@@ -732,7 +730,10 @@ def schiedsrichter_document(
             "default_payment": default_payment,
             "kontakt": {"phone": "+49 69 90009202", "email": email},
             "inactive_since": None,
-            **confirmed,
+            "confirmation": None,
+            "einwilligung": None if einwilligung is None else dict(einwilligung),
+            "birth_date": None,
+            "erase_at": None,
             "version": 0,
             **fields,
         },

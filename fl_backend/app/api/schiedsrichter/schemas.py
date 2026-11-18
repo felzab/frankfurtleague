@@ -75,14 +75,13 @@ class FLSchiedsrichter(_SchiedsrichterWritable, BaseReadModel):
     schule: str | None
     # On no payload: deactivation goes through the delete endpoint, which stamps the date itself.
     inactive_since: CustomOptionalDateString
-    # Defaulted, on no payload: the create stores no record or birthdate before confirmation, and an address
-    # correction on a retired, unconfirmed referee drops the link.
-    # Refusing an absent key would 500 the list.
-    confirmation: FLConfirmation | None = None
-    einwilligung: FLEinwilligung | None = None
-    birth_date: CustomOptionalDateString = None
+    # On no payload, each stored null until it holds a value: the create stores no record or birthdate before
+    # confirmation, and an address correction on a retired, unconfirmed referee nulls the link.
+    confirmation: FLConfirmation | None
+    einwilligung: FLEinwilligung | None
+    birth_date: CustomOptionalDateString
     # The writes counted so far, which the editor's save sends back.
-    version: int = 0
+    version: int
 
 
 class FLSchiedsrichterConfirmationRecord(FLConfirmation):
@@ -104,9 +103,9 @@ class FLSchiedsrichterRecord(FLSchiedsrichter, Anchored):
     """A referee as `schiedsrichter` stores them."""
 
     kontakt: FLSchiedsrichterKontaktRecord
-    confirmation: FLSchiedsrichterConfirmationRecord | None = None
-    # Held while the entry is unanswered, and absent once confirmed, which the hourly pass never erases.
-    erase_at: datetime | None = None
+    confirmation: FLSchiedsrichterConfirmationRecord | None
+    # Held while the entry is unanswered, and null once confirmed, which the hourly pass never erases.
+    erase_at: datetime | None
 
     @model_validator(mode="after")
     def _cites_a_referees_wordings(self) -> Self:
