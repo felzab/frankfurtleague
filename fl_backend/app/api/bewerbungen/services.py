@@ -5,11 +5,7 @@ from typing import Any, Final, Literal, TypeIs, get_args
 from pydantic import ValidationError
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.bewerbungen.schemas import (
-    FLBewerbungEinwilligungState,
-    FLBewerbungWindowState,
-    age_outside_the_bounds,
-)
+from app.api.bewerbungen.schemas import FLBewerbungEinwilligungState, FLBewerbungWindowState
 from app.api.kontakte.services import rows_seating
 from app.api.outbox.schemas import (
     FLBewerbungLinkData,
@@ -29,13 +25,13 @@ from app.core.readonly import ReadCollection
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_evidence import TextVersions, compose_choices
 from app.shared.folding import normalise_phone, sign_in_identifier
+from app.shared.links import deadline_passed
 from app.shared.mailbox import OPEN_LINKS_PER_MAILBOX, mailbox_of, mailbox_pattern
 from app.shared.saison import season_has_ended
 from app.shared.schemas.bounds import (
     BEWERBUNG_CONFIRMATION_DEADLINE_DAYS,
     BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
     BEWERBUNG_REMINDER_DAYS,
-    BIRTH_DATE_MAX_AGE_YEARS,
     DECLINED_RETENTION_DAYS,
     SAISON_ID_LENGTH,
     SIGNATORY_MIN_AGE_YEARS,
@@ -390,18 +386,12 @@ def _is_decided(status: Any) -> bool:
     return status != "submitted"
 
 
-def deadline_passed(*, deadline: Any, today: str) -> bool:
-    """Whether this seat's day is strictly behind `today`, the link answering on the day itself.
-
-    A season row's link ends on this alone, both in its press (`link_expired`) and in the editor. An erased seat holds
-    no deadline and is not past one: the fourteen-day clock and the lapsed-seat clock both read it so.
-    """
-
-    return isinstance(deadline, str) and deadline < today
-
-
 def seat_deadline_of(*, confirmations: Mapping[str, Any] | None, seat: str) -> Any:
-    """The deadline the seat's own link carries: each seat is minted on its own day, so the record holds none."""
+    """The deadline the seat's own link carries: each seat is minted on its own day, so the record holds none.
+
+    An erased seat holds none, which `deadline_passed` reads as not passed: the fourteen-day clock and the lapsed-seat
+    clock both rely on it. A season row's link ends on its deadline alone, both in its press and in the editor.
+    """
 
     entry = _entry_of(confirmations, seat)
 
@@ -453,24 +443,6 @@ def find_already_answered_refusal(*, kontakte: Mapping[str, Any] | None, confirm
 
     if seat_is_answered(kontakte=kontakte, confirmations=confirmations, seat=seat):
         return APIError(HTTPStatus.CONFLICT, Code.BEWERBUNG_SEAT_ALREADY_ANSWERED)
-
-    return None
-
-
-def find_age_refusal(*, birth_date: str, today: str, minimum_age: int) -> APIError | None:
-    """Why the typed date is refused, or `None`.
-
-    Its own code rather than a `payload_refused`, whose mark on the field names no floor. Judged before any write, so
-    a mistyped year spends nothing.
-    """
-
-    if age_outside_the_bounds(birth_date=birth_date, today=today, minimum_age=minimum_age):
-        return APIError(
-            HTTPStatus.UNPROCESSABLE_CONTENT,
-            Code.CONFIRMATION_AGE,
-            fields=(("birth_date",),),
-            bounds={"min": minimum_age, "max": BIRTH_DATE_MAX_AGE_YEARS},
-        )
 
     return None
 

@@ -77,13 +77,12 @@ stand in [section 11](#11-open-and-owed-a-decision). Other documents link sectio
   database only through their own confirmation. A stored date no confirmation stamped is judged by
   nothing, and clearing one is
   [a runbook step](ops/runbooks.md#11-a-contact-seats-birthdate-that-no-confirmation-stamped). Each
-  confirmation judges the typed birthdate before anything is written:
-  - a pupil's, by `fl_backend/app/api/registrierungen/services.py :: find_age_refusal` against
-    `fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_MIN_AGE_YEARS`;
-  - a referee's, by `fl_backend/app/api/schiedsrichter/services.py :: find_age_refusal` against
-    `fl_backend/app/shared/schemas/bounds.py :: SCHIEDSRICHTER_MIN_AGE_YEARS`;
-  - a contact person's, by `fl_backend/app/api/bewerbungen/services.py :: find_age_refusal`, the
-    floor per seat in `:: SEAT_MIN_AGE_YEARS`.
+  confirmation judges the typed birthdate before anything is written, by
+  `fl_backend/app/shared/links.py :: find_age_refusal` against its own floor:
+  - a pupil's against `fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_MIN_AGE_YEARS`;
+  - a referee's against `fl_backend/app/shared/schemas/bounds.py :: SCHIEDSRICHTER_MIN_AGE_YEARS`;
+  - a contact person's against the floor per seat in
+    `fl_backend/app/api/bewerbungen/services.py :: SEAT_MIN_AGE_YEARS`.
 - **A media consent is taken only from 18**
   (`fl_backend/app/shared/schemas/bounds.py :: MEDIA_MIN_AGE_YEARS`). The switch shows only from
   that age, and each confirmation refuses a `true` from anyone younger

@@ -16,16 +16,12 @@ from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, link_expired
-from app.shared.age import whole_years_between
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_evidence import TextVersions, compose_initial
 from app.shared.folding import league_address, sign_in_identifier
+from app.shared.links import deadline_passed
 from app.shared.saison import season_has_ended
-from app.shared.schemas.bounds import (
-    BIRTH_DATE_MAX_AGE_YEARS,
-    SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS,
-    SCHIEDSRICHTER_MIN_AGE_YEARS,
-)
+from app.shared.schemas.bounds import SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS
 
 
 def build_assignment_filter(schiedsrichter_id: Any) -> Mapping[str, Any]:
@@ -174,16 +170,10 @@ def build_token_filter(*, token_hash: str) -> Mapping[str, Any]:
     return {TOKEN_HASHES_PATH: token_hash}
 
 
-def link_is_over(*, deadline: str, today: str) -> bool:
-    """Whether the deadline has passed: its own day still takes the answer."""
-
-    return deadline < today
-
-
-def deadline_passed(block: Mapping[str, Any] | None, *, today: str) -> bool:
+def confirmation_expired(block: Mapping[str, Any] | None, *, today: str) -> bool:
     """Whether the link a referee holds has passed its deadline; false where they hold none."""
 
-    return block is not None and link_is_over(deadline=block["deadline"], today=today)
+    return block is not None and deadline_passed(deadline=block["deadline"], today=today)
 
 
 def is_declined(confirmation: Any) -> bool:
@@ -210,7 +200,7 @@ def state_of(*, einwilligung: Any, confirmation: Mapping[str, Any], today: str) 
     if is_declined(confirmation):
         return "declined"
 
-    return "expired" if link_is_over(deadline=confirmation["deadline"], today=today) else "valid"
+    return "expired" if deadline_passed(deadline=confirmation["deadline"], today=today) else "valid"
 
 
 def answered_at_of(*, state: FLSchiedsrichterConfirmationState, einwilligung: Any, confirmation: Mapping[str, Any]) -> str | None:
@@ -228,7 +218,7 @@ def answered_at_of(*, state: FLSchiedsrichterConfirmationState, einwilligung: An
 def find_expired_token_refusal(*, deadline: str, today: str) -> APIError | None:
     """Why this link is over, or `None`."""
 
-    return link_expired() if link_is_over(deadline=deadline, today=today) else None
+    return link_expired() if deadline_passed(deadline=deadline, today=today) else None
 
 
 def find_already_answered_refusal(*, einwilligung: Any, confirmation: Any) -> APIError | None:
@@ -239,23 +229,6 @@ def find_already_answered_refusal(*, einwilligung: Any, confirmation: Any) -> AP
         return None
 
     return APIError(HTTPStatus.CONFLICT, Code.CONFIRMATION_EXISTS)
-
-
-def find_age_refusal(*, birth_date: str, today: str) -> APIError | None:
-    """Why the typed date is refused, or `None`. Judged before any write, so a mistyped year spends nothing.
-
-    The bounds go with the refusal, so the field's message names the range the write judges.
-    """
-
-    if SCHIEDSRICHTER_MIN_AGE_YEARS <= whole_years_between(born=birth_date, today=today) <= BIRTH_DATE_MAX_AGE_YEARS:
-        return None
-
-    return APIError(
-        HTTPStatus.UNPROCESSABLE_CONTENT,
-        Code.CONFIRMATION_AGE,
-        fields=(("birth_date",),),
-        bounds={"min": SCHIEDSRICHTER_MIN_AGE_YEARS, "max": BIRTH_DATE_MAX_AGE_YEARS},
-    )
 
 
 def find_retired_refusal(*, inactive_since: Any) -> APIError | None:

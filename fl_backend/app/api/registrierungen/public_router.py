@@ -23,7 +23,6 @@ from app.api.registrierungen.services import (
     compose_confirmation_update,
     compose_registrierung,
     confirmation_mail,
-    find_age_refusal,
     find_already_confirmed_refusal,
     find_expired_token_refusal,
     find_stufe_refusal,
@@ -64,6 +63,7 @@ from app.core.security import BASE_TIER
 from app.core.transactions import transact
 from app.shared.einwilligung import find_self_media_refusal
 from app.shared.idempotency import build_key_filter
+from app.shared.links import find_age_refusal
 from app.shared.schemas.bounds import (
     BIRTH_DATE_MAX_AGE_YEARS,
     REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS,
@@ -393,7 +393,8 @@ async def post_confirmation(
         departed = await _team_departed(saison_teams_collection=saison_teams_collection, registrierung_raw=raw, session=session)
         refuse(find_expired_token_refusal(confirmation=raw.get("confirmation"), status=raw.get("status"), departed=departed, today=today))
         refuse(find_already_confirmed_refusal(einwilligung=raw.get("einwilligung")))
-        refuse(find_age_refusal(birth_date=answer_data.birth_date, today=today))
+        # The pupil's own floor and never a contact seat's, so raising one cannot silently raise the other.
+        refuse(find_age_refusal(birth_date=answer_data.birth_date, today=today, minimum_age=REGISTRIERUNG_MIN_AGE_YEARS))
         refuse(find_self_media_refusal(saved=None, media=answer_data.media, birth_date=answer_data.birth_date, today=today))
 
         await patch_one_in_db(

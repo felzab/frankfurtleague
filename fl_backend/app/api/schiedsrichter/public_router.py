@@ -13,7 +13,6 @@ from app.api.schiedsrichter.services import (
     build_token_filter,
     compose_confirmation_update,
     compose_decline_update,
-    find_age_refusal,
     find_already_answered_refusal,
     find_expired_token_refusal,
     state_of,
@@ -33,6 +32,7 @@ from app.core.routing import SAFE
 from app.core.security import BASE_TIER
 from app.core.transactions import transact
 from app.shared.einwilligung import find_self_media_refusal
+from app.shared.links import find_age_refusal
 from app.shared.schemas.bounds import BIRTH_DATE_MAX_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.einwilligung import by_choice
@@ -122,7 +122,7 @@ async def post_confirmation(
         # to ask for another.
         refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FIELD), confirmation=raw[CONFIRMATION_FIELD]))
         refuse(find_expired_token_refusal(deadline=raw[CONFIRMATION_FIELD]["deadline"], today=today))
-        refuse(find_age_refusal(birth_date=answer_data.birth_date, today=today))
+        refuse(find_age_refusal(birth_date=answer_data.birth_date, today=today, minimum_age=SCHIEDSRICHTER_MIN_AGE_YEARS))
         refuse(find_self_media_refusal(saved=None, media=answer_data.media, birth_date=answer_data.birth_date, today=today))
 
         # The person's own press, judged on the read above, on fields the referee editor never saves: an editor's save

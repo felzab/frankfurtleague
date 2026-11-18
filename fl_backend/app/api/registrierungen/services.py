@@ -14,17 +14,13 @@ from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, link_expired
-from app.shared.age import whole_years_between
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_evidence import TextVersions, compose_initial, compose_renewed
 from app.shared.folding import person_name_key, sign_in_identifier
+from app.shared.links import deadline_passed
 from app.shared.mailbox import mailbox_pattern
 from app.shared.saison import season_has_ended
-from app.shared.schemas.bounds import (
-    BIRTH_DATE_MAX_AGE_YEARS,
-    DECLINED_RETENTION_DAYS,
-    REGISTRIERUNG_MIN_AGE_YEARS,
-)
+from app.shared.schemas.bounds import DECLINED_RETENTION_DAYS
 from app.shared.schemas.literals import FLConfirmationState
 
 # The state a submission arrives in, and the only one it may arrive in: the other is written by the
@@ -244,7 +240,9 @@ CONFIRMATION_FIELDS: Mapping[str, int] = {
 }
 
 
-def deadline_of(confirmation: Any) -> Any:
+def stored_deadline(confirmation: Any) -> Any:
+    """The day the row's link stops answering, as its block stores it, or `None` where it holds no block."""
+
     return confirmation.get("deadline") if isinstance(confirmation, Mapping) else None
 
 
@@ -255,12 +253,10 @@ def link_is_over(*, confirmation: Any, status: Any, departed: bool, today: str) 
     if status != SUBMITTED or departed:
         return True
 
-    # No readable deadline is over rather than running: nothing about such a block can say it runs.
-    deadline = deadline_of(confirmation)
+    deadline = stored_deadline(confirmation)
 
-    # Strictly past, so the deadline's own day still answers: the mail names that day, and a link
-    # dying at the midnight before it lies to the person reading the mail.
-    return not isinstance(deadline, str) or deadline < today
+    # No readable deadline is over rather than running: nothing about such a block can say it runs.
+    return not isinstance(deadline, str) or deadline_passed(deadline=deadline, today=today)
 
 
 def state_of(*, registrierung_raw: Mapping[str, Any], departed: bool, today: str) -> FLConfirmationState:
@@ -292,21 +288,6 @@ def find_already_confirmed_refusal(*, einwilligung: Any) -> APIError | None:
         return None
 
     return APIError(HTTPStatus.CONFLICT, Code.CONFIRMATION_EXISTS)
-
-
-def find_age_refusal(*, birth_date: str, today: str) -> APIError | None:
-    """Why the typed date is refused, or `None`. Judged before any write, so a mistyped year spends nothing."""
-
-    # The pupil's own floor and never a contact seat's, so raising one cannot silently raise the other.
-    if REGISTRIERUNG_MIN_AGE_YEARS <= whole_years_between(born=birth_date, today=today) <= BIRTH_DATE_MAX_AGE_YEARS:
-        return None
-
-    return APIError(
-        HTTPStatus.UNPROCESSABLE_CONTENT,
-        Code.CONFIRMATION_AGE,
-        fields=(("birth_date",),),
-        bounds={"min": REGISTRIERUNG_MIN_AGE_YEARS, "max": BIRTH_DATE_MAX_AGE_YEARS},
-    )
 
 
 def build_addresses_filter(addresses: Iterable[str]) -> Mapping[str, Any]:
@@ -394,10 +375,9 @@ def build_decline_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
 
 
 def confirmation_erasure_is_due(*, registrierung_raw: Mapping[str, Any], today: str) -> bool:
-    """Whether the deadline clock takes this registration, strictly past its `deadline`.
+    """Whether the deadline clock takes this registration, its link's deadline passed; a row holding none is never due.
 
-    Strictly, because the link still answers on the deadline's own day. No notice goes out either
-    way.
+    No notice goes out either way.
     """
 
     if registrierung_raw.get("status") != SUBMITTED:
@@ -406,9 +386,7 @@ def confirmation_erasure_is_due(*, registrierung_raw: Mapping[str, Any], today: 
     if registrierung_is_confirmed(einwilligung=registrierung_raw.get("einwilligung")):
         return False
 
-    deadline = deadline_of(registrierung_raw.get("confirmation"))
-
-    return isinstance(deadline, str) and deadline < today
+    return deadline_passed(deadline=stored_deadline(registrierung_raw.get("confirmation")), today=today)
 
 
 def undecided_erasure_is_due(*, registrierung_raw: Mapping[str, Any], saison_status: Any) -> bool:

@@ -32,9 +32,7 @@ from app.api.bewerbungen.services import (
     compose_decline_update,
     compose_kontakte,
     confirmation_deadline_from,
-    deadline_passed,
     deletion_day,
-    find_age_refusal,
     find_already_answered_refusal,
     find_already_entered_refusal,
     find_expired_token_refusal,
@@ -106,6 +104,7 @@ from app.core.security import BASE_TIER
 from app.core.transactions import transact
 from app.shared.einwilligung import find_self_media_refusal
 from app.shared.idempotency import build_key_filter
+from app.shared.links import deadline_passed, find_age_refusal
 from app.shared.mailbox import OPEN_LINKS_PER_MAILBOX, mailbox_anchor_ids, mailbox_of
 from app.shared.schemas.bounds import BIRTH_DATE_MAX_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
