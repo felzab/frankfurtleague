@@ -118,10 +118,7 @@ job bounded by its own `timeout-minutes` and by no other time budget.
   [`docs/frontend/copy.md`](../docs/frontend/copy.md)**, a menu entry, a page title and an address
   included; the owner flags on its screen what they dislike. A brief that designs a look, builds a
   page or draws a review board carries [its rules](orchestra/writer.md#looks-pages-and-boards), and
-  the coordinator views no board's pictures, which its agent checks and the owner sees in full. Ask
-  the owner only a fork the industry standard and the owner's stated taste leave open, or a reversal
-  of a stated preference, with the design systems' evidence and after re-reading the owner's last
-  words on it: a stated preference binds, and every other detail is the standard's.
+  the owner is asked only a fork the industry standard and their stated taste leave open.
 - **Duplication is cheaper than the wrong abstraction**: abstract only what changes for the same
   reason, discovered from three real instances and never imposed on two that rhyme, and read a
   candidate's history first — several duplications here are ratified.

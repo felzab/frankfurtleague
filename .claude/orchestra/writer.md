@@ -84,7 +84,8 @@ question's options as pictures, holds you to these rules.
   picture, since it hides the edge being judged. Every option is one the owner could pick with
   pride: before you build the board, look at each question's recommended option in its phone frame
   at 360 px, redraw it where it is cramped, overflowing, clipped mid-line or invisible, and name in
-  your report what you looked at.
+  your report what you looked at. The coordinator views no picture: your report of what you looked
+  at is the check.
 
 ## The contract
 
