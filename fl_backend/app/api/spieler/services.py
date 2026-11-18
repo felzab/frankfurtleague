@@ -95,7 +95,7 @@ _NAMELESS = "nameless"
 # Fixed rather than asked for: ordering by a key reads it out whether or not the response carries it, so no caller
 # names one, and the chain stops at the forename, a surname this tier will not serve ordering nothing. The position is
 # null on a nameless row, so its place says nothing of it.
-SQUAD_ORDER: Mapping[str, int] = {_NAMELESS: 1, "position": 1, "first_name": 1}
+KADER_ORDER: Mapping[str, int] = {_NAMELESS: 1, "position": 1, "first_name": 1}
 
 
 # Whether the join withheld the person's name, as the mask answers it.
@@ -112,7 +112,7 @@ def build_spieler_pipeline(*, team_id: CustomObjectId, saison_id: str) -> list[M
 
     # First, so the read examines the one club's rows in the one season, through
     # `saison_spieler_saison_id_team_id_de` under the collation the callers pass, and never every person.
-    squad_match: dict[str, Any] = {
+    kader_match: dict[str, Any] = {
         "team_id": team_id,
         "saison_id": saison_id,
         # The squad row's retirement. No switch: this tier marks no row it would un-hide.
@@ -120,7 +120,7 @@ def build_spieler_pipeline(*, team_id: CustomObjectId, saison_id: str) -> list[M
     }
 
     return [
-        {"$match": squad_match},
+        {"$match": kader_match},
         {
             "$lookup": {
                 "from": Collection.SPIELER,
@@ -152,7 +152,7 @@ def build_spieler_pipeline(*, team_id: CustomObjectId, saison_id: str) -> list[M
             }
         },
         # After the projection, so `first_name` orders by the name served, which the join masked.
-        {"$sort": dict(SQUAD_ORDER)},
+        {"$sort": dict(KADER_ORDER)},
         {"$unset": _NAMELESS},
         # One page, as every season-scoped read takes.
         {"$limit": LIST_LIMIT_DEFAULT},
@@ -161,10 +161,10 @@ def build_spieler_pipeline(*, team_id: CustomObjectId, saison_id: str) -> list[M
 
 # The rows inside `max_kader_size`, whichever squad is counted. Retired rows are out: a player who left gave their place
 # back. Nominees are out: they stand outside the cap, so entering one neither needs a place nor takes one.
-CAPPED_SQUAD_ROW: Mapping[str, Any] = {"inactive_since": None, "is_nachnominiert": False}
+CAPPED_KADER_ROW: Mapping[str, Any] = {"inactive_since": None, "is_nachnominiert": False}
 
 
-def build_live_squad_filter(*, saison_id: str, team_id: CustomObjectId, excluding_spieler_id: CustomObjectId | None) -> Mapping[str, Any]:
+def build_live_kader_filter(*, saison_id: str, team_id: CustomObjectId, excluding_spieler_id: CustomObjectId | None) -> Mapping[str, Any]:
     """Which rows of one squad count towards `max_kader_size`.
 
     The writing player is out so a no-op, a reactivate of a live row, is not refused by its own place; `None` where the
@@ -174,12 +174,12 @@ def build_live_squad_filter(*, saison_id: str, team_id: CustomObjectId, excludin
     return {
         "saison_id": saison_id,
         "team_id": team_id,
-        **CAPPED_SQUAD_ROW,
+        **CAPPED_KADER_ROW,
         **({} if excluding_spieler_id is None else {"spieler_id": {"$ne": excluding_spieler_id}}),
     }
 
 
-def find_squad_refusal(*, team_in_saison: bool) -> WriteRefusal | None:
+def find_kader_team_refusal(*, team_in_saison: bool) -> WriteRefusal | None:
     """Why this squad row must be refused, or `None`.
 
     A shared shirt number is refused on no write path: the model permits it on purpose.
@@ -194,18 +194,18 @@ def find_squad_refusal(*, team_in_saison: bool) -> WriteRefusal | None:
     return None
 
 
-class SquadRoom(NamedTuple):
+class KaderRoom(NamedTuple):
     """One squad's capped rows and its season's `max_kader_size`."""
 
     size: int
     cap: int
 
 
-def find_full_squad_refusal(*, room: SquadRoom, nominee: bool) -> WriteRefusal | None:
+def find_full_kader_refusal(*, room: KaderRoom, nominee: bool) -> WriteRefusal | None:
     """`kader_full` where the squad takes no further entry, or `None`.
 
     A nominee stands outside the cap. The one verdict on whether a squad takes an entry, so a write and a read cannot
-    disagree. Its own function rather than a clause in `find_squad_refusal`, which answers the club question alone.
+    disagree. Its own function rather than a clause in `find_kader_team_refusal`, which answers the club question alone.
     """
 
     if nominee or room.size < room.cap:
@@ -235,10 +235,10 @@ def build_live_rolle_filter(
     }
 
 
-def find_squad_rolle_refusal(*, rolle: FLSpielerRolle | None, taken: bool) -> WriteRefusal | None:
+def find_kader_rolle_refusal(*, rolle: FLSpielerRolle | None, taken: bool) -> WriteRefusal | None:
     """Why this squad role may not be given away, or `None`.
 
-    Its own function rather than a clause in `find_squad_refusal`, which answers the club question
+    Its own function rather than a clause in `find_kader_team_refusal`, which answers the club question
     alone.
     """
 
@@ -308,10 +308,10 @@ def shared_nummern(rows: Sequence[Mapping[str, Any]]) -> frozenset[str]:
 def mark_shared_nummern(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
     """Each row with `nummer_double`, in their order, judged against its own team's rows alone."""
 
-    squads: defaultdict[Any, list[Mapping[str, Any]]] = defaultdict(list)
+    kader_by_team: defaultdict[Any, list[Mapping[str, Any]]] = defaultdict(list)
     for row in rows:
-        squads[row["team_id"]].append(row)
-    shared = {team_id: shared_nummern(squad) for team_id, squad in squads.items()}
+        kader_by_team[row["team_id"]].append(row)
+    shared = {team_id: shared_nummern(kader) for team_id, kader in kader_by_team.items()}
 
     # `shared` holds no null, so a row without a number is never marked.
     return [{**row, "nummer_double": row.get("inactive_since") is None and row.get("nummer") in shared[row["team_id"]]} for row in rows]

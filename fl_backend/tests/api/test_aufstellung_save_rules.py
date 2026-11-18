@@ -62,7 +62,7 @@ def test_nominees_fill_the_gap_below_eleven_and_no_more(regular: int, nominees: 
     assert refusal is None or (refusal.fields, refusal.bounds) == ((("spieler",),), {"max": AUFSTELLUNG_STARTERS_MAX})
 
 
-def test_a_pupil_newly_named_outside_the_live_squad_is_refused_on_each_entry_naming_one():
+def test_a_pupil_newly_named_outside_the_live_kader_is_refused_on_each_entry_naming_one():
     """The paths the screen marks its rows by: an entry stored before, or in the squad, is never among them."""
 
     outside, withdrawn = ObjectId(), ObjectId()
@@ -85,7 +85,7 @@ def test_a_pupil_newly_named_outside_the_live_squad_is_refused_on_each_entry_nam
         pytest.param(None, {0, 1}, id="a first save judges everyone"),
     ],
 )
-def test_only_a_pupil_the_stored_line_up_does_not_name_is_judged_against_the_squad(saved: dict[str, Any] | None, judged: set[int]):
+def test_only_a_pupil_the_stored_line_up_does_not_name_is_judged_against_the_kader(saved: dict[str, Any] | None, judged: set[int]):
     """So a line-up keeps a pupil ausgetragen since it named them, and judges a newcomer all the same."""
 
     entries = [FLAufstellungEntry(spieler_id=pupil, starts=False) for pupil in REGULAR[:2]]

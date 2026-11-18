@@ -119,22 +119,22 @@ def bracket_seeding(*, number_of_gruppen: int, qualifiers_per_gruppe: int) -> tu
     return tuple((offered[(slot % number_of_gruppen) ^ (slot // shift_of)], placing_at[slot % qualifiers_per_gruppe]) for slot in range(field))
 
 
-def _squads(rules: FLSaisonRules, entered: Sequence[EnteredTeam]) -> dict[FLGruppenNames, tuple[EnteredTeam, ...]]:
+def _teams_by_gruppe(rules: FLSaisonRules, entered: Sequence[EnteredTeam]) -> dict[FLGruppenNames, tuple[EnteredTeam, ...]]:
     """Each offered group's clubs in entry order, the groups in the order the closed set names them."""
 
-    squads: dict[FLGruppenNames, list[EnteredTeam]] = {gruppe: [] for gruppe in offered_gruppen(rules.number_of_gruppen)}
+    teams_by_gruppe: dict[FLGruppenNames, list[EnteredTeam]] = {gruppe: [] for gruppe in offered_gruppen(rules.number_of_gruppen)}
     for team in sorted(entered, key=lambda row: row.row_id):
-        if team.gruppe not in squads:
+        if team.gruppe not in teams_by_gruppe:
             raise ValueError(f"{team.name} stands in group {team.gruppe}, which a season of {rules.number_of_gruppen} group(s) does not offer")
-        squads[team.gruppe].append(team)
+        teams_by_gruppe[team.gruppe].append(team)
 
     # Raised rather than drawn as it stands: a group off its size shortens one round robin while
     # every matchday's `count_spiele` goes on expecting the full one.
-    wrong = {gruppe: len(squad) for gruppe, squad in squads.items() if len(squad) != rules.teams_per_gruppe}
+    wrong = {gruppe: len(gruppe_teams) for gruppe, gruppe_teams in teams_by_gruppe.items() if len(gruppe_teams) != rules.teams_per_gruppe}
     if wrong:
         raise ValueError(f"this season plays groups of {rules.teams_per_gruppe}; these hold otherwise: {wrong}")
 
-    return {gruppe: tuple(squad) for gruppe, squad in squads.items()}
+    return {gruppe: tuple(gruppe_teams) for gruppe, gruppe_teams in teams_by_gruppe.items()}
 
 
 def _side(team: EnteredTeam) -> dict[str, Any]:
@@ -209,7 +209,7 @@ def draw_spielplan(*, saison_id: str, rules: FLSaisonRules, entered: Sequence[En
     set afterwards, one matchday and one fixture at a time.
     """
 
-    squads = _squads(rules, entered)
+    teams_by_gruppe = _teams_by_gruppe(rules, entered)
 
     spieltage: list[dict[str, Any]] = []
     spiele: list[dict[str, Any]] = []
@@ -220,7 +220,7 @@ def draw_spielplan(*, saison_id: str, rules: FLSaisonRules, entered: Sequence[En
     for index, pairs in enumerate(circle_rounds(rules.teams_per_gruppe)):
         spieltag = _spieltag(saison_id=saison_id, phase="gruppenphase", position=index + 1)
         spieltage.append(spieltag)
-        for squad in squads.values():
+        for gruppe_teams in teams_by_gruppe.values():
             for one, other in pairs:
                 spiele.append(
                     _spiel(
@@ -228,8 +228,8 @@ def draw_spielplan(*, saison_id: str, rules: FLSaisonRules, entered: Sequence[En
                         phase="gruppenphase",
                         spieltag_id=spieltag["_id"],
                         spiel_nr=spiel_nr,
-                        team1=_side(squad[one]),
-                        team2=_side(squad[other]),
+                        team1=_side(gruppe_teams[one]),
+                        team2=_side(gruppe_teams[other]),
                     )
                 )
                 spiel_nr += 1

@@ -2,7 +2,7 @@ from typing import Annotated, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, Field, model_validator
 
-from app.api.spieler.schemas import SQUAD_NUMMER_PATTERN, FLEinwilligung
+from app.api.spieler.schemas import KADER_NUMMER_PATTERN, FLEinwilligung
 from app.shared.schemas.confirmation import CustomToken, FLConfirmation
 from app.shared.schemas.custom import (
     CustomDateString,
@@ -120,7 +120,7 @@ class FLPostRegistrierungPayload(BasePayload):
     # three are: the answer is then the pupil's and not a default nobody chose.
     position: FLSpielerPosition | None
     # Tightened on the write side alone, as a squad row's is.
-    nummer: str | None = Field(pattern=SQUAD_NUMMER_PATTERN)
+    nummer: str | None = Field(pattern=KADER_NUMMER_PATTERN)
     stufe: FLSpielerStufe | None
 
 

@@ -321,11 +321,11 @@ class TestTheDrawIsTheSeasonTheRulesDescribe:
 
         groups, teams, _ = shape
         entered = entered_for(groups, teams)
-        squads = {gruppe: [team for team in entered if team.gruppe == gruppe] for gruppe in GRUPPEN[:groups]}
+        teams_by_gruppe = {gruppe: [team for team in entered if team.gruppe == gruppe] for gruppe in GRUPPEN[:groups]}
         drawn = [(spiel["team1"]["team_id"], spiel["team2"]["team_id"]) for spiel in draw(*shape).spiele if spiel["team1"] is not None]
 
         assert drawn == [
-            (squads[gruppe][one].team_id, squads[gruppe][other].team_id)
+            (teams_by_gruppe[gruppe][one].team_id, teams_by_gruppe[gruppe][other].team_id)
             for pairs in circle_rounds(teams)
             for gruppe in GRUPPEN[:groups]
             for one, other in pairs

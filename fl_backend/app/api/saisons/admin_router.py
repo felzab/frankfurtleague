@@ -81,7 +81,7 @@ from app.api.saisons.services import (
 from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
 from app.api.spielberichte.crud import anchor_the_season_reported_in, count_submitted_berichte
 from app.api.spiele.schemas import FLSpielListAdapter
-from app.api.spieler.services import CAPPED_SQUAD_ROW
+from app.api.spieler.services import CAPPED_KADER_ROW
 from app.api.teams.services import (
     TAKEN_PLACE_FIELDS,
     find_gruppe_swap_refusal,
@@ -483,10 +483,10 @@ async def patch_saison(
             if phase is not None:
                 attached_by_phase[phase] = max(attached_by_phase.get(phase, 0), attached)
 
-        largest_squad_rows = await (
+        largest_kader_rows = await (
             await saison_spieler_collection.aggregate(
                 [
-                    {"$match": {"saison_id": saison_id, **CAPPED_SQUAD_ROW}},
+                    {"$match": {"saison_id": saison_id, **CAPPED_KADER_ROW}},
                     {"$group": {"_id": "$team_id", "held": {"$sum": 1}}},
                     {"$sort": {"held": -1}},
                     {"$limit": 1},
@@ -494,7 +494,7 @@ async def patch_saison(
                 session=session,
             )
         ).to_list(length=1)
-        largest_squad = int(largest_squad_rows[0]["held"]) if largest_squad_rows else 0
+        largest_kader = int(largest_kader_rows[0]["held"]) if largest_kader_rows else 0
 
         # Dated rows only, filtered in the query rather than after `str()`: a generated matchday carries
         # no span until somebody sets one, and a null stringified to "None" sorts above every date and
@@ -545,7 +545,7 @@ async def patch_saison(
                 proposed=saison_data.rules,
                 occupancy_by_gruppe=occupancy,
                 highest_wired_platz=highest_platz,
-                largest_squad=largest_squad,
+                largest_kader=largest_kader,
                 attached_by_phase=attached_by_phase,
                 drawn_spiele=drawn_spiele,
             )

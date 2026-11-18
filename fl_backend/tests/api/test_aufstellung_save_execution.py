@@ -336,7 +336,7 @@ async def test_a_seat_is_asked_for_the_fixtures_season_and_a_stranger_learns_of_
     )
 
 
-async def test_a_pupil_the_line_up_names_outside_the_clubs_squad_is_named_off_their_record(mongo_replica_set_url: str):
+async def test_a_pupil_the_line_up_names_outside_the_clubs_kader_is_named_off_their_record(mongo_replica_set_url: str):
     """The pupil's one squad row of the season is another club's, as admitting a pupil ausgetragen here to that club leaves it.
 
     The screen names them off their person record as it reads, and as the save keeping them answers.
@@ -358,7 +358,7 @@ async def test_a_pupil_the_line_up_names_outside_the_clubs_squad_is_named_off_th
     assert await on_a_season(mongo_replica_set_url, body) == ([named], [named])
 
 
-async def test_a_save_judges_its_names_against_the_squad_and_the_stored_line_up(mongo_replica_set_url: str):
+async def test_a_save_judges_its_names_against_the_kader_and_the_stored_line_up(mongo_replica_set_url: str):
     """The club's squad is read for the judgement, and so is the stored line-up, which keeps a pupil ausgetragen since.
 
     What the judgement decides is `test_aufstellung_save_rules.py`'s, on the default tier.

@@ -407,11 +407,11 @@ class TestTheGroupPhaseIsEachGroupsOwnRoundRobin:
             gruppe = junction[row["team1"]["team_id"]]["gruppe"]
             played.setdefault(gruppe, []).append(frozenset((row["team1"]["team_id"], row["team2"]["team_id"])))
 
-        squads: dict[Any, list[Any]] = {}
+        teams_by_gruppe: dict[Any, list[Any]] = {}
         for row in drawn.entered:
-            squads.setdefault(row["gruppe"], []).append(row["team_id"])
+            teams_by_gruppe.setdefault(row["gruppe"], []).append(row["team_id"])
 
-        for gruppe, ids in squads.items():
+        for gruppe, ids in teams_by_gruppe.items():
             pairs = played.get(gruppe, [])
             assert len(pairs) == len(set(pairs)), f"gruppe {gruppe} draws a pair more than once"
             assert set(pairs) == {frozenset(pair) for pair in combinations(ids, 2)}

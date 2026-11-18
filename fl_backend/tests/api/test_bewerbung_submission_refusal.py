@@ -298,7 +298,7 @@ class TestTheCeilingOnTheSchoolWebsite:
         assert failure.value.errors()[0]["type"] == "string_too_long"
 
 
-class TestTheStrongPlayersFitInsideTheSquad:
+class TestTheStrongPlayersFitInsideTheKader:
     """A subset cannot outnumber the whole.
 
     Both figures are the school's own estimate, so an impossible pair is a typo the form catches
@@ -306,7 +306,7 @@ class TestTheStrongPlayersFitInsideTheSquad:
     """
 
     @pytest.mark.parametrize(("size", "good"), [pytest.param(14, 15, id="one over the squad")])
-    def test_a_count_above_the_squad_is_refused(self, size: int, good: int):
+    def test_a_count_above_the_kader_is_refused(self, size: int, good: int):
         """Both fields clear their own bounds, so only the pair rule can refuse it."""
 
         kader = {"expected_size": size, "good_spieler": good}

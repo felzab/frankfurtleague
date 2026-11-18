@@ -397,7 +397,7 @@ async def take_the_referee_off(database: AsyncDatabase) -> None:
     )
 
 
-async def take_lina_out_of_the_squad(database: AsyncDatabase) -> None:
+async def take_lina_out_of_the_kader(database: AsyncDatabase) -> None:
     await database[Collection.SAISON_SPIELER].update_one({"spieler_id": LINA}, {"$set": {"inactive_since": TODAY}})
 
 
@@ -414,7 +414,7 @@ class TestWhatTheReportIsJudgedOnMovingMidWriteIsJudgedAgain:
             pytest.param(retire_the_referee, Code.ROLE_NOT_HELD, id="the-referee-s-record-retired"),
             pytest.param(take_the_referee_off, Code.BERICHT_NOT_OFFICIATED, id="the-referee-taken-off"),
             pytest.param(call_off, Code.BERICHT_CANCELLED, id="the-fixture-called-off"),
-            pytest.param(take_lina_out_of_the_squad, Code.SPIELER_NOT_IN_KADER, id="the-scorer-deregistered"),
+            pytest.param(take_lina_out_of_the_kader, Code.SPIELER_NOT_IN_KADER, id="the-scorer-deregistered"),
         ],
     )
     async def test_the_write_is_refused_on_what_moved_and_writes_nothing(
@@ -503,7 +503,7 @@ class PupilsRunningARivalBeforeTheAnchor(InterleavedCollection):
 
 
 class TestAPupilErasedMidWriteConflictsWithTheAnchor:
-    async def test_the_write_retries_and_is_refused_on_the_squad_the_erasure_left(self, mongo_replica_set_url: str):
+    async def test_the_write_retries_and_is_refused_on_the_kader_the_erasure_left(self, mongo_replica_set_url: str):
         """The erasure removes the squad row and the person after this write judged them: the anchor on the person conflicts."""
 
         async def erase_lina(database: AsyncDatabase) -> None:
@@ -565,7 +565,7 @@ class TestTheReads:
         assert form.sides_changed == ["team2"]
         assert form.version == 1
 
-    async def test_a_spiel_taking_no_report_serves_no_squad(self, mongo_replica_set_url: str):
+    async def test_a_spiel_taking_no_report_serves_no_kader(self, mongo_replica_set_url: str):
         """Only the pupils the stored report names, by name: the squads are served for picking, and nothing is picked here.
 
         One fixture taking none, the read's wiring; which fixtures take one is `takes_a_bericht`'s, held in the shapes.
@@ -584,7 +584,7 @@ class TestTheReads:
         assert form.bericht is not None
         assert sorted((spieler.spieler_id, spieler.last_name) for spieler in form.named) == [(LINA, "Krause"), (MIA, "Westphal")]
 
-    async def test_a_pupil_off_both_squads_is_named_off_their_record_and_an_erased_one_by_nobody(self, mongo_replica_set_url: str):
+    async def test_a_pupil_off_both_kaders_is_named_off_their_record_and_an_erased_one_by_nobody(self, mongo_replica_set_url: str):
         """The two arms past the squad rows on the referee's form: no bare id shown, an erased pupil's entry still holding it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -937,7 +937,7 @@ class TestAReportOutlivingItsSpieleClub:
         # The correction voided the quarter-final's result, so the report proposes again.
         assert sent_again == ["proposed"]
 
-    async def test_a_scorer_of_the_club_that_left_is_judged_against_the_squad_playing_now(self, mongo_replica_set_url: str):
+    async def test_a_scorer_of_the_club_that_left_is_judged_against_the_kader_playing_now(self, mongo_replica_set_url: str):
         """Lina scored for Adler: sent again unchanged, she would stand on the report as Biber's scorer."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

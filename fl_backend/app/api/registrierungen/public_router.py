@@ -40,8 +40,8 @@ from app.api.registrierungen.services import (
     state_of,
 )
 from app.api.saisons.services import entry_is_a_nominee
-from app.api.spieler.crud import pull_squad_room
-from app.api.spieler.services import find_full_squad_refusal
+from app.api.spieler.crud import pull_kader_room
+from app.api.spieler.services import find_full_kader_refusal
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
 from app.core.crud import patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
@@ -157,7 +157,7 @@ async def post_invitation_view(
 
     # What an entry submitted today would store, the admission judging the submission's day.
     nominee = entry_is_a_nominee(registrierung=saison_raw.get("registrierung"), day=today)
-    room = await pull_squad_room(
+    room = await pull_kader_room(
         saison_spieler_collection=saison_spieler_collection,
         saison_id=saison_id,
         team_id=team_id,
@@ -176,7 +176,7 @@ async def post_invitation_view(
         # The same junction row the submission judges `registrierung_closed` on, so the page words
         # the state before anything is typed rather than after a whole form is filled in.
         team_entered=junction_raw is not None,
-        kader_free=find_full_squad_refusal(room=room, nominee=nominee) is None,
+        kader_free=find_full_kader_refusal(room=room, nominee=nominee) is None,
         nachnominierung=nominee,
     )
 
@@ -245,7 +245,7 @@ async def post_registrierung(
 
         refuse(find_stufe_refusal(stufe=registrierung_data.stufe, allowed_stufen=list(rules.get("allowed_stufen") or [])))
 
-        room = await pull_squad_room(
+        room = await pull_kader_room(
             saison_spieler_collection=saison_spieler_collection,
             saison_id=saison_id,
             team_id=team_id,
@@ -255,7 +255,7 @@ async def post_registrierung(
         )
         refuse(
             find_kader_refusal(
-                full=find_full_squad_refusal(room=room, nominee=entry_is_a_nominee(registrierung=saison_raw.get("registrierung"), day=today))
+                full=find_full_kader_refusal(room=room, nominee=entry_is_a_nominee(registrierung=saison_raw.get("registrierung"), day=today))
             )
         )
 

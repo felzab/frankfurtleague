@@ -225,8 +225,8 @@ KNOCKOUT_SCORES: Final[Mapping[int, Mapping[str, Any]]] = {
 POSITIONS: Final = ("Tor", "Abwehr", "Mittelfeld", "Angriff")
 
 # With Mia and Jonas, Ahorn's squad fills the rules' `max_kader_size`, so a full squad and a nominee outside its count
-# stand together (`CAPPED_SQUAD_ROW`), and the retired nominee's reactivation passes the cap.
-AHORN_SQUAD: Final = (
+# stand together (`CAPPED_KADER_ROW`), and the retired nominee's reactivation passes the cap.
+AHORN_KADER: Final = (
     ("Noah", "Adler"),
     ("Lea", "Bauer"),
     ("Finn", "Claus"),
@@ -248,7 +248,7 @@ AHORN_SQUAD: Final = (
 # Ulme's squad, the phone's contact seat's line-up to enter, at the cap as Ahorn's is; and Kastanie's beside Lena, the
 # club's line-up for match 10. No name holds either `squadded` pupil's, whom the administration's journey opens by a link
 # whose name holds theirs.
-ULME_SQUAD: Final = (
+ULME_KADER: Final = (
     ("Anton", "Umbach"),
     ("Clara", "Unger"),
     ("David", "Uhl"),
@@ -268,7 +268,7 @@ ULME_SQUAD: Final = (
     ("Tilda", "Umlauf"),
     ("Vincent", "Unland"),
 )
-KASTANIE_SQUAD: Final = (
+KASTANIE_KADER: Final = (
     ("Mila", "Kolbe"),
     ("Jonte", "Kramer"),
     ("Smilla", "Kurz"),
@@ -344,7 +344,7 @@ class MadeUpLeague:
         self.played: list[Season] = []
         self.spielbestaetigungen: list[dict[str, Any]] = []
         self.spieler: list[dict[str, Any]] = []
-        self.squads: list[dict[str, Any]] = []
+        self.kader_rows: list[dict[str, Any]] = []
         self.invitations: dict[str, dict[str, Any]] = {}
         self.registrierungen: list[dict[str, Any]] = []
         self.spielberichte: list[dict[str, Any]] = []
@@ -354,7 +354,7 @@ class MadeUpLeague:
             self.played = [self.finished, self.running]
             self._seats()
             self._requests()
-            self._squads()
+            self._kader_rows()
             self._registrations()
         self._planned_season()
         self._access()
@@ -958,7 +958,7 @@ class MadeUpLeague:
             einwilligung=consent,
         )
 
-    def squad_row(
+    def kader_row(
         self,
         person: Mapping[str, Any],
         club_name: str,
@@ -982,40 +982,40 @@ class MadeUpLeague:
             inactive_since=None if retired_on is None else self.day(retired_on),
         )
 
-    def _squads(self) -> None:
+    def _kader_rows(self) -> None:
         mia, desktop, phone = PEOPLE["others"]["pupil"], *(project["squadded"] for project in PROJECTS)
         self.mia = self.pupil(mia["first_name"], mia["last_name"], email=mia["address"])
         self.jonas = self.pupil(desktop, "Ahornberg")
         self.lena = self.pupil(phone, "Kastner")
-        self.ahorn = [self.pupil(*name) for name in AHORN_SQUAD]
+        self.ahorn = [self.pupil(*name) for name in AHORN_KADER]
         nominee = self.pupil("Karl", "Quast")
         retired_nominee = self.pupil("Rosa", "Reiter")
         # In no squad of the finished season or a later one: the scheduler's first pass erases them, the deletion a season
         # after.
         season_after = self.pupil("Till", "Thalberg")
-        self.kastanie = [self.pupil(*name) for name in KASTANIE_SQUAD]
-        ulme = [self.pupil(*name) for name in ULME_SQUAD]
-        for squad in (AHORN_SQUAD, KASTANIE_SQUAD, ULME_SQUAD):
-            if any(pupil in f"{first} {last}" for first, last in squad for pupil in (desktop, phone)):
+        self.kastanie = [self.pupil(*name) for name in KASTANIE_KADER]
+        ulme = [self.pupil(*name) for name in ULME_KADER]
+        for kader in (AHORN_KADER, KASTANIE_KADER, ULME_KADER):
+            if any(pupil in f"{first} {last}" for first, last in kader for pupil in (desktop, phone)):
                 raise ValueError(f"a squad name holds {desktop} or {phone}, whom the administration's journey opens by a name holding theirs")
         self.spieler = [self.mia, self.jonas, self.lena, *self.ahorn, nominee, retired_nominee, season_after, *self.kastanie, *ulme]
 
         def positioned(people: Sequence[Mapping[str, Any]], club_name: str, first: int) -> list[dict[str, Any]]:
             return [
-                self.squad_row(person, club_name, str(first + index), position=POSITIONS[index % len(POSITIONS)])
+                self.kader_row(person, club_name, str(first + index), position=POSITIONS[index % len(POSITIONS)])
                 for index, person in enumerate(people)
             ]
 
         # Mia captains Ahorn and Jonas is its Co-Kapitän, each mark standing on the squad and on match 1's line-up; Mia
         # played for Ahorn in the finished season too, a pupil's own page holding a past season beside the running one.
-        self.squads = [
-            self.squad_row(self.mia, "Ahorn", "9", saison=FINISHED),
-            self.squad_row(self.mia, "Ahorn", "9", rolle="kapitaen"),
-            self.squad_row(self.jonas, "Ahorn", "4", rolle="co_kapitaen"),
+        self.kader_rows = [
+            self.kader_row(self.mia, "Ahorn", "9", saison=FINISHED),
+            self.kader_row(self.mia, "Ahorn", "9", rolle="kapitaen"),
+            self.kader_row(self.jonas, "Ahorn", "4", rolle="co_kapitaen"),
             *positioned(self.ahorn, "Ahorn", 10),
-            self.squad_row(nominee, "Ahorn", "30", nominee=True),
-            self.squad_row(retired_nominee, "Ahorn", "31", nominee=True, retired_on=-5),
-            self.squad_row(self.lena, "Kastanie", "7"),
+            self.kader_row(nominee, "Ahorn", "30", nominee=True),
+            self.kader_row(retired_nominee, "Ahorn", "31", nominee=True, retired_on=-5),
+            self.kader_row(self.lena, "Kastanie", "7"),
             *positioned(self.kastanie, "Kastanie", 8),
             *positioned(ulme, "Ulme", 1),
         ]
@@ -1490,7 +1490,7 @@ class MadeUpLeague:
             Collection.SPIELTAGE: [spieltag for season in self.played for spieltag in season.spieltage],
             Collection.SPIELE: [spiel for season in self.played for spiel in season.spiele],
             Collection.SPIELER: self.spieler,
-            Collection.SAISON_SPIELER: self.squads,
+            Collection.SAISON_SPIELER: self.kader_rows,
             Collection.SPIELBERICHTE: self.spielberichte,
             Collection.AUFSTELLUNGEN: self.aufstellungen,
             Collection.BEWERBUNGEN: self.bewerbungen,

@@ -34,7 +34,7 @@ DRAWN_SPIELE = 8
 # Far above every cap a case below patches to, so a refusal can only be about the squad.
 STORED_KADER = 18
 
-LIVE_SQUAD = 3
+LIVE_KADER_SIZE = 3
 REFUSED_KADER = 2
 
 # Fixed rather than generated, so a failure names the same rows every run.
@@ -58,7 +58,7 @@ def matchday() -> dict[str, Any]:
     return documents.spieltag_document(SPIELTAG_OID, SAISON_ID, 1, start="2026-03-15", end="2026-03-15")
 
 
-def squad_rows() -> list[dict[str, Any]]:
+def kader_rows() -> list[dict[str, Any]]:
     return [
         documents.saison_spieler_document(
             ObjectId(MEMBERSHIP_ID.format(500 + index)),
@@ -68,7 +68,7 @@ def squad_rows() -> list[dict[str, Any]]:
             nummer=str(index),
             inactive_since=None,
         )
-        for index in range(LIVE_SQUAD)
+        for index in range(LIVE_KADER_SIZE)
     ]
 
 
@@ -99,7 +99,7 @@ async def on_a_database(
 ) -> Any:
     async with a_clean_database(url, DATABASE_NAME) as (_, database):
         await database[Collection.SAISONS].insert_one(saison_document())
-        await database[Collection.SAISON_SPIELER].insert_many(squad_rows())
+        await database[Collection.SAISON_SPIELER].insert_many(kader_rows())
         await database[Collection.SPIELTAGE].insert_one(matchday())
         if spiele:
             await database[Collection.SPIELE].insert_many(spiele)
@@ -144,10 +144,10 @@ async def patch_the_rules(database: AsyncDatabase, *, today: str = THE_DAY_BEFOR
     )
 
 
-class TestTheSquadCapIsJudgedAgainstTheSeasonsOwnLiveRows:
+class TestTheKaderCapIsJudgedAgainstTheSeasonsOwnLiveRows:
     """`rules_kader_below_use` over the aggregation that produces its figure, which every other case hands in already counted."""
 
-    async def test_a_cap_below_the_live_squad_is_refused(self, mongo_replica_set_url: str):
+    async def test_a_cap_below_the_live_kader_is_refused(self, mongo_replica_set_url: str):
         """An aggregation answering nothing takes a cap under a live squad, leaving the team over a bound no entry was measured by."""
 
         async def body(database: AsyncDatabase) -> APIError:

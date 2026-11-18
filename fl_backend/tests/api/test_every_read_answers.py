@@ -177,7 +177,7 @@ PHASES = {phase.name: phase for phase in (_before_start(), _running(), _decided(
 
 
 async def _seed(database: AsyncDatabase, phase: Phase) -> None:
-    (own_club, _, _), (squad_club, _, _), *_ = CLUBS
+    (own_club, _, _), (kader_club, _, _), *_ = CLUBS
     featured = phase.featured
 
     await database[Collection.GRANTS].insert_many(grants_for_the_suite())
@@ -225,7 +225,7 @@ async def _seed(database: AsyncDatabase, phase: Phase) -> None:
     )
     await database[Collection.SAISON_SPIELER].insert_many(
         [
-            documents.saison_spieler_document(PERSON_SPIELER, SAISON, squad_club, nummer="7"),
+            documents.saison_spieler_document(PERSON_SPIELER, SAISON, kader_club, nummer="7"),
             documents.saison_spieler_document(OTHER_SPIELER, SAISON, own_club, nummer="9"),
         ]
     )

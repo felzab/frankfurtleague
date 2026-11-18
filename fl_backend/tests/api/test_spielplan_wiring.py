@@ -169,7 +169,7 @@ def played_up_to_the_finale(shape: Shape) -> tuple[tuple[FLSpiel, ...], dict[int
 
     groups, teams, _ = shape
     entered = entered_for(groups, teams)
-    squads = {gruppe: [team for team in entered if team.gruppe == gruppe] for gruppe in GRUPPEN[:groups]}
+    teams_by_gruppe = {gruppe: [team for team in entered if team.gruppe == gruppe] for gruppe in GRUPPEN[:groups]}
     came_out: dict[tuple[int, str], EnteredTeam] = {}
     decided: dict[int, tuple[ObjectId, ObjectId]] = {}
 
@@ -180,7 +180,9 @@ def played_up_to_the_finale(shape: Shape) -> tuple[tuple[FLSpiel, ...], dict[int
             continue
 
         one, other = (
-            squads[quelle["gruppe"]][quelle["platz"] - 1] if quelle["type"] == "gruppe" else came_out[(quelle["spiel_nr"], quelle["ausgang"])]
+            teams_by_gruppe[quelle["gruppe"]][quelle["platz"] - 1]
+            if quelle["type"] == "gruppe"
+            else came_out[(quelle["spiel_nr"], quelle["ausgang"])]
             for quelle in (raw["team1_quelle"], raw["team2_quelle"])
         )
         came_out[(raw["spiel_nr"], "sieger")], came_out[(raw["spiel_nr"], "verlierer")] = one, other

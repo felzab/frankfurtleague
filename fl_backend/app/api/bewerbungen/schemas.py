@@ -430,7 +430,7 @@ class FLBewerbungKaderPayload(FLBewerbungKader, BasePayload):
     good_spieler: int = Field(ge=0, le=BEWERBUNG_KADER_SIZE_MAX)
 
     @model_validator(mode="after")
-    def the_strong_players_are_a_subset_of_the_squad(self) -> Self:
+    def the_strong_players_are_a_subset_of_the_kader(self) -> Self:
         """A subset cannot outnumber the whole, and both figures are one school's own estimate.
 
         A 422 like the distinctness rule: a shape rule about the body, judged against no database.

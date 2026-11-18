@@ -74,8 +74,8 @@ FIRST_GROUP_SPIEL_DAY = "2026-05-01"
 LEFT_EARLIER_ON = "2026-03-01"
 
 # A prefix of their own, so a squad row's id cannot be mistaken for a club's in a failure message.
-SQUAD_ROW_ID = "6890a1b2c3d4e5f60726a{:03d}"
-SQUAD_PERSON_ID = "6890a1b2c3d4e5f60726b{:03d}"
+KADER_ROW_ID = "6890a1b2c3d4e5f60726a{:03d}"
+KADER_PERSON_ID = "6890a1b2c3d4e5f60726b{:03d}"
 
 
 # What the OUTGOING school filled in. Seeded on every row so the clearing below has something to
@@ -120,7 +120,7 @@ def default_junctions() -> list[dict[str, Any]]:
     return [junction(WITHDRAWN, "A", dict(EXIT)), junction(RIVAL, "A"), junction(ENTERED, "B"), junction(PHANTOM, "B")]
 
 
-def squad_row(
+def kader_row(
     index: int,
     *,
     team_id: ObjectId,
@@ -134,10 +134,10 @@ def squad_row(
     """
 
     return saison_spieler_document(
-        ObjectId(SQUAD_PERSON_ID.format(index if person is None else person)),
+        ObjectId(KADER_PERSON_ID.format(index if person is None else person)),
         saison_id,
         team_id,
-        _id=ObjectId(SQUAD_ROW_ID.format(index)),
+        _id=ObjectId(KADER_ROW_ID.format(index)),
         nummer=str(index),
         inactive_since=inactive_since,
     )
@@ -145,12 +145,12 @@ def squad_row(
 
 # The outgoing club's live squad, a row that left it earlier, another club's squad in the same
 # season, and row 1's own player one season back -- the four sets the retirement has to tell apart.
-SQUAD_ROWS = [
-    squad_row(1, team_id=WITHDRAWN, inactive_since=None),
-    squad_row(2, team_id=WITHDRAWN, inactive_since=None),
-    squad_row(3, team_id=WITHDRAWN, inactive_since=LEFT_EARLIER_ON),
-    squad_row(4, team_id=RIVAL, inactive_since=None),
-    squad_row(5, team_id=WITHDRAWN, inactive_since=None, saison_id=PRIOR_SAISON_ID, person=1),
+KADER_ROWS = [
+    kader_row(1, team_id=WITHDRAWN, inactive_since=None),
+    kader_row(2, team_id=WITHDRAWN, inactive_since=None),
+    kader_row(3, team_id=WITHDRAWN, inactive_since=LEFT_EARLIER_ON),
+    kader_row(4, team_id=RIVAL, inactive_since=None),
+    kader_row(5, team_id=WITHDRAWN, inactive_since=None, saison_id=PRIOR_SAISON_ID, person=1),
 ]
 
 
@@ -251,7 +251,7 @@ async def on_a_seeded_season(
         await database[Collection.TEAMS].insert_many(
             [club(WITHDRAWN), club(INCOMING), club(RIVAL), club(ENTERED), club(RETIRED, inactive_since="2026-02-01")]
         )
-        await database[Collection.SAISON_SPIELER].insert_many(list(SQUAD_ROWS))
+        await database[Collection.SAISON_SPIELER].insert_many(list(KADER_ROWS))
         await database[Collection.SPIELE].insert_many(list(SEASON_SPIELE if spiele is None else spiele))
 
         return await body(database, client)
@@ -299,7 +299,7 @@ async def spiele_now(database: AsyncDatabase) -> dict[int, dict[str, Any]]:
     return {row["spiel_nr"]: row for row in rows}
 
 
-async def squad_now(database: AsyncDatabase) -> dict[int, dict[str, Any]]:
+async def kader_now(database: AsyncDatabase) -> dict[int, dict[str, Any]]:
     """Every squad row of every season, keyed by the `nummer` its seed carries."""
 
     rows = await database[Collection.SAISON_SPIELER].find({}).to_list(length=None)
@@ -319,10 +319,10 @@ async def _spiele_after(database: AsyncDatabase, client: AsyncMongoClient) -> An
     return await spiele_now(database)
 
 
-async def _squad_after(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+async def _kader_after(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
     await call_replace(database, client)
 
-    return await squad_now(database)
+    return await kader_now(database)
 
 
 async def _refused(database: AsyncDatabase, client: AsyncMongoClient, incoming: ObjectId = INCOMING) -> Any:
@@ -428,43 +428,43 @@ class TestAllFourLayersMoveTogether:
         assert after[1]["team2"] == before[1]["team2"], "the opponent was rewritten"
 
 
-class TestTheOutgoingClubsSquadIsRetired:
+class TestTheOutgoingClubsKaderIsRetired:
     """The fifth surface, the one that does not move: `kader_team_not_in_saison` refuses a squad row whose club has no junction row there."""
 
     async def test_the_live_rows_are_stamped_with_the_day_of_the_replacement(self, mongo_replica_set_url: str):
         """Kills leaving them standing: the club page's squad, a season-and-team read, goes on serving the outgoing club's squad."""
 
-        squad = await on_a_seeded_season(mongo_replica_set_url, _squad_after)
+        kader = await on_a_seeded_season(mongo_replica_set_url, _kader_after)
 
-        assert (squad[1]["inactive_since"], squad[2]["inactive_since"]) == (REPLACED_ON, REPLACED_ON)
+        assert (kader[1]["inactive_since"], kader[2]["inactive_since"]) == (REPLACED_ON, REPLACED_ON)
 
-    async def test_a_row_that_left_the_squad_earlier_keeps_its_own_date(self, mongo_replica_set_url: str):
+    async def test_a_row_that_left_the_kader_earlier_keeps_its_own_date(self, mongo_replica_set_url: str):
         """Kills dropping `inactive_since: None` from the filter, which rewrites the date of a departure that had already happened."""
 
-        squad = await on_a_seeded_season(mongo_replica_set_url, _squad_after)
+        kader = await on_a_seeded_season(mongo_replica_set_url, _kader_after)
 
-        assert squad[3]["inactive_since"] == LEFT_EARLIER_ON
+        assert kader[3]["inactive_since"] == LEFT_EARLIER_ON
 
     async def test_the_players_stay_with_the_club_they_registered_for(self, mongo_replica_set_url: str):
         """Kills repointing `team_id` at the incoming club: nobody transferred, and that club registers a squad of its own."""
 
-        squad = await on_a_seeded_season(mongo_replica_set_url, _squad_after)
+        kader = await on_a_seeded_season(mongo_replica_set_url, _kader_after)
 
-        assert {squad[index]["team_id"] for index in (1, 2, 3)} == {WITHDRAWN}
+        assert {kader[index]["team_id"] for index in (1, 2, 3)} == {WITHDRAWN}
 
-    async def test_another_clubs_squad_in_the_same_season_is_untouched(self, mongo_replica_set_url: str):
+    async def test_another_clubs_kader_in_the_same_season_is_untouched(self, mongo_replica_set_url: str):
         """Kills a filter missing `team_id`, which would empty every squad in the season."""
 
-        squad = await on_a_seeded_season(mongo_replica_set_url, _squad_after)
+        kader = await on_a_seeded_season(mongo_replica_set_url, _kader_after)
 
-        assert squad[4]["inactive_since"] is None
+        assert kader[4]["inactive_since"] is None
 
     async def test_the_same_player_in_another_season_is_untouched(self, mongo_replica_set_url: str):
         """Kills a filter missing `saison_id`: row 5 is row 1's own player, in the same club, one season back."""
 
-        squad = await on_a_seeded_season(mongo_replica_set_url, _squad_after)
+        kader = await on_a_seeded_season(mongo_replica_set_url, _kader_after)
 
-        assert squad[5]["inactive_since"] is None
+        assert kader[5]["inactive_since"] is None
 
     async def test_its_line_ups_go_and_every_other_stays(self, mongo_replica_set_url: str):
         """Kills leaving them, which keeps a squad's pupils named for fixtures their club no longer plays, and a filter missing either term."""
@@ -488,18 +488,18 @@ class TestTheOutgoingClubsSquadIsRetired:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(ValidationError):
                 await call_replace(database, client)
-            return await squad_now(database)
+            return await kader_now(database)
 
         # `Z` is no group the model admits: the defence under test is the endpoint's own guard against a stored one.
         unreadable = {**junction(WITHDRAWN, "A", dict(EXIT)), "gruppe": "Z"}
-        squad = await on_a_seeded_season(
+        kader = await on_a_seeded_season(
             mongo_replica_set_url,
             body,
             junctions=[unreadable, junction(RIVAL, "A")],
             stores_a_refused_shape="a season row in a group the model admits none of, which the endpoint guards against",
         )
 
-        assert [squad[index]["inactive_since"] for index in (1, 2)] == [None, None]
+        assert [kader[index]["inactive_since"] for index in (1, 2)] == [None, None]
 
 
 class TestTheReplacementReachesNothingElse:

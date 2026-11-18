@@ -45,8 +45,8 @@ from app.api.registrierungen.services import (
     person_deviates,
     registrierung_is_confirmed,
 )
-from app.api.spieler.crud import pull_squad_room, refuse_a_full_squad
-from app.api.spieler.services import find_full_squad_refusal
+from app.api.spieler.crud import pull_kader_room, refuse_a_full_kader
+from app.api.spieler.services import find_full_kader_refusal
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
 from app.core.crud import (
@@ -139,7 +139,7 @@ async def get_open_registrierungen(
     )
     # Nobody excluded: the one a row resolves to has no capped row here, or the admission refuses them as already in
     # a squad before it reaches the cap.
-    room = await pull_squad_room(
+    room = await pull_kader_room(
         saison_spieler_collection=saison_spieler_collection,
         saison_id=saison_id,
         team_id=team_id,
@@ -176,7 +176,7 @@ async def get_open_registrierungen(
                 "position": row.get("position"),
                 "stufe": row.get("stufe"),
                 "admissible": admissible,
-                "kader_full": find_full_squad_refusal(room=room, nominee=nominee) is not None,
+                "kader_full": find_full_kader_refusal(room=room, nominee=nominee) is not None,
                 "nummer_double": row.get("nummer") in worn,
                 "person": None
                 if person is None
@@ -287,7 +287,7 @@ async def admit(
             kader_raw=kader_raw, registrierung=saison_raw.get("registrierung"), submitted_at=registrierung_raw["submitted_at"]
         )
 
-        await refuse_a_full_squad(
+        await refuse_a_full_kader(
             saison_spieler_collection=saison_spieler_collection,
             saisons_collection=saisons_collection,
             saison_id=saison_id,

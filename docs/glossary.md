@@ -61,11 +61,12 @@ served to the base tier.
 ### `Kader` — one team's squad in one season, as its own contact seats see it
 
 **Is:** every `saison_spieler` row one team holds for one season, live and ausgetragen alike, which
-the team's contact seats read and edit; the code's English for it is `squad`. The word also names
-an application's `kader`, the school's estimate in two counts, a pupil's own squad row of one
-season, and the consent scope `kader_public`.\
-**In code:** `fl_backend/app/api/spieler/schemas.py :: FLKaderResponse` over `:: FLKaderRow`; the
-other senses `fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungKader` and
+the team's contact seats read and edit, and which the code names `kader` wherever it means it,
+its cap included. The word also names an application's `kader`, the school's estimate in two
+counts, a pupil's own squad row of one season, and the consent scope `kader_public`.\
+**In code:** `fl_backend/app/api/spieler/schemas.py :: FLKaderResponse` over `:: FLKaderRow`, its
+cap `fl_backend/app/api/spieler/services.py :: KaderRoom`; the other senses
+`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungKader` and
 `fl_backend/app/api/spieler/schemas.py :: FLSpielerSelfKaderRow`.
 
 ### `Schiedsrichter` — referee

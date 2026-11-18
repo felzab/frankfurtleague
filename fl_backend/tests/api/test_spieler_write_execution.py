@@ -48,7 +48,7 @@ def person_row(*, spieler_number: int, birth_date: str = BIRTH_DATE) -> dict[str
     return spieler_document(spieler_id_for(spieler_number), "Max", "Mustermann", birth_date=birth_date)
 
 
-def squad_row(
+def kader_row(
     *, spieler_id: ObjectId, team_id: ObjectId, inactive_since: str | None = None, rolle: str | None = None, nominee: bool = False
 ) -> dict[str, Any]:
     return saison_spieler_document(spieler_id, SAISON_ID, team_id, rolle=rolle, inactive_since=inactive_since, is_nachnominiert=nominee)
@@ -73,7 +73,7 @@ async def on_a_database(url: str, body: Body) -> Any:
 async def fill(database: AsyncDatabase, team_id: ObjectId, count: int) -> None:
     """`count` live rows in one squad, none of them a player any test then writes."""
 
-    await database.saison_spieler.insert_many([squad_row(spieler_id=spieler_id_for(index), team_id=team_id) for index in range(count)])
+    await database.saison_spieler.insert_many([kader_row(spieler_id=spieler_id_for(index), team_id=team_id) for index in range(count)])
 
 
 async def save(
@@ -151,7 +151,7 @@ class TestTheConsentRecordSurvivesTheOneWriteThatCouldReachIt:
 
         async def body(database: AsyncDatabase) -> Any:
             await database.spieler.insert_one(person_row(spieler_number=92))
-            await database.saison_spieler.insert_one(squad_row(spieler_id=spieler_id_for(92), team_id=HOME_TEAM_OID))
+            await database.saison_spieler.insert_one(kader_row(spieler_id=spieler_id_for(92), team_id=HOME_TEAM_OID))
             await save(database, spieler_id_for(92), first_name="Maximilian")
             return await database.spieler.find_one({"_id": spieler_id_for(92)})
 
@@ -167,7 +167,7 @@ class TestTheOneSave:
     async def seated(self, database: AsyncDatabase) -> ObjectId:
         spieler_id = spieler_id_for(90)
         await database.spieler.insert_one(person_row(spieler_number=90))
-        await database.saison_spieler.insert_one(squad_row(spieler_id=spieler_id, team_id=HOME_TEAM_OID))
+        await database.saison_spieler.insert_one(kader_row(spieler_id=spieler_id, team_id=HOME_TEAM_OID))
         return spieler_id
 
     async def test_a_refused_row_part_saves_none_of_the_person(self, mongo_replica_set_url: str):
@@ -175,7 +175,7 @@ class TestTheOneSave:
 
         async def body(database: AsyncDatabase) -> tuple[Any, Any]:
             spieler_id = await self.seated(database)
-            await database.saison_spieler.insert_one(squad_row(spieler_id=spieler_id_for(80), team_id=HOME_TEAM_OID, rolle="kapitaen"))
+            await database.saison_spieler.insert_one(kader_row(spieler_id=spieler_id_for(80), team_id=HOME_TEAM_OID, rolle="kapitaen"))
 
             return (
                 await refused_code(save(database, spieler_id, first_name="Maximilian", rolle="kapitaen")),
@@ -264,15 +264,15 @@ class TestTheOneSave:
             await on_a_database(mongo_replica_set_url, body)
 
 
-class TestTheSquadCapOnAReturn:
+class TestTheKaderCapOnAReturn:
     """`kader_full` on a squad row's return, the one write of this router that grows a squad."""
 
-    async def test_reactivating_into_a_squad_that_has_since_filled_up_is_refused(self, mongo_replica_set_url: str):
+    async def test_reactivating_into_a_kader_that_has_since_filled_up_is_refused(self, mongo_replica_set_url: str):
         """The gap the admission cannot cover: the retired row keeps the unique key, so reviving it is an administrator's way back in."""
 
         async def body(database: AsyncDatabase) -> APIError:
             await database.saison_spieler.insert_one(
-                squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, inactive_since="2026-03-01")
+                kader_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, inactive_since="2026-03-01")
             )
             await fill(database, HOME_TEAM_OID, MAX_KADER_SIZE)
 
@@ -286,11 +286,11 @@ class TestTheSquadCapOnAReturn:
         assert refusal.error_code == Code.KADER_FULL
 
 
-class TestTheOneRolePerSquadOnEveryWritePath:
+class TestTheOneRolePerKaderOnEveryWritePath:
     """`kader_rolle_taken` on the edit and the return: the role belongs to the squad the row stands in."""
 
     async def seat(self, database: AsyncDatabase, spieler_id: ObjectId, team_id: ObjectId, *, rolle: str | None = None) -> None:
-        await database.saison_spieler.insert_one(squad_row(spieler_id=spieler_id, team_id=team_id, rolle=rolle))
+        await database.saison_spieler.insert_one(kader_row(spieler_id=spieler_id, team_id=team_id, rolle=rolle))
 
     async def test_an_edit_taking_a_held_role_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> APIError:
@@ -316,14 +316,14 @@ class TestTheOneRolePerSquadOnEveryWritePath:
 
         assert (await on_a_database(mongo_replica_set_url, body)).rolle is None
 
-    async def test_reactivating_into_a_squad_that_has_since_given_the_role_away_is_refused(self, mongo_replica_set_url: str):
+    async def test_reactivating_into_a_kader_that_has_since_given_the_role_away_is_refused(self, mongo_replica_set_url: str):
         """The path a rule can forget: no payload carries the role here, so the STORED row is what has to be judged."""
 
         async def body(database: AsyncDatabase) -> APIError:
             await database.saison_spieler.insert_one(
-                squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, rolle="kapitaen", inactive_since="2026-03-01")
+                kader_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, rolle="kapitaen", inactive_since="2026-03-01")
             )
-            await database.saison_spieler.insert_one(squad_row(spieler_id=spieler_id_for(80), team_id=HOME_TEAM_OID, rolle="kapitaen"))
+            await database.saison_spieler.insert_one(kader_row(spieler_id=spieler_id_for(80), team_id=HOME_TEAM_OID, rolle="kapitaen"))
 
             with pytest.raises(APIError) as excinfo:
                 await revive(database, spieler_id_for(90))
@@ -341,7 +341,7 @@ class TestReactivatingIntoASeasonTheClubHasLeft:
 
         async def body(database: AsyncDatabase) -> Any:
             await database.saison_spieler.insert_one(
-                squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, inactive_since="2026-03-01")
+                kader_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, inactive_since="2026-03-01")
             )
             await hand_the_junction_row_over(database, HOME_TEAM_OID)
 
@@ -362,7 +362,7 @@ class TestTheStoredMarker:
         """The edit carries no marker, so what the entry stored is never replaced by what an editor's page believed."""
 
         async def body(database: AsyncDatabase) -> Any:
-            await database.saison_spieler.insert_one(squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, nominee=True))
+            await database.saison_spieler.insert_one(kader_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, nominee=True))
             echoed = await edit(database, spieler_id_for(90), nummer="9")
             stored = await database.saison_spieler.find_one({"spieler_id": spieler_id_for(90)})
 

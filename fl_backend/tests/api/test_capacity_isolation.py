@@ -83,7 +83,7 @@ def spieler_document(index: int) -> dict[str, Any]:
     return documents.spieler_document(oid(2000 + index), f"Vorname{index}", f"Nachname{index}")
 
 
-def squad_document(index: int, team_index: int, *, inactive_since: str | None = None) -> dict[str, Any]:
+def kader_document(index: int, team_index: int, *, inactive_since: str | None = None) -> dict[str, Any]:
     return documents.saison_spieler_document(
         oid(2000 + index), SAISON, oid(team_index), _id=oid(3000 + index), nummer=str(index), inactive_since=inactive_since
     )
@@ -224,7 +224,7 @@ class TestASecondEntryLandingMidEntryIsJudgedAgain:
 class TestASecondReturnLandingMidReturnIsJudgedAgain:
     """One free place in the squad when both returns judge, and none when the second one writes."""
 
-    def _squad_seed(self) -> dict[str, list[Any]]:
+    def _kader_seed(self) -> dict[str, list[Any]]:
         """A squad one short of the cap, and two retired rows each with a claim on the last place."""
 
         return {
@@ -233,9 +233,9 @@ class TestASecondReturnLandingMidReturnIsJudgedAgain:
             Collection.SAISON_TEAMS: [junction_document(1, "A")],
             Collection.SPIELER: [spieler_document(index) for index in [*range(1, MAX_KADER_SIZE), 91, 92]],
             Collection.SAISON_SPIELER: [
-                *(squad_document(index, 1) for index in range(1, MAX_KADER_SIZE)),
-                squad_document(91, 1, inactive_since="2026-02-01"),
-                squad_document(92, 1, inactive_since="2026-02-01"),
+                *(kader_document(index, 1) for index in range(1, MAX_KADER_SIZE)),
+                kader_document(91, 1, inactive_since="2026-02-01"),
+                kader_document(92, 1, inactive_since="2026-02-01"),
             ],
         }
 
@@ -257,13 +257,15 @@ class TestASecondReturnLandingMidReturnIsJudgedAgain:
             seasons = SeasonsRunningAHookBeforeTheAnchor(database[Collection.SAISONS], the_rival_takes_the_place)
             outcome = await outcome_of(self._bring_back(database, client, 92, seasons))
 
-            squad = await database[Collection.SAISON_SPIELER].count_documents({"saison_id": SAISON, "team_id": oid(1), "inactive_since": None})
+            kader_size = await database[Collection.SAISON_SPIELER].count_documents(
+                {"saison_id": SAISON, "team_id": oid(1), "inactive_since": None}
+            )
 
-            return outcome, seasons.season_reads, squad, await anchor_now(database)
+            return outcome, seasons.season_reads, kader_size, await anchor_now(database)
 
-        outcome, season_reads, squad, anchor = await on_a_league(mongo_replica_set_url, body, self._squad_seed())
+        outcome, season_reads, kader_size, anchor = await on_a_league(mongo_replica_set_url, body, self._kader_seed())
 
-        assert (outcome, squad) == (Code.KADER_FULL, MAX_KADER_SIZE)
+        assert (outcome, kader_size) == (Code.KADER_FULL, MAX_KADER_SIZE)
         assert (season_reads, anchor) == (2, 1), (
             f"{season_reads} judgements and an anchor of {anchor}: {MISCOUNTED_JUDGEMENTS}; any anchor but 1 counts a write besides the rival's"
         )

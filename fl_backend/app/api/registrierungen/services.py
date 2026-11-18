@@ -122,7 +122,7 @@ def admits_a_nominee(*, kader_raw: Mapping[str, Any] | None, registrierung: Mapp
 def find_kader_refusal(*, full: WriteRefusal | None) -> WriteRefusal | None:
     """`registrierung_kader_full`: the squad has no room for this entry, the answer the link's `kader_free` gives.
 
-    `full` is `find_full_squad_refusal`'s verdict, the cap's one copy, which this words for the link's holder rather
+    `full` is `find_full_kader_refusal`'s verdict, the cap's one copy, which this words for the link's holder rather
     than for the administrator entering a player.
     """
 

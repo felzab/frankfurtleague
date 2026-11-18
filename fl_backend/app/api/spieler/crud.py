@@ -11,12 +11,12 @@ from app.api.saisons.schemas import FLSaisonRules
 from app.api.spielberichte.crud import empty_pupil_entries_in_session
 from app.api.spieler.schemas import FLSpielerRolle
 from app.api.spieler.services import (
-    SquadRoom,
+    KaderRoom,
+    build_live_kader_filter,
     build_live_rolle_filter,
-    build_live_squad_filter,
     build_self_pupil_filter,
-    find_full_squad_refusal,
-    find_squad_rolle_refusal,
+    find_full_kader_refusal,
+    find_kader_rolle_refusal,
 )
 from app.core.crud import (
     anchor_in_db,
@@ -28,7 +28,7 @@ from app.core.readonly import ReadCollection
 from app.shared.schemas.custom import CustomObjectId
 
 
-async def refuse_a_full_squad(
+async def refuse_a_full_kader(
     *,
     saison_spieler_collection: AsyncCollection,
     saisons_collection: AsyncCollection,
@@ -59,7 +59,7 @@ async def refuse_a_full_squad(
         session=session,
     )
 
-    room = await pull_squad_room(
+    room = await pull_kader_room(
         saison_spieler_collection=saison_spieler_collection,
         saison_id=saison_id,
         team_id=team_id,
@@ -68,7 +68,7 @@ async def refuse_a_full_squad(
         session=session,
     )
 
-    refuse(find_full_squad_refusal(room=room, nominee=nominee))
+    refuse(find_full_kader_refusal(room=room, nominee=nominee))
 
 
 # The season's cap judged by its own field's rule and nothing else, so a read projecting the rules' other fields away
@@ -77,7 +77,7 @@ async def refuse_a_full_squad(
 _KADER_SIZE: Final = TypeAdapter[int](Annotated[int, *FLSaisonRules.model_fields["max_kader_size"].metadata])
 
 
-async def pull_squad_room(
+async def pull_kader_room(
     *,
     saison_spieler_collection: ReadCollection,
     saison_id: str,
@@ -87,14 +87,14 @@ async def pull_squad_room(
     # The writing player, whose own row takes no place from them; `None` where the count is asked for nobody.
     excluding_spieler_id: CustomObjectId | None,
     session: AsyncClientSession | None,
-) -> SquadRoom:
+) -> KaderRoom:
     """How many capped rows the squad holds and the season's cap on them: the one read every judgement of the cap takes."""
 
     size = await saison_spieler_collection.count_documents(
-        build_live_squad_filter(saison_id=saison_id, team_id=team_id, excluding_spieler_id=excluding_spieler_id), session=session
+        build_live_kader_filter(saison_id=saison_id, team_id=team_id, excluding_spieler_id=excluding_spieler_id), session=session
     )
 
-    return SquadRoom(size=size, cap=_KADER_SIZE.validate_python(rules.get("max_kader_size")))
+    return KaderRoom(size=size, cap=_KADER_SIZE.validate_python(rules.get("max_kader_size")))
 
 
 async def refuse_a_taken_rolle(
@@ -117,7 +117,7 @@ async def refuse_a_taken_rolle(
     if rolle is None:
         return
 
-    # Its own anchor rather than the cap's: a caller running this without `refuse_a_full_squad` --
+    # Its own anchor rather than the cap's: a caller running this without `refuse_a_full_kader` --
     # a representative's edit, which cannot cross the cap -- would otherwise let two captains through.
     await anchor_in_db(
         collection=saisons_collection,
@@ -133,7 +133,7 @@ async def refuse_a_taken_rolle(
         )
     ) > 0
 
-    refuse(find_squad_rolle_refusal(rolle=rolle, taken=taken))
+    refuse(find_kader_rolle_refusal(rolle=rolle, taken=taken))
 
 
 async def another_pupil_holds(

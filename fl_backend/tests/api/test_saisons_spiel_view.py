@@ -188,7 +188,7 @@ def test_a_line_ups_nameless_rows_read_alike_after_its_named_ones():
         "team_id": HOME,
         "spieler": stored,
         "persons": [{"_id": INTERNAL, "first_name": None, "last_name": None}, {"_id": NAMED, "first_name": "Maxim", "last_name": "M."}],
-        "squad_rows": [
+        "kader_rows": [
             {"spieler_id": INTERNAL, "nummer": "4", "position": "Abwehr", "rolle": "co_kapitaen"},
             {"spieler_id": NAMED, "nummer": "7", "position": "Angriff", "rolle": None},
         ],

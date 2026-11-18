@@ -74,8 +74,8 @@ router = APIRouter(
 )
 
 
-SQUAD_PATH = f"{by_id('team_id')}/{{saison_id}}"
-ROW_PATH = f"{SQUAD_PATH}{by_id('spieler_id')}"
+KADER_PATH = f"{by_id('team_id')}/{{saison_id}}"
+ROW_PATH = f"{KADER_PATH}{by_id('spieler_id')}"
 
 
 async def _record_the_seats_act(
@@ -113,7 +113,7 @@ def _live_row(*, team_id: CustomObjectId, saison_id: str, spieler_id: CustomObje
     return {"spieler_id": spieler_id, "saison_id": saison_id, "team_id": team_id, "inactive_since": None}
 
 
-async def _read_the_squad(
+async def _read_the_kader(
     *, saison_spieler_collection: ReadCollection, team_id: CustomObjectId, saison_id: str, session: AsyncClientSession
 ) -> list[FLKaderRow]:
     """The whole squad, each row's shirt marker judged against every other: no single row carries what it is compared with."""
@@ -135,7 +135,7 @@ async def _allowed_stufen(*, saisons_collection: ReadCollection, saison_id: str,
     saison_raw = await saisons_collection.find_one({"_id": saison_id}, projection={"rules": 1}, session=session)
     assert saison_raw is not None
 
-    # Through the model the rules are written under, as `refuse_a_full_squad` reads the cap: a list
+    # Through the model the rules are written under, as `refuse_a_full_kader` reads the cap: a list
     # that model refuses, an empty one included, fails here rather than reaching the page.
     return FLSaisonRules.model_validate(saison_raw["rules"]).allowed_stufen
 
@@ -150,13 +150,13 @@ async def _the_row_as_written(
 ) -> FLKaderRow:
     """Read back inside the write's own transaction, so the shirt marker is the squad's after this write and before any other."""
 
-    kader = await _read_the_squad(saison_spieler_collection=saison_spieler_collection, team_id=team_id, saison_id=saison_id, session=session)
+    kader = await _read_the_kader(saison_spieler_collection=saison_spieler_collection, team_id=team_id, saison_id=saison_id, session=session)
     [row] = [row for row in kader if row.spieler_id == spieler_id]
 
     return row
 
 
-@router.get(SQUAD_PATH, summary="Read a team's squad as its seat holder")
+@router.get(KADER_PATH, summary="Read a team's squad as its seat holder")
 async def get_kader(
     team_id: CustomObjectId,
     saison_id: str,
@@ -180,7 +180,7 @@ async def get_kader(
         team_id=team_id,
         saison_id=saison_id,
         allowed_stufen=await _allowed_stufen(saisons_collection=saisons_collection, saison_id=saison_id, session=session),
-        kader=await _read_the_squad(saison_spieler_collection=saison_spieler_collection, team_id=team_id, saison_id=saison_id, session=session),
+        kader=await _read_the_kader(saison_spieler_collection=saison_spieler_collection, team_id=team_id, saison_id=saison_id, session=session),
     )
 
 

@@ -47,12 +47,12 @@ from tests.erasure_sweep_corpus import (
     a_due_pupil,
     a_report_naming,
     address_of,
+    kader_row,
     numbered,
     pupil,
     registration,
     run,
     seeded,
-    squad_row,
     the_league,
 )
 from tests.whole_database import where_held
@@ -186,12 +186,12 @@ async def a_league_of_every_kind(database: AsyncDatabase) -> None:
     await database[Collection.SPIELER].update_one({"_id": WITH_A_PENDING_REGISTRATION}, {"$set": {"email": PENDING}})
     await database[Collection.SAISON_SPIELER].insert_many(
         [
-            squad_row(TWO_SEASONS_BACK, "2024"),
-            squad_row(LIVE_IN_THE_SEASON_JUST_ENDED, JUST_ENDED),
+            kader_row(TWO_SEASONS_BACK, "2024"),
+            kader_row(LIVE_IN_THE_SEASON_JUST_ENDED, JUST_ENDED),
             # Retired as removing a player leaves the row; only the erasure deletes one.
-            squad_row(RETIRED_IN_THE_SEASON_JUST_ENDED, JUST_ENDED, inactive_since="2025-03-01"),
-            squad_row(IN_THE_RUNNING_SEASON, "2026"),
-            squad_row(IN_THE_PLANNED_SEASON, "2027"),
+            kader_row(RETIRED_IN_THE_SEASON_JUST_ENDED, JUST_ENDED, inactive_since="2025-03-01"),
+            kader_row(IN_THE_RUNNING_SEASON, "2026"),
+            kader_row(IN_THE_PLANNED_SEASON, "2027"),
         ]
     )
     await database[Collection.REGISTRIERUNGEN].insert_many(
@@ -230,7 +230,7 @@ async def one_address_in_four_roles(database: AsyncDatabase) -> None:
 
     await database[Collection.SPIELER].insert_one(pupil(REACHED, ADDRESS, last_name="Pupillensloot"))
     await database[Collection.SAISON_SPIELER].insert_many(
-        [squad_row(REACHED, saison_id, _id=row_id) for saison_id, row_id in zip(("2023", "2024"), REACHED_ROWS, strict=True)]
+        [kader_row(REACHED, saison_id, _id=row_id) for saison_id, row_id in zip(("2023", "2024"), REACHED_ROWS, strict=True)]
     )
     await database[Collection.REGISTRIERUNGEN].insert_one(registration(REACHED_REGISTRATION, ADDRESS, declined=True, last_name="Pupillensloot"))
     await database[Collection.SAISON_TEAMS].insert_one(
@@ -296,7 +296,7 @@ class TestEachPupilIsJudgedAgainInTheirOwnTransaction:
     @pytest.mark.parametrize(
         "rival",
         [
-            pytest.param(lambda database: database[Collection.SAISON_SPIELER].insert_one(squad_row(numbered(1), "2026")), id="a squad row"),
+            pytest.param(lambda database: database[Collection.SAISON_SPIELER].insert_one(kader_row(numbered(1), "2026")), id="a squad row"),
             pytest.param(
                 lambda database: database[Collection.REGISTRIERUNGEN].insert_one(registration(numbered(901), address_of(1))),
                 id="a pending registration",
@@ -399,7 +399,7 @@ class TestAnActivationInsideThePupilsTransactionKeepsThem:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seeded(
                 database,
-                {Collection.SPIELER: [pupil(numbered(1), address_of(1))], Collection.SAISON_SPIELER: [squad_row(numbered(1), PLANNED_BELOW)]},
+                {Collection.SPIELER: [pupil(numbered(1), address_of(1))], Collection.SAISON_SPIELER: [kader_row(numbered(1), PLANNED_BELOW)]},
             )
             # What makes the planned season activatable (`activate_target_undrawn`).
             await database[Collection.SPIELE].insert_one(

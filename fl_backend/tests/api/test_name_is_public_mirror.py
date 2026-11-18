@@ -98,7 +98,7 @@ def _nummer_for(case: EinwilligungCase) -> str:
 
 
 @pytest.mark.db
-class TestTheSquadPipelineAnswersTheSameTable:
+class TestTheKaderPipelineAnswersTheSameTable:
     """`build_spieler_pipeline`'s `$cond`, against a real mongod: a `$cond` is only a `$cond` where Mongo evaluates it."""
 
     async def _rows(self, url: str) -> list[Mapping[str, Any]]:

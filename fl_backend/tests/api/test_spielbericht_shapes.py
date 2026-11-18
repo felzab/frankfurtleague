@@ -206,7 +206,7 @@ class TestACalledOffSpielTakesNoReport:
     def test_a_spiel_that_took_no_place_is_refused(self, sonderereignis: str):
         assert refused_with(Code.BERICHT_CANCELLED, find_cancelled_refusal(sonderereignis=sonderereignis))
 
-    def test_its_form_serves_no_squads(self):
+    def test_its_form_serves_no_kaders(self):
         """The referee's page reads this rather than the refusal, so the pupils' names stay off a fixture that takes no report.
 
         Played before `NOW` in a running season, so the call-off alone decides.
@@ -237,8 +237,8 @@ class TestAFixtureAClubLeftTakesNoReportFromItsReferee:
         )
 
 
-class TestANewlyNamedPupilIsInTheSquad:
-    def test_a_pupil_outside_the_second_sides_live_squad_is_refused(self):
+class TestANewlyNamedPupilIsInTheKader:
+    def test_a_pupil_outside_the_second_sides_live_kader_is_refused(self):
         """Each side is judged against its own squad, the second as the first: a goal must never be stored under a pupil nobody fielded."""
 
         new = newly_named(FLSpielberichtBerichtPayload.model_validate(payload([tor("team2", ObjectId())])), None, spiel())

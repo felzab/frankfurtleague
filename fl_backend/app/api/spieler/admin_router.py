@@ -7,7 +7,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.grants.guard import ADMIN_TIER
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spieler.crud import (
-    refuse_a_full_squad,
+    refuse_a_full_kader,
     refuse_a_taken_rolle,
 )
 from app.api.spieler.schemas import (
@@ -23,7 +23,7 @@ from app.api.spieler.services import (
     build_held_rollen_filter,
     build_kader_pipeline,
     find_kader_stufe_refusal,
-    find_squad_refusal,
+    find_kader_team_refusal,
     mark_shared_nummern,
 )
 from app.api.teams.crud import pull_saison_team_names
@@ -294,10 +294,10 @@ async def reactivate_saison_spieler(
         ) > 0
         # Asked before the cap, as both siblings ask it: a full squad is not a fact worth reporting
         # about a club the season does not hold.
-        refuse(find_squad_refusal(team_in_saison=team_in_saison))
+        refuse(find_kader_team_refusal(team_in_saison=team_in_saison))
 
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules"], session=session)
-        await refuse_a_full_squad(
+        await refuse_a_full_kader(
             saison_spieler_collection=saison_spieler_collection,
             saisons_collection=saisons_collection,
             saison_id=saison_id,

@@ -107,7 +107,7 @@ async def test_the_teams_page_lists_the_season_s_clubs_by_name_each_departure_ma
 
 
 @pytest.mark.db
-async def test_the_club_page_holds_its_own_row_matches_and_squad(seeded_url: str):
+async def test_the_club_page_holds_its_own_row_matches_and_kader(seeded_url: str):
     response = await on_a_league(seeded_url, page_of("Delta"))
 
     assert response.standing is not None

@@ -934,7 +934,7 @@ async def replace_saison_team(
         # Ausgetragen, not moved: the players did not transfer, and a row left standing would name a
         # season its club now holds no junction row in -- what `kader_team_not_in_saison` refuses to create.
         # Live rows alone, so an earlier exit keeps its own date.
-        retired_squad = await patch_many_in_db(
+        retired_kader = await patch_many_in_db(
             collection=saison_spieler_collection,
             db_filter={"saison_id": saison_id, "team_id": team_id, "inactive_since": None},
             update={"$set": {"inactive_since": today}},
@@ -960,7 +960,7 @@ async def replace_saison_team(
             name=updated_raw["name"],
             shorthand=updated_raw["shorthand"],
             rewritten_spiele=rewritten,
-            retired_kader_rows=retired_squad.modified_count,
+            retired_kader_rows=retired_kader.modified_count,
         )
 
     # One transaction over every write: a row handed over while its fixtures are not leaves the

@@ -72,7 +72,7 @@ def spieler_document(spieler_id: ObjectId, first_name: str) -> dict[str, Any]:
     return documents.spieler_document(spieler_id, first_name, "Müller", einwilligung=published)
 
 
-def squad_row(saison_id: str) -> dict[str, Any]:
+def kader_row(saison_id: str) -> dict[str, Any]:
     return documents.saison_spieler_document(SPIELER_OID, saison_id, TEAM_OID, _id=an_id("4", saison_id), nummer="7", stufe="Q3")
 
 
@@ -112,7 +112,7 @@ async def seeded_league(mongo_replica_set_url: str) -> AsyncIterator[str]:
             ]
         )
         await database[Collection.SPIELER].insert_one(spieler_document(SPIELER_OID, "Maxim"))
-        await database[Collection.SAISON_SPIELER].insert_many([squad_row(saison_id) for saison_id in STATUS_OF])
+        await database[Collection.SAISON_SPIELER].insert_many([kader_row(saison_id) for saison_id in STATUS_OF])
 
     async with held_corpus(mongo_replica_set_url, DATABASE_NAME, seed):
         yield mongo_replica_set_url
