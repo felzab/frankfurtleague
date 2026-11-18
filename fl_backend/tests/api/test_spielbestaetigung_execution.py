@@ -25,10 +25,8 @@ from app.api.spielbestaetigungen.admin_router import (
 )
 from app.api.spielbestaetigungen.person_router import post_schiedsrichter_answer, post_team_answer
 from app.api.spielbestaetigungen.schemas import (
-    FLSpielbestaetigungAnswerResponse,
     FLSpielbestaetigungEnterPayload,
     FLSpielbestaetigungSchiedsrichterAnswerPayload,
-    FLSpielbestaetigungSchiedsrichterAnswerResponse,
     FLSpielbestaetigungTeamAnswerPayload,
 )
 from app.api.spielbestaetigungen.services import (
@@ -200,7 +198,7 @@ async def press_answer(
     spiele: Any = None,
     saison_teams: Any = None,
     spieltage: Any = None,
-) -> FLSpielbestaetigungAnswerResponse:
+) -> None:
     """`who`'s answer, signed in at their own address, to their club's row or to `row_id`."""
 
     team_id, seat = who
@@ -210,7 +208,7 @@ async def press_answer(
         "reason": reason,
     }
 
-    return await post_team_answer(
+    await post_team_answer(
         spielbestaetigung_id=ROW_OF[team_id] if row_id is None else row_id,
         answer_data=FLSpielbestaetigungTeamAnswerPayload.model_validate(body),
         identifier=address(team_id, seat),
@@ -226,8 +224,8 @@ async def press_answer(
 
 async def decline_as_team(
     database: AsyncDatabase, client: AsyncMongoClient, who: tuple[ObjectId, str], vorschlag: tuple[str, str], **kwargs: Any
-) -> Any:
-    return await press_answer(database, client, who, answer="declined", vorschlag=vorschlag, **kwargs)
+) -> None:
+    await press_answer(database, client, who, answer="declined", vorschlag=vorschlag, **kwargs)
 
 
 async def row_now(database: AsyncDatabase, row_id: ObjectId) -> Mapping[str, Any]:
@@ -252,14 +250,13 @@ class WritesRecorded:
 class TestTheSeatTheAnswerRecords:
     async def test_the_stellvertretung_answers_and_the_trainers_press_then_finds_it_answered(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            answered = await press_answer(database, client, holder(TEAM1, "stellvertretung"))
+            await press_answer(database, client, holder(TEAM1, "stellvertretung"))
             second = await outcome_of(press_answer(database, client, holder(TEAM1, "trainer")))
 
-            return answered, second, await row_now(database, ROW1), await row_now(database, ROW2)
+            return second, await row_now(database, ROW1), await row_now(database, ROW2)
 
-        answered, second, row, other = await on_a_spiel(mongo_replica_set_url, body)
+        second, row, other = await on_a_spiel(mongo_replica_set_url, body)
 
-        assert answered.answered_by.model_dump() == {"kind": "kontakt", "seat": "stellvertretung"}
         assert row["answer"] == {
             "kind": "agreed",
             "at": TODAY,
@@ -1084,8 +1081,8 @@ async def einsatz_answer(
     identifier: str = OTTO,
     now: datetime = NOW,
     spielbestaetigungen: Any = None,
-) -> FLSpielbestaetigungSchiedsrichterAnswerResponse:
-    return await post_schiedsrichter_answer(
+) -> None:
+    await post_schiedsrichter_answer(
         spielbestaetigung_id=row_id,
         answer_data=FLSpielbestaetigungSchiedsrichterAnswerPayload.model_validate({"answer": answer, "reason": reason}),
         identifier=identifier,

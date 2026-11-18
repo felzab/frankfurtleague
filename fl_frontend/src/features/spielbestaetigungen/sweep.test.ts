@@ -9,8 +9,7 @@ const LIST = "/spielbestaetigungen/sweep";
 let listAnswer: () => unknown;
 let passAnswer: (saisonId: string) => unknown;
 
-const pass = (saisonId: string, counts: Partial<Record<"closed" | "asked" | "reminded" | "mails" | "failed", number>> = {}) => ({
-  saison_id: saisonId,
+const pass = (counts: Partial<Record<"closed" | "asked" | "reminded" | "mails" | "failed", number>> = {}) => ({
   closed: 0,
   asked: 0,
   reminded: 0,
@@ -36,14 +35,14 @@ const sent = (): string[] => backend.sent.map(({ method, path }) => `${method} $
 
 beforeEach(() => {
   listAnswer = () => ({ saison_ids: ["2627", "2728"] });
-  passAnswer = (saisonId) => pass(saisonId);
+  passAnswer = () => pass();
 });
 
 describe("the fixture confirmation job", () => {
   /* The counts, summed over the seasons, are the one record of what the job did, on the scheduler's pass line; the rows
      it passed over owe no deletion, so it leaves nothing the heartbeat names. */
   it("sweeps every listed season and answers what the passes did", async () => {
-    passAnswer = (saisonId) => pass(saisonId, saisonId === "2627" ? { closed: 2, asked: 3, mails: 7 } : { reminded: 1, mails: 2, failed: 1 });
+    passAnswer = (saisonId) => pass(saisonId === "2627" ? { closed: 2, asked: 3, mails: 7 } : { reminded: 1, mails: 2, failed: 1 });
 
     expect(await runSpielSweep()).toStrictEqual({
       count: { closed: 2, asked: 3, reminded: 1, mails: 9, failed: 1 },
@@ -58,7 +57,7 @@ describe("the fixture confirmation job", () => {
 
   /* The scheduler reports a pass ending on a failure to the heartbeat, which a job answering with a line alone keeps from it. */
   it("rejects where a season's pass fails, sweeping no season after it", async () => {
-    passAnswer = (saisonId) => (saisonId === "2627" ? networkFailure() : pass(saisonId));
+    passAnswer = (saisonId) => (saisonId === "2627" ? networkFailure() : pass());
 
     await expect(runSpielSweep()).rejects.toThrow(APINetworkError);
     expect(sent()).toStrictEqual([`GET ${LIST}`, "POST /spielbestaetigungen/saisons/2627/sweep"]);

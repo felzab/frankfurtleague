@@ -1,7 +1,7 @@
 from collections.abc import Iterable, Mapping
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
@@ -12,11 +12,8 @@ from app.api.identity.schemas import FLSubjectSeat
 from app.api.identity.services import seats_on
 from app.api.spielbestaetigungen.crud import JUDGED_JUNCTION_FIELDS, JUNCTION_FIELDS, OWN_ROW_FIELDS, pull_ansetzung_state
 from app.api.spielbestaetigungen.schemas import (
-    FLSpielbestaetigungAnswerResponse,
     FLSpielbestaetigungAppointment,
-    FLSpielbestaetigungByKontakt,
     FLSpielbestaetigungSchiedsrichterAnswerPayload,
-    FLSpielbestaetigungSchiedsrichterAnswerResponse,
     FLSpielbestaetigungTeamAnswerPayload,
 )
 from app.api.spielbestaetigungen.services import (
@@ -82,6 +79,7 @@ def _answering_seat(*, spielbestaetigung_raw: Mapping[str, Any] | None, seats: I
 
 @router.post(
     f"{by_id('spielbestaetigung_id')}/answer",
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Accept or decline one of the signed-in referee's own fixture assignments",
 )
 async def post_schiedsrichter_answer(
@@ -95,7 +93,7 @@ async def post_schiedsrichter_answer(
     records: SubjectLookup,
     db: DBClient,
     germany_now: GermanyNow,
-) -> FLSpielbestaetigungSchiedsrichterAnswerResponse:
+) -> None:
     """Record the signed-in referee's first answer about a fixture they are booked on, until its kick-off: accept, or decline giving a reason.
 
     A decline takes them off the fixture, and the caller drops the cached fixture list after a successful answer, since
@@ -104,7 +102,7 @@ async def post_schiedsrichter_answer(
 
     today = clock.german_day(germany_now)
 
-    async def answer(session: AsyncClientSession) -> FLSpielbestaetigungSchiedsrichterAnswerResponse:
+    async def answer(session: AsyncClientSession) -> None:
         subject = await roles_of(identifier, records, session=session)
         refuse(find_own_entry_refusal(held=bool(subject.schiedsrichter)))
 
@@ -187,13 +185,12 @@ async def post_schiedsrichter_answer(
             assert current is not None
             refuse(find_unanswerable_refusal(spielbestaetigung_raw=row, ansetzung_state=current, now=germany_now))
 
-        return FLSpielbestaetigungSchiedsrichterAnswerResponse(spielbestaetigung_id=spielbestaetigung_id, state=answer_data.answer)
-
-    return await transact(db, answer)
+    await transact(db, answer)
 
 
 @router.post(
     f"{by_id('spielbestaetigung_id')}/answer/team",
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Confirm a fixture's Ansetzung as the team's seat holder, or decline it proposing another date",
 )
 async def post_team_answer(
@@ -207,7 +204,7 @@ async def post_team_answer(
     records: SubjectLookup,
     db: DBClient,
     germany_now: GermanyNow,
-) -> FLSpielbestaetigungAnswerResponse:
+) -> None:
     """Record one club's answer about one Ansetzung, from whichever of its confirmed seats presses first, and the seat it came from.
 
     It writes no fixture: a decline's proposal is the administrator's to act on, and is refused wherever the
@@ -221,7 +218,7 @@ async def post_team_answer(
         else FLSpielbestaetigungAppointment(date=answer_data.vorschlag.date, time=answer_data.vorschlag.time)
     )
 
-    async def answer(session: AsyncClientSession) -> FLSpielbestaetigungAnswerResponse:
+    async def answer(session: AsyncClientSession) -> None:
         subject = await roles_of(identifier, records, session=session)
         # `find_one` rather than `pull_one_from_db`, whose 404 would tell the caller which ids exist.
         row = await spielbestaetigungen_collection.find_one({"_id": spielbestaetigung_id}, projection=TEAM_ANSWER_FIELDS, session=session)
@@ -320,8 +317,4 @@ async def post_team_answer(
         assert current is not None
         await judge(current, None)
 
-        return FLSpielbestaetigungAnswerResponse(
-            state=answer_data.answer, answered_by=FLSpielbestaetigungByKontakt(kind="kontakt", seat=seat), vorschlag=vorschlag
-        )
-
-    return await transact(db, answer)
+    await transact(db, answer)

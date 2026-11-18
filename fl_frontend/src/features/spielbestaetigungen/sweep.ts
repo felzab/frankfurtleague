@@ -4,8 +4,11 @@ import { spielbestaetigungenGetSweepSaisons, spielbestaetigungenSweepSpielbestae
 
 import type { FLSpielbestaetigungSweepResponse } from "@/core/generated/client/types";
 
-/** What a pass did, summed over the seasons it swept. */
-type Count = Omit<FLSpielbestaetigungSweepResponse, "saison_id">;
+/**
+ * What a pass did, summed over the seasons it swept. Picked rather than named: the generated interface has no index
+ * signature, which the scheduler's count record asks of the type it takes.
+ */
+type Count = Pick<FLSpielbestaetigungSweepResponse, keyof FLSpielbestaetigungSweepResponse>;
 
 /**
  * One pass over every season the listing answers. The scheduler's drain after its jobs sends every mail the pass owed.
