@@ -5,11 +5,7 @@ from typing import Any, Final, Literal, TypeIs, get_args
 from pydantic import ValidationError
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.bewerbungen.schemas import (
-    FLBewerbungEinwilligungState,
-    FLBewerbungWindowState,
-    age_outside_the_bounds,
-)
+from app.api.bewerbungen.schemas import FLBewerbungEinwilligungState, FLBewerbungWindowState
 from app.api.kontakte.services import rows_seating
 from app.api.outbox.schemas import (
     FLBewerbungLinkData,
@@ -24,19 +20,18 @@ from app.api.teams.schemas import FLPostTeamPayload
 from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError
+from app.core.exceptions import APIError, link_expired, link_invalid
 from app.core.readonly import ReadCollection
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_evidence import TextVersions, compose_choices
 from app.shared.folding import normalise_phone, sign_in_identifier
+from app.shared.links import deadline_passed
 from app.shared.mailbox import OPEN_LINKS_PER_MAILBOX, mailbox_of, mailbox_pattern
 from app.shared.saison import season_has_ended
 from app.shared.schemas.bounds import (
-    BEWERBUNG_CONFIRMATION_DEADLINE_DAYS,
     BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
     BEWERBUNG_REMINDER_DAYS,
-    BIRTH_DATE_MAX_AGE_YEARS,
-    DECLINED_RETENTION_DAYS,
+    CONFIRMATION_DEADLINE_DAYS,
     SAISON_ID_LENGTH,
     SIGNATORY_MIN_AGE_YEARS,
 )
@@ -255,7 +250,7 @@ def compose_kontakte(*, kontakte: Mapping[str, Any], today: str) -> dict[str, An
 def confirmation_deadline_from(*, today: str) -> str:
     """The day a seat's link stops working, counted from its mail -- a re-send of that seat restarts it."""
 
-    return days_after(day=today, days=BEWERBUNG_CONFIRMATION_DEADLINE_DAYS)
+    return days_after(day=today, days=CONFIRMATION_DEADLINE_DAYS)
 
 
 def compose_confirmation(*, today: str) -> dict[str, Any]:
@@ -372,16 +367,9 @@ def seat_holding(*, bewerbung_raw: Mapping[str, Any], token_hash: str) -> FLKont
 
 
 def find_unknown_token_refusal(*, seat: FLKontaktSeat | None) -> APIError | None:
-    """Why this token opens nothing, or `None`.
+    """Why this token opens nothing, or `None`: no seat holds it, whether never minted, voided by a re-send or deleted with the application."""
 
-    One answer for unknown, voided by a re-send, and deleted with the application: nothing
-    distinguishes them from a stranger's guess, and naming which would say more than the guess knew.
-    """
-
-    if seat is None:
-        return APIError(HTTPStatus.NOT_FOUND, Code.LINK_INVALID)
-
-    return None
+    return link_invalid() if seat is None else None
 
 
 def seat_opens_nobody(*, slot: Mapping[str, Any] | None, state: FLBewerbungEinwilligungState) -> bool:
@@ -397,18 +385,12 @@ def _is_decided(status: Any) -> bool:
     return status != "submitted"
 
 
-def deadline_passed(*, deadline: Any, today: str) -> bool:
-    """Whether this seat's day is strictly behind `today`, the link answering on the day itself.
-
-    A season row's link ends on this alone, both in its press (`link_expired`) and in the editor. An erased seat holds
-    no deadline and is not past one: the fourteen-day clock and the lapsed-seat clock both read it so.
-    """
-
-    return isinstance(deadline, str) and deadline < today
-
-
 def seat_deadline_of(*, confirmations: Mapping[str, Any] | None, seat: str) -> Any:
-    """The deadline the seat's own link carries: each seat is minted on its own day, so the record holds none."""
+    """The deadline the seat's own link carries: each seat is minted on its own day, so the record holds none.
+
+    An erased seat holds none, which `deadline_passed` reads as not passed: the fourteen-day clock and the lapsed-seat
+    clock both rely on it. A season row's link ends on its deadline alone, both in its press and in the editor.
+    """
 
     entry = _entry_of(confirmations, seat)
 
@@ -425,13 +407,10 @@ def find_expired_token_refusal(*, over: bool) -> APIError | None:
     """Why this link is over, or `None`. Judged before the seat: a seat on a decided application is never answered again.
 
     `over` is the record's own reading: `link_is_over` on an application, `deadline_passed` on a season row, which has no
-    decision to end its link. 410: no write moves a live link's deadline, a re-send minting another token.
+    decision to end its link. No write moves a live link's deadline, a re-send minting another token.
     """
 
-    if over:
-        return APIError(HTTPStatus.GONE, Code.LINK_EXPIRED)
-
-    return None
+    return link_expired() if over else None
 
 
 def _seat_is_confirmed(kontakte: Mapping[str, Any] | None, seat: str) -> bool:
@@ -463,24 +442,6 @@ def find_already_answered_refusal(*, kontakte: Mapping[str, Any] | None, confirm
 
     if seat_is_answered(kontakte=kontakte, confirmations=confirmations, seat=seat):
         return APIError(HTTPStatus.CONFLICT, Code.BEWERBUNG_SEAT_ALREADY_ANSWERED)
-
-    return None
-
-
-def find_age_refusal(*, birth_date: str, today: str, minimum_age: int) -> APIError | None:
-    """Why the typed date is refused, or `None`.
-
-    Its own code rather than a `payload_refused`, whose mark on the field names no floor. Judged before any write, so
-    a mistyped year spends nothing.
-    """
-
-    if age_outside_the_bounds(birth_date=birth_date, today=today, minimum_age=minimum_age):
-        return APIError(
-            HTTPStatus.UNPROCESSABLE_CONTENT,
-            Code.CONFIRMATION_AGE,
-            fields=(("birth_date",),),
-            bounds={"min": minimum_age, "max": BIRTH_DATE_MAX_AGE_YEARS},
-        )
 
     return None
 
@@ -1238,7 +1199,7 @@ def decline_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) -> b
     decision = bewerbung_raw.get("decision")
     made_at = None if decision is None else decision.get("made_at")
 
-    return isinstance(made_at, str) and days_after(day=made_at, days=DECLINED_RETENTION_DAYS) <= today
+    return isinstance(made_at, str) and days_after(day=made_at, days=CONFIRMATION_DEADLINE_DAYS) <= today
 
 
 def acceptance_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], later_saison_status: Any) -> bool:

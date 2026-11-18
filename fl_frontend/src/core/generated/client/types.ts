@@ -1496,8 +1496,6 @@ export interface FLBewerbungAddressPayload {
   street: string;
 }
 
-export type FLBewerbungConfirmationDeadlineDays = 14;
-
 /**
  * One person's Widerspruch for one seat, which empties their slot: it carries nothing of them.
  */
@@ -1868,7 +1866,6 @@ export interface FLBewerbungZusageData {
  */
 export interface FLBewerbungenAdminListResponse {
   bewerbungen: FLBewerbungListRow[];
-  complete: boolean;
   saison: FLBewerbungEntryOffer;
 }
 
@@ -2153,6 +2150,8 @@ export const FLCardColour = {
   rot: "rot",
 } as const;
 
+export type FLConfirmationDeadlineDays = 14;
+
 export type FLConfirmationState = (typeof FLConfirmationState)[keyof typeof FLConfirmationState];
 
 export const FLConfirmationState = {
@@ -2182,8 +2181,6 @@ export interface FLDeclineBewerbungPayload {
   /** @minimum 0 */
   version: number;
 }
-
-export type FLDeclinedRetentionDays = 14;
 
 /**
  * The one deletion notice, to a person who confirmed what went: an application's owed by a league write, an account's here.
@@ -2883,7 +2880,6 @@ export interface FLOpenRegistrierung {
  * One team's pending registrations for one season, newest first.
  */
 export interface FLOpenRegistrierungenResponse {
-  complete: boolean;
   registrierungen: FLOpenRegistrierung[];
   saison_id: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -3862,32 +3858,11 @@ export interface FLReferencesResponse {
 }
 
 /**
- * One pending registration as the Registrierungen list shows it: the pupil's name and nothing else of them.
- */
-export interface FLRegistrierungAdminRow {
-  confirmed: boolean;
-  /** @minLength 1 */
-  first_name: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-  /** @minLength 1 */
-  last_name: string;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  submitted_at: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-  team_name: string | null;
-  unmailed: boolean;
-}
-
-/**
  * The team's answer to the question the read asked: the person this registration is admitted into, or none.
  */
 export interface FLRegistrierungAdmitPayload {
   spieler_id: string | null;
 }
-
-export type FLRegistrierungConfirmationDeadlineDays = 14;
 
 /**
  * One pupil's own answer: their date of birth and the two consents.
@@ -3938,14 +3913,6 @@ export type FLRegistrierungMinAgeYears = 16;
  */
 export interface FLRegistrierungSweepResponse {
   failed: number;
-}
-
-/**
- * One season's pending registrations, newest first.
- */
-export interface FLRegistrierungenAdminListResponse {
-  complete: boolean;
-  registrierungen: FLRegistrierungAdminRow[];
 }
 
 /**
@@ -4197,8 +4164,6 @@ export interface FLSchiedsrichterAccountEinwilligungPayload {
   scope: FLEinwilligungScope;
   text_versions: FLSchiedsrichterTextVersions;
 }
-
-export type FLSchiedsrichterConfirmationDeadlineDays = 14;
 
 export interface FLSchiedsrichterConfirmationPayload {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -5333,7 +5298,6 @@ export interface FLTeamOverviewResponse {
   /** @minLength 1 */
   name: string;
   registrierungen: FLTeamPanelRegistrierung[];
-  registrierungen_complete: boolean;
   saison_id: string;
   seats: FLTeamSeat[];
   /** @minLength 1 */
@@ -5609,10 +5573,6 @@ export type BewerbungenGetBewerbungenAdminParams = {
 
 export type IdentitySweepErasureParams = {
   after?: string | null;
-};
-
-export type RegistrierungenGetRegistrierungenAdminParams = {
-  saison_id: string;
 };
 
 export type SchiedsrichterGetSchiedsrichterParams = {

@@ -43,19 +43,16 @@ BIRTH_DATE_MAX_AGE_YEARS: Final = 120
 type FLSignatoryMinAgeYears = Literal[18]
 SIGNATORY_MIN_AGE_YEARS: Final[FLSignatoryMinAgeYears] = 18
 
-# How long an application's three people have to confirm their own seats before it is deleted; a
-# re-send restarts the clock. Days rather than a date, so the deadline is derived from the mint and
-# never stored twice.
-type FLBewerbungConfirmationDeadlineDays = Literal[14]
-BEWERBUNG_CONFIRMATION_DEADLINE_DAYS: Final[FLBewerbungConfirmationDeadlineDays] = 14
+# How long every link asking a person to confirm themselves answers: an application's seat, a season row's seat, a
+# pupil's registration and a referee's entry, a re-send restarting the clock. A declined application or registration
+# goes this long after its decision too, as an unconfirmed one goes after its deadline, so the privacy notice states one
+# figure for both. A row stores the deadline it was given, so raising this moves no link already mailed. Published, since
+# the privacy notice, the mails and the link pages state it.
+type FLConfirmationDeadlineDays = Literal[14]
+CONFIRMATION_DEADLINE_DAYS: Final[FLConfirmationDeadlineDays] = 14
 # The age at which one seat's link is due its single reminder, counted from the mint and set more
-# than a week inside `BEWERBUNG_CONFIRMATION_DEADLINE_DAYS`, so a person reminded still has time to answer.
+# than a week inside `CONFIRMATION_DEADLINE_DAYS`, so a person reminded still has time to answer.
 BEWERBUNG_REMINDER_DAYS: Final = 3
-
-# A declined application or registration goes as an unconfirmed one does, which the check below holds. Published as a
-# schema of its own: the registration's decline mail and the privacy notice state it, each checked against this alias.
-type FLDeclinedRetentionDays = Literal[14]
-DECLINED_RETENTION_DAYS: Final[FLDeclinedRetentionDays] = BEWERBUNG_CONFIRMATION_DEADLINE_DAYS
 
 # The raw confirmation token as it arrives on every public consent endpoint, a referee's included:
 # one mint spells them all. Wide over the 43 characters `secrets.token_urlsafe(32)` mints, and a
@@ -148,10 +145,6 @@ ERASURE_REASON_MAX_LENGTH: Final = 200
 type FLBanDurationSaisons = Literal[5]
 BAN_DURATION_SAISONS: Final[FLBanDurationSaisons] = 5
 
-# How long a referee has to confirm; a re-send restarts it.
-type FLSchiedsrichterConfirmationDeadlineDays = Literal[14]
-SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS: Final[FLSchiedsrichterConfirmationDeadlineDays] = 14
-
 # How long a step of an address change waits from its asking: the new mailbox's link, or the question
 # the person's own change asks the address on file. NIST SP 800-63B-4 `#issuedrecovery` caps an emailed recovery code
 # at 24 hours.
@@ -234,17 +227,6 @@ AUFSTELLUNG_STARTERS_MAX: Final[FLAufstellungStartersMax] = 11
 # other.
 SCHIEDSRICHTER_MIN_AGE_YEARS: Final = 16
 
-# How long a pupil has to confirm their own registration; a row stores the deadline it was given, so raising this
-# moves no link already mailed. Published, since the confirmation mail states the figure.
-type FLRegistrierungConfirmationDeadlineDays = Literal[14]
-REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS: Final[FLRegistrierungConfirmationDeadlineDays] = 14
-
-# The privacy notice states one figure for an unconfirmed and a declined application's contacts, and one for an
-# unconfirmed and a declined registration, each confirmation window standing for its declined row's wait: a window moved
-# alone would leave the notice stating a wait the sweep no longer keeps.
-if not DECLINED_RETENTION_DAYS == BEWERBUNG_CONFIRMATION_DEADLINE_DAYS == REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS:
-    raise RuntimeError("A declined row goes as an unconfirmed one does: move both confirmation windows and the declined wait together.")
-
 # The age a pupil consents at. Its own constant rather than the referee's or the application
 # contact's, though the numbers agree: the floors are separate judgements, so raising one must not
 # silently raise another.
@@ -260,11 +242,9 @@ MEDIA_MIN_AGE_YEARS: Final[FLMediaMinAgeYears] = 18
 # Published as schemas of their own: the privacy notice and the consent pages state each figure, and the frontend
 # checks its constants against these aliases.
 CONSENT_BOUNDS: Final = (
-    FLBewerbungConfirmationDeadlineDays,
+    FLConfirmationDeadlineDays,
     FLBewerbungKontaktMinAgeYears,
     FLSignatoryMinAgeYears,
-    FLSchiedsrichterConfirmationDeadlineDays,
-    FLRegistrierungConfirmationDeadlineDays,
     FLRegistrierungMinAgeYears,
     FLMediaMinAgeYears,
 )

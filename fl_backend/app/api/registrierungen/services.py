@@ -13,18 +13,14 @@ from app.api.saisons.services import entry_is_a_nominee
 from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError
-from app.shared.age import whole_years_between
+from app.core.exceptions import APIError, link_expired
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_evidence import TextVersions, compose_initial, compose_renewed
 from app.shared.folding import person_name_key, sign_in_identifier
+from app.shared.links import deadline_passed
 from app.shared.mailbox import mailbox_pattern
 from app.shared.saison import season_has_ended
-from app.shared.schemas.bounds import (
-    BIRTH_DATE_MAX_AGE_YEARS,
-    DECLINED_RETENTION_DAYS,
-    REGISTRIERUNG_MIN_AGE_YEARS,
-)
+from app.shared.schemas.bounds import CONFIRMATION_DEADLINE_DAYS
 from app.shared.schemas.literals import FLConfirmationState
 
 # The state a submission arrives in, and the only one it may arrive in: the other is written by the
@@ -45,14 +41,16 @@ def saison_takes_registrierungen(*, saison_status: Any, registrierung: Any) -> b
     return registrierung is not None and saison_status == "active" and bool(registrierung["open"])
 
 
-def find_window_refusal(*, saison_status: Any, registrierung: Any) -> APIError | None:
-    """Why this season takes no registration today, or `None`.
+def find_closed_refusal(*, saison_status: Any, registrierung: Any, entered: bool) -> APIError | None:
+    """`registrierung_closed`: this season takes no registration today, or the season holds no row of the link's club.
 
-    One code for every way `saison_takes_registrierungen` says no: naming which would report a
-    season's administrative state to an anonymous visitor.
+    One code for every way `saison_takes_registrierungen` says no: naming which would report a season's administrative
+    state to an anonymous visitor. A club out of the season answers it too rather than the squad write's
+    `kader_team_not_in_saison`, which is worded for an administrator entering a player; the link's view tells the two
+    apart by its `running` and `team_entered`.
     """
 
-    if saison_takes_registrierungen(saison_status=saison_status, registrierung=registrierung):
+    if entered and saison_takes_registrierungen(saison_status=saison_status, registrierung=registrierung):
         return None
 
     return APIError(HTTPStatus.CONFLICT, Code.REGISTRIERUNG_CLOSED)
@@ -189,23 +187,9 @@ def registrierung_is_confirmed(*, einwilligung: Any) -> bool:
     return is_confirmed(einwilligung)
 
 
-def registrierung_was_left_unmailed(*, confirmation: Any) -> bool:
-    """Whether no mail is owed this row, which the block's null `sent_at` keeps.
-
-    Its submission's or its address move's mailbox stood past `OPEN_LINKS_PER_MAILBOX`, or the move found its link over.
-    """
-
-    return isinstance(confirmation, Mapping) and confirmation.get("sent_at") is None
-
-
 # No token hash leaves a team's read of its registration. An exclusion: an inclusion list would restate every field
 # a registration holds.
 WITHOUT_TOKEN_HASHES: Mapping[str, int] = {"confirmation.token_hashes": 0}
-
-
-# What the admin list reads of a row, the consent's stamp alone of its record, which `registrierung_is_confirmed` judges,
-# and the mail's, which `registrierung_was_left_unmailed` does.
-REGISTRIERUNG_LIST_FIELDS: Final = ("first_name", "last_name", "team_id", "submitted_at", "einwilligung.confirmed_at", "confirmation.sent_at")
 
 
 def build_registrierungen_sort() -> list[tuple[str, int]]:
@@ -228,33 +212,25 @@ def build_confirmation_filter(*, token_hash: str) -> Mapping[str, Any]:
     return {"confirmation.token_hashes": token_hash}
 
 
-# An inclusion, so the rest of a registration -- the names, the address, the shirt number, the position and the
-# Stufe -- is what this base-tier read cannot serve.
+# What the link's view and its answer read. An inclusion, so the rest of a registration -- the names, the address, the
+# shirt number, the position and the Stufe -- is what this base-tier read cannot serve; the `_id` it carries keys the
+# answer's write, and the view builds its answer field by field.
 
 # Neither hash is projected: the filter above matches on them, and a hash a handler never reads is a
 # credential carried through a base-tier request for nothing.
-CONFIRMATION_VIEW_FIELDS: Mapping[str, int] = {
+CONFIRMATION_FIELDS: Mapping[str, int] = {
     "confirmation.deadline": 1,
     "status": 1,
     "saison_id": 1,
     "team_id": 1,
     # The stamp alone: nothing the pupil answered reaches the link's view.
     "einwilligung.confirmed_at": 1,
-    # Suppressed here alone: only the answer's read below has a patch filter to key on it.
-    "_id": 0,
-}
-
-# The view's fields beside the id its write is keyed on: the press judges the link, the stamp and the club's row.
-CONFIRMATION_ANSWER_FIELDS: Mapping[str, int] = {
-    "confirmation.deadline": 1,
-    "status": 1,
-    "saison_id": 1,
-    "team_id": 1,
-    "einwilligung.confirmed_at": 1,
 }
 
 
-def deadline_of(confirmation: Any) -> Any:
+def stored_deadline(confirmation: Any) -> Any:
+    """The day the row's link stops answering, as its block stores it, or `None` where it holds no block."""
+
     return confirmation.get("deadline") if isinstance(confirmation, Mapping) else None
 
 
@@ -265,12 +241,10 @@ def link_is_over(*, confirmation: Any, status: Any, departed: bool, today: str) 
     if status != SUBMITTED or departed:
         return True
 
-    # No readable deadline is over rather than running: nothing about such a block can say it runs.
-    deadline = deadline_of(confirmation)
+    deadline = stored_deadline(confirmation)
 
-    # Strictly past, so the deadline's own day still answers: the mail names that day, and a link
-    # dying at the midnight before it lies to the person reading the mail.
-    return not isinstance(deadline, str) or deadline < today
+    # No readable deadline is over rather than running: nothing about such a block can say it runs.
+    return not isinstance(deadline, str) or deadline_passed(deadline=deadline, today=today)
 
 
 def state_of(*, registrierung_raw: Mapping[str, Any], departed: bool, today: str) -> FLConfirmationState:
@@ -289,26 +263,10 @@ def state_of(*, registrierung_raw: Mapping[str, Any], departed: bool, today: str
     return "expired" if over else "valid"
 
 
-def find_unknown_token_refusal(*, found: bool) -> APIError | None:
-    """Why this token opens nothing, or `None`.
-
-    One answer for unknown and for swept with the registration: nothing tells either from a stranger's
-    guess, and naming which would say more than the guess knew.
-    """
-
-    if found:
-        return None
-
-    return APIError(HTTPStatus.NOT_FOUND, Code.LINK_INVALID)
-
-
 def find_expired_token_refusal(*, confirmation: Any, status: Any, departed: bool, today: str) -> APIError | None:
     """Why this link is over, or `None`. Judged before the stamp: a registration decided while the link stood open takes no answer either."""
 
-    if not link_is_over(confirmation=confirmation, status=status, departed=departed, today=today):
-        return None
-
-    return APIError(HTTPStatus.GONE, Code.LINK_EXPIRED)
+    return link_expired() if link_is_over(confirmation=confirmation, status=status, departed=departed, today=today) else None
 
 
 def find_already_confirmed_refusal(*, einwilligung: Any) -> APIError | None:
@@ -318,21 +276,6 @@ def find_already_confirmed_refusal(*, einwilligung: Any) -> APIError | None:
         return None
 
     return APIError(HTTPStatus.CONFLICT, Code.CONFIRMATION_EXISTS)
-
-
-def find_age_refusal(*, birth_date: str, today: str) -> APIError | None:
-    """Why the typed date is refused, or `None`. Judged before any write, so a mistyped year spends nothing."""
-
-    # The pupil's own floor and never a contact seat's, so raising one cannot silently raise the other.
-    if REGISTRIERUNG_MIN_AGE_YEARS <= whole_years_between(born=birth_date, today=today) <= BIRTH_DATE_MAX_AGE_YEARS:
-        return None
-
-    return APIError(
-        HTTPStatus.UNPROCESSABLE_CONTENT,
-        Code.CONFIRMATION_AGE,
-        fields=(("birth_date",),),
-        bounds={"min": REGISTRIERUNG_MIN_AGE_YEARS, "max": BIRTH_DATE_MAX_AGE_YEARS},
-    )
 
 
 def build_addresses_filter(addresses: Iterable[str]) -> Mapping[str, Any]:
@@ -416,14 +359,13 @@ def build_decline_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
     one, and the stall refuses the pass.
     """
 
-    return {"saison_id": saison_id, "status": DECLINED, "decision.made_at": {"$lte": days_after(day=today, days=-DECLINED_RETENTION_DAYS)}}
+    return {"saison_id": saison_id, "status": DECLINED, "decision.made_at": {"$lte": days_after(day=today, days=-CONFIRMATION_DEADLINE_DAYS)}}
 
 
 def confirmation_erasure_is_due(*, registrierung_raw: Mapping[str, Any], today: str) -> bool:
-    """Whether the deadline clock takes this registration, strictly past its `deadline`.
+    """Whether the deadline clock takes this registration, its link's deadline passed; a row holding none is never due.
 
-    Strictly, because the link still answers on the deadline's own day. No notice goes out either
-    way.
+    No notice goes out either way.
     """
 
     if registrierung_raw.get("status") != SUBMITTED:
@@ -432,9 +374,7 @@ def confirmation_erasure_is_due(*, registrierung_raw: Mapping[str, Any], today: 
     if registrierung_is_confirmed(einwilligung=registrierung_raw.get("einwilligung")):
         return False
 
-    deadline = deadline_of(registrierung_raw.get("confirmation"))
-
-    return isinstance(deadline, str) and deadline < today
+    return deadline_passed(deadline=stored_deadline(registrierung_raw.get("confirmation")), today=today)
 
 
 def undecided_erasure_is_due(*, registrierung_raw: Mapping[str, Any], saison_status: Any) -> bool:
@@ -456,7 +396,7 @@ def decline_erasure_is_due(*, registrierung_raw: Mapping[str, Any], today: str) 
     decision = registrierung_raw.get("decision")
     made_at = decision.get("made_at") if isinstance(decision, Mapping) else None
 
-    return isinstance(made_at, str) and days_after(day=made_at, days=DECLINED_RETENTION_DAYS) <= today
+    return isinstance(made_at, str) and days_after(day=made_at, days=CONFIRMATION_DEADLINE_DAYS) <= today
 
 
 def build_open_filter(*, saison_id: str, team_id: Any) -> Mapping[str, Any]:

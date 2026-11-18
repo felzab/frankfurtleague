@@ -7,7 +7,6 @@ from app.api.bewerbungen.services import (
     claimed_pair_seat,
     compose_einwilligung,
     confirmation_deadline_from,
-    deadline_passed,
     row_takes_confirmations,
     seat_is_answered,
 )
@@ -24,6 +23,7 @@ from app.core.collections import Collection
 from app.core.exceptions import APIError
 from app.shared.einwilligung import is_confirmed
 from app.shared.folding import normalise_phone, person_name_key, sign_in_identifier
+from app.shared.links import deadline_passed
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import KONTAKT_SEATS, FLGruppenNames, FLKontaktRow, FLKontaktSeat, FLTrikotFarbe
 

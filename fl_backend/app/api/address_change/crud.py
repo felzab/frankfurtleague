@@ -57,11 +57,11 @@ from app.core.clock import days_after, german_day
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, delete_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db
-from app.core.exceptions import APIError
+from app.core.exceptions import APIError, link_expired
 from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS
+from app.shared.schemas.bounds import CONFIRMATION_DEADLINE_DAYS
 from app.shared.schemas.literals import FLAddressChangeEndKind, FLAddressChangeWay, FLAdminTier
 
 _SPIELER_FIELDS: Final[Mapping[str, int]] = {"email": 1, "einwilligung": 1}
@@ -528,7 +528,7 @@ def refusal_of(cause: FLAddressChangeCause | None) -> APIError | None:
         case None:
             return None
         case "expired":
-            return APIError(HTTPStatus.GONE, Code.LINK_EXPIRED)
+            return link_expired()
         case "taken" | "new_granted" | "occupied":
             return APIError(HTTPStatus.CONFLICT, Code.ADDRESS_CHANGE_TAKEN)
 
@@ -754,9 +754,7 @@ async def _move_the_registrierung_in_session(
     )
     if mailed:
         update["$set"] |= {
-            "confirmation": compose_confirmation(
-                today=today, deadline=days_after(day=today, days=REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS), mailed=True
-            )
+            "confirmation": compose_confirmation(today=today, deadline=days_after(day=today, days=CONFIRMATION_DEADLINE_DAYS), mailed=True)
         }
     else:
         update["$set"] |= {"confirmation.token_hashes": [], "confirmation.sent_at": None}

@@ -6,23 +6,20 @@ from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterConfirmationViewResponse,
 )
 from app.api.schiedsrichter.services import (
-    CONFIRMATION_ANSWER_FIELDS,
     CONFIRMATION_FIELD,
-    CONFIRMATION_VIEW_FIELDS,
+    CONFIRMATION_FIELDS,
     EINWILLIGUNG_FIELD,
     answered_at_of,
     build_token_filter,
     compose_confirmation_update,
     compose_decline_update,
-    find_age_refusal,
     find_already_answered_refusal,
     find_expired_token_refusal,
-    find_unknown_token_refusal,
     state_of,
 )
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
-from app.core.crud import patch_past_the_version_in_db, refuse
+from app.core.crud import patch_past_the_version_in_db, pull_by_token, refuse
 from app.core.dependencies import (
     DBClient,
     GermanDay,
@@ -35,6 +32,7 @@ from app.core.routing import SAFE
 from app.core.security import BASE_TIER
 from app.core.transactions import transact
 from app.shared.einwilligung import find_self_media_refusal
+from app.shared.links import find_age_refusal
 from app.shared.schemas.bounds import BIRTH_DATE_MAX_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.einwilligung import by_choice
@@ -66,10 +64,9 @@ async def get_confirmation_view(
     # A POST that reads, so the token travels in a body and never in a URL.
     token_hash = hash_token(view_data.token)
 
-    # `find_one` rather than `pull_one_from_db`: a miss is this endpoint's own refusal, never a 404.
-    raw = await schiedsrichter_collection.find_one(build_token_filter(token_hash=token_hash), projection=dict(CONFIRMATION_VIEW_FIELDS))
-    refuse(find_unknown_token_refusal(found=raw is not None))
-    assert raw is not None
+    raw = await pull_by_token(
+        collection=schiedsrichter_collection, db_filter=build_token_filter(token_hash=token_hash), projection=CONFIRMATION_FIELDS
+    )
 
     block = raw[CONFIRMATION_FIELD]
     einwilligung = raw.get(EINWILLIGUNG_FIELD)
@@ -113,18 +110,19 @@ async def post_confirmation(
         Outside one, it would overwrite the answer already given.
         """
 
-        raw = await schiedsrichter_collection.find_one(
-            build_token_filter(token_hash=token_hash), projection=dict(CONFIRMATION_ANSWER_FIELDS), session=session
+        raw = await pull_by_token(
+            collection=schiedsrichter_collection,
+            db_filter=build_token_filter(token_hash=token_hash),
+            projection=CONFIRMATION_FIELDS,
+            session=session,
         )
-        refuse(find_unknown_token_refusal(found=raw is not None))
-        assert raw is not None
 
         # The stamp is asked first, as `state_of` ranks it: a person who answered on the last
         # valid day and presses again is told their answer stands, never that the link expired and
         # to ask for another.
         refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FIELD), confirmation=raw[CONFIRMATION_FIELD]))
         refuse(find_expired_token_refusal(deadline=raw[CONFIRMATION_FIELD]["deadline"], today=today))
-        refuse(find_age_refusal(birth_date=answer_data.birth_date, today=today))
+        refuse(find_age_refusal(birth_date=answer_data.birth_date, today=today, minimum_age=SCHIEDSRICHTER_MIN_AGE_YEARS))
         refuse(find_self_media_refusal(saved=None, media=answer_data.media, birth_date=answer_data.birth_date, today=today))
 
         # The person's own press, judged on the read above, on fields the referee editor never saves: an editor's save
@@ -171,11 +169,12 @@ async def post_decline(
     async def object_for_the_person(session: AsyncClientSession) -> None:
         """One transaction for a single update, so a second press landing between the read and the write is refused by the first answer."""
 
-        raw = await schiedsrichter_collection.find_one(
-            build_token_filter(token_hash=token_hash), projection=dict(CONFIRMATION_ANSWER_FIELDS), session=session
+        raw = await pull_by_token(
+            collection=schiedsrichter_collection,
+            db_filter=build_token_filter(token_hash=token_hash),
+            projection=CONFIRMATION_FIELDS,
+            session=session,
         )
-        refuse(find_unknown_token_refusal(found=raw is not None))
-        assert raw is not None
 
         refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FIELD), confirmation=raw[CONFIRMATION_FIELD]))
         refuse(find_expired_token_refusal(deadline=raw[CONFIRMATION_FIELD]["deadline"], today=today))

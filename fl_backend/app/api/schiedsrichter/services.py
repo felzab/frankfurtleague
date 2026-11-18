@@ -15,17 +15,13 @@ from app.core import clock
 from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError
-from app.shared.age import whole_years_between
+from app.core.exceptions import APIError, link_expired
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_evidence import TextVersions, compose_initial
 from app.shared.folding import league_address, sign_in_identifier
+from app.shared.links import deadline_passed
 from app.shared.saison import season_has_ended
-from app.shared.schemas.bounds import (
-    BIRTH_DATE_MAX_AGE_YEARS,
-    SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS,
-    SCHIEDSRICHTER_MIN_AGE_YEARS,
-)
+from app.shared.schemas.bounds import CONFIRMATION_DEADLINE_DAYS
 
 
 def build_assignment_filter(schiedsrichter_id: Any) -> Mapping[str, Any]:
@@ -106,7 +102,7 @@ def build_erasure_due_filter(*, now: datetime) -> Mapping[str, Any]:
 def confirmation_deadline_from(*, today: str) -> str:
     """The day the link stops working, counted from the mint -- a re-send restarts it."""
 
-    return days_after(day=today, days=SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS)
+    return days_after(day=today, days=CONFIRMATION_DEADLINE_DAYS)
 
 
 def erase_at_from(*, deadline: str) -> datetime:
@@ -174,16 +170,10 @@ def build_token_filter(*, token_hash: str) -> Mapping[str, Any]:
     return {TOKEN_HASHES_PATH: token_hash}
 
 
-def link_is_over(*, deadline: str, today: str) -> bool:
-    """Whether the deadline has passed: its own day still takes the answer."""
-
-    return deadline < today
-
-
-def deadline_passed(block: Mapping[str, Any] | None, *, today: str) -> bool:
+def confirmation_expired(block: Mapping[str, Any] | None, *, today: str) -> bool:
     """Whether the link a referee holds has passed its deadline; false where they hold none."""
 
-    return block is not None and link_is_over(deadline=block["deadline"], today=today)
+    return block is not None and deadline_passed(deadline=block["deadline"], today=today)
 
 
 def is_declined(confirmation: Any) -> bool:
@@ -210,7 +200,7 @@ def state_of(*, einwilligung: Any, confirmation: Mapping[str, Any], today: str) 
     if is_declined(confirmation):
         return "declined"
 
-    return "expired" if link_is_over(deadline=confirmation["deadline"], today=today) else "valid"
+    return "expired" if deadline_passed(deadline=confirmation["deadline"], today=today) else "valid"
 
 
 def answered_at_of(*, state: FLSchiedsrichterConfirmationState, einwilligung: Any, confirmation: Mapping[str, Any]) -> str | None:
@@ -225,26 +215,10 @@ def answered_at_of(*, state: FLSchiedsrichterConfirmationState, einwilligung: An
     return None
 
 
-def find_unknown_token_refusal(*, found: bool) -> APIError | None:
-    """Why this token opens nothing, or `None`.
-
-    One answer for unknown, replaced by a later mint, and deleted with the referee: nothing
-    distinguishes them from a stranger's guess, and naming which would say more than the guess knew.
-    """
-
-    if found:
-        return None
-
-    return APIError(HTTPStatus.NOT_FOUND, Code.LINK_INVALID)
-
-
 def find_expired_token_refusal(*, deadline: str, today: str) -> APIError | None:
     """Why this link is over, or `None`."""
 
-    if not link_is_over(deadline=deadline, today=today):
-        return None
-
-    return APIError(HTTPStatus.GONE, Code.LINK_EXPIRED)
+    return link_expired() if deadline_passed(deadline=deadline, today=today) else None
 
 
 def find_already_answered_refusal(*, einwilligung: Any, confirmation: Any) -> APIError | None:
@@ -255,23 +229,6 @@ def find_already_answered_refusal(*, einwilligung: Any, confirmation: Any) -> AP
         return None
 
     return APIError(HTTPStatus.CONFLICT, Code.CONFIRMATION_EXISTS)
-
-
-def find_age_refusal(*, birth_date: str, today: str) -> APIError | None:
-    """Why the typed date is refused, or `None`. Judged before any write, so a mistyped year spends nothing.
-
-    The bounds go with the refusal, so the field's message names the range the write judges.
-    """
-
-    if SCHIEDSRICHTER_MIN_AGE_YEARS <= whole_years_between(born=birth_date, today=today) <= BIRTH_DATE_MAX_AGE_YEARS:
-        return None
-
-    return APIError(
-        HTTPStatus.UNPROCESSABLE_CONTENT,
-        Code.CONFIRMATION_AGE,
-        fields=(("birth_date",),),
-        bounds={"min": SCHIEDSRICHTER_MIN_AGE_YEARS, "max": BIRTH_DATE_MAX_AGE_YEARS},
-    )
 
 
 def find_retired_refusal(*, inactive_since: Any) -> APIError | None:
@@ -363,18 +320,10 @@ def owes_reactivation_mint(*, stored: Mapping[str, Any]) -> bool:
     )
 
 
-# An inclusion and never an exclusion: a base-tier caller holds the whole credential, so the rest
-# of the row is what must not reach them.
-CONFIRMATION_VIEW_FIELDS: Mapping[str, int] = {
-    f"{EINWILLIGUNG_FIELD}.confirmed_at": 1,
-    f"{CONFIRMATION_FIELD}.deadline": 1,
-    DECLINED_AT_PATH: 1,
-    # Suppressed here alone: this endpoint stores nothing, so it needs no key to patch on.
-    "_id": 0,
-}
-
-# The answer takes its wording from the payload rather than the row.
-CONFIRMATION_ANSWER_FIELDS: Mapping[str, int] = {
+# What the link's view and its two answers read. An inclusion and never an exclusion: a base-tier caller holds the whole
+# credential, so the rest of the row is what must not reach them. The `_id` it carries keys an answer's write, and the
+# view builds its answer field by field; an answer takes its wording from the payload rather than the row.
+CONFIRMATION_FIELDS: Mapping[str, int] = {
     f"{EINWILLIGUNG_FIELD}.confirmed_at": 1,
     f"{CONFIRMATION_FIELD}.deadline": 1,
     DECLINED_AT_PATH: 1,

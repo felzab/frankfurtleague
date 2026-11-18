@@ -1,6 +1,6 @@
 import "server-only";
 
-import { DECLINED_RETENTION_DAYS } from "./bounds";
+import { CONFIRMATION_DEADLINE_DAYS } from "./bounds";
 import { COPY, seatsText } from "./copy";
 import { mailOrigin } from "./emailShell";
 import { dayOf, formatDateLong } from "./format";
@@ -86,7 +86,7 @@ export function buildBewerbungAbsageEmail({ team, saison_id, seats, reason }: FL
       [
         [WORDS.absage.lead.before, { strong: team }, WORDS.absage.lead.after(saison_id)],
         WORDS.absage.decision,
-        WORDS.absage.deletion(DECLINED_RETENTION_DAYS),
+        WORDS.absage.deletion(CONFIRMATION_DEADLINE_DAYS),
       ],
     ],
     block: {

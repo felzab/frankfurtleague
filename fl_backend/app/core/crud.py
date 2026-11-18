@@ -25,7 +25,7 @@ from pymongo.results import DeleteResult, InsertManyResult, InsertOneResult, Upd
 
 from app.core.codes import Code
 from app.core.collections import EDITED_COLLECTIONS
-from app.core.exceptions import APIError, DocumentNotFoundError
+from app.core.exceptions import APIError, DocumentNotFoundError, link_invalid
 from app.core.readonly import ReadCollection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
@@ -50,6 +50,25 @@ async def pull_one_from_db(
     doc = await collection.find_one(filter=db_filter, projection=projection or {}, session=session)
     if doc is None:
         raise DocumentNotFoundError()
+
+    return doc
+
+
+async def pull_by_token(
+    *,
+    collection: ReadCollection,
+    db_filter: Mapping[str, Any],
+    projection: Mapping[str, Any],
+    session: AsyncClientSession | None = None,
+) -> Mapping[str, Any]:
+    """The record a mailed link's token opens, a miss answering `link_invalid` rather than `document_not_found`.
+
+    An answer's read passes its transaction's `session`, so a second press is refused by the first answer it sees.
+    """
+
+    doc = await collection.find_one(filter=db_filter, projection=projection, session=session)
+    if doc is None:
+        raise link_invalid()
 
     return doc
 

@@ -351,7 +351,7 @@ async def get_team_overview(
         team_id=team_id,
         session=session,
     )
-    opened = await pull_open_registrierungen(
+    pending = await pull_open_registrierungen(
         registrierungen_collection=registrierungen_collection, saison_id=saison_id, team_id=team_id, session=session
     )
 
@@ -412,9 +412,8 @@ async def get_team_overview(
                     "admissible": registrierung_is_confirmed(einwilligung=registrierung.get("einwilligung")),
                 }
             )
-            for registrierung in opened.rows
+            for registrierung in pending
         ],
-        registrierungen_complete=opened.complete,
         seats=_seats_of(kontakte),
     )
 

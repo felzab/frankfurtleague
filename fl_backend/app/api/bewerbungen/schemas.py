@@ -10,7 +10,6 @@ from app.api.outbox.schemas import FLOutboxStatus
 from app.api.teams.schemas import FLSaisonTeamKontakte, FLSaisonTeamKontakteRecord, FLTrainerAlso, _KontaktpersonWritablePayload
 from app.core.crud import Anchored
 from app.core.exceptions import rule_refusal
-from app.shared.age import whole_years_between
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
     ADDRESS_DISTRICT_MAX_LENGTH,
@@ -19,7 +18,6 @@ from app.shared.schemas.bounds import (
     BEWERBUNG_STUFENGROESSE_MAX,
     BEWERBUNG_TRIKOT_SET_MAX_LENGTH,
     BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
-    BIRTH_DATE_MAX_AGE_YEARS,
     SAISON_ID_LENGTH,
     TEAM_FULL_NAME_MAX_LENGTH,
     TEAM_NAME_MAX_LENGTH,
@@ -273,9 +271,6 @@ class FLBewerbungenAdminListResponse(BaseReadModel):
 
     saison: FLBewerbungEntryOffer
     bewerbungen: list[FLBewerbungListRow]
-    # Whether every row was served, which an administrator must be able to trust: this is the one list an anonymous
-    # party writes rows into. A cut drops unconfirmed rows alone, the oldest first.
-    complete: bool
 
 
 class FLBewerbungEntry(BaseModel):
@@ -303,18 +298,6 @@ class FLBewerbungSingleResponse(BaseReadModel):
 
 # Every model of the public submission below is reached from a request body alone, so each forbids an undeclared key;
 # the read models above stay lax.
-
-
-def age_outside_the_bounds(*, birth_date: str, today: str, minimum_age: int) -> bool:
-    """Whether the league would hold no details for this contact person, in whole years against `today`.
-
-    `today` a parameter, so both boundaries are pinnable without a clock; above the ceiling the date is a typo.
-    """
-
-    age = whole_years_between(born=birth_date, today=today)
-
-    # The caller's floor, never a constant read here: a person's is the highest of the seats they hold.
-    return not minimum_age <= age <= BIRTH_DATE_MAX_AGE_YEARS
 
 
 class FLBewerbungKontaktpersonPayload(_KontaktpersonWritablePayload):

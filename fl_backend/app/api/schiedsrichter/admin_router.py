@@ -28,7 +28,7 @@ from app.api.schiedsrichter.services import (
     compose_correction_update,
     compose_mint_update,
     confirmation_deadline_from,
-    deadline_passed,
+    confirmation_expired,
     find_already_answered_refusal,
     find_confirmed_address_refusal,
     find_missing_address_refusal,
@@ -110,7 +110,7 @@ async def get_schiedsrichter_by_id(
 
     return FLSchiedsrichterSingleResponse(
         schiedsrichter=FLSchiedsrichter(**schiedsrichter_raw),
-        confirmation_expired=deadline_passed(schiedsrichter_raw.get(CONFIRMATION_FIELD), today=today),
+        confirmation_expired=confirmation_expired(schiedsrichter_raw.get(CONFIRMATION_FIELD), today=today),
         delivery=await state_of(
             outbox_collection=outbox_collection,
             reference=FLOutboxReference(collection=Collection.SCHIEDSRICHTER, id=schiedsrichter_raw["_id"], seat=None),

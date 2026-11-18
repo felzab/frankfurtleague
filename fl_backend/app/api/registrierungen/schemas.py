@@ -82,7 +82,7 @@ class FLRegistrierungRecord(_RegistrierungStored):
     confirmation: FLRegistrierungConfirmationRecord | None
     decision: FLRegistrierungDecision | None
     # The submission's replay key.
-    idempotency_key: str | None = None
+    idempotency_key: str
 
 
 class FLInvitationViewResponse(BaseReadModel):
@@ -121,30 +121,6 @@ class FLPostRegistrierungPayload(BasePayload):
     # Tightened on the write side alone.
     nummer: str | None = Field(pattern=KADER_NUMMER_PATTERN)
     stufe: FLSpielerStufe | None
-
-
-class FLRegistrierungAdminRow(BaseReadModel):
-    """One pending registration as the Registrierungen list shows it: the pupil's name and nothing else of them."""
-
-    id: CustomObjectId
-    first_name: CustomNonEmptyString
-    last_name: CustomNonEmptyString
-    team_id: CustomObjectId
-    # The name the club plays the season under; null for a club no longer standing in the season.
-    team_name: str | None
-    submitted_at: CustomDateString
-    # Composed by the read, off the consent record's own stamp.
-    confirmed: bool
-    # Composed by the read, off the mail's own stamp.
-    unmailed: bool
-
-
-class FLRegistrierungenAdminListResponse(BaseReadModel):
-    """One season's pending registrations, newest first."""
-
-    registrierungen: list[FLRegistrierungAdminRow]
-    # Whether every row was served, which an administrator must be able to trust.
-    complete: bool
 
 
 # The confirmation's token is the whole credential, so both its endpoints are base-tier and every
@@ -242,8 +218,6 @@ class FLOpenRegistrierungenResponse(BaseReadModel):
     team_id: CustomObjectId
     saison_id: str
     registrierungen: list[FLOpenRegistrierung]
-    # Whether every pending registration is listed: false where the read's cap cut some, the confirmed ones kept first.
-    complete: bool
 
 
 class FLRegistrierungAdmitPayload(BasePayload):

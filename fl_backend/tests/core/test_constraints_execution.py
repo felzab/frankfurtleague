@@ -166,7 +166,6 @@ def valid_documents() -> dict[Collection, dict[str, Any]]:
             nummer="17",
             stufe="Q1",
             invitation_id=INVITATION_OID,
-            keyed=False,
         ),
         Collection.GRANTS: grant_document("inhaberin@example.com", "owner", effective_from=datetime(2026, 1, 1, tzinfo=UTC), _id=GRANT_OID),
         # An open team row as the pass mints it.
@@ -551,7 +550,7 @@ async def test_a_teams_confirmed_registrations_are_read_past_a_flood_without_fet
         # A pipeline pushed whole into the query layer answers at the top level, one left as stages under the cursor stage.
         stats: Any = explained.get("executionStats") or explained["stages"][0]["$cursor"]["executionStats"]
         planner: Any = explained.get("queryPlanner") or explained["stages"][0]["$cursor"]["queryPlanner"]
-        served = sum(row.get("einwilligung") is not None for row in opened.rows)
+        served = sum(row.get("einwilligung") is not None for row in opened)
 
         return index_names(planner["winningPlan"]), stats["totalDocsExamined"], served
 

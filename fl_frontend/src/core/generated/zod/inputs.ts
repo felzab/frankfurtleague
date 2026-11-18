@@ -340,7 +340,7 @@ export const BanListDeleteBanListEntryParams = zod.object({
 /**
  * The season's applications, newest first, holding nothing of a person, and what an acceptance would meet there.
  *
- * A long list is cut, as `complete` says, but every application with a confirmed seat is served past the cut.
+ * A long list is cut, but every application with a confirmed seat is served past the cut.
  * @summary One Saison's Bewerbungen for its list
  */
 export const BewerbungenGetBewerbungenAdminQueryParams = zod.object({
@@ -1023,17 +1023,6 @@ export const OutboxPostSignInBody = zod
     valid_until: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   })
   .describe("One mail of the sign-in library, owed to the address it names.");
-
-/**
- * One season's pending registrations, newest first, each with its club and whether its pupil confirmed it.
- *
- * `unmailed` marks a row owed no mail, its mailbox already holding the most open links, and `complete` says whether
- * the read's cap cut the list.
- * @summary One Saison's pending Registrierungen for its list
- */
-export const RegistrierungenGetRegistrierungenAdminQueryParams = zod.object({
-  saison_id: zod.string(),
-});
 
 /**
  * Store one pupil's registration for the team and season the link belongs to, and owe its confirmation mail.

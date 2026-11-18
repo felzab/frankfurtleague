@@ -414,14 +414,13 @@ sign_in_identifier`) — trimmed and lower-case, ASCII throughout —
 
 ## 4. When the application queue has been flooded
 
-**The state announces itself, and the read degrades rather than refusing.** `GET /bewerbungen` serves at
-most `LIST_LIMIT_DEFAULT` rows and reads one row past that to answer whether more exist, so it never counts the
-filtered set (`fl_backend/app/api/bewerbungen/admin_router.py :: get_bewerbungen_admin`). Where more do exist it answers
-`complete: false` and the Bewerbungen list stands under a warning, „Nicht alle Bewerbungen sind geladen.“, that cannot
-be dismissed, its search and filters then reading the rows served: the newest, and past them every application with a
-confirmed seat. Answering short and saying so is the
-deliberate choice over refusing past a threshold: these rows are written by an anonymous public form, so a hard failure would hand whoever writes
-them the power to decide when the page stops working.
+**The read degrades rather than refusing, and the page does not say so.** `GET /bewerbungen` serves the newest
+`LIST_LIMIT_DEFAULT` rows and past them every application with a confirmed seat, and never counts the filtered set
+(`fl_backend/app/api/bewerbungen/admin_router.py :: get_bewerbungen_admin`). The Bewerbungen list shows the rows served
+and nothing of a cut, its search and filters reading those rows alone, so a flood reads as a list holding that many
+unconfirmed rows; a read-only count on `bewerbungen.saison_id`, run with `mongosh --file`, tells how many there are.
+Answering short is the deliberate choice over refusing past a threshold: these rows are written by an anonymous public
+form, so a hard failure would hand whoever writes them the power to decide when the page stops working.
 
 **What truncation costs is the oldest unconfirmed rows, which is where applications submitted before a flood sit.** The
 list is newest first, so a cut-short answer keeps the newest rows, and past them every application with a confirmed
@@ -447,12 +446,12 @@ about five seconds at production's round trip, and a press naming another mailbo
 some 300 presses at once on one mailbox pass the request's deadline, the time going on conflict retries in one process, which
 a larger pool hardly shortens: most answer 500 having stored and mailed nothing, and a few commit with the answer lost, which
 the same key replays. Whether production's one process reaches that deadline is not measured. A registration counts the same way
-(`fl_backend/app/api/registrierungen/public_router.py :: post_registrierung`), reads the same on its list and has no „Link
-senden“: its row lapses on its deadline, and a press after that is mailed.
+(`fl_backend/app/api/registrierungen/public_router.py :: post_registrierung`), but no page shows that it went unmailed and
+none offers „Link senden“: its row lapses on its deadline, and a press after that is mailed.
 
 **Declining does not shrink the working set.** A decided application stays listed, the record being what the
 decision was taken against (`fl_backend/app/api/bewerbungen/admin_router.py :: get_bewerbungen_admin`), so an operator who declines down the queue and sees the
-notice unchanged has not found a fault. Removal is not an alternative either: the collection's whole write
+list no shorter has not found a fault. Removal is not an alternative either: the collection's whole write
 surface is the two decisions (`fl_backend/app/api/bewerbungen/admin_router.py :: accept_bewerbung` and
 `:: decline_bewerbung`) plus the public submission, so a flooded row stays.
 
@@ -490,7 +489,8 @@ Where each role's data is read:
 
 - **Pupil.**
   - `/admin/saisons/{saison}/spieler/{spieler}`, in each season the person holds a squad row.
-  - `/admin/saisons/{saison}/registrierungen`, for a registration still awaiting its team.
+  - A registration still awaiting its team, which no page of the administration lists: a read-only
+    query on `registrierungen.email` finds it, run with `mongosh --file`.
   - Every match report entry naming them, a goal or a card with its colour and its minute
     (`spielberichte.bericht.scorers.spieler_id`, `spielberichte.bericht.cards.spieler_id`). No page
     lists these by person; a read-only query on those two fields finds them, run with

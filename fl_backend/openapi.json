@@ -3006,10 +3006,6 @@
         "title": "FLBewerbungConfirmation",
         "type": "object"
       },
-      "FLBewerbungConfirmationDeadlineDays": {
-        "const": 14,
-        "type": "integer"
-      },
       "FLBewerbungConfirmations": {
         "description": "The three seats' bookkeeping, each null where an erasure emptied the seat.",
         "properties": {
@@ -4099,18 +4095,13 @@
             "title": "Bewerbungen",
             "type": "array"
           },
-          "complete": {
-            "title": "Complete",
-            "type": "boolean"
-          },
           "saison": {
             "$ref": "#/components/schemas/FLBewerbungEntryOffer"
           }
         },
         "required": [
           "saison",
-          "bewerbungen",
-          "complete"
+          "bewerbungen"
         ],
         "title": "FLBewerbungenAdminListResponse",
         "type": "object"
@@ -4582,6 +4573,10 @@
         "const": "2026-11-media-1",
         "type": "string"
       },
+      "FLConfirmationDeadlineDays": {
+        "const": 14,
+        "type": "integer"
+      },
       "FLConfirmationState": {
         "enum": [
           "valid",
@@ -4628,10 +4623,6 @@
         ],
         "title": "FLDeclineBewerbungPayload",
         "type": "object"
-      },
-      "FLDeclinedRetentionDays": {
-        "const": 14,
-        "type": "integer"
       },
       "FLDeletionNoticeData": {
         "description": "The one deletion notice, to a person who confirmed what went: an application's owed by a league write, an account's here.",
@@ -6488,10 +6479,6 @@
       "FLOpenRegistrierungenResponse": {
         "description": "One team's pending registrations for one season, newest first.",
         "properties": {
-          "complete": {
-            "title": "Complete",
-            "type": "boolean"
-          },
           "registrierungen": {
             "items": {
               "$ref": "#/components/schemas/FLOpenRegistrierung"
@@ -6512,8 +6499,7 @@
         "required": [
           "team_id",
           "saison_id",
-          "registrierungen",
-          "complete"
+          "registrierungen"
         ],
         "title": "FLOpenRegistrierungenResponse",
         "type": "object"
@@ -8609,67 +8595,6 @@
         "title": "FLRegistrierungAbsageData",
         "type": "object"
       },
-      "FLRegistrierungAdminRow": {
-        "description": "One pending registration as the Registrierungen list shows it: the pupil's name and nothing else of them.",
-        "properties": {
-          "confirmed": {
-            "title": "Confirmed",
-            "type": "boolean"
-          },
-          "first_name": {
-            "minLength": 1,
-            "title": "First Name",
-            "type": "string"
-          },
-          "id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id",
-            "type": "string"
-          },
-          "last_name": {
-            "minLength": 1,
-            "title": "Last Name",
-            "type": "string"
-          },
-          "submitted_at": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Submitted At",
-            "type": "string"
-          },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
-            "type": "string"
-          },
-          "team_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Team Name"
-          },
-          "unmailed": {
-            "title": "Unmailed",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "id",
-          "first_name",
-          "last_name",
-          "team_id",
-          "team_name",
-          "submitted_at",
-          "confirmed",
-          "unmailed"
-        ],
-        "title": "FLRegistrierungAdminRow",
-        "type": "object"
-      },
       "FLRegistrierungAdmitPayload": {
         "additionalProperties": false,
         "description": "The team's answer to the question the read asked: the person this registration is admitted into, or none.",
@@ -8692,10 +8617,6 @@
         ],
         "title": "FLRegistrierungAdmitPayload",
         "type": "object"
-      },
-      "FLRegistrierungConfirmationDeadlineDays": {
-        "const": 14,
-        "type": "integer"
       },
       "FLRegistrierungConfirmationPayload": {
         "additionalProperties": false,
@@ -8896,28 +8817,6 @@
           "failed"
         ],
         "title": "FLRegistrierungSweepResponse",
-        "type": "object"
-      },
-      "FLRegistrierungenAdminListResponse": {
-        "description": "One season's pending registrations, newest first.",
-        "properties": {
-          "complete": {
-            "title": "Complete",
-            "type": "boolean"
-          },
-          "registrierungen": {
-            "items": {
-              "$ref": "#/components/schemas/FLRegistrierungAdminRow"
-            },
-            "title": "Registrierungen",
-            "type": "array"
-          }
-        },
-        "required": [
-          "registrierungen",
-          "complete"
-        ],
-        "title": "FLRegistrierungenAdminListResponse",
         "type": "object"
       },
       "FLReplaceSaisonTeamPayload": {
@@ -10040,10 +9939,6 @@
         ],
         "title": "FLSchiedsrichterConfirmationData",
         "type": "object"
-      },
-      "FLSchiedsrichterConfirmationDeadlineDays": {
-        "const": 14,
-        "type": "integer"
       },
       "FLSchiedsrichterConfirmationPayload": {
         "additionalProperties": false,
@@ -15140,10 +15035,6 @@
             "title": "Registrierungen",
             "type": "array"
           },
-          "registrierungen_complete": {
-            "title": "Registrierungen Complete",
-            "type": "boolean"
-          },
           "saison_id": {
             "title": "Saison Id",
             "type": "string"
@@ -15194,7 +15085,6 @@
           "spielbestaetigungen",
           "aufstellungen",
           "registrierungen",
-          "registrierungen_complete",
           "seats"
         ],
         "title": "FLTeamOverviewResponse",
@@ -17385,7 +17275,7 @@
     },
     "/api/bewerbungen": {
       "get": {
-        "description": "The season's applications, newest first, holding nothing of a person, and what an acceptance would meet there.\n\nA long list is cut, as `complete` says, but every application with a confirmed seat is served past the cut.",
+        "description": "The season's applications, newest first, holding nothing of a person, and what an acceptance would meet there.\n\nA long list is cut, but every application with a confirmed seat is served past the cut.",
         "operationId": "bewerbungen_get_bewerbungen_admin",
         "parameters": [
           {
@@ -18632,46 +18522,6 @@
       }
     },
     "/api/registrierungen": {
-      "get": {
-        "description": "One season's pending registrations, newest first, each with its club and whether its pupil confirmed it.\n\n`unmailed` marks a row owed no mail, its mailbox already holding the most open links, and `complete` says whether\nthe read's cap cut the list.",
-        "operationId": "registrierungen_get_registrierungen_admin",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "saison_id",
-            "required": true,
-            "schema": {
-              "title": "Saison Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLRegistrierungenAdminListResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "default": {
-            "$ref": "#/components/responses/Failure",
-            "description": "A refusal or a fault, its status naming which"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "One Saison's pending Registrierungen for its list",
-        "tags": [
-          "registrierungen"
-        ]
-      },
       "post": {
         "description": "Store one pupil's registration for the team and season the link belongs to, and owe its confirmation mail.\n\nA press repeating a stored `Idempotency-Key` answers the registration the first one stored, whatever its body says,\nand owes no second mail.",
         "operationId": "registrierungen_post_registrierung",
@@ -18679,18 +18529,11 @@
           {
             "in": "header",
             "name": "idempotency-key",
-            "required": false,
+            "required": true,
             "schema": {
-              "anyOf": [
-                {
-                  "format": "uuid4",
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Idempotency-Key"
+              "format": "uuid4",
+              "title": "Idempotency-Key",
+              "type": "string"
             }
           }
         ],

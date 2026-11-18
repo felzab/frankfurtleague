@@ -1,5 +1,4 @@
 from collections.abc import Mapping
-from http import HTTPStatus
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Header, status
@@ -17,20 +16,17 @@ from app.api.registrierungen.schemas import (
     FLRegistrierungConfirmationViewResponse,
 )
 from app.api.registrierungen.services import (
-    CONFIRMATION_ANSWER_FIELDS,
-    CONFIRMATION_VIEW_FIELDS,
+    CONFIRMATION_FIELDS,
     build_confirmation_filter,
     compose_confirmation,
     compose_confirmation_update,
     compose_registrierung,
     confirmation_mail,
-    find_age_refusal,
     find_already_confirmed_refusal,
+    find_closed_refusal,
     find_expired_token_refusal,
     find_stufe_refusal,
     find_team_departed_refusal,
-    find_unknown_token_refusal,
-    find_window_refusal,
     saison_takes_registrierungen,
     state_of,
 )
@@ -38,9 +34,8 @@ from app.api.saisons.services import entry_is_a_nominee
 from app.api.spieler.crud import pull_kader_room
 from app.api.spieler.services import find_full_kader_refusal
 from app.core.clock import days_after, utc_stamp
-from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.crud import patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
+from app.core.crud import patch_one_in_db, post_one_to_db, pull_by_token, pull_one_from_db, refuse
 from app.core.dependencies import (
     DBClient,
     GermanDay,
@@ -59,16 +54,16 @@ from app.core.dependencies import (
     SaisonTeamsReadCollection,
     TeamsReadCollection,
 )
-from app.core.exceptions import APIError
 from app.core.readonly import ReadCollection
 from app.core.routing import SAFE
 from app.core.security import BASE_TIER
 from app.core.transactions import transact
 from app.shared.einwilligung import find_self_media_refusal
 from app.shared.idempotency import build_key_filter
+from app.shared.links import find_age_refusal
 from app.shared.schemas.bounds import (
     BIRTH_DATE_MAX_AGE_YEARS,
-    REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS,
+    CONFIRMATION_DEADLINE_DAYS,
     REGISTRIERUNG_MIN_AGE_YEARS,
 )
 from app.shared.schemas.confirmation import FLTokenPayload
@@ -200,8 +195,7 @@ async def post_registrierung(
     germany_now: GermanyNow,
     # Version 4 alone: a guessable key lets a stranger store a registration under it first, and the
     # pupil's own press is then answered as that one.
-    # Optional, so a page loaded before the form sent one still submits, unprotected.
-    idempotency_key: Annotated[UUID4 | None, Header()] = None,
+    idempotency_key: Annotated[UUID4, Header()],
 ) -> FLCreatedResponse:
     """Store one pupil's registration for the team and season the link belongs to, and owe its confirmation mail.
 
@@ -209,7 +203,7 @@ async def post_registrierung(
     and owes no second mail.
     """
 
-    key = None if idempotency_key is None else str(idempotency_key)
+    key = str(idempotency_key)
 
     async def store_or_replay(session: AsyncClientSession) -> FLCreatedResponse:
         # Before every judgement: a replay answers what the first request did, even where the invite
@@ -217,7 +211,7 @@ async def post_registrierung(
         # The id alone: the registration its first press stored, whose mail that press owed. A form whose details
         # changed sends a new key. The key goes with its registration: a press after the row was admitted or lapsed is
         # a new registration, and one after a decline answers the declined row until the sweep erases it.
-        stored = None if key is None else await registrierungen_collection.find_one(build_key_filter(key=key), ["_id"], session=session)
+        stored = await registrierungen_collection.find_one(build_key_filter(key=key), ["_id"], session=session)
         if stored is not None:
             return FLCreatedResponse(created_id=stored["_id"])
 
@@ -237,12 +231,11 @@ async def post_registrierung(
             collection=saisons_collection, db_filter={"_id": saison_id}, projection=SAISON_PROJECTION, session=session
         )
         rules = saison_raw.get("rules") or {}
-        refuse(find_window_refusal(saison_status=saison_raw["status"], registrierung=saison_raw.get("registrierung")))
-
-        # A club the season holds no row of takes no registration: `registrierung_closed` rather than the squad write's
-        # `kader_team_not_in_saison`, which is worded for an administrator entering a player.
-        if junction_raw is None:
-            raise APIError(HTTPStatus.CONFLICT, Code.REGISTRIERUNG_CLOSED)
+        refuse(
+            find_closed_refusal(
+                saison_status=saison_raw["status"], registrierung=saison_raw.get("registrierung"), entered=junction_raw is not None
+            )
+        )
 
         refuse(find_stufe_refusal(stufe=registrierung_data.stufe, allowed_stufen=list(rules.get("allowed_stufen") or [])))
 
@@ -270,7 +263,7 @@ async def post_registrierung(
             session=session,
         )
 
-        deadline = days_after(day=today, days=REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS)
+        deadline = days_after(day=today, days=CONFIRMATION_DEADLINE_DAYS)
 
         created = await post_one_to_db(
             collection=registrierungen_collection,
@@ -288,7 +281,7 @@ async def post_registrierung(
                     confirmation=compose_confirmation(today=today, deadline=deadline, mailed=mailed),
                     today=today,
                 ),
-                **({} if key is None else {"idempotency_key": key}),
+                "idempotency_key": key,
             },
             session=session,
         )
@@ -341,10 +334,9 @@ async def get_confirmation_view(
 
     token_hash = hash_token(view_data.token)
 
-    # `find_one` rather than `pull_one_from_db`: a miss is this endpoint's own refusal, never a 404.
-    raw = await registrierungen_collection.find_one(build_confirmation_filter(token_hash=token_hash), projection=dict(CONFIRMATION_VIEW_FIELDS))
-    refuse(find_unknown_token_refusal(found=raw is not None))
-    assert raw is not None
+    raw = await pull_by_token(
+        collection=registrierungen_collection, db_filter=build_confirmation_filter(token_hash=token_hash), projection=CONFIRMATION_FIELDS
+    )
 
     # `find_one` rather than `pull_one_from_db`: no team is ever deleted, so a miss is a broken
     # invariant rather than a 404 this view could answer, and never an empty slot in the consent text.
@@ -386,16 +378,18 @@ async def post_confirmation(
     async def answer_for_the_pupil(session: AsyncClientSession) -> None:
         # One transaction, so a second press landing between the read and the write is refused by the stamp rather than
         # overwriting the answer already given.
-        raw = await registrierungen_collection.find_one(
-            build_confirmation_filter(token_hash=token_hash), projection=dict(CONFIRMATION_ANSWER_FIELDS), session=session
+        raw = await pull_by_token(
+            collection=registrierungen_collection,
+            db_filter=build_confirmation_filter(token_hash=token_hash),
+            projection=CONFIRMATION_FIELDS,
+            session=session,
         )
-        refuse(find_unknown_token_refusal(found=raw is not None))
-        assert raw is not None
 
         departed = await _team_departed(saison_teams_collection=saison_teams_collection, registrierung_raw=raw, session=session)
         refuse(find_expired_token_refusal(confirmation=raw.get("confirmation"), status=raw.get("status"), departed=departed, today=today))
         refuse(find_already_confirmed_refusal(einwilligung=raw.get("einwilligung")))
-        refuse(find_age_refusal(birth_date=answer_data.birth_date, today=today))
+        # The pupil's own floor and never a contact seat's, so raising one cannot silently raise the other.
+        refuse(find_age_refusal(birth_date=answer_data.birth_date, today=today, minimum_age=REGISTRIERUNG_MIN_AGE_YEARS))
         refuse(find_self_media_refusal(saved=None, media=answer_data.media, birth_date=answer_data.birth_date, today=today))
 
         await patch_one_in_db(

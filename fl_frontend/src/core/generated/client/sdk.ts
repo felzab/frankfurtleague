@@ -96,7 +96,6 @@ import type {
   FLRegistrierungConfirmationPayload,
   FLRegistrierungConfirmationViewResponse,
   FLRegistrierungDeclinePayload,
-  FLRegistrierungenAdminListResponse,
   FLRegistrierungSweepResponse,
   FLReplaceSaisonTeamPayload,
   FLSaisonAdminResponse,
@@ -144,7 +143,6 @@ import type {
   FLVersionResponse,
   IdentitySweepErasureParams,
   ProbeResponse,
-  RegistrierungenGetRegistrierungenAdminParams,
   SchiedsrichterGetSchiedsrichterParams,
   SpieleGetSpieleSpielplanParams,
   SpielePatchSpielParams,
@@ -650,7 +648,7 @@ export const getBewerbungenGetBewerbungenAdminUrl = (params: BewerbungenGetBewer
 /**
  * The season's applications, newest first, holding nothing of a person, and what an acceptance would meet there.
  *
- * A long list is cut, as `complete` says, but every application with a confirmed seat is served past the cut.
+ * A long list is cut, but every application with a confirmed seat is served past the cut.
  * @summary One Saison's Bewerbungen for its list
  */
 export const bewerbungenGetBewerbungenAdmin = async (
@@ -1279,29 +1277,6 @@ export const outboxPostSignIn = async (
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(fLOutboxSignInPayload),
-  });
-};
-
-export const getRegistrierungenGetRegistrierungenAdminUrl = (params: RegistrierungenGetRegistrierungenAdminParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0 ? `/api/registrierungen?${stringifiedParams}` : `/api/registrierungen`;
-};
-
-/**
- * One season's pending registrations, newest first, each with its club and whether its pupil confirmed it.
- *
- * `unmailed` marks a row owed no mail, its mailbox already holding the most open links, and `complete` says whether
- * the read's cap cut the list.
- * @summary One Saison's pending Registrierungen for its list
- */
-export const registrierungenGetRegistrierungenAdmin = async (
-  params: RegistrierungenGetRegistrierungenAdminParams,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLRegistrierungenAdminListResponse> => {
-  return adminKeyTransport<FLRegistrierungenAdminListResponse>(getRegistrierungenGetRegistrierungenAdminUrl(params), {
-    ...options,
-    method: "GET",
   });
 };
 
