@@ -82,8 +82,9 @@ before then needs no gate run: the pull request's CI runs on every push, the jou
 job bounded by its own `timeout-minutes` and by no other time budget.
 
 - **Let the command finish, and report its result by quoting the gate's closing line and its exit
-  code, read from the gate's own command as the very next command**: a code read past a pipe, a
-  semicolon or Bash's byte mask, or a background notice's summary, is not the gate's —
+  code, read from the gate's own command: `verify.sh` run alone in its Bash call, or the `exit N`
+  line `orchestra ci gate` prints, its closing line from the file it names**: a code read past a
+  pipe, a semicolon or Bash's byte mask, or a background notice's summary, is not the gate's —
   `verify.sh --docs | tail -5` reports `tail`'s 0 while the gate exited 1, and a child's 2304 reads
   as 0. Never the word "passing", and never one tool standing in for the scope that runs it.
 
