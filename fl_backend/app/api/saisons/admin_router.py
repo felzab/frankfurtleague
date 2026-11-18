@@ -11,7 +11,6 @@ from pymongo.results import InsertOneResult
 
 from app.api.aufstellungen.crud import remove_the_seasons_aufstellungen
 from app.api.grants.guard import ADMIN_TIER
-from app.api.invitations.crud import owed_invitation_mails
 from app.api.invitations.schemas import (
     FLInvitation,
     FLInvitationDispatchResponse,
@@ -25,6 +24,7 @@ from app.api.invitations.services import (
     compose_invitation,
     compose_revocation_update,
     find_invitation_saison_past_refusal,
+    owed_invitation_mails,
     plan_invitation_dispatch,
 )
 from app.api.outbox.services import enqueue_mails
