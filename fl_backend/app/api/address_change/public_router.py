@@ -3,7 +3,7 @@ from datetime import datetime
 from http import HTTPStatus
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -24,7 +24,6 @@ from app.api.address_change.schemas import (
     FLAddressChangeAnswer,
     FLAddressChangeAnswerPayload,
     FLAddressChangeAnswerResponse,
-    FLAddressChangeStopResponse,
     FLAddressChangeViewEnded,
     FLAddressChangeViewNew,
     FLAddressChangeViewPrevious,
@@ -387,6 +386,7 @@ async def _answer_for_the_address_on_file(
 
 @router.post(
     "/stop",
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Stop a pending address change",
 )
 async def post_address_change_stop(
@@ -396,7 +396,7 @@ async def post_address_change_stop(
     outbox_collection: OutboxCollection,
     db: DBClient,
     germany_now: GermanyNow,
-) -> FLAddressChangeStopResponse:
+) -> None:
     """Stop the change the address on file was mailed about, its new address going, at any time until the change ends.
 
     The person's own change offers this link no stop until its address on file confirmed it.
@@ -404,7 +404,7 @@ async def post_address_change_stop(
 
     stop_hash = hash_token(stop_data.token)
 
-    async def stop_the_change(session: AsyncClientSession) -> FLAddressChangeStopResponse:
+    async def stop_the_change(session: AsyncClientSession) -> None:
         record = await address_changes_collection.find_one({"stop.token_hashes": stop_hash}, session=session)
         refuse(find_unknown_refusal(found=record is not None))
         assert record is not None
@@ -428,6 +428,4 @@ async def post_address_change_stop(
             session=session,
         )
 
-        return FLAddressChangeStopResponse(stopped=True)
-
-    return await transact(db, stop_the_change)
+    await transact(db, stop_the_change)

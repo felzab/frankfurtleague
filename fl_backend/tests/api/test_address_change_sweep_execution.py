@@ -496,7 +496,12 @@ class TestTheDeadlineStopsTheCall:
 class TestTheOwedCarries:
     """Owed by an effect on its ended record, listed until the frontend reports each carried."""
 
-    async def test_each_is_listed_until_it_is_reported_carried_and_a_repeat_counts_nothing(self, mongo_replica_set_url: str):
+    async def test_each_is_listed_until_it_is_reported_carried_and_a_repeat_takes_nothing(self, mongo_replica_set_url: str):
+        async def moves(database: AsyncDatabase) -> list[tuple[ObjectId, bool]]:
+            """Each change and whether it still owes its carry, as stored."""
+
+            return [(row["_id"], "move" in row) async for row in database[Collection.ADDRESS_CHANGES].find({}, sort=[("_id", 1)])]
+
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.ADDRESS_CHANGES].insert_many(
                 [
@@ -506,15 +511,17 @@ class TestTheOwedCarries:
             )
             listed = (await get_address_change_moves(address_changes_collection=database[Collection.ADDRESS_CHANGES])).moves
             payload = FLAddressChangeMovesDonePayload(ids=[numbered(1)])
-            first = await post_address_change_moves_done(done_data=payload, address_changes_collection=database[Collection.ADDRESS_CHANGES])
-            again = await post_address_change_moves_done(done_data=payload, address_changes_collection=database[Collection.ADDRESS_CHANGES])
+            await post_address_change_moves_done(done_data=payload, address_changes_collection=database[Collection.ADDRESS_CHANGES])
+            first = await moves(database)
+            await post_address_change_moves_done(done_data=payload, address_changes_collection=database[Collection.ADDRESS_CHANGES])
+            again = await moves(database)
             left = (await get_address_change_moves(address_changes_collection=database[Collection.ADDRESS_CHANGES])).moves
 
-            return [(row.id, row.old, row.new) for row in listed], first.done, again.done, [row.id for row in left]
+            return [(row.id, row.old, row.new) for row in listed], first, again, [row.id for row in left]
 
         assert await on_a_league(mongo_replica_set_url, body) == (
             [(numbered(1), on_file(1), pending(1)), (numbered(2), on_file(2), pending(2))],
-            1,
-            0,
+            [(numbered(1), False), (numbered(2), True)],
+            [(numbered(1), False), (numbered(2), True)],
             [numbered(2)],
         )

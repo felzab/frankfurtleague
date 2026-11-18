@@ -2,7 +2,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Annotated, Any, Final, Literal
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, status
 from pymongo import ASCENDING, AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -21,7 +21,6 @@ from app.api.address_change.schemas import (
     FLAddressChangeAddressPayload,
     FLAddressChangeAddressResponse,
     FLAddressChangeMovesDonePayload,
-    FLAddressChangeMovesDoneResponse,
     FLAddressChangeMovesResponse,
     FLAddressChangeOpenMove,
     FLAddressChangeSweepParams,
@@ -342,21 +341,20 @@ async def get_address_change_moves(address_changes_collection: AddressChangeRead
 
 @router.post(
     "/sweep/moves/done",
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Take the carries done off their changes",
 )
 async def post_address_change_moves_done(
     done_data: FLAddressChangeMovesDonePayload,
     address_changes_collection: AddressChangeCollection,
-) -> FLAddressChangeMovesDoneResponse:
-    """Take the owed carry off each named change, counting the ones that owed one; an id owing none is left alone."""
+) -> None:
+    """Take the owed carry off each named change; an id owing none is left alone."""
 
-    result = await patch_many_in_db(
+    await patch_many_in_db(
         collection=address_changes_collection,
         db_filter={"_id": {"$in": sorted(set(done_data.ids))}, "move": {"$type": "object"}},
         update={"$unset": {"move": ""}},
     )
-
-    return FLAddressChangeMovesDoneResponse(done=result.modified_count)
 
 
 # Server to server alone, as the link's own view never serves the address; a POST that reads, so the token travels in

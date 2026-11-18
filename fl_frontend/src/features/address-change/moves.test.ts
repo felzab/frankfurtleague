@@ -3,21 +3,15 @@ import { describe, expect, it } from "vitest";
 import { memoryAdapterDouble, memoryStore, registerAuthDoubles } from "@/test-support/authDoubles";
 import { serveBackend } from "@/test-support/backend";
 
-import type {
-  FLAddressChangeMovesDonePayload,
-  FLAddressChangeMovesDoneResponse,
-  FLAddressChangeMovesResponse,
-} from "@/core/generated/client/types";
+import type { FLAddressChangeMovesResponse } from "@/core/generated/client/types";
 
 /** The owed carries the backend lists, page after page; a case sets them. */
 let pages: FLAddressChangeMovesResponse["moves"][] = [];
 
 // The backend lists the owed carries a page at a time and takes the report of each page carried; nothing else.
-const backend = serveBackend(({ method, path, body }) => {
+const backend = serveBackend(({ method, path }) => {
   if (method === "GET" && path === "/address_change/sweep/moves") return { moves: pages.shift() ?? [] } satisfies FLAddressChangeMovesResponse;
-  if (method === "POST" && path === "/address_change/sweep/moves/done") {
-    return { done: (body as FLAddressChangeMovesDonePayload).ids.length } satisfies FLAddressChangeMovesDoneResponse;
-  }
+  if (method === "POST" && path === "/address_change/sweep/moves/done") return new Response(null, { status: 204 });
   return undefined;
 });
 

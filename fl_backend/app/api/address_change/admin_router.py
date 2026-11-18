@@ -2,7 +2,7 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
@@ -21,7 +21,6 @@ from app.api.address_change.schemas import (
     FLAddressChangeAdminListResponse,
     FLAddressChangeAdminOpen,
     FLAddressChangeAdminPayload,
-    FLAddressChangeIdResponse,
 )
 from app.api.address_change.services import (
     LIVE_KEYED_TERMS,
@@ -149,6 +148,7 @@ async def get_address_changes(
 
 @router.post(
     "",
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Start an address change for a person who says they cannot sign in",
 )
 async def post_address_change_admin(
@@ -161,7 +161,7 @@ async def post_address_change_admin(
     db: DBClient,
     operator: ActorEmail,
     germany_now: GermanyNow,
-) -> FLAddressChangeIdResponse:
+) -> None:
     """Start a change of the typed address for a person who says they cannot sign in.
 
     The new mailbox is mailed a link and the address on file a stop link, and nothing moves until a waiting period after
@@ -171,7 +171,7 @@ async def post_address_change_admin(
     identifier, email = sign_in_identifier(str(address_change_data.address)), str(address_change_data.email)
     way: FLAddressChangeWay = "waiting_period"
 
-    async def judge_and_start_the_change(session: AsyncClientSession) -> FLAddressChangeIdResponse:
+    async def judge_and_start_the_change(session: AsyncClientSession) -> None:
         await _refuse_the_address(identifier, actor=operator, grants_collection=grants_collection, session=session)
         refuse(find_unchanged_refusal(address=identifier, folded=sign_in_identifier(email)))
 
@@ -231,15 +231,14 @@ async def post_address_change_admin(
             session=session,
         )
 
-        return FLAddressChangeIdResponse(id=address_change_id)
-
     # One transaction over the judgement and the write: a record written outside it would stand with a live link an
     # administrator was then told had been refused.
-    return await transact(db, judge_and_start_the_change)
+    await transact(db, judge_and_start_the_change)
 
 
 @router.post(
     f"{by_id('address_change_id')}/confirmation/resend",
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Send a pending address a fresh link",
 )
 async def resend_confirmation(
@@ -252,14 +251,14 @@ async def resend_confirmation(
     db: DBClient,
     operator: ActorEmail,
     germany_now: GermanyNow,
-) -> FLAddressChangeIdResponse:
+) -> None:
     """Mail the new mailbox a fresh link for the change this id names, its deadline restarting now.
 
     The previous link stops working once the fresh one is handed out, and only a change waiting on the new mailbox has a
     link to re-send.
     """
 
-    async def judge_and_remint_the_change(session: AsyncClientSession) -> FLAddressChangeIdResponse:
+    async def judge_and_remint_the_change(session: AsyncClientSession) -> None:
         # The change the id names alone, so a page showing a change since replaced re-sends nothing.
         record = await _pull_the_change(address_changes_collection, address_change_id, session=session)
         identifier = str(record["address"])
@@ -300,13 +299,12 @@ async def resend_confirmation(
             session=session,
         )
 
-        return FLAddressChangeIdResponse(id=address_change_id)
-
-    return await transact(db, judge_and_remint_the_change)
+    await transact(db, judge_and_remint_the_change)
 
 
 @router.delete(
     by_id("address_change_id"),
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Discard a pending address change",
 )
 async def delete_address_change(
@@ -317,13 +315,13 @@ async def delete_address_change(
     db: DBClient,
     operator: ActorEmail,
     germany_now: GermanyNow,
-) -> FLAddressChangeIdResponse:
+) -> None:
     """Discard the change this id names, the address on file staying.
 
     A holder's change in its wait tells every holder, and nobody else is mailed.
     """
 
-    async def discard_the_change(session: AsyncClientSession) -> FLAddressChangeIdResponse:
+    async def discard_the_change(session: AsyncClientSession) -> None:
         # The change the id names alone, so a page showing a change since replaced discards nothing.
         record = await _pull_the_change(address_changes_collection, address_change_id, session=session)
         await _refuse_the_address(str(record["address"]), actor=operator, grants_collection=grants_collection, session=session)
@@ -343,7 +341,5 @@ async def delete_address_change(
         )
         await record_act(collection=address_changes_collection, action="address_change.discarded", record_id=address_change_id, session=session)
 
-        return FLAddressChangeIdResponse(id=address_change_id)
-
     # One transaction, so the write and the log row recording it land together.
-    return await transact(db, discard_the_change)
+    await transact(db, discard_the_change)

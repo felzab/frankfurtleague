@@ -312,7 +312,7 @@ describe("each form's posted names meet its lane's keys", () => {
       const { startAddressChange } = await import("@/features/account/personActions");
       const posted = spelledIn("app/account/(pages)/signin/SignInBoxes.tsx");
       await arriveAs({ email: "pia@example.org" });
-      takes(["POST", "/account/address_change", {}]);
+      takes(["POST", "/account/address_change", new Response(null, { status: 204 })]);
 
       const answer = await startAddressChange(formOf(posted, { email: "pia.neu@example.org", holder: "pia@example.org" }));
 
