@@ -62,8 +62,6 @@ SAISON_TEAMS_AS_NAME = "saison_teams_rows"
 def _joined_side(side: FLSpielSide) -> Mapping[str, Any]:
     """One side with its season row folded in. `$mergeObjects`, never a rebuilt object: listing the keys copies `FLSpielTeamField`."""
 
-    # Not `$getField`, which needs MongoDB 5.0: the test tier's container cannot speak for the
-    # production server's version.
     matching_row = {"$filter": {"input": f"${SAISON_TEAMS_AS_NAME}", "cond": {"$eq": ["$$this.team_id", f"${side}.team_id"]}}}
     # One `$let` for every key, so the name a side is served under and the way its club left can never
     # be answered off different rows. Merged last, so the row's name wins over anything the document holds.
