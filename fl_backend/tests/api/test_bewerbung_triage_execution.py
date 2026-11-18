@@ -79,11 +79,7 @@ PICKED_BEWERBUNG = ObjectId("6890a1b2c3d4e5f607920001")
 NEW_SCHOOL_BEWERBUNG = ObjectId("6890a1b2c3d4e5f607920002")
 RETIRED_BEWERBUNG = ObjectId("6890a1b2c3d4e5f607920003")
 CLASHING_BEWERBUNG = ObjectId("6890a1b2c3d4e5f607920004")
-# Seeded by the one class that needs them: nothing in the database states the exactly-one rule, so these two
-# shapes are storable and only the write path tells them apart.
-BOTH_BEWERBUNG = ObjectId("6890a1b2c3d4e5f607920005")
-NEITHER_BEWERBUNG = ObjectId("6890a1b2c3d4e5f607920006")
-# Seeded by its own class for the same reason: `bewerbungen` types `website_url` as a bare string.
+# Seeded by its own class: `bewerbungen` types `website_url` as a bare string, so nothing in the database refuses it.
 UNUSABLE_BEWERBUNG = ObjectId("6890a1b2c3d4e5f607920007")
 
 # An XSS sink once React renders it into the club page's href, and a value `FLTeam` refuses on read.
@@ -418,42 +414,6 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
             )
 
         assert await on_a_league(mongo_replica_set_url, body) == (Code.BEWERBUNG_PICKED_TEAM_ALREADY_ENTERED, "submitted")
-
-
-# The two shapes `bewerbung_subject_unresolved` refuses, each stored as a hand edit could leave it.
-UNRESOLVED = [
-    pytest.param(BOTH_BEWERBUNG, EXISTING_OID, schule_block("Doppelt"), id="both a club and a school"),
-    pytest.param(NEITHER_BEWERBUNG, None, None, id="neither a club nor a school"),
-]
-
-
-@pytest.mark.db
-class TestAnApplicationResolvingToNoOneTeam:
-    """`bewerbung_subject_unresolved` reaching the acceptance.
-
-    Nothing in the database holds the rule, so the write path is where it holds.
-    """
-
-    @pytest.mark.parametrize(("bewerbung_id", "team_id", "schule"), UNRESOLVED)
-    async def test_it_is_refused_before_anything_is_written(
-        self, mongo_replica_set_url: str, bewerbung_id: ObjectId, team_id: ObjectId | None, schule: dict[str, Any] | None
-    ):
-        """A row carrying both would otherwise enter one club while a school nobody created stood in the other field."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.BEWERBUNGEN].insert_one(bewerbung_document(bewerbung_id, team_id=team_id, schule=schule))
-
-            return (
-                await refused_code(accept(database, client, bewerbung_id)),
-                await database[Collection.TEAMS].count_documents({}),
-                await junction_rows(database),
-                (await stored_bewerbung(database, bewerbung_id))["status"],
-            )
-
-        code, teams, rows, status = await on_a_league(mongo_replica_set_url, body)
-
-        assert code == Code.BEWERBUNG_SUBJECT_UNRESOLVED
-        assert (teams, rows, status) == (SEEDED_TEAMS, [], "submitted")
 
 
 UNCONFIRMED_BEWERBUNG = ObjectId("6890a1b2c3d4e5f607920008")

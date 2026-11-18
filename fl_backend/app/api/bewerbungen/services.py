@@ -54,19 +54,6 @@ def find_triage_refusal(*, status: str) -> APIError | None:
     return None
 
 
-def find_acceptance_subject_refusal(*, team_id: Any | None, schule: Mapping[str, Any] | None) -> APIError | None:
-    """Why this application resolves to no single club to enter, or `None`.
-
-    While it is `submitted`, exactly one of the two carries a value -- a rule the write path holds
-    because types and enums cannot state it.
-    """
-
-    if (team_id is None) == (schule is None):
-        return APIError(HTTPStatus.CONFLICT, Code.BEWERBUNG_SUBJECT_UNRESOLVED)
-
-    return None
-
-
 # The school's field names in the club's. `team_name` becomes the club's `name`; the other three are
 # spelled alike on both sides, and `description` and `shorthand` are on neither.
 _TEAM_FIELDS_FROM_SCHULE = {
@@ -93,7 +80,7 @@ def find_acceptance_code_refusal(*, new_school: bool, shorthand: str | None) -> 
 def compose_new_team(*, schule: Any, shorthand: str | None) -> dict[str, Any]:
     """The club document acceptance would create, from the school's block as stored and the code the administrator set.
 
-    Raw so `find_new_team_refusal` judges every field: a `str()` here makes a club named `'None'`
+    Raw so `parse_new_team` judges every field: a `str()` here makes a club named `'None'`
     from a null with no undo, and a subscript 500s where the rule promises 409.
     """
 
@@ -112,30 +99,21 @@ def compose_new_team(*, schule: Any, shorthand: str | None) -> dict[str, Any]:
 
 
 def parse_new_team(*, composed_team: Mapping[str, Any]) -> dict[str, Any]:
-    """The club document as stored, from one the guard has already passed.
-
-    Parsed, not composed: `website_url`'s validator strips tab, return and newline, so the raw
-    block leaves `teams` holding what `POST /teams` never stores for the same school.
-    """
-
-    return FLPostTeamPayload.model_validate(composed_team).model_dump(mode="json")
-
-
-def find_new_team_refusal(*, composed_team: Mapping[str, Any]) -> APIError | None:
-    """Why the school's details make no club, or `None`.
+    """The club document as stored, or `bewerbung_schule_unusable` raised where the school's details make no club.
 
     Through the payload itself, never a copy: nothing else judges them, so a scheme-less `website_url` would reach
-    storage, and `FLTeam` 500s every club read.
+    storage, and `FLTeam` 500s every club read. Parsed, not composed: `website_url`'s validator strips tab, return and
+    newline, so the raw block leaves `teams` holding what `POST /teams` never stores for the same school.
     """
 
     try:
-        FLPostTeamPayload.model_validate(composed_team)
+        team = FLPostTeamPayload.model_validate(composed_team)
     # Narrow on purpose: anything else raised here is a fault in this code, and a 409 blaming the
     # school for one is a refusal nobody can act on.
     except ValidationError:
-        return APIError(HTTPStatus.CONFLICT, Code.BEWERBUNG_SCHULE_UNUSABLE)
+        raise APIError(HTTPStatus.CONFLICT, Code.BEWERBUNG_SCHULE_UNUSABLE) from None
 
-    return None
+    return team.model_dump(mode="json")
 
 
 # Every submission refusal below is judged before the one write, in the order the router asks them in.
@@ -184,8 +162,7 @@ def find_window_refusal(*, saison_status: Any, bewerbung: Any, today: str) -> AP
 def find_submission_subject_refusal(*, team_id: Any | None, schule: Any | None) -> APIError | None:
     """Why this submission resolves to no single school, or `None`.
 
-    Its own code beside `find_acceptance_subject_refusal`, which asks this of a stored application:
-    one code would leave a public refusal and a triage refusal alike in the log.
+    Asked of the body alone: a stored application holds what this let through, and only a hand edit stores another.
     """
 
     if (team_id is None) == (schule is None):

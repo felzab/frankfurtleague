@@ -37,10 +37,8 @@ from app.api.bewerbungen.services import (
     compose_resend_update,
     confirmation_deadline_from,
     find_acceptance_code_refusal,
-    find_acceptance_subject_refusal,
     find_already_answered_refusal,
     find_already_entered_refusal,
-    find_new_team_refusal,
     find_seat_contact_refusal,
     find_seat_write_refusal,
     find_triage_refusal,
@@ -288,7 +286,6 @@ async def accept_bewerbung(
         refuse(find_triage_refusal(status=str(bewerbung_raw["status"])))
         schule = bewerbung_raw.get("schule")
         picked_team_id = bewerbung_raw.get("team_id")
-        refuse(find_acceptance_subject_refusal(team_id=picked_team_id, schule=schule))
         # In-session, so the block copied into `saison_teams` below carries every person's own date and stamp, a
         # confirmation landing mid-request among them.
         refuse(find_unconfirmed_kontakte_refusal(kontakte=bewerbung_raw.get("kontakte")))
@@ -301,8 +298,8 @@ async def accept_bewerbung(
             collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status", "rules"], session=session
         )
 
-        # Exactly one of the two is filled in below, which `find_acceptance_subject_refusal` has
-        # already established -- declared here so the write at the end reads one variable, not two.
+        # One of the two is filled in below, a stored school taking its branch whatever `team_id` holds -- declared here
+        # so the write at the end reads one variable, not two.
         picked_team: Any = None
         new_team: dict[str, Any] | None = None
 
@@ -321,15 +318,10 @@ async def accept_bewerbung(
             refuse(find_already_entered_refusal(entered=entered > 0))
             name, shorthand = str(team_raw["name"]), str(team_raw["shorthand"])
         else:
-            # Composed beside the guard that judges it, and reaching for no field of the application
-            # itself: nothing here may raise before the refusal below has had its say.
-            new_team = compose_new_team(schule=schule, shorthand=acceptance_data.shorthand)
-            # Asked where the picked club's standing is asked, and for that reason: a school whose
-            # own details make no club is not repaired by picking another group.
-            refuse(find_new_team_refusal(composed_team=new_team))
-            # Parsed before it is stored, so this path and `POST /teams` put one document in `teams`
-            # for one school; the guard above has already proved it validates.
-            new_team = parse_new_team(composed_team=new_team)
+            # Judged where the picked club's standing is judged, and for that reason: a school whose own details make no
+            # club is not repaired by picking another group. Parsed before it is stored, so this path and `POST /teams`
+            # put one document in `teams` for one school.
+            new_team = parse_new_team(composed_team=compose_new_team(schule=schule, shorthand=acceptance_data.shorthand))
             # Read off the document the write stores rather than the school a second time, so no
             # field is composed twice and differently.
             name, shorthand = new_team["name"], new_team["shorthand"]
