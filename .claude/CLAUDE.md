@@ -141,12 +141,12 @@ job bounded by its own `timeout-minutes` and by no other time budget.
 Prefer the pattern the repository already uses, and match the surrounding code; every other
 convention is in `docs/`. Verify anything the repository does not already do against the official
 docs before writing it, and say plainly where you could not. **Before answering anything about a
-library's API, and before writing a line that depends on one, grep that library's `llms.txt`** —
-[`rules/stack.md`](rules/stack.md) lists each package's, with the one deprecation no tool catches —
-ahead of the prose docs and long before recall. An API claim made without checking an available one
-is unverified: say so in the same answer. **Before adopting a tool, look for a well-maintained,
-widely adopted one and cost the option needing no dependency first**; writing one's own is the last
-of the three, and the adopting commit's body records the comparison.
+library's API, and before writing a line that depends on one, grep that library's `llms.txt`**,
+listed in [`rules/stack.md`](rules/stack.md), ahead of the prose docs and long before recall. An API
+claim made without checking an available one is unverified: say so in the same answer. **Before
+adopting a tool, look for a well-maintained, widely adopted one and cost the option needing no
+dependency first**; writing one's own is the last of the three, and the adopting commit's body
+records the comparison.
 
 ## 5. Platform
 

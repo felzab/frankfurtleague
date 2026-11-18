@@ -13,7 +13,7 @@ paths:
   - "docker-compose*.yml"
 ---
 
-# The stack's documentation, and what it will not catch
+# The stack's documentation
 
 `.claude/CLAUDE.md` §4's sources: grep a package's `llms.txt` before answering about its API or
 writing a line that depends on it.
@@ -48,9 +48,3 @@ writing a line that depends on it.
   [FastAPI](https://fastapi.tiangolo.com) · [Playwright](https://playwright.dev/docs/intro) ·
   [PyMongo](https://www.mongodb.com/docs/languages/python/pymongo-driver/current/). For a package
   missing from this table, probe `<docs-root>/llms.txt` and add the row when one turns up.
-
-## A deprecation the toolchain will not catch
-
-`@tailwind base` and `@tailwind components` compile, pass and silently do nothing: Tailwind 4 leaves
-both in its output untouched, and the browser drops an at-rule it does not know.
-`@import "tailwindcss"` brings both layers.
