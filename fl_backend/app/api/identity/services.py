@@ -194,8 +194,8 @@ def _registrierung_entry(row: Mapping[str, Any], team_names: Mapping[tuple[Any, 
     }
 
 
-def _team_names(junctions: Iterable[Mapping[str, Any]]) -> dict[tuple[Any, Any], Any]:
-    return {(row["saison_id"], row["team_id"]): row.get("name") for row in junctions}
+def _team_names(registrierung_junctions: Iterable[Mapping[str, Any]]) -> dict[tuple[Any, Any], Any]:
+    return {(row["saison_id"], row["team_id"]): row.get("name") for row in registrierung_junctions}
 
 
 def compose_account_erasure_view(
@@ -207,11 +207,12 @@ def compose_account_erasure_view(
     pupil_rows: Sequence[Mapping[str, Any]],
     registrierung_rows: Sequence[Mapping[str, Any]],
     address_change_rows: Sequence[Mapping[str, Any]],
-    junctions: Sequence[Mapping[str, Any]],
+    # The season rows of the registrations' teams, which name each club that season; the seats are `saison_team_rows`.
+    registrierung_junctions: Sequence[Mapping[str, Any]],
 ) -> FLAccountErasureView:
     """The preview, from the rows the erasure's own subject read holds; no address and no birthdate reaches it."""
 
-    team_names = _team_names(junctions)
+    team_names = _team_names(registrierung_junctions)
 
     return FLAccountErasureView.model_validate(
         {
@@ -326,7 +327,7 @@ def is_own_spieler(row: Mapping[str, Any]) -> bool:
 
 
 def is_own_schiedsrichter(row: Mapping[str, Any], identifier: str) -> bool:
-    return folds_to((row.get("kontakt") or {}).get("email"), identifier) and is_confirmed(row.get("einwilligung"))
+    return folds_to(referee_address(row), identifier) and is_confirmed(row.get("einwilligung"))
 
 
 def is_own_registrierung(row: Mapping[str, Any], identifier: str) -> bool:
