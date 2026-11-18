@@ -327,7 +327,7 @@ class TestReissuingALink:
         assert [row["revoked_at"] for row in rows if row["_id"] == ObjectId(second.invitation_id)] == [None]
 
     async def test_the_replaced_links_hash_then_opens_nothing(self, mongo_replica_set_url: str):
-        """`document_not_found` over the filter S9 reads: the revocation term is half of it, and a hash alone finds the spent row."""
+        """`document_not_found` over the live link's filter: the revocation term is half of it, and a hash alone finds the spent row."""
 
         async def body(database: AsyncDatabase) -> Any:
             first = await mint(database, TWO_SEATS)
