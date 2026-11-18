@@ -98,7 +98,7 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
   const seated = seats.map((seat): Entry => ({
     id: `seat-${seat.team_id}-${seat.saison_id}`,
     title: { record: seat.team_name },
-    description: WORDS.description.seat(seat.rollen),
+    description: WORDS.description.seat(seat.seats),
     facts: [fact(COPY.shared.facts.team, WORDS.teamSeason({ record: seat.team_name }, COPY.shared.saisonName(seat.saison_id)))],
     save: { kind: "seat", team_id: seat.team_id, saison_id: seat.saison_id },
     scope: seat.scope,
@@ -111,7 +111,7 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
     id: `bewerbung-${bewerbung.bewerbung_id}`,
     // An application stands for no team yet: titled as its page is, by the season it applies for.
     title: COPY.page.bewerbung(bewerbung.saison_id),
-    description: WORDS.description.seat(bewerbung.rollen),
+    description: WORDS.description.seat(bewerbung.seats),
     facts: [fact(COPY.shared.facts.school, bewerbung.schule)],
     save: { kind: "bewerbung", bewerbung_id: bewerbung.bewerbung_id },
     scope: bewerbung.scope,

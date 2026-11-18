@@ -13,7 +13,7 @@ from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment, 
 from app.api.spiele.schemas import FLSpielRecipient
 from app.api.teams.schemas import FLTeamGruppeOffer, FLTeamMembership, FLTeamRecord, FLTeamSaisonFacts, FLTeamSeat
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
-from app.shared.schemas.literals import FLKontaktRolle, FLSpielerPosition, FLSpielerStufe, FLSpielSide, FLTrikotFarbe
+from app.shared.schemas.literals import FLKontaktSeat, FLSpielerPosition, FLSpielerStufe, FLSpielSide, FLTrikotFarbe
 from app.shared.schemas.responses import BaseReadModel
 
 
@@ -77,9 +77,9 @@ class FLTeamOverviewResponse(BaseReadModel):
     shorthand: CustomNonEmptyString
     full_name: CustomNonEmptyString
     trikot_farbe: FLTrikotFarbe | None
-    # The seats the signed-in person holds on this team, in `KONTAKT_ROLLEN` order: never empty, the read refusing
+    # The seats the signed-in person holds on this team, in `KONTAKT_SEATS` order: never empty, the read refusing
     # anybody holding none.
-    rollen: list[FLKontaktRolle]
+    held_seats: list[FLKontaktSeat]
     spielbestaetigungen: list[FLTeamPanelSpielbestaetigung]
     aufstellungen: list[FLTeamPanelAufstellung]
     registrierungen: list[FLTeamPanelRegistrierung]

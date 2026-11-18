@@ -243,7 +243,7 @@ export function TeamEditor({
                   const link = target.asks
                     ? {
                         send: sendSeatLink,
-                        seat: { team_id: team, saison_id: saison, seat: target.rolle },
+                        seat: { team_id: team, saison_id: saison, seat: target.seat },
                         ...(row.sendLocked === undefined ? {} : { locked: row.sendLocked }),
                       }
                     : null;
@@ -252,13 +252,13 @@ export function TeamEditor({
                     sideActs: seatActKinds(link).length,
                     acts: (
                       <SeatActs
-                        rollen={target.rollen}
+                        seats={target.seats}
                         person={target.person}
                         rules={seatRules}
                         write={writeSeat}
-                        carry={{ team_id: team, saison_id: saison, seat: target.rolle, version: String(row.version) }}
+                        carry={{ team_id: team, saison_id: saison, seat: target.seat, version: String(row.version) }}
                         link={link}>
-                        {target.rolle === "trainer" && (
+                        {target.seat === "trainer" && (
                           <Select
                             label={COPY.team.trainerAlso.label}
                             name="trainer_is_also"

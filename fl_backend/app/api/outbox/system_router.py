@@ -40,7 +40,7 @@ from app.core.dependencies import DB, BanListReadCollection, BewerbungenCollecti
 from app.core.logging import fl_logger
 from app.core.security import SYSTEM_TIER
 from app.core.transactions import transact
-from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.schemas.literals import KONTAKT_SEATS
 from app.shared.tokens import mint_token
 
 # System tier and the system actor: the drain, the sign-in library and the provider's callback hold no session.
@@ -95,7 +95,7 @@ def _team_seat_filter(row: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "saison_id": team["saison_id"],
         "team_id": team["team_id"],
-        "$or": [{f"kontakte.{seat}.email": row["to"], f"kontakte.{seat}.einwilligung.confirmed_at": {"$ne": None}} for seat in KONTAKT_ROLLEN],
+        "$or": [{f"kontakte.{seat}.email": row["to"], f"kontakte.{seat}.einwilligung.confirmed_at": {"$ne": None}} for seat in KONTAKT_SEATS],
     }
 
 

@@ -39,7 +39,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.transactions import SWEEP_PAGE
 from app.shared.schemas.bounds import SPIEL_CONFIRMATION_DEADLINE_DAYS
-from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.schemas.literals import KONTAKT_SEATS
 from tests import documents
 from tests.database import a_clean_database
 from tests.documents import kontaktperson_document
@@ -255,7 +255,7 @@ class TestTheSweepAsksAboutNothingItCannotHelp:
         assert sorted((mail["kind"], mail["to"]) for mail in owed) == sorted(
             [
                 ("spiel_einteilung", REFEREE_EMAIL),
-                *[("spiel_request", address(team_id, seat)) for team_id in (ALPHA, BETA) for seat in KONTAKT_ROLLEN],
+                *[("spiel_request", address(team_id, seat)) for team_id in (ALPHA, BETA) for seat in KONTAKT_SEATS],
             ]
         )
         assert {row["asked_at"] for row in stored} == {TODAY}
@@ -398,7 +398,7 @@ class TestADiscardedDeclineIsNotAskedAgain:
 
         today = {"team1": "Alpha", "team2": "Beta", "date": TODAY, "time": "18:00:00", "spielort": "Sportpark"}
         assert sorted((sorted(r.address for r in notice.recipient), notice.moved_to, notice.stays) for notice in told.new_ansetzungen) == [
-            (sorted(address(team_id, seat) for seat in KONTAKT_ROLLEN), today, True) for team_id in (ALPHA, BETA)
+            (sorted(address(team_id, seat) for seat in KONTAKT_SEATS), today, True) for team_id in (ALPHA, BETA)
         ]
         assert discarded["closed"] == {"reason": "ansetzung_changed", "discarded": True, "matched": False}
 
@@ -458,8 +458,8 @@ class TestADiscardedDeclineIsNotAskedAgain:
         assert [
             (request.side, request.moved_from, sorted(recipient.address for recipient in request.recipients)) for request in asked.requests
         ] == [
-            ("team1", left, sorted(address(ALPHA, seat) for seat in KONTAKT_ROLLEN)),
-            ("team2", left, sorted(address(BETA, seat) for seat in KONTAKT_ROLLEN)),
+            ("team1", left, sorted(address(ALPHA, seat) for seat in KONTAKT_SEATS)),
+            ("team2", left, sorted(address(BETA, seat) for seat in KONTAKT_SEATS)),
         ]
         assert (asked.new_ansetzungen, on_its_day.new_ansetzungen) == ([], [])
         assert ended == {"reason": "ansetzung_changed", "discarded": True}
@@ -507,7 +507,7 @@ class TestADiscardedDeclineIsNotAskedAgain:
         notices = [*told.new_ansetzungen, *told.spiel_cancelled]
         betas = [notice for notice in notices if {recipient.address for recipient in notice.recipient} & {address(BETA, "trainer")}]
         assert [(notice.old.time, sorted(recipient.address for recipient in notice.recipient)) for notice in betas] == [
-            ("19:00:00", sorted(address(BETA, seat) for seat in KONTAKT_ROLLEN))
+            ("19:00:00", sorted(address(BETA, seat) for seat in KONTAKT_SEATS))
         ]
 
 
@@ -663,7 +663,7 @@ class TestAMovedSpielAsksAgain:
         standing = [row for row in stored if row["closed"] is None]
         assert answered_id in {row["_id"] for row in closed}
         assert [row["closed"]["reason"] for row in closed] == ["ansetzung_changed"] * 3
-        assert (answered["answer"]["kind"], answered["answer"]["by"]["rolle"]) == ("agreed", "trainer")
+        assert (answered["answer"]["kind"], answered["answer"]["by"]["seat"]) == ("agreed", "trainer")
         assert next(row for row in closed if row["_id"] == answered_id)["answer"] == answered["answer"]
         assert [row["answer"] for row in closed if row["_id"] != answered_id] == [None, None]
         assert refusals == [Code.ANSETZUNG_ANSWERED, Code.ANSETZUNG_CLOSED]
@@ -679,7 +679,7 @@ class TestAMovedSpielAsksAgain:
         ]
         assert [(einteilung.address, einteilung.moved_from) for einteilung in second.einteilungen] == [(REFEREE_EMAIL, left)]
         alpha_request = next(request for request in second.requests if request.side == "team1")
-        assert sorted(recipient.address for recipient in alpha_request.recipients) == sorted(address(ALPHA, seat) for seat in KONTAKT_ROLLEN)
+        assert sorted(recipient.address for recipient in alpha_request.recipients) == sorted(address(ALPHA, seat) for seat in KONTAKT_SEATS)
 
     async def test_a_team_never_asked_about_the_slot_left_is_asked_naming_none(self, mongo_replica_set_url: str):
         """A club first mailed after the move was never told the old slot, so its first request names no slot it left."""
@@ -962,7 +962,7 @@ class TestASideReFieldedNamesThePairingEachPartyWasAskedAbout:
         assert [
             ((notice.team1_name, notice.team2_name), notice.moved_to, notice.stays, sorted(r.address for r in notice.recipient))
             for notice in second.new_ansetzungen
-        ] == [(("Alpha", "Beta"), None, False, sorted(address(ALPHA, seat) for seat in KONTAKT_ROLLEN))]
+        ] == [(("Alpha", "Beta"), None, False, sorted(address(ALPHA, seat) for seat in KONTAKT_SEATS))]
         assert [(request.team, request.moved_from) for request in second.requests] == [("Beta", left)]
         assert [(einteilung.address, einteilung.moved_from) for einteilung in second.einteilungen] == [(REFEREE_EMAIL, left)]
 
@@ -1140,7 +1140,7 @@ class TestEachRowIsRemindedOnce:
 
         assert [len(answer.reminders) for answer in answers] == [0, 2, 0, 0, 0]
         alpha_reminder = next(request for request in answers[1].reminders if request.side == "team1")
-        assert sorted(recipient.address for recipient in alpha_reminder.recipients) == sorted(address(ALPHA, seat) for seat in KONTAKT_ROLLEN)
+        assert sorted(recipient.address for recipient in alpha_reminder.recipients) == sorted(address(ALPHA, seat) for seat in KONTAKT_SEATS)
         assert alpha["reminded_at"] == REMINDER
         assert alpha["deadline"] == DEADLINE
 
@@ -1161,7 +1161,7 @@ class TestATeamIsMailedAtItsConfirmedSeats:
         )
 
         recipients = next(request.recipients for request in answer.requests if request.side == "team1")
-        assert [(recipient.address, recipient.rollen) for recipient in recipients] == [(address(ALPHA, "trainer"), ["trainer"])]
+        assert [(recipient.address, recipient.seats) for recipient in recipients] == [(address(ALPHA, "trainer"), ["trainer"])]
 
     async def test_a_team_holding_no_confirmed_seat_is_asked_once_it_holds_one(self, mongo_replica_set_url: str):
         """Minted unasked, the row reads as never asked; stamped then, the club would never hear of the fixture."""
@@ -1439,7 +1439,7 @@ class TestTheLineupReminder:
 
         # Beta's every confirmed seat, Alpha having stored its line-up; due twenty-four hours before kick-off.
         assert sorted((reminder.spiel_id, reminder.team, reminder.address) for reminder in first.aufstellungen) == sorted(
-            (str(SPIEL), "Beta", address(BETA, seat)) for seat in KONTAKT_ROLLEN
+            (str(SPIEL), "Beta", address(BETA, seat)) for seat in KONTAKT_SEATS
         )
         assert {reminder.due_at for reminder in first.aufstellungen} == {datetime(2126, 4, 15, 16, 0, tzinfo=UTC)}
         assert later.aufstellungen == []
@@ -1479,7 +1479,7 @@ class TestTheLineupReminder:
         reminded = await on_a_league(mongo_replica_set_url, body, spiele=[IN_THE_WINDOW])
 
         assert sorted(reminder.address for reminder in reminded.aufstellungen if reminder.team == "Beta") == sorted(
-            address(BETA, seat) for seat in KONTAKT_ROLLEN if seat != "trainer"
+            address(BETA, seat) for seat in KONTAKT_SEATS if seat != "trainer"
         )
 
     async def test_a_reminder_still_owed_at_the_due_mark_is_never_sent(self, mongo_replica_set_url: str):
@@ -1495,7 +1495,7 @@ class TestTheLineupReminder:
         owed, late = await on_a_league(mongo_replica_set_url, body, spiele=[IN_THE_WINDOW])
 
         # The premise: both clubs' every confirmed seat was owed one.
-        assert owed == 2 * len(KONTAKT_ROLLEN)
+        assert owed == 2 * len(KONTAKT_SEATS)
         assert late.aufstellungen == []
 
 
@@ -1656,7 +1656,7 @@ class TestACalledOffSpielTellsEveryPartyItAsked:
 
         assert second.closed == 3
         assert sorted(recipient.address for notice in second.spiel_cancelled for recipient in notice.recipient) == sorted(
-            address(team_id, seat) for team_id in (ALPHA, BETA) for seat in KONTAKT_ROLLEN
+            address(team_id, seat) for team_id in (ALPHA, BETA) for seat in KONTAKT_SEATS
         )
         assert [notice.address for notice in second.schiedsrichter_spiel_cancelled] == [REFEREE_EMAIL]
         # Each names the event its mail is worded by.
@@ -1674,7 +1674,7 @@ class TestACalledOffSpielTellsEveryPartyItAsked:
 
         assert {row["closed"]["reason"] for row in stored} == {"cancelled"}
         assert sorted(recipient.address for notice in second.spiel_cancelled for recipient in notice.recipient) == sorted(
-            address(team_id, seat) for team_id in (ALPHA, BETA) for seat in KONTAKT_ROLLEN
+            address(team_id, seat) for team_id in (ALPHA, BETA) for seat in KONTAKT_SEATS
         )
         assert [notice.address for notice in second.schiedsrichter_spiel_cancelled] == [REFEREE_EMAIL]
         # Named, so no mail promises a new request about a match the no-show decided.

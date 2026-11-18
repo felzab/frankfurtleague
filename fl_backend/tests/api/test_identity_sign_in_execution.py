@@ -310,7 +310,7 @@ def test_every_role_list_is_drawn_from_the_own_records():
         identifier, seat_rows=seat_rows, referee_rows=referee_rows, pupil_rows=pupil_rows, bewerbung_rows=[], registrierung_rows=[]
     )
 
-    assert [seat.rolle for seat in subject.seats] == ["trainer"]
+    assert [seat.seat for seat in subject.seats] == ["trainer"]
     assert {("seats", (seat.team_id, seat.saison_id)) for seat in subject.seats} | {
         ("spieler", e.spieler_id) for e in subject.spieler
     } <= entries

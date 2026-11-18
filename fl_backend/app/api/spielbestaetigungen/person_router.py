@@ -9,7 +9,7 @@ from app.api.account.services import find_own_entry_refusal
 from app.api.identity.crud import roles_of
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.schemas import FLSubjectSeat
-from app.api.identity.services import rollen_on
+from app.api.identity.services import seats_on
 from app.api.spielbestaetigungen.crud import JUDGED_JUNCTION_FIELDS, JUNCTION_FIELDS, OWN_ROW_FIELDS, pull_ansetzung_state
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAnswerResponse,
@@ -57,7 +57,7 @@ from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transact
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId
-from app.shared.schemas.literals import FLKontaktRolle
+from app.shared.schemas.literals import FLKontaktSeat
 
 # A referee and a club's seat holder answer here, each answer recorded under the answering party's Funktion.
 router = APIRouter(
@@ -66,8 +66,8 @@ router = APIRouter(
 )
 
 
-def _answering_seat(*, spielbestaetigung_raw: Mapping[str, Any] | None, seats: Iterable[FLSubjectSeat]) -> FLKontaktRolle | None:
-    """The seat a signed-in person answers a team row from: their first in `KONTAKT_ROLLEN` order on the row's team in its season.
+def _answering_seat(*, spielbestaetigung_raw: Mapping[str, Any] | None, seats: Iterable[FLSubjectSeat]) -> FLKontaktSeat | None:
+    """The seat a signed-in person answers a team row from: their first in `KONTAKT_SEATS` order on the row's team in its season.
 
     `None` for a row of no team, or of a team the seats do not sit on, which `foreign_row_refusal` answers alike.
     """
@@ -75,7 +75,7 @@ def _answering_seat(*, spielbestaetigung_raw: Mapping[str, Any] | None, seats: I
     if spielbestaetigung_raw is None or spielbestaetigung_raw["party"]["kind"] != "team":
         return None
 
-    held = rollen_on(seats, team_id=spielbestaetigung_raw["party"]["team_id"], saison_id=spielbestaetigung_raw["saison_id"])
+    held = seats_on(seats, team_id=spielbestaetigung_raw["party"]["team_id"], saison_id=spielbestaetigung_raw["saison_id"])
 
     return held[0] if held else None
 
@@ -325,7 +325,7 @@ async def post_team_answer(
         await judge(current, None)
 
         return FLSpielbestaetigungAnswerResponse(
-            state=answer_data.answer, answered_by=FLSpielbestaetigungByKontakt(kind="kontakt", rolle=seat), vorschlag=vorschlag
+            state=answer_data.answer, answered_by=FLSpielbestaetigungByKontakt(kind="kontakt", seat=seat), vorschlag=vorschlag
         )
 
     return await transact(db, answer)

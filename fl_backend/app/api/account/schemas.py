@@ -10,7 +10,7 @@ from app.shared.schemas.literals import (
     FLAddressChangeWay,
     FLEinwilligungScope,
     FLKontaktKenntnisnahmeScope,
-    FLKontaktRolle,
+    FLKontaktSeat,
 )
 from app.shared.schemas.responses import BasePayload, BaseReadModel
 
@@ -55,7 +55,7 @@ class FLAccountSeatEinwilligung(BaseModel):
     team_name: str
     saison_id: str
     # Never empty: an entry exists for a held seat alone, and the published floor is what the page parses against.
-    rollen: list[FLKontaktRolle] = Field(min_length=1)
+    seats: list[FLKontaktSeat] = Field(min_length=1)
     # Each on where any held slot's is, so a withdrawal stays offered.
     scope: FLKontaktKenntnisnahmeScope
     media: bool
@@ -75,7 +75,7 @@ class FLAccountBewerbungSeatEinwilligung(BaseModel):
     # The school as the application names it, or the picked club's own name today.
     schule: str
     saison_id: str
-    rollen: list[FLKontaktRolle] = Field(min_length=1)
+    seats: list[FLKontaktSeat] = Field(min_length=1)
     scope: FLKontaktKenntnisnahmeScope
     media: bool
     evidence_state: FLEinwilligungState

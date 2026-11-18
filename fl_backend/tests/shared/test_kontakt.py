@@ -18,7 +18,7 @@ from app.api.spieler.schemas import FLSpielerRecord
 from app.api.teams.schemas import FLKontaktpersonRecord, FLSaisonTeamKontakteRecord, FLSaisonTeamRecord
 from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
 from app.shared.schemas.kontakt import FLKontakt, FLKontaktPayload
-from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.schemas.literals import KONTAKT_SEATS
 
 Body = Callable[[dict[str, Any]], dict[str, Any]]
 
@@ -156,6 +156,6 @@ class TestAStoredAddress:
         assert FLSaisonTeamRecord.model_fields["kontakte"].annotation == FLSaisonTeamKontakteRecord | None
         assert FLBewerbungRecord.model_fields["kontakte"].annotation == FLSaisonTeamKontakteRecord
         assert FLSchiedsrichterRecord.model_fields["kontakt"].annotation == FLSchiedsrichterKontaktRecord
-        assert {seat: FLSaisonTeamKontakteRecord.model_fields[seat].annotation for seat in KONTAKT_ROLLEN} == dict.fromkeys(
-            KONTAKT_ROLLEN, FLKontaktpersonRecord | None
+        assert {seat: FLSaisonTeamKontakteRecord.model_fields[seat].annotation for seat in KONTAKT_SEATS} == dict.fromkeys(
+            KONTAKT_SEATS, FLKontaktpersonRecord | None
         )

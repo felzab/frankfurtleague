@@ -549,9 +549,9 @@ address as the sign-in box folds it, in lower case
 
 **A contact person's fixture confirmations are found from the seats they hold.**
 A seat's answer stores neither the address nor a name, only the seat it came from
-(`answer.by.rolle`) beside the reason typed from it (`answer.reason`).
+(`answer.by.seat`) beside the reason typed from it (`answer.reason`).
 Their seats' answers are their club's rows of each season in which they hold a seat now (`saison_id`,
-`party.team_id`, `answer.by.rolle`), read beside that season's contact block, which says whose seat it
+`party.team_id`, `answer.by.seat`), read beside that season's contact block, which says whose seat it
 is; a row records the seat and never its holder, so an answer given before they took the seat reads
 alike, and an erasure or a Widerspruch of an earlier holder took the reasons typed from the seat
 (`fl_backend/app/api/kontakte/crud.py :: remove_the_seats_reasons`). Send the fixture, the answer,

@@ -172,11 +172,11 @@ function registrierungRow(row: FLTeamPanelRegistrierung, team: string, saison: s
  * seat into one row, and whether they confirmed; an empty seat muted. A row's seats are its key, no seat held twice.
  */
 function seatRow(seat: FLTeamSeat) {
-  const held = COPY.admin.seatLine(seat.rollen, null, null);
+  const held = COPY.admin.seatLine(seat.seats, null, null);
   return seat.name === null
-    ? { id: seat.rollen.join(" "), name: COPY.admin.seatEmpty, chips: [], line: held, muted: true }
+    ? { id: seat.seats.join(" "), name: COPY.admin.seatEmpty, chips: [], line: held, muted: true }
     : {
-        id: seat.rollen.join(" "),
+        id: seat.seats.join(" "),
         name: { record: seat.name },
         chips: [seat.confirmed ? CONFIRMED_CHIP : UNCONFIRMED_CHIP],
         line: held,

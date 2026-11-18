@@ -53,7 +53,7 @@ from app.shared.schemas.bounds import (
     SPIEL_REMINDER_DAYS,
     SPIEL_REQUEST_LEAD_TIME_DAYS,
 )
-from app.shared.schemas.literals import FLKontaktRolle, FLSpielSide
+from app.shared.schemas.literals import FLKontaktSeat, FLSpielSide
 
 # Each stored `ansetzung` key and its fixture path: the one list the digest, the snapshot and the public
 # verdict's `$lookup` read, a key one lacks giving two answers to which Ansetzung a row is about.
@@ -629,7 +629,7 @@ def junction_names_of(*, spielbestaetigung_raw: Mapping[str, Any], ansetzung_sta
 def compose_answer_update(
     *,
     answer: FLSpielbestaetigungAnswerKind,
-    seat: FLKontaktRolle,
+    seat: FLKontaktSeat,
     vorschlag: FLSpielbestaetigungAppointment | None,
     reason: str | None,
     today: str,
@@ -640,7 +640,7 @@ def compose_answer_update(
                 "kind": answer,
                 "at": today,
                 # The seat and never its holder: the erasure of whoever holds the seat clears the reason typed from it.
-                "by": {"kind": "kontakt", "rolle": seat},
+                "by": {"kind": "kontakt", "seat": seat},
                 "vorschlag": None if vorschlag is None else {"date": vorschlag.date, "time": vorschlag.time},
                 "reason": reason,
             }
@@ -1235,7 +1235,7 @@ def asked_with_its_move(*, row: Mapping[str, Any], spiel: Mapping[str, Any], aus
     )
 
 
-def reference_of(*, spielbestaetigung_id: Any, seat: FLKontaktRolle | None) -> FLOutboxReference:
+def reference_of(*, spielbestaetigung_id: Any, seat: FLKontaktSeat | None) -> FLOutboxReference:
     """The row a fixture mail is about, and the seat of its club it went to."""
 
     return FLOutboxReference(collection=Collection.SPIELBESTAETIGUNGEN, id=spielbestaetigung_id, seat=seat)
@@ -1251,10 +1251,10 @@ def team_mails(*, spielbestaetigung_raw: Mapping[str, Any], kontakte: Any, data:
 
     return [
         OwedMail(
-            key=f"spielbestaetigung/{row_id}/{occasion}/{recipient.rolle}",
+            key=f"spielbestaetigung/{row_id}/{occasion}/{recipient.seat}",
             to=recipient.email,
             data=data,
-            reference=reference_of(spielbestaetigung_id=row_id, seat=recipient.rolle),
+            reference=reference_of(spielbestaetigung_id=row_id, seat=recipient.seat),
             team=FLOutboxTeam(saison_id=spielbestaetigung_raw["saison_id"], team_id=spielbestaetigung_raw["party"]["team_id"]),
         )
         for recipient in confirmed_recipients(kontakte=kontakte)
@@ -1305,7 +1305,7 @@ def austritt_notices_of(
         data = FLAustrittNoticeData(kind="austritt_notice", team=departed["name"], saison_id=saison_id, spiele=listed)
         mails = [
             OwedMail(
-                key=f"austritt/{saison_id}/{team_id}/{opponent_id}/{recipient.rolle}",
+                key=f"austritt/{saison_id}/{team_id}/{opponent_id}/{recipient.seat}",
                 to=recipient.email,
                 data=data,
                 reference=reference,
@@ -1411,9 +1411,7 @@ def build_seat_reasons_filter(held: Sequence[HeldSeats]) -> dict[str, Any]:
         "party.kind": "team",
         "answer.by.kind": "kontakt",
         "answer.reason": {"$ne": None},
-        "$or": [
-            {"saison_id": seats.saison_id, "party.team_id": seats.team_id, "answer.by.rolle": {"$in": list(seats.seats)}} for seats in held
-        ],
+        "$or": [{"saison_id": seats.saison_id, "party.team_id": seats.team_id, "answer.by.seat": {"$in": list(seats.seats)}} for seats in held],
     }
 
 

@@ -9,7 +9,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.identity.crud import roles_of
 from app.api.identity.schemas import FLSubject
 from app.core.collections import Collection
-from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.schemas.literals import KONTAKT_SEATS
 from tests.database import held_corpus, shared_client
 from tests.documents import (
     AUSTRITT,
@@ -107,7 +107,7 @@ def _junction(
         name[:3].upper(),
         _id=row_id,
         austritt=austritt,
-        kontakte={**{slot: None for slot in KONTAKT_ROLLEN}, **slots, "trainer_is_also": also},
+        kontakte={**{slot: None for slot in KONTAKT_SEATS}, **slots, "trainer_is_also": also},
     )
 
 
@@ -234,7 +234,7 @@ async def answered(url: str, email: str) -> FLSubject:
 
 
 def seats(answer: FLSubject) -> list[tuple[str, ObjectId, str, str, str]]:
-    return [(seat.saison_id, seat.team_id, seat.rolle, seat.team_name, seat.saison_status) for seat in answer.seats]
+    return [(seat.saison_id, seat.team_id, seat.seat, seat.team_name, seat.saison_status) for seat in answer.seats]
 
 
 def is_empty(answer: FLSubject) -> bool:
@@ -270,7 +270,7 @@ class TestTheConfirmationNarrowing:
     async def test_one_address_in_two_slots_is_answered_only_the_slot_it_confirmed(self, seeded_league: str):
         """Kills a confirmation judged per row: `trainer_is_also` seats this person twice, and only the Trainer seat is stamped."""
 
-        assert [seat.rolle for seat in (await answered(seeded_league, ALSO)).seats] == ["trainer"]
+        assert [seat.seat for seat in (await answered(seeded_league, ALSO)).seats] == ["trainer"]
 
     @pytest.mark.parametrize("email", [SCHIEDSRICHTER_WITHOUT_RECORD, SCHIEDSRICHTER_NULL_RECORD], ids=["no record", "null record"])
     async def test_an_unconfirmed_referee_grants_nothing(self, seeded_league: str, email: str):

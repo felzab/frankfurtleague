@@ -15,7 +15,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.shared.schemas.bounds import BIRTH_DATE_MAX_AGE_YEARS
-from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.schemas.literals import KONTAKT_SEATS
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.bewerbung_routes import answered, resent, viewed
@@ -45,7 +45,7 @@ SCHOOL_NAME = "Zorbanax"
 
 # The raw tokens the seeded links carry, and what the database holds for each.
 RAW_PREFIX = "raw-token-for"
-RAW: Mapping[str, str] = {seat: f"{RAW_PREFIX}-{seat}" for seat in KONTAKT_ROLLEN}
+RAW: Mapping[str, str] = {seat: f"{RAW_PREFIX}-{seat}" for seat in KONTAKT_SEATS}
 HASHES: Mapping[str, str] = {seat: hash_token(raw) for seat, raw in RAW.items()}
 
 
@@ -142,17 +142,17 @@ class TestWhatALinkOpens:
 
         response = await on_a_league(mongo_replica_set_url, lambda database, _: read_view(database, RAW["ansprechperson"]))
 
-        assert (response.state, response.saison_id, response.schule, response.rolle) == ("valid", SAISON_ID, SCHOOL_NAME, "ansprechperson")
-        assert response.also_rolle is None
+        assert (response.state, response.saison_id, response.schule, response.seat) == ("valid", SAISON_ID, SCHOOL_NAME, "ansprechperson")
+        assert response.also_seat is None
         rendered = response.model_dump_json()
         assert "Quillhilde" not in rendered and LAST_NAME not in rendered and MAIL_DOMAIN not in rendered and PHONE not in rendered
 
     @pytest.mark.parametrize(
-        ("seat", "also_rolle"),
+        ("seat", "also_seat"),
         [("ansprechperson", "trainer"), ("trainer", "ansprechperson"), ("stellvertretung", None)],
     )
     async def test_a_double_seated_persons_link_names_their_second_seat_and_no_other_link_does(
-        self, mongo_replica_set_url: str, seat: str, also_rolle: str | None
+        self, mongo_replica_set_url: str, seat: str, also_seat: str | None
     ):
         """The third seat is load-bearing: serving the declaration itself would tell the Stellvertretung that two OTHER seats are one person."""
 
@@ -160,7 +160,7 @@ class TestWhatALinkOpens:
 
         response = await on_a_league(mongo_replica_set_url, lambda database, _: read_view(database, RAW[seat]), documents=[paired])
 
-        assert (response.rolle, response.also_rolle) == (seat, also_rolle)
+        assert (response.seat, response.also_seat) == (seat, also_seat)
 
 
 class TestWhatAConfirmationWrites:
@@ -462,7 +462,7 @@ class TestWhatAnObjectionOwesTheAnsprechperson:
                 "data": {
                     "kind": "bewerbung_objection",
                     "saison_id": SAISON_ID,
-                    "rollen": ["ansprechperson"],
+                    "seats": ["ansprechperson"],
                     "declined": ["stellvertretung"],
                     "deadline": "2026-04-03",
                 },
@@ -593,8 +593,8 @@ class TestAResend:
         response, mail, old_code, view, document = await on_a_league(mongo_replica_set_url, body)
 
         assert old_code == Code.LINK_INVALID
-        assert (view.state, view.rolle) == ("valid", "trainer")
-        assert (response.rolle, response.confirmation_deadline) == ("trainer", "2026-04-15")
+        assert (view.state, view.seat) == ("valid", "trainer")
+        assert (response.seat, response.confirmation_deadline) == ("trainer", "2026-04-15")
         assert (mail.to, mail.data.kind) == ("wraxlington@example.com", "bewerbung_confirmation")
         # That seat's alone: the other two keep the days their own links carry.
         assert {seat: entry["deadline"] for seat, entry in document["confirmations"].items()} == {

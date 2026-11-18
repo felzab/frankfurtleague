@@ -19,7 +19,7 @@ from app.core.transactions import transact
 from app.shared.einwilligung_evidence import FLEinwilligungChoice
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.einwilligung import FLSeatEinwilligungPayload, by_choice
-from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.schemas.literals import KONTAKT_SEATS
 
 # A person's route in place of `bind_actor`: a seat holder signs in by code and holds no grant, so the administrator's
 # actor check would refuse every one of them.
@@ -53,13 +53,13 @@ async def patch_einwilligung(
         # Pending alone: an accepted application's seats are its season row's, and a declined one is decided.
         bewerbung = await bewerbungen_collection.find_one(
             {"_id": bewerbung_id, "status": "submitted"},
-            {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "einwilligung")},
+            {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SEATS for field in ("email", "einwilligung")},
             session=session,
         )
-        rollen = [] if bewerbung is None else own_seats(bewerbung, identifier)
-        refuse(find_own_entry_refusal(held=bool(rollen)))
+        slots = [] if bewerbung is None else own_seats(bewerbung, identifier)
+        refuse(find_own_entry_refusal(held=bool(slots)))
         assert bewerbung is not None
-        seats = {slot: bewerbung["kontakte"][slot] for slot in rollen}
+        seats = {slot: bewerbung["kontakte"][slot] for slot in slots}
         chosen = changed_seat_choices(blocks=[seat["einwilligung"] for seat in seats.values()], pressed=pressed)
 
         # Withdraw-only: nothing on an application grants a panel to answer a grant against.
@@ -81,7 +81,7 @@ async def patch_einwilligung(
                 collection=bewerbungen_collection, db_filter={"_id": bewerbung["_id"]}, update=update, session=session
             )
         if moved := withdrawal_line(blocks=[seat["einwilligung"] for seat in seats.values()], chosen=chosen):
-            journal.note("withdrawal", [f"{Collection.BEWERBUNGEN}/{bewerbung['_id']}"], choices=list(moved), seats=rollen)
+            journal.note("withdrawal", [f"{Collection.BEWERBUNGEN}/{bewerbung['_id']}"], choices=list(moved), seats=slots)
 
     async with journal:
         await transact(db, write)

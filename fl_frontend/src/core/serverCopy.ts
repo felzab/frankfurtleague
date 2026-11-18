@@ -1,12 +1,12 @@
 import "server-only";
 
 import { KONTAKT_EMAIL, VEREIN_ADDRESS, VEREIN_NAME, VEREINSREGISTER, VORSTAND_JOINTLY } from "./brand";
-import { boundBy, catalogue, COPY, rollenText, textOf, waitWords } from "./copy";
+import { boundBy, catalogue, COPY, seatsText, textOf, waitWords } from "./copy";
 import { formatDate, formatDateLong, formatDayAndTime, formatInstant, formatList, formatNumber, formatOrdinal, formatSigned } from "./format";
 
 import type { Copy, Wait, Words } from "./copy";
 import type { CalendarDay, TimeOfDay } from "./format";
-import type { Code, FLBookingResource, FLKontaktRolle, FLOverviewCardName, FLRefusedField, Rule } from "./generated/client/types";
+import type { Code, FLBookingResource, FLKontaktSeat, FLOverviewCardName, FLRefusedField, Rule } from "./generated/client/types";
 import type { ROUTES } from "./routes";
 
 /** The route keys of the pages a search engine may list. */
@@ -458,7 +458,7 @@ export const SERVER_COPY = catalogue({
       received: {
         subject: (saison: string) => `Bewerbung für die ${COPY.shared.saisonName(saison)} eingegangen`,
         lead: (saison: string) => `${boundBy("Für", "die", COPY.shared.saisonNameBound(saison))} ist eine Bewerbung eingegangen.`,
-        named: (rollen: readonly FLKontaktRolle[]) => `Darin bist du ${boundBy("als", rollenText(rollen))} genannt.`,
+        named: (seats: readonly FLKontaktSeat[]) => `Darin bist du ${boundBy("als", seatsText(seats))} genannt.`,
         others: "Die anderen Kontaktpersonen bestätigen selbst. Sag ihnen Bescheid.",
         pending: "Noch offen",
       },
@@ -1237,11 +1237,11 @@ export const SERVER_COPY = catalogue({
     /** The first sentence, by the record the seat stands on. */
     opening: {
       /** A seat in an application, one text for all: it names no submitter, the form recording none. */
-      named: (schule: Words, saison: string, rolle: Words) =>
-        `Du bist in der Bewerbung ${boundBy("von", textOf(schule))} ${boundBy("für", "die", COPY.shared.saisonNameBound(saison))} ${boundBy("als", textOf(rolle))} genannt.`,
+      named: (schule: Words, saison: string, seats: Words) =>
+        `Du bist in der Bewerbung ${boundBy("von", textOf(schule))} ${boundBy("für", "die", COPY.shared.saisonNameBound(saison))} ${boundBy("als", textOf(seats))} genannt.`,
       /** Seated by the league on a team's season, with no application. */
-      seasonRow: (team: Words, saison: string, rolle: Words) =>
-        `Die Liga hat dich ${boundBy("für", textOf(team))} ${boundBy("in", "der", COPY.shared.saisonNameBound(saison))} ${boundBy("als", textOf(rolle))} eingetragen.`,
+      seasonRow: (team: Words, saison: string, seats: Words) =>
+        `Die Liga hat dich ${boundBy("für", textOf(team))} ${boundBy("in", "der", COPY.shared.saisonNameBound(saison))} ${boundBy("als", textOf(seats))} eingetragen.`,
     },
     stored: "Wir speichern deinen Namen, deine Kontaktdaten und dein Geburtsdatum längstens bis zum Ende der Saison danach.",
     /** The same on a closed row, whose seat no confirmation filled, so no birthdate stands on it. */

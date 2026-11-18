@@ -43,7 +43,7 @@ from app.core import clock
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.schemas.literals import KONTAKT_SEATS
 from tests import documents
 from tests.acts import acts_of
 from tests.database import a_clean_database
@@ -259,11 +259,11 @@ class TestTheSeatTheAnswerRecords:
 
         answered, second, row, other = await on_a_spiel(mongo_replica_set_url, body)
 
-        assert answered.answered_by.model_dump() == {"kind": "kontakt", "rolle": "stellvertretung"}
+        assert answered.answered_by.model_dump() == {"kind": "kontakt", "seat": "stellvertretung"}
         assert row["answer"] == {
             "kind": "agreed",
             "at": TODAY,
-            "by": {"kind": "kontakt", "rolle": "stellvertretung"},
+            "by": {"kind": "kontakt", "seat": "stellvertretung"},
             "vorschlag": None,
             "reason": None,
         }
@@ -445,11 +445,11 @@ class TestTwoSeatsPressingAtOnce:
             confirmations.assert_landed_inside(serially=0)
             answered = await database[Collection.SPIELBESTAETIGUNGEN].count_documents({"party.team_id": TEAM1, "answer": {"$ne": None}})
 
-            return outcome, (await row_now(database, ROW1))["answer"]["by"]["rolle"], answered, confirmations.judged
+            return outcome, (await row_now(database, ROW1))["answer"]["by"]["seat"], answered, confirmations.judged
 
-        outcome, rolle, answered, judged = await on_a_spiel(mongo_replica_set_url, body)
+        outcome, seat, answered, judged = await on_a_spiel(mongo_replica_set_url, body)
 
-        assert (outcome, rolle, answered) == (Code.ANSETZUNG_ANSWERED, "ansprechperson", 1)
+        assert (outcome, seat, answered) == (Code.ANSETZUNG_ANSWERED, "ansprechperson", 1)
         # The premise: the write conflicted and the press was judged afresh. Whether the judgement or the write's filter
         # then refuses it, both answer the same code.
         assert judged == 2
@@ -534,7 +534,7 @@ class TestTheAdministratorsZusage:
 
         assert await on_a_spiel(mongo_replica_set_url, body) == (
             Code.ANSETZUNG_NOT_ENTERABLE,
-            {"kind": "kontakt", "rolle": "stellvertretung"},
+            {"kind": "kontakt", "seat": "stellvertretung"},
         )
 
     async def test_a_seats_answer_landing_inside_the_settle_is_the_one_answer(self, mongo_replica_set_url: str):
@@ -552,7 +552,7 @@ class TestTheAdministratorsZusage:
 
         outcome, by, judged = await on_a_spiel(mongo_replica_set_url, body)
 
-        assert (outcome, by) == (Code.ANSETZUNG_NOT_ENTERABLE, {"kind": "kontakt", "rolle": "stellvertretung"})
+        assert (outcome, by) == (Code.ANSETZUNG_NOT_ENTERABLE, {"kind": "kontakt", "seat": "stellvertretung"})
         # Driven, not reasoned: the rival surfaces as a write conflict, so the refusal is the retry's read and never the filter.
         assert judged == 2
 
@@ -641,7 +641,7 @@ class TestTheDiscard:
         assert (row["answer"], row["closed"]) == (declined, {"reason": "discarded"})
         # Owed the club in the discard's own transaction, the fixture's day being to come: every address its seats hold.
         assert sorted((mail["to"], mail["kind"], mail["reference"]["seat"]) for mail in owed) == sorted(
-            (address(TEAM1, seat), "spiel_vorschlag_discarded", seat) for seat in KONTAKT_ROLLEN
+            (address(TEAM1, seat), "spiel_vorschlag_discarded", seat) for seat in KONTAKT_SEATS
         )
 
     async def test_a_close_landing_inside_the_discard_keeps_its_own_reason(self, mongo_replica_set_url: str):
@@ -709,7 +709,7 @@ class TestTheDiscard:
         fixtures.assert_landed_inside(serially=1)
         # The save's own raise alone.
         assert (outcome, stored) == (COMMITTED, (MOVED_TO, 1))
-        assert (closed, told) == ({"reason": "discarded"}, len(KONTAKT_ROLLEN))
+        assert (closed, told) == ({"reason": "discarded"}, len(KONTAKT_SEATS))
 
 
 async def adopt(
@@ -836,7 +836,7 @@ class TestTheAdoption:
 DECLINE = {
     "kind": "declined",
     "at": TODAY,
-    "by": {"kind": "kontakt", "rolle": "trainer"},
+    "by": {"kind": "kontakt", "seat": "trainer"},
     "vorschlag": {"date": PROPOSAL[0], "time": PROPOSAL[1]},
     "reason": None,
 }
@@ -955,7 +955,7 @@ class TestAnAnswerAndItsWritersErasureCross:
         season_rows.assert_landed_inside(serially=1)
         assert (row["answer"]["kind"], row["answer"]["by"], row["answer"]["reason"]) == (
             "declined",
-            {"kind": "kontakt", "rolle": "trainer"},
+            {"kind": "kontakt", "seat": "trainer"},
             None,
         )
 
@@ -998,7 +998,7 @@ class TestADiscardAndASeatHoldersErasureCross:
         closed, told = await on_a_spiel(mongo_replica_set_url, body)
 
         assert closed == {"reason": "discarded"}
-        assert told == sorted(address(TEAM1, seat) for seat in KONTAKT_ROLLEN if seat != "ansprechperson")
+        assert told == sorted(address(TEAM1, seat) for seat in KONTAKT_SEATS if seat != "ansprechperson")
 
 
 # --- A REFEREE'S OWN ROWS: the referee's answer, signed in on the person lane.

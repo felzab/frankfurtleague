@@ -8,7 +8,7 @@ from app.api.registrierungen.schemas import FLRegistrierungDecisionReason
 from app.core.collections import Collection
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomObjectId, CustomStrippedNonEmptyString, CustomTimeString
 from app.shared.schemas.kontakt import CustomEmail, CustomStoredAddress
-from app.shared.schemas.literals import FLAddressChangeWay, FLAdminTier, FLGruppenNames, FLKontaktRolle, FLKontaktRow, FLTrikotFarbe
+from app.shared.schemas.literals import FLAddressChangeWay, FLAdminTier, FLGruppenNames, FLKontaktRow, FLKontaktSeat, FLTrikotFarbe
 from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 # Each kind of mail is one member of `FLOutboxData` below, carrying the facts its builder renders and never a
@@ -268,14 +268,14 @@ class FLInvitationData(BaseReadModel):
 class FLBewerbungLinkData(BaseReadModel):
     """One person's confirmation link on an application: at its submission, a re-send, a correction or a reseat, or the one reminder.
 
-    `rollen` are every seat the link answers, two where the Trainer holds a second; the reminder's link joins the first.
+    `seats` are every seat the link answers, two where the Trainer holds a second; the reminder's link joins the first.
     """
 
     kind: Literal["bewerbung_confirmation", "bewerbung_reminder"]
     saison_id: str
     # The school as submitted, or the picked club's name: a contact who never heard of the application places it by this.
     schule: str
-    rollen: list[FLKontaktRolle] = Field(min_length=1)
+    seats: list[FLKontaktSeat] = Field(min_length=1)
     # The day the links stop working, which the reminder repeats rather than moves.
     deadline: CustomDateString
 
@@ -285,9 +285,9 @@ class FLBewerbungReceivedData(BaseReadModel):
 
     kind: Literal["bewerbung_received"]
     saison_id: str
-    rollen: list[FLKontaktRolle] = Field(min_length=1)
+    seats: list[FLKontaktSeat] = Field(min_length=1)
     # By role alone, so a mistyped address hands a stranger nobody's name.
-    pending: list[FLKontaktRolle]
+    pending: list[FLKontaktSeat]
     deadline: CustomDateString
 
 
@@ -299,7 +299,7 @@ class FLBewerbungZusageData(BaseReadModel):
     # The club's code, which a new school first holds through this acceptance.
     shorthand: str
     saison_id: str
-    rollen: list[FLKontaktRolle] = Field(min_length=1)
+    seats: list[FLKontaktSeat] = Field(min_length=1)
     gruppe: FLGruppenNames
     # Null while no kit colour is assigned; the mail then says so rather than guessing one.
     trikot_farbe: FLTrikotFarbe | None
@@ -311,7 +311,7 @@ class FLBewerbungAbsageData(BaseReadModel):
     kind: Literal["bewerbung_absage"]
     team: str
     saison_id: str
-    rollen: list[FLKontaktRolle] = Field(min_length=1)
+    seats: list[FLKontaktSeat] = Field(min_length=1)
     reason: str
 
 
@@ -320,8 +320,8 @@ class FLBewerbungObjectionData(BaseReadModel):
 
     kind: Literal["bewerbung_objection"]
     saison_id: str
-    rollen: list[FLKontaktRolle] = Field(min_length=1)
-    declined: list[FLKontaktRolle] = Field(min_length=1)
+    seats: list[FLKontaktSeat] = Field(min_length=1)
+    declined: list[FLKontaktSeat] = Field(min_length=1)
     deadline: CustomDateString
 
 
@@ -332,7 +332,7 @@ class FLKontaktLinkData(BaseReadModel):
     saison_id: str
     # The team's name in that season, which is the school the reader is asked about.
     schule: str
-    rollen: list[FLKontaktRolle] = Field(min_length=1)
+    seats: list[FLKontaktSeat] = Field(min_length=1)
     deadline: CustomDateString
     # The row's state at the write: a closed row's link takes the Widerspruch alone, and the mail asks only that.
     row: FLKontaktRow
@@ -433,7 +433,7 @@ class FLOutboxReference(BaseModel):
 
     collection: Collection
     id: CustomObjectId
-    seat: FLKontaktRolle | None
+    seat: FLKontaktSeat | None
 
 
 class FLOutboxLink(BaseModel):

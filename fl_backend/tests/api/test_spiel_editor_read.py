@@ -27,7 +27,7 @@ DATABASE_NAME = worker_database("fl_spiel_editor_read_test")
 SAISON_ID = "2026"
 HOME, AWAY = (ObjectId(f"6890a1b2c3d4e5f6074600{n:02d}") for n in (1, 2))
 
-AGREED = {"kind": "agreed", "at": "2026-04-20", "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None}
+AGREED = {"kind": "agreed", "at": "2026-04-20", "by": {"kind": "kontakt", "seat": "trainer"}, "vorschlag": None, "reason": None}
 
 
 def _spiel(**fields: Any) -> dict[str, Any]:

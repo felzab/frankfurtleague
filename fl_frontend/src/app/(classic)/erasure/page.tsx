@@ -93,10 +93,10 @@ function factsOf(email: string, passkeys: number, view: FLAccountErasureViewResp
   for (const { first_name: firstName, last_name: lastName } of spieler)
     add(ENTRIES.spieler, { record: lastName === null ? firstName : `${firstName} ${lastName}` });
   for (const { name } of schiedsrichter) add(ENTRIES.schiedsrichter, { record: name });
-  for (const { rolle, team_name, saison_id } of seats) {
-    add(ENTRIES.seats([rolle]), ENTRIES.teamSeason({ record: team_name }, COPY.shared.saisonName(saison_id)));
+  for (const { seat, team_name, saison_id } of seats) {
+    add(ENTRIES.seats([seat]), ENTRIES.teamSeason({ record: team_name }, COPY.shared.saisonName(saison_id)));
   }
-  for (const { rolle, saison_id } of bewerbungen) add(ENTRIES.seats([rolle]), ENTRIES.bewerbung(COPY.shared.saisonNameBound(saison_id)));
+  for (const { seat, saison_id } of bewerbungen) add(ENTRIES.seats([seat]), ENTRIES.bewerbung(COPY.shared.saisonNameBound(saison_id)));
   for (const { team_name, saison_id } of registrierungen) {
     add(ENTRIES.spieler, ENTRIES.registrierung(team_name === null ? null : { record: team_name }, COPY.shared.saisonNameBound(saison_id)));
   }

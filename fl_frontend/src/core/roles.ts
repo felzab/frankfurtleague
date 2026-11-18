@@ -1,4 +1,4 @@
-import type { FLKontaktRolle, FLSaisonStatus } from "./generated/client/types";
+import type { FLKontaktSeat, FLSaisonStatus } from "./generated/client/types";
 import type { SubjectSession } from "./subject";
 
 /**
@@ -7,8 +7,7 @@ import type { SubjectSession } from "./subject";
  */
 type KontaktRole = {
   kind: "kontakt";
-  // The contact-seat sense of the word, never the captaincy's.
-  rolle: FLKontaktRolle;
+  seat: FLKontaktSeat;
   team_id: string;
   saison_id: string;
   team_name: string;
@@ -64,7 +63,7 @@ export function rolesOf(subject: SubjectSession): { roles: Role[]; unconfirmed: 
       .filter((seat) => grantsAPanel(seat.saison_status))
       .map((seat): KontaktRole => ({
         kind: "kontakt",
-        rolle: seat.rolle,
+        seat: seat.seat,
         team_id: seat.team_id,
         saison_id: seat.saison_id,
         team_name: seat.team_name,

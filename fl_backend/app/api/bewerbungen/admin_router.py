@@ -100,7 +100,7 @@ from app.core.routing import by_id
 from app.core.transactions import transact
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId
-from app.shared.schemas.literals import FLKontaktRolle
+from app.shared.schemas.literals import FLKontaktSeat
 
 # Admin-guarded, not base: an application carries three people's names, addresses, telephone numbers and dates of
 # birth, and says which schools asked and were turned down. The public router shares this prefix at base tier and
@@ -422,7 +422,7 @@ async def accept_bewerbung(
                         team=name,
                         shorthand=shorthand,
                         saison_id=saison_id,
-                        rollen=seats,
+                        seats=seats,
                         gruppe=acceptance_data.gruppe,
                         trikot_farbe=acceptance_data.trikot_farbe,
                     ),
@@ -500,7 +500,7 @@ async def decline_bewerbung(
                         kind="bewerbung_absage",
                         team=team,
                         saison_id=str(stored_raw["saison_id"]),
-                        rollen=seats,
+                        seats=seats,
                         reason=decline_data.reason,
                     ),
                 )
@@ -542,26 +542,26 @@ async def resend_einwilligung(
 
     # A 404 rather than a 422, as a malformed path id answers: the segment names no seat any
     # application has, which is a miss and not a body fault.
-    rolle = seat_named(seat)
-    if rolle is None:
+    pressed = seat_named(seat)
+    if pressed is None:
         raise DocumentNotFoundError()
 
-    def seats_judged_on(stored: Mapping[str, Any]) -> tuple[FLKontaktRolle, ...]:
+    def seats_judged_on(stored: Mapping[str, Any]) -> tuple[FLKontaktSeat, ...]:
         """Refuse, or answer every seat the fresh link will open: the pressed one and the mirror the confirmation also answers."""
 
         kontakte, confirmations = stored.get("kontakte"), stored.get("confirmations")
         refuse(find_triage_refusal(status=str(stored["status"])))
-        refuse(find_already_answered_refusal(kontakte=kontakte, confirmations=confirmations, seat=rolle))
+        refuse(find_already_answered_refusal(kontakte=kontakte, confirmations=confirmations, seat=pressed))
 
         # One entry left standing would keep the replaced address's link alive. The mirror is judged
         # too: `paired_seat` adds a seat that merely stands.
-        other = paired_seat(kontakte=kontakte, confirmations=confirmations, seat=rolle)
+        other = paired_seat(kontakte=kontakte, confirmations=confirmations, seat=pressed)
         if other is None:
-            return (rolle,)
+            return (pressed,)
 
         refuse(find_already_answered_refusal(kontakte=kontakte, confirmations=confirmations, seat=other))
 
-        return (rolle, other)
+        return (pressed, other)
 
     seats = seats_judged_on(bewerbung_raw)
     confirmation_deadline = confirmation_deadline_from(today=today)
@@ -570,7 +570,7 @@ async def resend_einwilligung(
 
     # The judgement is in the filter, so a decision or an answer landing after the read leaves the row
     # untouched rather than overwritten.
-    async def mint_on(seats: tuple[FLKontaktRolle, ...]) -> Mapping[str, Any]:
+    async def mint_on(seats: tuple[FLKontaktSeat, ...]) -> Mapping[str, Any]:
         async def mint(session: AsyncClientSession) -> Mapping[str, Any]:
             # In-session, as the seat write reads them: the filter holds the pressed seats alone, and the deletion day is every seat's.
             stored = await pull_one_from_db(
@@ -620,7 +620,7 @@ async def resend_einwilligung(
         matched = await mint_on(seats)
 
     return FLBewerbungEinwilligungResendResponse(
-        rolle=rolle, email=str(matched["kontakte"][rolle]["email"]), rollen=list(seats), confirmation_deadline=confirmation_deadline
+        seat=pressed, email=str(matched["kontakte"][pressed]["email"]), seats=list(seats), confirmation_deadline=confirmation_deadline
     )
 
 
@@ -660,8 +660,8 @@ async def post_kontakt_seat(
         )
 
         # A 404 rather than a 422, as the re-send's is: the segment names no seat any application has.
-        rolle = seat_named(seat)
-        if rolle is None:
+        pressed = seat_named(seat)
+        if pressed is None:
             raise DocumentNotFoundError()
 
         kontakte, confirmations = bewerbung_raw.get("kontakte"), bewerbung_raw.get("confirmations")
@@ -669,8 +669,8 @@ async def post_kontakt_seat(
 
         # The pair is claimed rather than read off the slots, so it holds on the emptied seats too, and it is judged
         # with the pressed seat: `claimed_pair_seat` adds a mirror in any state at all.
-        other = claimed_pair_seat(kontakte=kontakte, seat=rolle)
-        seats = (rolle,) if other is None else (rolle, other)
+        other = claimed_pair_seat(kontakte=kontakte, seat=pressed)
+        seats = (pressed,) if other is None else (pressed, other)
 
         refuse(find_seat_write_refusal(confirmations=confirmations, seats=seats))
 

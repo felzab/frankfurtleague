@@ -46,7 +46,7 @@ from app.shared.schemas.literals import (
     FLAustrittType,
     FLGruppenNames,
     FLKontaktKenntnisnahmeScope,
-    FLKontaktRolle,
+    FLKontaktSeat,
     FLSaisonStatus,
     FLSchulform,
     FLTrikotFarbe,
@@ -618,7 +618,7 @@ class FLKontaktMint(BaseModel):
     """One person a write owed a fresh confirmation link, which the Postausgang mails: never the link itself."""
 
     # Every seat the one link answers for, two where the Trainer holds a second: one link per person.
-    rollen: list[FLKontaktRolle]
+    seats: list[FLKontaktSeat]
     # As this transaction stored it, never a caller's earlier read: the address the mail is owed to.
     email: str
 
@@ -672,7 +672,7 @@ class FLTeamSeat(BaseModel):
     """
 
     # The seats the entry's person holds: the Trainer's first, and the seat `trainer_is_also` names beside it.
-    rollen: list[FLKontaktRolle]
+    seats: list[FLKontaktSeat]
     # Null for an empty slot, which is answered rather than omitted: a missing line reads as a team
     # with two seats rather than one with a seat unfilled.
     name: str | None

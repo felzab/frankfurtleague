@@ -22,7 +22,7 @@ from app.api.teams.services import compose_kontakt_confirmation
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db
 from app.core.transactions import transaction_session
-from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.schemas.literals import KONTAKT_SEATS
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.config import build_test_config, grants_for_the_suite
@@ -109,7 +109,7 @@ async def on_a_league(url: str, body: Write) -> Any:
                         kontakte=STORED,
                         confirmations={
                             seat: {**compose_kontakt_confirmation(today=TODAY), "token_hashes": [hash_token(row_link(seat))]}
-                            for seat in KONTAKT_ROLLEN
+                            for seat in KONTAKT_SEATS
                         },
                     ),
                 },
@@ -160,15 +160,15 @@ async def contradict(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
     )
 
 
-def declined(team_id: ObjectId, spiel: Mapping[str, Any], rolle: str, reason: str) -> dict[str, Any]:
-    """A row the team declined from `rolle`, giving a reason; closed since, as a move closes an answered row."""
+def declined(team_id: ObjectId, spiel: Mapping[str, Any], seat: str, reason: str) -> dict[str, Any]:
+    """A row the team declined from `seat`, giving a reason; closed since, as a move closes an answered row."""
 
     return documents.spielbestaetigung_document(
         spiel,
         party={"kind": "team", "team_id": team_id},
         deadline="2026-04-11",
         asked_at=TODAY,
-        answer=documents.kontakt_answer_document(rolle, reason=reason),
+        answer=documents.kontakt_answer_document(seat, reason=reason),
         closed={"reason": "ansetzung_changed"},
     )
 

@@ -3,7 +3,7 @@ from typing import Any
 
 from app.core.crud import literal_pattern
 from app.shared.folding import person_name_key, sign_in_identifier, trimmed_pattern
-from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.schemas.literals import KONTAKT_SEATS
 
 
 def same_address(identifier: str) -> Mapping[str, Any]:
@@ -30,7 +30,7 @@ def rows_seating(*identifiers: str) -> Mapping[str, Any]:
     # Folded here, the form every seat stores.
     folded = sorted({sign_in_identifier(identifier) for identifier in identifiers})
 
-    return {"$or": [{f"kontakte.{slot}.email": {"$in": folded}} for slot in KONTAKT_ROLLEN]}
+    return {"$or": [{f"kontakte.{slot}.email": {"$in": folded}} for slot in KONTAKT_SEATS]}
 
 
 # The address rides along because `find_matching_slots` picks the seat by it, off the row itself.
@@ -46,7 +46,7 @@ def build_accepted_application_pipeline(*, saison_id: str, team_id: Any) -> list
 
     return [
         {"$match": {"saison_id": saison_id, "team_id": team_id, "status": "accepted"}},
-        {"$project": {**{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in SEAT_FIELDS}, "confirmations": 1}},
+        {"$project": {**{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SEATS for field in SEAT_FIELDS}, "confirmations": 1}},
     ]
 
 
@@ -56,10 +56,10 @@ def find_matching_slots(row: Mapping[str, Any], identifier: str) -> tuple[str, .
     # Every shape checked before it is read: a block or a seat may stand emptied, and a person's Widerspruch must not
     # answer 500 over one.
     kontakte = row.get("kontakte")
-    seats = [kontakte.get(slot) for slot in KONTAKT_ROLLEN] if isinstance(kontakte, Mapping) else [None] * len(KONTAKT_ROLLEN)
+    seats = [kontakte.get(slot) for slot in KONTAKT_SEATS] if isinstance(kontakte, Mapping) else [None] * len(KONTAKT_SEATS)
     emails = [seat.get("email") if isinstance(seat, Mapping) else None for seat in seats]
 
-    named = zip(KONTAKT_ROLLEN, emails, strict=True)
+    named = zip(KONTAKT_SEATS, emails, strict=True)
 
     return tuple(slot for slot, email in named if isinstance(email, str) and sign_in_identifier(email) == identifier)
 
@@ -89,9 +89,9 @@ def departing_slots(row: Mapping[str, Any], identifiers: Iterable[str], names: S
     # outgoing row's names.
     kontakte = row.get("kontakte")
     if names and isinstance(kontakte, Mapping):
-        slots |= {slot for slot in KONTAKT_ROLLEN if seat_name(kontakte.get(slot)) in names}
+        slots |= {slot for slot in KONTAKT_SEATS if seat_name(kontakte.get(slot)) in names}
 
-    return tuple(slot for slot in KONTAKT_ROLLEN if slot in slots)
+    return tuple(slot for slot in KONTAKT_SEATS if slot in slots)
 
 
 def seated_people(row: Mapping[str, Any]) -> tuple[frozenset[str], frozenset[PersonName]]:
@@ -99,7 +99,7 @@ def seated_people(row: Mapping[str, Any]) -> tuple[frozenset[str], frozenset[Per
 
     kontakte = row.get("kontakte")
     seats = (
-        [seat for seat in (kontakte.get(slot) for slot in KONTAKT_ROLLEN) if isinstance(seat, Mapping)] if isinstance(kontakte, Mapping) else []
+        [seat for seat in (kontakte.get(slot) for slot in KONTAKT_SEATS) if isinstance(seat, Mapping)] if isinstance(kontakte, Mapping) else []
     )
     addresses = frozenset(sign_in_identifier(seat["email"]) for seat in seats if isinstance(seat.get("email"), str))
 

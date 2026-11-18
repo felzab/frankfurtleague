@@ -22,7 +22,7 @@ from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung_evidence import CHOICES, FLEinwilligungChoice, TextVersions, compose_choices, evidence_state_of, is_given
 from app.shared.schemas.einwilligung import PressTextVersions, stale_grants
-from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.schemas.literals import KONTAKT_SEATS
 
 
 def gives_anything(*, saved: Mapping[str, Any], chosen: Mapping[FLEinwilligungChoice, Any]) -> bool:
@@ -275,7 +275,7 @@ def build_self_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "shorthand": 1,
                 # Read by the Funktionen the page judges a grant by, which come from these rows.
                 "austritt": 1,
-                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "birth_date", "einwilligung")},
+                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SEATS for field in ("email", "birth_date", "einwilligung")},
             }
         },
         # Read by the same Funktionen.
@@ -325,16 +325,16 @@ def compose_seats_self(
 
     seats = []
     for row in rows:
-        rollen = own_seats(row, identifier)
-        if not rollen:
+        slots = own_seats(row, identifier)
+        if not slots:
             continue
-        held = [row["kontakte"][slot] for slot in rollen]
+        held = [row["kontakte"][slot] for slot in slots]
         seats.append(
             {
                 "team_id": row["team_id"],
                 "team_name": row["name"],
                 "saison_id": row["saison_id"],
-                "rollen": rollen,
+                "seats": slots,
                 **_seat_choices_held(held),
                 "media_offered": all(media_offered(birth_date=seat.get("birth_date"), today=today) for seat in held),
                 "givable": holds_a_seat(seats_with_panel, team_id=row["team_id"], saison_id=row["saison_id"]),
@@ -354,7 +354,7 @@ def build_self_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "saison_id": 1,
                 "team_id": 1,
                 "schule.team_name": 1,
-                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "einwilligung")},
+                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SEATS for field in ("email", "einwilligung")},
             }
         },
         context_teams_lookup("team_id"),
@@ -368,17 +368,17 @@ def compose_bewerbung_seats_self(
 
     entries = []
     for row in rows:
-        rollen = own_seats(row, identifier)
-        if not rollen:
+        slots = own_seats(row, identifier)
+        if not slots:
             continue
-        held = [row["kontakte"][slot] for slot in rollen]
+        held = [row["kontakte"][slot] for slot in slots]
         schule = bewerbung_schule(bewerbung_raw=row, team_name=(teams.get(row.get("team_id")) or {}).get("name"))
         entries.append(
             {
                 "bewerbung_id": row["_id"],
                 "schule": schule,
                 "saison_id": row["saison_id"],
-                "rollen": rollen,
+                "seats": slots,
                 **_seat_choices_held(held),
             }
         )

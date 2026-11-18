@@ -12,7 +12,7 @@ from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.collections import Collection
-from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.schemas.literals import KONTAKT_SEATS
 from tests.documents import (
     confirmed_referee_document,
     kontaktperson_document,
@@ -98,10 +98,10 @@ def _junction(row_id: ObjectId, saison_id: str, team_id: ObjectId, *, name: str,
         name[:3].upper(),
         _id=row_id,
         kontakte={
-            **{slot: None for slot in KONTAKT_ROLLEN},
+            **{slot: None for slot in KONTAKT_SEATS},
             **{slot: _person(seat) if isinstance(seat, str) else seat for slot, seat in slots.items()},
             # A declaration about two slots rather than a slot of its own, so it names nobody and
-            # no case here turns on it (`app/api/teams/schemas.py :: KONTAKT_ROLLEN`).
+            # no case here turns on it (`app/api/teams/schemas.py :: KONTAKT_SEATS`).
             "trainer_is_also": None,
         },
     )

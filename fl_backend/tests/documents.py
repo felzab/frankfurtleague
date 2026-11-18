@@ -37,7 +37,7 @@ from app.readback import RECORD_MODELS
 from app.shared.einwilligung_evidence import CHOICES, EVIDENCE, TextVersions, compose_initial, compose_receipt
 from app.shared.folding import league_address
 from app.shared.schemas.einwilligung import FLMediaTextVersion, FLNameKaderTextVersion, FLNameSpielplanTextVersion, FLWhatsappTextVersion
-from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAddressChangeWay
+from app.shared.schemas.literals import KONTAKT_SEATS, FLAddressChangeWay
 from app.shared.tokens import hash_token
 
 ADDRESS: Final[Mapping[str, str]] = {
@@ -336,13 +336,13 @@ def aufstellung_document(spiel: Mapping[str, Any], team_id: Any, *, starters: Se
     )
 
 
-def kontakt_answer_document(rolle: str, *, reason: str | None, at: str = "2026-04-01", **fields: Any) -> dict[str, Any]:
+def kontakt_answer_document(seat: str, *, reason: str | None, at: str = "2026-04-01", **fields: Any) -> dict[str, Any]:
     """A seat's decline as its link stores it, proposing another date."""
 
     return {
         "kind": "declined",
         "at": at,
-        "by": {"kind": "kontakt", "rolle": rolle},
+        "by": {"kind": "kontakt", "seat": seat},
         "vorschlag": {"date": "2026-04-25", "time": "14:00:00"},
         "reason": reason,
         **fields,
@@ -455,7 +455,7 @@ def minted_confirmations(*, hashes: Mapping[str, str], today: str) -> dict[str, 
 def row_confirmations(*, hashes: Mapping[str, str], today: str) -> dict[str, Any]:
     """A season row's three seats as the hand-out of each seat's mail left them: one live link each, mailed `today`."""
 
-    return {seat: {**compose_kontakt_confirmation(today=today), "token_hashes": [hashes[seat]]} for seat in KONTAKT_ROLLEN}
+    return {seat: {**compose_kontakt_confirmation(today=today), "token_hashes": [hashes[seat]]} for seat in KONTAKT_SEATS}
 
 
 def bewerbung_document(
@@ -483,7 +483,7 @@ def bewerbung_document(
     confirmations = (
         fields.pop("confirmations")
         if "confirmations" in fields
-        else minted_confirmations(hashes={seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_ROLLEN}, today=minted)
+        else minted_confirmations(hashes={seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_SEATS}, today=minted)
     )
 
     return read_back_document(
@@ -754,7 +754,7 @@ def confirmed_referee_document(schiedsrichter_id: Any, email: str, name: str, *,
 def kontakte_document(**seats: Any) -> dict[str, Any]:
     """A block of three seats, each empty unless named, and no seat held twice unless `trainer_is_also` says so."""
 
-    return {**dict.fromkeys(KONTAKT_ROLLEN), "trainer_is_also": None, **seats}
+    return {**dict.fromkeys(KONTAKT_SEATS), "trainer_is_also": None, **seats}
 
 
 def registrierung_confirmed(*, birth_date: str, today: str, at: str, scope: str, media: bool) -> dict[str, Any]:

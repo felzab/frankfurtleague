@@ -44,7 +44,7 @@ const PERSON = {
         saison_status: "future",
         saison_start_date: "2026-09-01",
         saison_end_date: "2027-07-31",
-        rolle: "trainer",
+        seat: "trainer",
       }),
     ],
   },

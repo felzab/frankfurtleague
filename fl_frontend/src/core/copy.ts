@@ -18,7 +18,7 @@ import type {
   FLActionLogPageSize,
   FLAddressChangeWaitsOn,
   FLCardColour,
-  FLKontaktRolle,
+  FLKontaktSeat,
   FLSchulform,
   FLSonderereignis,
   FLSpielerRolle,
@@ -28,21 +28,21 @@ import type {
 
 declare const copyBrand: unique symbol;
 
-/** Each seat's name in a sentence to the public, in the order `rollenText` joins them, and a seat's box's title. */
-const KONTAKT_ROLLE_LONG_FORM = {
+/** Each seat's name in a sentence to the public, in the order `seatsText` joins them, and a seat's box's title. */
+const KONTAKT_SEAT_LONG_FORM = {
   ansprechperson: "Ansprechperson",
   stellvertretung: "Stellvertretung",
   trainer: "Trainerin oder Trainer",
-} as const satisfies Record<FLKontaktRolle, string>;
+} as const satisfies Record<FLKontaktSeat, string>;
 
 /**
  * The seats one reader holds, as the phrase a page or a mail addresses them by. In the table's order rather than the
  * argument's: a person holding two seats reads one phrase whichever record the seats were collected from.
  */
-export function rollenText(rollen: readonly FLKontaktRolle[]): string {
-  const order = Object.keys(KONTAKT_ROLLE_LONG_FORM) as FLKontaktRolle[];
+export function seatsText(seats: readonly FLKontaktSeat[]): string {
+  const order = Object.keys(KONTAKT_SEAT_LONG_FORM) as FLKontaktSeat[];
 
-  return formatList(order.filter((rolle) => rollen.includes(rolle)).map((rolle) => KONTAKT_ROLLE_LONG_FORM[rolle]));
+  return formatList(order.filter((seat) => seats.includes(seat)).map((seat) => KONTAKT_SEAT_LONG_FORM[seat]));
 }
 
 /**
@@ -572,7 +572,7 @@ export const COPY = catalogue({
   team: {
     kontakte: KONTAKTPERSONEN,
     /** Each seat's long form, where it is a box's title or a choice of its own. */
-    seatName: KONTAKT_ROLLE_LONG_FORM,
+    seatName: KONTAKT_SEAT_LONG_FORM,
     /** The object of „Sitz bearbeiten“. */
     seat: "Sitz",
     fullName: "Vollständiger Name",
@@ -877,7 +877,7 @@ export const COPY = catalogue({
      * there in the seats' order; a pupil's and a referee's by `shared`'s nouns, the administration's by its role.
      */
     role: {
-      seats: (saison: Copy, rollen: readonly FLKontaktRolle[]) => `${saison} · ${rollenText(rollen)}`,
+      seats: (saison: Copy, seats: readonly FLKontaktSeat[]) => `${saison} · ${seatsText(seats)}`,
     },
     /**
      * Each record an address holds, as Deine Einträge boxes it: titled by what the record is, a team's seats by the
@@ -892,7 +892,7 @@ export const COPY = catalogue({
         registrierung: "Deine Registrierung als Spielerin oder Spieler und was davon öffentlich ist.",
         schiedsrichter: "Dein Eintrag als Schiedsrichterin oder Schiedsrichter und was davon öffentlich ist.",
         /** A seat on a team's season and a seat in an application alike, by the seats held, in the seats' order. */
-        seat: (rollen: readonly FLKontaktRolle[]) => `Dein Eintrag ${boundBy("als", rollenText(rollen))} und wie wir dich erreichen.`,
+        seat: (seats: readonly FLKontaktSeat[]) => `Dein Eintrag ${boundBy("als", seatsText(seats))} und wie wir dich erreichen.`,
       },
       /** Under the media box of a person short of its floor, and a seat's field description on the form, by the seat's floor. */
       mediaFrom: (age: number) => `Erst ${boundBy("ab", formatNumber(age), "Jahren")}`,
@@ -905,7 +905,7 @@ export const COPY = catalogue({
       spieler: "Als Spielerin oder Spieler",
       schiedsrichter: "Als Schiedsrichterin oder Schiedsrichter",
       /** The seats a contact person holds on one row, as one phrase in the seats' order: „Als Ansprechperson und Trainerin oder Trainer“. */
-      seats: (rollen: readonly FLKontaktRolle[]) => boundBy("Als", rollenText(rollen)),
+      seats: (seats: readonly FLKontaktSeat[]) => boundBy("Als", seatsText(seats)),
       /** An application not yet decided, by the season it applies for. */
       bewerbung: (saison: Copy) => `Bewerbung ${boundBy("für", "die", saison)}`,
       /** A pupil's registration, by its team where the team still stands. */
@@ -933,7 +933,7 @@ export const COPY = catalogue({
     /** A team's pages, which any of its contact seats reads. */
     team: {
       /** The account row's second line in a team's frame: the club's Kürzel and the seats the person holds there. */
-      accountLine: (shorthand: Words, rollen: readonly FLKontaktRolle[]) => `${textOf(shorthand)} · ${rollenText(rollen)}`,
+      accountLine: (shorthand: Words, seats: readonly FLKontaktSeat[]) => `${textOf(shorthand)} · ${seatsText(seats)}`,
       /**
        * What the league decides: the decline dialog's one sentence, a proposal moving nothing until the league saves a
        * date; and the last part of an expired date's line on the Übersicht, which takes no answer past its deadline. A
@@ -1102,7 +1102,7 @@ export const COPY = catalogue({
     /** „2 von 3“, a figure under its column's or its fact's name, where `SERVER_COPY.overview.seatsConfirmed` is a whole line. */
     seatsOf: (confirmed: number, seats: number) => `${formatNumber(confirmed)} ${boundBy("von", formatNumber(seats))}`,
     /** A seat row's one muted line: the seats held, the address, and where the answer stands. An emptied seat holds no address, an erased one no day. */
-    seatLine: (rollen: readonly FLKontaktRolle[], address: string | null, day: Copy | null) => lineOf([rollenText(rollen), address, day]),
+    seatLine: (seats: readonly FLKontaktSeat[], address: string | null, day: Copy | null) => lineOf([seatsText(seats), address, day]),
     /** The name's place on an emptied seat. */
     seatEmpty: "Niemand",
     /** The description of a free text a mail hands to people it may not concern. */

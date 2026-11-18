@@ -19,7 +19,7 @@ def test_a_trainer_holding_a_second_seat_is_one_entry_naming_both():
 
     seats = _seats_of(kontakte_document(trainer=THEO, ansprechperson=THEO, stellvertretung=ANNA, trainer_is_also="ansprechperson"))
 
-    assert [(seat.rollen, seat.name) for seat in seats] == [
+    assert [(seat.seats, seat.name) for seat in seats] == [
         (["trainer", "ansprechperson"], "Theo Theo-Mustermann"),
         (["stellvertretung"], "Anna Anna-Mustermann"),
     ]
@@ -30,7 +30,7 @@ def test_an_emptied_trainers_second_seat_is_listed_as_its_own():
 
     seats = _seats_of(kontakte_document(trainer=None, ansprechperson=ANNA, trainer_is_also="ansprechperson"))
 
-    assert [(seat.rollen, seat.name) for seat in seats] == [
+    assert [(seat.seats, seat.name) for seat in seats] == [
         (["trainer"], None),
         (["ansprechperson"], "Anna Anna-Mustermann"),
         (["stellvertretung"], None),

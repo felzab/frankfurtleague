@@ -21,7 +21,7 @@ from app.api.teams.services import (
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from app.shared.schemas.literals import FLKontaktRolle
+from app.shared.schemas.literals import FLKontaktSeat
 from tests.database import a_clean_database
 from tests.documents import SEAT_TEXT_VERSIONS, kontaktperson_document, saison_document, saison_team_document
 from tests.erasure import erased, seats_cleared
@@ -374,7 +374,7 @@ class TestTheSeatWriteDecidesFromItsArguments:
         assert [kontakte[owed[0]]["email"] for owed in links_owed(kontakte=kontakte, stored=SEAT_BLOCK)] == ["ida@example.com"]
 
     @pytest.mark.parametrize("seat", ["trainer", "ansprechperson"])
-    def test_a_write_on_either_seat_of_a_pair_writes_both_under_one_link(self, seat: FLKontaktRolle):
+    def test_a_write_on_either_seat_of_a_pair_writes_both_under_one_link(self, seat: FLKontaktSeat):
         """One seat written alone would leave the pair naming two people, each holding the other's link."""
 
         proposed, seats = compose_seat_block(stored=PAIRED_BLOCK, seat=seat, sent=seat_sent("Lea"), today=TODAY)

@@ -354,7 +354,7 @@ async def test_only_an_open_confirmation_meets_the_rule(mongo_replica_set_url: s
     A dropped filter or a lost team key refuses one, and with it a reinstated fixture's fresh request.
     """
 
-    answer = {"kind": "agreed", "at": "2026-03-01", "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None}
+    answer = {"kind": "agreed", "at": "2026-03-01", "by": {"kind": "kontakt", "seat": "trainer"}, "vorschlag": None, "reason": None}
 
     async def body(database: AsyncDatabase) -> int:
         await database[Collection.SPIELBESTAETIGUNGEN].insert_one(valid_documents()[Collection.SPIELBESTAETIGUNGEN])

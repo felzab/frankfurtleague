@@ -16,7 +16,7 @@ from app.shared.schemas.custom import (
     CustomTimeString,
     parse_empty_string_to_none,
 )
-from app.shared.schemas.literals import FLKontaktRolle
+from app.shared.schemas.literals import FLKontaktSeat
 from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 type FLSpielbestaetigungAnswerKind = Literal["agreed", "declined"]
@@ -76,7 +76,7 @@ class FLSpielbestaetigungByKontakt(BaseModel):
     """The seat its holder answered from, never the person: of two seats one person holds, the first in order is recorded."""
 
     kind: Literal["kontakt"]
-    rolle: FLKontaktRolle
+    seat: FLKontaktSeat
 
 
 class FLSpielbestaetigungBySchiedsrichter(BaseModel):

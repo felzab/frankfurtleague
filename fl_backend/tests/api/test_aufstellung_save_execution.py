@@ -22,7 +22,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import APIError
 from app.core.recording import ACT_BY_KONTAKT
-from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.schemas.literals import KONTAKT_SEATS
 from tests import documents
 from tests.acts import acting_as, acts_of
 from tests.app_client import app_client, app_under_test
@@ -65,7 +65,7 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 def _junction(team_id: ObjectId, name: str, seat: str, *, saison_id: str = SAISON_ID) -> dict[str, Any]:
     ansprech = documents.kontaktperson_document("Anna", confirmed_at="2026-01-06", email=seat, phone="+49 69 90009199")
-    kontakte = {**{slot: None for slot in KONTAKT_ROLLEN}, "ansprechperson": ansprech, "trainer_is_also": None}
+    kontakte = {**{slot: None for slot in KONTAKT_SEATS}, "ansprechperson": ansprech, "trainer_is_also": None}
     return documents.saison_team_document(saison_id, team_id, name, name[:3].upper(), kontakte=kontakte)
 
 

@@ -1392,7 +1392,7 @@ class MadeUpLeague:
             data=FLBewerbungReceivedData(
                 kind="bewerbung_received",
                 saison_id=PLANNED,
-                rollen=["ansprechperson"],
+                seats=["ansprechperson"],
                 pending=["ansprechperson", "stellvertretung"],
                 deadline=self.bounced["confirmations"]["ansprechperson"]["deadline"],
             ),

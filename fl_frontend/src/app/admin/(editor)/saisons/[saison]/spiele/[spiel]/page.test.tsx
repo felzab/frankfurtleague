@@ -168,7 +168,7 @@ describe("the match editor's answers", () => {
   const agreement = {
     kind: "agreed" as const,
     at: "2026-11-05",
-    by: { kind: "kontakt" as const, rolle: "trainer" as const },
+    by: { kind: "kontakt" as const, seat: "trainer" as const },
     vorschlag: null,
     reason: null,
   };

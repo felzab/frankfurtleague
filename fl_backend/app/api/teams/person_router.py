@@ -16,7 +16,7 @@ from app.api.aufstellungen.schemas import FLAufstellungMarks
 from app.api.aufstellungen.services import aufstellung_marks, aufstellung_stands
 from app.api.identity.crud import roles_of
 from app.api.identity.lookup import SubjectLookup
-from app.api.identity.services import find_role_refusal, holds_a_seat, own_seats, rollen_on, seat_is_confirmed
+from app.api.identity.services import find_role_refusal, holds_a_seat, own_seats, seat_is_confirmed, seats_on
 from app.api.registrierungen.crud import pull_open_registrierungen
 from app.api.registrierungen.services import registrierung_is_confirmed
 from app.api.saisons.services import SPIELTAG_POSITION_LOOKUP, matchday_of
@@ -65,7 +65,7 @@ from app.core.transactions import transact
 from app.shared.einwilligung_evidence import FLEinwilligungChoice
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.einwilligung import FLSeatEinwilligungPayload, by_choice
-from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle, FLSpielSide
+from app.shared.schemas.literals import KONTAKT_SEATS, FLKontaktSeat, FLSpielSide
 
 router = APIRouter(
     prefix="/teams",
@@ -73,14 +73,14 @@ router = APIRouter(
 )
 
 
-def _as_seat(kontakte: Mapping[str, Any], slot: FLKontaktRolle, *, also: FLKontaktRolle | None) -> FLTeamSeat:
+def _as_seat(kontakte: Mapping[str, Any], slot: FLKontaktSeat, *, also: FLKontaktSeat | None) -> FLTeamSeat:
     person = kontakte.get(slot)
     if not isinstance(person, Mapping):
-        return FLTeamSeat.model_validate({"rollen": [slot], "name": None, "confirmed": False})
+        return FLTeamSeat.model_validate({"seats": [slot], "name": None, "confirmed": False})
 
     return FLTeamSeat.model_validate(
         {
-            "rollen": [slot] if also is None else [slot, also],
+            "seats": [slot] if also is None else [slot, also],
             "name": " ".join(str(person.get(field) or "").strip() for field in ("first_name", "last_name")).strip() or None,
             "confirmed": seat_is_confirmed({"kontakte": kontakte}, slot),
         }
@@ -88,14 +88,14 @@ def _as_seat(kontakte: Mapping[str, Any], slot: FLKontaktRolle, *, also: FLKonta
 
 
 def _seats_of(kontakte: Mapping[str, Any]) -> list[FLTeamSeat]:
-    """One entry per person, in `KONTAKT_ROLLEN` order: a Trainer holding the seat `trainer_is_also` names is one entry naming both.
+    """One entry per person, in `KONTAKT_SEATS` order: a Trainer holding the seat `trainer_is_also` names is one entry naming both.
 
     Only beside a Trainer who stands: an emptied Trainer's seat names nobody whose second seat it could be.
     """
 
-    also: FLKontaktRolle | None = kontakte.get("trainer_is_also") if isinstance(kontakte.get("trainer"), Mapping) else None
+    also: FLKontaktSeat | None = kontakte.get("trainer_is_also") if isinstance(kontakte.get("trainer"), Mapping) else None
 
-    return [_as_seat(kontakte, slot, also=also if slot == "trainer" else None) for slot in KONTAKT_ROLLEN if slot != also]
+    return [_as_seat(kontakte, slot, also=also if slot == "trainer" else None) for slot in KONTAKT_SEATS if slot != also]
 
 
 @router.patch(
@@ -128,13 +128,13 @@ async def patch_einwilligung(
     async def write(session: AsyncClientSession) -> None:
         row = await saison_teams_collection.find_one(
             {"saison_id": saison_id, "team_id": team_id},
-            {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "birth_date", "einwilligung")},
+            {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SEATS for field in ("email", "birth_date", "einwilligung")},
             session=session,
         )
-        rollen = [] if row is None else own_seats(row, identifier)
-        refuse(find_own_entry_refusal(held=bool(rollen)))
+        slots = [] if row is None else own_seats(row, identifier)
+        refuse(find_own_entry_refusal(held=bool(slots)))
         assert row is not None
-        seats = {slot: row["kontakte"][slot] for slot in rollen}
+        seats = {slot: row["kontakte"][slot] for slot in slots}
         chosen = changed_seat_choices(blocks=[seat["einwilligung"] for seat in seats.values()], pressed=pressed)
 
         async def may_give() -> bool:
@@ -166,7 +166,7 @@ async def patch_einwilligung(
             )
         choices = withdrawal_line(blocks=[seat["einwilligung"] for seat in seats.values()], chosen=chosen)
         if choices is not None:
-            journal.note("withdrawal", [f"{Collection.SAISON_TEAMS}/{row['_id']}"], choices=list(choices), seats=rollen)
+            journal.note("withdrawal", [f"{Collection.SAISON_TEAMS}/{row['_id']}"], choices=list(choices), seats=slots)
 
     async with journal:
         await transact(db, write)
@@ -340,7 +340,7 @@ async def get_team_overview(
             "name",
             "shorthand",
             "trikot_farbe",
-            *(f"kontakte.{slot}.{field}" for slot in KONTAKT_ROLLEN for field in ("first_name", "last_name", "einwilligung.confirmed_at")),
+            *(f"kontakte.{slot}.{field}" for slot in KONTAKT_SEATS for field in ("first_name", "last_name", "einwilligung.confirmed_at")),
         ],
         session=session,
     )
@@ -399,7 +399,7 @@ async def get_team_overview(
         shorthand=row["shorthand"],
         full_name=team["full_name"],
         trikot_farbe=row.get("trikot_farbe"),
-        rollen=rollen_on(subject.seats, team_id=team_id, saison_id=saison_id),
+        held_seats=seats_on(subject.seats, team_id=team_id, saison_id=saison_id),
         spielbestaetigungen=spielbestaetigungen,
         aufstellungen=aufstellungen,
         registrierungen=[

@@ -23,7 +23,7 @@ from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAddressChangeViewableDenied, FLKontaktRolle, FLSaisonStatus
+from app.shared.schemas.literals import KONTAKT_SEATS, FLAddressChangeViewableDenied, FLKontaktSeat, FLSaisonStatus
 
 # --- The selections, each shared with its record's own person-tier reads rather than spelled again.
 # Unnarrowed by retirement or withdrawal: `_judged` narrows the Funktionen.
@@ -60,7 +60,7 @@ def build_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "name": 1,
                 "shorthand": 1,
                 "austritt": 1,
-                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "einwilligung.confirmed_at")},
+                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SEATS for field in ("email", "einwilligung.confirmed_at")},
             }
         },
         # Ordered in the read rather than by the reader: two clubs' seats held by one inbox are
@@ -106,8 +106,8 @@ def build_erasure_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "confirmations": 1,
                 # What the clearing judges a deletion notice's day by (`leaving_moves_the_deletion_day`).
                 "erasure_announced_at": 1,
-                **{f"kontakte.{slot}.einwilligung.confirmed_at": 1 for slot in KONTAKT_ROLLEN},
-                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ERASURE_SEAT_FIELDS},
+                **{f"kontakte.{slot}.einwilligung.confirmed_at": 1 for slot in KONTAKT_SEATS},
+                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SEATS for field in ERASURE_SEAT_FIELDS},
             }
         },
         {"$sort": {"saison_id": 1, "_id": 1}},
@@ -182,7 +182,7 @@ def _referee_entry(row: Mapping[str, Any]) -> dict[str, Any]:
 def _seat_entry(row: Mapping[str, Any], slot: str) -> dict[str, Any]:
     person = (row.get("kontakte") or {}).get(slot) or {}
 
-    return {"saison_id": row.get("saison_id"), "rolle": slot, "first_name": person.get("first_name"), "last_name": person.get("last_name")}
+    return {"saison_id": row.get("saison_id"), "seat": slot, "first_name": person.get("first_name"), "last_name": person.get("last_name")}
 
 
 def _registrierung_entry(row: Mapping[str, Any], team_names: Mapping[tuple[Any, Any], Any]) -> dict[str, Any]:
@@ -266,7 +266,7 @@ def build_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 
     return [
         {"$match": build_own_bewerbung_filter(identifier)},
-        {"$project": {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "einwilligung.confirmed_at")}},
+        {"$project": {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SEATS for field in ("email", "einwilligung.confirmed_at")}},
     ]
 
 
@@ -300,7 +300,7 @@ def seat_address(row: Mapping[str, Any], slot: str) -> Any:
 def seats_naming(rows: Sequence[Mapping[str, Any]], identifier: str) -> list[tuple[Mapping[str, Any], str]]:
     """One pair per slot rather than per row: one address stands in two of a block's person slots wherever one person was entered twice."""
 
-    return [(row, slot) for row in rows for slot in KONTAKT_ROLLEN if folds_to(seat_address(row, slot), identifier)]
+    return [(row, slot) for row in rows for slot in KONTAKT_SEATS if folds_to(seat_address(row, slot), identifier)]
 
 
 def seat_is_confirmed(row: Mapping[str, Any], slot: str) -> bool:
@@ -314,7 +314,7 @@ def seat_is_confirmed(row: Mapping[str, Any], slot: str) -> bool:
 
 
 def own_seats(row: Mapping[str, Any], identifier: str) -> list[str]:
-    """The slots of one season row or application whose confirmed person is this address, in `KONTAKT_ROLLEN` order."""
+    """The slots of one season row or application whose confirmed person is this address, in `KONTAKT_SEATS` order."""
 
     return [slot for found, slot in seats_naming([row], identifier) if seat_is_confirmed(found, slot)]
 
@@ -398,12 +398,12 @@ def grants_a_panel(saison_status: FLSaisonStatus) -> bool:
     return saison_status in ("active", "future")
 
 
-def rollen_on(seats: Iterable[FLSubjectSeat], *, team_id: ObjectId, saison_id: str) -> list[FLKontaktRolle]:
-    """The slots these seats hold on this team in this season, in `KONTAKT_ROLLEN` order: the one way to ask it."""
+def seats_on(seats: Iterable[FLSubjectSeat], *, team_id: ObjectId, saison_id: str) -> list[FLKontaktSeat]:
+    """The slots these seats hold on this team in this season, in `KONTAKT_SEATS` order: the one way to ask it."""
 
-    held = {seat.rolle for seat in seats if seat.team_id == team_id and seat.saison_id == saison_id}
+    held = {entry.seat for entry in seats if entry.team_id == team_id and entry.saison_id == saison_id}
 
-    return [rolle for rolle in KONTAKT_ROLLEN if rolle in held]
+    return [seat for seat in KONTAKT_SEATS if seat in held]
 
 
 def holds_a_seat(seats: Iterable[FLSubjectSeat], *, team_id: ObjectId, saison_id: str) -> bool:
@@ -412,7 +412,7 @@ def holds_a_seat(seats: Iterable[FLSubjectSeat], *, team_id: ObjectId, saison_id
     Any slot alike: the Trainer's seat admits to everything an Ansprechperson's does.
     """
 
-    return bool(rollen_on(seats, team_id=team_id, saison_id=saison_id))
+    return bool(seats_on(seats, team_id=team_id, saison_id=saison_id))
 
 
 # Only a live record grants: a retired referee's takes withdrawals alone.
@@ -528,7 +528,7 @@ def address_change_viewable_denied(identifier: str, *, actor: str, grants: Seque
 
 # The address alone, never the confirmation: an unconfirmed seat on the running season is one the
 # gate admits, to be told its confirmation is outstanding.
-SEAT_ADDRESS_FIELDS: Mapping[str, int] = {f"kontakte.{slot}.email": 1 for slot in KONTAKT_ROLLEN}
+SEAT_ADDRESS_FIELDS: Mapping[str, int] = {f"kontakte.{slot}.email": 1 for slot in KONTAKT_SEATS}
 
 
 def build_seat_references_pipeline(identifiers: Iterable[str]) -> list[Mapping[str, Any]]:
@@ -579,8 +579,8 @@ def referenced_addresses(
     """Every address, on the sign-in fold, that one of these records names."""
 
     stored = (
-        *(seat_address(row, slot) for row in seat_rows for slot in KONTAKT_ROLLEN),
-        *(seat_address(row, slot) for row in bewerbung_rows for slot in KONTAKT_ROLLEN),
+        *(seat_address(row, slot) for row in seat_rows for slot in KONTAKT_SEATS),
+        *(seat_address(row, slot) for row in bewerbung_rows for slot in KONTAKT_SEATS),
         # The row's own address and never a pending change's: that admits no sign-in until confirmed, and
         # the address it replaces stays here till then.
         *map(referee_address, referee_rows),

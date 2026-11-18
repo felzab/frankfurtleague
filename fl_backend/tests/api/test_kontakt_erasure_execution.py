@@ -22,7 +22,7 @@ from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, patch_one_in_db
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.schemas.literals import KONTAKT_SEATS
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.database import a_clean_database
@@ -105,7 +105,7 @@ PEOPLE: dict[str, tuple[str, str, str]] = {
     UNREACHED_LAST_NAME: (UNREACHED_EMAIL, UNREACHED_PHONE, UNREACHED_FORMER_PHONE),
 }
 
-# Who stands in each slot of each seeded row, in `KONTAKT_ROLLEN` order, plus which seat the form said
+# Who stands in each slot of each seeded row, in `KONTAKT_SEATS` order, plus which seat the form said
 # the Trainer also holds. Every case the erasure has to answer is one row here.
 SEEDED_ROLES: dict[ObjectId, tuple[tuple[str, str, str], str | None]] = {
     # One slot naming the erased person, and two people beside them who asked for nothing.
@@ -146,7 +146,7 @@ def blocks(*, live: bool) -> dict[ObjectId, dict[str, Any]]:
 
     return {
         row_id: {
-            **{slot: person(last_name, phones[last_name]) for slot, last_name in zip(KONTAKT_ROLLEN, roles, strict=True)},
+            **{slot: person(last_name, phones[last_name]) for slot, last_name in zip(KONTAKT_SEATS, roles, strict=True)},
             "trainer_is_also": also,
         }
         for row_id, (roles, also) in SEEDED_ROLES.items()
@@ -173,7 +173,7 @@ def saison_team_document(row_id: ObjectId, saison_id: str, team_id: ObjectId) ->
 # The three live links every seeded application carries, so an erasure has bookkeeping to reach.
 # Minted as the shared application builder mints them, from this prefix on the submission's day.
 LINK_PREFIX = "link"
-CONFIRMATIONS = minted_confirmations(hashes={slot: hash_token(f"{LINK_PREFIX}-{slot}") for slot in KONTAKT_ROLLEN}, today="2026-01-05")
+CONFIRMATIONS = minted_confirmations(hashes={slot: hash_token(f"{LINK_PREFIX}-{slot}") for slot in KONTAKT_SEATS}, today="2026-01-05")
 
 
 def bewerbung_document(row_id: ObjectId, team_id: ObjectId) -> dict[str, Any]:
@@ -307,7 +307,7 @@ async def stored_rows(database: AsyncDatabase) -> dict[Any, Mapping[str, Any]]:
 def a_block_holding(trainer: Mapping[str, Any]) -> dict[str, Any]:
     """One person in the Trainer slot, the other two empty, all four keys present."""
 
-    return {**{slot: None for slot in KONTAKT_ROLLEN}, "trainer": dict(trainer), "trainer_is_also": None}
+    return {**{slot: None for slot in KONTAKT_SEATS}, "trainer": dict(trainer), "trainer_is_also": None}
 
 
 def a_junction_row(row_id: ObjectId, saison_id: str, block: Mapping[str, Any]) -> dict[str, Any]:
@@ -367,7 +367,7 @@ class TestTheSlotsAreReadOffTheModel:
 
         declared = tuple(name for name in FLSaisonTeamKontakte.model_fields if name != "trainer_is_also")
 
-        assert declared == KONTAKT_ROLLEN
+        assert declared == KONTAKT_SEATS
 
 
 @pytest.mark.db
