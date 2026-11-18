@@ -20,7 +20,7 @@ from pydantic_core import CoreSchema, core_schema
 
 from app.core.codes import Rule
 from app.core.exceptions import rule_refusal
-from app.shared.schemas.bounds import TEAM_SHORTHAND_LENGTH
+from app.shared.schemas.bounds import TEAM_SHORTHAND_LENGTH, TEAM_WEBSITE_URL_MAX_LENGTH
 
 DATE_REGEX = r"^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
 
@@ -258,7 +258,6 @@ def validate_external_url(value: str) -> str:
     except ValueError as invalid_url_error:
         raise rule_refusal("url_not_accepted", "the URL could not be parsed") from invalid_url_error
 
-    # zod compares the scheme case-insensitively, because it reads it back off a parsed URL object.
     if parts.scheme.lower() not in EXTERNAL_URL_SCHEMES:
         raise rule_refusal("url_not_accepted", "the URL must use http or https")
 
@@ -273,12 +272,11 @@ def validate_external_url(value: str) -> str:
     if not host:
         raise rule_refusal("url_not_accepted", "the URL must point at a domain name")
 
-    # `DOMAIN_REGEX` is ASCII-only and `new URL` punycodes on the way in, so zod sees "xn--".
-    # urlsplit does not, so encode first -- otherwise an umlaut domain fails on the read path.
+    # `DOMAIN_REGEX` is ASCII-only and urlsplit keeps an umlaut domain as typed, so the host is judged in its
+    # punycode form while the value is returned as typed.
     try:
         if host.isascii():
-            # An "xn--" label that is not valid punycode passes `DOMAIN_REGEX` but `new URL` throws
-            # on it, so the frontend would reject a value the backend stored.
+            # An "xn--" label that is not valid punycode passes `DOMAIN_REGEX` and names no domain a browser reaches.
             if "xn--" in host:
                 host.encode("ascii").decode("idna")
         else:
@@ -286,9 +284,8 @@ def validate_external_url(value: str) -> str:
     except UnicodeError as invalid_host_error:
         raise rule_refusal("url_not_accepted", "the URL's host is not a valid internationalised domain") from invalid_host_error
 
-    # Python's `$` also matches before one final newline, and zod's does not. Harmless here:
-    # `URL_STRIPPED_CHARACTERS`, the newline among them, is removed before parsing, and an encoded
-    # `%0A` keeps its `%`, which no label admits.
+    # Python's `$` also matches before one final newline. Harmless here: `URL_STRIPPED_CHARACTERS`, the
+    # newline among them, is removed before parsing, and an encoded `%0A` keeps its `%`, which no label admits.
     if not DOMAIN_REGEX.match(host):
         raise rule_refusal("url_not_accepted", "the URL must point at a domain name")
 
@@ -302,6 +299,21 @@ CustomExternalUrl = Annotated[str, AfterValidator(validate_external_url)]
 # coerced to it first -- `validate_external_url` would reject `""`, and an empty `href` is a live
 # link to the current page rather than no link at all.
 CustomOptionalExternalUrl = Annotated[CustomExternalUrl | None, BeforeValidator(parse_empty_string_to_none)]
+
+# A school's homepage as a payload writes it, for a club and an application alike: the acceptance parses a stored
+# school through the club's payload, so the two keep one rule. Composed from `str` rather than wrapping
+# `CustomExternalUrl`, so the ceiling is judged before the host regex runs, `validate_external_url` reading no length.
+# Stripped, since `validate_external_url` leaves surrounding whitespace on the value.
+CustomOptionalWebsiteUrl = Annotated[
+    Annotated[
+        str,
+        StringConstraints(max_length=TEAM_WEBSITE_URL_MAX_LENGTH),
+        AfterValidator(str.strip),
+        AfterValidator(validate_external_url),
+    ]
+    | None,
+    BeforeValidator(parse_empty_string_to_none),
+]
 
 CustomSpielNr = Annotated[int, Field(gt=0)]
 

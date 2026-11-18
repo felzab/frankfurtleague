@@ -23,7 +23,6 @@ from app.shared.schemas.bounds import (
     SAISON_ID_LENGTH,
     TEAM_FULL_NAME_MAX_LENGTH,
     TEAM_NAME_MAX_LENGTH,
-    TEAM_WEBSITE_URL_MAX_LENGTH,
 )
 from app.shared.schemas.confirmation import CustomToken
 from app.shared.schemas.custom import (
@@ -33,10 +32,10 @@ from app.shared.schemas.custom import (
     CustomNonEmptyString,
     CustomObjectId,
     CustomOptionalDateString,
+    CustomOptionalWebsiteUrl,
     CustomShorthand,
     CustomVersion,
     parse_empty_string_to_none,
-    validate_external_url,
 )
 from app.shared.schemas.einwilligung import FLSeatTextVersions, refuse_a_stale_grant
 from app.shared.schemas.literals import (
@@ -381,18 +380,7 @@ class FLBewerbungSchulePayload(FLBewerbungSchule, BasePayload):
     # Constrained here where the read model leaves it a bare string: acceptance parses this block
     # through `FLPostTeamPayload`, so a value refused there is one an administrator cannot accept.
 
-    # Composed from `str` rather than wrapping `CustomExternalUrl`, so the ceiling is judged before
-    # the host regex runs -- `validate_external_url` reads the scheme and the host and no length.
-    website_url: Annotated[
-        Annotated[
-            str,
-            StringConstraints(max_length=TEAM_WEBSITE_URL_MAX_LENGTH),
-            AfterValidator(str.strip),
-            AfterValidator(validate_external_url),
-        ]
-        | None,
-        BeforeValidator(parse_empty_string_to_none),
-    ]
+    website_url: CustomOptionalWebsiteUrl
 
 
 class FLBewerbungTrikotPayload(FLBewerbungTrikot, BasePayload):
