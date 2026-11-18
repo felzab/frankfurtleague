@@ -199,8 +199,8 @@ words.
 
 ## 9. Commands and refusals
 
-**A slash command, or the procedure it runs, starts only on the owner's own words**, typed as the
-command or said to the same effect, never on an agent's own reading, such as that the owner left.
+**The session's mode changes only on the owner's own words**, typed as `/orchestra:away` or
+`/orchestra:back` or said so, never on an agent's own reading, such as that the owner left.
 
 **Comply with every refusal from a permission rule or a hook, and never route around it.** Write a
 multi-line file with the `Write` tool, never a heredoc. Give each shell command one purpose: a deny
