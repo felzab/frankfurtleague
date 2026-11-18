@@ -41,7 +41,6 @@ from app.api.schiedsrichter.services import (
     owes_reactivation_mint,
 )
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
     VERSION_FIELD,
@@ -71,7 +70,7 @@ from app.shared.schemas.custom import CustomRouteObjectId
 # Admin-guarded, not base: a referee is a pupil, so their contact details and school are admin-tier, as is the fee,
 # which is money.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/schiedsrichter",
+    prefix="/schiedsrichter",
     dependencies=ADMIN_TIER,
 )
 

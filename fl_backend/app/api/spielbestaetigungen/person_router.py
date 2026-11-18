@@ -40,7 +40,6 @@ from app.api.spiele.crud import pull_booked_slots, pull_saison_membership, pull_
 from app.api.spiele.schemas import FLSpiel
 from app.api.spiele.services import find_claims_made, find_clash_refusal, find_eligibility_refusal, find_spiel_date_refusal
 from app.core import clock
-from app.core.config import API_VERSION
 from app.core.crud import anchor_in_db, patch_one_in_db, pull_many_from_db, refuse
 from app.core.dependencies import (
     DBClient,
@@ -63,7 +62,7 @@ from app.shared.schemas.literals import FLKontaktRolle
 
 # A referee and a club's seat holder answer here, each answer recorded under the answering party's Funktion.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/spielbestaetigungen",
+    prefix="/spielbestaetigungen",
     dependencies=PERSON_TIER,
 )
 

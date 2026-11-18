@@ -96,7 +96,6 @@ from app.api.teams.services import (
 )
 from app.core.collections import Collection
 from app.core.concurrency import concurrently
-from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
     VERSION_FIELD,
@@ -146,7 +145,7 @@ from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import mint_token
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/teams",
+    prefix="/teams",
     dependencies=ADMIN_TIER,
 )
 

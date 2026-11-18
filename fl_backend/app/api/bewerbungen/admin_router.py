@@ -69,7 +69,6 @@ from app.api.teams.crud import pull_a_club_to_enter, pull_team_names_and_codes, 
 from app.api.teams.services import find_club_entry_refusal, find_shorthand_refusal, offered_gruppen
 from app.core.collections import Collection
 from app.core.concurrency import concurrently
-from app.core.config import API_VERSION
 from app.core.crud import (
     aggregate_many_from_db,
     insert_live,
@@ -108,7 +107,7 @@ from app.shared.schemas.literals import FLKontaktRolle
 # birth, and says which schools asked and were turned down. The public router shares this prefix at base tier and
 # serves no person's details.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/bewerbungen",
+    prefix="/bewerbungen",
     dependencies=ADMIN_TIER,
 )
 

@@ -27,7 +27,6 @@ from app.api.schiedsrichter.services import (
 )
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.crud import patch_past_the_version_in_db, refuse
 from app.core.dependencies import (
     DBClient,
@@ -48,7 +47,7 @@ from app.shared.tokens import hash_token
 # Beside the admin and person routers, each guarded whole: the token is the whole credential, so
 # these three endpoints alone are base-tier.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/schiedsrichter/confirmation",
+    prefix="/schiedsrichter/confirmation",
     dependencies=BASE_TIER,
 )
 

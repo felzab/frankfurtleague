@@ -22,7 +22,6 @@ from app.api.spiele.services import (
 from app.api.spieltage.schemas import FLSpieleSpielplanAdminResponse
 from app.api.spieltage.services import build_admin_spielplan, current_spieltag_id
 from app.core.concurrency import concurrently
-from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
     AufstellungenCollection,
@@ -54,7 +53,7 @@ from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/spiele",
+    prefix="/spiele",
     dependencies=ADMIN_TIER,
 )
 

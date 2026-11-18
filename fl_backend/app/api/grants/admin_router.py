@@ -24,7 +24,6 @@ from app.api.grants.services import (
     find_only_owner_refusal,
     find_owner_row_refusal,
 )
-from app.core.config import API_VERSION
 from app.core.crud import refuse
 from app.core.dependencies import (
     AddressChangeCollection,
@@ -43,7 +42,7 @@ from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/grants",
+    prefix="/grants",
     dependencies=ADMIN_TIER,
 )
 

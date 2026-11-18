@@ -42,7 +42,6 @@ from app.api.address_change.services import (
 from app.api.identity.crud import roles_from
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import is_own_schiedsrichter, is_own_spieler, may_grant_on_schiedsrichter
-from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, refuse
 from app.core.dependencies import (
     AddressChangeCollection,
@@ -63,7 +62,7 @@ from app.shared.folding import sign_in_identifier
 
 # Its one write is the address change, which crosses every record the address holds.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/account",
+    prefix="/account",
     dependencies=PERSON_TIER,
 )
 

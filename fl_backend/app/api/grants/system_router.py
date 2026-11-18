@@ -6,14 +6,13 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.grants.crud import complete_the_handover_in_session, read_grants
 from app.api.grants.schemas import FLGrantHandoverPassResponse
 from app.api.grants.services import handover_due
-from app.core.config import API_VERSION
 from app.core.dependencies import DBClient, GrantsCollection, OutboxCollection, get_germany_now
 from app.core.security import SYSTEM_TIER
 from app.core.transactions import transaction_session
 
 # System tier: the pass holds no session.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/grants/handover",
+    prefix="/grants/handover",
     dependencies=SYSTEM_TIER,
 )
 

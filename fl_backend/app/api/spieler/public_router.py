@@ -2,7 +2,6 @@ from fastapi import APIRouter
 
 from app.api.spieler.schemas import FLSpielerSingleResponse
 from app.api.spieler.services import public_person
-from app.core.config import API_VERSION
 from app.core.crud import pull_one_from_db
 from app.core.dependencies import SpielerReadCollection
 from app.core.routing import by_id
@@ -10,7 +9,7 @@ from app.core.security import BASE_TIER
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/spieler",
+    prefix="/spieler",
     dependencies=BASE_TIER,
 )
 

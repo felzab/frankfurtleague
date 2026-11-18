@@ -17,7 +17,6 @@ from app.api.registrierungen.services import (
 )
 from app.api.teams.crud import pull_saison_team_names
 from app.core.concurrency import concurrently
-from app.core.config import API_VERSION
 from app.core.crud import pull_many_from_db, pull_one_from_db
 from app.core.dependencies import RegistrierungenReadCollection, SaisonsReadCollection, SaisonTeamsReadCollection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
@@ -28,7 +27,7 @@ from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 # The public router shares this prefix at base tier and reads no stored registration but the one a
 # link it was handed opens.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/registrierungen",
+    prefix="/registrierungen",
     dependencies=ADMIN_TIER,
 )
 

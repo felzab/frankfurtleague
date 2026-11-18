@@ -23,7 +23,6 @@ from app.api.spieltage.services import (
     find_spieltag_span_refusal,
     with_expected_matches,
 )
-from app.core.config import API_VERSION
 from app.core.crud import anchor_in_db, patch_one_in_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     DBClient,
@@ -39,7 +38,7 @@ from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/spieltage",
+    prefix="/spieltage",
     dependencies=ADMIN_TIER,
 )
 

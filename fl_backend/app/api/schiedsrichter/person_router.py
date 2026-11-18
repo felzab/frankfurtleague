@@ -25,7 +25,6 @@ from app.api.schiedsrichter.services import (
 )
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, patch_past_the_version_in_db, refuse
 from app.core.dependencies import (
     DBClient,
@@ -45,7 +44,7 @@ from app.shared.schemas.einwilligung import FLSchiedsrichterAccountEinwilligungP
 
 # A person's own router, apart from the admin one and the confirmation one.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/schiedsrichter",
+    prefix="/schiedsrichter",
     dependencies=PERSON_TIER,
 )
 

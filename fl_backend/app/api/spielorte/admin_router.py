@@ -17,7 +17,6 @@ from app.api.spielorte.schemas import (
     FLSpielortListAdapter,
 )
 from app.api.spielorte.services import build_unplayed_booking_filter, compose_maps_link, find_venue_name_refusal, find_venue_retire_refusal
-from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
     insert_live,
@@ -39,7 +38,7 @@ from app.shared.schemas.responses import FLCreatedResponse
 # withheld: `address` moves with it because no public page reads the parts, not to hide them -- `maps_link` publishes
 # the address whole.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/spielorte",
+    prefix="/spielorte",
     dependencies=ADMIN_TIER,
 )
 

@@ -80,11 +80,12 @@ def served_methods(request: Request) -> list[str]:
     alone, which leaves the other out where a read and a write router split one path.
     """
 
+    # Matched as each route is served, under the prefix its router was included with: the router's own route lacks it.
     return sorted(
         {
             method
             for context in iter_route_contexts(request.app.routes)
-            if context.route.matches(request.scope)[0] is Match.PARTIAL
+            if context.matches(request.scope)[0] is Match.PARTIAL
             for method in context.methods or ()
         }
     )

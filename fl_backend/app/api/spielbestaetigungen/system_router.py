@@ -71,7 +71,6 @@ from app.api.spielbestaetigungen.services import (
     was_discarded,
 )
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, post_many_to_db, pull_many_from_db, pull_one_from_db, pull_whole_from_db
 from app.core.dependencies import (
     AufstellungenReadCollection,
@@ -94,7 +93,7 @@ from app.shared.schemas.responses import FLSweepSaisonsResponse
 
 # System tier: the timer holds no session.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/spielbestaetigungen/sweep",
+    prefix="/spielbestaetigungen/sweep",
     dependencies=SYSTEM_TIER,
 )
 

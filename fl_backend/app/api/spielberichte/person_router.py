@@ -29,7 +29,6 @@ from app.api.spielberichte.services import (
     newly_named,
 )
 from app.api.spiele.services import spiel_label
-from app.core.config import API_VERSION
 from app.core.crud import find_stale_first_save_refusal, refuse
 from app.core.dependencies import (
     DBClient,
@@ -55,7 +54,7 @@ from app.shared.schemas.custom import CustomRouteObjectId
 # The referee's own router: the person's identifier is bound at router level, and each handler judges their referee
 # records in its own session.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/spielberichte",
+    prefix="/spielberichte",
     dependencies=PERSON_TIER,
 )
 

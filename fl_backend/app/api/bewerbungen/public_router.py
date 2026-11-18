@@ -78,7 +78,6 @@ from app.api.spielbestaetigungen.services import HeldSeats
 from app.api.teams.services import kontakt_row_of
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
     aggregate_many_from_db,
@@ -120,7 +119,7 @@ from app.shared.tokens import hash_token
 # Base-tier at the prefix the admin and person routers share: a member of the public applies here, and nothing served
 # below carries a person's details. The confirmation link's two endpoints are base-tier too: its token is the whole
 # credential, as a sign-in code is.
-router = APIRouter(prefix=f"/api/v{API_VERSION}/bewerbungen", dependencies=BASE_TIER)
+router = APIRouter(prefix="/bewerbungen", dependencies=BASE_TIER)
 
 
 # The state a submission arrives in, and the only one it may arrive in: the other two are the triage's.

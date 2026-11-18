@@ -35,7 +35,6 @@ from app.api.spieler.services import (
 )
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
     aggregate_many_from_db,
@@ -71,7 +70,7 @@ from app.shared.schemas.literals import FLSpielerStufe
 # The person lane's identifier in place of `bind_actor` and the grants check, which a seat holder holding
 # no grant would fail.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/spieler/kader",
+    prefix="/spieler/kader",
     dependencies=PERSON_TIER,
 )
 
@@ -318,7 +317,7 @@ async def delete_kader_row(
 
 # A router of its own for its prefix.
 spieler_router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/spieler",
+    prefix="/spieler",
     dependencies=PERSON_TIER,
 )
 

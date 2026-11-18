@@ -7,7 +7,6 @@ from fastapi import APIRouter, Body, Depends, Response
 from app.api.aufstellungen.schemas import FLAufstellungPayload, FLAufstellungResponse
 from app.api.aufstellungen.screen import AufstellungReads, read_aufstellung_screen, save_aufstellung_screen
 from app.api.grants.guard import ADMIN_TIER
-from app.core.config import API_VERSION
 from app.core.dependencies import (
     AufstellungenCollection,
     AufstellungenReadCollection,
@@ -24,7 +23,7 @@ from app.core.routing import by_id
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/aufstellungen",
+    prefix="/aufstellungen",
     dependencies=ADMIN_TIER,
 )
 

@@ -18,7 +18,6 @@ from app.api.identity.services import (
     find_own_address_refusal,
 )
 from app.api.teams.services import is_played
-from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, refuse
 from app.core.dependencies import (
     ActionLogCollection,
@@ -55,7 +54,7 @@ from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/identity",
+    prefix="/identity",
     dependencies=ADMIN_TIER,
 )
 

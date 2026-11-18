@@ -7,14 +7,13 @@ from app.api.action_log.schemas import FLActionLogFilterPayload, FLActionLogList
 from app.api.action_log.services import build_action_log_query
 from app.api.grants.guard import ADMIN_TIER
 from app.core.concurrency import concurrently
-from app.core.config import API_VERSION
 from app.core.crud import pull_many_from_db
 from app.core.dependencies import ActionLogReadCollection
 from app.core.routing import SAFE
 from app.shared.schemas.bounds import ACTION_LOG_PAGE_SIZE
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/action_log",
+    prefix="/action_log",
     dependencies=ADMIN_TIER,
 )
 

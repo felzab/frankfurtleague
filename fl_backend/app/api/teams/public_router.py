@@ -3,7 +3,6 @@ from fastapi import APIRouter, Depends
 from app.api.saisons.visibility import resolve_public_saison
 from app.api.teams.schemas import FLTeam, FLTeamSingleFilterParams, FLTeamsSingleResponse
 from app.api.teams.services import build_team_pipeline
-from app.core.config import API_VERSION
 from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db
 from app.core.dependencies import SaisonsReadCollection, TeamsReadCollection
 from app.core.exceptions import DocumentNotFoundError
@@ -12,7 +11,7 @@ from app.core.security import BASE_TIER
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/teams",
+    prefix="/teams",
     dependencies=BASE_TIER,
 )
 

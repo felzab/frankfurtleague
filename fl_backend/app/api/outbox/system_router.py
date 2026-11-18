@@ -35,7 +35,6 @@ from app.api.outbox.services import (
     row_of,
 )
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.crud import ANCHOR_FIELD, patch_many_in_db, patch_past_the_version_in_db, post_one_to_db, pull_many_from_db
 from app.core.dependencies import DB, BanListReadCollection, BewerbungenCollection, DBClient, OutboxCollection, get_germany_now
 from app.core.logging import fl_logger
@@ -46,7 +45,7 @@ from app.shared.tokens import mint_token
 
 # System tier and the system actor: the drain, the sign-in library and the provider's callback hold no session.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/outbox",
+    prefix="/outbox",
     dependencies=SYSTEM_TIER,
 )
 

@@ -7,7 +7,6 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.schiedsrichter.crud import erase_referee_in_session
 from app.api.schiedsrichter.schemas import FLSchiedsrichterSweepResponse
 from app.api.schiedsrichter.services import build_erasure_due_filter
-from app.core.config import API_VERSION
 from app.core.crud import pull_many_from_db
 from app.core.dependencies import DBClient, SchiedsrichterCollection, SpielbestaetigungenCollection, SpieleCollection, get_germany_now
 from app.core.recording import ACT_BY_SYSTEM, record_act
@@ -16,7 +15,7 @@ from app.core.transactions import Batch, drain
 
 # System tier: the clock erases, and no administrator pressed anything.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/schiedsrichter/sweep",
+    prefix="/schiedsrichter/sweep",
     dependencies=SYSTEM_TIER,
 )
 

@@ -39,7 +39,6 @@ from app.api.spielbestaetigungen.crud import strip_the_seasons_confirmations
 from app.api.spielbestaetigungen.services import HeldSeats
 from app.api.teams.crud import pull_team_names
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.crud import (
     anchor_in_db,
     delete_many_from_db,
@@ -69,7 +68,7 @@ from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle
 from app.shared.schemas.responses import FLSweepSaisonsResponse
 
 # System tier: the sweep holds no session, so `bind_actor` would refuse it.
-router = APIRouter(prefix=f"/api/v{API_VERSION}/bewerbungen/sweep", dependencies=SYSTEM_TIER)
+router = APIRouter(prefix="/bewerbungen/sweep", dependencies=SYSTEM_TIER)
 
 # Sized with the blocks' share below, each row one command beside the worst call's others, so a pass ends well inside
 # `REQUEST_DEADLINE_S`.

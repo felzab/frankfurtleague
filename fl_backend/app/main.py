@@ -56,7 +56,7 @@ from app.api.teams.admin_router import router as teams_admin_router
 from app.api.teams.person_router import router as teams_person_router
 from app.api.teams.public_router import router as teams_public_router
 from app.core.codes import Rule
-from app.core.config import BackendConfig
+from app.core.config import API_VERSION, BackendConfig
 from app.core.db import lifespan
 from app.core.exception_handlers import FAILURE_RESPONSES, FAILURE_STATUSES, register_exception_handlers
 from app.core.logging import fl_logger
@@ -195,7 +195,7 @@ def publish_document(app: FastAPI) -> None:
 
 
 def mount_api(app: FastAPI) -> None:
-    """Every router, and the document they publish.
+    """Every router under the version's prefix, and the document they publish.
 
     Apart from `create_app`, since nothing here reads the configuration: the document is built from
     the routes alone, with no settings to supply.
@@ -203,7 +203,9 @@ def mount_api(app: FastAPI) -> None:
 
     for tag, routers in ROUTERS.items():
         for router in routers:
-            app.include_router(router, tags=[tag], responses=FAILURE_RESPONSES, generate_unique_id_function=operation_id)
+            app.include_router(
+                router, prefix=f"/api/v{API_VERSION}", tags=[tag], responses=FAILURE_RESPONSES, generate_unique_id_function=operation_id
+            )
 
     # After the last route is mounted and before anything asks for the document: `app.openapi()`
     # caches what it builds, so a route mounted afterwards never reaches a reader.

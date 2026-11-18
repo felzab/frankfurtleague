@@ -45,7 +45,6 @@ from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import address_change_viewable_denied, find_admin_address_refusal, find_own_address_refusal
 from app.api.outbox.schemas import FLOutboxStatus
 from app.api.spieler.crud import another_pupil_holds
-from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse
 from app.core.dependencies import (
     AddressChangeCollection,
@@ -70,7 +69,7 @@ from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.literals import FLAddressChangeWay, FLAdminTier
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/address_change",
+    prefix="/address_change",
     dependencies=ADMIN_TIER,
 )
 

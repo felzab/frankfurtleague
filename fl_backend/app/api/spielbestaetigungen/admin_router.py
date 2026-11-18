@@ -41,7 +41,6 @@ from app.api.spielbestaetigungen.services import (
 )
 from app.api.spiele.crud import SpielSaveCollections, save_spiel_in_session
 from app.api.spiele.schemas import FLSpiel
-from app.core.config import API_VERSION
 from app.core.crud import anchor_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     AufstellungenCollection,
@@ -66,7 +65,7 @@ from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/spielbestaetigungen",
+    prefix="/spielbestaetigungen",
     dependencies=ADMIN_TIER,
 )
 

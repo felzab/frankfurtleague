@@ -8,7 +8,6 @@ from app.api.grants.crud import read_grants
 from app.api.identity.crud import EACH_PERSON_GROUP, erase_everything, resolve_subject
 from app.api.identity.schemas import FLAccountErasureViewResponse
 from app.api.identity.services import build_season_team_pipeline, compose_account_erasure_view, find_owner_erasure_refusal
-from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, refuse
 from app.core.dependencies import (
     ActionLogCollection,
@@ -43,7 +42,7 @@ from app.core.transactions import transaction_session
 
 # No Funktion asked: a person erases themselves holding none at all.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/identity/account",
+    prefix="/identity/account",
     dependencies=PERSON_TIER,
 )
 

@@ -89,7 +89,6 @@ from app.api.teams.services import (
 )
 from app.core.codes import Code
 from app.core.concurrency import concurrently
-from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
     VERSION_FIELD,
@@ -135,7 +134,7 @@ from app.core.transactions import transaction_session
 from app.shared.schemas.literals import FLGruppenNames
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/saisons",
+    prefix="/saisons",
     dependencies=ADMIN_TIER,
 )
 

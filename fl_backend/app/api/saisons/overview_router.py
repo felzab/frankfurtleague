@@ -8,7 +8,6 @@ from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.crud import bracket_faults_of
 from app.api.spiele.schemas import FLSpielJoinedInternalListAdapter
 from app.core import clock
-from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db
 from app.core.dependencies import (
     SaisonsReadCollection,
@@ -21,7 +20,7 @@ from app.core.dependencies import (
 from app.core.exceptions import DocumentNotFoundError
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/saisons",
+    prefix="/saisons",
     dependencies=ADMIN_TIER,
 )
 

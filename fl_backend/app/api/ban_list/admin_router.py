@@ -21,7 +21,6 @@ from app.api.grants.guard import ADMIN_TIER
 from app.api.outbox.schemas import FLBanData
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.saisons.crud import pull_governing_saison_id
-from app.core.config import API_VERSION
 from app.core.crud import anchor_in_db, delete_many_from_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     AddressChangeReadCollection,
@@ -41,7 +40,7 @@ from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/ban_list",
+    prefix="/ban_list",
     dependencies=ADMIN_TIER,
 )
 

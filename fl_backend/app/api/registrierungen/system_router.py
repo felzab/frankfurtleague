@@ -13,7 +13,6 @@ from app.api.registrierungen.services import (
     decline_erasure_is_due,
     undecided_erasure_is_due,
 )
-from app.core.config import API_VERSION
 from app.core.crud import delete_many_from_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
     DBClient,
@@ -26,7 +25,7 @@ from app.core.security import SYSTEM_TIER
 from app.core.transactions import SWEEP_PAGE, Batch, drain, refuse_a_stalled_page
 
 # System tier, as the application sweep's own router is: this pass holds no session, so `bind_actor` would refuse it.
-router = APIRouter(prefix=f"/api/v{API_VERSION}/registrierungen/sweep", dependencies=SYSTEM_TIER)
+router = APIRouter(prefix="/registrierungen/sweep", dependencies=SYSTEM_TIER)
 
 
 @router.post(

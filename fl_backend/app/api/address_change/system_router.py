@@ -30,7 +30,6 @@ from app.api.address_change.schemas import (
 from app.api.address_change.services import LIVE_TERMS, build_due_terms, build_lapsed_terms, compose_end_update, is_expired
 from app.api.identity.lookup import RecordCollections, SubjectLookup
 from app.core.codes import Code
-from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, patch_many_in_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
     ActionLogCollection,
@@ -59,7 +58,7 @@ from app.shared.tokens import hash_token
 
 # System tier: the clock ends a lapsed change and makes a due one take effect, and no administrator pressed anything.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/address_change",
+    prefix="/address_change",
     dependencies=SYSTEM_TIER,
 )
 

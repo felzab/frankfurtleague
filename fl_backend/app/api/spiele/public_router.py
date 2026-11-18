@@ -3,7 +3,6 @@ from fastapi import APIRouter
 from app.api.saisons.visibility import resolve_public_saison
 from app.api.spiele.schemas import FLSpieleSingleResponse, FLSpielJoined
 from app.api.spiele.services import build_spiele_pipeline
-from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db
 from app.core.dependencies import SaisonsReadCollection, SpieleReadCollection
 from app.core.exceptions import DocumentNotFoundError
@@ -12,7 +11,7 @@ from app.core.security import BASE_TIER
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/spiele",
+    prefix="/spiele",
     dependencies=BASE_TIER,
 )
 

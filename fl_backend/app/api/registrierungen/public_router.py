@@ -45,7 +45,6 @@ from app.api.spieler.crud import pull_squad_room
 from app.api.spieler.services import find_full_squad_refusal
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     DBClient,
@@ -78,7 +77,7 @@ from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.einwilligung import by_choice
 from app.shared.tokens import hash_token
 
-router = APIRouter(prefix=f"/api/v{API_VERSION}/registrierungen", dependencies=BASE_TIER)
+router = APIRouter(prefix="/registrierungen", dependencies=BASE_TIER)
 
 
 # What a season read serves this tier: the two rules a form is bounded by, the window, whose `end`

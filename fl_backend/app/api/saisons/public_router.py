@@ -55,7 +55,6 @@ from app.api.teams.schemas import (
 from app.api.teams.services import build_team_pipeline, counting_spiele_match
 from app.core.collections import Collection
 from app.core.concurrency import concurrently
-from app.core.config import API_VERSION
 from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
     SaisonSpielerReadCollection,
@@ -75,7 +74,7 @@ from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/saisons",
+    prefix="/saisons",
     dependencies=BASE_TIER,
 )
 

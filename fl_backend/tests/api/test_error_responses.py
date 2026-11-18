@@ -121,6 +121,14 @@ class TestFailureBodies:
         # The exact set, so a message copied into any header, under any name, moves this.
         assert set(response.headers) == {"www-authenticate", "content-length", "content-type"}
 
+    def test_a_405_allows_every_method_the_path_serves_across_its_routers(self):
+        """One match's methods alone is Starlette's own answer, and RFC 9110's `Allow` must list them all."""
+
+        # Read on the base tier's router and saved on the administrator's.
+        response = client().put(f"/api/v{API_VERSION}/spiele/{QUERY_ID}")
+
+        assert (response.status_code, response.headers["allow"]) == (405, "GET, PATCH")
+
 
 def refused(body: object) -> dict[str, Any]:
     """The 422 a payload earns at `/nested`, asserted to BE one, so no case reads fields off a success."""

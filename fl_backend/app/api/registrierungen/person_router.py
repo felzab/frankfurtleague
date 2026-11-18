@@ -50,7 +50,6 @@ from app.api.spieler.crud import pull_squad_room, refuse_a_full_squad
 from app.api.spieler.services import find_full_squad_refusal
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.crud import (
     delete_many_from_db,
     patch_many_in_db,
@@ -88,7 +87,7 @@ from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload, by_cho
 
 # A person's route in place of `bind_actor`: a seat holder signs in by code and holds no grant, so the
 # administrator's actor check would refuse every one of them.
-router = APIRouter(prefix=f"/api/v{API_VERSION}/registrierungen", dependencies=PERSON_TIER)
+router = APIRouter(prefix="/registrierungen", dependencies=PERSON_TIER)
 
 
 @router.get(
@@ -487,7 +486,7 @@ async def decline(
 
 
 # A prefix of its own: a pending registrant reaches their own row, and no team's.
-spieler_router = APIRouter(prefix=f"/api/v{API_VERSION}/registrierungen/account", dependencies=PERSON_TIER)
+spieler_router = APIRouter(prefix="/registrierungen/account", dependencies=PERSON_TIER)
 
 
 @spieler_router.patch(

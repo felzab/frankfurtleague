@@ -28,7 +28,6 @@ from app.api.spieler.services import (
 )
 from app.api.teams.crud import pull_saison_team_names
 from app.core.concurrency import concurrently
-from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
     VERSION_FIELD,
@@ -59,7 +58,7 @@ from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/spieler",
+    prefix="/spieler",
     dependencies=ADMIN_TIER,
 )
 

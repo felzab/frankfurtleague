@@ -24,7 +24,6 @@ from app.api.identity.schemas import (
 from app.api.identity.services import completed_saison_id
 from app.core.codes import Code
 from app.core.concurrency import concurrently
-from app.core.config import API_VERSION
 from app.core.dependencies import (
     ActionLogCollection,
     AddressChangeCollection,
@@ -58,7 +57,7 @@ from app.shared.folding import sign_in_identifier
 # System tier: the key is held by the frontend process alone, which is exactly who may ask which
 # records a mailbox matches, and no session stands behind the caller.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/identity",
+    prefix="/identity",
     dependencies=SYSTEM_TIER,
 )
 

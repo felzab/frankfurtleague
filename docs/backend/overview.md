@@ -30,8 +30,9 @@ for that tier**:
 Two files are named otherwise: `saisons/overview_router.py`, an administrator's router of its
 own for a season's overview, and `system/router.py`, the unguarded probes' (under
 Authorization). A person's file serving two Funktionen holds one `APIRouter` per prefix
-(`spieler/person_router.py`). `app/main.py` mounts them all, each under its slice's tag, which with
-the handler's name makes the operation's id in `openapi.json`.
+(`spieler/person_router.py`). `app/main.py` mounts them all under the version's prefix,
+`/api/v{API_VERSION}`, so a router's own prefix names only its slice's segment. Each is mounted
+under its slice's tag, which with the handler's name makes the operation's id in `openapi.json`.
 
 ## Authorization
 

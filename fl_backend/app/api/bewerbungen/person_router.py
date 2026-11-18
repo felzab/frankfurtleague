@@ -14,7 +14,6 @@ from app.api.account.services import (
 from app.api.identity.services import own_seats
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.crud import patch_past_the_version_in_db, refuse
 from app.core.dependencies import BewerbungenCollection, DBClient, get_germany_now
 from app.core.journal import Journal
@@ -27,7 +26,7 @@ from app.shared.schemas.literals import KONTAKT_ROLLEN
 
 # A person's route in place of `bind_actor`: a seat holder signs in by code and holds no grant, so the administrator's
 # actor check would refuse every one of them.
-router = APIRouter(prefix=f"/api/v{API_VERSION}/bewerbungen", dependencies=PERSON_TIER)
+router = APIRouter(prefix="/bewerbungen", dependencies=PERSON_TIER)
 
 
 # `/account/einwilligung`, its own segment: the admin router serves this application under its own paths, and one path in

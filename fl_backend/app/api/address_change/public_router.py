@@ -51,7 +51,6 @@ from app.api.address_change.services import (
 )
 from app.api.identity.lookup import SubjectLookup
 from app.core.clock import german_day
-from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
     ActionLogCollection,
@@ -79,7 +78,7 @@ from app.shared.tokens import hash_token
 
 # The token is the whole credential, so these endpoints are base-tier.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/address_change/confirmation",
+    prefix="/address_change/confirmation",
     dependencies=BASE_TIER,
 )
 

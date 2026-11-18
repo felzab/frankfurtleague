@@ -46,7 +46,6 @@ from app.api.teams.schemas import FLTeamSeat
 from app.api.teams.services import build_team_spiele_filter
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, patch_past_the_version_in_db, refuse
 from app.core.dependencies import (
     DBClient,
@@ -69,7 +68,7 @@ from app.shared.schemas.einwilligung import FLSeatEinwilligungPayload, by_choice
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle, FLSpielSide
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/teams",
+    prefix="/teams",
     dependencies=PERSON_TIER,
 )
 
