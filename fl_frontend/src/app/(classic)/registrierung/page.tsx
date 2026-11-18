@@ -78,8 +78,7 @@ export default function RegistrierungPage() {
   return <MailedPage page={readState()} />;
 }
 
-// `cache` memoizes per render pass, for the tab's title and the page. Never `"use cache"`, which keys on the
-// arguments rather than the caller.
+// `cache` memoizes per render pass, for the tab's title and the page.
 const readState = cache(async (): Promise<MailedState> => {
   const token = await mailedLinkToken();
   if (token === null) return INVALID;

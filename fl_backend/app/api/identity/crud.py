@@ -378,8 +378,7 @@ async def resolve_subject(
     registrierungen_collection: ReadCollection,
     address_changes_collection: ReadCollection,
     grants_collection: ReadCollection,
-    # The erasure reads it inside its transaction, so a retry re-reads it, and the preview in
-    # a snapshot, so it names the records of one moment.
+    # The erasure's transaction, or the preview's snapshot, so the preview names the records of one moment.
     session: AsyncClientSession,
     # The previews' default: they name every record the full erasure takes.
     scope: frozenset[PersonGroup] = EACH_PERSON_GROUP,
@@ -552,8 +551,8 @@ async def erase_everything(
 ) -> Erasure:
     """Erase every record of this folded address the scope reaches, in the caller's transaction.
 
-    The subject is read here, so a retry after a conflict re-reads it. A request's route notes the answer's `records`,
-    `seats` and `rows` in its `Journal`, which writes the erasure's lines once it commits.
+    A request's route notes the answer's `records`, `seats` and `rows` in its `Journal`, which writes the erasure's lines
+    once it commits.
     """
 
     subject = await resolve_subject(

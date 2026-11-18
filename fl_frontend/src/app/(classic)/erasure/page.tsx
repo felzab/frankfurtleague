@@ -41,8 +41,7 @@ export default function AccountErasurePage() {
   return <MailedPage page={readState()} />;
 }
 
-// `cache` memoizes per render pass, for the tab's title and the page. Never `"use cache"`, which keys on the
-// arguments rather than the caller.
+// `cache` memoizes per render pass, for the tab's title and the page.
 const readState = cache(async (): Promise<MailedState> => {
   const token = await mailedLinkToken();
   // Judged before the session: a spent, lapsed or unknown link is a dead end a sign-in cannot repair.

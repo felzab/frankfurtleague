@@ -284,11 +284,7 @@ async def accept_bewerbung(
     """
 
     async def accept_and_enter_the_school(session: AsyncClientSession) -> FLAcceptBewerbungResponse:
-        """Judge everything, then write. Everything judged is read in-session, so a retry re-judges it.
-
-        One transaction over every write: a club created without its junction row is a school in no
-        season that nothing reports.
-        """
+        """One transaction over every write: a club created without its junction row is a school in no season that nothing reports."""
 
         bewerbung_raw = await pull_one_from_db(collection=bewerbungen_collection, db_filter={"_id": bewerbung_id}, session=session)
 
@@ -296,9 +292,8 @@ async def accept_bewerbung(
         schule = bewerbung_raw.get("schule")
         picked_team_id = bewerbung_raw.get("team_id")
         refuse(find_acceptance_subject_refusal(team_id=picked_team_id, schule=schule))
-        # In-session, as everything judged here is: a confirmation landing mid-request is judged by
-        # the retry rather than lost, and the block copied into `saison_teams` below then carries
-        # every person's own date and stamp.
+        # In-session, so the block copied into `saison_teams` below carries every person's own date and stamp, a
+        # confirmation landing mid-request among them.
         refuse(find_unconfirmed_kontakte_refusal(kontakte=bewerbung_raw.get("kontakte")))
         refuse(find_acceptance_code_refusal(new_school=schule is not None, shorthand=acceptance_data.shorthand))
 
@@ -442,8 +437,6 @@ async def accept_bewerbung(
             trikot_farbe=acceptance_data.trikot_farbe,
         )
 
-    # `transact`, not a bare `start_transaction`: the callback re-reads everything it judges,
-    # so a retry after a write conflict judges the season as it stands then rather than as it stood.
     accepted = await transact(db, accept_and_enter_the_school)
 
     return accepted
@@ -649,8 +642,6 @@ async def post_kontakt_seat(
     nonce = secrets.token_hex(8)
 
     async def seat_and_mint(session: AsyncClientSession) -> FLBewerbungKontaktSeatResponse:
-        """Judge, then write. Everything judged is read in-session, so a retry re-judges it."""
-
         db_filter = {"_id": bewerbung_id}
         bewerbung_raw = await pull_one_from_db(
             collection=bewerbungen_collection,
@@ -719,6 +710,6 @@ async def post_kontakt_seat(
 
         return FLBewerbungKontaktSeatResponse(email=seat_data.email)
 
-    # A transaction where the re-send beside it takes none: this write moves a person as well as a credential, so a
-    # decision landing mid-request must leave neither half standing.
+    # One transaction: this write moves a person as well as a credential, so a decision landing mid-request must leave
+    # neither half standing.
     return await transact(db, seat_and_mint)

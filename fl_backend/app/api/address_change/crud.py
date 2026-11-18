@@ -1,6 +1,6 @@
-"""Every route, the hourly pass and the erasure start, judge, move and end a change through these functions.
+"""The one set of functions that start, judge, move and end a change.
 
-One set, so no two of them part on what a change moves or what its end leaves behind. The effect moves everything the
+One set, so no two callers part on what a change moves or what its end leaves behind. The effect moves everything the
 address holds in its caller's transaction, a grant included, and nothing else; every end takes the record's addresses
 out of it.
 """
@@ -487,9 +487,8 @@ async def judge_the_effect_in_session(
 ) -> Verdict:
     """Every judgement the effect makes, in the order the link's view ranks its states, read in `session`.
 
-    The confirmation, the hourly pass and the link's view all ask it, so none of them parts on what refuses, but for one
-    case: at the pass a holder's change meets only `taken`, `new_granted` and an entry a person confirmed
-    (`a_confirmed_person_stands_at`).
+    One judgement for every caller, so none parts on what refuses, but for one case: at the hourly pass a holder's change
+    meets only `taken`, `new_granted` and an entry a person confirmed (`a_confirmed_person_stands_at`).
     """
 
     new_address = str(record["email"])

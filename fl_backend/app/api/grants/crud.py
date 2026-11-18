@@ -64,8 +64,8 @@ async def read_admin_tier_of(
 ) -> tuple[FLAdminTier, datetime] | None:
     """The tier this folded address holds at `now`, and when it took effect, or `None`, a waiting row holding nothing yet.
 
-    The sign-in reads it too, so a person named on a waiting addition is admitted by nothing but their other records, and a
-    person holding a seat keeps Konto through the wait.
+    At sign-in, a person named on a waiting addition is admitted by nothing but their other records, and a person holding a
+    seat keeps Konto through the wait.
     """
 
     found = await grants_collection.find_one({"address": address}, {"admin_tier": 1, "effective_from": 1}, session=session)

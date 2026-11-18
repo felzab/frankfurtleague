@@ -103,8 +103,8 @@ def _day_of(moment: datetime | None) -> str | None:
     return None if moment is None else german_day(moment)
 
 
-# Causes the press refuses for the replaced address's sake, which the view reads alike as unconfirmable. The press answers
-# each by its own code; what keeps the link's holder from telling them apart is the edge, which routes no public call here.
+# Causes the press refuses for the replaced address's sake, which the view reads alike as unconfirmable, as the press
+# answers all three with one code: the link's holder learns no more than that the new address is someone's.
 _NOT_CONFIRMABLE = frozenset({"taken", "new_granted", "occupied"})
 
 
@@ -231,7 +231,7 @@ async def post_address_change_answer(
     token_hash = hash_token(answer_data.token)
 
     async def answer_the_link(session: AsyncClientSession) -> FLAddressChangeAnswerResponse:
-        """Judge, then write, everything judged read in-session, so a second press is refused by the spent link rather than writing twice."""
+        """A second press meets the spent link and is refused rather than writing twice."""
 
         record = await address_changes_collection.find_one(build_either_link_filter(token_hash), session=session)
         refuse(find_unknown_refusal(found=record is not None))

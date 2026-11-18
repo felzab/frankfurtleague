@@ -223,7 +223,7 @@ async def post_bewerbung(
             return FLCreatedResponse(created_id=stored["_id"])
 
         # The season first, so a submission arriving after the deadline is refused before anything about
-        # the applicant is looked up. The window is read under the same projection the public GET uses.
+        # the applicant is looked up.
         saison_raw = await pull_one_from_db(
             collection=saisons_collection, db_filter={"_id": bewerbung_data.saison_id}, projection=WINDOW_PROJECTION, session=session
         )
@@ -534,10 +534,9 @@ async def post_einwilligung(
     async def answer_for_the_person(
         session: AsyncClientSession,
     ) -> FLBewerbungEinwilligungAnswerResponse | FLSaisonTeamEinwilligungAnswerResponse:
-        """Judge, then write. Everything judged is read in-session, so a retry re-judges it.
+        """One transaction for both branches: a decline is two writes.
 
-        One transaction for both branches: a decline is two writes, and a consent judged outside
-        the session could answer a seat a decline had just emptied.
+        A consent judged outside the session could answer a seat a decline had just emptied.
         """
 
         bewerbung_raw = await bewerbungen_collection.find_one(

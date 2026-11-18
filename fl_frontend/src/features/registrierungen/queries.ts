@@ -10,7 +10,6 @@ export async function getRegistrierungenAdmin(saisonId: string): Promise<FLRegis
   return runAdminRead(() => orMissing(registrierungenGetRegistrierungenAdmin({ saison_id: saisonId })));
 }
 
-// A person's read, never `"use cache"`, which keys on the arguments rather than the caller.
 export async function getOpenRegistrierungen(teamId: string, saisonId: string): Promise<FLOpenRegistrierungenResponse> {
   return runPersonRead(() => registrierungenGetOpenRegistrierungen(teamId, saisonId));
 }

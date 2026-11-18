@@ -271,7 +271,7 @@ def previous_side_email(record: Mapping[str, Any], *, state: FLAddressChangePrev
 def new_state(record: Mapping[str, Any], *, now: datetime, not_confirmable: bool) -> FLAddressChangeNewState:
     """What the new mailbox's link shows, in the order the confirmation judges, so a refused press names what a reload shows.
 
-    The unconfirmable causes read alike here; the press's own codes part them, merged only at the edge.
+    The unconfirmable causes read alike here, as the press answers them with one code.
     """
 
     if record.get("confirmed_at") is not None:

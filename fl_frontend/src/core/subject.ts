@@ -33,8 +33,8 @@ type SubjectRecords = {
  */
 export type SubjectSession = { readonly email: string; readonly isAdmin: boolean; readonly records: SubjectRecords };
 
-// React's `cache`, never `"use cache"`, which would hand one request's session to another: a layout,
-// a guard and a page of one render pass share one session read, one lookup and one actor.
+// React's `cache`: a layout, a guard and a page of one render pass share one session read, one lookup and one
+// actor.
 const judgeSubjectSession = cache(async (): Promise<{ subject: SubjectSession; actor: RequestActor } | null> => {
   const served = await readRequestSession();
   // Both figures here as well as at `judgeAdminRequest`: a lane that skips them is a lane in which
