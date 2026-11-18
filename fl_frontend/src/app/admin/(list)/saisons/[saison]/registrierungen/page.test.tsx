@@ -12,7 +12,7 @@ const state = { read: null as unknown };
 
 // The page's one read, of the season its address names, through the real guard, query and generated call.
 serveBackend(({ method, path, search }) =>
-  method === "GET" && path === "/registrierungen/list/admin" && search.get("saison_id") === "2028" ? state.read : undefined,
+  method === "GET" && path === "/registrierungen" && search.get("saison_id") === "2028" ? state.read : undefined,
 );
 // An administrator's session, made by passkey, which the read's guard admits.
 signedInRequest();

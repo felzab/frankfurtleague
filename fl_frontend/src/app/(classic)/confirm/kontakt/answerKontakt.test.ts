@@ -11,7 +11,7 @@ import type { FLBewerbungEinwilligungAnswerResponse } from "@/core/generated/cli
 
 // The answer's one write, answered as the backend stores it; any other request goes unanswered and fails its case.
 const backend = serveBackend(({ method, path }) =>
-  method === "POST" && path === "/bewerbungen/einwilligung"
+  method === "POST" && path === "/bewerbungen/confirmation"
     ? ({
         birth_date: null,
         media: false,

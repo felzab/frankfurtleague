@@ -69,13 +69,13 @@ from app.shared.schemas.literals import FLSpielerStufe
 # The person lane's identifier in place of `bind_actor` and the grants check, which a seat holder holding
 # no grant would fail.
 router = APIRouter(
-    prefix="/spieler/kader",
+    prefix="/spieler",
     dependencies=PERSON_TIER,
 )
 
 
-KADER_PATH = f"{by_id('team_id')}/{{saison_id}}"
-ROW_PATH = f"{KADER_PATH}{by_id('spieler_id')}"
+KADER_PATH = f"/teams{by_id('team_id')}/saisons/{{saison_id}}"
+ROW_PATH = f"{by_id('spieler_id')}{KADER_PATH}"
 
 
 async def _record_the_seats_act(
@@ -325,7 +325,7 @@ def _own_pupil_row(rows: Sequence[Mapping[str, Any]]) -> Mapping[str, Any]:
 
 
 @spieler_router.patch(
-    "/account/einwilligung",
+    "/self/einwilligung",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Change a signed-in pupil's own publication and media consent",
 )
@@ -379,7 +379,6 @@ async def patch_einwilligung(
         await transact(db, write)
 
 
-# Declared ahead of `/self/{saison_id}`, whose parameter would otherwise take the word (FastAPI's "Order matters").
 @spieler_router.get("/self/saisons", summary="The seasons a signed-in pupil holds a squad row in")
 async def get_self_saisons(identifier: PersonIdentifier, spieler_collection: SpielerReadCollection) -> FLOwnSaisonsResponse:
     """
@@ -394,7 +393,7 @@ async def get_self_saisons(identifier: PersonIdentifier, spieler_collection: Spi
 
 
 @spieler_router.get(
-    "/self/{saison_id}",
+    "/self/saisons/{saison_id}",
     summary="A signed-in pupil's own season: their squad row and their team's fixtures",
 )
 async def get_self_saison(

@@ -47,7 +47,7 @@ from tests.documents import (
 from tests.erasure import erased
 from tests.session_headers import StampedHeaders
 
-PATH = f"/api/v{API_VERSION}/identity/account/erasure"
+PATH = f"/api/v{API_VERSION}/identity/self/erasure"
 
 # A century ahead of the real clock: the TTL monitor deletes an expired tombstone, request or day's count at its next
 # pass, under a case reading it back. Every seeded day moves with it.

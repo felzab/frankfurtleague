@@ -20,7 +20,7 @@ serveBackend(({ method, path }) => {
   if (method !== "GET") return undefined;
   if (path === "/schiedsrichter/self/saisons") return { saisons: [SAISON_2027] };
   if (path === "/saisons/frame") return { active_saison_id: "2027", saisons: [SAISON_2027] };
-  if (path === "/schiedsrichter/self/spiele/2027") return { saison_id: "2027", spiele: held.spiele };
+  if (path === "/schiedsrichter/self/saisons/2027/spiele") return { saison_id: "2027", spiele: held.spiele };
   return undefined;
 });
 // A referee, signed in by a typed code.

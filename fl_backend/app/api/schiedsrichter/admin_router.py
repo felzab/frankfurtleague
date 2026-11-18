@@ -370,10 +370,10 @@ async def reactivate_schiedsrichter(
 
 
 @router.post(
-    f"{by_id('schiedsrichter_id')}/confirmation/invite",
+    f"{by_id('schiedsrichter_id')}/confirmation/resend",
     summary="Send a Schiedsrichter a fresh confirmation link",
 )
-async def invite_schiedsrichter(
+async def resend_confirmation(
     schiedsrichter_id: CustomObjectId,
     schiedsrichter_collection: SchiedsrichterCollection,
     outbox_collection: OutboxCollection,

@@ -36,7 +36,7 @@ vi.setSystemTime(new Date("2026-11-10T12:00:00+01:00"));
 
 // The page's one read: the overview of the team and the season the address names. Any other, another club's or
 // another season's among them, fails the case.
-serveBackend(({ method, path }) => (method === "GET" && path === `/teams/${TEAM}/saisons/2027/self/overview` ? stored.read : undefined));
+serveBackend(({ method, path }) => (method === "GET" && path === `/teams/${TEAM}/saisons/2027/overview` ? stored.read : undefined));
 // A contact seated on the team in its running season, signed in by a typed code.
 signedInRequest({ email: "pia@example.org", records: { seats: [seat({ team_id: TEAM, saison_id: "2027", saison_status: "active" })] } });
 const { default: TeamOverviewPage } = await import("./page");

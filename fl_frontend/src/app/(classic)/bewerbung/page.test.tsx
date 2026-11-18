@@ -30,7 +30,7 @@ serveBackend(({ method, path }) =>
           bewerbung_window_held: false,
           counts: { count_saisons: 0, count_schulen: 0, count_spiele: 0, count_tore: 0 },
         }
-      : path === `/bewerbungen/form/${SAISON}`
+      : path === `/bewerbungen/saisons/${SAISON}/form`
         ? FORM
         : undefined,
 );

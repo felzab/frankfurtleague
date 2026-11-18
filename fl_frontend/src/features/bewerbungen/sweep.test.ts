@@ -51,8 +51,11 @@ function seasons(
   answers = new Map<string, () => unknown>([
     [LISTING, () => ({ saison_ids: saisonIds })],
     ...saisonIds.flatMap((saisonId): [string, () => unknown][] => [
-      [`POST /bewerbungen/sweep/${saisonId}`, () => bewerbungPass(saisonId, passedOver[`/bewerbungen/sweep/${saisonId}`])],
-      [`POST /registrierungen/sweep/${saisonId}`, () => registrierungPass(saisonId, passedOver[`/registrierungen/sweep/${saisonId}`])],
+      [`POST /bewerbungen/saisons/${saisonId}/sweep`, () => bewerbungPass(saisonId, passedOver[`/bewerbungen/saisons/${saisonId}/sweep`])],
+      [
+        `POST /registrierungen/saisons/${saisonId}/sweep`,
+        () => registrierungPass(saisonId, passedOver[`/registrierungen/saisons/${saisonId}/sweep`]),
+      ],
     ]),
     ["POST /address_change/sweep", () => addressChange],
     ["GET /address_change/sweep/moves", () => ({ moves: [] })],
@@ -78,9 +81,9 @@ describe("one pass of the applications' job", () => {
   it("leaves every row the halves passed over and every lapsed change the address half left, each half counted", async () => {
     seasons(["2526", "2627"], {
       passedOver: {
-        "/bewerbungen/sweep/2526": 1,
-        "/bewerbungen/sweep/2627": 6,
-        "/registrierungen/sweep/2627": 8,
+        "/bewerbungen/saisons/2526/sweep": 1,
+        "/bewerbungen/saisons/2627/sweep": 6,
+        "/registrierungen/saisons/2627/sweep": 8,
         "/schiedsrichter/sweep": 1,
       },
       addressChange: { ...adressen(2), removed: 5 },
@@ -122,6 +125,11 @@ describe("a half that fails", () => {
 
     await expect(runBewerbungSweep()).rejects.toThrow(APINetworkError);
 
-    expect(order()).toStrictEqual([LISTING, "POST /bewerbungen/sweep/2627", "POST /registrierungen/sweep/2627", "POST /address_change/sweep"]);
+    expect(order()).toStrictEqual([
+      LISTING,
+      "POST /bewerbungen/saisons/2627/sweep",
+      "POST /registrierungen/saisons/2627/sweep",
+      "POST /address_change/sweep",
+    ]);
   });
 });

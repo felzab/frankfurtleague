@@ -7,8 +7,8 @@ import { SEAT_WORDINGS } from "@/core/consentWordings";
 import { COPY, seatsText } from "@/core/copy";
 import { bornAfter, bornBy } from "@/core/dayArithmetic";
 import { dayIn, dayOf, formatDate } from "@/core/format";
-import { bewerbungenGetEinwilligungView } from "@/core/generated/client/sdk";
-import { BewerbungenPostEinwilligungBody } from "@/core/generated/zod/inputs";
+import { bewerbungenGetConfirmationView } from "@/core/generated/client/sdk";
+import { BewerbungenPostConfirmationBody } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
@@ -39,7 +39,7 @@ const WORDS = SERVER_COPY.kontaktConfirmation;
 const INVALID: MailedState = { state: "invalid", next: TO_HOME };
 
 /** Whether the confirmation's write asks the date, which posts nothing while unanswered. */
-const BIRTH_DATE_REQUIRED = requires(BewerbungenPostEinwilligungBody.options[0].shape.birth_date, null);
+const BIRTH_DATE_REQUIRED = requires(BewerbungenPostConfirmationBody.options[0].shape.birth_date, null);
 
 /**
  * `/confirm/kontakt`, the link a contact seat's mail carries, an application's or a team's season row's, on the
@@ -54,7 +54,7 @@ export default function KontaktConfirmationPage({ searchParams }: Props) {
 /** The link's own read; `null` for a token no seat holds or one the backend will not parse, a dead link either way. */
 // `cache` memoizes per render pass, for the tab's title and the page.
 const readView = cache(async (token: string): Promise<FLBewerbungEinwilligungViewResponse | null> =>
-  runWithIncomingTrace(() => linkViewOf(bewerbungenGetEinwilligungView({ token }))),
+  runWithIncomingTrace(() => linkViewOf(bewerbungenGetConfirmationView({ token }))),
 );
 
 /** The link opened again after its answer: what the person did and on which day, with the one place to go next. */

@@ -148,7 +148,7 @@ def _person(email: str) -> StampedHeaders:
 
 
 def _referee_path(schiedsrichter_id: ObjectId | str) -> str:
-    return f"/api/v{API_VERSION}/schiedsrichter/account/{schiedsrichter_id}/einwilligung"
+    return f"/api/v{API_VERSION}/schiedsrichter/{schiedsrichter_id}/einwilligung"
 
 
 async def _editor_save(http: AsyncClient, database: AsyncDatabase, *, version: int, default_payment: int) -> Response:
@@ -447,7 +447,7 @@ class TestGivableIsTheGrantThePressTakes:
             for seat in body["seats"]:
                 granted = await _withdrawn_then_granted(
                     http,
-                    f"/api/v{API_VERSION}/teams/{seat['team_id']}/saisons/{seat['saison_id']}/account/einwilligung",
+                    f"/api/v{API_VERSION}/teams/{seat['team_id']}/saisons/{seat['saison_id']}/einwilligung",
                     lambda media, state, seat=seat: {
                         "scope": seat["scope"],
                         "media": media,
@@ -525,7 +525,7 @@ HELD_SEATS = {(TEAM_A_OID, PAST_SAISON): 2, (TEAM_B_OID, ACTIVE_SAISON): 1, (TEA
 
 
 def _seat_path(team_id: ObjectId, saison_id: str) -> str:
-    return f"/api/v{API_VERSION}/teams/{team_id}/saisons/{saison_id}/account/einwilligung"
+    return f"/api/v{API_VERSION}/teams/{team_id}/saisons/{saison_id}/einwilligung"
 
 
 async def _rows(database: AsyncDatabase) -> dict[Any, Any]:
@@ -788,7 +788,7 @@ async def _applications(database: AsyncDatabase) -> None:
 
 
 def _application_path(bewerbung_id: ObjectId) -> str:
-    return f"/api/v{API_VERSION}/bewerbungen/{bewerbung_id}/account/einwilligung"
+    return f"/api/v{API_VERSION}/bewerbungen/{bewerbung_id}/einwilligung"
 
 
 def _withdrawal(*, state: Any = None, media: bool = False) -> dict[str, Any]:
@@ -990,7 +990,7 @@ async def _registrierungen(database: AsyncDatabase, **choices: Any) -> None:
 
 
 def _registrierung_path(registrierung_id: ObjectId) -> str:
-    return f"/api/v{API_VERSION}/registrierungen/account/{registrierung_id}/einwilligung"
+    return f"/api/v{API_VERSION}/registrierungen/{registrierung_id}/einwilligung"
 
 
 async def _registrierung_docs(database: AsyncDatabase) -> dict[Any, Any]:

@@ -146,7 +146,7 @@ const { sent } = registerAuthDoubles({
 let gateAnswer: Pick<LookupFixture, "seats" | "barred" | "account"> = { seats: [], barred: false, account: false };
 
 /** The path a person's own erasure posts to, which the library's hook asks before it deletes the account. */
-const ERASURE_PATH = "/api/v0/identity/account/erasure";
+const ERASURE_PATH = "/api/v0/identity/self/erasure";
 
 /** How many erasures the backend has been asked for. */
 let erasuresAsked = 0;

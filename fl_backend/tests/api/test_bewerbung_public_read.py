@@ -178,7 +178,7 @@ class TestTheFormRead:
     """The one read of the form's page: a state it must show, and what a season not taking applications must not tell."""
 
     async def test_a_running_window_serves_the_teams_and_the_colours(self, seeded_url: str):
-        body = (await answered(seeded_url, f"{PREFIX}/form/{OPEN_SAISON}")).json()
+        body = (await answered(seeded_url, f"{PREFIX}/saisons/{OPEN_SAISON}/form")).json()
 
         assert body["window"]["state"] == "running"
         assert [row["name"] for row in body["schulen"]] == ["Adlerhorst", "Mittelbach", "Öhlerhof", "Zetteltal"]
@@ -189,7 +189,7 @@ class TestTheFormRead:
         [pytest.param(PAUSED_SAISON, id="a paused window"), pytest.param(SHUT_SAISON, id="a window that has passed")],
     )
     async def test_a_form_not_running_serves_its_state_and_nothing_else(self, seeded_url: str, saison_id: str):
-        body = (await answered(seeded_url, f"{PREFIX}/form/{saison_id}")).json()
+        body = (await answered(seeded_url, f"{PREFIX}/saisons/{saison_id}/form")).json()
 
         assert body["window"]["state"] == "closed"
         assert (body["schulen"], body["taken"]) == ([], [])
@@ -277,7 +277,7 @@ class TestTheWindowReads:
     async def test_a_near_miss_is_served_as_not_running(self, seeded_url: str, saison_id: str, state: str):
         """The form's page names the opening day of an `upcoming` window, so one served as closed tells a school nothing of when it opens."""
 
-        response = await answered(seeded_url, f"{PREFIX}/form/{saison_id}")
+        response = await answered(seeded_url, f"{PREFIX}/saisons/{saison_id}/form")
 
         assert response.status_code == 200
         assert response.json()["window"]["state"] == state
@@ -285,7 +285,7 @@ class TestTheWindowReads:
     async def test_the_body_for_a_season_recording_no_window_carries_no_field_of_the_season(self, seeded_url: str):
         """Existence is the whole of the narrowing, so the undecoded body is searched."""
 
-        response = await answered(seeded_url, f"{PREFIX}/form/{WINDOWLESS_SAISON}")
+        response = await answered(seeded_url, f"{PREFIX}/saisons/{WINDOWLESS_SAISON}/form")
 
         assert response.json() == {"window": None, "schulen": [], "taken": []}
         stored = _saison(WINDOWLESS_SAISON, bewerbung=None)
@@ -300,7 +300,7 @@ class TestTheColoursTaken:
     async def test_a_season_not_taking_applications_tells_nothing(self, seeded_url: str, saison_id: str):
         """Gated on whether the season takes applications, so a closed one says neither its clubs nor its colours."""
 
-        body = (await answered(seeded_url, f"{PREFIX}/form/{saison_id}")).json()
+        body = (await answered(seeded_url, f"{PREFIX}/saisons/{saison_id}/form")).json()
 
         assert (body["schulen"], body["taken"]) == ([], [])
 
@@ -332,7 +332,7 @@ class TestASeasonThatHasEndedTakesNoApplication:
         """Both sides: a field answering one value fails a case."""
 
         form = await served_with(
-            mongo_replica_set_url, [_saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW), status=status)], f"{PREFIX}/form/{OPEN_SAISON}"
+            mongo_replica_set_url, [_saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW), status=status)], f"{PREFIX}/saisons/{OPEN_SAISON}/form"
         )
 
         assert form.json()["window"]["state"] == state

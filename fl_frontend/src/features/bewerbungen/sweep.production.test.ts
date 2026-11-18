@@ -9,13 +9,15 @@ import { captureLog } from "@/test-support/stdoutCapture";
 const SAISONS = ["2526", "2627"];
 
 /** The calls that fail, each on the network. */
-const FAILING = new Set(["POST /bewerbungen/sweep/2526", "POST /registrierungen/sweep/2627"]);
+const FAILING = new Set(["POST /bewerbungen/saisons/2526/sweep", "POST /registrierungen/saisons/2627/sweep"]);
 
 const backend = serveBackend(({ method, path }) => {
   const call = `${method} ${path}`;
   if (FAILING.has(call)) return networkFailure();
   if (call === "GET /bewerbungen/sweep") return { saison_ids: SAISONS };
-  const saisonId = SAISONS.find((id) => call === `POST /bewerbungen/sweep/${id}` || call === `POST /registrierungen/sweep/${id}`);
+  const saisonId = SAISONS.find(
+    (id) => call === `POST /bewerbungen/saisons/${id}/sweep` || call === `POST /registrierungen/saisons/${id}/sweep`,
+  );
   if (saisonId !== undefined && path.startsWith("/bewerbungen/")) {
     return {
       saison_id: saisonId,
@@ -53,10 +55,10 @@ it("runs every other half, files a line naming the half and the season, and then
 
   expect(backend.sent.map(({ method, path }) => `${method} ${path}`)).toStrictEqual([
     "GET /bewerbungen/sweep",
-    "POST /bewerbungen/sweep/2526",
-    "POST /registrierungen/sweep/2526",
-    "POST /bewerbungen/sweep/2627",
-    "POST /registrierungen/sweep/2627",
+    "POST /bewerbungen/saisons/2526/sweep",
+    "POST /registrierungen/saisons/2526/sweep",
+    "POST /bewerbungen/saisons/2627/sweep",
+    "POST /registrierungen/saisons/2627/sweep",
     "POST /address_change/sweep",
     "GET /address_change/sweep/moves",
     "POST /schiedsrichter/sweep",
@@ -66,11 +68,16 @@ it("runs every other half, files a line naming the half and the season, and then
     .filter(({ level }) => level === "ERROR")
     .map(({ message, fields: { name, saison_id }, traceId }) => ({ message, name, trace_id: traceId, saison_id }));
   expect(failures).toStrictEqual([
-    { message: "bewerbung.sweep_failed", name: "APINetworkError", trace_id: traceOf("POST /bewerbungen/sweep/2526"), saison_id: "2526" },
+    {
+      message: "bewerbung.sweep_failed",
+      name: "APINetworkError",
+      trace_id: traceOf("POST /bewerbungen/saisons/2526/sweep"),
+      saison_id: "2526",
+    },
     {
       message: "registrierung.sweep_failed",
       name: "APINetworkError",
-      trace_id: traceOf("POST /registrierungen/sweep/2627"),
+      trace_id: traceOf("POST /registrierungen/saisons/2627/sweep"),
       saison_id: "2627",
     },
   ]);

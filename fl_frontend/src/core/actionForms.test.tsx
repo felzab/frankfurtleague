@@ -261,14 +261,14 @@ describe("each form's posted names meet its lane's keys", () => {
     const typed = { birth_date: "1985-09-12", whatsapp: "on", media: "on" };
     everyBoxTyped(names, typed);
     await arriveAs(null);
-    takes(["POST", "/bewerbungen/einwilligung", {}]);
+    takes(["POST", "/bewerbungen/confirmation", {}]);
 
     const answer = await answerKontakt(formOf([...names, "media", "act", "token"], { ...typed, act: "primary", token: "link-token" }));
 
     expect(answer).toMatchObject({ ok: true });
     expect(requestsSent()).toStrictEqual([
       [
-        "POST /bewerbungen/einwilligung",
+        "POST /bewerbungen/confirmation",
         { answer: "given", token: "link-token", birth_date: "1985-09-12", whatsapp: true, media: true, text_versions: SEAT_TEXT_VERSIONS },
       ],
     ]);

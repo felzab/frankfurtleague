@@ -1078,7 +1078,8 @@ class TestThePendingReadServesNoAddress:
 
             async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
                 response = await http.get(
-                    f"/api/v{API_VERSION}/registrierungen/kader/{TEAM_OID}/{SAISON_ID}", headers=StampedHeaders(ANNA, ADMIN_KEY, lane="person")
+                    f"/api/v{API_VERSION}/registrierungen/teams/{TEAM_OID}/saisons/{SAISON_ID}",
+                    headers=StampedHeaders(ANNA, ADMIN_KEY, lane="person"),
                 )
 
             return response.status_code, response.json()

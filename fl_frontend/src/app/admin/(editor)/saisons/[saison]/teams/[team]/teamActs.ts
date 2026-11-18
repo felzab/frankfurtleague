@@ -4,15 +4,21 @@ import { z } from "zod";
 
 import { action, blankIsNull, numberBox } from "@/core/action";
 import { COPY } from "@/core/copy";
-import { teamsDeleteTeam, teamsInviteKontakt, teamsPutAustritt, teamsPutKontaktSeat, teamsReactivateTeam } from "@/core/generated/client/sdk";
+import {
+  teamsDeleteTeam,
+  teamsPutAustritt,
+  teamsPutKontaktSeat,
+  teamsReactivateTeam,
+  teamsResendKontaktConfirmation,
+} from "@/core/generated/client/sdk";
 import {
   TeamsDeleteTeamParams,
-  TeamsInviteKontaktParams,
   TeamsPutAustrittBody,
   TeamsPutAustrittParams,
   TeamsPutKontaktSeatBody,
   TeamsPutKontaktSeatParams,
   TeamsReactivateTeamParams,
+  TeamsResendKontaktConfirmationParams,
 } from "@/core/generated/zod/inputs";
 
 const SEAT_EXAMPLES = {
@@ -96,9 +102,9 @@ export const writeSeat = action({
 export const sendSeatLink = action({
   lane: "admin",
   name: "sendSeatLink",
-  input: z.object(TeamsInviteKontaktParams.shape),
+  input: z.object(TeamsResendKontaktConfirmationParams.shape),
   run: async ({ team_id, saison_id, seat }) => {
-    await teamsInviteKontakt(team_id, saison_id, seat);
+    await teamsResendKontaktConfirmation(team_id, saison_id, seat);
     return { ok: true, value: undefined };
   },
 });

@@ -282,10 +282,8 @@ async def _served_invitation(live: Mapping[str, Any], *, outbox_collection: Read
     return FLInvitationRow.model_validate({**live, "delivery": state})
 
 
-# Two static segments, so the admin tier lists every season-scoped resource under one shape. No id
-# route at this prefix ends in `/admin`, so none can shadow this one.
 @router.get(
-    "/list/admin",
+    "",
     summary="One season's Teams list and what its create dialog offers",
 )
 async def get_teams_admin(
@@ -342,7 +340,7 @@ async def get_teams_admin(
 
 
 @router.get(
-    f"{by_id('team_id')}/saisons/{{saison_id}}/admin",
+    f"{by_id('team_id')}/saisons/{{saison_id}}",
     summary="One team in one season for the admin editor",
 )
 async def get_team_saison_admin(
@@ -570,7 +568,7 @@ async def reactivate_team(
 
 
 @router.patch(
-    f"{by_id('team_id')}/saisons/{{saison_id}}/admin",
+    f"{by_id('team_id')}/saisons/{{saison_id}}",
     summary="Save the team editor: the club and its row of the season, in one transaction",
 )
 async def patch_team_saison(
@@ -959,10 +957,10 @@ async def replace_saison_team(
 
 
 @router.post(
-    f"{by_id('team_id')}/saisons/{{saison_id}}/kontakte/{{seat}}/confirmation/invite",
+    f"{by_id('team_id')}/saisons/{{saison_id}}/kontakte/{{seat}}/confirmation/resend",
     summary="Send one contact seat a fresh confirmation link",
 )
-async def invite_kontakt(
+async def resend_kontakt_confirmation(
     team_id: CustomObjectId,
     saison_id: str,
     seat: str,

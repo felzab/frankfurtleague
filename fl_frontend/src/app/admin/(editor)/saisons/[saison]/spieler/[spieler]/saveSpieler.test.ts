@@ -9,7 +9,7 @@ const SPIELER_ID = "64b000000000000000000002";
 const SAISON = "2027";
 
 /** The one address the editor's read and the save's write share. */
-const ENDPOINT = `/spieler/${SPIELER_ID}/saisons/${SAISON}/admin`;
+const ENDPOINT = `/spieler/${SPIELER_ID}/saisons/${SAISON}`;
 
 /** The player read again at a count newer than the editor's: someone saved since. */
 const STORED = {

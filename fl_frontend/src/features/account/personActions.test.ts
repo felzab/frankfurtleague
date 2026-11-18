@@ -63,7 +63,7 @@ const HELD = new Map<string, LookupFixture>();
 /** Every erasure the backend was asked for, with the actor header each carried. */
 const erasures: { method: string; actor: string | null }[] = [];
 
-const ERASURE_PATH = "/api/v0/identity/account/erasure";
+const ERASURE_PATH = "/api/v0/identity/self/erasure";
 
 /** The person's own address change, and the method of every request sent to it. */
 const ADDRESS_CHANGE_PATH = "/api/v0/account/address_change";

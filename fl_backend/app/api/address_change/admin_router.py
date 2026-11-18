@@ -239,10 +239,10 @@ async def post_address_change_admin(
 
 
 @router.post(
-    f"{by_id('address_change_id')}/invite",
+    f"{by_id('address_change_id')}/confirmation/resend",
     summary="Send a pending address a fresh link",
 )
-async def invite_address_change(
+async def resend_confirmation(
     address_change_id: CustomObjectId,
     address_changes_collection: AddressChangeCollection,
     outbox_collection: OutboxCollection,

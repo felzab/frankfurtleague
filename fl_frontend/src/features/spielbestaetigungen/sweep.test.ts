@@ -20,7 +20,7 @@ const pass = (saisonId: string, counts: Partial<Record<"closed" | "asked" | "rem
 });
 
 /** A season's pass, as the contract spells its path. */
-const SEASON_PASS = /^\/spielbestaetigungen\/sweep\/(\d+)$/;
+const SEASON_PASS = /^\/spielbestaetigungen\/saisons\/(\d+)\/sweep$/;
 
 // The listing read and each season's pass, and nothing else: any other request fails the case.
 const backend = serveBackend(({ method, path }) => {
@@ -49,7 +49,11 @@ describe("the fixture confirmation job", () => {
       count: { closed: 2, asked: 3, reminded: 1, mails: 9, failed: 1 },
       open: 0,
     });
-    expect(sent()).toStrictEqual([`GET ${LIST}`, `POST ${LIST}/2627`, `POST ${LIST}/2728`]);
+    expect(sent()).toStrictEqual([
+      `GET ${LIST}`,
+      "POST /spielbestaetigungen/saisons/2627/sweep",
+      "POST /spielbestaetigungen/saisons/2728/sweep",
+    ]);
   });
 
   /* The scheduler reports a pass ending on a failure to the heartbeat, which a job answering with a line alone keeps from it. */
@@ -57,6 +61,6 @@ describe("the fixture confirmation job", () => {
     passAnswer = (saisonId) => (saisonId === "2627" ? networkFailure() : pass(saisonId));
 
     await expect(runSpielSweep()).rejects.toThrow(APINetworkError);
-    expect(sent()).toStrictEqual([`GET ${LIST}`, `POST ${LIST}/2627`]);
+    expect(sent()).toStrictEqual([`GET ${LIST}`, "POST /spielbestaetigungen/saisons/2627/sweep"]);
   });
 });

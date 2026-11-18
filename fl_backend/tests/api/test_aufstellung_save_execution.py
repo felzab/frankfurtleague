@@ -277,7 +277,7 @@ async def test_the_lock_refuses_the_seat_and_never_the_administrator(mongo_repli
         await database[Collection.GRANTS].insert_many(grants_for_the_suite())
         async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME), now=LOCKED) as http:
             response = await http.put(
-                f"/api/v{API_VERSION}/aufstellungen/{SPIEL}/{HOME}",
+                f"/api/v{API_VERSION}/aufstellungen/spiele/{SPIEL}/teams/{HOME}/admin",
                 json=_payload(LINA).model_dump(mode="json"),
                 headers=StampedHeaders(SERVED_ADMIN, ADMIN_KEY),
             )

@@ -23,8 +23,8 @@ from app.api.account.schemas import FLAccountAddressChangePayload
 from app.api.address_change.admin_router import (
     delete_address_change,
     get_address_changes,
-    invite_address_change,
     post_address_change_admin,
+    resend_confirmation,
 )
 from app.api.address_change.public_router import get_address_change_view, post_address_change_answer, post_address_change_stop
 from app.api.address_change.schemas import (
@@ -363,7 +363,7 @@ async def resend(database: AsyncDatabase, client: AsyncMongoClient, address_chan
     return await handed_out(
         database,
         client,
-        await call(invite_address_change, database, client, address_change_id=address_change_id, **given),
+        await call(resend_confirmation, database, client, address_change_id=address_change_id, **given),
         now=given.get("germany_now", NOW),
     )
 

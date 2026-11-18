@@ -153,8 +153,7 @@ async def _doubled_teams(*, saison_id: str, bewerbungen_collection: ReadCollecti
     return {cell["_id"] for cell in cells}
 
 
-# Two static segments, matching `GET /saisons/list/admin`.
-@router.get("/list/admin", summary="One Saison's Bewerbungen for its list")
+@router.get("", summary="One Saison's Bewerbungen for its list")
 async def get_bewerbungen_admin(
     bewerbungen_collection: BewerbungenReadCollection,
     teams_collection: TeamsReadCollection,
@@ -510,10 +509,10 @@ async def decline_bewerbung(
 
 
 @router.post(
-    f"{by_id('bewerbung_id')}/einwilligung/{{seat}}/resend",
+    f"{by_id('bewerbung_id')}/kontakte/{{seat}}/confirmation/resend",
     summary="Re-send one seat's confirmation link",
 )
-async def resend_einwilligung(
+async def resend_kontakt_confirmation(
     bewerbung_id: CustomObjectId,
     seat: str,
     bewerbungen_collection: BewerbungenCollection,

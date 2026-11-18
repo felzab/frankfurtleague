@@ -375,7 +375,7 @@ class TestAnErasureOnRequest:
 
 
 # The pupil's own consent page, whose withdrawal writes the line.
-CONSENT_PRESS = f"/api/v{API_VERSION}/spieler/account/einwilligung"
+CONSENT_PRESS = f"/api/v{API_VERSION}/spieler/self/einwilligung"
 PERSON = "ortrud.zwiebelmayer@schule.example.org"
 PUPIL_OID = ObjectId("6890a1b2c3d4e5f607870011")
 PRESS_NOW = datetime(2126, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))

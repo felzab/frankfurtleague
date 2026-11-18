@@ -293,7 +293,7 @@ class TestTheSystemTierOverTheWire:
     """On the replica set: the erasure runs in a transaction, which a standalone mongod refuses outright."""
 
     async def test_the_erasure_answers_on_the_system_tier_and_writes_its_row(self, mongo_replica_set_url: str):
-        status, rows = await through_the_app(mongo_replica_set_url, f"/registrierungen/sweep/{SAISON_ID}", auth=SYSTEM_AUTH)
+        status, rows = await through_the_app(mongo_replica_set_url, f"/registrierungen/saisons/{SAISON_ID}/sweep", auth=SYSTEM_AUTH)
 
         assert status == 200
         assert [(row["by"], row["label"], row["count"]) for row in rows] == [("system", SAISON_ID, 1)]
@@ -302,7 +302,7 @@ class TestTheSystemTierOverTheWire:
     async def test_neither_other_key_reaches_it(self, mongo_replica_set_url: str, auth: Mapping[str, str]):
         """The other two keys are refused as the wrong credential before any body is read, so nothing is erased."""
 
-        status, rows = await through_the_app(mongo_replica_set_url, f"/registrierungen/sweep/{SAISON_ID}", auth=auth)
+        status, rows = await through_the_app(mongo_replica_set_url, f"/registrierungen/saisons/{SAISON_ID}/sweep", auth=auth)
 
         assert status == 401
         assert rows == []

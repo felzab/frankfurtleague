@@ -57,9 +57,8 @@ router = APIRouter(
 )
 
 
-# A static path, which the `objectid` convertor keeps out of `{spiel_id}`'s reach whichever router loads first.
 @router.get(
-    "/spielplan",
+    "",
     summary="One Saison's Spiele by matchday, for the admin Spiele list",
 )
 async def get_spiele_spielplan(

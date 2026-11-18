@@ -52,7 +52,7 @@ const READ: FLSpielberichtSchiedsrichterResponse = {
 // which withhold 2027. Any other read, another fixture's report among them, fails the case.
 serveBackend(({ method, path }) => {
   if (method !== "GET") return undefined;
-  if (path === `/spielberichte/${SPIEL_ID}/bericht`) return READ;
+  if (path === `/spielberichte/spiele/${SPIEL_ID}`) return READ;
   if (path === "/saisons/frame") return { active_saison_id: null, saisons: [] };
   return undefined;
 });

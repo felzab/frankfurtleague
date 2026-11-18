@@ -206,7 +206,7 @@ async def read(url: str, what: str, *, identifier: str = THEO, saison_id: str = 
         await seed(database)
         async with app_client(url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
             response = await http.get(
-                f"/api/v{API_VERSION}/teams/{TEAM}/saisons/{saison_id}/self/{what}",
+                f"/api/v{API_VERSION}/teams/{TEAM}/saisons/{saison_id}/{what}",
                 headers=StampedHeaders(identifier, ADMIN_KEY, lane="person"),
             )
 

@@ -1579,7 +1579,7 @@ async def answer_for(database: AsyncDatabase, client: AsyncMongoClient, token: s
     """A hand-built block would let this suite agree with itself while disagreeing with the endpoint.
 
     The state a reseat runs on is whatever the Widerspruch actually leaves
-    (`fl_backend/app/api/bewerbungen/public_router.py :: post_einwilligung`).
+    (`fl_backend/app/api/bewerbungen/public_router.py :: post_confirmation`).
     """
 
     return await answered(

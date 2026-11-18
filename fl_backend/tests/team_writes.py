@@ -28,7 +28,7 @@ async def save_the_team(
     saisons_collection: Any = None,
     **changes: Any,
 ) -> Any:
-    """`PATCH .../admin` on the club and its row as stored, with `changes` over them, on the count the editor would hold."""
+    """The editor's save on the club and its row as stored, with `changes` over them, on the count the editor would hold."""
 
     team = await database[Collection.TEAMS].find_one({"_id": team_id})
     row = await database[Collection.SAISON_TEAMS].find_one({"team_id": team_id, "saison_id": saison_id})

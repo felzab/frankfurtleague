@@ -147,7 +147,7 @@ function holdNext(arm: (hold: Hold) => void): { arrived: Promise<void>; release:
 }
 
 /** The path a person's own erasure posts to, which the library's hook asks before it deletes the account. */
-const ERASURE_PATH = "/api/v0/identity/account/erasure";
+const ERASURE_PATH = "/api/v0/identity/self/erasure";
 
 /** The backend's erasure done, as it answers one. */
 const ERASED = (): Promise<Response> => Promise.resolve(new Response(null, { status: 204 }));

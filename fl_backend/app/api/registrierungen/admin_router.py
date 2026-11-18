@@ -29,8 +29,7 @@ router = APIRouter(
 )
 
 
-# Two static segments, so the admin tier lists every season-scoped resource under one shape.
-@router.get("/list/admin", summary="One Saison's pending Registrierungen for its list")
+@router.get("", summary="One Saison's pending Registrierungen for its list")
 async def get_registrierungen_admin(
     registrierungen_collection: RegistrierungenReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,

@@ -66,8 +66,8 @@ PUBLISHED_OPERATIONS = sorted(
 # no other key. The two cases below assert what takes the guard's place.
 PUBLIC_WRITES = [
     ("/api/v0/bewerbungen", "post"),
-    ("/api/v0/bewerbungen/einwilligung/view", "post"),
-    ("/api/v0/bewerbungen/einwilligung", "post"),
+    ("/api/v0/bewerbungen/confirmation/view", "post"),
+    ("/api/v0/bewerbungen/confirmation", "post"),
     # A referee's own confirmation link, on a base-tier router under an otherwise admin-tier prefix:
     # the token is the whole credential, so the guard here would have no session to check.
     ("/api/v0/schiedsrichter/confirmation/view", "post"),
@@ -90,9 +90,9 @@ PUBLIC_WRITES = [
 # The retention sweep's writes, made by the application to itself on the SYSTEM key: no session
 # and no person, so the admin guard would have nothing to check and `bind_actor` would refuse.
 SYSTEM_WRITES = [
-    ("/api/v0/bewerbungen/sweep/{saison_id}", "post"),
-    ("/api/v0/registrierungen/sweep/{saison_id}", "post"),
-    ("/api/v0/spielbestaetigungen/sweep/{saison_id}", "post"),
+    ("/api/v0/bewerbungen/saisons/{saison_id}/sweep", "post"),
+    ("/api/v0/registrierungen/saisons/{saison_id}/sweep", "post"),
+    ("/api/v0/spielbestaetigungen/saisons/{saison_id}/sweep", "post"),
     # A POST that stores nothing: the address travels in a body, so `MUTATIONS` would cover it, and
     # this exemption leaves its one guard the system tier's.
     ("/api/v0/identity/subject", "post"),
@@ -147,8 +147,8 @@ def requested(path: str) -> str:
 def test_every_operation_is_answered_by_its_own_route():
     """Matched as Starlette matches, the first route in mount order taking the path and the method.
 
-    What every guard case here assumes: a literal segment such as `/spieler/self/saisons` reaching a
-    route mounted earlier, `/spieler/self/{saison_id}`, would be served under that route's guard.
+    What every guard case here assumes: a literal segment such as `/saisons/frame` reaching a route
+    mounted earlier, `/saisons/{saison_id}`, would be served under that route's guard.
     Not parametrised, so one failure names every shadowed operation at once.
     """
 
@@ -187,32 +187,32 @@ def test_every_operation_carries_exactly_one_guard(path: str, method: str):
 # is a person no grant names: the one exemption from the check below, by name.
 PERSON_OPERATIONS: frozenset[tuple[str, str]] = frozenset(
     {
-        ("/api/v0/spieler/kader/{team_id}/{saison_id}", "get"),
-        ("/api/v0/spieler/kader/{team_id}/{saison_id}/{spieler_id}", "patch"),
-        ("/api/v0/spieler/kader/{team_id}/{saison_id}/{spieler_id}", "delete"),
-        ("/api/v0/registrierungen/kader/{team_id}/{saison_id}", "get"),
+        ("/api/v0/spieler/teams/{team_id}/saisons/{saison_id}", "get"),
+        ("/api/v0/spieler/{spieler_id}/teams/{team_id}/saisons/{saison_id}", "patch"),
+        ("/api/v0/spieler/{spieler_id}/teams/{team_id}/saisons/{saison_id}", "delete"),
+        ("/api/v0/registrierungen/teams/{team_id}/saisons/{saison_id}", "get"),
         ("/api/v0/registrierungen/{registrierung_id}/admit", "post"),
         ("/api/v0/registrierungen/{registrierung_id}/decline", "post"),
-        ("/api/v0/teams/{team_id}/saisons/{saison_id}/self/overview", "get"),
-        ("/api/v0/teams/{team_id}/saisons/{saison_id}/self/spiele", "get"),
-        ("/api/v0/aufstellungen/{spiel_id}/{team_id}/self", "get"),
-        ("/api/v0/aufstellungen/{spiel_id}/{team_id}/self", "put"),
+        ("/api/v0/teams/{team_id}/saisons/{saison_id}/overview", "get"),
+        ("/api/v0/teams/{team_id}/saisons/{saison_id}/spiele", "get"),
+        ("/api/v0/aufstellungen/spiele/{spiel_id}/teams/{team_id}", "get"),
+        ("/api/v0/aufstellungen/spiele/{spiel_id}/teams/{team_id}", "put"),
         ("/api/v0/spieler/self/saisons", "get"),
-        ("/api/v0/spieler/self/{saison_id}", "get"),
-        ("/api/v0/spieler/account/einwilligung", "patch"),
+        ("/api/v0/spieler/self/saisons/{saison_id}", "get"),
+        ("/api/v0/spieler/self/einwilligung", "patch"),
         ("/api/v0/schiedsrichter/self/saisons", "get"),
-        ("/api/v0/schiedsrichter/self/spiele/{saison_id}", "get"),
-        ("/api/v0/schiedsrichter/account/{schiedsrichter_id}/einwilligung", "patch"),
+        ("/api/v0/schiedsrichter/self/saisons/{saison_id}/spiele", "get"),
+        ("/api/v0/schiedsrichter/{schiedsrichter_id}/einwilligung", "patch"),
         ("/api/v0/account/einwilligungen", "get"),
-        ("/api/v0/teams/{team_id}/saisons/{saison_id}/account/einwilligung", "patch"),
-        ("/api/v0/bewerbungen/{bewerbung_id}/account/einwilligung", "patch"),
-        ("/api/v0/registrierungen/account/{registrierung_id}/einwilligung", "patch"),
-        ("/api/v0/identity/account/erasure", "post"),
-        ("/api/v0/identity/account/erasure/view", "get"),
+        ("/api/v0/teams/{team_id}/saisons/{saison_id}/einwilligung", "patch"),
+        ("/api/v0/bewerbungen/{bewerbung_id}/einwilligung", "patch"),
+        ("/api/v0/registrierungen/{registrierung_id}/einwilligung", "patch"),
+        ("/api/v0/identity/self/erasure", "post"),
+        ("/api/v0/identity/self/erasure/view", "get"),
         ("/api/v0/spielbestaetigungen/{spielbestaetigung_id}/answer", "post"),
         ("/api/v0/spielbestaetigungen/{spielbestaetigung_id}/answer/team", "post"),
-        ("/api/v0/spielberichte/{spiel_id}/bericht", "get"),
-        ("/api/v0/spielberichte/{spiel_id}/bericht", "put"),
+        ("/api/v0/spielberichte/spiele/{spiel_id}", "get"),
+        ("/api/v0/spielberichte/spiele/{spiel_id}", "put"),
         ("/api/v0/account/address_change", "get"),
         ("/api/v0/account/address_change", "post"),
         ("/api/v0/account/address_change", "delete"),
@@ -303,7 +303,7 @@ SYSTEM_READS = [
 # The reads a visitor's page makes, which are therefore NOT admin-guarded: enumerated as the public
 # writes are, since nothing about a GET tells which tier it belongs to.
 BASE_READS = [
-    ("/api/v0/bewerbungen/form/{saison_id}", "get"),
+    ("/api/v0/bewerbungen/saisons/{saison_id}/form", "get"),
     ("/api/v0/saisons/frame", "get"),
     ("/api/v0/saisons/landing", "get"),
     ("/api/v0/saisons/{saison_id}/ko_runde", "get"),

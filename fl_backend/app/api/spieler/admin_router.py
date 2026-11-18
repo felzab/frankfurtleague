@@ -70,8 +70,7 @@ PERSON_SAVE_FIELDS: Final = ("first_name", "last_name", "birth_date")
 ROW_SAVE_FIELDS: Final = ("nummer", "position", "stufe", "rolle")
 
 
-# Two static segments, so the admin tier lists every season-scoped resource under one shape.
-@router.get("/list/admin", summary="One Saison's squad rows for its list")
+@router.get("", summary="One Saison's squad rows for its list")
 async def get_spieler_admin(
     saison_id: str,
     saison_spieler_collection: SaisonSpielerReadCollection,
@@ -99,7 +98,7 @@ async def get_spieler_admin(
 
 
 @router.get(
-    f"{by_id('spieler_id')}/saisons/{{saison_id}}/admin",
+    f"{by_id('spieler_id')}/saisons/{{saison_id}}",
     summary="What the Spieler editor shows, in one read",
 )
 async def get_spieler_saison(
@@ -145,7 +144,7 @@ async def get_spieler_saison(
 
 
 @router.patch(
-    f"{by_id('spieler_id')}/saisons/{{saison_id}}/admin",
+    f"{by_id('spieler_id')}/saisons/{{saison_id}}",
     summary="Save the Spieler editor: the person and their squad row of the season, in one transaction",
 )
 async def patch_spieler_saison(

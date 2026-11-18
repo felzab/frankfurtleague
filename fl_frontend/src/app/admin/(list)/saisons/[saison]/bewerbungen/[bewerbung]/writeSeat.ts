@@ -4,11 +4,11 @@ import { z } from "zod";
 
 import { action, numberBox } from "@/core/action";
 import { COPY } from "@/core/copy";
-import { bewerbungenPostKontaktSeat, bewerbungenResendEinwilligung } from "@/core/generated/client/sdk";
+import { bewerbungenPostKontaktSeat, bewerbungenResendKontaktConfirmation } from "@/core/generated/client/sdk";
 import {
   BewerbungenPostKontaktSeatBody,
   BewerbungenPostKontaktSeatParams,
-  BewerbungenResendEinwilligungParams,
+  BewerbungenResendKontaktConfirmationParams,
 } from "@/core/generated/zod/inputs";
 
 const { shape } = BewerbungenPostKontaktSeatBody;
@@ -48,9 +48,9 @@ export const writeSeat = action({
 export const sendSeatLink = action({
   lane: "admin",
   name: "sendSeatLink",
-  input: BewerbungenResendEinwilligungParams,
+  input: BewerbungenResendKontaktConfirmationParams,
   run: async ({ bewerbung_id: id, seat }) => {
-    await bewerbungenResendEinwilligung(id, seat);
+    await bewerbungenResendKontaktConfirmation(id, seat);
     return { ok: true, value: undefined };
   },
 });

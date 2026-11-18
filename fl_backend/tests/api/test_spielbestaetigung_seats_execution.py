@@ -14,7 +14,7 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.public_router import post_einwilligung
+from app.api.bewerbungen.public_router import post_confirmation
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungDeclined
 from app.api.identity.services import build_erasure_seat_pipeline
 from app.api.kontakte.crud import erase_kontaktperson_in_session
@@ -147,7 +147,7 @@ async def erase_the_trainer(database: AsyncDatabase, client: AsyncMongoClient) -
 async def contradict(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
     """The Trainer's Widerspruch through the season row's own link."""
 
-    return await post_einwilligung(
+    return await post_confirmation(
         answer_data=FLBewerbungEinwilligungDeclined(token=row_link("trainer"), answer="declined"),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],

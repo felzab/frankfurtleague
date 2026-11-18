@@ -89,7 +89,7 @@ router = APIRouter(prefix="/registrierungen", dependencies=PERSON_TIER)
 
 
 @router.get(
-    f"/kader{by_id('team_id')}/{{saison_id}}",
+    f"/teams{by_id('team_id')}/saisons/{{saison_id}}",
     summary="A team's pending registrations for one season",
 )
 async def get_open_registrierungen(
@@ -476,8 +476,8 @@ async def decline(
     return await transact(db, decline_for_the_team)
 
 
-# A prefix of its own: a pending registrant reaches their own row, and no team's.
-spieler_router = APIRouter(prefix="/registrierungen/account", dependencies=PERSON_TIER)
+# A router of its own: a pending registrant reaches their own row, and no team's.
+spieler_router = APIRouter(prefix="/registrierungen", dependencies=PERSON_TIER)
 
 
 @spieler_router.patch(

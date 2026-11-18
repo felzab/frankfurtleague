@@ -19,10 +19,10 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.schiedsrichter.admin_router import (
     delete_schiedsrichter,
-    invite_schiedsrichter,
     patch_schiedsrichter,
     post_schiedsrichter,
     reactivate_schiedsrichter,
+    resend_confirmation,
 )
 from app.api.schiedsrichter.public_router import get_confirmation_view, post_confirmation, post_decline
 from app.api.schiedsrichter.schemas import (
@@ -164,7 +164,7 @@ async def correct(database: AsyncDatabase, client: AsyncMongoClient, *, email: s
 async def resend(
     database: AsyncDatabase, client: AsyncMongoClient, *, schiedsrichter_id: ObjectId = SCHIEDSRICHTER_OID, today: str = TODAY
 ) -> Mailed:
-    answer = await invite_schiedsrichter(
+    answer = await resend_confirmation(
         schiedsrichter_id=schiedsrichter_id,
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         outbox_collection=database[Collection.OUTBOX],
