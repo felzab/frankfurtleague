@@ -130,9 +130,6 @@ class TraceContextMiddleware:
         fl_logger.info(
             "http.answered",
             extra={
-                # Explicit as well as filter-stamped, so a handler without `TraceContextFilter`
-                # still reads the request's id on this record.
-                "trace_id": trace_id_var.get(),
                 "method": request.method,
                 "path": path,
                 "status": status,

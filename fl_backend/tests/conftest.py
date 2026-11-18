@@ -15,6 +15,7 @@ import pytest
 from pydantic import BaseModel, ValidationError
 from pymongo import MongoClient
 
+from app.core.logging import TraceContextFilter
 from app.core.recording import actor_var
 from tests.database import bounded_case, close_the_shared_clients
 from tests.documents import EINWILLIGUNG, rules_document
@@ -74,6 +75,19 @@ def an_administrator_bound() -> Iterator[None]:
         yield
     finally:
         actor_var.reset(token)
+
+
+@pytest.fixture(autouse=True)
+def a_capture_stamped_as_the_service_s_handler(caplog: pytest.LogCaptureFixture) -> Iterator[None]:
+    """The trace filter on pytest's capture as on the service's one handler, so a captured record carries what its line would."""
+
+    # Taken off again: pytest keeps one capture handler for the whole run.
+    stamp = TraceContextFilter()
+    caplog.handler.addFilter(stamp)
+    try:
+        yield
+    finally:
+        caplog.handler.removeFilter(stamp)
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:

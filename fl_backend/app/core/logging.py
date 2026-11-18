@@ -71,7 +71,9 @@ class JSONFormatter(logging.Formatter):
             "timestamp": datetime.fromtimestamp(record.created, tz=UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
             "level": record.levelname,
             "service": "fl_backend",
-            "trace_id": getattr(record, "trace_id", trace_id_var.get()),
+            # Stamped by `TraceContextFilter`, which the one handler formatting this line carries; read off the record's
+            # attributes as a `%(name)s` format reads one, since `LogRecord` declares none for it.
+            "trace_id": vars(record)["trace_id"],
             "message": record.getMessage(),
             "module": record.module,
             "line": record.lineno,
@@ -88,7 +90,7 @@ class PlainFormatter(logging.Formatter):
     """The line a developer reads in a terminal."""
 
     def format(self, record: logging.LogRecord) -> str:
-        fields = " ".join(f"{key}={value}" for key, value in {"trace_id": getattr(record, "trace_id", None), **_fields(record)}.items())
+        fields = " ".join(f"{key}={value}" for key, value in {"trace_id": vars(record)["trace_id"], **_fields(record)}.items())
         line = f"{record.levelname:<8} {self.formatTime(record)} {record.module}:{record.lineno} - {record.getMessage()} {fields}"
         if record.exc_info:
             line = f"{line}\n{self.formatException(record.exc_info)}"

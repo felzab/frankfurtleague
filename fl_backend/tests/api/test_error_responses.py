@@ -15,7 +15,7 @@ from pymongo.errors import BulkWriteError, ExecutionTimeout, PyMongoError
 
 from app.core.codes import Code
 from app.core.exception_handlers import db_exception_handler, pydantic_validation_exception_handler
-from app.core.logging import FL_LOGGER_NAME, JSONFormatter, TraceContextFilter
+from app.core.logging import FL_LOGGER_NAME, JSONFormatter
 from app.main import create_shell
 from app.shared.schemas.custom import PERSON_NAME_PATTERN, CustomObjectId
 from tests.app_client import app_client
@@ -298,8 +298,6 @@ CRASHES = [
 
 
 def _crashed(caplog: pytest.LogCaptureFixture, path: str) -> tuple[Response, list[Any]]:
-    # The filter the console handler stamps each line with, so a record carries the ids the sink would read.
-    caplog.handler.addFilter(TraceContextFilter())
     with caplog.at_level(logging.INFO, logger=FL_LOGGER_NAME):
         response = TestClient(_crashing_app(), raise_server_exceptions=False).get(path, headers={"traceparent": TRACEPARENT})
 
