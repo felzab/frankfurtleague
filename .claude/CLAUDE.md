@@ -182,11 +182,12 @@ ruling that adds or retires a decision edits that file in the commit that makes 
 
 @../docs/decisions.md
 
-**Before proposing a change on a surface, read in full every rules file that loaded, and open the one
-for a surface you are about to touch even if no read has pulled it in.** The files under
-`.claude/rules/` — [`backend.md`](rules/backend.md), [`frontend.md`](rules/frontend.md),
+**Before proposing a change on a surface, open the rules file for a surface you are about to touch
+even if no read has pulled it in.** The files under `.claude/rules/` —
+[`backend.md`](rules/backend.md), [`frontend.md`](rules/frontend.md),
 [`cross-surface.md`](rules/cross-surface.md) and [`stack.md`](rules/stack.md) — hold the traps each
-surface springs; a rules file written during a session loads only in a session started after it.
+surface springs. A rules file written during a session does not load in that session, and does load
+in an agent the session dispatches after writing it.
 
 ## 8. Documentation
 
