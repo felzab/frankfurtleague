@@ -78,9 +78,9 @@ async def ban(
     return await ban_through_the_route(database, client, email=email, ban_reason=ban_reason, by=by, today=TODAY, notify=notify)
 
 
-async def lift(database: AsyncDatabase, client: AsyncMongoClient, ban_list_entry_id: ObjectId) -> Any:
+async def lift(database: AsyncDatabase, client: AsyncMongoClient, ban_list_entry_id: ObjectId) -> None:
     with acting_as(ADMIN):
-        return await delete_ban_list_entry(ban_list_entry_id=ban_list_entry_id, ban_list_collection=database[Collection.BAN_LIST], db=client)
+        await delete_ban_list_entry(ban_list_entry_id=ban_list_entry_id, ban_list_collection=database[Collection.BAN_LIST], db=client)
 
 
 async def rows_of(database: AsyncDatabase) -> list[Mapping[str, Any]]:

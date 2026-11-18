@@ -55,11 +55,5 @@ class FLPostGrantPayload(BasePayload):
     email: CustomEmail
 
 
-class FLGrantWriteResponse(BaseReadModel):
-    """The grant the act named."""
-
-    grant_id: CustomObjectId
-
-
 class FLGrantHandoverPassResponse(BaseReadModel):
     handed_over: int = Field(ge=0)
