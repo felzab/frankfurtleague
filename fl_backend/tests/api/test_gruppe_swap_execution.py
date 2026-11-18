@@ -12,7 +12,8 @@ from app.api.saisons.admin_router import swap_gruppen
 from app.api.saisons.schemas import FLSwapGruppenPayload
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError
+from tests.app_client import app_client, app_under_test
+from tests.config import ADMIN_AUTH, grants_for_the_suite
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database
 from tests.documents import saison_document, saison_team_document, spiel_document
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of, refused_code
@@ -164,6 +165,14 @@ async def spiele_now(database: AsyncDatabase) -> dict[int, dict[str, Any]]:
     return {row["spiel_nr"]: row for row in rows if "spiel_nr" in row}
 
 
+async def league_now(database: AsyncDatabase) -> dict[str, list[Any]]:
+    """The season, its clubs' rows, its fixtures and the action log, each as it stands."""
+
+    names = (Collection.SAISONS, Collection.SAISON_TEAMS, Collection.SPIELE, Collection.ACTION_LOG)
+
+    return {name: await database[name].find().sort("_id", 1).to_list(length=None) for name in names}
+
+
 async def everything_now(database: AsyncDatabase) -> dict[str, list[Any]]:
     """Every collection as it stands, the action log and each document's version included, so "wrote nothing" means nothing."""
 
@@ -187,14 +196,20 @@ class TestASwapCommitsBothRows:
 
 class TestWhatTheSwapJudgesBeforeItsFirstWrite:
     async def test_a_malformed_season_id_is_a_404_and_writes_nothing(self, mongo_replica_set_url: str):
-        """A path id of another width names no season, so the season read refuses it before the swap writes anything."""
+        """Posted over the wire, so the route's own path parameter is judged too: a width constraint there would answer 422.
 
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            before = await everything_now(database)
-            with pytest.raises(APIError) as refused:
-                await call_swap(database, client, ALPHA, BETA, saison_id=f"{SAISON_ID}0")
+        A path id of another width names no season, so the season read refuses it before the swap writes anything.
+        """
 
-            return (refused.value.status_code, refused.value.error_code), before, await everything_now(database)
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
+            before = await league_now(database)
+            async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME)) as http:
+                response = await http.post(
+                    f"/api/saisons/{SAISON_ID}0/gruppen/swap", json={"team1_id": str(ALPHA), "team2_id": str(BETA)}, headers=dict(ADMIN_AUTH)
+                )
+
+            return (response.status_code, response.json()["error_code"]), before, await league_now(database)
 
         answer, before, after = await on_a_seeded_season(mongo_replica_set_url, body, spiele=list(DRAWN_ROUND_ROBIN))
 
