@@ -282,7 +282,7 @@ def judge_bericht(
     new: Mapping[FLSpielSide, set[ObjectId]],
     now: datetime,
 ) -> None:
-    """Every refusal the report's write asks inside its transaction and again outside it, in order."""
+    """Every refusal the report's write asks inside its transaction, in order."""
 
     refuse(find_not_played_refusal(date=context.spiel.get("date"), time=context.spiel.get("time"), now=now))
     refuse(find_cancelled_refusal(sonderereignis=context.spiel.get("sonderereignis")))

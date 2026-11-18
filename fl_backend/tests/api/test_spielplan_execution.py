@@ -728,10 +728,11 @@ async def held_until(event: asyncio.Event) -> None:
         return
 
 
-class SpieleHeldAfterTheReportsLastJudgement:
-    """The report's fixture collection, holding the write open once its judgement outside the transaction read the fixture.
+class RefereesHeldAfterTheReportsSeasonAnchor:
+    """The report's referee collection, holding the write open once it anchored the referee, the season anchored before.
 
-    That read is the write's last before its commit, so whatever lands during the hold is judged by nothing but the anchor.
+    Every judgement is past by then, and the season is the one document the removal writes that the report holds, so
+    whatever lands during the hold meets the report there first.
     """
 
     def __init__(self, collection: Any, *, judged: asyncio.Event, other: asyncio.Event) -> None:
@@ -742,27 +743,13 @@ class SpieleHeldAfterTheReportsLastJudgement:
     def __getattr__(self, name: str) -> Any:
         return getattr(self._collection, name)
 
-    async def aggregate(self, *args: Any, **kwargs: Any) -> Any:
-        cursor = await self._collection.aggregate(*args, **kwargs)
-        if kwargs.get("session") is not None or self._judged.is_set():
-            return cursor
+    async def update_many(self, *args: Any, **kwargs: Any) -> Any:
+        anchored = await self._collection.update_many(*args, **kwargs)
+        if not self._judged.is_set():
+            self._judged.set()
+            await held_until(self._other)
 
-        # Read whole before the hold, so the judgement answers the fixture as it stood before the removal.
-        rows = await cursor.to_list()
-        self._judged.set()
-        await held_until(self._other)
-
-        return ReadRows(rows)
-
-
-@dataclass(frozen=True)
-class ReadRows:
-    """The rows a held read took, handed back as the cursor that read them would."""
-
-    rows: list[Any]
-
-    async def to_list(self, length: int | None = None) -> list[Any]:
-        return self.rows[:length] if length is not None else self.rows
+        return anchored
 
 
 # Never `tests/isolation.py :: InterleavedCollection`, which awaits its rival inside the write: a removal nested in the
@@ -791,7 +778,7 @@ class RemovalsAnchorMeetingTheReport:
             raise
 
 
-async def a_referees_first_report(database: AsyncDatabase, client: AsyncMongoClient, *, spiel_id: ObjectId, spiele: Any) -> str:
+async def a_referees_first_report(database: AsyncDatabase, client: AsyncMongoClient, *, spiel_id: ObjectId, schiedsrichter: Any) -> str:
     """Through the referee's route, so its own call of the season's anchor is the one under test."""
 
     return await outcome_of(
@@ -799,11 +786,12 @@ async def a_referees_first_report(database: AsyncDatabase, client: AsyncMongoCli
             spiel_id=spiel_id,
             bericht_data=FLSpielberichtPayload(bericht=NULL_NULL, version=None),
             identifier=REPORTING_REFEREE_EMAIL,
-            spiele_collection=spiele,
+            spiele_collection=database[Collection.SPIELE],
             saisons_collection=database[Collection.SAISONS],
             saison_spieler_collection=database[Collection.SAISON_SPIELER],
             spieler_collection=database[Collection.SPIELER],
             spielberichte_collection=database[Collection.SPIELBERICHTE],
+            schiedsrichter_collection=schiedsrichter,
             records=record_collections(database),
             db=client,
             germany_now=REPORTED_AT,
@@ -850,12 +838,12 @@ Removal = Callable[[Any], Awaitable[Any]]
 
 
 async def a_report_crossed_by(database: AsyncDatabase, client: AsyncMongoClient, removal: Removal) -> Any:
-    """The report passes both its judgements on the booked fixture; the booking goes, and the removal runs inside the report's hold."""
+    """The report passes its judgement on the booked fixture and anchors the season; the booking goes, and the removal runs in the hold."""
 
     spiel_id = await a_reportable_spiel(database)
     # Set by the removal's anchor meeting the report, whichever retry meets it first: the hold's end.
     judged, met = asyncio.Event(), asyncio.Event()
-    spiele = SpieleHeldAfterTheReportsLastJudgement(database[Collection.SPIELE], judged=judged, other=met)
+    referees = RefereesHeldAfterTheReportsSeasonAnchor(database[Collection.SCHIEDSRICHTER], judged=judged, other=met)
     anchors = RemovalsAnchorMeetingTheReport(database[Collection.SAISONS], met=met)
 
     async def the_removal() -> str:
@@ -866,7 +854,7 @@ async def a_report_crossed_by(database: AsyncDatabase, client: AsyncMongoClient,
     # A group rather than a gather: whichever side raises, the other is cancelled and drained here, not left to land in the
     # next case's database.
     async with asyncio.TaskGroup() as group:
-        reported = group.create_task(a_referees_first_report(database, client, spiel_id=spiel_id, spiele=spiele))
+        reported = group.create_task(a_referees_first_report(database, client, spiel_id=spiel_id, schiedsrichter=referees))
         removed = group.create_task(the_removal())
 
     return [reported.result(), removed.result()], await orphaned_reports(database), anchors.conflicts
