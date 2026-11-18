@@ -82,10 +82,12 @@ finding until it exits 0; a run naming its scopes is for iterating, and `--help`
 before then needs no gate run: the pull request's CI runs on every push, the journeys among it, each
 job bounded by its own `timeout-minutes` and by no other time budget.
 
-- **Let the command finish, and read the exit code from the command whose code it is**, never
-  through a pipe or past Bash's byte mask: `verify.sh --docs | tail -5` reports `tail`'s 0 while the
-  gate exited 1, and a child's 2304 reads as 0. Report the number — never the word "passing", and
-  never one tool standing in for the scope that runs it.
+- **Let the command finish, and report its result by quoting the gate's closing line and its exit
+  code, read from the gate's own command as the very next command**, never through a pipe or past
+  Bash's byte mask: `verify.sh --docs | tail -5` reports `tail`'s 0 while the gate exited 1, and a
+  child's 2304 reads as 0. A code read past a pipe or a semicolon, or a background notice's summary,
+  is not the gate's. Never the word "passing", and never one tool standing in for the scope that
+  runs it.
 
 ## 3. Quality bar
 
