@@ -33,7 +33,6 @@ from app.api.spiele.schemas import (
 )
 from app.api.spiele.services import (
     BookedReferee,
-    BookedReferences,
     BookedSlot,
     BookedVenue,
     BracketResolution,
@@ -54,7 +53,7 @@ from app.api.spiele.services import (
     find_eligibility_refusal,
     find_ergebnis_before_start_refusal,
     find_gruppen_not_run,
-    find_references_to_anchor,
+    find_referee_to_anchor,
     find_result_removal_refusal,
     find_retired_bookings,
     find_slot_claims,
@@ -356,23 +355,6 @@ async def pull_booked_referee(
     return BookedReferee(inactive_since=row["inactive_since"], confirmed=is_confirmed(row.get("einwilligung")))
 
 
-async def anchor_a_booked_venue(
-    *,
-    spielorte_collection: AsyncCollection,
-    spielort_id: CustomObjectId,
-    # Required: the anchor below is what closes the race, so forgetting the session has to be a
-    # TypeError at the call rather than a silent reopening of it.
-    session: AsyncClientSession,
-) -> None:
-    """Put a write booking this venue into the write set of `spielort_still_booked`, which reads fixtures and writes the venue."""
-
-    await anchor_in_db(
-        collection=spielorte_collection,
-        db_filter={"_id": spielort_id},
-        session=session,
-    )
-
-
 async def anchor_a_booked_referee(
     *,
     schiedsrichter_collection: AsyncCollection,
@@ -392,19 +374,19 @@ async def anchor_a_booked_referee(
     )
 
 
-def references_booked_again[Rewrite: (SlotAdvancement, SpieltagRelease)](
+def referees_booked_again[Rewrite: (SlotAdvancement, SpieltagRelease)](
     *,
     season: Sequence[FLSpiel],
     rewrites: Sequence[Rewrite],
-) -> list[BookedReferences]:
-    """Every reference a rewrite books afresh by reopening its fixture.
+) -> list[CustomObjectId]:
+    """Every referee a rewrite books afresh by reopening their fixture.
 
-    Called by the save and its preview alike, so neither anchors what the other leaves alone. A
-    rewrite keeps the booking it finds.
+    Called by the release and the resolution alike, so neither anchors what the other leaves alone. A rewrite keeps the
+    booking it finds.
     """
 
     by_id = {spiel.id: spiel for spiel in season}
-    booked_again: list[BookedReferences] = []
+    booked_again: list[CustomObjectId] = []
 
     for rewrite in rewrites:
         stored = by_id[rewrite.spiel_id]
@@ -416,12 +398,8 @@ def references_booked_again[Rewrite: (SlotAdvancement, SpieltagRelease)](
         if not reopened and rewrite.voided_sonderereignis is None:
             continue
 
-        booked_again.append(
-            BookedReferences(
-                spielort_id=stored.spielort.spielort_id if stored.spielort is not None else None,
-                schiedsrichter_id=stored.schiedsrichter.schiedsrichter_id if stored.schiedsrichter is not None else None,
-            )
-        )
+        if stored.schiedsrichter is not None and stored.schiedsrichter.schiedsrichter_id is not None:
+            booked_again.append(stored.schiedsrichter.schiedsrichter_id)
 
     return booked_again
 
@@ -479,7 +457,7 @@ async def advance_bracket_winners(
     saison_id: str,
     rules: FLSaisonRules,
     session: AsyncClientSession,
-) -> tuple[list[FLSpielAdvancement], list[BookedReferences]]:
+) -> tuple[list[FLSpielAdvancement], list[CustomObjectId]]:
     """Resolve one season's bracket and write back every fixture whose slots disagree.
 
     The whole season, not only what the changed match feeds, so the result does not depend on which
@@ -506,7 +484,7 @@ async def advance_bracket_winners(
     # leave the season part-advanced, which no later save reproduces and nothing reports as unfinished.
     refuse(find_advancement_occupancy_refusal(spiele, resolution.advancements))
 
-    booked_again = references_booked_again(season=spiele, rewrites=resolution.advancements)
+    booked_again = referees_booked_again(season=spiele, rewrites=resolution.advancements)
 
     for advancement in resolution.advancements:
         # The result goes with the occupant: what was scored here
@@ -594,14 +572,14 @@ async def release_spieltag_sides(
     season: Sequence[FLSpiel],
     releases: Sequence[SpieltagRelease],
     session: AsyncClientSession,
-) -> tuple[list[FLSpielReleasedSide], list[BookedReferences]]:
+) -> tuple[list[FLSpielReleasedSide], list[CustomObjectId]]:
     """Empty each side another fixture gives up so a team can play this Spieltag.
 
     Inside the caller's transaction and before `advance_bracket_winners`, so the resolution sees the
     released state and can refill the slot.
     """
 
-    booked_again = references_booked_again(season=season, rewrites=releases)
+    booked_again = referees_booked_again(season=season, rewrites=releases)
 
     # Grouped, because a payload can field both clubs of one held fixture: a second `$set` would
     # create `team1.tore` under the null the first wrote -- `PathNotViable`, and the save falls. The
@@ -661,7 +639,7 @@ class _JudgedSave:
     season: list[FLSpiel]
     releases: list[SpieltagRelease]
     patched: FLSpiel
-    anchored: BookedReferences
+    anchored_referee: CustomObjectId | None
     membership: dict[CustomObjectId, SaisonMembership]
 
 
@@ -771,7 +749,7 @@ async def _judge_spiel_save(
         patched=patched,
         # Returned rather than left to the caller to derive, so every transaction judging here anchors what the two
         # rules above judged.
-        anchored=find_references_to_anchor(stored, payload, rules),
+        anchored_referee=find_referee_to_anchor(stored, payload, rules),
         membership=membership,
     )
 
@@ -1011,14 +989,13 @@ async def save_spiel_in_session(
     voided_ergebnisse = voided_ergebnisse_of([*advanced_to, *released_sides])
     refuse(find_voided_ergebnisse_refusal(confirmed=payload.voided_ergebnisse, voided=voided_ergebnisse))
 
-    # A retirement, the erasure and a rival save at the same hour each judge fixtures and write none of this pass's,
-    # so only a write to a row puts what this pass judged in their write sets.
-    for booked in (judged.anchored, *booked_again_by_the_release, *booked_again_by_the_resolution):
-        if booked.spielort_id is not None:
-            await anchor_a_booked_venue(spielorte_collection=collections.spielorte, spielort_id=booked.spielort_id, session=session)
-        if booked.schiedsrichter_id is not None:
+    # The referee's erasure, their retirement and a rival save booking them at the same hour each judge fixtures and write
+    # none of this save's, so only a write to the referee's row puts what this save judged in their write sets. A venue
+    # takes no anchor: a retirement or a second booking landing beside the save leaves a fault the Übersicht names.
+    for schiedsrichter_id in (judged.anchored_referee, *booked_again_by_the_release, *booked_again_by_the_resolution):
+        if schiedsrichter_id is not None:
             await anchor_a_booked_referee(
-                schiedsrichter_collection=collections.schiedsrichter, schiedsrichter_id=booked.schiedsrichter_id, session=session
+                schiedsrichter_collection=collections.schiedsrichter, schiedsrichter_id=schiedsrichter_id, session=session
             )
 
     # After the resolution, which can re-field this fixture's sides and raise its version again.

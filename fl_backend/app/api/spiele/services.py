@@ -1412,21 +1412,17 @@ def slots_booked_against(claim: SlotClaim, holders: Sequence[FLSpielSlotHolder],
     ]
 
 
-def find_references_to_anchor(stored: FLSpiel, payload: FLPatchSpielDataPayload, rules: FLSaisonRules) -> BookedReferences:
-    """Every reference the save anchors: each `booking_unknown_resource` judges, and each `spiel_double_booked` claim `find_claims_made` names.
+def find_referee_to_anchor(stored: FLSpiel, payload: FLPatchSpielDataPayload, rules: FLSaisonRules) -> CustomObjectId | None:
+    """The referee the save anchors: one `booking_unknown_resource` judges, or one a `spiel_double_booked` claim names.
 
-    Read off the two functions the rules read, so no anchor misses a reference a rule judged.
+    Read off the two functions the rules read, `find_new_bookings` and `find_claims_made`, so the anchor misses no referee
+    a rule judged.
     """
 
     new = find_new_bookings(stored, payload, rules)
-    made = {claim.resource for claim in find_claims_made(stored, payload)}
+    claimed = any(claim.resource == "Schiedsrichter" for claim in find_claims_made(stored, payload))
 
-    chosen = _chosen_references(payload)
-
-    return BookedReferences(
-        spielort_id=chosen.spielort_id if new.spielort_id is not None or "Spielort" in made else None,
-        schiedsrichter_id=chosen.schiedsrichter_id if new.schiedsrichter_id is not None or "Schiedsrichter" in made else None,
-    )
+    return _chosen_references(payload).schiedsrichter_id if new.schiedsrichter_id is not None or claimed else None
 
 
 def find_clash_refusal(*, date: str | None, time: str | None, booked: Sequence[BookedSlot]) -> APIError | None:
