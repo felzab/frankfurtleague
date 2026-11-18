@@ -211,10 +211,11 @@ async def anchor_the_spiele_acted_on(
     # Committed on its own, the anchor conflicts with no save.
     session: AsyncClientSession,
 ) -> None:
-    """Write the fixtures a write judged and writes rows or owes mails about, as it read them: a step of the pass, or a discard.
+    """Write the fixtures a write judged and writes rows or owes mails about, as it read them.
 
-    A save moving one of them writes nothing else the write writes, so without this write both commit and the write's
-    mails name a slot the fixture has left. With it the two conflict, and the retry judges the fixture as the save left it.
+    The write is a step of the pass, a discard, or an answer or settle. A save moving one of them writes nothing else the
+    write writes, so without this write both commit and the write's mails name a slot the fixture has left. With it the
+    two conflict, and the retry judges the fixture as the save left it.
     """
 
     await anchor_in_db(collection=spiele_collection, db_filter={"_id": {"$in": sorted(set(spiel_ids), key=str)}}, session=session)
