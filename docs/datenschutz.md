@@ -280,8 +280,8 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   site and out of the current code, and earlier versions stay in the repository's public history.
 - **The free texts on public pages stay public**: a fixture's note, a withdrawal's reason and a
   club's description (`fl_backend/app/api/teams/schemas.py :: _TeamWritable.description`).
-- **AI crawlers are blocked at the edge and asked in the managed `robots.txt`.** Both
-  settings live in the hosting dashboard, and
+- **AI-training crawlers are blocked at the edge and asked in the managed `robots.txt`.** Both
+  settings live in Cloudflare's dashboard, and
   [`ops/spec.md`](ops/spec.md#18-the-edges-declared-state) records whether each is on.
 
 ## 5. Erasure reaches everyone who asks
