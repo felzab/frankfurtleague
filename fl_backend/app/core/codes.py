@@ -16,7 +16,6 @@ class Code(StrEnum):
     # A save carrying the `version` its form was read at, which another write has since raised: the record changed since it
     # was opened, a removal included.
     VERSION_STALE = auto()
-    NO_DATABASE_CLIENT = auto()
     DATABASE_FAILED = auto()
     # A write that may stand: its own code, because a page told "failed" sends the person to repeat a
     # write that is already there.

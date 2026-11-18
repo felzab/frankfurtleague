@@ -1,7 +1,6 @@
 import functools
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from contextlib import asynccontextmanager
-from http import HTTPStatus
 from typing import Annotated, Any, Final, NamedTuple
 
 import pymongo
@@ -12,11 +11,9 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import ConfigurationError, OperationFailure
 
-from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import MONGODB_URI_FILE, BackendConfig, get_app_config
 from app.core.constraints import apply_constraints
-from app.core.exceptions import APIError
 from app.core.logging import fl_logger
 
 
@@ -168,25 +165,22 @@ async def lifespan(app: FastAPI):
                 await client.close()
 
 
-# What a 503 for an absent or unanswering database asks the caller to wait, in seconds.
+# What a 503 for an unanswering database asks the caller to wait, in seconds.
 RETRY_AFTER: Final = {"Retry-After": "30"}
 
 
 async def get_db_client(request: Request) -> AsyncMongoClient:
-    if not hasattr(request.app.state, "db_client"):
-        raise APIError(HTTPStatus.SERVICE_UNAVAILABLE, Code.NO_DATABASE_CLIENT, headers=RETRY_AFTER)
+    # Always set: the lifespan sets it before it yields, and a boot that cannot reach the database ends instead.
     return request.app.state.db_client
 
 
 async def get_database(
-    request: Request,
+    client: Annotated[AsyncMongoClient, Depends(get_db_client)],
     config: Annotated[BackendConfig, Depends(get_app_config)],
 ) -> AsyncDatabase:
     # The application's settings, not `get_config()`: reading the environment would resolve every
     # collection dependency against its database rather than the one the application was built with.
-    if not hasattr(request.app.state, "db_client"):
-        raise APIError(HTTPStatus.SERVICE_UNAVAILABLE, Code.NO_DATABASE_CLIENT, headers=RETRY_AFTER)
-    return request.app.state.db_client[config.db_base_name]
+    return client[config.db_base_name]
 
 
 async def get_snapshot_session(client: Annotated[AsyncMongoClient, Depends(get_db_client)]) -> AsyncIterator[AsyncClientSession]:
