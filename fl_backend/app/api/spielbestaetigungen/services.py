@@ -70,7 +70,7 @@ ANSETZUNG_QUELLEN: Final[Mapping[str, str]] = {
 def _read_path(document: Mapping[str, Any], path: str) -> Any:
     value: Any = document
     for key in path.split("."):
-        value = value.get(key) if isinstance(value, Mapping) else None
+        value = value.get(key) if value is not None else None
 
     return value
 
@@ -230,7 +230,7 @@ def reason_of(
 
     return (
         closed["reason"]
-        if isinstance(closed, Mapping)
+        if closed is not None
         else _reason_now(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, now=now)
     )
 
@@ -336,7 +336,7 @@ def _answers_the_fixture(
     """
 
     closed = spielbestaetigung_raw.get("closed")
-    matched = closed.get("matched") if isinstance(closed, Mapping) else None
+    matched = closed.get("matched") if closed is not None else None
     if matched is not None:
         return matched
 
@@ -348,7 +348,7 @@ def was_discarded(spielbestaetigung_raw: Mapping[str, Any]) -> bool:
 
     closed = spielbestaetigung_raw.get("closed")
 
-    return isinstance(closed, Mapping) and (closed["reason"] in REASONS_ANSWERING_THE_ANSETZUNG or closed.get("discarded") is True)
+    return closed is not None and (closed["reason"] in REASONS_ANSWERING_THE_ANSETZUNG or closed.get("discarded") is True)
 
 
 def state_of(
@@ -382,12 +382,12 @@ def state_of(
     if was_discarded(spielbestaetigung_raw):
         return "agreed" if _answers_the_fixture(spielbestaetigung_raw, ansetzung_state=ansetzung_state, reason=reason) else "invalid"
 
-    if isinstance(answer, Mapping) and answer["kind"] == "declined":
+    if answer is not None and answer["kind"] == "declined":
         return "declined"
 
     # An agreement binds the Ansetzung it answered, as the fixture's confirmation reads it: a row closed before the
     # fixture moved agrees to a day nobody asked about, until the pass asks about the new one.
-    if isinstance(answer, Mapping):
+    if answer is not None:
         return "agreed" if _answers_the_fixture(spielbestaetigung_raw, ansetzung_state=ansetzung_state, reason=reason) else "invalid"
 
     if reason is not None or _past_deadline(spielbestaetigung_raw=spielbestaetigung_raw, now=now):
@@ -553,7 +553,7 @@ def view_ansetzung_of(spiel: Mapping[str, Any]) -> FLSpielbestaetigungViewAnsetz
         date=spiel["date"],
         time=spiel["time"],
         spielort=None
-        if not isinstance(spielort, Mapping)
+        if spielort is None
         else FLSpielortFieldPublic(spielort_id=spielort["spielort_id"], name=spielort["name"], maps_query=spielort["maps_query"]),
     )
 
@@ -573,7 +573,7 @@ def junction_names_of(*, spielbestaetigung_raw: Mapping[str, Any], ansetzung_sta
         if own is not None:
             return str(own)
         side = ansetzung_state.spiel.get(slot)
-        return str(side["name"]) if isinstance(side, Mapping) else ""
+        return str(side["name"]) if side is not None else ""
 
     return side_name("team1", "team1_id"), side_name("team2", "team2_id")
 
@@ -844,11 +844,11 @@ def request_is_due(*, spiel: Mapping[str, Any], austritte: Mapping[Any, str], no
     today = clock.german_day(now)
     date = spiel.get("date")
     asked = (
-        isinstance(date, str)
+        date is not None
         and today < date
         and (asked_before or date <= last_request_day(today=today))
         and spiel.get("time") is not None
-        and isinstance(spiel.get("spielort"), Mapping)
+        and spiel.get("spielort") is not None
         and team_id_of(spiel, "team1") is not None
         and team_id_of(spiel, "team2") is not None
         and spiel.get("ergebnis") is None
@@ -975,7 +975,7 @@ def _notice_to_come(*, row: Mapping[str, Any], reason: Any, spiel: Mapping[str, 
     """
 
     slots = [row["ansetzung"]]
-    if reason == "ansetzung_changed" and isinstance(spiel.get("date"), str):
+    if reason == "ansetzung_changed" and spiel.get("date") is not None:
         slots.append(spiel)
 
     return any(not is_played(date=slot["date"], time=slot.get("time"), now=now) for slot in slots)
@@ -1103,7 +1103,7 @@ def spiel_mail_slot_of(spiel: Mapping[str, Any]) -> FLSpielMailAnsetzung | None:
     """The slot a fixture holds now, its ground among the rest, as a move's notice names it; `None` lacking a day, hour or side."""
 
     date, time, team1, team2 = spiel.get("date"), spiel.get("time"), spiel.get("team1"), spiel.get("team2")
-    if not (isinstance(date, str) and isinstance(time, str) and isinstance(team1, Mapping) and isinstance(team2, Mapping)):
+    if date is None or time is None or team1 is None or team2 is None:
         return None
 
     # Absent rather than null where the name join met a fixture without a ground.
@@ -1114,7 +1114,7 @@ def spiel_mail_slot_of(spiel: Mapping[str, Any]) -> FLSpielMailAnsetzung | None:
         team2=str(team2["name"]),
         date=date,
         time=time,
-        spielort=str(spielort["name"]) if isinstance(spielort, Mapping) else None,
+        spielort=str(spielort["name"]) if spielort is not None else None,
     )
 
 
