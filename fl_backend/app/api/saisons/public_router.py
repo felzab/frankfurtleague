@@ -16,13 +16,11 @@ from app.api.saisons.schemas import (
     FLLandingResponse,
     FLLandingRunning,
     FLLandingSide,
-    FLSaisonFrameEntryListAdapter,
     FLSaisonFrameResponse,
     FLSpielPageResponse,
     FLSpielSideStanding,
     FLSpielSideStandings,
     FLTeamPageResponse,
-    FLTeamPageSpielListAdapter,
     saison_start,
 )
 from app.api.saisons.services import (
@@ -92,7 +90,7 @@ async def get_frame(saisons_collection: SaisonsReadCollection) -> FLSaisonFrameR
     # season is the one write that moves it, so a finished season stays the site's until then.
     active_saison_id = next((str(raw["_id"]) for raw in saisons_raw if raw["status"] == "active"), None)
 
-    return FLSaisonFrameResponse(saisons=FLSaisonFrameEntryListAdapter.validate_python(saisons_raw), active_saison_id=active_saison_id)
+    return FLSaisonFrameResponse.model_validate({"saisons": saisons_raw, "active_saison_id": active_saison_id})
 
 
 # How many matches the landing's card shows while the season runs: one of each side where both hold one, else this many
@@ -499,11 +497,13 @@ async def get_team(
 
     standing = next((row for rows in tabelle.root.values() for row in rows if row.id == team_id), None)
 
-    return FLTeamPageResponse(
-        team=FLTeamPageTeam.model_validate(team_raw[0]),
-        standing=standing,
-        spiele=FLTeamPageSpielListAdapter.validate_python([{**spiel_raw, **matchday_of(spiel_raw)} for spiel_raw in spiele_raw]),
-        kader=FLSpielerListAdapter.validate_python(kader_raw),
+    return FLTeamPageResponse.model_validate(
+        {
+            "team": FLTeamPageTeam.model_validate(team_raw[0]),
+            "standing": standing,
+            "spiele": [{**spiel_raw, **matchday_of(spiel_raw)} for spiel_raw in spiele_raw],
+            "kader": FLSpielerListAdapter.validate_python(kader_raw),
+        }
     )
 
 

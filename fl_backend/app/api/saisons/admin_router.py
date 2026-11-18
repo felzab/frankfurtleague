@@ -44,7 +44,6 @@ from app.api.saisons.schemas import (
     FLSaisonActRefusals,
     FLSaisonAdmin,
     FLSaisonAdminIncomingTeam,
-    FLSaisonAdminListAdapter,
     FLSaisonAdminResponse,
     FLSaisonAdminTeam,
     FLSaisonDrawn,
@@ -203,10 +202,12 @@ async def get_saisons_admin(
         for raw in saisons_raw
     ]
 
-    return FLSaisonsAdminListResponse(
-        saisons=FLSaisonAdminListAdapter.validate_python(saisons),
-        next_saison_id=create_state.saison_id,
-        refusals=FLSaisonsAdminRefusals(create=None if create_refusal is None else create_refusal.error_code),
+    return FLSaisonsAdminListResponse.model_validate(
+        {
+            "saisons": saisons,
+            "next_saison_id": create_state.saison_id,
+            "refusals": FLSaisonsAdminRefusals(create=None if create_refusal is None else create_refusal.error_code),
+        }
     )
 
 

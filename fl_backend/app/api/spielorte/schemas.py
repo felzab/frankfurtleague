@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from pydantic import AfterValidator, BaseModel, Field, StringConstraints, TypeAdapter
+from pydantic import AfterValidator, BaseModel, Field, StringConstraints
 
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import SPIELORT_NAME_MAX_LENGTH
@@ -45,9 +45,6 @@ class FLSpielort(_SpielortWritable, BaseReadModel):
     inactive_since: CustomOptionalDateString
     # The writes counted so far, which the editor's save sends back.
     version: int = 0
-
-
-FLSpielortListAdapter = TypeAdapter(list[FLSpielort])
 
 
 class FLSpielorteListResponse(BaseReadModel):

@@ -264,9 +264,6 @@ class FLSaisonAdminListed(FLSaisonAdmin):
     count_spiele: int = Field(ge=0)
 
 
-FLSaisonAdminListAdapter = TypeAdapter(list[FLSaisonAdminListed])
-
-
 # The league's first season, the id a create mints where no season is stored. A literal because it is a fact about
 # this league's own history.
 FIRST_SAISON_YEAR: Final = 2026
@@ -357,8 +354,6 @@ class FLSaisonFrameEntry(BaseReadModel):
     start_date: CustomDateString
     end_date: CustomDateString
 
-
-FLSaisonFrameEntryListAdapter = TypeAdapter(list[FLSaisonFrameEntry])
 
 # What every season button's read projects of a season beside its id, and the order it lists them in, the newest
 # first: the public frame's and each person's own list alike, so no two buttons order one league's seasons apart.
@@ -467,9 +462,6 @@ class FLTeamPageSpiel(FLSpielJoined):
 
     spieltag_position: int = Field(ge=1)
     count_spieltage_in_phase: int = Field(ge=1)
-
-
-FLTeamPageSpielListAdapter: Final = TypeAdapter(list[FLTeamPageSpiel])
 
 
 class FLTeamPageResponse(BaseReadModel):
