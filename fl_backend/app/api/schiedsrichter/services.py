@@ -9,9 +9,8 @@ from app.api.schiedsrichter.schemas import FLSchiedsrichterConfirmationState, FL
 from app.api.spielberichte.services import takes_a_bericht
 from app.api.spielbestaetigungen.crud import JUDGED_JUNCTION_FIELDS, JUDGED_SPIEL_FIELDS, OWN_ROW_FIELDS
 from app.api.spielbestaetigungen.services import AnsetzungState, exit_ends_the_booking, schiedsrichter_state_of
-from app.api.spiele.schemas import SONDEREREIGNIS_KEEPING_ITS_SLOT, FLSpielortFieldPublic, unplayed_filter
+from app.api.spiele.schemas import SONDEREREIGNIS_KEEPING_ITS_SLOT, FLSpielortFieldPublic, is_played, unplayed_filter
 from app.api.spiele.services import build_named_spiele_pipeline
-from app.api.teams.services import is_played
 from app.core import clock
 from app.core.clock import days_after
 from app.core.codes import Code

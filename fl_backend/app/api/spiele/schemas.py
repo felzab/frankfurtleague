@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import datetime
 from typing import Annotated, Any, Final, Literal
 
 from pydantic import BaseModel, BeforeValidator, Field, TypeAdapter, model_validator
 
 from app.api.teams.schemas import FLAustritt
+from app.core import clock
 from app.core.crud import Anchored
 from app.core.exceptions import rule_refusal
 from app.shared.schemas.bounds import (
@@ -114,6 +116,35 @@ def unplayed_filter() -> dict[str, Any]:
     """`is_unplayed` as a `spiele` filter."""
 
     return {"ergebnis": None, "sonderereignis": {"$nin": list(SONDEREREIGNIS_WITHOUT_A_RESULT)}}
+
+
+# The projection `has_taken_place` reads, beside the predicate: a field in one and not the other reads a played
+# fixture as untouched.
+TAKEN_PLACE_FIELDS: tuple[str, ...] = ("ergebnis", "sonderereignis", "team1.tore", "team2.tore")
+
+
+def has_taken_place(spiel: Mapping[str, Any]) -> bool:
+    """Whether this fixture happened. Not `unplayed_spiel_nrs` negated: a half-entered score reads unfinished there."""
+
+    # An abandonment and a no-show each left a record of the match. A fixture called off or struck
+    # out left none, so it fixes nothing that a played match fixes.
+    if spiel.get("ergebnis") is not None or spiel.get("sonderereignis") in SONDEREREIGNIS_PRODUCING_A_RECORD:
+        return True
+
+    # A save keeps one side's goals while the other's are still blank, and stores no `ergebnis` until both are in.
+    return any((spiel.get(slot) or {}).get("tore") is not None for slot in ("team1", "team2"))
+
+
+def is_played(*, date: str | None, time: str | None, now: datetime) -> bool:
+    """Whether the fixture has been played at `now`: from its kick-off, or from its day where it holds no time."""
+
+    if date is None:
+        return False
+
+    if time is None:
+        return date <= clock.german_day(now)
+
+    return clock.german_instant(date, time) <= now
 
 
 # The one declaration of this competition's rounds; the order is the order they are played.

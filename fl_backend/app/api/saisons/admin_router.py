@@ -80,13 +80,9 @@ from app.api.saisons.services import (
 )
 from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
 from app.api.spielberichte.crud import anchor_the_season_reported_in, count_submitted_berichte
-from app.api.spiele.schemas import FLSpielListAdapter
+from app.api.spiele.schemas import TAKEN_PLACE_FIELDS, FLSpielListAdapter, has_taken_place
 from app.api.spieler.services import CAPPED_KADER_ROW
-from app.api.teams.services import (
-    TAKEN_PLACE_FIELDS,
-    find_gruppe_swap_refusal,
-    has_taken_place,
-)
+from app.api.teams.services import find_gruppe_swap_refusal
 from app.core.codes import Code
 from app.core.concurrency import concurrently
 from app.core.crud import (

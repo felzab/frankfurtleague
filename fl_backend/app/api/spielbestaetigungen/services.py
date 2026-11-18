@@ -40,8 +40,9 @@ from app.api.spiele.schemas import (
     FLSpielortFieldPublic,
     FLSpielSchiedsrichterFieldPayload,
     FLSpielTeamFieldPayload,
+    has_taken_place,
+    is_played,
 )
-from app.api.teams.services import has_taken_place, is_played
 from app.core import clock
 from app.core.clock import days_after
 from app.core.codes import Code

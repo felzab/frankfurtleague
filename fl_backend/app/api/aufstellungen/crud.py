@@ -13,7 +13,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aufstellungen.schemas import FLAufstellungEntry
-from app.api.teams.services import is_played
+from app.api.spiele.schemas import is_played
 from app.core.collections import Collection
 from app.core.crud import (
     aggregate_many_from_db,

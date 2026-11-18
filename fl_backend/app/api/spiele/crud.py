@@ -29,6 +29,7 @@ from app.api.spiele.schemas import (
     FLSpielSlotHolder,
     FLSpielSlotHolderListAdapter,
     FLSpielTeamField,
+    is_played,
 )
 from app.api.spiele.services import (
     BookedReferee,
@@ -77,7 +78,6 @@ from app.api.teams.services import (
     build_decided_standings,
     build_statistik_by_team,
     build_team_pipeline,
-    is_played,
     offered_gruppen,
 )
 from app.core import clock

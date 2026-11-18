@@ -1,7 +1,6 @@
 from collections import Counter
 from collections.abc import Callable, Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass
-from datetime import datetime
 from http import HTTPStatus
 from itertools import combinations, product
 from typing import Any, get_args
@@ -18,7 +17,6 @@ from app.api.outbox.schemas import FLKontaktLinkData, FLOutboxLink, FLOutboxRefe
 from app.api.outbox.services import OwedMail
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import (
-    SONDEREREIGNIS_PRODUCING_A_RECORD,
     SONDEREREIGNIS_WITHOUT_A_RESULT,
     FLSpielCommon,
 )
@@ -36,7 +34,6 @@ from app.api.teams.schemas import (
     FLTeamStatistikScope,
     normalise_phone,
 )
-from app.core import clock
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
@@ -1561,35 +1558,6 @@ def find_gruppe_swap_refusal(
         )
 
     return None
-
-
-# The projection `has_taken_place` reads, beside the predicate: a field in one and not the other reads a played
-# fixture as untouched.
-TAKEN_PLACE_FIELDS: tuple[str, ...] = ("ergebnis", "sonderereignis", "team1.tore", "team2.tore")
-
-
-def has_taken_place(spiel: Mapping[str, Any]) -> bool:
-    """Whether this fixture happened. Not `unplayed_spiel_nrs` negated: a half-entered score reads unfinished there."""
-
-    # An abandonment and a no-show each left a record of the match. A fixture called off or struck
-    # out left none, so it fixes nothing that a played match fixes.
-    if spiel.get("ergebnis") is not None or spiel.get("sonderereignis") in SONDEREREIGNIS_PRODUCING_A_RECORD:
-        return True
-
-    # A save keeps one side's goals while the other's are still blank, and stores no `ergebnis` until both are in.
-    return any((spiel.get(slot) or {}).get("tore") is not None for slot in ("team1", "team2"))
-
-
-def is_played(*, date: str | None, time: str | None, now: datetime) -> bool:
-    """Whether the fixture has been played at `now`: from its kick-off, or from its day where it holds no time."""
-
-    if date is None:
-        return False
-
-    if time is None:
-        return date <= clock.german_day(now)
-
-    return clock.german_instant(date, time) <= now
 
 
 def find_replacement_pair_refusal(*, team_id: Any, incoming_team_id: Any) -> WriteRefusal | None:
