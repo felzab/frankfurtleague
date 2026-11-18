@@ -90,6 +90,7 @@ from app.core.dependencies import (
     SpielbestaetigungenCollection,
     SpieleCollection,
 )
+from app.core.middlewares import PASS
 from app.core.security import SYSTEM_TIER
 from app.core.transactions import SWEEP_PAGE, Batch, refuse_a_stalled_page, run_isolated
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
@@ -272,6 +273,7 @@ async def get_sweep_saisons(saisons_collection: SaisonsReadCollection) -> FLSwee
 @router.post(
     "/saisons/{saison_id}/sweep",
     summary="Run one season's fixture confirmation pass",
+    openapi_extra=PASS,
 )
 async def sweep_spielbestaetigungen(
     saison_id: str,

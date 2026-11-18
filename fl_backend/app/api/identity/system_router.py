@@ -33,6 +33,7 @@ from app.core.dependencies import (
     SaisonsCollection,
 )
 from app.core.logging import fl_logger
+from app.core.middlewares import PASS
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.routing import SAFE
 from app.core.security import SYSTEM_TIER
@@ -173,6 +174,7 @@ async def _erase_one(
 @router.post(
     "/erasure/sweep",
     summary="Delete one share of the pupils the season-after rule makes due",
+    openapi_extra=PASS,
 )
 async def sweep_erasure(
     params: Annotated[FLErasureSweepParams, Query()],

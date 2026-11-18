@@ -19,6 +19,7 @@ from app.core.dependencies import (
     RegistrierungenCollection,
     SaisonsCollection,
 )
+from app.core.middlewares import PASS
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.security import SYSTEM_TIER
 from app.core.transactions import SWEEP_PAGE, Batch, drain, refuse_a_stalled_page
@@ -31,6 +32,7 @@ router = APIRouter(prefix="/registrierungen", dependencies=SYSTEM_TIER)
 @router.post(
     "/saisons/{saison_id}/sweep",
     summary="Run one season's registration retention clocks",
+    openapi_extra=PASS,
 )
 async def sweep_registrierungen(
     saison_id: str,

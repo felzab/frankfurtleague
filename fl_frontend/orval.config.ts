@@ -9,13 +9,14 @@ const DOCUMENT_PATH = SCRATCH ? `${SCRATCH}/openapi.json` : "../fl_backend/opena
 const GENERATED = SCRATCH ? `${SCRATCH}/generated` : "src/core/generated";
 const TRANSPORT_PATH = "@/core/transport";
 
-/** The transport exports sending one key: a call that may write, one that writes nothing, and a dry run's. */
-type Transports = { write: string; read?: string; dryRun?: string };
+/** The transport exports sending one key: a call that may write, one that writes nothing, a dry run's, and an hourly pass's. */
+type Transports = { write: string; read?: string; dryRun?: string; pass?: string };
 
-// Each key tier's scheme in the document's `components.securitySchemes`, and the transports sending its key.
+// Each key tier's scheme in the document's `components.securitySchemes`, and the transports sending its key. A pass is
+// the system key's alone: no other caller waits out its minute.
 const TRANSPORTS_BY_SCHEME: Readonly<Record<string, Transports>> = {
   BaseKey: { write: "baseKeyTransport", read: "baseKeyReadTransport" },
-  SystemKey: { write: "systemKeyTransport", read: "systemKeyReadTransport" },
+  SystemKey: { write: "systemKeyTransport", read: "systemKeyReadTransport", pass: "systemKeyPassTransport" },
   AdminKey: { write: "adminKeyTransport", read: "adminKeyReadTransport", dryRun: "adminKeyDryRunTransport" },
 };
 const UNKEYED: Transports = { write: "unkeyedTransport" };
@@ -24,7 +25,7 @@ const UNKEYED: Transports = { write: "unkeyedTransport" };
 const DRY_RUN = "dry_run";
 
 type Security = readonly Readonly<Record<string, readonly string[]>>[];
-type Operation = { operationId: string; security?: Security; "x-safe"?: boolean; "x-safe-when"?: string };
+type Operation = { operationId: string; security?: Security; "x-safe"?: boolean; "x-safe-when"?: string; "x-pass"?: boolean };
 type Document = { security?: Security; paths: Record<string, Record<string, Operation>> };
 
 const document = JSON.parse(readFileSync(DOCUMENT_PATH, "utf8")) as Document;
@@ -33,7 +34,8 @@ const document = JSON.parse(readFileSync(DOCUMENT_PATH, "utf8")) as Document;
  * The transport an operation is sent through, read off the operation itself, so no call site chooses either: the key
  * its `security` names, and whether it writes, which the backend states where the method does not say it, as
  * `x-safe` on a POST that writes nothing and `x-safe-when` on a write whose dry run writes nothing
- * (`fl_backend/app/core/routing.py :: SAFE`). A scheme or a mark no transport here serves fails the generation.
+ * (`fl_backend/app/core/routing.py :: SAFE`), and whether it is an hourly pass, which `x-pass` states
+ * (`fl_backend/app/core/middlewares.py :: PASS`). A scheme or a mark no transport here serves fails the generation.
  */
 function transportOf(operation: Operation): string {
   const { operationId, security = document.security ?? [] } = operation;
@@ -42,14 +44,19 @@ function transportOf(operation: Operation): string {
   if (!transports) throw new Error(`${operationId}: no transport for the security ${JSON.stringify(security)}`);
 
   const safeWhen = operation["x-safe-when"];
+  const marks = [operation["x-safe"] === true, safeWhen !== undefined, operation["x-pass"] === true].filter(Boolean).length;
   const transport =
-    operation["x-safe"] === true
-      ? transports.read
-      : safeWhen === undefined
-        ? transports.write
-        : safeWhen === DRY_RUN
-          ? transports.dryRun
-          : undefined;
+    marks > 1
+      ? undefined
+      : operation["x-pass"] === true
+        ? transports.pass
+        : operation["x-safe"] === true
+          ? transports.read
+          : safeWhen === undefined
+            ? transports.write
+            : safeWhen === DRY_RUN
+              ? transports.dryRun
+              : undefined;
   if (!transport) throw new Error(`${operationId}: no transport for its marks under the security ${JSON.stringify(security)}`);
   return transport;
 }

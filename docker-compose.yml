@@ -93,7 +93,7 @@ services:
     restart: unless-stopped
     # Past uvicorn's own graceful wait (the backend image's `CMD`), which the engine's 10 s
     # default falls short of: killed sooner, a request still inside its bound sends no abort.
-    stop_grace_period: 12s
+    stop_grace_period: 62s
     secrets:
       - backend_mongodb_uri
       - internal_api_key_base

@@ -38,6 +38,7 @@ from app.core.dependencies import (
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.logging import fl_logger
+from app.core.middlewares import PASS
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.routing import SAFE
 from app.core.security import SYSTEM_TIER
@@ -172,6 +173,7 @@ async def _make_the_due_change_take_effect(
 @router.post(
     "/sweep",
     summary="End the lapsed address changes, and make the due ones take effect",
+    openapi_extra=PASS,
 )
 async def sweep_address_change(
     params: Annotated[FLAddressChangeSweepParams, Query()],

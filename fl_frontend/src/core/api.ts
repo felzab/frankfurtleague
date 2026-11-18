@@ -17,6 +17,12 @@ import type { FLRefusedField } from "./generated/client/types";
  */
 export const FETCH_TIMEOUT_MS = 15000;
 
+/**
+ * Past the backend's deadline on an hourly pass, its `PASS_DEADLINE_S`, by the same margin: the scheduler's calls to the
+ * operations the contract marks `x-pass`, each taking its rows for up to a minute.
+ */
+export const PASS_FETCH_TIMEOUT_MS = 65000;
+
 /** The path every endpoint is spelled under, as the contract writes it into each of its paths. */
 export const BASE_FETCH_PATH = "/api";
 
@@ -40,6 +46,8 @@ export interface FetchOptions extends RequestInit {
    * transport from what the contract states, never by a call site.
    */
   readOnly?: true;
+  /** A call to an hourly pass, bounded by `PASS_FETCH_TIMEOUT_MS`. Set by the operation's transport from the contract's `x-pass`. */
+  pass?: true;
 }
 
 const getFetchHeaders = (type: FetchOptions["authType"]): Record<string, string> => {
@@ -106,7 +114,7 @@ export async function sendToBackend<T>(endpoint: string, options: FetchOptions):
   // errors, never the returned value.
   const traceId = getRequestTraceId() ?? mintTraceId();
 
-  const { authType, readOnly, ...customOptions } = options;
+  const { authType, readOnly, pass, ...customOptions } = options;
 
   // Headers, never a spread: `RequestInit` admits a `Headers` or a `string[][]`, and spreading
   // either loses it silently -- `{...new Headers({a: "1"})}` is `{}`.
@@ -154,7 +162,7 @@ export async function sendToBackend<T>(endpoint: string, options: FetchOptions):
   const sent = sentRequestOf(customOptions.method, readOnly);
   // Bounds the body read too: `fetch` resolves on headers, and a stalled backend would otherwise hang the render on
   // `res.json()`.
-  const signal = boundCall(FETCH_TIMEOUT_MS);
+  const signal = boundCall(pass ? PASS_FETCH_TIMEOUT_MS : FETCH_TIMEOUT_MS);
 
   const asNetworkError = (error: unknown) =>
     new APINetworkError({

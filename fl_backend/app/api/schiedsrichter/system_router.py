@@ -8,6 +8,7 @@ from app.api.schiedsrichter.schemas import FLSchiedsrichterSweepResponse
 from app.api.schiedsrichter.services import build_erasure_due_filter
 from app.core.crud import pull_many_from_db
 from app.core.dependencies import DBClient, GermanyNow, SchiedsrichterCollection, SpielbestaetigungenCollection, SpieleCollection
+from app.core.middlewares import PASS
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.security import SYSTEM_TIER
 from app.core.transactions import Batch, drain
@@ -23,7 +24,7 @@ router = APIRouter(
 SCHIEDSRICHTER_ERASED_PER_PAGE: Final = 10
 
 
-@router.post("", summary="Erase the referee entries whose link lapsed unanswered")
+@router.post("", summary="Erase the referee entries whose link lapsed unanswered", openapi_extra=PASS)
 async def sweep_schiedsrichter(
     schiedsrichter_collection: SchiedsrichterCollection,
     spiele_collection: SpieleCollection,

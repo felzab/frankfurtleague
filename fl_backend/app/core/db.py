@@ -101,7 +101,7 @@ def new_client(uri: str, **options: Any) -> AsyncMongoClient:
 
 
 # The stop's last step, which must end before the kill. Compose's `stop_grace_period` gives the backend
-# 12 s from the signal; uvicorn spends up to 0.2 s before its graceful wait and up to 11 s in it
+# 62 s from the signal; uvicorn spends up to 0.2 s before its graceful wait and up to 61 s in it
 # (`--timeout-graceful-shutdown`), which leaves 0.8 s for this close and the process's exit. `close`
 # selects a server for its `endSessions`, and with no member answering that selection would otherwise
 # wait out the boot's 15 s above. Cutting it loses nothing: the sessions specification says "Drivers

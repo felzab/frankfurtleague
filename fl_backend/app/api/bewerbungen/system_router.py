@@ -58,6 +58,7 @@ from app.core.dependencies import (
     SpielbestaetigungenCollection,
     TeamsCollection,
 )
+from app.core.middlewares import PASS
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.security import SYSTEM_TIER
 from app.core.transactions import SWEEP_PAGE, Batch, drain, refuse_a_stalled_page, run_isolated
@@ -135,6 +136,7 @@ async def get_sweep_saisons(saisons_collection: SaisonsReadCollection) -> FLSwee
 @router.post(
     "/saisons/{saison_id}/sweep",
     summary="Run one season's retention clocks",
+    openapi_extra=PASS,
 )
 async def sweep_saison(
     saison_id: str,
