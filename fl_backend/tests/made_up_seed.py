@@ -84,7 +84,7 @@ from app.api.schiedsrichter.services import compose_confirmation_update as compo
 from app.api.schiedsrichter.services import compose_mint_update
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment
 from app.api.spielbestaetigungen.services import compose_answer_update, compose_schiedsrichter_answer_update, compose_spielbestaetigung
-from app.api.spielorte.services import compose_maps_link
+from app.api.spielorte.services import compose_maps_query
 from app.api.teams.services import compose_kontakt_confirmation
 from app.core import clock
 from app.core.collections import Collection
@@ -387,7 +387,7 @@ class MadeUpLeague:
                 name,
                 default_mietpreis=rent,
                 address=at,
-                maps_link=compose_maps_link(name, FLAddress(**at)),
+                maps_query=compose_maps_query(name, FLAddress(**at)),
                 inactive_since=inactive_since,
             )
 

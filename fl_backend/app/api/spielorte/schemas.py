@@ -24,7 +24,7 @@ class _SpielortWritable(BaseModel):
 class _SpielortPayload(_SpielortWritable, BasePayload):
     address: FLAddressPayload
     # Stripped on the write side alone: the name is shown on every fixture at this ground and composed into
-    # `maps_link`, so spaces alone reach both. The ceiling counts what arrives, so the published `maxLength` is what the
+    # `maps_query`, so spaces alone reach both. The ceiling counts what arrives, so the published `maxLength` is what the
     # write accepts.
     name: Annotated[str, StringConstraints(max_length=SPIELORT_NAME_MAX_LENGTH), AfterValidator(str.strip), StringConstraints(min_length=1)]
 
@@ -39,9 +39,9 @@ class FLPostSpielortPayload(_SpielortPayload):
 
 class FLSpielort(_SpielortWritable, BaseReadModel, Anchored):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
-    # Free text searched on Google Maps, not a URL, so there is no scheme to check. The copy a fixture's
+    # Free text searched on Google Maps, so there is no scheme to check. The copy a fixture's
     # read joins is the public address surface, which is why `address` here need not be.
-    maps_link: CustomNonEmptyString
+    maps_query: CustomNonEmptyString
     # On no payload: deactivation goes through the delete endpoint, which stamps the date itself.
     inactive_since: CustomOptionalDateString
     # The writes counted so far, which the editor's save sends back.

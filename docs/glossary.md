@@ -80,8 +80,8 @@ erased since.\
 ### `Spielort` — venue, playing location
 
 **Is:** a venue, referenced on a match as `{spielort_id, mietpreis}`, the venue's current `name`
-and `maps_link` joined beside it at read. `maps_link` is not a URL: it is the venue's whole postal
-address in one string, searched on Google Maps.\
+and `maps_query` joined beside it at read. `maps_query` is the venue's name and whole postal address
+in one string, searched on Google Maps.\
 **In code:** `fl_backend/app/api/spielorte/schemas.py :: FLSpielort`; on a match
 `fl_backend/app/api/spiele/schemas.py :: FLSpielortFieldRecord`.
 

@@ -228,8 +228,8 @@ ANOTHER_SCHIEDSRICHTER = "6890a1b2c3d4e5f607230002"
 A_DIFFERENT_SPIELORT = {"spielort_id": ANOTHER_SPIELORT, "mietpreis": 95}
 A_DIFFERENT_SCHIEDSRICHTER = {"schiedsrichter_id": ANOTHER_SCHIEDSRICHTER, "payment": 35}
 
-LIVE_SPIELORT = BookedVenue(name="Sportplatz Nord", maps_link="Sportplatz Nord, Frankfurt", inactive_since=None)
-RETIRED_SPIELORT = BookedVenue(name="Sportplatz Nord", maps_link="Sportplatz Nord, Frankfurt", inactive_since="2026-02-01")
+LIVE_SPIELORT = BookedVenue(name="Sportplatz Nord", maps_query="Sportplatz Nord, Frankfurt", inactive_since=None)
+RETIRED_SPIELORT = BookedVenue(name="Sportplatz Nord", maps_query="Sportplatz Nord, Frankfurt", inactive_since="2026-02-01")
 LIVE_SCHIEDSRICHTER = BookedReferee(inactive_since=None, confirmed=True)
 RETIRED_SCHIEDSRICHTER = BookedReferee(inactive_since="2026-02-01", confirmed=True)
 # A referee an administrator entered whose own confirmation has not come in.
@@ -1336,7 +1336,7 @@ GROUND_RETIRED_ON = "2026-02-01"
 RETIRED_GROUND_BOOKING = {
     "spielort_id": RETIRED_GROUND,
     "name": "Bezirkssportanlage West",
-    "maps_link": "Bezirkssportanlage West",
+    "maps_query": "Bezirkssportanlage West",
     "mietpreis": 40,
 }
 
@@ -1387,7 +1387,7 @@ class TestARetiredBookingOnAReopenedSpiel:
         resolved = ResolvedReferences(
             teams={},
             spielort=BookedVenue(
-                name=RETIRED_GROUND_BOOKING["name"], maps_link=RETIRED_GROUND_BOOKING["maps_link"], inactive_since=GROUND_RETIRED_ON
+                name=RETIRED_GROUND_BOOKING["name"], maps_query=RETIRED_GROUND_BOOKING["maps_query"], inactive_since=GROUND_RETIRED_ON
             ),
         )
 
@@ -1487,7 +1487,7 @@ class TestADoubleBookingALiftedNoShowLeaves:
         assert _clash_refusal_of(lifted, holders, time="13:00:00") is None
 
 
-A_SECOND_GROUND = {"spielort_id": "6890a1b2c3d4e5f607240002", "name": "Sportplatz Nord", "maps_link": "Sportplatz Nord", "mietpreis": 40}
+A_SECOND_GROUND = {"spielort_id": "6890a1b2c3d4e5f607240002", "name": "Sportplatz Nord", "maps_query": "Sportplatz Nord", "mietpreis": 40}
 AT_THE_FIRST_GROUND_NR, AN_HOUR_LATER_AT_THE_SECOND_NR = 32, 33
 
 

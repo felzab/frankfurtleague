@@ -270,7 +270,7 @@ def _referee_lookup() -> Mapping[str, Any]:
 
 
 def _venue_lookup() -> Mapping[str, Any]:
-    """The booked venue's current name and the search its Maps link runs, and nothing else of its row."""
+    """The booked venue's current name and its Maps search, and nothing else of its row."""
 
     return {
         "$lookup": {
@@ -278,7 +278,7 @@ def _venue_lookup() -> Mapping[str, Any]:
             # A fixture with no venue looks up a missing path, which the manual reads as null: no venue's `_id` is.
             "localField": "spielort.spielort_id",
             "foreignField": "_id",
-            "pipeline": [{"$project": {"_id": 0, "name": 1, "maps_link": 1}}],
+            "pipeline": [{"$project": {"_id": 0, "name": 1, "maps_query": 1}}],
             "as": SPIELORTE_AS_NAME,
         }
     }
@@ -949,7 +949,7 @@ class BookedVenue:
     """The `spielorte` row a fixture's venue reference names, as it stands now."""
 
     name: str
-    maps_link: str
+    maps_query: str
     inactive_since: str | None
 
 

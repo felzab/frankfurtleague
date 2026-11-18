@@ -37,7 +37,7 @@ from app.core.recording import ACT_BY_SYSTEM, record_act
 JUDGED_SPIEL_FIELDS: Mapping[str, int] = {
     "_id": 1,
     **dict.fromkeys(ANSETZUNG_QUELLEN.values(), 1),
-    **dict.fromkeys(("team1.name", "team2.name", "team1.tore", "team2.tore", "spielort.name", "spielort.maps_link"), 1),
+    **dict.fromkeys(("team1.name", "team2.name", "team1.tore", "team2.tore", "spielort.name", "spielort.maps_query"), 1),
     **dict.fromkeys(("ergebnis", "sonderereignis", "schiedsrichter.schiedsrichter_id"), 1),
 }
 

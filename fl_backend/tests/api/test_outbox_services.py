@@ -136,7 +136,7 @@ def test_a_move_s_notice_names_the_ground_the_fixture_moved_to():
         "time": "10:00:00",
         "team1": {"team_id": OWN, "name": "Adler"},
         "team2": {"team_id": OPPONENT, "name": "Bieber"},
-        "spielort": {"spielort_id": ObjectId(), "name": "Halle Nord", "maps_link": None},
+        "spielort": {"spielort_id": ObjectId(), "name": "Halle Nord", "maps_query": None},
     }
 
     slot = spiel_mail_slot_of(spiel)

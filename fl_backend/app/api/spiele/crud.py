@@ -336,11 +336,11 @@ async def pull_booked_venue(
     if spielort_id is None:
         return None
 
-    row = await spielorte_collection.find_one({"_id": spielort_id}, {"name": 1, "maps_link": 1, "inactive_since": 1}, session=session)
+    row = await spielorte_collection.find_one({"_id": spielort_id}, {"name": 1, "maps_query": 1, "inactive_since": 1}, session=session)
     if row is None:
         return None
 
-    return BookedVenue(name=row["name"], maps_link=row["maps_link"], inactive_since=row["inactive_since"])
+    return BookedVenue(name=row["name"], maps_query=row["maps_query"], inactive_since=row["inactive_since"])
 
 
 async def pull_booked_referee(

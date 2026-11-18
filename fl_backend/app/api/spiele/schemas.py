@@ -202,8 +202,7 @@ class FLSpielortFieldPublic(_SpielortBooking):
     """The venue as the public reads serve it: which ground, its current name and where to find it, without the rent."""
 
     name: str = Field(min_length=1)
-    # A Maps search string rather than a URL, as the venue derives it.
-    maps_link: str = Field(min_length=1)
+    maps_query: str = Field(min_length=1)
 
 
 class FLSpielortField(FLSpielortFieldPublic):

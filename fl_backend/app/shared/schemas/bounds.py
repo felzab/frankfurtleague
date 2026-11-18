@@ -73,7 +73,7 @@ TEAM_NAME_MAX_LENGTH: Final = 60
 # the place suffix a short name drops -- "… Kooperative Gesamtschule der Stadt Frankfurt am Main".
 TEAM_FULL_NAME_MAX_LENGTH: Final = 120
 
-# A ground's name, which every fixture at it shows and `maps_link` composes: a school's full name's width.
+# A ground's name, which every fixture at it shows and `maps_query` composes: a school's full name's width.
 SPIELORT_NAME_MAX_LENGTH: Final = 120
 # The school a referee teaches at, named as a school's full name is.
 SCHIEDSRICHTER_SCHULE_MAX_LENGTH: Final = 120

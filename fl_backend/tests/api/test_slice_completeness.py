@@ -125,7 +125,7 @@ def faulted_saison(spiel: PayloadFactory) -> list[dict[str, Any]]:
             spielort={
                 "spielort_id": RETIRED_GROUND,
                 "name": "Bezirkssportanlage West",
-                "maps_link": "Bezirkssportanlage West",
+                "maps_query": "Bezirkssportanlage West",
                 "mietpreis": 40,
             },
         ),

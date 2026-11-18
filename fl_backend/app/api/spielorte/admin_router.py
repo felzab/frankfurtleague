@@ -16,7 +16,7 @@ from app.api.spielorte.schemas import (
     FLSpielorteSingleResponse,
     FLSpielortListAdapter,
 )
-from app.api.spielorte.services import build_unplayed_booking_filter, compose_maps_link, find_venue_name_refusal, find_venue_retire_refusal
+from app.api.spielorte.services import build_unplayed_booking_filter, compose_maps_query, find_venue_name_refusal, find_venue_retire_refusal
 from app.core.crud import (
     GERMAN_COLLATION,
     insert_live,
@@ -35,7 +35,7 @@ from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.responses import FLCreatedResponse
 
 # Admin-guarded, not base. `default_mietpreis` is money, which only an administrator reads, and the only field
-# withheld: `address` moves with it because no public page reads the parts, not to hide them -- `maps_link` publishes
+# withheld: `address` moves with it because no public page reads the parts, not to hide them -- `maps_query` publishes
 # the address whole.
 router = APIRouter(
     prefix="/spielorte",
@@ -48,10 +48,7 @@ async def get_spielorte(
     spielorte_collection: SpielorteReadCollection,
     filters: Annotated[FLSpielorteFilterParams, Depends()],
 ) -> FLSpielorteListResponse:
-    """Every venue in name order, the retired ones too where `include_inactive` asks for them.
-
-    `maps_link` is a Maps search string, not a URL.
-    """
+    """Every venue in name order, the retired ones too where `include_inactive` asks for them."""
 
     spielorte_raw = await pull_whole_from_db(
         collection=spielorte_collection,
@@ -80,7 +77,7 @@ async def post_spielort(
     spielorte_collection: SpielorteCollection,
     db: DBClient,
 ) -> FLCreatedResponse:
-    """Create a venue, its `maps_link` derived from the name and the address.
+    """Create a venue, its `maps_query` derived from the name and the address.
 
     A name another venue holds, a retired one included, is refused.
     """
@@ -92,7 +89,7 @@ async def post_spielort(
             collection=spielorte_collection,
             document={
                 **spielort_data.model_dump(mode="json"),
-                "maps_link": compose_maps_link(spielort_data.name, spielort_data.address),
+                "maps_query": compose_maps_query(spielort_data.name, spielort_data.address),
             },
             session=session,
         )
@@ -121,10 +118,10 @@ async def patch_spielort(
 ) -> FLPatchSpielortResponse:
     """Save a venue on the `version` it was read at, answering the version stored.
 
-    Every fixture at the venue shows its new name and `maps_link`, and keeps the `mietpreis` agreed for it.
+    Every fixture at the venue shows its new name and `maps_query`, and keeps the `mietpreis` agreed for it.
     """
 
-    maps_link = compose_maps_link(spielort_data.name, spielort_data.address)
+    maps_query = compose_maps_query(spielort_data.name, spielort_data.address)
 
     async def save_the_venue(session: AsyncClientSession) -> FLPatchSpielortResponse:
         taken = await is_held_elsewhere(
@@ -134,7 +131,7 @@ async def patch_spielort(
         updated_document_raw = await patch_one_in_db(
             collection=spielorte_collection,
             db_filter={"_id": spielort_id},
-            update={"$set": {**spielort_data.model_dump(mode="json", exclude={"version"}), "maps_link": maps_link}},
+            update={"$set": {**spielort_data.model_dump(mode="json", exclude={"version"}), "maps_query": maps_query}},
             expected_version=spielort_data.version,
             session=session,
             return_document=ReturnDocument.AFTER,

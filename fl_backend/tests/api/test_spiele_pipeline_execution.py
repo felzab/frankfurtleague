@@ -159,7 +159,7 @@ class TestASpielNamesItsVenueAsItIsCalledNow:
 
         async def body(database: AsyncDatabase) -> Mapping[str, Any]:
             await database[Collection.SPIELORTE].update_one(
-                {"_id": VERDICT_SPIELORT_ID}, {"$set": {"name": "Sporthalle Ost", "maps_link": "Sporthalle Ost, Frankfurt"}}
+                {"_id": VERDICT_SPIELORT_ID}, {"$set": {"name": "Sporthalle Ost", "maps_query": "Sporthalle Ost, Frankfurt"}}
             )
             return (await joined(database))["spielort"]
 
@@ -169,7 +169,7 @@ class TestASpielNamesItsVenueAsItIsCalledNow:
             "spielort_id": VERDICT_SPIELORT_ID,
             "mietpreis": 80,
             "name": "Sporthalle Ost",
-            "maps_link": "Sporthalle Ost, Frankfurt",
+            "maps_query": "Sporthalle Ost, Frankfurt",
         }
 
 

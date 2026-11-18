@@ -21,7 +21,7 @@ const STORED: FLSpielJoinedAdmin = {
   team2_quelle: { type: "spiel", spiel_nr: 26, ausgang: "sieger" },
   date: "2027-03-14",
   time: "15:30:00",
-  spielort: { spielort_id: "64b000000000000000000005", name: "Sportpark Nord", maps_link: "Sportpark Nord, Frankfurt", mietpreis: 60 },
+  spielort: { spielort_id: "64b000000000000000000005", name: "Sportpark Nord", maps_query: "Sportpark Nord, Frankfurt", mietpreis: 60 },
   schiedsrichter: { schiedsrichter_id: "64b000000000000000000006", name: "Lena Brandt", payment: 25 },
   ergebnis: "2:2",
   elfmeterschiessen: { team1: 4, team2: 3 },

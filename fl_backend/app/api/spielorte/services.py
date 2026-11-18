@@ -8,8 +8,8 @@ from app.core.exceptions import WriteRefusal
 from app.shared.schemas.addresses import FLAddress
 
 
-def compose_maps_link(name: str, address: FLAddress) -> str:
-    """The Google Maps search string, not a URL. Derived here so a client can never supply one."""
+def compose_maps_query(name: str, address: FLAddress) -> str:
+    """The Google Maps search, derived here so a client can never supply one."""
     return f"{name}, {address.to_string}, Deutschland"
 
 
