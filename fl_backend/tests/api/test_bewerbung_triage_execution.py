@@ -23,7 +23,7 @@ from app.api.bewerbungen.schemas import (
 )
 from app.api.bewerbungen.services import compose_new_team, confirmation_deadline_from
 from app.api.outbox.crud import states_of
-from app.api.outbox.schemas import FLBewerbungLinkData
+from app.api.outbox.schemas import FLBewerbungAbsageData, FLBewerbungLinkData
 from app.api.teams.crud import found_a_team
 from app.api.teams.schemas import FLPostTeamPayload
 from app.core.codes import Code
@@ -769,6 +769,18 @@ class TestWhoADeclineMails:
         mails = await on_a_league(mongo_replica_set_url, body)
 
         assert sorted(mail.to for mail in mails) == sorted([KONTAKTE["trainer"]["email"], KONTAKTE["ansprechperson"]["email"]])
+
+    async def test_the_mail_names_a_picked_club_as_the_league_holds_it(self, mongo_replica_set_url: str):
+        """The application holds the club's id alone, so a read that skipped the club would mail every person an empty name."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await decline(database, PICKED_BEWERBUNG)
+
+            return await drained(database, client)
+
+        mails = await on_a_league(mongo_replica_set_url, body)
+
+        assert {mail.data.team if isinstance(mail.data, FLBewerbungAbsageData) else None for mail in mails} == {EXISTING_NAME}
 
 
 async def take_decision(kind: str, database: AsyncDatabase, client: AsyncMongoClient, bewerbung_id: ObjectId) -> Any:
