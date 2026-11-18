@@ -869,7 +869,7 @@ def save_handles(database: AsyncDatabase, client: AsyncMongoClient) -> dict[str,
         "aufstellungen_collection": database[Collection.AUFSTELLUNGEN],
         "spielbestaetigungen_collection": database[Collection.SPIELBESTAETIGUNGEN],
         # The save judges the fixture played or still to come by it.
-        "now": NOW,
+        "germany_now": NOW,
     }
 
 
