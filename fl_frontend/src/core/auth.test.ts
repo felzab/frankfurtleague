@@ -100,7 +100,7 @@ const API_ORIGIN = "http://backend.test";
 /* The code is caught on its way out rather than off the store: `storeOTP: "encrypted"` means the
    stored value is not the code, and a `sendVerificationOTP` double would replace the send gate this
    file is checking with itself. */
-const { sent, owed } = registerAuthDoubles({
+const { sent, owed, answerWith } = registerAuthDoubles({
   core: {
     db: DB_DOUBLE,
     // Where the send gate's backend read goes, answered by `serveBackend` below rather than a server, and the admin key
@@ -202,6 +202,13 @@ const log = captureLog();
 /** Each line written at `level` since the last clear, its fields as `meta`. */
 const linesAt = (level: LoggedLine["level"]) =>
   log.lines().flatMap(({ level: written, message, fields, stack, raw }) => (written === level ? [{ message, meta: fields, stack, raw }] : []));
+
+/** Each line `message` names, by its fields and the error it carries, which a line logged by name alone carries none of. */
+const linesNamed = (message: string) =>
+  log
+    .lines()
+    .filter((line) => line.message === message)
+    .map(({ fields, error }) => ({ fields, error }));
 
 const store = memoryStore("__flAuthStore");
 /**
@@ -1031,6 +1038,64 @@ describe("which relying party and which origin a ceremony is judged against", ()
   });
 });
 
+describe("what the library's own log stream reaches this application as", () => {
+  /* The default logger prints the rejected value itself and passes whole error objects, which the
+     logging rules keep off the stream. */
+  it("carries an event of its own and never the message, which ends in the rejected value", async () => {
+    const { cookie } = await sessionByCode(auth, store, ADMIN_EMAIL);
+    log.clear();
+
+    const answer = await overHttp("/passkey/verify-authentication", {
+      method: "POST",
+      cookie,
+      body: { response: {} },
+      from: { origin: "https://foreign-site.example" },
+    });
+
+    expect(answer.status).toBe(403);
+    const lines = log.lines();
+    assert.ok(lines.length > 0, "the library wrote nothing, so this case proves nothing");
+
+    for (const { level, message, fields, error, raw } of lines) {
+      expect([level, message]).toStrictEqual(["ERROR", "auth.origin_refused"]);
+      expect(error, "the library's message or error reached the line as its error").toBe(undefined);
+      // Exactly these: the library hands its logger the rejected value among the arguments, and a
+      // key added beside them is how one reaches the stream under a name nobody reads for it.
+      expect(Object.keys(fields).sort()).toStrictEqual(["name"]);
+      assert.ok(!raw.includes("foreign-site"), "the submitted origin reached the stream");
+    }
+  });
+
+  /* Anything the map does not recognise, an upgrade's reworded message included, takes the last
+     entry rather than putting whatever the library now says on the stream. */
+  it("falls back to one event for a message it does not recognise, carrying the error's name", async () => {
+    const { cookie, row } = await sessionByCode(auth, store, ADMIN_EMAIL);
+    // A stored passkey whose key the verifier cannot read, which is an internal failure rather than
+    // a refusal: the library hands its logger the error object itself.
+    store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: "no-key" });
+    const offered = await overHttp("/passkey/generate-authenticate-options", { cookie });
+    expect(offered.status).toBe(200);
+    const { challenge } = (await offered.json()) as { challenge: string };
+    log.clear();
+
+    const answer = await overHttp("/passkey/verify-authentication", {
+      method: "POST",
+      cookie: `${cookie}; ${cookieHeader(offered)}`,
+      body: { response: assertionFor(challenge, true) },
+    });
+
+    expect(answer.status).toBe(400);
+    const lines = log.lines();
+    expect(lines.map(({ message, fields }) => [message, fields.name])).toStrictEqual([["auth.library_failed", "Error"]]);
+    for (const { fields, error } of lines) {
+      // The error object itself, which the writer serialises with its message and its stack, or the library's message
+      // handed on in its place: this is the arm the library really hands one, so the drop is proven here or nowhere.
+      expect(error, "the library's own error or message reached the writer").toBe(undefined);
+      expect(Object.keys(fields).sort()).toStrictEqual(["name"]);
+    }
+  });
+});
+
 describe("which sessions may enrol a passkey, and how many rows they may leave", () => {
   /* The bootstrap, driven whole rather than sampled at the options call: the refusals below mean
      nothing unless the step they leave open really writes a row. */
@@ -1418,6 +1483,31 @@ describe("what a session records about the sign-in that made it", () => {
       ),
     ).rejects.toSatisfy((raised: unknown) => raised instanceof Error && raised.name === "CeremonyNamedNoCredential");
     expect(store.session.length).toBe(sessions);
+  });
+});
+
+/* Who signed in is recorded nowhere else, and the edge's line the trace joins holds where from: the two lines carry the
+   account's id and the trace, and never the address typed. */
+describe("the sign-in's own lines", () => {
+  const TRACE = "5".repeat(32);
+  const TRACED = { ...ORIGIN, traceparent: `00-${TRACE}-${"6".repeat(16)}-01` };
+
+  it("writes a sign-in by its account and factor, and a refused code by its trace, never the address", async () => {
+    await signInByCode(auth, ADMIN_EMAIL, TRACED);
+    const userId = store.session.at(-1)?.userId;
+    const otp = await auth.api.createVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" } });
+    await auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp: wrongFor(otp) }, headers: new Headers(TRACED) }).catch(() => undefined);
+
+    const lines = log.lines().filter(({ message }) => message === "auth.signed_in" || message === "auth.code_refused");
+    expect(lines.map(({ level, message, fields, traceId }) => [level, message, { ...fields, trace_id: traceId }])).toStrictEqual([
+      ["INFO", "auth.signed_in", { user_id: userId, factor: "code", trace_id: TRACE }],
+      ["INFO", "auth.code_refused", { trace_id: TRACE }],
+    ]);
+    // The logger scrubs an address it meets, so a line carrying one reads as its placeholder.
+    assert.ok(
+      userId !== undefined && !lines.some(({ raw }) => raw.includes(ADMIN_EMAIL) || raw.includes("[address]")),
+      "the address reached a sign-in line",
+    );
   });
 });
 
@@ -1937,6 +2027,18 @@ describe("the code mails one address may be sent in an hour", () => {
   });
 });
 
+/* What the send and the notice owe the stream where the backend never took the mail: a held or barred send is the
+   drain's, recorded on the row. A failure on the send's path routinely carries the submitted address. */
+describe("a sign-in mail the Postausgang never took", () => {
+  it("logs the code's send by the error's name alone", async () => {
+    answerWith(() => "lost");
+
+    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
+
+    expect(linesNamed("auth.code_send_failed")).toStrictEqual([{ fields: { name: "APINetworkError" }, error: undefined }]);
+  });
+});
+
 describe("which addresses the send gate mails", () => {
   const SEATED_EMAIL = "trainerin@example.org";
   const UNCONFIRMED_EMAIL = "unbestaetigte@example.org";
@@ -2005,6 +2107,15 @@ describe("which addresses the send gate mails", () => {
     expect(refusals.flatMap((refusal) => refusal.mailed)).toStrictEqual([]);
     expect(refusals[1]?.answer).toStrictEqual(refusals[0]?.answer);
     expect(refusals[2]?.answer).toStrictEqual(refusals[0]?.answer);
+  });
+
+  /* The person cannot tell a failed read from an unknown address, so the line is the only signal, and the read's failure
+     can carry the address it posted. */
+  it("mails nothing to a person's address while the read throws, and logs the failure by name alone", async () => {
+    BACKENDS.set(PERSON_EMAIL, "throws");
+
+    expect((await askFor(PERSON_EMAIL)).mailed).toStrictEqual([]);
+    expect(linesNamed("auth.sign_in_gate_failed")).toStrictEqual([{ fields: { name: "APINetworkError" }, error: undefined }]);
   });
 
   /* Asked directly, as a sender other than the plugin's callback asks it: that sender words the

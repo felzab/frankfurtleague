@@ -244,3 +244,21 @@ describe("POST /api/mail/delivery where the backend does not take the event", ()
     expect(new Set(log.lines().map(({ level, message }) => `${level} ${message}`))).toStrictEqual(new Set(["ERROR mail.delivery_unwritten"]));
   });
 });
+
+describe("POST /api/mail/delivery's lines", () => {
+  /* The tag block carries the row's id and the body the recipient. Asserted over the whole document, so a field added
+     later, or the event handed to the logger as its error, cannot reopen it. */
+  it("names no recipient on any line it writes", async () => {
+    // The backend fails every event, which the route logs.
+    answer = () => networkFailure();
+    await POST(signed(JSON.stringify(eventFor("email.bounced", { bounce: { type: "Permanent" } }))));
+    await POST(signed(JSON.stringify(eventFor("email.delivered")), { headers: { "svix-signature": "v1,nope" } }));
+
+    const lines = log.lines();
+    assert.ok(lines.length >= 2, `expected a line for each of the two failures, saw ${String(lines.length)}`);
+    // The logger scrubs an address it meets, so a line carrying one reads as its placeholder.
+    for (const { raw } of lines) {
+      assert.ok(!raw.includes(ADDRESS) && !raw.includes("[address]"), `an address reached the stream: ${raw}`);
+    }
+  });
+});

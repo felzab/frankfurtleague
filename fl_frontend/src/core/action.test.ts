@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { answerTheLookup, GRANTED } from "@/test-support/authDoubles";
@@ -6,6 +6,7 @@ import { networkFailure, refusal, serveBackend, serveHost } from "@/test-support
 import { cacheCalls } from "@/test-support/nextRequest";
 import { signedInRequest } from "@/test-support/session";
 import { captureLog } from "@/test-support/stdoutCapture";
+import { seat } from "@/test-support/subjectFixtures";
 
 import { COPY } from "./copy";
 import { SERVER_COPY } from "./serverCopy";
@@ -61,6 +62,9 @@ const sends = (method: string, answer?: Response) => {
 /** Each call the body sent, by its method and endpoint. */
 const sent = () => backend.sent.map(({ method, path }) => `${method} ${path}`);
 
+/** Whether a line carries an address anywhere, as typed or as the placeholder the logger scrubs one to. */
+const carriesAnAddress = (raw: string): boolean => raw.includes("@") || raw.includes("[address]");
+
 const Venue = z.object({ name: z.string().min(1).max(10), postcode: z.string().regex(/^\d{5}$/) });
 
 /** An admin create whose body records what it was handed and sends the create, which the backend answers with `answer` where given. */
@@ -107,6 +111,36 @@ describe("the admin lane", () => {
     // The guard's own verdict, never a failure answered in the same line, which logs the action's failure.
     expect(log.lines().filter(({ message }) => message === "action.failed")).toStrictEqual([]);
   });
+
+  const ADDRESS = "lena@example.com";
+  /** An admin create whose body sends the create and then throws, its message naming an address. */
+  const throwing = action({
+    lane: "admin",
+    name: "create",
+    input: z.object({ name: z.string().min(1) }),
+    run: async () => {
+      await sends("POST");
+      throw new Error(`${ADDRESS} was refused`);
+    },
+  });
+
+  it("answers any other throw as the unexpected failure, logging its name alone, and clears the tag", async () => {
+    // The file's visitor was signed in before the case, on a line of its own.
+    log.clear();
+    const answer = await throwing({ name: "Nord" });
+
+    expect(answer).toStrictEqual({ ok: false, reason: COPY.shared.failure.unexpected });
+    const lines = log.lines();
+    expect(lines.map(({ level, message, fields }) => [level, message, fields])).toStrictEqual([
+      ["ERROR", "action.failed", { action: "create", name: "Error" }],
+    ]);
+    for (const { error, raw } of lines) {
+      expect(error, "the thrown error reached the line").toBe(undefined);
+      assert.ok(!carriesAnAddress(raw), `the error's message reached the line: ${raw}`);
+    }
+    expect(sent()).toStrictEqual([`POST ${PROBE}`]);
+    expect(cacheCalls.filter(({ name }) => name === "updateTag").map(({ args }) => args[0])).toStrictEqual(["site"]);
+  });
 });
 
 const Seat = z.object({ team_id: z.string().min(1), saison_id: z.string().min(1) });
@@ -134,6 +168,26 @@ describe("the person lane", () => {
     expect(log.lines().map(({ level, message, fields }) => [level, message, fields])).toStrictEqual([
       ["INFO", "roles.refused", { operation: "melden", reason: "no_session" }],
     ]);
+  });
+
+  it.each([
+    ["in another season", { team_id: "t1", saison_id: "2026" }],
+    ["at another team in the same season", { team_id: "t2", saison_id: "2027" }],
+  ])("refuses a seat the person holds %s, naming nothing of the address", async (_where, held) => {
+    await arriveAs({ email: PERSON, records: { seats: [seat(held)] } });
+    // The arrival's own sign-in line is not the refusal's.
+    log.clear();
+
+    expect(await register({ team_id: "t1", saison_id: "2027" })).toStrictEqual({ ok: false, reason: COPY.shared.failure.stale });
+    expect(ran).toStrictEqual([]);
+    const lines = log.lines();
+    expect(lines.map(({ level, message, fields }) => [level, message, fields])).toStrictEqual([
+      ["INFO", "roles.refused", { operation: "melden", reason: "no_seat" }],
+    ]);
+    for (const { error, raw } of lines) {
+      expect(error, "an error reached the line").toBe(undefined);
+      assert.ok(!carriesAnAddress(raw), `the address reached the line: ${raw}`);
+    }
   });
 });
 
