@@ -2,7 +2,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Annotated, Any, Literal, NamedTuple
 
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, status
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -36,11 +36,9 @@ from app.api.saisons.crud import (
     saisons_with_a_spiel_taken_place,
 )
 from app.api.saisons.schemas import (
-    FLActivateSaisonResponse,
     FLGenerateSpielplanPayload,
-    FLGenerateSpielplanResponse,
+    FLGruppenNamesAdapter,
     FLPatchSaisonPayload,
-    FLPatchSaisonResponse,
     FLPostSaisonPayload,
     FLPostSaisonResponse,
     FLSaisonActRefusals,
@@ -55,8 +53,6 @@ from app.api.saisons.schemas import (
     FLSaisonsAdminRefusals,
     FLSaisonSpielplan,
     FLSwapGruppenPayload,
-    FLSwapGruppenResponse,
-    FLUndrawSpielplanResponse,
 )
 from app.api.saisons.services import (
     RECORDED_FACT_FIELDS,
@@ -128,6 +124,7 @@ from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.transactions import transact
 from app.shared.schemas.literals import FLGruppenNames
+from app.shared.schemas.responses import FLVersionResponse
 
 router = APIRouter(
     prefix="/saisons",
@@ -141,7 +138,7 @@ async def _rewrite_gruppenphase_sides(
     team_ids: Sequence[Any],
     spiele_collection: AsyncCollection,
     session: AsyncClientSession,
-) -> int:
+) -> None:
     """Rewrite each club's side of these fixtures to the other, by its `team_id` alone.
 
     Neither the club's name nor `tore` moves: every read joins a side's name from its season row, and goals belong to
@@ -167,10 +164,6 @@ async def _rewrite_gruppenphase_sides(
             update={"$set": {f"{slot}.team_id": other_of[occupant]}},
             session=session,
         )
-
-    # The fixtures, not the sides: `modified_count` double-counts a fixture fielding both clubs, and
-    # reports 0 where the value already matched.
-    return len({spiel_id for spiel_ids in by_pass.values() for spiel_id in spiel_ids})
 
 
 @router.get("", summary="Every Saison for the admin surfaces")
@@ -413,14 +406,14 @@ async def patch_saison(
     saison_spieler_collection: SaisonSpielerCollection,
     db: DBClient,
     today: GermanDay,
-) -> FLPatchSaisonResponse:
+) -> FLVersionResponse:
     """Save a season's dates and rules on the `version` it was read at, answering the version stored.
 
     What a started or drawn season has fixed is refused, as is a rule narrowed below what it holds; the start date is
     fixed once a fixture has taken place, and moves later only while no club's exit is stored.
     """
 
-    async def judge_and_write_the_rules(session: AsyncClientSession) -> FLPatchSaisonResponse:
+    async def judge_and_write_the_rules(session: AsyncClientSession) -> FLVersionResponse:
         # Through the session, and first: this opens the snapshot the update below is judged
         # against, so a rival writing `saisons` under the judgement conflicts instead of being
         # overwritten. A season id naming nothing raises the 404 here.
@@ -566,7 +559,7 @@ async def patch_saison(
         if saison_data.start_date != stored_raw["start_date"]:
             await anchor_in_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
 
-        return FLPatchSaisonResponse(version=patched[VERSION_FIELD])
+        return FLVersionResponse(version=patched[VERSION_FIELD])
 
     # `transact`, not a bare `start_transaction`: a draw and an undraw write `saisons` too,
     # so one landing under a `$set` that changes something conflicts, and the retry judges the
@@ -660,6 +653,7 @@ def _find_undraw_refusal_of(*, saison_status: str, recorded_spiele: int, bericht
 
 @router.post(
     "/{saison_id}/activate",
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Make this the active Saison",
 )
 async def activate_saison(
@@ -669,13 +663,13 @@ async def activate_saison(
     spieltage_collection: SpieltageCollection,
     ban_list_collection: BanListCollection,
     db: DBClient,
-) -> FLActivateSaisonResponse:
+) -> None:
     """Make this the active season, moving whichever holds `active` to `past`.
 
     The outgoing season must be finished, and every matchday of the target dated.
     """
 
-    async def judge_and_roll_the_league_over(session: AsyncClientSession) -> FLActivateSaisonResponse:
+    async def judge_and_roll_the_league_over(session: AsyncClientSession) -> None:
         # A season id naming nothing raises the 404 here, before any demotion.
         target_raw = await pull_one_from_db(
             collection=saisons_collection, db_filter={"_id": saison_id}, projection={"status": 1}, session=session
@@ -692,7 +686,7 @@ async def activate_saison(
 
         # Before the promotion: `uniq_saison_active` is checked at each write rather than at the
         # commit, so promoting first meets the incumbent and aborts the rollover.
-        demoted = await patch_many_in_db(
+        await patch_many_in_db(
             collection=saisons_collection,
             db_filter={"status": "active", "_id": {"$ne": saison_id}},
             update={"$set": {"status": "past"}},
@@ -737,18 +731,15 @@ async def activate_saison(
                 session=session,
             )
 
-        return FLActivateSaisonResponse(deactivated=demoted.modified_count)
-
     # `transact`, not a bare `start_transaction`: a draw filling the outgoing season or an
     # undraw emptying the target writes a season this one writes too, so it conflicts and the
     # retry judges the league again rather than closing it blind.
-    rolled_over = await transact(db, judge_and_roll_the_league_over)
-
-    return rolled_over
+    await transact(db, judge_and_roll_the_league_over)
 
 
 @router.post(
     "/{saison_id}/gruppen/swap",
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Exchange two teams' groups",
 )
 async def swap_gruppen(
@@ -759,17 +750,18 @@ async def swap_gruppen(
     spiele_collection: SpieleCollection,
     db: DBClient,
     today: GermanDay,
-) -> FLSwapGruppenResponse:
+) -> None:
     """Exchange the groups of two clubs entered in this season, as one write.
 
     Every group fixture fielding either club has that side rewritten with it, so each group stays a round robin; neither
     `tore` nor `austritt` moves.
     """
 
-    # A read first, so an unknown season is a 404 rather than a 409 about clubs holding no row in it.
+    # A read first, so an unknown season is a 404 rather than a 409 about clubs holding no row in it. It is also what
+    # judges the path id ahead of every write: an id of any other width names no season.
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
 
-    async def exchange_the_two_gruppen(session: AsyncClientSession) -> FLSwapGruppenResponse:
+    async def exchange_the_two_gruppen(session: AsyncClientSession) -> None:
         both_ids = [swap_data.team1_id, swap_data.team2_id]
 
         rows = await pull_whole_from_db(
@@ -779,7 +771,9 @@ async def swap_gruppen(
             projection=["team_id", "gruppe"],
             session=session,
         )
-        gruppe_of = {row["team_id"]: row["gruppe"] for row in rows}
+        # Each stored group judged against the closed set before the first write: one outside it aborts the exchange
+        # rather than being written onto the other club.
+        gruppe_of = {row["team_id"]: FLGruppenNamesAdapter.validate_python(row["gruppe"]) for row in rows}
 
         saison_raw = await pull_one_from_db(
             collection=saisons_collection, db_filter={"_id": saison_id}, projection={"status": 1, "start_date": 1}, session=session
@@ -810,25 +804,17 @@ async def swap_gruppen(
             session=session,
         )
 
-        rewritten = await _rewrite_gruppenphase_sides(
+        await _rewrite_gruppenphase_sides(
             spiele=gruppenphase_spiele,
             team_ids=both_ids,
             spiele_collection=spiele_collection,
             session=session,
         )
 
-        # Built before the junction writes and then written from: the model refuses a stored group
-        # outside the closed set before anything lands, and the echo cannot disagree with what did.
-        swapped = FLSwapGruppenResponse(
-            saison_id=saison_id,
-            team1_id=swap_data.team1_id,
-            team1_gruppe=gruppe_of[swap_data.team2_id],
-            team2_id=swap_data.team2_id,
-            team2_gruppe=gruppe_of[swap_data.team1_id],
-            rewritten_spiele=rewritten,
-        )
-
-        for team_id, target_gruppe in ((swapped.team1_id, swapped.team1_gruppe), (swapped.team2_id, swapped.team2_gruppe)):
+        for team_id, target_gruppe in (
+            (swap_data.team1_id, gruppe_of[swap_data.team2_id]),
+            (swap_data.team2_id, gruppe_of[swap_data.team1_id]),
+        ):
             # A row nothing matches raises, and that aborts the transaction: it takes the first
             # write back rather than leaving one group a club short.
             await patch_one_in_db(
@@ -841,16 +827,14 @@ async def swap_gruppen(
             )
         await record_act(collection=saisons_collection, action="saison.gruppen_swapped", label=saison_id, session=session)
 
-        return swapped
-
     # `transact`, not a bare `start_transaction`: two admins on one season can write-conflict,
     # and a retry judges these rows as the rival left them.
-    return await transact(db, exchange_the_two_gruppen)
+    await transact(db, exchange_the_two_gruppen)
 
 
 @router.post(
     "/{saison_id}/spielplan",
-    status_code=201,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Draw this Saison's Spielplan",
 )
 async def post_spielplan(
@@ -867,7 +851,7 @@ async def post_spielplan(
     # a season by leaving the flag out.
     spielplan_data: Annotated[FLGenerateSpielplanPayload, Body(default_factory=FLGenerateSpielplanPayload)],
     today: GermanDay,
-) -> FLGenerateSpielplanResponse:
+) -> None:
     """Draw the whole season at once, every matchday and every fixture undated, from the stated `shape` or the season's rules.
 
     A stated `shape` is stored in the rules, and `replace` first deletes what a planned season holds, its fixtures'
@@ -877,7 +861,7 @@ async def post_spielplan(
     # A read first, so an unknown season is a 404 rather than a refusal about what it does not hold.
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
 
-    async def draw_the_whole_season(session: AsyncClientSession) -> FLGenerateSpielplanResponse:
+    async def draw_the_whole_season(session: AsyncClientSession) -> None:
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
         stored_rules = FLSaisonRules.model_validate(saison_raw["rules"])
 
@@ -976,11 +960,6 @@ async def post_spielplan(
         )
 
         # Both collections together, fixtures first, the reverse of the draw's write order, as the undraw removes them.
-        removed_spieltage = 0
-        removed_spiele = 0
-
-        # The counts go to the response: they are what the admin confirmed deleting, and the flag
-        # alone cannot say whether anything was there to delete.
         if spielplan_data.replace:
             # The season every report write anchors, so the two conflict: the watermark's `$set` below can change
             # nothing on a same-day redraw, and the report's insert meets no delete here.
@@ -989,12 +968,8 @@ async def post_spielplan(
             await delete_many_from_db(collection=spielbestaetigungen_collection, db_filter={"saison_id": saison_id}, session=session)
             await delete_many_from_db(collection=spielberichte_collection, db_filter={"saison_id": saison_id}, session=session)
             await remove_the_seasons_aufstellungen(aufstellungen_collection=aufstellungen_collection, saison_id=saison_id, session=session)
-            removed_spiele = (
-                await delete_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
-            ).deleted_count
-            removed_spieltage = (
-                await delete_many_from_db(collection=spieltage_collection, db_filter={"saison_id": saison_id}, session=session)
-            ).deleted_count
+            await delete_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
+            await delete_many_from_db(collection=spieltage_collection, db_filter={"saison_id": saison_id}, session=session)
 
         # Matchdays first: every fixture already carries the `spieltag_id` of a row in this list, the
         # draw having generated both ids together rather than reading one back.
@@ -1037,24 +1012,14 @@ async def post_spielplan(
             session=session,
         )
 
-        return FLGenerateSpielplanResponse(
-            saison_id=saison_id,
-            spieltage=len(drawn.spieltage),
-            spiele=len(drawn.spiele),
-            generated_at=watermark.generated_at,
-            removed_spieltage=removed_spieltage,
-            removed_spiele=removed_spiele,
-        )
-
     # `transact`, not a bare `start_transaction`, and a retry is safe because the draw
     # generates its own ids and wires by `spiel_nr`, never by one.
-    drawn_response = await transact(db, draw_the_whole_season)
-
-    return drawn_response
+    await transact(db, draw_the_whole_season)
 
 
 @router.delete(
     "/{saison_id}/spielplan",
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Undraw this Saison's Spielplan",
 )
 async def delete_spielplan(
@@ -1066,13 +1031,13 @@ async def delete_spielplan(
     spielberichte_collection: SpielberichteCollection,
     aufstellungen_collection: AufstellungenCollection,
     db: DBClient,
-) -> FLUndrawSpielplanResponse:
+) -> None:
     """Return the season to undrawn: its matchdays and fixtures, their confirmations, reports and line-ups, and the draw's day.
 
     Undoing the draw reopens the shape rules to an edit and the groups to an entry.
     """
 
-    async def undraw_the_whole_season(session: AsyncClientSession) -> FLUndrawSpielplanResponse:
+    async def undraw_the_whole_season(session: AsyncClientSession) -> None:
         # A season id naming nothing raises the 404 here.
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"], session=session)
 
@@ -1101,12 +1066,12 @@ async def delete_spielplan(
         await delete_many_from_db(collection=spielbestaetigungen_collection, db_filter={"saison_id": saison_id}, session=session)
         await delete_many_from_db(collection=spielberichte_collection, db_filter={"saison_id": saison_id}, session=session)
         await remove_the_seasons_aufstellungen(aufstellungen_collection=aufstellungen_collection, saison_id=saison_id, session=session)
-        removed_spiele = await delete_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
-        removed_spieltage = await delete_many_from_db(collection=spieltage_collection, db_filter={"saison_id": saison_id}, session=session)
+        await delete_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
+        await delete_many_from_db(collection=spieltage_collection, db_filter={"saison_id": saison_id}, session=session)
 
         # Inside the transaction holding both removals: a season keeping its watermark while its fixtures
         # are gone would date a draw it no longer holds, and `$unset` is the shape a season nobody has drawn carries.
-        before = await patch_one_in_db(
+        await patch_one_in_db(
             collection=saisons_collection,
             db_filter={"_id": saison_id},
             update={"$unset": {"spielplan": ""}},
@@ -1124,20 +1089,9 @@ async def delete_spielplan(
             )
         )
 
-        return FLUndrawSpielplanResponse(
-            saison_id=saison_id,
-            spieltage=removed_spieltage.deleted_count,
-            spiele=removed_spiele.deleted_count,
-            # The update's own pre-image, so nothing lands between reading the watermark and clearing
-            # it. A season holding one with no fixtures behind it reports the only thing removed.
-            watermark_cleared=before.get("spielplan") is not None,
-        )
-
     # `transact`, not a bare `start_transaction`, and a retry is safe because the undraw
     # removes a set by filter rather than by any id it read.
-    undrawn = await transact(db, undraw_the_whole_season)
-
-    return undrawn
+    await transact(db, undraw_the_whole_season)
 
 
 async def _entered_teams(*, saison_teams_collection: ReadCollection, saison_id: str) -> list[Mapping[str, Any]]:
@@ -1347,9 +1301,4 @@ async def post_invitations_dispatch(
             )
         )
 
-    return FLInvitationDispatchResponse(
-        saison_id=saison_id,
-        mailed=outcomes.count("mailed"),
-        skipped=outcomes.count("skipped"),
-        failed=outcomes.count("failed"),
-    )
+    return FLInvitationDispatchResponse(mailed=outcomes.count("mailed"), failed=outcomes.count("failed"))

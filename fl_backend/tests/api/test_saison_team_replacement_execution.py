@@ -4,9 +4,9 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
-from pydantic import ValidationError
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
+from pymongo.errors import OperationFailure
 
 from app.api.teams.admin_router import replace_saison_team
 from app.api.teams.schemas import FLReplaceSaisonTeamPayload
@@ -264,10 +264,11 @@ async def call_replace(
     incoming_team_id: ObjectId = INCOMING,
     *,
     saisons_collection: Any = None,
-) -> Any:
-    """`saisons_collection` is overridable so a case can hand the endpoint a stand-in and nothing else."""
+    aufstellungen_collection: Any = None,
+) -> None:
+    """Each overridable collection lets a case hand the endpoint a stand-in there and nothing else."""
 
-    return await replace_saison_team(
+    await replace_saison_team(
         team_id=team_id,
         saison_id=SAISON_ID,
         replacement_data=FLReplaceSaisonTeamPayload(incoming_team_id=incoming_team_id),
@@ -277,10 +278,27 @@ async def call_replace(
         spiele_collection=database[Collection.SPIELE],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
+        aufstellungen_collection=aufstellungen_collection if aufstellungen_collection is not None else database[Collection.AUFSTELLUNGEN],
         db=client,
         today=REPLACED_ON,
     )
+
+
+class _LineUpRemovalFails:
+    """The real line-up collection with its removal raising, handed to the parameter the endpoint declares.
+
+    A write that fails after the squad's retirement, inside the same transaction; a fake rather than a patch, so nothing
+    in production knows it exists.
+    """
+
+    def __init__(self, collection: Any) -> None:
+        self._collection = collection
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._collection, name)
+
+    async def delete_many(self, *_: Any, **__: Any) -> Any:
+        raise OperationFailure("the write could not be applied")
 
 
 async def rows_now(database: AsyncDatabase) -> list[dict[str, Any]]:
@@ -358,16 +376,15 @@ class TestAllFourLayersMoveTogether:
         assert row is not None
         assert (row["name"], row["shorthand"]) == ("Incoming", "INX")
 
-    async def test_every_side_the_team_held_moves_and_is_counted(self, mongo_replica_set_url: str):
-        """Layer three, on both slots and past the group phase. Kills a single-pass rewrite, and a count assumed rather than returned."""
+    async def test_every_side_the_team_held_moves(self, mongo_replica_set_url: str):
+        """Layer three, on both slots and past the group phase. Kills a single-pass rewrite."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await call_replace(database, client)
-            return response.rewritten_spiele, await spiele_now(database)
+            await call_replace(database, client)
+            return await spiele_now(database)
 
-        rewritten, spiele = await on_a_seeded_season(mongo_replica_set_url, body)
+        spiele = await on_a_seeded_season(mongo_replica_set_url, body)
 
-        assert rewritten == 3, "the fixtures the club held, counted once each"
         assert spiele[1]["team1"] == INCOMING_SIDE
         assert spiele[2]["team2"] == INCOMING_SIDE
         assert spiele[4]["team1"] == INCOMING_SIDE, "a bracket slot is part of the schedule the incoming club inherits"
@@ -483,21 +500,14 @@ class TestTheOutgoingTeamsKaderIsRetired:
         assert await on_a_seeded_season(mongo_replica_set_url, body) == [(SAISON_ID, RIVAL), (PRIOR_SAISON_ID, WITHDRAWN)]
 
     async def test_an_abort_takes_the_retirement_back(self, mongo_replica_set_url: str):
-        """Kills dropping `session=`, which retires a squad for a replacement that never landed. The echo rejects the stored `gruppe`."""
+        """Kills dropping `session=`, which retires a squad for a replacement that never landed. The line-ups' removal fails after it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(ValidationError):
-                await call_replace(database, client)
+            with pytest.raises(OperationFailure):
+                await call_replace(database, client, aufstellungen_collection=_LineUpRemovalFails(database[Collection.AUFSTELLUNGEN]))
             return await kader_now(database)
 
-        # `Z` is no group the model admits: the defence under test is the endpoint's own guard against a stored one.
-        unreadable = {**junction(WITHDRAWN, "A", dict(EXIT)), "gruppe": "Z"}
-        kader = await on_a_seeded_season(
-            mongo_replica_set_url,
-            body,
-            junctions=[unreadable, junction(RIVAL, "A")],
-            stores_a_refused_shape="a season row in a group the model admits none of, which the endpoint guards against",
-        )
+        kader = await on_a_seeded_season(mongo_replica_set_url, body)
 
         assert [kader[index]["inactive_since"] for index in (1, 2)] == [None, None]
 
@@ -546,12 +556,11 @@ class TestAPhantomRowIsRepaired:
         """Kills a fan-out composing the new side out of the OUTGOING club, which here has no document to read."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await call_replace(database, client, team_id=PHANTOM)
-            return response.rewritten_spiele, await spiele_now(database)
+            await call_replace(database, client, team_id=PHANTOM)
+            return await spiele_now(database)
 
-        rewritten, spiele = await on_a_seeded_season(mongo_replica_set_url, body)
+        spiele = await on_a_seeded_season(mongo_replica_set_url, body)
 
-        assert rewritten == 1
         assert spiele[6]["team1"] == INCOMING_SIDE
 
 

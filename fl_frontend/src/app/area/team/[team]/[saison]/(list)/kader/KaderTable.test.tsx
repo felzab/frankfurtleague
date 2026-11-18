@@ -42,7 +42,7 @@ function drawn() {
     <ListQueryScope>
       <KaderTable
         head={{ nameLabel: COPY.shared.name, columns: [] }}
-        read={{ team_id: TEAM, saison_id: SAISON, allowed_stufen: ["Q1", "Q2"], kader: KADER }}
+        read={{ allowed_stufen: ["Q1", "Q2"], kader: KADER }}
         team={TEAM}
         saison={SAISON}
       />

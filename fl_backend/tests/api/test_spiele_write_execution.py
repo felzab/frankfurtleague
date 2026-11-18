@@ -869,9 +869,13 @@ class TestASavedResultCarriesThroughTheBracket:
         assert spiele[HALBFINALE_NR]["elfmeterschiessen"] is None, "the shoot-out outlived the side that won it"
         assert spiele[HALBFINALE_NR]["team2"]["tore"] is None, "the side that stayed kept goals scored against a team that left"
 
-        (advancement,) = response.advanced_to
-        assert advancement.spiel_nr == HALBFINALE_NR
-        assert (advancement.voided_ergebnis, advancement.voided_elfmeterschiessen) == ("2:2", FLSpielElfmeterschiessen(team1=4, team2=3))
+        assert response.advanced_to == [HALBFINALE_NR]
+        (voided,) = response.voided_ergebnisse
+        assert (voided.spiel_nr, voided.voided_ergebnis, voided.voided_elfmeterschiessen) == (
+            HALBFINALE_NR,
+            "2:2",
+            FLSpielElfmeterschiessen(team1=4, team2=3),
+        )
 
     @pytest.mark.parametrize(
         ("stored_event", "after_the_advancement"),
@@ -901,8 +905,9 @@ class TestASavedResultCarriesThroughTheBracket:
 
         # Reported, not only performed: an event this save destroyed is something the admin has to
         # see, which is the reason the two fields beside it exist.
-        (advancement,) = response.advanced_to
-        assert advancement.voided_sonderereignis == (None if after_the_advancement else stored_event)
+        assert response.advanced_to == [HALBFINALE_NR]
+        (voided,) = response.voided_ergebnisse
+        assert (voided.spiel_nr, voided.voided_sonderereignis) == (HALBFINALE_NR, None if after_the_advancement else stored_event)
 
 
 class TestASaveChangingNoFieldOnAStaleBracketDoesWhatItsDryRunSaid:
@@ -930,7 +935,7 @@ class TestASaveChangingNoFieldOnAStaleBracketDoesWhatItsDryRunSaid:
 
         preview, saved, spiele, logged = await on_a_seeded_season(mongo_replica_set_url, body, spiele=stale)
 
-        assert [advancement.spiel_nr for advancement in preview.advanced_to] == [HALBFINALE_NR]
+        assert preview.advanced_to == [HALBFINALE_NR]
         assert saved.voided_ergebnisse == preview.voided_ergebnisse
         assert (spiele[HALBFINALE_NR]["team1"]["team_id"], spiele[HALBFINALE_NR]["ergebnis"]) == (BETA, None)
         assert (spiele[VIERTELFINALE_NR]["version"], saved.version, logged) == (quarter["version"], quarter["version"], [])
@@ -1100,12 +1105,15 @@ class TestAReleaseWritesWhatThePureModelPredicts:
         assert run.after_preview == run.before, "the dry run wrote something"
         assert but_its_bookkeeping(run.saved) == but_its_bookkeeping(run.preview), "the preview answered differently from the save it previews"
 
-        (released,) = run.saved.released_sides
-        assert (released.spiel_nr, released.side, released.team_name) == (GRUPPE_HELD_NR, "team1", "Alpha")
-        assert released.voided_ergebnis == ergebnis
+        assert run.saved.released_sides == [GRUPPE_HELD_NR]
+        # Alpha's side, the one this save fields elsewhere, is the side emptied.
+        assert (run.before.team1 is not None and run.before.team1.team_id, run.after_save.team1) == (ALPHA, None)
         # Reported for the reason the scoreline is: a no-show cleared silently is a record the admin
         # never learns this save cost them.
-        assert released.voided_sonderereignis == (sonderereignis if sonderereignis in SONDEREREIGNIS_NO_SHOW else None)
+        no_show = sonderereignis if sonderereignis in SONDEREREIGNIS_NO_SHOW else None
+        assert [(voided.spiel_nr, voided.voided_ergebnis, voided.voided_sonderereignis) for voided in run.saved.voided_ergebnisse] == (
+            [] if ergebnis is None and no_show is None else [(GRUPPE_HELD_NR, ergebnis, no_show)]
+        )
 
         # Asserted on both, so a seed that never landed cannot pass as an event correctly cleared.
         assert run.before.sonderereignis == sonderereignis
@@ -1161,12 +1169,9 @@ class TestAReleaseWritesWhatThePureModelPredicts:
         assert run.after_preview == run.before, "the dry run wrote something"
         assert but_its_bookkeeping(run.saved) == but_its_bookkeeping(run.preview), "the preview answered differently from the save it previews"
 
-        # Two rows, because both clubs left this fixture and the admin is told about each.
-        assert [(entry.spiel_nr, entry.side, entry.team_name) for entry in run.saved.released_sides] == [
-            (GRUPPE_HELD_NR, "team1", "Alpha"),
-            (GRUPPE_HELD_NR, "team2", "Beta"),
-        ]
-        assert [entry.voided_ergebnis for entry in run.saved.released_sides] == ["2:1", "2:1"]
+        # Named once per side, because both clubs left this fixture, and its one result deleted once.
+        assert run.saved.released_sides == [GRUPPE_HELD_NR, GRUPPE_HELD_NR]
+        assert [(voided.spiel_nr, voided.voided_ergebnis) for voided in run.saved.voided_ergebnisse] == [(GRUPPE_HELD_NR, "2:1")]
         # A second `$set` would still show here once merging stopped it from failing: one released fixture is one write.
         assert run.after_save.version == run.before.version + 1
 
@@ -1213,9 +1218,10 @@ class TestAReleaseWritesWhatThePureModelPredicts:
             assert after.ergebnis is None
 
         # The scorelines are the two fixtures' own, so a report assembled from one of them is visible.
-        assert [(entry.spiel_nr, entry.team_name, entry.voided_ergebnis) for entry in run.saved.released_sides] == [
-            (GRUPPE_HELD_NR, "Alpha", "2:1"),
-            (GRUPPE_HELD_OTHER_NR, "Beta", "4:0"),
+        assert run.saved.released_sides == [GRUPPE_HELD_NR, GRUPPE_HELD_OTHER_NR]
+        assert [(voided.spiel_nr, voided.voided_ergebnis) for voided in run.saved.voided_ergebnisse] == [
+            (GRUPPE_HELD_NR, "2:1"),
+            (GRUPPE_HELD_OTHER_NR, "4:0"),
         ]
 
     async def test_a_released_knockout_spiel_loses_its_shoot_out(self, mongo_replica_set_url: str):
@@ -1390,7 +1396,7 @@ class TestASpielTheResolutionReopensKeepsARetiredBooking:
             "a booking only the league can choose to reactivate or replace was taken off"
         )
 
-        assert len(run.saved.advanced_to) == 1
+        assert run.saved.advanced_to == [HALBFINALE_NR]
         assert but_its_bookkeeping(run.preview) == but_its_bookkeeping(run.saved), "the preview answered differently from the save it previews"
 
         assert booking_faults(run.faults) == reported

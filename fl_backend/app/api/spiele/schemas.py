@@ -723,8 +723,7 @@ class FLSpielAdvancement(FLSpielVoidedErgebnis):
     """
 
 
-# `team_name` rather than an id: the message quoting this has no `spiele` list to join against. The
-# name is the season row's, as every read joins it.
+# The save's and the preview's own record of a release; the answer serves only its `spiel_nr`.
 class FLSpielReleasedSide(FLSpielVoidedErgebnis):
     """One side another fixture gave up so a team can play this Spieltag, and the result that destroyed."""
 
@@ -765,14 +764,15 @@ FLSpielRecipientListAdapter: TypeAdapter[list[FLSpielRecipient]] = TypeAdapter(l
 
 
 class FLPatchSpielDataResponse(BaseReadModel):
-    """Every fixture the save moved beyond its own edit, each with the result it destroyed, and the fixture's `version` after it.
+    """The numbers of every fixture the save moved beyond its own edit, the results it destroyed, and the fixture's `version` after it.
 
-    `voided_ergebnisse` is the set a save names in its body to delete those results, and `recipients`, on a `dry_run` alone,
-    every party the confirmation pass would mail of the change.
+    `advanced_to` numbers the fixtures the bracket resolution rewrote and `released_sides` those that gave up a side for
+    this Spieltag. `voided_ergebnisse` is the set a save names in its body to delete those results, and `recipients`, on a
+    `dry_run` alone, every party the confirmation pass would mail of the change.
     """
 
-    advanced_to: list[FLSpielAdvancement] = Field(default_factory=list)
-    released_sides: list[FLSpielReleasedSide] = Field(default_factory=list)
+    advanced_to: list[CustomSpielNr]
+    released_sides: list[CustomSpielNr]
     # Every later result among those fixtures the save deletes, each once, in their numbers' order.
     voided_ergebnisse: list[FLSpielVoidedErgebnis]
     version: int

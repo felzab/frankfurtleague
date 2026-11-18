@@ -1,5 +1,6 @@
 import asyncio
 from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import dataclass
 from typing import Any, cast
 
 import pytest
@@ -149,8 +150,16 @@ async def a_sent_mail(database: AsyncDatabase, invitation_id: ObjectId, to: str)
     await database[Collection.OUTBOX].update_many({"reference.id": invitation_id}, dict(final_update("sent", now=MAIL_NOW)))
 
 
-async def mint(database: AsyncDatabase, team_id: ObjectId, *, invitations: Any = None) -> Any:
-    return await post_invitation(
+@dataclass(frozen=True)
+class Minted:
+    """The raw link a mint answered, and the stored row holding its hash, which the answer does not name."""
+
+    token: str
+    invitation_id: ObjectId
+
+
+async def mint(database: AsyncDatabase, team_id: ObjectId, *, invitations: Any = None) -> Minted:
+    answer = await post_invitation(
         team_id=team_id,
         saison_id=SAISON_ID,
         invitations_collection=invitations if invitations is not None else database[Collection.INVITATIONS],
@@ -159,10 +168,14 @@ async def mint(database: AsyncDatabase, team_id: ObjectId, *, invitations: Any =
         db=database.client,
         today=TODAY,
     )
+    stored = await database[Collection.INVITATIONS].find_one({"token_hashes": hash_token(answer.token)}, {"_id": 1})
+    assert stored is not None, "the mint answered a link no stored row holds"
+
+    return Minted(token=answer.token, invitation_id=stored["_id"])
 
 
-async def revoke(database: AsyncDatabase, team_id: ObjectId) -> Any:
-    return await delete_invitation(
+async def revoke(database: AsyncDatabase, team_id: ObjectId) -> None:
+    await delete_invitation(
         team_id=team_id,
         saison_id=SAISON_ID,
         invitations_collection=database[Collection.INVITATIONS],
@@ -323,8 +336,8 @@ class TestReissuingALink:
         assert first.invitation_id != second.invitation_id
         # The replaced row STAYS: a delivery event about the message carrying it still has to land.
         assert len(rows) == 2
-        assert [row["revoked_at"] for row in rows if row["_id"] == ObjectId(first.invitation_id)] == [TODAY]
-        assert [row["revoked_at"] for row in rows if row["_id"] == ObjectId(second.invitation_id)] == [None]
+        assert [row["revoked_at"] for row in rows if row["_id"] == first.invitation_id] == [TODAY]
+        assert [row["revoked_at"] for row in rows if row["_id"] == second.invitation_id] == [None]
 
     async def test_the_replaced_links_hash_then_opens_nothing(self, mongo_replica_set_url: str):
         """`document_not_found` over the live link's filter: the revocation term is half of it, and a hash alone finds the spent row."""
@@ -443,16 +456,14 @@ class TestRevokingALink:
     async def test_the_row_is_stamped_and_kept(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
             minted = await mint(database, TWO_SEATS)
-            revoked = await revoke(database, TWO_SEATS)
-            stored = await database[Collection.INVITATIONS].find_one({"_id": ObjectId(minted.invitation_id)})
+            await revoke(database, TWO_SEATS)
+            stored = await database[Collection.INVITATIONS].find_one({"_id": minted.invitation_id})
 
             assert stored is not None
-            return minted.invitation_id, revoked.invitation_id, stored["revoked_at"]
+            return stored["revoked_at"]
 
-        minted_id, revoked_id, revoked_at = await on_a_league(mongo_replica_set_url, body)
-
-        assert revoked_id == minted_id
-        assert revoked_at == TODAY
+        # The minted row is the one stamped, and it stays stored.
+        assert await on_a_league(mongo_replica_set_url, body) == TODAY
 
     async def test_a_link_already_revoked_is_not_revoked_twice(self, mongo_replica_set_url: str):
         """The second call must not re-stamp a spent row with today's date, which would rewrite when the link died."""
@@ -539,7 +550,7 @@ class TestTheTeamEditorsRead:
         async def body(database: AsyncDatabase) -> Any:
             minted = await mint(database, TWO_SEATS)
             return (
-                ObjectId(minted.invitation_id),
+                minted.invitation_id,
                 (await read_state(database, TWO_SEATS)).link.invitation,
                 (await read_state(database, ALREADY_MAILED)).link.invitation,
                 (await read_state(database, UNCONFIRMED)).link.invitation,
@@ -561,7 +572,7 @@ class TestTheDayALinkWasSent:
         async def body(database: AsyncDatabase) -> Any:
             minted = await mint(database, TWO_SEATS)
             await mail(database, TWO_SEATS, minted.invitation_id)
-            stored = await database[Collection.INVITATIONS].find_one({"_id": ObjectId(minted.invitation_id)})
+            stored = await database[Collection.INVITATIONS].find_one({"_id": minted.invitation_id})
 
             assert stored is not None
             return stored["sent_at"]
@@ -615,7 +626,7 @@ class TestTheSeasonWidePress:
         assert owed[str(NO_BLOCK)] == []
         # The withdrawn team's own seat IS confirmed, so an empty list here is the withdrawal's doing.
         assert owed[str(WITHDRAWN)] == []
-        assert (done.mailed, done.skipped, done.failed) == (1, 4, 0)
+        assert (done.mailed, done.failed) == (1, 0)
 
     async def test_the_press_writes_one_row_across_the_teams_it_mails(self, mongo_replica_set_url: str):
         """One press is one act in the Protokoll, though each team it mails commits in a transaction of its own."""
@@ -680,8 +691,8 @@ class TestTheSeasonWidePress:
 
         done, revoked_at, live, owed = await on_a_league(mongo_replica_set_url, body)
 
-        # The failed team, counted, and the three teams the plan skips: no block, no confirmed seat, withdrawn.
-        assert (done.mailed, done.skipped, done.failed) == (1, 3, 1)
+        # The failed team, counted apart from the one mailed; the three the plan skips are counted in neither.
+        assert (done.mailed, done.failed) == (1, 1)
         # Its transaction aborted, so the link somebody already holds is untouched and still opens.
         assert revoked_at is None
         # Every other team is served as though nothing had gone wrong, its seats owed.

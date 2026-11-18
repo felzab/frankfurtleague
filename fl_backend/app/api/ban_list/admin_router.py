@@ -1,19 +1,13 @@
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.results import InsertOneResult
 
 from app.api.address_change.services import build_incoming_filter
 from app.api.ban_list.crud import read_ban_list
-from app.api.ban_list.schemas import (
-    FLBanListResponse,
-    FLBanListRow,
-    FLBanListWriteResponse,
-    FLPostBanListEntryPayload,
-    FLPostBanListEntryResponse,
-)
+from app.api.ban_list.schemas import FLBanListResponse, FLBanListRow, FLPostBanListEntryPayload
 from app.api.ban_list.services import compose_barred_until_saison_id, find_admin_refusal, find_no_saison_refusal
 from app.api.grants.crud import pull_the_list_to_judge
 from app.api.grants.guard import ADMIN_TIER
@@ -37,6 +31,7 @@ from app.core.routing import by_id
 from app.core.transactions import transact
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.responses import FLCreatedResponse
 
 router = APIRouter(
     prefix="/ban_list",
@@ -96,7 +91,7 @@ async def post_ban_list_entry(
     db: DBClient,
     today: GermanDay,
     germany_now: GermanyNow,
-) -> FLPostBanListEntryResponse:
+) -> FLCreatedResponse:
     """Ban an address: it cannot sign in, and no mail leaves for it but the ban's own notice, sent where `notify` is set.
 
     The ban runs a fixed number of seasons past the running one, and it and its reason outlive the person's erasure.
@@ -146,27 +141,26 @@ async def post_ban_list_entry(
 
     post_operation = await transact(db, judge_and_ban)
 
-    return FLPostBanListEntryResponse(created_id=post_operation.inserted_id)
+    return FLCreatedResponse(created_id=post_operation.inserted_id)
 
 
 @router.delete(
     by_id("ban_list_entry_id"),
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Lift a ban",
 )
 async def delete_ban_list_entry(
     ban_list_entry_id: CustomObjectId,
     ban_list_collection: BanListCollection,
     db: DBClient,
-) -> FLBanListWriteResponse:
+) -> None:
     """Lift a ban before it lapses, deleting its row for good."""
 
     async def lift_the_ban(session: AsyncClientSession) -> None:
-        # Resolved first so a miss is a 404: a removal taking no row is an ordinary empty result and would answer 200.
+        # Resolved first so a miss is a 404: a removal taking no row is an ordinary empty result and would answer 204.
         await pull_one_from_db(collection=ban_list_collection, db_filter={"_id": ban_list_entry_id}, projection=["_id"], session=session)
 
         await delete_many_from_db(collection=ban_list_collection, db_filter={"_id": ban_list_entry_id}, session=session)
         await record_act(collection=ban_list_collection, action="ban.removed", record_id=ban_list_entry_id, session=session)
 
     await transact(db, lift_the_ban)
-
-    return FLBanListWriteResponse(ban_list_entry_id=ban_list_entry_id)

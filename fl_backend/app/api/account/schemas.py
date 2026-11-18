@@ -122,15 +122,6 @@ class FLAccountAddressChangePayload(BasePayload):
     email: CustomEmail
 
 
-class FLAccountAddressChangeMintResponse(BaseReadModel):
-    """The change started, whose link reaches the address on file by mail alone."""
-
-    id: CustomObjectId
-    valid_until: FLUtcInstant
-    # The change's new address, which that link asks the address on file about.
-    email: str
-
-
 class FLAccountEinwilligungenResponse(BaseReadModel):
     """Every confirmed consent record the signed-in address holds, empty where it holds none.
 

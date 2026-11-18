@@ -79,15 +79,7 @@
             }
           }
         },
-        "description": "Too Many Requests",
-        "headers": {
-          "Retry-After": {
-            "description": "Seconds to wait before asking again",
-            "schema": {
-              "type": "integer"
-            }
-          }
-        }
+        "description": "Too Many Requests"
       },
       "500": {
         "content": {
@@ -107,15 +99,7 @@
             }
           }
         },
-        "description": "Service Unavailable",
-        "headers": {
-          "Retry-After": {
-            "description": "Seconds to wait before asking again",
-            "schema": {
-              "type": "integer"
-            }
-          }
-        }
+        "description": "Service Unavailable"
       }
     },
     "schemas": {
@@ -377,72 +361,6 @@
           "version"
         ],
         "title": "FLAcceptBewerbungPayload",
-        "type": "object"
-      },
-      "FLAcceptBewerbungResponse": {
-        "description": "What the acceptance wrote beyond the application: the club in the season, and where; its mails are owed in the same write.",
-        "properties": {
-          "created_team": {
-            "title": "Created Team",
-            "type": "boolean"
-          },
-          "gruppe": {
-            "$ref": "#/components/schemas/FLGruppenNames"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
-            "type": "string"
-          },
-          "trikot_farbe": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLTrikotFarbe"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "team_id",
-          "created_team",
-          "saison_id",
-          "gruppe",
-          "trikot_farbe"
-        ],
-        "title": "FLAcceptBewerbungResponse",
-        "type": "object"
-      },
-      "FLAccountAddressChangeMintResponse": {
-        "description": "The change started, whose link reaches the address on file by mail alone.",
-        "properties": {
-          "email": {
-            "title": "Email",
-            "type": "string"
-          },
-          "id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id",
-            "type": "string"
-          },
-          "valid_until": {
-            "format": "date-time",
-            "title": "Valid Until",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "valid_until",
-          "email"
-        ],
-        "title": "FLAccountAddressChangeMintResponse",
         "type": "object"
       },
       "FLAccountAddressChangeOpen": {
@@ -1417,20 +1335,6 @@
         ],
         "type": "string"
       },
-      "FLActivateSaisonResponse": {
-        "description": "How many seasons the activation moved off `active` -- normally exactly one.",
-        "properties": {
-          "deactivated": {
-            "title": "Deactivated",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "deactivated"
-        ],
-        "title": "FLActivateSaisonResponse",
-        "type": "object"
-      },
       "FLAddress": {
         "properties": {
           "city": {
@@ -1750,21 +1654,6 @@
         ],
         "type": "string"
       },
-      "FLAddressChangeIdResponse": {
-        "description": "A started, re-sent or discarded change: its mails are owed in the Postausgang, so no link is answered.",
-        "properties": {
-          "id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id"
-        ],
-        "title": "FLAddressChangeIdResponse",
-        "type": "object"
-      },
       "FLAddressChangeLinkData": {
         "description": "The new mailbox's link to confirm an address change, minted at the hand-out into the change's `token_hashes`.",
         "properties": {
@@ -1813,20 +1702,6 @@
           "ids"
         ],
         "title": "FLAddressChangeMovesDonePayload",
-        "type": "object"
-      },
-      "FLAddressChangeMovesDoneResponse": {
-        "properties": {
-          "done": {
-            "minimum": 0.0,
-            "title": "Done",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "done"
-        ],
-        "title": "FLAddressChangeMovesDoneResponse",
         "type": "object"
       },
       "FLAddressChangeMovesResponse": {
@@ -1898,20 +1773,6 @@
           "new"
         ],
         "title": "FLAddressChangeOpenMove",
-        "type": "object"
-      },
-      "FLAddressChangeStopResponse": {
-        "properties": {
-          "stopped": {
-            "const": true,
-            "title": "Stopped",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "stopped"
-        ],
-        "title": "FLAddressChangeStopResponse",
         "type": "object"
       },
       "FLAddressChangeSweepResponse": {
@@ -3020,21 +2881,6 @@
         "title": "FLBanListRow",
         "type": "object"
       },
-      "FLBanListWriteResponse": {
-        "description": "The id of the ban lifted, whose row is gone.",
-        "properties": {
-          "ban_list_entry_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Ban List Entry Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "ban_list_entry_id"
-        ],
-        "title": "FLBanListWriteResponse",
-        "type": "object"
-      },
       "FLBewerbung": {
         "description": "One school's application to play one season, as stored.",
         "properties": {
@@ -3373,49 +3219,6 @@
         "title": "FLBewerbungDecision",
         "type": "object"
       },
-      "FLBewerbungEinwilligungAnswerResponse": {
-        "description": "What the answer did; a Widerspruch's notice to the Ansprechperson is owed in the same write.",
-        "properties": {
-          "birth_date": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Birth Date"
-          },
-          "media": {
-            "title": "Media",
-            "type": "boolean"
-          },
-          "outcome": {
-            "$ref": "#/components/schemas/FLEinwilligungOutcome"
-          },
-          "quelle": {
-            "const": "bewerbung",
-            "default": "bewerbung",
-            "title": "Quelle",
-            "type": "string"
-          },
-          "whatsapp": {
-            "title": "Whatsapp",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "quelle",
-          "outcome",
-          "birth_date",
-          "whatsapp",
-          "media"
-        ],
-        "title": "FLBewerbungEinwilligungAnswerResponse",
-        "type": "object"
-      },
       "FLBewerbungEinwilligungDeclined": {
         "additionalProperties": false,
         "description": "One person's Widerspruch for one seat, which empties their slot: it carries nothing of them.",
@@ -3482,38 +3285,6 @@
           "text_versions"
         ],
         "title": "FLBewerbungEinwilligungGiven",
-        "type": "object"
-      },
-      "FLBewerbungEinwilligungResendResponse": {
-        "description": "The seat whose link was replaced and where its fresh one is owed; the old one opens nothing.",
-        "properties": {
-          "confirmation_deadline": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Confirmation Deadline",
-            "type": "string"
-          },
-          "email": {
-            "title": "Email",
-            "type": "string"
-          },
-          "seat": {
-            "$ref": "#/components/schemas/FLKontaktSeat"
-          },
-          "seats": {
-            "items": {
-              "$ref": "#/components/schemas/FLKontaktSeat"
-            },
-            "title": "Seats",
-            "type": "array"
-          }
-        },
-        "required": [
-          "seat",
-          "email",
-          "seats",
-          "confirmation_deadline"
-        ],
-        "title": "FLBewerbungEinwilligungResendResponse",
         "type": "object"
       },
       "FLBewerbungEinwilligungViewResponse": {
@@ -4334,54 +4105,14 @@
         "type": "string"
       },
       "FLBewerbungSweepResponse": {
-        "description": "One season's pass: each clock's count, every reminder and deletion notice owed in the write it belongs to.",
+        "description": "One season's pass: the rows it passed over, which the next pass meets again.",
         "properties": {
-          "erased": {
-            "title": "Erased",
-            "type": "integer"
-          },
-          "erased_accepted": {
-            "title": "Erased Accepted",
-            "type": "integer"
-          },
-          "erased_declined": {
-            "title": "Erased Declined",
-            "type": "integer"
-          },
-          "erased_without_decision": {
-            "title": "Erased Without Decision",
-            "type": "integer"
-          },
           "failed": {
             "title": "Failed",
             "type": "integer"
-          },
-          "kontakt_blocks_emptied": {
-            "title": "Kontakt Blocks Emptied",
-            "type": "integer"
-          },
-          "kontakt_seats_emptied": {
-            "title": "Kontakt Seats Emptied",
-            "type": "integer"
-          },
-          "reminded": {
-            "title": "Reminded",
-            "type": "integer"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
           }
         },
         "required": [
-          "saison_id",
-          "reminded",
-          "erased",
-          "erased_declined",
-          "erased_accepted",
-          "erased_without_decision",
-          "kontakt_blocks_emptied",
-          "kontakt_seats_emptied",
           "failed"
         ],
         "title": "FLBewerbungSweepResponse",
@@ -5038,21 +4769,6 @@
         "title": "FLDeclineBewerbungPayload",
         "type": "object"
       },
-      "FLDeclineBewerbungResponse": {
-        "description": "The declined application; its mails are owed in the same write.",
-        "properties": {
-          "id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id"
-        ],
-        "title": "FLDeclineBewerbungResponse",
-        "type": "object"
-      },
       "FLDeclinedRetentionDays": {
         "const": 14,
         "type": "integer"
@@ -5177,13 +4893,6 @@
         ],
         "title": "FLEinwilligungEvidenceSet",
         "type": "object"
-      },
-      "FLEinwilligungOutcome": {
-        "enum": [
-          "confirmed",
-          "declined"
-        ],
-        "type": "string"
       },
       "FLEinwilligungReceipt": {
         "description": "When a person set one consent choice, and under which wording.",
@@ -5548,54 +5257,6 @@
         "title": "FLGenerateSpielplanPayload",
         "type": "object"
       },
-      "FLGenerateSpielplanResponse": {
-        "description": "What the draw wrote, and what a confirmed replace deleted first, flat rather than nested.\n\nAn admin reads the written counts without a second request, and they are the same numbers the\nseason editor then counts off the stored matchdays and fixtures, so the two can be compared by eye.",
-        "properties": {
-          "generated_at": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Generated At",
-            "type": "string"
-          },
-          "removed_spiele": {
-            "default": 0,
-            "minimum": 0.0,
-            "title": "Removed Spiele",
-            "type": "integer"
-          },
-          "removed_spieltage": {
-            "default": 0,
-            "minimum": 0.0,
-            "title": "Removed Spieltage",
-            "type": "integer"
-          },
-          "saison_id": {
-            "maxLength": 4,
-            "minLength": 4,
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "spiele": {
-            "minimum": 0.0,
-            "title": "Spiele",
-            "type": "integer"
-          },
-          "spieltage": {
-            "minimum": 0.0,
-            "title": "Spieltage",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "saison_id",
-          "spieltage",
-          "spiele",
-          "generated_at",
-          "removed_spieltage",
-          "removed_spiele"
-        ],
-        "title": "FLGenerateSpielplanResponse",
-        "type": "object"
-      },
       "FLGrantData": {
         "description": "One step of what changes who holds the administration, as every holder in effect and the person named are told it.",
         "properties": {
@@ -5730,21 +5391,6 @@
         "const": 24,
         "type": "integer"
       },
-      "FLGrantWriteResponse": {
-        "description": "The grant the act named.",
-        "properties": {
-          "grant_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Grant Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "grant_id"
-        ],
-        "title": "FLGrantWriteResponse",
-        "type": "object"
-      },
       "FLGrantsListResponse": {
         "description": "Every grant, never in part, a waiting addition among them.",
         "properties": {
@@ -5809,7 +5455,7 @@
         "type": "object"
       },
       "FLInvitationDispatchResponse": {
-        "description": "How the season's press came out, counted in teams.",
+        "description": "How the season's press came out, counted in teams; a team it skipped is counted in neither.",
         "properties": {
           "failed": {
             "minimum": 0.0,
@@ -5820,22 +5466,10 @@
             "minimum": 0.0,
             "title": "Mailed",
             "type": "integer"
-          },
-          "saison_id": {
-            "minLength": 1,
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "skipped": {
-            "minimum": 0.0,
-            "title": "Skipped",
-            "type": "integer"
           }
         },
         "required": [
-          "saison_id",
           "mailed",
-          "skipped",
           "failed"
         ],
         "title": "FLInvitationDispatchResponse",
@@ -5925,21 +5559,6 @@
       "FLInvitationMintResponse": {
         "description": "A freshly minted registration link, and the only answer that ever carries its raw value: no later read recovers it.",
         "properties": {
-          "invitation_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Invitation Id",
-            "type": "string"
-          },
-          "saison_id": {
-            "minLength": 1,
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
-            "type": "string"
-          },
           "token": {
             "minLength": 1,
             "title": "Token",
@@ -5947,9 +5566,6 @@
           }
         },
         "required": [
-          "saison_id",
-          "team_id",
-          "invitation_id",
           "token"
         ],
         "title": "FLInvitationMintResponse",
@@ -6086,33 +5702,6 @@
         "title": "FLInvitationViewResponse",
         "type": "object"
       },
-      "FLInvitationWriteResponse": {
-        "description": "The revoked link, which stays stored so a delivery event about it still lands.",
-        "properties": {
-          "invitation_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Invitation Id",
-            "type": "string"
-          },
-          "saison_id": {
-            "minLength": 1,
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "saison_id",
-          "team_id",
-          "invitation_id"
-        ],
-        "title": "FLInvitationWriteResponse",
-        "type": "object"
-      },
       "FLKaderResponse": {
         "description": "A team's squad for one season, live and ausgetragen rows alike, with the Stufen the season's rules offer.",
         "properties": {
@@ -6130,20 +5719,9 @@
             },
             "title": "Kader",
             "type": "array"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
-            "type": "string"
           }
         },
         "required": [
-          "team_id",
-          "saison_id",
           "allowed_stufen",
           "kader"
         ],
@@ -6306,30 +5884,6 @@
         "title": "FLKontakt",
         "type": "object"
       },
-      "FLKontaktInviteResponse": {
-        "description": "A fresh link owed one seat, and its pair where the Trainer holds both; the old link opens nothing from this write on.",
-        "properties": {
-          "confirmation": {
-            "$ref": "#/components/schemas/FLKontaktMint"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "saison_id",
-          "team_id",
-          "confirmation"
-        ],
-        "title": "FLKontaktInviteResponse",
-        "type": "object"
-      },
       "FLKontaktKenntnisnahme": {
         "description": "The scope this person's record is held on, the day they were seated, and what they answered.\n\nKenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(f), the optional WhatsApp scope and the media\nanswer alone being consents under Art. 6(1)(a), and a pupil's consent record holds other values entirely.",
         "properties": {
@@ -6420,28 +5974,6 @@
           "row"
         ],
         "title": "FLKontaktLinkData",
-        "type": "object"
-      },
-      "FLKontaktMint": {
-        "description": "One person a write owed a fresh confirmation link, which the Postausgang mails: never the link itself.",
-        "properties": {
-          "email": {
-            "title": "Email",
-            "type": "string"
-          },
-          "seats": {
-            "items": {
-              "$ref": "#/components/schemas/FLKontaktSeat"
-            },
-            "title": "Seats",
-            "type": "array"
-          }
-        },
-        "required": [
-          "seats",
-          "email"
-        ],
-        "title": "FLKontaktMint",
         "type": "object"
       },
       "FLKontaktPayload": {
@@ -8160,19 +7692,6 @@
         "title": "FLPatchSaisonPayload",
         "type": "object"
       },
-      "FLPatchSaisonResponse": {
-        "properties": {
-          "version": {
-            "title": "Version",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "version"
-        ],
-        "title": "FLPatchSaisonResponse",
-        "type": "object"
-      },
       "FLPatchSchiedsrichterPayload": {
         "additionalProperties": false,
         "properties": {
@@ -8232,6 +7751,7 @@
             ]
           },
           "version": {
+            "minimum": 0.0,
             "title": "Version",
             "type": "integer"
           }
@@ -8401,11 +7921,12 @@
         "type": "object"
       },
       "FLPatchSpielDataResponse": {
-        "description": "Every fixture the save moved beyond its own edit, each with the result it destroyed, and the fixture's `version` after it.\n\n`voided_ergebnisse` is the set a save names in its body to delete those results, and `recipients`, on a `dry_run` alone,\nevery party the confirmation pass would mail of the change.",
+        "description": "The numbers of every fixture the save moved beyond its own edit, the results it destroyed, and the fixture's `version` after it.\n\n`advanced_to` numbers the fixtures the bracket resolution rewrote and `released_sides` those that gave up a side for\nthis Spieltag. `voided_ergebnisse` is the set a save names in its body to delete those results, and `recipients`, on a\n`dry_run` alone, every party the confirmation pass would mail of the change.",
         "properties": {
           "advanced_to": {
             "items": {
-              "$ref": "#/components/schemas/FLSpielAdvancement"
+              "exclusiveMinimum": 0.0,
+              "type": "integer"
             },
             "title": "Advanced To",
             "type": "array"
@@ -8440,7 +7961,8 @@
           },
           "released_sides": {
             "items": {
-              "$ref": "#/components/schemas/FLSpielReleasedSide"
+              "exclusiveMinimum": 0.0,
+              "type": "integer"
             },
             "title": "Released Sides",
             "type": "array"
@@ -8558,21 +8080,6 @@
         "title": "FLPatchSpielerSaisonPayload",
         "type": "object"
       },
-      "FLPatchSpielerSaisonResponse": {
-        "description": "The count the editor's next save sends.",
-        "properties": {
-          "version": {
-            "minimum": 0.0,
-            "title": "Version",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "version"
-        ],
-        "title": "FLPatchSpielerSaisonResponse",
-        "type": "object"
-      },
       "FLPatchSpielortPayload": {
         "additionalProperties": false,
         "properties": {
@@ -8603,19 +8110,6 @@
           "version"
         ],
         "title": "FLPatchSpielortPayload",
-        "type": "object"
-      },
-      "FLPatchSpielortResponse": {
-        "properties": {
-          "version": {
-            "title": "Version",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "version"
-        ],
-        "title": "FLPatchSpielortResponse",
         "type": "object"
       },
       "FLPatchSpieltagPayload": {
@@ -8732,21 +8226,6 @@
         "title": "FLPatchTeamSaisonPayload",
         "type": "object"
       },
-      "FLPatchTeamSaisonResponse": {
-        "description": "The count the editor's next save sends.",
-        "properties": {
-          "version": {
-            "minimum": 0.0,
-            "title": "Version",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "version"
-        ],
-        "title": "FLPatchTeamSaisonResponse",
-        "type": "object"
-      },
       "FLPostBanListEntryPayload": {
         "additionalProperties": false,
         "properties": {
@@ -8773,20 +8252,6 @@
           "ban_reason"
         ],
         "title": "FLPostBanListEntryPayload",
-        "type": "object"
-      },
-      "FLPostBanListEntryResponse": {
-        "properties": {
-          "created_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Created Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "created_id"
-        ],
-        "title": "FLPostBanListEntryResponse",
         "type": "object"
       },
       "FLPostBewerbungPayload": {
@@ -8952,21 +8417,6 @@
         "title": "FLPostRegistrierungPayload",
         "type": "object"
       },
-      "FLPostRegistrierungResponse": {
-        "description": "The stored registration, the one a replayed key wrote first; its confirmation mail is owed in the same write.",
-        "properties": {
-          "registrierung_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Registrierung Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "registrierung_id"
-        ],
-        "title": "FLPostRegistrierungResponse",
-        "type": "object"
-      },
       "FLPostSaisonPayload": {
         "additionalProperties": false,
         "properties": {
@@ -9041,24 +8491,6 @@
         "title": "FLPostSchiedsrichterPayload",
         "type": "object"
       },
-      "FLPostSchiedsrichterResponse": {
-        "properties": {
-          "confirmation": {
-            "$ref": "#/components/schemas/FLSchiedsrichterMint"
-          },
-          "created_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Created Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "confirmation",
-          "created_id"
-        ],
-        "title": "FLPostSchiedsrichterResponse",
-        "type": "object"
-      },
       "FLPostSpielortPayload": {
         "additionalProperties": false,
         "properties": {
@@ -9127,21 +8559,6 @@
           "trikot_farbe"
         ],
         "title": "FLPostTeamEntryPayload",
-        "type": "object"
-      },
-      "FLPostTeamEntryResponse": {
-        "description": "The club the entry wrote a row for, whose editor the list opens.",
-        "properties": {
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "team_id"
-        ],
-        "title": "FLPostTeamEntryResponse",
         "type": "object"
       },
       "FLPostTeamPayload": {
@@ -9393,89 +8810,6 @@
         "title": "FLRegistrierungAdminRow",
         "type": "object"
       },
-      "FLRegistrierungAdmissionResponse": {
-        "description": "The squad entry the admission wrote, and the person it belongs to.",
-        "properties": {
-          "first_name": {
-            "minLength": 1,
-            "title": "First Name",
-            "type": "string"
-          },
-          "is_nachnominiert": {
-            "title": "Is Nachnominiert",
-            "type": "boolean"
-          },
-          "last_name": {
-            "minLength": 1,
-            "title": "Last Name",
-            "type": "string"
-          },
-          "nummer": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nummer"
-          },
-          "position": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielerPosition"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "registrierung_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Registrierung Id",
-            "type": "string"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "spieler_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spieler Id",
-            "type": "string"
-          },
-          "stufe": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielerStufe"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "registrierung_id",
-          "spieler_id",
-          "team_id",
-          "saison_id",
-          "first_name",
-          "last_name",
-          "nummer",
-          "position",
-          "stufe",
-          "is_nachnominiert"
-        ],
-        "title": "FLRegistrierungAdmissionResponse",
-        "type": "object"
-      },
       "FLRegistrierungAdmitPayload": {
         "additionalProperties": false,
         "description": "The team's answer to the question the read asked: the person this registration is admitted into, or none.",
@@ -9538,36 +8872,6 @@
           "text_versions"
         ],
         "title": "FLRegistrierungConfirmationPayload",
-        "type": "object"
-      },
-      "FLRegistrierungConfirmationResponse": {
-        "description": "What the pupil just recorded, echoed so the answer panel states it rather than opening the link a second time.",
-        "properties": {
-          "birth_date": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Birth Date",
-            "type": "string"
-          },
-          "media": {
-            "title": "Media",
-            "type": "boolean"
-          },
-          "outcome": {
-            "const": "confirmed",
-            "title": "Outcome",
-            "type": "string"
-          },
-          "scope": {
-            "$ref": "#/components/schemas/FLEinwilligungScope"
-          }
-        },
-        "required": [
-          "outcome",
-          "birth_date",
-          "scope",
-          "media"
-        ],
-        "title": "FLRegistrierungConfirmationResponse",
         "type": "object"
       },
       "FLRegistrierungConfirmationViewResponse": {
@@ -9653,27 +8957,6 @@
         "title": "FLRegistrierungDeclinePayload",
         "type": "object"
       },
-      "FLRegistrierungDeclineResponse": {
-        "description": "The declined registration, and the first name the seat holder is told the decision by.",
-        "properties": {
-          "first_name": {
-            "minLength": 1,
-            "title": "First Name",
-            "type": "string"
-          },
-          "registrierung_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Registrierung Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "registrierung_id",
-          "first_name"
-        ],
-        "title": "FLRegistrierungDeclineResponse",
-        "type": "object"
-      },
       "FLRegistrierungLinkData": {
         "description": "A pupil's confirmation link; the window its mail states is a published bound, never carried here.",
         "properties": {
@@ -9742,34 +9025,14 @@
         "type": "object"
       },
       "FLRegistrierungSweepResponse": {
-        "description": "One season's pass: the erasures made, each committed.",
+        "description": "One season's pass: the rows it passed over, which the next pass meets again.",
         "properties": {
-          "erased_declined": {
-            "title": "Erased Declined",
-            "type": "integer"
-          },
-          "erased_unconfirmed": {
-            "title": "Erased Unconfirmed",
-            "type": "integer"
-          },
-          "erased_without_decision": {
-            "title": "Erased Without Decision",
-            "type": "integer"
-          },
           "failed": {
             "title": "Failed",
             "type": "integer"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
           }
         },
         "required": [
-          "saison_id",
-          "erased_unconfirmed",
-          "erased_without_decision",
-          "erased_declined",
           "failed"
         ],
         "title": "FLRegistrierungSweepResponse",
@@ -9811,80 +9074,6 @@
           "incoming_team_id"
         ],
         "title": "FLReplaceSaisonTeamPayload",
-        "type": "object"
-      },
-      "FLReplaceSaisonTeamResponse": {
-        "description": "The junction row as the replacement left it, plus what it reached beyond that row.\n\n`austritt` is cleared and not echoed: a club that has not withdrawn needs nothing done about it.",
-        "properties": {
-          "gruppe": {
-            "$ref": "#/components/schemas/FLGruppenNames"
-          },
-          "incoming_team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Incoming Team Id",
-            "type": "string"
-          },
-          "kontakte": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSaisonTeamKontakte"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "name": {
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
-          },
-          "outgoing_team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Outgoing Team Id",
-            "type": "string"
-          },
-          "retired_kader_rows": {
-            "title": "Retired Kader Rows",
-            "type": "integer"
-          },
-          "rewritten_spiele": {
-            "title": "Rewritten Spiele",
-            "type": "integer"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "shorthand": {
-            "pattern": "^[A-Z]{3}$",
-            "title": "Shorthand",
-            "type": "string"
-          },
-          "trikot_farbe": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLTrikotFarbe"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "saison_id",
-          "outgoing_team_id",
-          "incoming_team_id",
-          "gruppe",
-          "trikot_farbe",
-          "kontakte",
-          "name",
-          "shorthand",
-          "rewritten_spiele",
-          "retired_kader_rows"
-        ],
-        "title": "FLReplaceSaisonTeamResponse",
         "type": "object"
       },
       "FLSaisonActRefusals": {
@@ -10654,49 +9843,6 @@
         "title": "FLSaisonTeamConfirmationsView",
         "type": "object"
       },
-      "FLSaisonTeamEinwilligungAnswerResponse": {
-        "description": "What an answer on a season row's link did; nobody is told, so nothing composes a message.",
-        "properties": {
-          "birth_date": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Birth Date"
-          },
-          "media": {
-            "title": "Media",
-            "type": "boolean"
-          },
-          "outcome": {
-            "$ref": "#/components/schemas/FLEinwilligungOutcome"
-          },
-          "quelle": {
-            "const": "saison",
-            "default": "saison",
-            "title": "Quelle",
-            "type": "string"
-          },
-          "whatsapp": {
-            "title": "Whatsapp",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "quelle",
-          "outcome",
-          "birth_date",
-          "whatsapp",
-          "media"
-        ],
-        "title": "FLSaisonTeamEinwilligungAnswerResponse",
-        "type": "object"
-      },
       "FLSaisonTeamEntry": {
         "description": "One club of a season as the Teams page lists it: the name and shorthand it plays this season under.",
         "properties": {
@@ -10812,12 +9958,6 @@
       "FLSaisonsAdminListResponse": {
         "description": "Every season, with the id the next create mints and why a create would be refused now.",
         "properties": {
-          "format": {
-            "const": "list",
-            "default": "list",
-            "title": "Format",
-            "type": "string"
-          },
           "next_saison_id": {
             "maxLength": 4,
             "minLength": 4,
@@ -10836,7 +9976,6 @@
           }
         },
         "required": [
-          "format",
           "saisons",
           "next_saison_id",
           "refusals"
@@ -11082,30 +10221,6 @@
         "title": "FLSchiedsrichterConfirmationPayload",
         "type": "object"
       },
-      "FLSchiedsrichterConfirmationResponse": {
-        "description": "What the person just recorded, as their press sent it.\n\nA caller holding a leaked token learns nothing it did not already post.",
-        "properties": {
-          "confirmed_at": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Confirmed At",
-            "type": "string"
-          },
-          "media": {
-            "title": "Media",
-            "type": "boolean"
-          },
-          "scope": {
-            "$ref": "#/components/schemas/FLEinwilligungScope"
-          }
-        },
-        "required": [
-          "scope",
-          "media",
-          "confirmed_at"
-        ],
-        "title": "FLSchiedsrichterConfirmationResponse",
-        "type": "object"
-      },
       "FLSchiedsrichterConfirmationState": {
         "enum": [
           "valid",
@@ -11206,26 +10321,6 @@
           "confirmation"
         ],
         "title": "FLSchiedsrichterMintResponse",
-        "type": "object"
-      },
-      "FLSchiedsrichterReactivateResponse": {
-        "description": "The reactivation's answer: its own rather than the retire's, being the one of the pair that can mint.",
-        "properties": {
-          "confirmation": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSchiedsrichterMint"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "confirmation"
-        ],
-        "title": "FLSchiedsrichterReactivateResponse",
         "type": "object"
       },
       "FLSchiedsrichterScopeTextVersion": {
@@ -11608,63 +10703,6 @@
         ],
         "type": "string"
       },
-      "FLSpielAdvancement": {
-        "additionalProperties": false,
-        "description": "One fixture the bracket resolution rewrote, and the result that rewrite destroyed.\n\nEvery voided field is null where a slot merely filled from empty.",
-        "properties": {
-          "spiel_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spiel Id",
-            "type": "string"
-          },
-          "spiel_nr": {
-            "exclusiveMinimum": 0.0,
-            "title": "Spiel Nr",
-            "type": "integer"
-          },
-          "voided_elfmeterschiessen": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielElfmeterschiessen"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "voided_ergebnis": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]+:[0-9]+$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Voided Ergebnis"
-          },
-          "voided_sonderereignis": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSonderereignis"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "spiel_id",
-          "spiel_nr",
-          "voided_ergebnis",
-          "voided_elfmeterschiessen",
-          "voided_sonderereignis"
-        ],
-        "title": "FLSpielAdvancement",
-        "type": "object"
-      },
       "FLSpielEditorAufstellungMarks": {
         "description": "Each side's line-up marks, off the clock alone, as the club's own pages are served them.\n\nNull for an open side and for a fixture with no day or hour. A fixture carrying an event owes no line-up either,\nwhich a page reads off its `sonderereignis`, as the club's own pages do.",
         "properties": {
@@ -11728,7 +10766,7 @@
         "type": "object"
       },
       "FLSpielEditorBericht": {
-        "description": "The fixture's report as the editor's Spielbericht section shows it: its goals and the result they propose.\n\n`version` is the report document's, the one an adoption names (`adopts_bericht`), `sides` the clubs the report is\nabout, and `named` each pupil a goal names, by the names their record holds.",
+        "description": "The fixture's report as the editor's Spielbericht section shows it: its goals and the result they propose.\n\n`version` is the report document's, the one an adoption names (`adopts_bericht`), and `named` each pupil a goal\nnames, by the names their record holds.",
         "properties": {
           "ergebnis_vorschlag": {
             "$ref": "#/components/schemas/FLSpielberichtVorschlag"
@@ -11747,9 +10785,6 @@
             "title": "Scorers",
             "type": "array"
           },
-          "sides": {
-            "$ref": "#/components/schemas/FLSpielberichtSides"
-          },
           "state": {
             "$ref": "#/components/schemas/FLSpielberichtState"
           },
@@ -11762,7 +10797,6 @@
           "state",
           "version",
           "ergebnis_vorschlag",
-          "sides",
           "scorers",
           "named"
         ],
@@ -11770,14 +10804,10 @@
         "type": "object"
       },
       "FLSpielEditorSchiedsrichter": {
-        "description": "A referee the editor offers: their whole name, the fee they default to, how they answered their entry, and the day they retired.",
+        "description": "A referee the editor offers: their whole name, the fee they default to, whether they confirmed their entry, and the day they retired.",
         "properties": {
           "confirmed": {
             "title": "Confirmed",
-            "type": "boolean"
-          },
-          "declined": {
-            "title": "Declined",
             "type": "boolean"
           },
           "default_payment": {
@@ -11813,7 +10843,6 @@
           "name",
           "default_payment",
           "confirmed",
-          "declined",
           "inactive_since"
         ],
         "title": "FLSpielEditorSchiedsrichter",
@@ -12765,73 +11794,6 @@
           "name"
         ],
         "title": "FLSpielRecipientTeam",
-        "type": "object"
-      },
-      "FLSpielReleasedSide": {
-        "additionalProperties": false,
-        "description": "One side another fixture gave up so a team can play this Spieltag, and the result that destroyed.",
-        "properties": {
-          "side": {
-            "$ref": "#/components/schemas/FLSpielSide"
-          },
-          "spiel_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spiel Id",
-            "type": "string"
-          },
-          "spiel_nr": {
-            "exclusiveMinimum": 0.0,
-            "title": "Spiel Nr",
-            "type": "integer"
-          },
-          "team_name": {
-            "minLength": 1,
-            "title": "Team Name",
-            "type": "string"
-          },
-          "voided_elfmeterschiessen": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielElfmeterschiessen"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "voided_ergebnis": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]+:[0-9]+$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Voided Ergebnis"
-          },
-          "voided_sonderereignis": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSonderereignis"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "spiel_id",
-          "spiel_nr",
-          "voided_ergebnis",
-          "voided_elfmeterschiessen",
-          "voided_sonderereignis",
-          "side",
-          "team_name"
-        ],
-        "title": "FLSpielReleasedSide",
         "type": "object"
       },
       "FLSpielRequestData": {
@@ -14129,34 +13091,6 @@
         ],
         "type": "string"
       },
-      "FLSpielbestaetigungAnswerResponse": {
-        "description": "What the answer recorded: its way, the seat it came from, and the answering club's own proposal. No receipt is mailed off it.",
-        "properties": {
-          "answered_by": {
-            "$ref": "#/components/schemas/FLSpielbestaetigungBy"
-          },
-          "state": {
-            "$ref": "#/components/schemas/FLSpielbestaetigungAnswerKind"
-          },
-          "vorschlag": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielbestaetigungAppointment"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "state",
-          "answered_by",
-          "vorschlag"
-        ],
-        "title": "FLSpielbestaetigungAnswerResponse",
-        "type": "object"
-      },
       "FLSpielbestaetigungAppointment": {
         "description": "A date and time without a ground: a team's proposal, and the slot a moved fixture left.",
         "properties": {
@@ -14478,24 +13412,6 @@
         "title": "FLSpielbestaetigungSchiedsrichterAnswerPayload",
         "type": "object"
       },
-      "FLSpielbestaetigungSchiedsrichterAnswerResponse": {
-        "properties": {
-          "spielbestaetigung_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spielbestaetigung Id",
-            "type": "string"
-          },
-          "state": {
-            "$ref": "#/components/schemas/FLSpielbestaetigungAnswerKind"
-          }
-        },
-        "required": [
-          "spielbestaetigung_id",
-          "state"
-        ],
-        "title": "FLSpielbestaetigungSchiedsrichterAnswerResponse",
-        "type": "object"
-      },
       "FLSpielbestaetigungSweepResponse": {
         "description": "One season's pass, counted: what it closed, the rows it asked or reminded, and the mails it owed the Postausgang.",
         "properties": {
@@ -14518,14 +13434,9 @@
           "reminded": {
             "title": "Reminded",
             "type": "integer"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
           }
         },
         "required": [
-          "saison_id",
           "closed",
           "asked",
           "reminded",
@@ -15973,25 +14884,6 @@
         "title": "FLSpieltagAdminResponse",
         "type": "object"
       },
-      "FLSpieltagWriteResponse": {
-        "properties": {
-          "spieltag_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spieltag Id",
-            "type": "string"
-          },
-          "version": {
-            "title": "Version",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "spieltag_id",
-          "version"
-        ],
-        "title": "FLSpieltagWriteResponse",
-        "type": "object"
-      },
       "FLSubjectPayload": {
         "additionalProperties": false,
         "description": "Which mailbox is asking, folded to the one spelling the join, the header and the log agree on.",
@@ -16170,47 +15062,6 @@
           "team2_id"
         ],
         "title": "FLSwapGruppenPayload",
-        "type": "object"
-      },
-      "FLSwapGruppenResponse": {
-        "description": "Both junction rows as the swap left them, plus `rewritten_spiele` -- the second half of the write, reported not assumed.",
-        "properties": {
-          "rewritten_spiele": {
-            "title": "Rewritten Spiele",
-            "type": "integer"
-          },
-          "saison_id": {
-            "maxLength": 4,
-            "minLength": 4,
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "team1_gruppe": {
-            "$ref": "#/components/schemas/FLGruppenNames"
-          },
-          "team1_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team1 Id",
-            "type": "string"
-          },
-          "team2_gruppe": {
-            "$ref": "#/components/schemas/FLGruppenNames"
-          },
-          "team2_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team2 Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "saison_id",
-          "team1_id",
-          "team1_gruppe",
-          "team2_id",
-          "team2_gruppe",
-          "rewritten_spiele"
-        ],
-        "title": "FLSwapGruppenResponse",
         "type": "object"
       },
       "FLSweepSaisonsResponse": {
@@ -17728,11 +16579,6 @@
             "title": "Seats Confirmed",
             "type": "integer"
           },
-          "seats_filled": {
-            "minimum": 0.0,
-            "title": "Seats Filled",
-            "type": "integer"
-          },
           "shorthand": {
             "title": "Shorthand",
             "type": "string"
@@ -17754,7 +16600,6 @@
           "shorthand",
           "gruppe",
           "trikot_farbe",
-          "seats_filled",
           "seats_confirmed",
           "austritt_type",
           "inactive_since"
@@ -17816,37 +16661,19 @@
         ],
         "type": "string"
       },
-      "FLUndrawSpielplanResponse": {
-        "description": "What removing the season's Spielplan took away, on the shape the draw reports.\n\nBoth counts are zero on a season already undrawn, which is why the watermark is reported apart:\nit is the one thing a season can hold with neither collection behind it.",
+      "FLVersionResponse": {
+        "description": "The record's version after an editor's save, which the editor's next save sends.",
         "properties": {
-          "saison_id": {
-            "maxLength": 4,
-            "minLength": 4,
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "spiele": {
+          "version": {
             "minimum": 0.0,
-            "title": "Spiele",
+            "title": "Version",
             "type": "integer"
-          },
-          "spieltage": {
-            "minimum": 0.0,
-            "title": "Spieltage",
-            "type": "integer"
-          },
-          "watermark_cleared": {
-            "title": "Watermark Cleared",
-            "type": "boolean"
           }
         },
         "required": [
-          "saison_id",
-          "spieltage",
-          "spiele",
-          "watermark_cleared"
+          "version"
         ],
-        "title": "FLUndrawSpielplanResponse",
+        "title": "FLVersionResponse",
         "type": "object"
       },
       "FLWhatsappTextVersion": {
@@ -17906,14 +16733,7 @@
         "description": "Stop the change pending on the signed-in address at any step, its new address going; a holder's change in its wait tells every holder.",
         "operationId": "account_delete_address_change",
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLAccountAddressChangeResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -18046,14 +16866,7 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLAccountAddressChangeMintResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -18333,14 +17146,7 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLAddressChangeIdResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -18565,14 +17371,7 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLAddressChangeStopResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -18860,7 +17659,7 @@
     },
     "/api/address_change/sweep/moves/done": {
       "post": {
-        "description": "Take the owed carry off each named change, counting the ones that owed one; an id owing none is left alone.",
+        "description": "Take the owed carry off each named change; an id owing none is left alone.",
         "operationId": "address_change_post_address_change_moves_done",
         "requestBody": {
           "content": {
@@ -18873,14 +17672,7 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLAddressChangeMovesDoneResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -18952,14 +17744,7 @@
           }
         ],
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLAddressChangeIdResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -19031,14 +17816,7 @@
           }
         ],
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLAddressChangeIdResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -19221,21 +17999,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLAufstellungResponse"
+                  "$ref": "#/components/schemas/FLVersionResponse"
                 }
               }
             },
             "description": "Successful Response"
-          },
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLAufstellungResponse"
-                }
-              }
-            },
-            "description": "The line-up did not stand before, and this save created it"
           },
           "400": {
             "$ref": "#/components/responses/400",
@@ -19417,21 +18185,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLAufstellungResponse"
+                  "$ref": "#/components/schemas/FLVersionResponse"
                 }
               }
             },
             "description": "Successful Response"
-          },
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLAufstellungResponse"
-                }
-              }
-            },
-            "description": "The line-up did not stand before, and this save created it"
           },
           "400": {
             "$ref": "#/components/responses/400",
@@ -19569,7 +18327,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLPostBanListEntryResponse"
+                  "$ref": "#/components/schemas/FLCreatedResponse"
                 }
               }
             },
@@ -19644,14 +18402,7 @@
           }
         ],
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLBanListWriteResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -19901,29 +18652,7 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "discriminator": {
-                    "mapping": {
-                      "bewerbung": "#/components/schemas/FLBewerbungEinwilligungAnswerResponse",
-                      "saison": "#/components/schemas/FLSaisonTeamEinwilligungAnswerResponse"
-                    },
-                    "propertyName": "quelle"
-                  },
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/FLBewerbungEinwilligungAnswerResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/FLSaisonTeamEinwilligungAnswerResponse"
-                    }
-                  ],
-                  "title": "Response Bewerbungen Post Confirmation"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -20136,7 +18865,7 @@
     },
     "/api/bewerbungen/saisons/{saison_id}/sweep": {
       "post": {
-        "description": "Run one season's retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.\n\nA row that cannot be written is passed over, counted in `failed`, and met again by the next pass.",
+        "description": "Run one season's retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.\n\nA row that cannot be written is passed over, counted in `failed`, and met again by the next pass; what each clock\nerased is recorded in the action log.",
         "operationId": "bewerbungen_sweep_saison",
         "parameters": [
           {
@@ -20385,14 +19114,7 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLAcceptBewerbungResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -20474,14 +19196,7 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLDeclineBewerbungResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -20718,7 +19433,7 @@
     },
     "/api/bewerbungen/{bewerbung_id}/kontakte/{seat}/confirmation/resend": {
       "post": {
-        "description": "Void one seat's link and mail its person a fresh one, that seat's deadline and reminder starting again from today.\n\nWhere one person holds two seats both are replaced and one link answers both, and the answer names the address and\nseats as the write found them.",
+        "description": "Void one seat's link and mail its person a fresh one, that seat's deadline and reminder starting again from today.\n\nWhere one person holds two seats both are replaced and one link answers both.",
         "operationId": "bewerbungen_resend_kontakt_confirmation",
         "parameters": [
           {
@@ -20742,14 +19457,7 @@
           }
         ],
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLBewerbungEinwilligungResendResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -20888,7 +19596,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLGrantWriteResponse"
+                  "$ref": "#/components/schemas/FLCreatedResponse"
                 }
               }
             },
@@ -21030,14 +19738,7 @@
           }
         ],
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLGrantWriteResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -21109,14 +19810,7 @@
           }
         ],
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLGrantWriteResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -21186,14 +19880,7 @@
           }
         ],
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLGrantWriteResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -22248,7 +20935,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLPostRegistrierungResponse"
+                  "$ref": "#/components/schemas/FLCreatedResponse"
                 }
               }
             },
@@ -22321,14 +21008,7 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLRegistrierungConfirmationResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -22541,7 +21221,7 @@
     },
     "/api/registrierungen/saisons/{saison_id}/sweep": {
       "post": {
-        "description": "Erase one season's due registrations, as of today in Europe/Berlin.\n\nA declined one goes once its wait after the decision has run out, an unconfirmed one past its deadline, and every one\nstill undecided once the season is `past`; one whose erasure fails is counted in `failed` and met again next pass.",
+        "description": "Erase one season's due registrations, as of today in Europe/Berlin.\n\nA declined one goes once its wait after the decision has run out, an unconfirmed one past its deadline, and every one\nstill undecided once the season is `past`; one whose erasure fails is counted in `failed` and met again next pass.\nWhat each page erased is recorded in the action log.",
         "operationId": "registrierungen_sweep_registrierungen",
         "parameters": [
           {
@@ -22732,14 +21412,7 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLRegistrierungAdmissionResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -22821,14 +21494,7 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLRegistrierungDeclineResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -23347,7 +22013,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLPatchSaisonResponse"
+                  "$ref": "#/components/schemas/FLVersionResponse"
                 }
               }
             },
@@ -23421,14 +22087,7 @@
           }
         ],
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLActivateSaisonResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -23509,14 +22168,7 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSwapGruppenResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -23909,14 +22561,7 @@
           }
         ],
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLUndrawSpielplanResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -24070,14 +22715,7 @@
           }
         },
         "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLGenerateSpielplanResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -24455,7 +23093,7 @@
         ]
       },
       "post": {
-        "description": "Create a referee and owe them their confirmation link, answering the address and the deadline it goes to.\n\nEntering a referee is the invitation, with no second press deciding whether they are asked, since a referee nobody\nasked is a name nobody consented to publish.",
+        "description": "Create a referee and owe them their confirmation link.\n\nEntering a referee is the invitation, with no second press deciding whether they are asked, since a referee nobody\nasked is a name nobody consented to publish.",
         "operationId": "schiedsrichter_post_schiedsrichter",
         "requestBody": {
           "content": {
@@ -24472,7 +23110,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLPostSchiedsrichterResponse"
+                  "$ref": "#/components/schemas/FLCreatedResponse"
                 }
               }
             },
@@ -24545,14 +23183,7 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSchiedsrichterConfirmationResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -25366,7 +23997,7 @@
     },
     "/api/schiedsrichter/{schiedsrichter_id}/reactivate": {
       "post": {
-        "description": "Bring a retired referee back into the picker and every default read.\n\nOne who has not answered is owed a fresh link, named in `confirmation`, since a retired referee's save mails nothing.",
+        "description": "Bring a retired referee back into the picker and every default read.\n\nOne who has not answered is owed a fresh link, since a retired referee's save mails nothing.",
         "operationId": "schiedsrichter_reactivate_schiedsrichter",
         "parameters": [
           {
@@ -25381,14 +24012,7 @@
           }
         ],
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSchiedsrichterReactivateResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -25551,21 +24175,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSpielberichtSchiedsrichterResponse"
+                  "$ref": "#/components/schemas/FLVersionResponse"
                 }
               }
             },
             "description": "Successful Response"
-          },
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielberichtSchiedsrichterResponse"
-                }
-              }
-            },
-            "description": "The report did not stand before, and this write created it"
           },
           "400": {
             "$ref": "#/components/responses/400",
@@ -25863,14 +24477,7 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielbestaetigungSchiedsrichterAnswerResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -25952,14 +24559,7 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielbestaetigungAnswerResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -27032,7 +25632,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLPatchSpielerSaisonResponse"
+                  "$ref": "#/components/schemas/FLVersionResponse"
                 }
               }
             },
@@ -27207,14 +25807,7 @@
           }
         ],
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLKaderRow"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -27313,14 +25906,7 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLKaderRow"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -27707,7 +26293,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLPatchSpielortResponse"
+                  "$ref": "#/components/schemas/FLVersionResponse"
                 }
               }
             },
@@ -27945,7 +26531,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSpieltagWriteResponse"
+                  "$ref": "#/components/schemas/FLVersionResponse"
                 }
               }
             },
@@ -28263,14 +26849,7 @@
           "required": true
         },
         "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLPostTeamEntryResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -28595,7 +27174,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLPatchTeamSaisonResponse"
+                  "$ref": "#/components/schemas/FLVersionResponse"
                 }
               }
             },
@@ -28861,14 +27440,7 @@
           }
         ],
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLInvitationWriteResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -29216,7 +27788,7 @@
     },
     "/api/teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/confirmation/resend": {
       "post": {
-        "description": "Owe one contact seat a fresh confirmation link, and its pair where the Trainer holds both and has not confirmed it.\n\nThe previous link opens nothing from this write on, the deadline restarts from today, and the answer names the\naddress the mail is owed to, never the link.",
+        "description": "Owe one contact seat a fresh confirmation link, and its pair where the Trainer holds both and has not confirmed it.\n\nThe previous link opens nothing from this write on, and the deadline restarts from today.",
         "operationId": "teams_resend_kontakt_confirmation",
         "parameters": [
           {
@@ -29249,14 +27821,7 @@
           }
         ],
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLKontaktInviteResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -29435,14 +28000,7 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLReplaceSaisonTeamResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {

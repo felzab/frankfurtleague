@@ -287,7 +287,7 @@ async def sweep_spielbestaetigungen(
     # Every step's gate as well as the listing's, answered rather than refused: a mistyped call, or a season ended
     # between the listing and this call, mails nobody and writes nothing.
     if saison_raw.get("status") != "active":
-        return FLSpielbestaetigungSweepResponse(saison_id=saison_id, closed=0, asked=0, reminded=0, mails=0, failed=0)
+        return FLSpielbestaetigungSweepResponse(closed=0, asked=0, reminded=0, mails=0, failed=0)
 
     async def close(session: AsyncClientSession, batch: Batch) -> _Closed:
         """Judge every row holding its question against its fixture as it stands, then close a share, owing each notice."""
@@ -580,7 +580,9 @@ async def sweep_spielbestaetigungen(
         planned = batch.judged(spiele, plan_of)
         # Plans built before any write and the share cut from them, a fixture whole: a refused one writes
         # nothing, and the fixtures past the share stay due.
-        room = MINTS_PER_PASS if batch.share is None else batch.share
+        # The mint's batch is always handed its share below, which bounds the mails this step owes.
+        assert batch.share is not None
+        room = batch.share
         taken: list[tuple[Mapping[str, Any], _MintPlan]] = []
         for spiel, plan in planned:
             if not plan.written:
@@ -837,7 +839,6 @@ async def sweep_spielbestaetigungen(
     failed += len(passed)
 
     return FLSpielbestaetigungSweepResponse(
-        saison_id=saison_id,
         closed=sum(answered.closed for answered in closed) + sum(answered.closed for answered in minted),
         asked=sum(answered.asked for answered in minted),
         reminded=len(owing),

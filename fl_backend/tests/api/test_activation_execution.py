@@ -110,11 +110,11 @@ class TestTheRolloverLeavesExactlyOneActiveSeason:
         """A `past` season beside them, which the demotion's filter must leave where it is."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await call_activate(database, client, TARGET)
+            await call_activate(database, client, TARGET)
 
-            return response, await statuses_now(database)
+            return await statuses_now(database)
 
-        response, statuses = await on_a_league(
+        statuses = await on_a_league(
             mongo_replica_set_url,
             body,
             saisons=[
@@ -128,8 +128,6 @@ class TestTheRolloverLeavesExactlyOneActiveSeason:
         active = [saison_id for saison_id, status in statuses.items() if status == "active"]
         assert active == [TARGET], "the rollover left the league with something other than one active season"
         assert statuses == {ARCHIVED: "past", INCUMBENT: "past", TARGET: "active"}
-        # A season already `past` is not counted, so this is the number of seasons the rollover moved.
-        assert response.deactivated == 1
 
 
 class TestAMidFlightFailureTakesTheDemotionBack:

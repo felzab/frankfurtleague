@@ -61,10 +61,5 @@ class FLSpielorteListResponse(BaseReadModel):
     spielorte: list[FLSpielort]
 
 
-class FLPatchSpielortResponse(BaseReadModel):
-    # The venue's version after the save, which the editor's next save sends.
-    version: int
-
-
 class FLSpielorteSingleResponse(BaseReadModel):
     spielort: FLSpielort

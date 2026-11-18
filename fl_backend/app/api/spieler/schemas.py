@@ -188,12 +188,6 @@ class FLSpielerSaisonAdminResponse(BaseReadModel):
     taken_rollen: list[FLSpielerRolle]
 
 
-class FLPatchSpielerSaisonResponse(BaseReadModel):
-    """The count the editor's next save sends."""
-
-    version: int = Field(ge=0)
-
-
 class FLKaderRow(BaseReadModel):
     """One squad row as its team's seat holder reads it, the surname whole and no address or telephone number."""
 
@@ -220,8 +214,6 @@ class FLKaderRow(BaseReadModel):
 class FLKaderResponse(BaseReadModel):
     """A team's squad for one season, live and ausgetragen rows alike, with the Stufen the season's rules offer."""
 
-    team_id: CustomObjectId
-    saison_id: str
     # What the editor may offer, the save refusing anything else a row was not already holding. At
     # least one, as the season's rules guarantee, so the document publishes what the season holds.
     allowed_stufen: list[FLSpielerStufe] = Field(min_length=1)

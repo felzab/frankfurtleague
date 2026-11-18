@@ -137,25 +137,11 @@ class FLSchiedsrichterListResponse(BaseReadModel):
     schiedsrichter: list[FLSchiedsrichter]
 
 
-class FLPostSchiedsrichterResponse(BaseReadModel):
-    # Never null: the payload requires an address, and entering one is the invitation.
-    confirmation: FLSchiedsrichterMint
-
-    created_id: CustomObjectId
-
-
 class FLPatchSchiedsrichterResponse(BaseReadModel):
     # The referee's version after the save, which the editor's next save sends.
-    version: int
+    version: CustomVersion
     # Null unless the save moved an unconfirmed referee's address, which retires the link posted to
     # the mailbox nobody reads.
-    confirmation: FLSchiedsrichterMint | None = None
-
-
-class FLSchiedsrichterReactivateResponse(BaseReadModel):
-    """The reactivation's answer: its own rather than the retire's, being the one of the pair that can mint."""
-
-    # Null unless the row came back unanswered and holding an address a link can go to.
     confirmation: FLSchiedsrichterMint | None = None
 
 
@@ -203,17 +189,6 @@ class FLSchiedsrichterConfirmationPayload(BasePayload):
     def _grants_name_the_current_wording(self) -> Self:
         refuse_a_stale_grant(self.text_versions, {"scope": self.scope, "media": self.media})
         return self
-
-
-class FLSchiedsrichterConfirmationResponse(BaseReadModel):
-    """What the person just recorded, as their press sent it.
-
-    A caller holding a leaked token learns nothing it did not already post.
-    """
-
-    scope: FLEinwilligungScope
-    media: bool
-    confirmed_at: CustomDateString
 
 
 class FLSchiedsrichterSingleResponse(BaseReadModel):

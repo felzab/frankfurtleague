@@ -125,7 +125,7 @@ async def add(
                 operator=acting_as,
                 germany_now=now,
             )
-        ).grant_id
+        ).created_id
 
 
 async def remove(
@@ -694,7 +694,8 @@ class TestTheMountedRouteReadsTheGrants:
 
                 async def removing(address: str, auth_time: int) -> tuple[int, str | None]:
                     response = await http.delete(f"/api/grants/{BERND_ID}", headers=signed_in_at(address, auth_time))
-                    return response.status_code, response.json().get("error_code")
+                    # A removal answers no body; a refusal names its code.
+                    return response.status_code, response.json().get("error_code") if response.content else None
 
                 waiting = await removing(ANNA, older)
                 await pass_at(database, client, datetime.now(UTC))
@@ -708,7 +709,7 @@ class TestTheMountedRouteReadsTheGrants:
             (403, Code.GRANT_ONLY_OWNER),
             (401, Code.SESSION_REFUSED),
             (403, Code.GRANT_ONLY_OWNER),
-            (200, None),
+            (204, None),
         ]
 
     async def test_a_removed_administrator_is_refused_on_the_very_next_request(self, mongo_replica_set_url: str):
@@ -721,7 +722,7 @@ class TestTheMountedRouteReadsTheGrants:
 
             return [before.status_code, removed.status_code, after.status_code]
 
-        assert await on_a_league(mongo_replica_set_url, body) == [200, 200, 403]
+        assert await on_a_league(mongo_replica_set_url, body) == [200, 204, 403]
 
     async def test_an_addition_over_http_is_attributed_to_the_token_s_administrator_everywhere(self, mongo_replica_set_url: str):
         """The only grant case reaching `get_actor_email`: a mixed-case identity is stored folded in the log."""

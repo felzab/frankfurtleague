@@ -3,6 +3,7 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
+from pydantic import ValidationError
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
@@ -11,6 +12,8 @@ from app.api.saisons.admin_router import swap_gruppen
 from app.api.saisons.schemas import FLSwapGruppenPayload
 from app.core.codes import Code
 from app.core.collections import Collection
+from tests.app_client import app_client, app_under_test
+from tests.config import ADMIN_AUTH, grants_for_the_suite
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database
 from tests.documents import saison_document, saison_team_document, spiel_document
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of, refused_code
@@ -101,10 +104,14 @@ async def on_a_seeded_season(
     saison_status: str = "active",
     start_date: str = TOMORROW,
     mutates_schema: bool = False,
+    stores_a_refused_shape: str | None = None,
 ) -> Any:
     """`mutates_schema=True` where the body attaches a validator (`tests/database.py :: a_clean_database`)."""
 
-    async with a_clean_database(url, DATABASE_NAME, mutates_schema=mutates_schema) as (client, database):
+    async with a_clean_database(url, DATABASE_NAME, mutates_schema=mutates_schema, stores_a_refused_shape=stores_a_refused_shape) as (
+        client,
+        database,
+    ):
         # The swap reads the status and the start alone.
         await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, saison_status, start_date=start_date))
         await database[Collection.SAISON_TEAMS].insert_many(
@@ -117,12 +124,18 @@ async def on_a_seeded_season(
 
 
 async def call_swap(
-    database: AsyncDatabase, client: AsyncMongoClient, team1_id: ObjectId, team2_id: ObjectId, *, saisons_collection: Any = None
-) -> Any:
+    database: AsyncDatabase,
+    client: AsyncMongoClient,
+    team1_id: ObjectId,
+    team2_id: ObjectId,
+    *,
+    saisons_collection: Any = None,
+    saison_id: str = SAISON_ID,
+) -> None:
     """`saisons_collection` is overridable so a case can hand the endpoint a stand-in and nothing else."""
 
-    return await swap_gruppen(
-        saison_id=SAISON_ID,
+    await swap_gruppen(
+        saison_id=saison_id,
         swap_data=FLSwapGruppenPayload(team1_id=team1_id, team2_id=team2_id),
         saisons_collection=saisons_collection if saisons_collection is not None else database[Collection.SAISONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
@@ -152,6 +165,20 @@ async def spiele_now(database: AsyncDatabase) -> dict[int, dict[str, Any]]:
     return {row["spiel_nr"]: row for row in rows if "spiel_nr" in row}
 
 
+async def league_now(database: AsyncDatabase) -> dict[str, list[Any]]:
+    """The season, its clubs' rows, its fixtures and the action log, each as it stands."""
+
+    names = (Collection.SAISONS, Collection.SAISON_TEAMS, Collection.SPIELE, Collection.ACTION_LOG)
+
+    return {name: await database[name].find().sort("_id", 1).to_list(length=None) for name in names}
+
+
+async def everything_now(database: AsyncDatabase) -> dict[str, list[Any]]:
+    """Every collection as it stands, the action log and each document's version included, so "wrote nothing" means nothing."""
+
+    return {name: await database[name].find().sort("_id", 1).to_list(length=None) for name in sorted(await database.list_collection_names())}
+
+
 # Each drawn against their own group's rival, neither dated, so the season has not started.
 DRAWN_ROUND_ROBIN = [gruppen_spiel(1, ALPHA, ALPHA_RIVAL), gruppen_spiel(2, BETA_RIVAL, BETA)]
 
@@ -159,15 +186,55 @@ DRAWN_ROUND_ROBIN = [gruppen_spiel(1, ALPHA, ALPHA_RIVAL), gruppen_spiel(2, BETA
 class TestASwapCommitsBothRows:
     async def test_the_two_teams_end_in_each_others_groups(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await call_swap(database, client, ALPHA, BETA)
-            return response, await gruppen_now(database)
+            await call_swap(database, client, ALPHA, BETA)
+            return await gruppen_now(database)
 
-        response, stored = await on_a_seeded_season(mongo_replica_set_url, body, spiele=list(DRAWN_ROUND_ROBIN))
+        stored = await on_a_seeded_season(mongo_replica_set_url, body, spiele=list(DRAWN_ROUND_ROBIN))
 
         assert stored == {ALPHA: "B", ALPHA_RIVAL: "A", BETA: "A", BETA_RIVAL: "B"}
-        # The echo comes from the object the writes did, so it cannot describe another swap.
-        assert (response.team1_id, response.team1_gruppe) == (ALPHA, "B")
-        assert (response.team2_id, response.team2_gruppe) == (BETA, "A")
+
+
+class TestWhatTheSwapJudgesBeforeItsFirstWrite:
+    async def test_a_malformed_season_id_is_a_404_and_writes_nothing(self, mongo_replica_set_url: str):
+        """Posted over the wire, so the route's own path parameter is judged too: a width constraint there would answer 422.
+
+        A path id of another width names no season, so the season read refuses it before the swap writes anything.
+        """
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
+            before = await league_now(database)
+            async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME)) as http:
+                response = await http.post(
+                    f"/api/saisons/{SAISON_ID}0/gruppen/swap", json={"team1_id": str(ALPHA), "team2_id": str(BETA)}, headers=dict(ADMIN_AUTH)
+                )
+
+            return (response.status_code, response.json()["error_code"]), before, await league_now(database)
+
+        answer, before, after = await on_a_seeded_season(mongo_replica_set_url, body, spiele=list(DRAWN_ROUND_ROBIN))
+
+        assert answer == (404, Code.DOCUMENT_NOT_FOUND)
+        assert after == before
+
+    async def test_a_stored_group_outside_the_closed_set_aborts_the_exchange_before_any_write(self, mongo_replica_set_url: str):
+        """Written onto the other club, such a group would put it in a group no draw holds and the fixtures it plays nowhere."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SAISON_TEAMS].update_one({"saison_id": SAISON_ID, "team_id": ALPHA}, {"$set": {"gruppe": "Z"}})
+            before = await everything_now(database)
+            with pytest.raises(ValidationError):
+                await call_swap(database, client, ALPHA, BETA)
+
+            return before, await everything_now(database)
+
+        before, after = await on_a_seeded_season(
+            mongo_replica_set_url,
+            body,
+            spiele=list(DRAWN_ROUND_ROBIN),
+            stores_a_refused_shape="a group outside the closed set, which the swap must refuse to carry",
+        )
+
+        assert after == before
 
 
 class TestTheDrawnSpieleMoveWithTheTeams:
@@ -175,13 +242,12 @@ class TestTheDrawnSpieleMoveWithTheTeams:
         """Both slots: a rewrite handling one would leave the other naming a club that has left."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await call_swap(database, client, ALPHA, BETA)
-            return response.rewritten_spiele, await sides_now(database)
+            await call_swap(database, client, ALPHA, BETA)
+            return await sides_now(database)
 
-        rewritten, sides = await on_a_seeded_season(mongo_replica_set_url, body, spiele=list(DRAWN_ROUND_ROBIN))
+        sides = await on_a_seeded_season(mongo_replica_set_url, body, spiele=list(DRAWN_ROUND_ROBIN))
 
         assert sides == {1: (BETA, ALPHA_RIVAL), 2: (BETA_RIVAL, ALPHA)}
-        assert rewritten == 2
 
     async def test_a_booked_venue_and_referee_hold_no_swap_back_and_stay_on_their_spiel(self, mongo_replica_set_url: str):
         """Grounds and referees are booked before a season starts, and the start is the swap's one lock."""
@@ -224,17 +290,18 @@ class TestTheDrawnSpieleMoveWithTheTeams:
         """A rewrite filtered on the season rather than on the two clubs passes every assertion above and fails this."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await call_swap(database, client, ALPHA, BETA)
-            return response.rewritten_spiele, await sides_now(database)
+            await call_swap(database, client, ALPHA, BETA)
+            return await sides_now(database)
 
-        rewritten, sides = await on_a_seeded_season(
+        sides = await on_a_seeded_season(
             mongo_replica_set_url,
             body,
             spiele=[*DRAWN_ROUND_ROBIN, gruppen_spiel(3, ALPHA_RIVAL, BETA_RIVAL)],
         )
 
-        assert sides[3] == (ALPHA_RIVAL, BETA_RIVAL)
-        assert rewritten == 2, "a fixture fielding neither club was rewritten"
+        assert sides == {1: (BETA, ALPHA_RIVAL), 2: (BETA_RIVAL, ALPHA), 3: (ALPHA_RIVAL, BETA_RIVAL)}, (
+            "a fixture fielding neither club was rewritten"
+        )
 
     async def test_a_knockout_spiel_naming_a_team_is_untouched(self, mongo_replica_set_url: str):
         """A bracket side is the resolution's or an admin's pick — a statement about the club, not its group."""
@@ -242,38 +309,35 @@ class TestTheDrawnSpieleMoveWithTheTeams:
         knockout = {**knockout_spiel(ergebnis=None), "spiel_nr": 9, "team1": side(ALPHA), "team2": None}
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await call_swap(database, client, ALPHA, BETA)
-            return response.rewritten_spiele, await sides_now(database)
+            await call_swap(database, client, ALPHA, BETA)
+            return await sides_now(database)
 
-        rewritten, sides = await on_a_seeded_season(mongo_replica_set_url, body, spiele=[*DRAWN_ROUND_ROBIN, knockout])
+        sides = await on_a_seeded_season(mongo_replica_set_url, body, spiele=[*DRAWN_ROUND_ROBIN, knockout])
 
-        assert sides[9] == (ALPHA, None)
-        assert rewritten == 2
+        assert sides == {1: (BETA, ALPHA_RIVAL), 2: (BETA_RIVAL, ALPHA), 9: (ALPHA, None)}
 
     async def test_a_spiel_between_the_two_teams_exchanges_both_sides(self, mongo_replica_set_url: str):
-        """Both clubs in one fixture: the passes are disjoint, and the count is of fixtures moved, not writes landed."""
+        """Both clubs in one fixture: the passes are disjoint, so the second never swaps back what the first wrote."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await call_swap(database, client, ALPHA, BETA)
-            return response.rewritten_spiele, await spiele_now(database)
+            await call_swap(database, client, ALPHA, BETA)
+            return await spiele_now(database)
 
-        rewritten, spiele = await on_a_seeded_season(mongo_replica_set_url, body, spiele=[gruppen_spiel(1, ALPHA, BETA)])
+        spiele = await on_a_seeded_season(mongo_replica_set_url, body, spiele=[gruppen_spiel(1, ALPHA, BETA)])
 
         assert spiele[1]["team1"] == side(BETA)
         assert spiele[1]["team2"] == side(ALPHA)
-        assert rewritten == 1, "one fixture fielding both clubs was counted twice"
 
     async def test_a_team_with_no_drawn_spiel_leaves_the_other_unscheduled(self, mongo_replica_set_url: str):
         """Alpha arrives with nothing scheduled: the remaining draw is the admin's."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await call_swap(database, client, ALPHA, BETA)
-            return response.rewritten_spiele, await sides_now(database)
+            await call_swap(database, client, ALPHA, BETA)
+            return await sides_now(database)
 
-        rewritten, sides = await on_a_seeded_season(mongo_replica_set_url, body, spiele=[gruppen_spiel(1, ALPHA, ALPHA_RIVAL)])
+        sides = await on_a_seeded_season(mongo_replica_set_url, body, spiele=[gruppen_spiel(1, ALPHA, ALPHA_RIVAL)])
 
         assert sides == {1: (BETA, ALPHA_RIVAL)}
-        assert rewritten == 1
 
 
 class TestAMidFlightFailureTakesBothWritesBack:

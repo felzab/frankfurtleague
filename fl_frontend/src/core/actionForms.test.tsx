@@ -85,7 +85,7 @@ describe("each form's posted names meet its lane's keys", () => {
       default_payment: "25",
     };
     everyBoxTyped(names, typed);
-    takes(["POST", "/schiedsrichter", { created_id: ID, confirmation: { deadline: "2027-01-15", email: "erika@example.org" } }]);
+    takes(["POST", "/schiedsrichter", { created_id: ID }]);
 
     expect(await createSchiedsrichter(formOf(names, typed))).toStrictEqual({ ok: true, value: undefined });
     expect(requestsSent()).toStrictEqual([
@@ -179,7 +179,7 @@ describe("each form's posted names meet its lane's keys", () => {
       city: "Frankfurt am Main",
     };
     everyBoxTyped(names, typed);
-    takes(["POST", "/teams/saisons/2027/entry", { team_id: TEAM }]);
+    takes(["POST", "/teams/saisons/2027/entry", new Response(null, { status: 204 })]);
 
     // The season the dialog carries beside its boxes.
     expect(await enterTeam(formOf([...names, "saison_id"], { ...typed, saison_id: "2027" }))).toStrictEqual({ ok: true, value: undefined });
@@ -230,7 +230,7 @@ describe("each form's posted names meet its lane's keys", () => {
     const typed = { birth_date: "1990-05-01", scope: "kader_public", media: "on" };
     everyBoxTyped(names, typed);
     await arriveAs(null);
-    takes(["POST", "/schiedsrichter/confirmation", { id: ID }]);
+    takes(["POST", "/schiedsrichter/confirmation", new Response(null, { status: 204 })]);
 
     const answer = await answerSchiedsrichter(formOf([...names, "media", "act", "token"], { ...typed, act: "primary", token: "link-token" }));
 
@@ -261,7 +261,7 @@ describe("each form's posted names meet its lane's keys", () => {
     const typed = { birth_date: "1985-09-12", whatsapp: "on", media: "on" };
     everyBoxTyped(names, typed);
     await arriveAs(null);
-    takes(["POST", "/bewerbungen/confirmation", {}]);
+    takes(["POST", "/bewerbungen/confirmation", new Response(null, { status: 204 })]);
 
     const answer = await answerKontakt(formOf([...names, "media", "act", "token"], { ...typed, act: "primary", token: "link-token" }));
 
@@ -312,7 +312,7 @@ describe("each form's posted names meet its lane's keys", () => {
       const { startAddressChange } = await import("@/features/account/personActions");
       const posted = spelledIn("app/account/(pages)/signin/SignInBoxes.tsx");
       await arriveAs({ email: "pia@example.org" });
-      takes(["POST", "/account/address_change", {}]);
+      takes(["POST", "/account/address_change", new Response(null, { status: 204 })]);
 
       const answer = await startAddressChange(formOf(posted, { email: "pia.neu@example.org", holder: "pia@example.org" }));
 

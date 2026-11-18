@@ -8,7 +8,6 @@ from pymongo.results import InsertOneResult
 from app.api.grants.guard import ADMIN_TIER
 from app.api.spielorte.schemas import (
     FLPatchSpielortPayload,
-    FLPatchSpielortResponse,
     FLPostSpielortPayload,
     FLSpielort,
     FLSpielorteFilterParams,
@@ -32,7 +31,7 @@ from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.transactions import transact
 from app.shared.schemas.custom import CustomObjectId
-from app.shared.schemas.responses import FLCreatedResponse
+from app.shared.schemas.responses import FLCreatedResponse, FLVersionResponse
 
 # Admin-guarded, not base. `default_mietpreis` is money, which only an administrator reads, and the only field
 # withheld: `address` moves with it because no public page reads the parts, not to hide them -- `maps_query` publishes
@@ -115,7 +114,7 @@ async def patch_spielort(
     spielort_data: FLPatchSpielortPayload,
     spielorte_collection: SpielorteCollection,
     db: DBClient,
-) -> FLPatchSpielortResponse:
+) -> FLVersionResponse:
     """Save a venue on the `version` it was read at, answering the version stored.
 
     Every fixture at the venue shows its new name and `maps_query`, and keeps the `mietpreis` agreed for it.
@@ -123,7 +122,7 @@ async def patch_spielort(
 
     maps_query = compose_maps_query(spielort_data.name, spielort_data.address)
 
-    async def save_the_venue(session: AsyncClientSession) -> FLPatchSpielortResponse:
+    async def save_the_venue(session: AsyncClientSession) -> FLVersionResponse:
         taken = await is_held_elsewhere(
             collection=spielorte_collection, key="name", value=spielort_data.name, own_id=spielort_id, session=session
         )
@@ -140,7 +139,7 @@ async def patch_spielort(
             collection=spielorte_collection, action="spielort.changed", record_id=spielort_id, label=spielort_data.name, session=session
         )
 
-        return FLPatchSpielortResponse(version=FLSpielort(**updated_document_raw).version)
+        return FLVersionResponse(version=FLSpielort(**updated_document_raw).version)
 
     return await transact(db, save_the_venue)
 

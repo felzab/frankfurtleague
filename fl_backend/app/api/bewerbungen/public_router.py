@@ -1,21 +1,18 @@
 from collections.abc import Mapping, Sequence
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Header, status
 from pydantic import UUID4
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungAnswerPayload,
-    FLBewerbungEinwilligungAnswerResponse,
     FLBewerbungEinwilligungViewResponse,
     FLBewerbungFormResponse,
     FLBewerbungFormWindow,
     FLBewerbungSchuleOptionListAdapter,
-    FLEinwilligungAnswerResponse,
     FLPostBewerbungPayload,
-    FLSaisonTeamEinwilligungAnswerResponse,
 )
 from app.api.bewerbungen.services import (
     EINWILLIGUNG_ANSWER_FIELDS,
@@ -431,7 +428,7 @@ async def get_confirmation_view(
 
 @router.post(
     "/confirmation",
-    response_model=FLEinwilligungAnswerResponse,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Confirm or decline one seat of a Bewerbung or of a team's season row",
 )
 async def post_confirmation(
@@ -444,7 +441,7 @@ async def post_confirmation(
     db: DBClient,
     today: GermanDay,
     germany_now: GermanyNow,
-) -> FLBewerbungEinwilligungAnswerResponse | FLSaisonTeamEinwilligungAnswerResponse:
+) -> None:
     """Record one person's consent or Widerspruch for the seat their link opens, and for a second seat they hold.
 
     A Widerspruch empties the slot, and on an application it tells the Ansprechperson who still stands, in a notice that
@@ -456,7 +453,7 @@ async def post_confirmation(
     at = utc_stamp(germany_now)
     journal = Journal()
 
-    async def answer_on_the_season_row(session: AsyncClientSession) -> FLSaisonTeamEinwilligungAnswerResponse:
+    async def answer_on_the_season_row(session: AsyncClientSession) -> None:
         """The application's judgement in its order, on the season row holding the token; a miss there is the unknown-token refusal."""
 
         row = await saison_teams_collection.find_one(
@@ -507,10 +504,7 @@ async def post_confirmation(
                 ),
                 session=session,
             )
-
-            return FLSaisonTeamEinwilligungAnswerResponse(
-                outcome="confirmed", birth_date=birth_date, whatsapp=answer_data.whatsapp, media=answer_data.media
-            )
+            return
 
         before = await patch_one_in_db(
             collection=saison_teams_collection,
@@ -528,12 +522,8 @@ async def post_confirmation(
         )
         journal.note("objection", [f"{Collection.SAISON_TEAMS}/{row['_id']}"], seats=seats)
 
-        return FLSaisonTeamEinwilligungAnswerResponse(outcome="declined", birth_date=None, whatsapp=False, media=False)
-
     @journal.attempted
-    async def answer_for_the_person(
-        session: AsyncClientSession,
-    ) -> FLBewerbungEinwilligungAnswerResponse | FLSaisonTeamEinwilligungAnswerResponse:
+    async def answer_for_the_person(session: AsyncClientSession) -> None:
         """One transaction for both branches: a decline is two writes.
 
         A consent judged outside the session could answer a seat a decline had just emptied.
@@ -543,7 +533,8 @@ async def post_confirmation(
             build_token_filter(token_hash=token_hash), projection=EINWILLIGUNG_ANSWER_FIELDS, session=session
         )
         if bewerbung_raw is None:
-            return await answer_on_the_season_row(session)
+            await answer_on_the_season_row(session)
+            return
 
         seat = seat_holding(bewerbung_raw=bewerbung_raw, token_hash=token_hash)
         refuse(find_unknown_token_refusal(seat=seat))
@@ -589,14 +580,7 @@ async def post_confirmation(
                 ),
                 session=session,
             )
-
-            return FLBewerbungEinwilligungAnswerResponse(
-                quelle="bewerbung",
-                outcome="confirmed",
-                birth_date=birth_date,
-                whatsapp=answer_data.whatsapp,
-                media=answer_data.media,
-            )
+            return
 
         updated_raw = await patch_one_in_db(
             collection=bewerbungen_collection,
@@ -640,13 +624,5 @@ async def post_confirmation(
                 now=germany_now,
             )
 
-        return FLBewerbungEinwilligungAnswerResponse(
-            quelle="bewerbung",
-            outcome="declined",
-            birth_date=None,
-            whatsapp=False,
-            media=False,
-        )
-
     async with journal:
-        return await transact(db, answer_for_the_person)
+        await transact(db, answer_for_the_person)

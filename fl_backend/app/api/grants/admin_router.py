@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.address_change.crud import end_the_change_in_session
@@ -13,7 +13,7 @@ from app.api.grants.crud import (
     stop_the_handover_in_session,
 )
 from app.api.grants.guard import ADMIN_TIER
-from app.api.grants.schemas import FLGrantRow, FLGrantsListResponse, FLGrantWriteResponse, FLPostGrantPayload
+from app.api.grants.schemas import FLGrantRow, FLGrantsListResponse, FLPostGrantPayload
 from app.api.grants.services import (
     find_barred_refusal,
     find_exists_refusal,
@@ -37,6 +37,7 @@ from app.core.security import ActorEmail
 from app.core.transactions import transact
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.responses import FLCreatedResponse
 
 router = APIRouter(
     prefix="/grants",
@@ -78,7 +79,7 @@ async def post_grant(
     db: DBClient,
     operator: ActorEmail,
     germany_now: GermanyNow,
-) -> FLGrantWriteResponse:
+) -> FLCreatedResponse:
     """Add an address as `administration`, holding once its wait has passed; only the owner adds one, and no request grants `owner`.
 
     Every holder in effect and the address named are told, with the date it holds from.
@@ -87,7 +88,7 @@ async def post_grant(
     # The spelling every admin-tier request is judged by.
     address = sign_in_identifier(str(payload.email))
 
-    async def judge_and_grant(session: AsyncClientSession) -> FLGrantWriteResponse:
+    async def judge_and_grant(session: AsyncClientSession) -> FLCreatedResponse:
         grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
         refuse(find_only_owner_refusal(actor=operator, grants=grants))
         refuse(find_exists_refusal(address=address, grants=grants))
@@ -113,12 +114,12 @@ async def post_grant(
             session=session,
         )
 
-        return FLGrantWriteResponse(grant_id=grant_id)
+        return FLCreatedResponse(created_id=grant_id)
 
     return await transact(db, judge_and_grant)
 
 
-@router.delete(by_id("grant_id"), summary="Remove an administrator, or withdraw a waiting addition")
+@router.delete(by_id("grant_id"), status_code=status.HTTP_204_NO_CONTENT, summary="Remove an administrator, or withdraw a waiting addition")
 async def delete_grant(
     grant_id: CustomObjectId,
     grants_collection: GrantsCollection,
@@ -126,7 +127,7 @@ async def delete_grant(
     db: DBClient,
     operator: ActorEmail,
     germany_now: GermanyNow,
-) -> FLGrantWriteResponse:
+) -> None:
     """Remove a grant for good, its address losing access on its next request, or withdraw an addition still waiting.
 
     Only the owner removes one, the owner's own row leaving only by a handover; every holder in effect and the address named are told.
@@ -140,7 +141,7 @@ async def delete_grant(
         grant = next((row for row in grants if row["_id"] == grant_id), None)
         if grant is None:
             # Resolved from the list already read rather than a second query, so a miss is a 404 before
-            # anything is removed: `delete_many_from_db` taking no row would answer 200.
+            # anything is removed: `delete_many_from_db` taking no row would answer 204.
             raise DocumentNotFoundError()
 
         refuse(find_owner_row_refusal(grant=grant))
@@ -155,10 +156,8 @@ async def delete_grant(
 
     await transact(db, judge_and_revoke)
 
-    return FLGrantWriteResponse(grant_id=grant_id)
 
-
-@router.post(f"{by_id('grant_id')}/handover", summary="Hand the owner role over to an administrator")
+@router.post(f"{by_id('grant_id')}/handover", status_code=status.HTTP_204_NO_CONTENT, summary="Hand the owner role over to an administrator")
 async def post_handover(
     grant_id: CustomObjectId,
     grants_collection: GrantsCollection,
@@ -167,7 +166,7 @@ async def post_handover(
     db: DBClient,
     operator: ActorEmail,
     germany_now: GermanyNow,
-) -> FLGrantWriteResponse:
+) -> None:
     """Start handing the owner role to an administrator in effect, completing once its wait has passed; the owner stays the owner until then.
 
     Only the owner starts one, and every holder in effect is told the date it completes on.
@@ -198,10 +197,8 @@ async def post_handover(
 
     await transact(db, judge_and_start)
 
-    return FLGrantWriteResponse(grant_id=grant_id)
 
-
-@router.delete(f"{by_id('grant_id')}/handover", summary="Stop a waiting handover")
+@router.delete(f"{by_id('grant_id')}/handover", status_code=status.HTTP_204_NO_CONTENT, summary="Stop a waiting handover")
 async def delete_handover(
     grant_id: CustomObjectId,
     grants_collection: GrantsCollection,
@@ -209,7 +206,7 @@ async def delete_handover(
     db: DBClient,
     operator: ActorEmail,
     germany_now: GermanyNow,
-) -> FLGrantWriteResponse:
+) -> None:
     """Stop a waiting handover, the role staying with the owner; only the owner stops one, and every holder in effect is told."""
 
     async def judge_and_stop(session: AsyncClientSession) -> None:
@@ -229,5 +226,3 @@ async def delete_handover(
         )
 
     await transact(db, judge_and_stop)
-
-    return FLGrantWriteResponse(grant_id=grant_id)

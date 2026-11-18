@@ -303,11 +303,6 @@ class FLPatchSaisonPayload(_SaisonPayload):
     version: CustomVersion
 
 
-class FLPatchSaisonResponse(BaseReadModel):
-    # The season's version after the save, which the editor's next save sends.
-    version: int
-
-
 class FLSwapGruppenPayload(BasePayload):
     """The two clubs a group swap exchanges, in either order.
 
@@ -319,18 +314,8 @@ class FLSwapGruppenPayload(BasePayload):
     team2_id: CustomObjectId
 
 
-class FLSwapGruppenResponse(BaseReadModel):
-    """Both junction rows as the swap left them, plus `rewritten_spiele` -- the second half of the write, reported not assumed."""
-
-    # Stated on a response because the swap builds this model
-    # in-transaction and before the junction writes: a path id outside the width aborts the exchange
-    # rather than failing the echo of a swap that landed.
-    saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
-    team1_id: CustomObjectId
-    team1_gruppe: FLGruppenNames
-    team2_id: CustomObjectId
-    team2_gruppe: FLGruppenNames
-    rewritten_spiele: int
+# What the swap judges each stored group by before it writes either club's.
+FLGruppenNamesAdapter: Final = TypeAdapter(FLGruppenNames)
 
 
 class FLSaisonAdminTeam(BaseReadModel):
@@ -360,7 +345,6 @@ class FLSaisonsAdminRefusals(BaseReadModel):
 class FLSaisonsAdminListResponse(BaseReadModel):
     """Every season, with the id the next create mints and why a create would be refused now."""
 
-    format: Literal["list"] = "list"
     saisons: list[FLSaisonAdminListed]
     next_saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
     refusals: FLSaisonsAdminRefusals
@@ -407,12 +391,6 @@ class FLPostSaisonResponse(BaseReadModel):
     created_id: str
 
 
-class FLActivateSaisonResponse(BaseReadModel):
-    """How many seasons the activation moved off `active` -- normally exactly one."""
-
-    deactivated: int
-
-
 class FLSpielplanShape(BasePayload):
     """The three rules a season's fixture list is a function of, as this draw is to run from.
 
@@ -426,8 +404,8 @@ class FLSpielplanShape(BasePayload):
 
 
 # An unknown key is refused here above all: a misspelled `shape` would validate as absent, so a
-# confirmed replace would destroy fixtures off the season's old rules, under a 201 reporting a shape
-# that never moved.
+# confirmed replace would destroy fixtures off the season's old rules, under a success answering for a
+# shape that never moved.
 class FLGenerateSpielplanPayload(BasePayload):
     """Whether this draw may replace what the season already holds, and the shape it runs from.
 
@@ -441,39 +419,6 @@ class FLGenerateSpielplanPayload(BasePayload):
     # `FLSaisonRules` stays `PATCH`'s alone: those rules shaped no fixture, and carrying them here
     # would give every one of them a second writer.
     shape: FLSpielplanShape | None = Field(default=None)
-
-
-class FLGenerateSpielplanResponse(BaseReadModel):
-    """What the draw wrote, and what a confirmed replace deleted first, flat rather than nested.
-
-    An admin reads the written counts without a second request, and they are the same numbers the
-    season editor then counts off the stored matchdays and fixtures, so the two can be compared by eye.
-    """
-
-    # No `extra="forbid"` here: the rule reaches request bodies alone, and this
-    # is a response model.
-    saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
-    spieltage: int = Field(ge=0)
-    spiele: int = Field(ge=0)
-    generated_at: CustomDateString
-
-    # Off the replace's own `DeleteResult`s, so a confirmation is answered with what it destroyed
-    # rather than with what was asked for. Zero on a first draw, which deletes nothing.
-    removed_spieltage: int = Field(default=0, ge=0)
-    removed_spiele: int = Field(default=0, ge=0)
-
-
-class FLUndrawSpielplanResponse(BaseReadModel):
-    """What removing the season's Spielplan took away, on the shape the draw reports.
-
-    Both counts are zero on a season already undrawn, which is why the watermark is reported apart:
-    it is the one thing a season can hold with neither collection behind it.
-    """
-
-    saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
-    spieltage: int = Field(ge=0)
-    spiele: int = Field(ge=0)
-    watermark_cleared: bool
 
 
 class FLSaisonActRefusals(BaseReadModel):

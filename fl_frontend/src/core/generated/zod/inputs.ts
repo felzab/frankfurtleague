@@ -171,7 +171,7 @@ export const AddressChangeSweepAddressChangeQueryParams = zod.object({
 });
 
 /**
- * Take the owed carry off each named change, counting the ones that owed one; an id owing none is left alone.
+ * Take the owed carry off each named change; an id owing none is left alone.
  * @summary Take the carries done off their changes
  */
 export const addressChangePostAddressChangeMovesDoneBodyIdsItemRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -621,7 +621,8 @@ export const BewerbungenGetFormParams = zod.object({
 /**
  * Run one season's retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.
  *
- * A row that cannot be written is passed over, counted in `failed`, and met again by the next pass.
+ * A row that cannot be written is passed over, counted in `failed`, and met again by the next pass; what each clock
+ * erased is recorded in the action log.
  * @summary Run one season's retention clocks
  */
 export const BewerbungenSweepSaisonParams = zod.object({
@@ -782,8 +783,7 @@ export const BewerbungenPostKontaktSeatBody = zod
 /**
  * Void one seat's link and mail its person a fresh one, that seat's deadline and reminder starting again from today.
  *
- * Where one person holds two seats both are replaced and one link answers both, and the answer names the address and
- * seats as the write found them.
+ * Where one person holds two seats both are replaced and one link answers both.
  * @summary Re-send one seat's confirmation link
  */
 export const bewerbungenResendKontaktConfirmationPathBewerbungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -1137,6 +1137,7 @@ export const RegistrierungenPostInvitationViewBody = zod
  *
  * A declined one goes once its wait after the decision has run out, an unconfirmed one past its deadline, and every one
  * still undecided once the season is `past`; one whose erasure fails is counted in `failed` and met again next pass.
+ * What each page erased is recorded in the action log.
  * @summary Run one season's registration retention clocks
  */
 export const RegistrierungenSweepRegistrierungenParams = zod.object({
@@ -1534,7 +1535,7 @@ export const SchiedsrichterGetSchiedsrichterQueryParams = zod.object({
 });
 
 /**
- * Create a referee and owe them their confirmation link, answering the address and the deadline it goes to.
+ * Create a referee and owe them their confirmation link.
  *
  * Entering a referee is the invitation, with no second press deciding whether they are asked, since a referee nobody
  * asked is a name nobody consented to publish.
@@ -1743,7 +1744,7 @@ export const SchiedsrichterPatchEinwilligungBody = zod
 /**
  * Bring a retired referee back into the picker and every default read.
  *
- * One who has not answered is owed a fresh link, named in `confirmation`, since a retired referee's save mails nothing.
+ * One who has not answered is owed a fresh link, since a retired referee's save mails nothing.
  * @summary Bring a deactivated Schiedsrichter back
  */
 export const schiedsrichterReactivateSchiedsrichterPathSchiedsrichterIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2946,8 +2947,7 @@ export const TeamsPutKontaktSeatBody = zod
 /**
  * Owe one contact seat a fresh confirmation link, and its pair where the Trainer holds both and has not confirmed it.
  *
- * The previous link opens nothing from this write on, the deadline restarts from today, and the answer names the
- * address the mail is owed to, never the link.
+ * The previous link opens nothing from this write on, and the deadline restarts from today.
  * @summary Send one contact seat a fresh confirmation link
  */
 export const teamsResendKontaktConfirmationPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");

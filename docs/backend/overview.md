@@ -58,6 +58,18 @@ one route per method and path, and the first mounted would answer both. An id na
 addresses is a path segment and a filter of a list a query, as
 [the decisions record](../decisions.md)'s **routing** line requires: a malformed path id answers 404 and a query one 422.
 
+## Write answers
+
+**A write answers 204 with no body where its caller needs nothing back**, since a served field no
+caller reads still has to be kept true. A write that answers something answers what its caller reads
+next:
+
+- A create answers `FLCreatedResponse`, the minted id the caller opens the new record by.
+- An editor's save answers `FLVersionResponse`, the version its next save sends.
+- A dry run or a pass answers the report its caller shows or counts.
+
+The shared models are in `fl_backend/app/shared/schemas/responses.py`.
+
 ## Authorization
 
 **An access tier's guard sits on the `APIRouter`**, so an endpoint reaches the wrong tier only by

@@ -6,8 +6,9 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.ban_list.admin_router import post_ban_list_entry
-from app.api.ban_list.schemas import FLPostBanListEntryPayload, FLPostBanListEntryResponse
+from app.api.ban_list.schemas import FLPostBanListEntryPayload
 from app.core.collections import Collection
+from app.shared.schemas.responses import FLCreatedResponse
 from tests.acts import acting_as
 
 
@@ -22,7 +23,7 @@ async def ban_through_the_route(
     saisons: Any = None,
     grants: Any = None,
     notify: bool = False,
-) -> FLPostBanListEntryResponse:
+) -> FLCreatedResponse:
     """A ban as an administrator enters it: its own transaction and the anchors it writes, where `ban_document` seeds the row alone."""
 
     # The administrator `bind_actor` would bind: `record_act` reads who acted off the request.

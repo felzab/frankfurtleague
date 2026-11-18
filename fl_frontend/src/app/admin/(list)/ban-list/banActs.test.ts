@@ -6,7 +6,7 @@ import { ADMIN_EMAIL } from "@/test-support/authDoubles";
 import { refusal, serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
 
-import type { FLPostBanListEntryPayload, FLPostBanListEntryResponse } from "@/core/generated/client/types";
+import type { FLCreatedResponse, FLPostBanListEntryPayload } from "@/core/generated/client/types";
 
 const ADDRESS = "max@example.org";
 const BAN = { email: ADDRESS, ban_reason: "Ein Grund", holder: ADMIN_EMAIL };
@@ -21,7 +21,7 @@ const atThePost: number[] = [];
 const backend = serveBackend(({ method, path }) => {
   if (method !== "POST" || path !== "/ban_list") return undefined;
   atThePost.push(sessionsOfMax().length);
-  return { created_id: "65a000000000000000000001" } satisfies FLPostBanListEntryResponse;
+  return { created_id: "65a000000000000000000001" } satisfies FLCreatedResponse;
 });
 // The administrator, signed in by passkey just now, which the touch a ban sits behind takes.
 const { store } = signedInRequest();

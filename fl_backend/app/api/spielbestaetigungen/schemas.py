@@ -231,14 +231,6 @@ class FLSpielbestaetigungTeamAnswerPayload(BasePayload):
         return _an_acceptance_gives_no_reason(reason, info)
 
 
-class FLSpielbestaetigungAnswerResponse(BaseReadModel):
-    """What the answer recorded: its way, the seat it came from, and the answering club's own proposal. No receipt is mailed off it."""
-
-    state: FLSpielbestaetigungAnswerKind
-    answered_by: FLSpielbestaetigungBy
-    vorschlag: FLSpielbestaetigungAppointment | None
-
-
 # --- A referee's own rows, answered signed in on the person lane. No deadline binds them: a referee answers until the
 # fixture's kick-off, which the Einteilung states.
 
@@ -263,11 +255,6 @@ class FLSpielbestaetigungSchiedsrichterAnswerPayload(BasePayload):
         return _an_acceptance_gives_no_reason(reason, info)
 
 
-class FLSpielbestaetigungSchiedsrichterAnswerResponse(BaseReadModel):
-    spielbestaetigung_id: CustomObjectId
-    state: FLSpielbestaetigungAnswerKind
-
-
 # --- The pass, system tier. It owes every mail through the Postausgang, and answers counts alone: no address, no
 # link and no name.
 
@@ -275,7 +262,6 @@ class FLSpielbestaetigungSchiedsrichterAnswerResponse(BaseReadModel):
 class FLSpielbestaetigungSweepResponse(BaseReadModel):
     """One season's pass, counted: what it closed, the rows it asked or reminded, and the mails it owed the Postausgang."""
 
-    saison_id: str
     closed: int
     asked: int
     reminded: int

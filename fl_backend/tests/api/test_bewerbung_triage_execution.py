@@ -23,6 +23,7 @@ from app.api.bewerbungen.schemas import (
 )
 from app.api.bewerbungen.services import compose_new_team, confirmation_deadline_from
 from app.api.outbox.crud import states_of
+from app.api.outbox.schemas import FLBewerbungLinkData
 from app.api.teams.crud import found_a_team
 from app.api.teams.schemas import FLPostTeamPayload
 from app.core.codes import Code
@@ -280,12 +281,12 @@ class TestAnAcceptanceEntersTheSchool:
         """Catches an acceptance that enters the school without writing the created id back: nothing would join the two."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await accept(database, client, NEW_SCHOOL_BEWERBUNG, shorthand=NEW_SCHOOL_SHORTHAND)
+            await accept(database, client, NEW_SCHOOL_BEWERBUNG, shorthand=NEW_SCHOOL_SHORTHAND)
             created = await database[Collection.TEAMS].find_one({"shorthand": NEW_SCHOOL_SHORTHAND})
 
-            return response, created, await junction_rows(database), await stored_bewerbung(database, NEW_SCHOOL_BEWERBUNG)
+            return created, await junction_rows(database), await stored_bewerbung(database, NEW_SCHOOL_BEWERBUNG)
 
-        response, created, rows, stored = await on_a_league(mongo_replica_set_url, body)
+        created, rows, stored = await on_a_league(mongo_replica_set_url, body)
 
         assert created is not None, "no club was created for a school that named none"
         assert (created["name"], created["full_name"]) == (NEW_SCHOOL_NAME, f"{NEW_SCHOOL_NAME}-Gesamtschule")
@@ -299,21 +300,19 @@ class TestAnAcceptanceEntersTheSchool:
         # The write the acceptance owes the application: without it a new school's row names no club.
         assert (stored["status"], stored["team_id"]) == ("accepted", created["_id"])
         assert stored["decision"] == {"made_at": TODAY, "reason": None}
-        assert (response.team_id, response.created_team, response.gruppe) == (created["_id"], True, "A")
 
     async def test_an_application_naming_an_existing_team_creates_none(self, mongo_replica_set_url: str):
         """Catches a branch that creates a club whatever the application said, which would duplicate every returning school."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await database[Collection.TEAMS].count_documents({})
-            response = await accept(database, client, PICKED_BEWERBUNG)
+            await accept(database, client, PICKED_BEWERBUNG)
 
-            return before, await database[Collection.TEAMS].count_documents({}), response, await junction_rows(database)
+            return before, await database[Collection.TEAMS].count_documents({}), await junction_rows(database)
 
-        before, after, response, rows = await on_a_league(mongo_replica_set_url, body)
+        before, after, rows = await on_a_league(mongo_replica_set_url, body)
 
         assert (before, after) == (SEEDED_TEAMS, SEEDED_TEAMS)
-        assert (response.team_id, response.created_team) == (EXISTING_OID, False)
         assert len(rows) == 1
         # The club's name as it stands TODAY, copied at entry rather than joined on read.
         assert (rows[0]["team_id"], rows[0]["name"], rows[0]["shorthand"]) == (EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND)
@@ -710,7 +709,7 @@ class TestWhatTheDecisionRecords:
 
         status_code, decision = await on_a_league(mongo_replica_set_url, body)
 
-        assert status_code == 200, "the served acceptance did not succeed, so what it stored proves nothing"
+        assert status_code == 204, "the served acceptance did not succeed, so what it stored proves nothing"
         # The injected clock reached it too, so the date is the request's rather than the wall's.
         assert (decision["made_at"], decision["reason"]) == (TODAY, None)
 
@@ -741,7 +740,7 @@ class TestWhatTheDecisionRecords:
 
         status_code, decision = await on_a_league(mongo_replica_set_url, body)
 
-        assert status_code == 200, "the served decline did not succeed, so what it stored proves nothing"
+        assert status_code == 204, "the served decline did not succeed, so what it stored proves nothing"
         assert decision["made_at"] == TODAY
 
 
@@ -768,14 +767,13 @@ class TestADeclineTouchesNothingElse:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await stored_bewerbung(database, PICKED_BEWERBUNG)
-            response = await decline(database, PICKED_BEWERBUNG)
+            await decline(database, PICKED_BEWERBUNG)
 
-            return submission_bytes(before), submission_bytes(await stored_bewerbung(database, PICKED_BEWERBUNG)), response
+            return submission_bytes(before), submission_bytes(await stored_bewerbung(database, PICKED_BEWERBUNG))
 
-        before, after, response = await on_a_league(mongo_replica_set_url, body)
+        before, after = await on_a_league(mongo_replica_set_url, body)
 
         assert after == before
-        assert response.id == PICKED_BEWERBUNG
 
     @pytest.mark.db
     async def test_it_moves_the_status_and_the_decision_and_writes_no_season_row(self, mongo_replica_set_url: str):
@@ -1478,16 +1476,16 @@ class TestAResendRacingAnAnswer:
                 await correct(database, client, "ansprechperson", bewerbung_id=RESEND_BEWERBUNG)
 
             racing = ApplicationsRunningARivalAfterTheirRead(database[Collection.BEWERBUNGEN], the_correction)
-            response = await resend(database, "ansprechperson", bewerbungen=cast(AsyncCollection, racing))
+            await resend(database, "ansprechperson", bewerbungen=cast(AsyncCollection, racing))
             mails = await drained(database, client)
 
-            return racing.first_read, response, mails, await stored_bewerbung(database, RESEND_BEWERBUNG)
+            return racing.first_read, mails, await stored_bewerbung(database, RESEND_BEWERBUNG)
 
-        as_read, response, mails, stored = await on_a_league(mongo_replica_set_url, body)
+        as_read, mails, stored = await on_a_league(mongo_replica_set_url, body)
 
         # The landing inside: the re-send judged a read holding the address the correction then replaced.
         assert as_read is not None and as_read["kontakte"]["ansprechperson"]["email"] != CORRECTED_EMAIL
-        assert (response.email, response.seats) == (CORRECTED_EMAIL, ["ansprechperson"])
+        assert isinstance(mails[-1].data, FLBewerbungLinkData) and mails[-1].data.seats == ["ansprechperson"]
         # The re-send settles the correction's mail it supersedes, so one mail goes, to the corrected mailbox, and its link opens.
         assert [mail.to for mail in mails] == [CORRECTED_EMAIL]
         assert stored["confirmations"]["ansprechperson"]["token_hashes"] == [hash_token(mails[-1].token or "")]
@@ -1522,17 +1520,17 @@ class TestAResendRacingAnAnswer:
 
     @pytest.mark.parametrize("pressed", ["ansprechperson", "trainer"])
     async def test_a_person_holding_two_seats_is_answered_for_both(self, mongo_replica_set_url: str, pressed: str):
-        """The caller records the delivery and words the mail's role text from `seats`, so one seat named would cover half the link."""
+        """The mail words its role text from `seats`, so one seat named would cover half the link."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_an_open_ansprechperson_seat(database, mirrored=True)
-            response = await resend(database, pressed)
+            await resend(database, pressed)
 
-            return response, await drained(database, client), await stored_bewerbung(database, RESEND_BEWERBUNG)
+            return await drained(database, client), await stored_bewerbung(database, RESEND_BEWERBUNG)
 
-        response, [mail], stored = await on_a_league(mongo_replica_set_url, body)
+        [mail], stored = await on_a_league(mongo_replica_set_url, body)
 
-        assert sorted(response.seats) == ["ansprechperson", "trainer"]
+        assert isinstance(mail.data, FLBewerbungLinkData) and sorted(mail.data.seats) == ["ansprechperson", "trainer"]
         assert {seat: stored["confirmations"][seat]["token_hashes"] for seat in ("ansprechperson", "trainer")} == dict.fromkeys(
             ("ansprechperson", "trainer"), [hash_token(mail.token or "")]
         )

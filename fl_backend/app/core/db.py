@@ -164,10 +164,6 @@ async def lifespan(app: FastAPI):
                 await client.close()
 
 
-# What a 503 for an unanswering database asks the caller to wait, in seconds.
-RETRY_AFTER: Final = {"Retry-After": "30"}
-
-
 async def get_db_client(request: Request) -> AsyncMongoClient:
     # Always set: the lifespan sets it before it yields, and a boot that cannot reach the database ends instead.
     return request.app.state.db_client

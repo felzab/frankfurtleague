@@ -301,27 +301,6 @@ class FLBewerbungSingleResponse(BaseReadModel):
     saison: FLBewerbungEntryOffer
 
 
-class FLAcceptBewerbungResponse(BaseReadModel):
-    """What the acceptance wrote beyond the application: the club in the season, and where; its mails are owed in the same write."""
-
-    # The club now standing in the season: the one the applicant picked, or the one this acceptance
-    # created. Echoed because a created club has an id the caller has no other way to learn.
-    team_id: CustomObjectId
-    # Whether this acceptance created that club, which the admin surface words differently either
-    # way: what the caller renders is what this call did, not what the application holds.
-    created_team: bool
-    # Unconstrained, as an echo of a stored id is.
-    saison_id: str
-    gruppe: FLGruppenNames
-    trikot_farbe: FLTrikotFarbe | None
-
-
-class FLDeclineBewerbungResponse(BaseReadModel):
-    """The declined application; its mails are owed in the same write."""
-
-    id: CustomObjectId
-
-
 # Every model of the public submission below is reached from a request body alone, so each forbids an undeclared key;
 # the read models above stay lax.
 
@@ -534,9 +513,6 @@ FLBewerbungEinwilligungState = Literal[FLBewerbungSeatState, "saison_past"]
 # the person on. The page picks its wording by it.
 FLEinwilligungQuelle = Literal["bewerbung", "saison"]
 
-# What an answer on either kind of link did.
-type FLEinwilligungOutcome = Literal["confirmed", "declined"]
-
 
 class FLBewerbungEinwilligungViewResponse(BaseReadModel):
     """What the page renders for one seat, and nothing of the person."""
@@ -596,46 +572,6 @@ class FLBewerbungEinwilligungDeclined(BasePayload):
 FLBewerbungEinwilligungAnswerPayload = Annotated[FLBewerbungEinwilligungGiven | FLBewerbungEinwilligungDeclined, Field(discriminator="answer")]
 
 
-class FLBewerbungEinwilligungAnswerResponse(BaseReadModel):
-    """What the answer did; a Widerspruch's notice to the Ansprechperson is owed in the same write."""
-
-    quelle: Literal["bewerbung"] = "bewerbung"
-    outcome: FLEinwilligungOutcome
-    birth_date: CustomOptionalDateString
-    whatsapp: bool
-    # As stored on every seat the answer wrote, as the referee's answer carries it: `false` after a
-    # Widerspruch, which stores no answer.
-    media: bool
-
-
-class FLSaisonTeamEinwilligungAnswerResponse(BaseReadModel):
-    """What an answer on a season row's link did; nobody is told, so nothing composes a message."""
-
-    quelle: Literal["saison"] = "saison"
-    outcome: FLEinwilligungOutcome
-    birth_date: CustomOptionalDateString
-    whatsapp: bool
-    # As stored on every seat the answer wrote: `false` after a Widerspruch, which stores no answer.
-    media: bool
-
-
-FLEinwilligungAnswerResponse = Annotated[
-    FLBewerbungEinwilligungAnswerResponse | FLSaisonTeamEinwilligungAnswerResponse,
-    Field(discriminator="quelle"),
-]
-
-
-class FLBewerbungEinwilligungResendResponse(BaseReadModel):
-    """The seat whose link was replaced and where its fresh one is owed; the old one opens nothing."""
-
-    seat: FLKontaktSeat
-    # Off the image the write replaced, never the caller's earlier read: a seat write landing between
-    # the two moved the address this link has to go to.
-    email: str
-    seats: list[FLKontaktSeat]
-    confirmation_deadline: CustomDateString
-
-
 class FLBewerbungKontaktSeatPayload(_KontaktpersonWritablePayload):
     """The person a seat is to hold, who has agreed to nothing yet, and the `version` the page read the application at."""
 
@@ -649,23 +585,8 @@ class FLBewerbungKontaktSeatResponse(BaseReadModel):
     email: str
 
 
-# Counts alone: nothing a person's record holds leaves the backend in the retention sweep's answer.
 class FLBewerbungSweepResponse(BaseReadModel):
-    """One season's pass: each clock's count, every reminder and deletion notice owed in the write it belongs to."""
+    """One season's pass: the rows it passed over, which the next pass meets again."""
 
-    saison_id: str
-    # The applications reminded: each person due their one chase is owed it.
-    reminded: int
-    # The fourteen-day clock's erasures, each owed its notice in its own transaction where none went out before.
-    erased: int
-    erased_declined: int
-    erased_accepted: int
-    # The applications nobody decided, taken by the end of the season they applied for. Counted apart
-    # from the two decided ones: folded in, a pass that erased where nobody decided would read as a
-    # decision.
-    erased_without_decision: int
-    kontakt_blocks_emptied: int
-    # A season row's seats past their own day unconfirmed, whatever the season's status.
-    kontakt_seats_emptied: int
     # One sum over every clock rather than a count a clock: the line logging each row names its clock.
     failed: int

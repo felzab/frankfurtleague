@@ -105,10 +105,11 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 @dataclasses.dataclass(frozen=True)
 class Mailed:
-    """A write's answer, beside the link the Postausgang minted for the mail it owed: `None` where it owed none."""
+    """A write's answer, beside the link the Postausgang minted for the mail it owed and its address: `None` where it owed none."""
 
     answer: Any
     token: str | None
+    to: str | None
 
 
 async def mailed(database: AsyncDatabase, client: AsyncMongoClient, answer: Any) -> Mailed:
@@ -117,7 +118,7 @@ async def mailed(database: AsyncDatabase, client: AsyncMongoClient, answer: Any)
     mails = await drained(database, client)
     assert len(mails) <= 1, "one write owes one referee one mail at most"
 
-    return Mailed(answer=answer, token=mails[0].token if mails else None)
+    return Mailed(answer=answer, token=mails[0].token if mails else None, to=mails[0].to if mails else None)
 
 
 async def on_a_league(url: str, body: Body, *, referees: list[dict[str, Any]] | None = None) -> Any:
@@ -244,9 +245,9 @@ class TestTheCreateIsTheInvitation:
 
         response, row = await on_a_league(mongo_replica_set_url, body, referees=[])
 
-        assert response.answer.confirmation is not None
+        assert response.to == EMAIL
         assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(response.token))]
-        assert row[CONFIRMATION_FIELD]["deadline"] == response.answer.confirmation.deadline == confirmation_deadline_from(today=TODAY)
+        assert row[CONFIRMATION_FIELD]["deadline"] == confirmation_deadline_from(today=TODAY)
         # The clock the TTL index reads: absent, the unanswered entry outlives the fourteen days the notice promises.
         assert row[ERASE_AT_FIELD].replace(tzinfo=UTC) == erase_at_from(deadline=confirmation_deadline_from(today=TODAY))
 
@@ -424,7 +425,7 @@ class TestTheReactivation:
         response, row = await on_a_league(mongo_replica_set_url, body, referees=[referee_document(**RETIRED)])
 
         assert row["inactive_since"] is None
-        assert response.answer.confirmation.email == EMAIL
+        assert response.to == EMAIL
         assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(response.token))]
         assert ERASE_AT_FIELD in row
 
@@ -440,7 +441,7 @@ class TestTheReactivation:
 
         first, response, row = await on_a_league(mongo_replica_set_url, body)
 
-        assert response.answer.confirmation is None
+        assert response.token is None
         assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(first.token))]
         assert ERASE_AT_FIELD not in row
 
@@ -455,11 +456,11 @@ class TestTheConfirmation:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await resend(database, client)
-            response = await confirm(database, client, minted.token)
+            await confirm(database, client, minted.token)
 
-            return response, await stored(database)
+            return await stored(database)
 
-        response, row = await on_a_league(mongo_replica_set_url, body)
+        row = await on_a_league(mongo_replica_set_url, body)
 
         assert row["birth_date"] == AN_ADULTS_BIRTHDATE
         # Each choice evidenced by the confirmation, its instant in UTC: `NOW` is half past noon in
@@ -474,7 +475,6 @@ class TestTheConfirmation:
                 "media": {"at": "2026-04-01T10:30:00+00:00", "text_version": TEXT_VERSIONS["media"]},
             },
         }
-        assert (response.scope, response.media, response.confirmed_at) == ("kader_public", True, TODAY)
         assert ERASE_AT_FIELD not in row
 
     async def test_a_second_press_is_refused(self, mongo_replica_set_url: str):

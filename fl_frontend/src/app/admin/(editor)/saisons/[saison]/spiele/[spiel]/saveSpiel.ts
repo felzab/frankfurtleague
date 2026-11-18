@@ -145,8 +145,7 @@ const OWN_WORDS = [
 ] as const;
 
 /** The other fixtures a write moved or would move, each once, in their numbers' order. */
-const numbersOf = (entries: readonly { spiel_nr: number }[]) =>
-  [...new Set(entries.map(({ spiel_nr }) => spiel_nr))].toSorted((first, second) => first - second);
+const numbersOf = (numbers: readonly number[]) => [...new Set(numbers)].toSorted((first, second) => first - second);
 
 /** The fixture as stored, read for the fields the editor does not show, which the wholesale write sends as stored. */
 async function sending(id: string, changes: Changes): Promise<ActionAnswer<never> | Omit<FLPatchSpielDataPayload, "version">> {
@@ -167,7 +166,7 @@ function questionOf(report: FLPatchSpielDataResponse): SaveQuestion | null {
   const mailed = (report.recipients ?? []).map(({ name }) => name).toSorted((one, other) => one.localeCompare(other, "de"));
   return {
     subject: COPY.admin.spiel.ergebnis,
-    consequence: COPY.admin.spiel.voids(numbersOf(voided)),
+    consequence: COPY.admin.spiel.voids(numbersOf(voided.map(({ spiel_nr }) => spiel_nr))),
     ...(mailed.length === 0 ? {} : { facts: [{ label: COPY.admin.facts.mailTo, value: { record: formatList(mailed) } }] }),
     confirm: JSON.stringify({ voided, mailed }),
   };

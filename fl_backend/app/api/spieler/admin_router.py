@@ -13,7 +13,6 @@ from app.api.spieler.crud import (
 )
 from app.api.spieler.schemas import (
     FLPatchSpielerSaisonPayload,
-    FLPatchSpielerSaisonResponse,
     FLSpielerAdminListResponse,
     FLSpielerAdminRow,
     FLSpielerSaisonAdminResponse,
@@ -58,6 +57,7 @@ from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.transactions import transact
 from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.responses import FLVersionResponse
 
 router = APIRouter(
     prefix="/spieler",
@@ -155,7 +155,7 @@ async def patch_spieler_saison(
     saison_spieler_collection: SaisonSpielerCollection,
     saisons_collection: SaisonsCollection,
     db: DBClient,
-) -> FLPatchSpielerSaisonResponse:
+) -> FLVersionResponse:
     """
     Save the person's own facts and their squad row of the season together, the team staying the stored row's.
 
@@ -167,7 +167,7 @@ async def patch_spieler_saison(
     person_part = spieler_data.model_dump(mode="json", include=set(PERSON_SAVE_FIELDS))
     row_part = spieler_data.model_dump(mode="json", include=set(ROW_SAVE_FIELDS))
 
-    async def save_the_person_and_their_row(session: AsyncClientSession) -> FLPatchSpielerSaisonResponse:
+    async def save_the_person_and_their_row(session: AsyncClientSession) -> FLVersionResponse:
         person_raw = await pull_one_from_db(
             collection=spieler_collection, db_filter=person_filter, projection=[*PERSON_SAVE_FIELDS, VERSION_FIELD], session=session
         )
@@ -218,7 +218,7 @@ async def patch_spieler_saison(
             )
         await record_act(collection=saison_spieler_collection, action="spieler.changed", record_id=spieler_id, label=saison_id, session=session)
 
-        return FLPatchSpielerSaisonResponse(version=composite_version(person_raw, row_raw))
+        return FLVersionResponse(version=composite_version(person_raw, row_raw))
 
     # One transaction, or a refusal of the row's part leaves the person's half saved under an editor reading it as failed.
     return await transact(db, save_the_person_and_their_row)

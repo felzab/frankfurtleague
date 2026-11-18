@@ -11,7 +11,6 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from fastapi import Response
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -205,14 +204,12 @@ async def put(
     body: dict[str, Any],
     *,
     email: str = REFEREE_EMAIL,
-    response: Response | None = None,
     spiel_id: ObjectId = SPIEL,
     **replaced: Any,
 ) -> Any:
     return await put_spielbericht_bericht(
         spiel_id=spiel_id,
         bericht_data=FLSpielberichtPayload.model_validate(body),
-        response=Response() if response is None else response,
         identifier=email,
         records=record_collections(database),
         db=client,
@@ -249,23 +246,21 @@ class TestTheReportNeverWritesTheSpiel:
 class TestTheFirstWriteCreatesAndEveryWriteRaisesTheVersion:
     async def test_a_correction_replaces_the_block_and_keeps_when_it_was_first_sent(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            created, corrected = Response(), Response()
-            first = await put(database, client, bericht(), response=created)
-            await put(
+            first = await put(database, client, bericht())
+            read = await form_read(database, client)
+            corrected = await put(
                 database,
                 client,
                 bericht([tor("team1", LINA), tor("team2", MIA)], version=0, remarks="Starker Regen ab der Pause."),
-                response=corrected,
             )
 
-            return first, (created.status_code, corrected.status_code), await stored(database), await acts_of(database)
+            return first, read, corrected, await stored(database), await acts_of(database)
 
-        first, statuses, documents_now, acts = await on_the_league(mongo_replica_set_url, body)
+        first, read, corrected, documents_now, acts = await on_the_league(mongo_replica_set_url, body)
 
-        # RFC 9110's PUT: the write creating the report answers 201, a later one 200.
-        assert statuses == (201, 200)
-        assert first.version == 0
-        assert first.kader.team1[0].spieler_id == LINA and [spieler.spieler_id for spieler in first.kader.team1] == [LINA]
+        # Each write answers the version it left, which the form's next save sends.
+        assert (first.version, read.version, corrected.version) == (0, 0, 1)
+        assert [spieler.spieler_id for spieler in read.kader.team1] == [LINA]
         [document] = documents_now
         # The first save and the correction, each its own row and neither naming a person.
         assert acts == [("spielbericht.saved", "schiedsrichter", None, document["_id"])] * 2
@@ -282,12 +277,11 @@ class TestASaveSayingWhatTheReportSays:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await put(database, client, bericht())
             before = await stored(database)
-            again = Response()
-            answered = await put(database, client, bericht(version=0), response=again)
+            answered = await put(database, client, bericht(version=0))
 
-            return again.status_code, answered.version, before == await stored(database), len(await acts_of(database))
+            return answered.version, before == await stored(database), len(await acts_of(database))
 
-        assert await on_the_league(mongo_replica_set_url, body) == (200, 0, True, 1)
+        assert await on_the_league(mongo_replica_set_url, body) == (0, True, 1)
 
 
 class TestAFormOpenedBeforeAnotherWrite:

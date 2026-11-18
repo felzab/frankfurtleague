@@ -16,8 +16,6 @@ import type {
   CheckIsLiveResponse,
   CheckIsReadyResponse,
   FLAcceptBewerbungPayload,
-  FLAcceptBewerbungResponse,
-  FLAccountAddressChangeMintResponse,
   FLAccountAddressChangePayload,
   FLAccountAddressChangeResponse,
   FLAccountEinwilligungenResponse,
@@ -25,29 +23,22 @@ import type {
   FLAccountErasureViewResponse,
   FLActionLogFilterPayload,
   FLActionLogListResponse,
-  FLActivateSaisonResponse,
   FLAddressChangeAddressPayload,
   FLAddressChangeAddressResponse,
   FLAddressChangeAdminListResponse,
   FLAddressChangeAdminPayload,
   FLAddressChangeAnswerPayload,
   FLAddressChangeAnswerResponse,
-  FLAddressChangeIdResponse,
   FLAddressChangeMovesDonePayload,
-  FLAddressChangeMovesDoneResponse,
   FLAddressChangeMovesResponse,
-  FLAddressChangeStopResponse,
   FLAddressChangeSweepResponse,
   FLAddressChangeViewResponse,
   FLAufstellungPayload,
   FLAufstellungResponse,
   FLAustrittPayload,
   FLBanListResponse,
-  FLBanListWriteResponse,
-  FLBewerbungEinwilligungAnswerResponse,
   FLBewerbungEinwilligungDeclined,
   FLBewerbungEinwilligungGiven,
-  FLBewerbungEinwilligungResendResponse,
   FLBewerbungEinwilligungViewResponse,
   FLBewerbungenAdminListResponse,
   FLBewerbungFormResponse,
@@ -57,25 +48,19 @@ import type {
   FLBewerbungSweepResponse,
   FLCreatedResponse,
   FLDeclineBewerbungPayload,
-  FLDeclineBewerbungResponse,
   FLErasureAddressPayload,
   FLErasurePayload,
   FLErasureSweepResponse,
   FLErasureViewResponse,
   FLGenerateSpielplanPayload,
-  FLGenerateSpielplanResponse,
   FLGrantHandoverPassResponse,
   FLGrantsListResponse,
-  FLGrantWriteResponse,
   FLInvitationDispatchResponse,
   FLInvitationMailPayload,
   FLInvitationMailResponse,
   FLInvitationMintResponse,
   FLInvitationViewResponse,
-  FLInvitationWriteResponse,
   FLKaderResponse,
-  FLKaderRow,
-  FLKontaktInviteResponse,
   FLKontaktSeatPayload,
   FLKontaktSeatResponse,
   FLKoRundeResponse,
@@ -90,57 +75,42 @@ import type {
   FLOwnSaisonsResponse,
   FLPatchKaderRowPayload,
   FLPatchSaisonPayload,
-  FLPatchSaisonResponse,
   FLPatchSchiedsrichterPayload,
   FLPatchSchiedsrichterResponse,
   FLPatchSpielDataPayload,
   FLPatchSpielDataResponse,
   FLPatchSpielerSaisonPayload,
-  FLPatchSpielerSaisonResponse,
   FLPatchSpielortPayload,
-  FLPatchSpielortResponse,
   FLPatchSpieltagPayload,
   FLPatchTeamSaisonPayload,
-  FLPatchTeamSaisonResponse,
   FLPostBanListEntryPayload,
-  FLPostBanListEntryResponse,
   FLPostBewerbungPayload,
   FLPostGrantPayload,
   FLPostRegistrierungPayload,
-  FLPostRegistrierungResponse,
   FLPostSaisonPayload,
   FLPostSaisonResponse,
   FLPostSchiedsrichterPayload,
-  FLPostSchiedsrichterResponse,
   FLPostSpielortPayload,
   FLPostTeamEntryPayload,
-  FLPostTeamEntryResponse,
   FLReferencesPayload,
   FLReferencesResponse,
-  FLRegistrierungAdmissionResponse,
   FLRegistrierungAdmitPayload,
   FLRegistrierungConfirmationPayload,
-  FLRegistrierungConfirmationResponse,
   FLRegistrierungConfirmationViewResponse,
   FLRegistrierungDeclinePayload,
-  FLRegistrierungDeclineResponse,
   FLRegistrierungenAdminListResponse,
   FLRegistrierungSweepResponse,
   FLReplaceSaisonTeamPayload,
-  FLReplaceSaisonTeamResponse,
   FLSaisonAdminResponse,
   FLSaisonFrameResponse,
   FLSaisonOverviewResponse,
   FLSaisonsAdminListResponse,
-  FLSaisonTeamEinwilligungAnswerResponse,
   FLSaisonTeamsResponse,
   FLSchiedsrichterAccountEinwilligungPayload,
   FLSchiedsrichterConfirmationPayload,
-  FLSchiedsrichterConfirmationResponse,
   FLSchiedsrichterConfirmationViewResponse,
   FLSchiedsrichterListResponse,
   FLSchiedsrichterMintResponse,
-  FLSchiedsrichterReactivateResponse,
   FLSchiedsrichterSingleResponse,
   FLSchiedsrichterSpieleResponse,
   FLSchiedsrichterSweepResponse,
@@ -148,10 +118,8 @@ import type {
   FLSignInResponse,
   FLSpielberichtPayload,
   FLSpielberichtSchiedsrichterResponse,
-  FLSpielbestaetigungAnswerResponse,
   FLSpielbestaetigungEnterPayload,
   FLSpielbestaetigungSchiedsrichterAnswerPayload,
-  FLSpielbestaetigungSchiedsrichterAnswerResponse,
   FLSpielbestaetigungSweepResponse,
   FLSpielbestaetigungTeamAnswerPayload,
   FLSpieleAdminSingleResponse,
@@ -164,11 +132,9 @@ import type {
   FLSpielPageResponse,
   FLSpielplanResponse,
   FLSpieltagAdminResponse,
-  FLSpieltagWriteResponse,
   FLSubjectPayload,
   FLSubjectResponse,
   FLSwapGruppenPayload,
-  FLSwapGruppenResponse,
   FLSweepSaisonsResponse,
   FLTabelleResponse,
   FLTeamOverviewResponse,
@@ -177,7 +143,7 @@ import type {
   FLTeamSaisonAdminResponse,
   FLTeamSpieleResponse,
   FLTokenPayload,
-  FLUndrawSpielplanResponse,
+  FLVersionResponse,
   IdentitySweepErasureParams,
   RegistrierungenGetRegistrierungenAdminParams,
   SchiedsrichterGetSchiedsrichterParams,
@@ -217,10 +183,8 @@ export const getAccountDeleteAddressChangeUrl = () => {
  * Stop the change pending on the signed-in address at any step, its new address going; a holder's change in its wait tells every holder.
  * @summary Stop the address change pending on the signed-in person
  */
-export const accountDeleteAddressChange = async (
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLAccountAddressChangeResponse> => {
-  return adminKeyTransport<FLAccountAddressChangeResponse>(getAccountDeleteAddressChangeUrl(), {
+export const accountDeleteAddressChange = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<void> => {
+  return adminKeyTransport<void>(getAccountDeleteAddressChangeUrl(), {
     ...options,
     method: "DELETE",
   });
@@ -257,8 +221,8 @@ export const getAccountPostAddressChangeUrl = () => {
 export const accountPostAddressChange = async (
   fLAccountAddressChangePayload: FLAccountAddressChangePayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLAccountAddressChangeMintResponse> => {
-  return adminKeyTransport<FLAccountAddressChangeMintResponse>(getAccountPostAddressChangeUrl(), {
+): Promise<void> => {
+  return adminKeyTransport<void>(getAccountPostAddressChangeUrl(), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -335,8 +299,8 @@ export const getAddressChangePostAddressChangeAdminUrl = () => {
 export const addressChangePostAddressChangeAdmin = async (
   fLAddressChangeAdminPayload: FLAddressChangeAdminPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLAddressChangeIdResponse> => {
-  return adminKeyTransport<FLAddressChangeIdResponse>(getAddressChangePostAddressChangeAdminUrl(), {
+): Promise<void> => {
+  return adminKeyTransport<void>(getAddressChangePostAddressChangeAdminUrl(), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -402,8 +366,8 @@ export const getAddressChangePostAddressChangeStopUrl = () => {
 export const addressChangePostAddressChangeStop = async (
   fLTokenPayload: FLTokenPayload,
   options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLAddressChangeStopResponse> => {
-  return baseKeyTransport<FLAddressChangeStopResponse>(getAddressChangePostAddressChangeStopUrl(), {
+): Promise<void> => {
+  return baseKeyTransport<void>(getAddressChangePostAddressChangeStopUrl(), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -481,14 +445,14 @@ export const getAddressChangePostAddressChangeMovesDoneUrl = () => {
 };
 
 /**
- * Take the owed carry off each named change, counting the ones that owed one; an id owing none is left alone.
+ * Take the owed carry off each named change; an id owing none is left alone.
  * @summary Take the carries done off their changes
  */
 export const addressChangePostAddressChangeMovesDone = async (
   fLAddressChangeMovesDonePayload: FLAddressChangeMovesDonePayload,
   options?: Parameters<typeof systemKeyTransport>[1],
-): Promise<FLAddressChangeMovesDoneResponse> => {
-  return systemKeyTransport<FLAddressChangeMovesDoneResponse>(getAddressChangePostAddressChangeMovesDoneUrl(), {
+): Promise<void> => {
+  return systemKeyTransport<void>(getAddressChangePostAddressChangeMovesDoneUrl(), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -509,8 +473,8 @@ export const getAddressChangeDeleteAddressChangeUrl = (addressChangeId: string) 
 export const addressChangeDeleteAddressChange = async (
   addressChangeId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLAddressChangeIdResponse> => {
-  return adminKeyTransport<FLAddressChangeIdResponse>(getAddressChangeDeleteAddressChangeUrl(addressChangeId), {
+): Promise<void> => {
+  return adminKeyTransport<void>(getAddressChangeDeleteAddressChangeUrl(addressChangeId), {
     ...options,
     method: "DELETE",
   });
@@ -530,8 +494,8 @@ export const getAddressChangeResendConfirmationUrl = (addressChangeId: string) =
 export const addressChangeResendConfirmation = async (
   addressChangeId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLAddressChangeIdResponse> => {
-  return adminKeyTransport<FLAddressChangeIdResponse>(getAddressChangeResendConfirmationUrl(addressChangeId), {
+): Promise<void> => {
+  return adminKeyTransport<void>(getAddressChangeResendConfirmationUrl(addressChangeId), {
     ...options,
     method: "POST",
   });
@@ -574,8 +538,8 @@ export const aufstellungenPutAufstellungSelf = async (
   teamId: string,
   fLAufstellungPayload: FLAufstellungPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLAufstellungResponse> => {
-  return adminKeyTransport<FLAufstellungResponse>(getAufstellungenPutAufstellungSelfUrl(spielId, teamId), {
+): Promise<FLVersionResponse> => {
+  return adminKeyTransport<FLVersionResponse>(getAufstellungenPutAufstellungSelfUrl(spielId, teamId), {
     ...options,
     method: "PUT",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -617,8 +581,8 @@ export const aufstellungenPutAufstellung = async (
   teamId: string,
   fLAufstellungPayload: FLAufstellungPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLAufstellungResponse> => {
-  return adminKeyTransport<FLAufstellungResponse>(getAufstellungenPutAufstellungUrl(spielId, teamId), {
+): Promise<FLVersionResponse> => {
+  return adminKeyTransport<FLVersionResponse>(getAufstellungenPutAufstellungUrl(spielId, teamId), {
     ...options,
     method: "PUT",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -654,8 +618,8 @@ export const getBanListPostBanListEntryUrl = () => {
 export const banListPostBanListEntry = async (
   fLPostBanListEntryPayload: FLPostBanListEntryPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLPostBanListEntryResponse> => {
-  return adminKeyTransport<FLPostBanListEntryResponse>(getBanListPostBanListEntryUrl(), {
+): Promise<FLCreatedResponse> => {
+  return adminKeyTransport<FLCreatedResponse>(getBanListPostBanListEntryUrl(), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -671,11 +635,8 @@ export const getBanListDeleteBanListEntryUrl = (banListEntryId: string) => {
  * Lift a ban before it lapses, deleting its row for good.
  * @summary Lift a ban
  */
-export const banListDeleteBanListEntry = async (
-  banListEntryId: string,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLBanListWriteResponse> => {
-  return adminKeyTransport<FLBanListWriteResponse>(getBanListDeleteBanListEntryUrl(banListEntryId), {
+export const banListDeleteBanListEntry = async (banListEntryId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<void> => {
+  return adminKeyTransport<void>(getBanListDeleteBanListEntryUrl(banListEntryId), {
     ...options,
     method: "DELETE",
   });
@@ -739,8 +700,8 @@ export const getBewerbungenPostConfirmationUrl = () => {
 export const bewerbungenPostConfirmation = async (
   fLBewerbungEinwilligungGivenFLBewerbungEinwilligungDeclined: FLBewerbungEinwilligungGiven | FLBewerbungEinwilligungDeclined,
   options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLBewerbungEinwilligungAnswerResponse | FLSaisonTeamEinwilligungAnswerResponse> => {
-  return baseKeyTransport<FLBewerbungEinwilligungAnswerResponse | FLSaisonTeamEinwilligungAnswerResponse>(getBewerbungenPostConfirmationUrl(), {
+): Promise<void> => {
+  return baseKeyTransport<void>(getBewerbungenPostConfirmationUrl(), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -797,7 +758,8 @@ export const getBewerbungenSweepSaisonUrl = (saisonId: string) => {
 /**
  * Run one season's retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.
  *
- * A row that cannot be written is passed over, counted in `failed`, and met again by the next pass.
+ * A row that cannot be written is passed over, counted in `failed`, and met again by the next pass; what each clock
+ * erased is recorded in the action log.
  * @summary Run one season's retention clocks
  */
 export const bewerbungenSweepSaison = async (
@@ -858,8 +820,8 @@ export const bewerbungenAcceptBewerbung = async (
   bewerbungId: string,
   fLAcceptBewerbungPayload: FLAcceptBewerbungPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLAcceptBewerbungResponse> => {
-  return adminKeyTransport<FLAcceptBewerbungResponse>(getBewerbungenAcceptBewerbungUrl(bewerbungId), {
+): Promise<void> => {
+  return adminKeyTransport<void>(getBewerbungenAcceptBewerbungUrl(bewerbungId), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -881,8 +843,8 @@ export const bewerbungenDeclineBewerbung = async (
   bewerbungId: string,
   fLDeclineBewerbungPayload: FLDeclineBewerbungPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLDeclineBewerbungResponse> => {
-  return adminKeyTransport<FLDeclineBewerbungResponse>(getBewerbungenDeclineBewerbungUrl(bewerbungId), {
+): Promise<void> => {
+  return adminKeyTransport<void>(getBewerbungenDeclineBewerbungUrl(bewerbungId), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -943,16 +905,15 @@ export const getBewerbungenResendKontaktConfirmationUrl = (bewerbungId: string, 
 /**
  * Void one seat's link and mail its person a fresh one, that seat's deadline and reminder starting again from today.
  *
- * Where one person holds two seats both are replaced and one link answers both, and the answer names the address and
- * seats as the write found them.
+ * Where one person holds two seats both are replaced and one link answers both.
  * @summary Re-send one seat's confirmation link
  */
 export const bewerbungenResendKontaktConfirmation = async (
   bewerbungId: string,
   seat: string,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLBewerbungEinwilligungResendResponse> => {
-  return adminKeyTransport<FLBewerbungEinwilligungResendResponse>(getBewerbungenResendKontaktConfirmationUrl(bewerbungId, seat), {
+): Promise<void> => {
+  return adminKeyTransport<void>(getBewerbungenResendKontaktConfirmationUrl(bewerbungId, seat), {
     ...options,
     method: "POST",
   });
@@ -988,8 +949,8 @@ export const getGrantsPostGrantUrl = () => {
 export const grantsPostGrant = async (
   fLPostGrantPayload: FLPostGrantPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLGrantWriteResponse> => {
-  return adminKeyTransport<FLGrantWriteResponse>(getGrantsPostGrantUrl(), {
+): Promise<FLCreatedResponse> => {
+  return adminKeyTransport<FLCreatedResponse>(getGrantsPostGrantUrl(), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -1024,8 +985,8 @@ export const getGrantsDeleteGrantUrl = (grantId: string) => {
  * Only the owner removes one, the owner's own row leaving only by a handover; every holder in effect and the address named are told.
  * @summary Remove an administrator, or withdraw a waiting addition
  */
-export const grantsDeleteGrant = async (grantId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLGrantWriteResponse> => {
-  return adminKeyTransport<FLGrantWriteResponse>(getGrantsDeleteGrantUrl(grantId), {
+export const grantsDeleteGrant = async (grantId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<void> => {
+  return adminKeyTransport<void>(getGrantsDeleteGrantUrl(grantId), {
     ...options,
     method: "DELETE",
   });
@@ -1039,11 +1000,8 @@ export const getGrantsDeleteHandoverUrl = (grantId: string) => {
  * Stop a waiting handover, the role staying with the owner; only the owner stops one, and every holder in effect is told.
  * @summary Stop a waiting handover
  */
-export const grantsDeleteHandover = async (
-  grantId: string,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLGrantWriteResponse> => {
-  return adminKeyTransport<FLGrantWriteResponse>(getGrantsDeleteHandoverUrl(grantId), {
+export const grantsDeleteHandover = async (grantId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<void> => {
+  return adminKeyTransport<void>(getGrantsDeleteHandoverUrl(grantId), {
     ...options,
     method: "DELETE",
   });
@@ -1059,8 +1017,8 @@ export const getGrantsPostHandoverUrl = (grantId: string) => {
  * Only the owner starts one, and every holder in effect is told the date it completes on.
  * @summary Hand the owner role over to an administrator
  */
-export const grantsPostHandover = async (grantId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLGrantWriteResponse> => {
-  return adminKeyTransport<FLGrantWriteResponse>(getGrantsPostHandoverUrl(grantId), {
+export const grantsPostHandover = async (grantId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<void> => {
+  return adminKeyTransport<void>(getGrantsPostHandoverUrl(grantId), {
     ...options,
     method: "POST",
   });
@@ -1361,8 +1319,8 @@ export const getRegistrierungenPostRegistrierungUrl = () => {
 export const registrierungenPostRegistrierung = async (
   fLPostRegistrierungPayload: FLPostRegistrierungPayload,
   options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLPostRegistrierungResponse> => {
-  return baseKeyTransport<FLPostRegistrierungResponse>(getRegistrierungenPostRegistrierungUrl(), {
+): Promise<FLCreatedResponse> => {
+  return baseKeyTransport<FLCreatedResponse>(getRegistrierungenPostRegistrierungUrl(), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -1381,8 +1339,8 @@ export const getRegistrierungenPostConfirmationUrl = () => {
 export const registrierungenPostConfirmation = async (
   fLRegistrierungConfirmationPayload: FLRegistrierungConfirmationPayload,
   options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLRegistrierungConfirmationResponse> => {
-  return baseKeyTransport<FLRegistrierungConfirmationResponse>(getRegistrierungenPostConfirmationUrl(), {
+): Promise<void> => {
+  return baseKeyTransport<void>(getRegistrierungenPostConfirmationUrl(), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -1443,6 +1401,7 @@ export const getRegistrierungenSweepRegistrierungenUrl = (saisonId: string) => {
  *
  * A declined one goes once its wait after the decision has run out, an unconfirmed one past its deadline, and every one
  * still undecided once the season is `past`; one whose erasure fails is counted in `failed` and met again next pass.
+ * What each page erased is recorded in the action log.
  * @summary Run one season's registration retention clocks
  */
 export const registrierungenSweepRegistrierungen = async (
@@ -1493,8 +1452,8 @@ export const registrierungenAdmit = async (
   registrierungId: string,
   fLRegistrierungAdmitPayload: FLRegistrierungAdmitPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLRegistrierungAdmissionResponse> => {
-  return adminKeyTransport<FLRegistrierungAdmissionResponse>(getRegistrierungenAdmitUrl(registrierungId), {
+): Promise<void> => {
+  return adminKeyTransport<void>(getRegistrierungenAdmitUrl(registrierungId), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -1517,8 +1476,8 @@ export const registrierungenDecline = async (
   registrierungId: string,
   fLRegistrierungDeclinePayload: FLRegistrierungDeclinePayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLRegistrierungDeclineResponse> => {
-  return adminKeyTransport<FLRegistrierungDeclineResponse>(getRegistrierungenDeclineUrl(registrierungId), {
+): Promise<void> => {
+  return adminKeyTransport<void>(getRegistrierungenDeclineUrl(registrierungId), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -1658,8 +1617,8 @@ export const saisonsPatchSaison = async (
   saisonId: string,
   fLPatchSaisonPayload: FLPatchSaisonPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLPatchSaisonResponse> => {
-  return adminKeyTransport<FLPatchSaisonResponse>(getSaisonsPatchSaisonUrl(saisonId), {
+): Promise<FLVersionResponse> => {
+  return adminKeyTransport<FLVersionResponse>(getSaisonsPatchSaisonUrl(saisonId), {
     ...options,
     method: "PATCH",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -1677,11 +1636,8 @@ export const getSaisonsActivateSaisonUrl = (saisonId: string) => {
  * The outgoing season must be finished, and every matchday of the target dated.
  * @summary Make this the active Saison
  */
-export const saisonsActivateSaison = async (
-  saisonId: string,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLActivateSaisonResponse> => {
-  return adminKeyTransport<FLActivateSaisonResponse>(getSaisonsActivateSaisonUrl(saisonId), {
+export const saisonsActivateSaison = async (saisonId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<void> => {
+  return adminKeyTransport<void>(getSaisonsActivateSaisonUrl(saisonId), {
     ...options,
     method: "POST",
   });
@@ -1702,8 +1658,8 @@ export const saisonsSwapGruppen = async (
   saisonId: string,
   fLSwapGruppenPayload: FLSwapGruppenPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSwapGruppenResponse> => {
-  return adminKeyTransport<FLSwapGruppenResponse>(getSaisonsSwapGruppenUrl(saisonId), {
+): Promise<void> => {
+  return adminKeyTransport<void>(getSaisonsSwapGruppenUrl(saisonId), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -1802,11 +1758,8 @@ export const getSaisonsDeleteSpielplanUrl = (saisonId: string) => {
  * Undoing the draw reopens the shape rules to an edit and the groups to an entry.
  * @summary Undraw this Saison's Spielplan
  */
-export const saisonsDeleteSpielplan = async (
-  saisonId: string,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLUndrawSpielplanResponse> => {
-  return adminKeyTransport<FLUndrawSpielplanResponse>(getSaisonsDeleteSpielplanUrl(saisonId), {
+export const saisonsDeleteSpielplan = async (saisonId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<void> => {
+  return adminKeyTransport<void>(getSaisonsDeleteSpielplanUrl(saisonId), {
     ...options,
     method: "DELETE",
   });
@@ -1844,8 +1797,8 @@ export const saisonsPostSpielplan = async (
   saisonId: string,
   fLGenerateSpielplanPayload?: FLGenerateSpielplanPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLGenerateSpielplanResponse> => {
-  return adminKeyTransport<FLGenerateSpielplanResponse>(getSaisonsPostSpielplanUrl(saisonId), {
+): Promise<void> => {
+  return adminKeyTransport<void>(getSaisonsPostSpielplanUrl(saisonId), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -1935,7 +1888,7 @@ export const getSchiedsrichterPostSchiedsrichterUrl = () => {
 };
 
 /**
- * Create a referee and owe them their confirmation link, answering the address and the deadline it goes to.
+ * Create a referee and owe them their confirmation link.
  *
  * Entering a referee is the invitation, with no second press deciding whether they are asked, since a referee nobody
  * asked is a name nobody consented to publish.
@@ -1944,8 +1897,8 @@ export const getSchiedsrichterPostSchiedsrichterUrl = () => {
 export const schiedsrichterPostSchiedsrichter = async (
   fLPostSchiedsrichterPayload: FLPostSchiedsrichterPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLPostSchiedsrichterResponse> => {
-  return adminKeyTransport<FLPostSchiedsrichterResponse>(getSchiedsrichterPostSchiedsrichterUrl(), {
+): Promise<FLCreatedResponse> => {
+  return adminKeyTransport<FLCreatedResponse>(getSchiedsrichterPostSchiedsrichterUrl(), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -1967,8 +1920,8 @@ export const getSchiedsrichterPostConfirmationUrl = () => {
 export const schiedsrichterPostConfirmation = async (
   fLSchiedsrichterConfirmationPayload: FLSchiedsrichterConfirmationPayload,
   options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLSchiedsrichterConfirmationResponse> => {
-  return baseKeyTransport<FLSchiedsrichterConfirmationResponse>(getSchiedsrichterPostConfirmationUrl(), {
+): Promise<void> => {
+  return baseKeyTransport<void>(getSchiedsrichterPostConfirmationUrl(), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -2191,14 +2144,14 @@ export const getSchiedsrichterReactivateSchiedsrichterUrl = (schiedsrichterId: s
 /**
  * Bring a retired referee back into the picker and every default read.
  *
- * One who has not answered is owed a fresh link, named in `confirmation`, since a retired referee's save mails nothing.
+ * One who has not answered is owed a fresh link, since a retired referee's save mails nothing.
  * @summary Bring a deactivated Schiedsrichter back
  */
 export const schiedsrichterReactivateSchiedsrichter = async (
   schiedsrichterId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSchiedsrichterReactivateResponse> => {
-  return adminKeyTransport<FLSchiedsrichterReactivateResponse>(getSchiedsrichterReactivateSchiedsrichterUrl(schiedsrichterId), {
+): Promise<void> => {
+  return adminKeyTransport<void>(getSchiedsrichterReactivateSchiedsrichterUrl(schiedsrichterId), {
     ...options,
     method: "POST",
   });
@@ -2239,8 +2192,8 @@ export const spielberichtePutSpielberichtBericht = async (
   spielId: string,
   fLSpielberichtPayload: FLSpielberichtPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielberichtSchiedsrichterResponse> => {
-  return adminKeyTransport<FLSpielberichtSchiedsrichterResponse>(getSpielberichtePutSpielberichtBerichtUrl(spielId), {
+): Promise<FLVersionResponse> => {
+  return adminKeyTransport<FLVersionResponse>(getSpielberichtePutSpielberichtBerichtUrl(spielId), {
     ...options,
     method: "PUT",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -2321,16 +2274,13 @@ export const spielbestaetigungenPostSchiedsrichterAnswer = async (
   spielbestaetigungId: string,
   fLSpielbestaetigungSchiedsrichterAnswerPayload: FLSpielbestaetigungSchiedsrichterAnswerPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielbestaetigungSchiedsrichterAnswerResponse> => {
-  return adminKeyTransport<FLSpielbestaetigungSchiedsrichterAnswerResponse>(
-    getSpielbestaetigungenPostSchiedsrichterAnswerUrl(spielbestaetigungId),
-    {
-      ...options,
-      method: "POST",
-      headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
-      body: JSON.stringify(fLSpielbestaetigungSchiedsrichterAnswerPayload),
-    },
-  );
+): Promise<void> => {
+  return adminKeyTransport<void>(getSpielbestaetigungenPostSchiedsrichterAnswerUrl(spielbestaetigungId), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(fLSpielbestaetigungSchiedsrichterAnswerPayload),
+  });
 };
 
 export const getSpielbestaetigungenPostTeamAnswerUrl = (spielbestaetigungId: string) => {
@@ -2348,8 +2298,8 @@ export const spielbestaetigungenPostTeamAnswer = async (
   spielbestaetigungId: string,
   fLSpielbestaetigungTeamAnswerPayload: FLSpielbestaetigungTeamAnswerPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielbestaetigungAnswerResponse> => {
-  return adminKeyTransport<FLSpielbestaetigungAnswerResponse>(getSpielbestaetigungenPostTeamAnswerUrl(spielbestaetigungId), {
+): Promise<void> => {
+  return adminKeyTransport<void>(getSpielbestaetigungenPostTeamAnswerUrl(spielbestaetigungId), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -2636,8 +2586,8 @@ export const spielerPatchSpielerSaison = async (
   saisonId: string,
   fLPatchSpielerSaisonPayload: FLPatchSpielerSaisonPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLPatchSpielerSaisonResponse> => {
-  return adminKeyTransport<FLPatchSpielerSaisonResponse>(getSpielerPatchSpielerSaisonUrl(spielerId, saisonId), {
+): Promise<FLVersionResponse> => {
+  return adminKeyTransport<FLVersionResponse>(getSpielerPatchSpielerSaisonUrl(spielerId, saisonId), {
     ...options,
     method: "PATCH",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -2679,8 +2629,8 @@ export const spielerDeleteKaderRow = async (
   teamId: string,
   saisonId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLKaderRow> => {
-  return adminKeyTransport<FLKaderRow>(getSpielerDeleteKaderRowUrl(spielerId, teamId, saisonId), {
+): Promise<void> => {
+  return adminKeyTransport<void>(getSpielerDeleteKaderRowUrl(spielerId, teamId, saisonId), {
     ...options,
     method: "DELETE",
   });
@@ -2702,8 +2652,8 @@ export const spielerPatchKaderRow = async (
   saisonId: string,
   fLPatchKaderRowPayload: FLPatchKaderRowPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLKaderRow> => {
-  return adminKeyTransport<FLKaderRow>(getSpielerPatchKaderRowUrl(spielerId, teamId, saisonId), {
+): Promise<void> => {
+  return adminKeyTransport<void>(getSpielerPatchKaderRowUrl(spielerId, teamId, saisonId), {
     ...options,
     method: "PATCH",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -2802,8 +2752,8 @@ export const spielortePatchSpielort = async (
   spielortId: string,
   fLPatchSpielortPayload: FLPatchSpielortPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLPatchSpielortResponse> => {
-  return adminKeyTransport<FLPatchSpielortResponse>(getSpielortePatchSpielortUrl(spielortId), {
+): Promise<FLVersionResponse> => {
+  return adminKeyTransport<FLVersionResponse>(getSpielortePatchSpielortUrl(spielortId), {
     ...options,
     method: "PATCH",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -2862,8 +2812,8 @@ export const spieltagePatchSpieltag = async (
   spieltagId: string,
   fLPatchSpieltagPayload: FLPatchSpieltagPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpieltagWriteResponse> => {
-  return adminKeyTransport<FLSpieltagWriteResponse>(getSpieltagePatchSpieltagUrl(spieltagId), {
+): Promise<FLVersionResponse> => {
+  return adminKeyTransport<FLVersionResponse>(getSpieltagePatchSpieltagUrl(spieltagId), {
     ...options,
     method: "PATCH",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -2943,8 +2893,8 @@ export const teamsPostTeamEntry = async (
   saisonId: string,
   fLPostTeamEntryPayload: FLPostTeamEntryPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLPostTeamEntryResponse> => {
-  return adminKeyTransport<FLPostTeamEntryResponse>(getTeamsPostTeamEntryUrl(saisonId), {
+): Promise<void> => {
+  return adminKeyTransport<void>(getTeamsPostTeamEntryUrl(saisonId), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -3022,8 +2972,8 @@ export const teamsPatchTeamSaison = async (
   saisonId: string,
   fLPatchTeamSaisonPayload: FLPatchTeamSaisonPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLPatchTeamSaisonResponse> => {
-  return adminKeyTransport<FLPatchTeamSaisonResponse>(getTeamsPatchTeamSaisonUrl(teamId, saisonId), {
+): Promise<FLVersionResponse> => {
+  return adminKeyTransport<FLVersionResponse>(getTeamsPatchTeamSaisonUrl(teamId, saisonId), {
     ...options,
     method: "PATCH",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
@@ -3095,8 +3045,8 @@ export const teamsDeleteInvitation = async (
   teamId: string,
   saisonId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLInvitationWriteResponse> => {
-  return adminKeyTransport<FLInvitationWriteResponse>(getTeamsDeleteInvitationUrl(teamId, saisonId), {
+): Promise<void> => {
+  return adminKeyTransport<void>(getTeamsDeleteInvitationUrl(teamId, saisonId), {
     ...options,
     method: "DELETE",
   });
@@ -3182,8 +3132,7 @@ export const getTeamsResendKontaktConfirmationUrl = (teamId: string, saisonId: s
 /**
  * Owe one contact seat a fresh confirmation link, and its pair where the Trainer holds both and has not confirmed it.
  *
- * The previous link opens nothing from this write on, the deadline restarts from today, and the answer names the
- * address the mail is owed to, never the link.
+ * The previous link opens nothing from this write on, and the deadline restarts from today.
  * @summary Send one contact seat a fresh confirmation link
  */
 export const teamsResendKontaktConfirmation = async (
@@ -3191,8 +3140,8 @@ export const teamsResendKontaktConfirmation = async (
   saisonId: string,
   seat: string,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLKontaktInviteResponse> => {
-  return adminKeyTransport<FLKontaktInviteResponse>(getTeamsResendKontaktConfirmationUrl(teamId, saisonId, seat), {
+): Promise<void> => {
+  return adminKeyTransport<void>(getTeamsResendKontaktConfirmationUrl(teamId, saisonId, seat), {
     ...options,
     method: "POST",
   });
@@ -3234,8 +3183,8 @@ export const teamsReplaceSaisonTeam = async (
   saisonId: string,
   fLReplaceSaisonTeamPayload: FLReplaceSaisonTeamPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLReplaceSaisonTeamResponse> => {
-  return adminKeyTransport<FLReplaceSaisonTeamResponse>(getTeamsReplaceSaisonTeamUrl(teamId, saisonId), {
+): Promise<void> => {
+  return adminKeyTransport<void>(getTeamsReplaceSaisonTeamUrl(teamId, saisonId), {
     ...options,
     method: "POST",
     headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),

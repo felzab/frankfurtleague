@@ -40,7 +40,7 @@ def rule_refusal(rule: Rule, message: LiteralString, bounds: Mapping[str, Bound]
 class APIError(Exception):
     """A refusal: its status, the code naming its reason, the body paths it judged and their bounds, which is all a failure body carries.
 
-    `headers` carry what the status asks for beside the body, a 401's challenge or a `Retry-After`. `bounds` are what the
+    `headers` carry what the status asks for beside the body, a 401's challenge. `bounds` are what the
     refused value is held to, by the names the rule gives them, written as each judged field's `ctx` as a
     `PydanticCustomError`'s context is: the caller words the field's line from them, so a bound the server moves moves
     the line with it. A refusal naming no field carries none. `location` says where its fields arrived, the body unless

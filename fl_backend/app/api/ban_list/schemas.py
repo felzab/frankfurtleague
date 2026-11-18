@@ -69,13 +69,3 @@ class FLBanListResponse(BaseReadModel):
     """Every ban, newest first."""
 
     ban_list: list[FLBanListRow]
-
-
-class FLPostBanListEntryResponse(BaseReadModel):
-    created_id: CustomObjectId
-
-
-class FLBanListWriteResponse(BaseReadModel):
-    """The id of the ban lifted, whose row is gone."""
-
-    ban_list_entry_id: CustomObjectId

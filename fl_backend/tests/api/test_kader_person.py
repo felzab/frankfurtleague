@@ -188,7 +188,8 @@ async def stored(database: AsyncDatabase) -> tuple[list[Any], list[Any]]:
 
 
 def answered(response: Response) -> tuple[int, str | None]:
-    return response.status_code, response.json().get("error_code")
+    # A write that lands answers no body.
+    return response.status_code, response.json().get("error_code") if response.content else None
 
 
 async def refused_and_untouched(
@@ -221,7 +222,6 @@ class TestTheKaderRead:
         assert rows[str(KAPITAEN)]["rolle"] == "kapitaen"
         assert rows[str(RETIRED)]["inactive_since"] == "2026-02-01"
         assert body["allowed_stufen"] == ALLOWED_STUFEN
-        assert (body["team_id"], body["saison_id"]) == (str(TEAM_A), ACTIVE_SAISON)
 
     async def test_the_read_marks_a_shared_shirt(self, mongo_replica_set_url: str):
         """The pair wearing `7` is marked beside a row wearing a shirt of its own; which rows share is the marker's own rule."""
@@ -330,7 +330,7 @@ class TestATrainerOnlySeat:
     """Every operation open to the Trainer's seat exactly as to the Ansprechperson's: the case that goes red if a check narrows by slot."""
 
     async def test_it_reads_edits_all_four_fields_and_retires(self, mongo_replica_set_url: str):
-        async def run(database: AsyncDatabase, _: AsyncMongoClient) -> list[tuple[int, Any]]:
+        async def run(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[list[int], Any, Any]:
             read = await send(mongo_replica_set_url, "GET", kader_url(), TRAINER_ALONE)
             edit = await send(
                 mongo_replica_set_url,
@@ -340,12 +340,17 @@ class TestATrainerOnlySeat:
                 {"nummer": "9", "position": "Tor", "stufe": "Q1", "rolle": "co_kapitaen", "version": 0},
             )
             out = await send(mongo_replica_set_url, "DELETE", row_url(ZERO_SEVEN), TRAINER_ALONE)
+            rows = database[Collection.SAISON_SPIELER]
 
-            return [(response.status_code, response.json()) for response in (read, edit, out)]
+            return (
+                [response.status_code for response in (read, edit, out)],
+                await rows.find_one({"spieler_id": SHARES_THE_SEVEN}),
+                await rows.find_one({"spieler_id": ZERO_SEVEN}),
+            )
 
-        (read_status, _), (edit_status, edited), (out_status, out) = await on_a_league(mongo_replica_set_url, run)
+        statuses, edited, out = await on_a_league(mongo_replica_set_url, run)
 
-        assert (read_status, edit_status, out_status) == (200, 200, 200)
+        assert statuses == [200, 204, 204]
         assert {key: edited[key] for key in ("nummer", "position", "stufe", "rolle")} == {
             "nummer": "9",
             "position": "Tor",
@@ -357,7 +362,7 @@ class TestATrainerOnlySeat:
 
 class TestAnEdit:
     async def test_the_four_fields_are_written_and_the_rest_of_the_row_stays(self, mongo_replica_set_url: str):
-        async def run(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Response, Any, Any, Any]:
+        async def run(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Response, Any, Any, Any, Response]:
             response = await send(mongo_replica_set_url, "PATCH", row_url(SHARES_THE_SEVEN), ANSPRECH, {**PAYLOAD, "nummer": "07"})
             seasons = await database[Collection.ACTION_LOG].distinct("label", {"action": "spieler.changed"})
 
@@ -366,18 +371,20 @@ class TestAnEdit:
                 await database[Collection.SAISON_SPIELER].find_one({"spieler_id": SHARES_THE_SEVEN}),
                 await acts_of(database),
                 seasons,
+                await send(mongo_replica_set_url, "GET", kader_url(), ANSPRECH),
             )
 
-        response, row, acts, seasons = await on_a_league(mongo_replica_set_url, run)
+        response, row, acts, seasons, read = await on_a_league(mongo_replica_set_url, run)
 
-        assert response.status_code == 200, response.text
+        assert response.status_code == 204, response.text
         assert acts == [("spieler.changed", "kontakt", "Adler", SHARES_THE_SEVEN)]
         # A pupil's row is the season's, and the row names the pupil by id alone.
         assert seasons == [ACTIVE_SAISON]
         assert (row["nummer"], row["position"], row["stufe"], row["rolle"]) == ("07", "Tor", "Q1", None)
         assert (row["team_id"], row["is_nachnominiert"], row["inactive_since"]) == (TEAM_A, False, None)
         # Now wearing `07` beside `ZERO_SEVEN`, judged against the squad after the write.
-        assert response.json()["nummer_double"] is True
+        marked = {row["spieler_id"]: row["nummer_double"] for row in read.json()["kader"]}
+        assert (marked[str(SHARES_THE_SEVEN)], marked[str(ZERO_SEVEN)]) == (True, True)
 
     async def test_a_save_on_the_version_another_save_moved_is_refused_and_the_first_stands(self, mongo_replica_set_url: str):
         """Two seat holders open the row on one version and both save: unchecked, the second overwrites the first unseen."""
@@ -390,7 +397,7 @@ class TestAnEdit:
 
         first, second, row = await on_a_league(mongo_replica_set_url, run)
 
-        assert first == 200
+        assert first == 204
         assert second == (409, Code.VERSION_STALE)
         assert (row["nummer"], row["version"]) == ("9", 1)
 
@@ -412,7 +419,7 @@ class TestAStufeTheSeasonDoesNotOffer:
 
         answer, _ = await refused_and_untouched(mongo_replica_set_url, "PATCH", row_url(OLD_STUFE), ANSPRECH, {**PAYLOAD, "stufe": stufe})
 
-        assert answer[0] == 200
+        assert answer == (204, None)
 
 
 class TestTheCaptaincy:
@@ -487,15 +494,17 @@ class KaderRowsRunningTheSameRival:
 
 class TestRetire:
     async def test_it_stamps_the_row_and_leaves_the_person(self, mongo_replica_set_url: str):
-        async def run(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Response, Any, Any]:
+        async def run(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Response, Any, Any, Response]:
             response = await send(mongo_replica_set_url, "DELETE", row_url(SHARES_THE_SEVEN), ANSPRECH)
+            row = await database[Collection.SAISON_SPIELER].find_one({"spieler_id": SHARES_THE_SEVEN})
 
-            return response, await database[Collection.SAISON_SPIELER].find_one({"spieler_id": SHARES_THE_SEVEN}), await acts_of(database)
+            return response, row, await acts_of(database), await send(mongo_replica_set_url, "GET", kader_url(), ANSPRECH)
 
-        response, row, acts = await on_a_league(mongo_replica_set_url, run)
+        response, row, acts, read = await on_a_league(mongo_replica_set_url, run)
 
-        assert response.status_code == 200, response.text
+        assert response.status_code == 204, response.text
         assert acts == [("spieler.deregistered", "kontakt", "Adler", SHARES_THE_SEVEN)]
         assert row["inactive_since"] == TODAY
         # The live `7` it shared is the captain's alone now, and an ausgetragen row wears nothing.
-        assert response.json()["nummer_double"] is False
+        marked = {row["spieler_id"]: row["nummer_double"] for row in read.json()["kader"]}
+        assert (marked[str(SHARES_THE_SEVEN)], marked[str(KAPITAEN)]) == (False, False)

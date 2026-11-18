@@ -258,18 +258,17 @@ async def test_the_admin_key_gets_the_spiel_with_the_rent_and_the_payment(seeded
 async def test_the_editor_offers_the_live_rows_and_the_ones_the_spiel_books(seeded_url: str):
     """Offering a retired row the fixture does not book puts a booking on the editor the save then refuses.
 
-    The fixture's own retired venue and referee stay offered, so the booking keeps its name; the unconfirmed referee is
-    offered marked, the save refusing them, and an objection told from no answer yet: nobody asks a person who objected
-    again, so the administrator waiting on their answer waits for good.
+    The fixture's own retired venue and referee stay offered, so the booking keeps its name; an unconfirmed referee, one
+    who objected among them, is offered marked, the save refusing them.
     """
 
     answer = (await answered(seeded_url, ADMIN_PATH, ADMIN_AUTH)).json()
 
     assert [(row["name"], row["inactive_since"]) for row in answer["spielorte"]] == [("Halle Nord", None), ("Sportplatz Ost", "2026-04-01")]
-    assert [(row["name"], row["confirmed"], row["declined"], row["inactive_since"]) for row in answer["schiedsrichter"]] == [
-        ("Ada Kern", True, False, "2026-04-01"),
-        ("Bo Lenz", False, False, None),
-        ("Cleo Rau", False, True, None),
+    assert [(row["name"], row["confirmed"], row["inactive_since"]) for row in answer["schiedsrichter"]] == [
+        ("Ada Kern", True, "2026-04-01"),
+        ("Bo Lenz", False, None),
+        ("Cleo Rau", False, None),
     ]
     assert (answer["spielbericht"], answer["spielbestaetigungen"]) == (None, [])
 
@@ -293,7 +292,6 @@ async def test_the_report_panel_shows_this_fixtures_report_by_its_stored_version
         "state": "adopted",
         "version": BERICHT_VERSION,
         "ergebnis_vorschlag": {"team1_tore": 2, "team2_tore": 1, "elfmeterschiessen": None, "sonderereignis": None},
-        "sides": {"team1": str(HOME), "team2": str(AWAY)},
         "scorers": [
             {"side": "team1", "spieler_id": str(LINA), "minute": "12", "eigentor": False},
             {"side": "team1", "spieler_id": str(OLE), "minute": "30", "eigentor": False},

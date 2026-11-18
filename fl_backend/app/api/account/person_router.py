@@ -2,11 +2,10 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.account.schemas import (
-    FLAccountAddressChangeMintResponse,
     FLAccountAddressChangeOpen,
     FLAccountAddressChangePayload,
     FLAccountAddressChangeResponse,
@@ -55,7 +54,6 @@ from app.core.dependencies import (
     SpielerReadCollection,
 )
 from app.core.exceptions import DocumentNotFoundError
-from app.core.readonly import ReadCollection
 from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transact
 from app.shared.folding import sign_in_identifier
@@ -120,18 +118,6 @@ def _pending_addresses(record: Mapping[str, Any], *, now: datetime) -> FLAccount
     )
 
 
-async def _address_change_answer(
-    identifier: str,
-    *,
-    address_changes_collection: ReadCollection,
-    now: datetime,
-    session: AsyncClientSession | None,
-) -> FLAccountAddressChangeResponse:
-    record = await address_changes_collection.find_one(build_address_filter(identifier), session=session)
-
-    return FLAccountAddressChangeResponse(open=None if record is None else _pending_addresses(record, now=now))
-
-
 @router.get("/address_change", summary="The address change pending on a signed-in person")
 async def get_address_change(
     identifier: PersonIdentifier,
@@ -143,11 +129,14 @@ async def get_address_change(
     The pending address is served whole only where the person typed it, and masked where an administrator started the change.
     """
 
-    return await _address_change_answer(identifier, address_changes_collection=address_changes_collection, now=germany_now, session=None)
+    record = await address_changes_collection.find_one(build_address_filter(identifier))
+
+    return FLAccountAddressChangeResponse(open=None if record is None else _pending_addresses(record, now=germany_now))
 
 
 @router.post(
     "/address_change",
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Start a change of the signed-in person's address",
 )
 async def post_address_change(
@@ -159,7 +148,7 @@ async def post_address_change(
     outbox_collection: OutboxCollection,
     db: DBClient,
     germany_now: GermanyNow,
-) -> FLAccountAddressChangeMintResponse:
+) -> None:
     """Start a change of the address the person signs in on: the address on file is mailed a link, and its confirmation mails the new one.
 
     Everything the address holds moves once the new address confirms, after a wait where it holds a grant; declining
@@ -168,7 +157,7 @@ async def post_address_change(
 
     email = address_change_data.email
 
-    async def start_the_change(session: AsyncClientSession) -> FLAccountAddressChangeMintResponse:
+    async def start_the_change(session: AsyncClientSession) -> None:
         # First: a press repeated inside the interval asks nothing of the records.
         live = await address_changes_collection.find_one(build_address_filter(identifier), {"valid_until": 1}, session=session)
         restart = find_restart_refusal(live_valid_until=None if live is None else live["valid_until"], now=germany_now)
@@ -202,13 +191,12 @@ async def post_address_change(
             session=session,
         )
 
-        return FLAccountAddressChangeMintResponse(id=address_change_id, valid_until=record["valid_until"], email=email)
-
-    return await transact(db, start_the_change)
+    await transact(db, start_the_change)
 
 
 @router.delete(
     "/address_change",
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Stop the address change pending on the signed-in person",
 )
 async def delete_address_change(
@@ -218,11 +206,11 @@ async def delete_address_change(
     outbox_collection: OutboxCollection,
     db: DBClient,
     germany_now: GermanyNow,
-) -> FLAccountAddressChangeResponse:
+) -> None:
     """Stop the change pending on the signed-in address at any step, its new address going; a holder's change in its wait tells every holder."""
 
     # Asks no fresh confirmation: a stop hands nothing over.
-    async def stop_the_change(session: AsyncClientSession) -> FLAccountAddressChangeResponse:
+    async def stop_the_change(session: AsyncClientSession) -> None:
         live = await address_changes_collection.find_one(build_address_filter(identifier), {"_id": 1}, session=session)
         if live is None:
             raise DocumentNotFoundError()
@@ -242,11 +230,4 @@ async def delete_address_change(
             session=session,
         )
 
-        return await _address_change_answer(
-            identifier,
-            address_changes_collection=address_changes_collection,
-            now=germany_now,
-            session=session,
-        )
-
-    return await transact(db, stop_the_change)
+    await transact(db, stop_the_change)

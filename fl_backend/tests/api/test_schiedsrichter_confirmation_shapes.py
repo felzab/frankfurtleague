@@ -9,8 +9,9 @@ from collections.abc import Mapping
 
 import pytest
 
-from app.api.schiedsrichter.schemas import FLSchiedsrichterConfirmationResponse, FLSchiedsrichterConfirmationViewResponse
+from app.api.schiedsrichter.schemas import FLSchiedsrichterConfirmationViewResponse
 from app.api.schiedsrichter.services import answered_at_of, state_of
+from tests.core.app_source import api_routes, application
 
 
 class TestWhatALeakedLinkLearns:
@@ -44,7 +45,11 @@ class TestWhatALeakedLinkLearns:
 
         assert answered_at_of(state=state, einwilligung=einwilligung, confirmation=confirmation) == answered_at
 
-    def test_the_answer_declares_exactly_what_the_press_echoes(self):
-        """The same equality on the press's answer, which the same token holder reads."""
+    def test_the_press_answers_no_body(self):
+        """The press's answer, which the same token holder reads, carries nothing: a model added to it is a field leaked."""
 
-        assert set(FLSchiedsrichterConfirmationResponse.model_fields) == {"scope", "media", "confirmed_at"}
+        (route,) = [
+            route for route in api_routes(application()) if route.path == "/api/schiedsrichter/confirmation" and route.methods == {"POST"}
+        ]
+
+        assert (route.status_code, route.response_model) == (204, None)

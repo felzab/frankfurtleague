@@ -10,7 +10,6 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
-from fastapi import Response
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -22,6 +21,7 @@ from app.core.collections import Collection
 from app.core.exceptions import APIError
 from app.core.recording import ACT_BY_KONTAKT
 from app.shared.schemas.literals import KONTAKT_SEATS
+from app.shared.schemas.responses import FLVersionResponse
 from tests import documents
 from tests.acts import acting_as, acts_of
 from tests.app_client import app_client, app_under_test
@@ -126,15 +126,13 @@ async def seat_saves(
     now: datetime = OPEN,
     aufstellungen: Any = None,
     spiele: Any = None,
-) -> tuple[FLAufstellungResponse, int]:
-    """A club's line-up, the home club's unless named, saved through the seat's handler, and the status it answers: 201 for a create."""
+) -> FLVersionResponse:
+    """A club's line-up, the home club's unless named, saved through the seat's handler."""
 
-    response = Response()
-    answer = await put_aufstellung_self(
+    return await put_aufstellung_self(
         spiel_id=spiel_id,
         team_id=team_id,
         aufstellung_data=payload,
-        response=response,
         identifier=seat,
         spiele_collection=database[Collection.SPIELE] if spiele is None else spiele,
         saisons_collection=database[Collection.SAISONS],
@@ -146,7 +144,6 @@ async def seat_saves(
         db=client,
         germany_now=now,
     )
-    return answer, response.status_code
 
 
 async def admin_saves(
@@ -158,16 +155,14 @@ async def admin_saves(
     now: datetime = OPEN,
     aufstellungen: Any = None,
     spiele: Any = None,
-) -> tuple[FLAufstellungResponse, int]:
+) -> FLVersionResponse:
     """The home club's line-up saved through the administrator's handler, under the actor its request would bind."""
 
-    response = Response()
     with acting_as(ADMIN):
-        answer = await put_aufstellung(
+        return await put_aufstellung(
             spiel_id=spiel_id,
             team_id=HOME,
             aufstellung_data=payload,
-            response=response,
             spiele_collection=database[Collection.SPIELE] if spiele is None else spiele,
             saisons_collection=database[Collection.SAISONS],
             saison_spieler_collection=database[Collection.SAISON_SPIELER],
@@ -176,7 +171,6 @@ async def admin_saves(
             db=client,
             germany_now=now,
         )
-    return answer, response.status_code
 
 
 async def seat_reads(
@@ -229,17 +223,18 @@ async def refusal_of(saving: Awaitable[Any]) -> tuple[Code, list[tuple[str | int
     return refused.value.error_code, list(refused.value.fields)
 
 
-async def test_a_seats_first_save_creates_the_line_up_and_answers_the_screen(mongo_replica_set_url: str):
+async def test_a_seats_first_save_creates_the_line_up_the_screen_then_reads(mongo_replica_set_url: str):
     """The squad, the matchday by its stored position, each side with its Kürzel, and the act recorded.
 
     The act's record is the line-up, so its label alone names the fixture in the Protokoll.
     """
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> None:
-        answer, status = await seat_saves(database, client, _payload(LINA, OLE, starters=1))
+        written = await seat_saves(database, client, _payload(LINA, OLE, starters=1))
         stored = await database[Collection.AUFSTELLUNGEN].find_one({"spiel_id": SPIEL, "team_id": HOME})
+        answer = await seat_reads(database, client)
 
-        assert status == 201
+        assert written == FLVersionResponse(version=0)
         assert sorted((row.first_name, row.last_name) for row in answer.kader) == [
             ("Lina", "Muster"),
             ("Mia", "Muster"),
@@ -282,7 +277,7 @@ async def test_the_lock_refuses_the_seat_and_never_the_administrator(mongo_repli
             )
         return refused, response.status_code, [act[:3] for act in await acts_of(database)]
 
-    assert await on_a_season(mongo_replica_set_url, body) == ((Code.AUFSTELLUNG_LOCKED, []), 201, [("aufstellung.saved", SERVED_ADMIN, None)])
+    assert await on_a_season(mongo_replica_set_url, body) == ((Code.AUFSTELLUNG_LOCKED, []), 200, [("aufstellung.saved", SERVED_ADMIN, None)])
 
 
 async def test_an_undated_fixture_takes_no_line_up_from_anybody(mongo_replica_set_url: str):
@@ -338,7 +333,7 @@ async def test_a_seat_is_asked_for_the_fixtures_season_and_a_stranger_learns_of_
 async def test_a_pupil_the_line_up_names_outside_the_teams_kader_is_named_off_their_record(mongo_replica_set_url: str):
     """The pupil's one squad row of the season is another club's, as admitting a pupil ausgetragen here to that club leaves it.
 
-    The screen names them off their person record as it reads, and as the save keeping them answers.
+    The screen names them off their person record as it reads, and again after a save keeping them.
     """
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, ...]:
@@ -346,9 +341,9 @@ async def test_a_pupil_the_line_up_names_outside_the_teams_kader_is_named_off_th
             documents.aufstellung_document({"_id": SPIEL, "saison_id": SAISON_ID}, HOME, starters=[AWAY_PUPIL])
         )
         read = await admin_reads(database, client)
-        saved, _ = await admin_saves(database, client, FLAufstellungPayload(spieler=read.spieler, version=read.version))
+        await admin_saves(database, client, FLAufstellungPayload(spieler=read.spieler, version=read.version))
 
-        return read.named, saved.named
+        return read.named, (await admin_reads(database, client)).named
 
     named = FLAufstellungSpieler(
         spieler_id=AWAY_PUPIL, first_name="Fremd", last_name="Muster", nummer=None, position=None, rolle=None, is_nachnominiert=False
@@ -368,20 +363,24 @@ async def test_a_save_judges_its_names_against_the_kader_and_the_stored_line_up(
         await database[Collection.AUFSTELLUNGEN].insert_one(
             documents.aufstellung_document({"_id": SPIEL, "saison_id": SAISON_ID}, HOME, starters=[LEAVER])
         )
-        kept, _ = await seat_saves(database, client, _payload(LEAVER, OLE, version=0))
-        return refused, [row.first_name for row in kept.named]
+        await seat_saves(database, client, _payload(LEAVER, OLE, version=0))
+        return refused, [row.first_name for row in (await seat_reads(database, client)).named]
 
     assert await on_a_season(mongo_replica_set_url, body) == (Code.SPIELER_NOT_IN_KADER, ["Weg"])
 
 
-async def test_the_seat_reads_the_screen_the_save_answered(mongo_replica_set_url: str):
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[FLAufstellungResponse, FLAufstellungResponse]:
-        saved, _ = await seat_saves(database, client, _payload(LINA, OLE, starters=2))
+async def test_the_seat_reads_the_version_the_save_answered(mongo_replica_set_url: str):
+    """So the editor's next save, sent on the answered version, is judged against the line-up this save left."""
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[FLVersionResponse, FLAufstellungResponse]:
+        await seat_saves(database, client, _payload(LINA))
+        saved = await seat_saves(database, client, _payload(LINA, OLE, starters=2, version=0))
         return saved, await seat_reads(database, client)
 
     saved, read = await on_a_season(mongo_replica_set_url, body)
 
-    assert read == saved
+    assert (saved.version, read.version) == (1, 1)
+    assert [(entry.spieler_id, entry.starts) for entry in read.spieler] == [(LINA, True), (OLE, True)]
     assert read.saison_status == "active"
 
 
@@ -451,11 +450,12 @@ class TestAnErasedPupilsEntry:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            saved, _ = await admin_saves(database, client, _payload(LINA, OLE, MIA, starters=2))
+            saved = await admin_saves(database, client, _payload(LINA, OLE, MIA, starters=2))
             await erase(database, client, LINA, OLE, now=PLAYED)
             stale = await refusal_of(admin_saves(database, client, _payload(LINA, OLE, MIA, starters=2, version=saved.version), now=PLAYED))
             served = await admin_reads(database, client, now=PLAYED)
-            answer, _ = await admin_saves(database, client, FLAufstellungPayload(spieler=served.spieler, version=served.version), now=PLAYED)
+            await admin_saves(database, client, FLAufstellungPayload(spieler=served.spieler, version=served.version), now=PLAYED)
+            answer = await admin_reads(database, client, now=PLAYED)
             stored = await database[Collection.AUFSTELLUNGEN].find_one({"spiel_id": SPIEL, "team_id": HOME})
             assert stored is not None
 
@@ -626,9 +626,10 @@ async def test_the_other_teams_first_save_for_the_same_fixture_stands_beside_it(
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         await seat_saves(database, client, _payload(LINA))
-        answer, _ = await seat_saves(database, client, _payload(AWAY_PUPIL), seat=AWAY_SEAT, team_id=AWAY)
+        await seat_saves(database, client, _payload(LINA, version=0))
+        answer = await seat_saves(database, client, _payload(AWAY_PUPIL), seat=AWAY_SEAT, team_id=AWAY)
         read = await seat_reads(database, client, seat=AWAY_SEAT, team_id=AWAY)
 
-        return [entry.spieler_id for entry in answer.spieler], [entry.spieler_id for entry in read.spieler], await stored_line_ups(database)
+        return answer.version, [entry.spieler_id for entry in read.spieler], await stored_line_ups(database)
 
-    assert await on_a_season(mongo_replica_set_url, body) == ([AWAY_PUPIL], [AWAY_PUPIL], [(HOME, [LINA], 0), (AWAY, [AWAY_PUPIL], 0)])
+    assert await on_a_season(mongo_replica_set_url, body) == (0, [AWAY_PUPIL], [(HOME, [LINA], 1), (AWAY, [AWAY_PUPIL], 0)])

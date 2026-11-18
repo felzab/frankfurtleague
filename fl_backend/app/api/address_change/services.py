@@ -5,7 +5,6 @@ the address when it takes effect. Every instant is stored as a BSON date and com
 carries `$type: "date"`, so a null never compares.
 """
 
-import math
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
@@ -337,7 +336,7 @@ ADDRESS_CHANGE_RESTART_SECONDS: Final = 30
 
 
 def find_restart_refusal(*, live_valid_until: Any, now: datetime) -> APIError | None:
-    """`address_change_started_recently`, a 429 naming the seconds left in `Retry-After`: the live change owed a mail too lately.
+    """`address_change_started_recently`, a 429: the live change owed a mail too lately.
 
     Read off the live change's `valid_until`, which every mail it owes sets `ADDRESS_CHANGE_VALID_HOURS` ahead, so the
     start is held to one mail per interval whichever press owed the last, and nothing beside the record is stored.
@@ -348,11 +347,10 @@ def find_restart_refusal(*, live_valid_until: Any, now: datetime) -> APIError | 
         return None
 
     owed_at = valid_until - timedelta(hours=ADDRESS_CHANGE_VALID_HOURS)
-    left = ADDRESS_CHANGE_RESTART_SECONDS - (now - owed_at).total_seconds()
-    if left <= 0:
+    if (now - owed_at).total_seconds() >= ADDRESS_CHANGE_RESTART_SECONDS:
         return None
 
-    return APIError(HTTPStatus.TOO_MANY_REQUESTS, Code.ADDRESS_CHANGE_STARTED_RECENTLY, headers={"Retry-After": str(math.ceil(left))})
+    return APIError(HTTPStatus.TOO_MANY_REQUESTS, Code.ADDRESS_CHANGE_STARTED_RECENTLY)
 
 
 def find_unchanged_refusal(*, address: str, folded: str) -> APIError | None:

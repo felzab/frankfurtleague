@@ -3,22 +3,12 @@ import { describe, expect, it } from "vitest";
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
 
-import type { FLAcceptBewerbungResponse } from "@/core/generated/client/types";
-
 const ID = "64b000000000000000000002";
 
 // The acceptance alone is answered, so the real guard, generated call and dispatch run, and any other request fails
 // the case.
 const backend = serveBackend(({ method, path }) =>
-  method === "POST" && path === `/bewerbungen/${ID}/accept`
-    ? ({
-        created_team: false,
-        gruppe: "A",
-        saison_id: "2027",
-        team_id: "64b000000000000000000003",
-        trikot_farbe: null,
-      } satisfies FLAcceptBewerbungResponse)
-    : undefined,
+  method === "POST" && path === `/bewerbungen/${ID}/accept` ? new Response(null, { status: 204 }) : undefined,
 );
 // An administrator's session, made by passkey, which the act's guard admits.
 signedInRequest();

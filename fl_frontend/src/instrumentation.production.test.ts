@@ -311,7 +311,6 @@ describe("the pass's one line", () => {
   it("writes one line counting every job and every drain since the last pass, a warning where one did not finish", async () => {
     answers.set("GET /spielbestaetigungen/sweep", () => ({ saison_ids: ["2627"] }));
     answers.set("POST /spielbestaetigungen/saisons/2627/sweep", () => ({
-      saison_id: "2627",
       closed: 1,
       asked: 2,
       reminded: 0,

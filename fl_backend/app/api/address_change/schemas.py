@@ -84,11 +84,6 @@ class FLAddressChangeMovesDonePayload(BasePayload):
     ids: list[CustomObjectId] = Field(min_length=1, max_length=LIST_LIMIT_DEFAULT)
 
 
-class FLAddressChangeMovesDoneResponse(BaseReadModel):
-    # The carries this call took off their changes; an id owing none is not counted.
-    done: int = Field(ge=0)
-
-
 class FLAddressChangeAddressPayload(BasePayload):
     """Exactly one key: the new mailbox's link token, or the change a re-send names."""
 
@@ -180,10 +175,6 @@ class FLAddressChangeAnswerResponse(BaseReadModel):
     effective: bool
 
 
-class FLAddressChangeStopResponse(BaseReadModel):
-    stopped: Literal[True]
-
-
 class FLAddressChangeAdminOpen(BaseModel):
     """One live change, with both its addresses."""
 
@@ -212,12 +203,6 @@ class FLAddressChangeAdminPayload(BasePayload):
 
     address: CustomEmail
     email: CustomEmail
-
-
-class FLAddressChangeIdResponse(BaseReadModel):
-    """A started, re-sent or discarded change: its mails are owed in the Postausgang, so no link is answered."""
-
-    id: CustomObjectId
 
 
 class FLAddressChangeSweepParams(BaseModel):

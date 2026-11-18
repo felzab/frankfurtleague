@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.codes import Code
 from app.core.exceptions import Bound
-from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.custom import CustomObjectId, CustomVersion
 
 
 class BaseReadModel(BaseModel):
@@ -61,6 +61,12 @@ class FLCreatedResponse(BaseReadModel):
     """The id a create minted, which the caller reads the new record by."""
 
     created_id: CustomObjectId
+
+
+class FLVersionResponse(BaseReadModel):
+    """The record's version after an editor's save, which the editor's next save sends."""
+
+    version: CustomVersion
 
 
 class FLSweepSaisonsResponse(BaseReadModel):

@@ -161,22 +161,23 @@ class TestThePersonsStart:
         assert after == [False, True]
 
     @pytest.mark.parametrize("held_by", ["another-pupil", "a-grant"])
-    async def test_it_answers_alike_whatever_the_new_address_holds(self, mongo_replica_set_url: str, held_by: str):
-        """The effect judges the new address; a start judging it would tell the signed-in person what a stranger's holds."""
+    async def test_it_starts_alike_whatever_the_new_address_holds(self, mongo_replica_set_url: str, held_by: str):
+        """The effect judges the new address; a start judging it would tell the signed-in person what a stranger's holds.
+
+        The start answers no body, so a refusal is the one thing it could tell: it starts the change and mails the address
+        on file whatever the new address holds.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             if held_by == "another-pupil":
                 await database[Collection.SPIELER].update_one({"_id": OTHER_OID}, {"$set": {"email": NEW_EMAIL}})
             elif held_by == "a-grant":
                 await granted(database, NEW_EMAIL)
-            minted = await start(database, client)
+            minted = await start(database, client, released=False)
 
-            return sorted(minted.answer.model_dump()), (await change(database, minted.id))["email"]
+            return (await change(database, minted.id))["email"], minted.stop_token is not None
 
-        assert await on_a_person(mongo_replica_set_url, body) == (
-            ["email", "id", "valid_until"],
-            NEW_EMAIL,
-        )
+        assert await on_a_person(mongo_replica_set_url, body) == (NEW_EMAIL, True)
 
     async def test_the_address_signed_in_on_is_refused_in_any_spelling(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -218,11 +219,7 @@ class TestThePersonsStart:
 
         refusal, live, first, mailed = await on_a_person(mongo_replica_set_url, body)
 
-        assert (refusal.status_code, refusal.error_code, refusal.headers) == (
-            429,
-            Code.ADDRESS_CHANGE_STARTED_RECENTLY,
-            {"Retry-After": "10"},
-        )
+        assert (refusal.status_code, refusal.error_code) == (429, Code.ADDRESS_CHANGE_STARTED_RECENTLY)
         assert (live, mailed) == ([first], 0)
 
     async def test_it_replaces_the_live_change_whose_links_then_answer_how_it_ended(self, mongo_replica_set_url: str):
@@ -939,7 +936,7 @@ class TestAHoldersOwnChange:
             unconfirmed = await told(database)
             await answer(database, client, minted.stop_token)
             first = await told(database)
-            confirmed = await handed_out(database, client, None)
+            confirmed = await handed_out(database, client, minted.id)
             await answer(database, client, confirmed.token)
             started = await told(database)
             await database[Collection.OUTBOX].delete_many({"kind": "grant"})

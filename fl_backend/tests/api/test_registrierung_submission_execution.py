@@ -273,7 +273,7 @@ class TestWhatASubmissionStores:
             (
                 "registrierung_confirmation",
                 PUPIL_EMAIL,
-                response.registrierung_id,
+                response.created_id,
                 {"paths": ["confirmation.token_hashes"], "addresses": ["email"], "replaced": False},
             )
         ]
@@ -312,7 +312,7 @@ class TestTheSubmissionKey:
         first, second, rows, owed = await on_a_league(mongo_replica_set_url, body)
 
         assert len(rows) == 1
-        assert second.registrierung_id == first.registrierung_id
+        assert second.created_id == first.created_id
         assert [row["kind"] for row in owed] == ["registrierung_confirmation"]
 
     async def test_a_replay_answers_after_the_invite_was_revoked(self, mongo_replica_set_url: str):
@@ -323,7 +323,7 @@ class TestTheSubmissionKey:
             await database[Collection.INVITATIONS].update_one({"_id": INVITATION_OID}, {"$set": {"revoked_at": TODAY}})
             second = await register(database, client, key=KEY)
 
-            return first.registrierung_id, second.registrierung_id
+            return first.created_id, second.created_id
 
         first, second = await on_a_league(mongo_replica_set_url, body)
 
@@ -341,7 +341,7 @@ class TestTheSubmissionKey:
                 first = await register(database, client, key=KEY)
                 committed.set()
 
-            return first.registrierung_id, second.result().registrierung_id, held.lookups, held.insert_failures, len(await rows_of(database))
+            return first.created_id, second.result().created_id, held.lookups, held.insert_failures, len(await rows_of(database))
 
         first, second, lookups, failures, stored = await on_a_league(mongo_replica_set_url, body)
 
@@ -359,7 +359,7 @@ class TestTheSubmissionKey:
 
         answers, rows, owed = await on_a_league(mongo_replica_set_url, body)
 
-        assert len({answer.registrierung_id for answer in answers}) == 2
+        assert len({answer.created_id for answer in answers}) == 2
         assert len(rows) == len(owed) == 2
         assert not any("idempotency_key" in row for row in rows)
 

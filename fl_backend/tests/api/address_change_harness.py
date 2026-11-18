@@ -32,9 +32,11 @@ from app.api.address_change.schemas import (
     FLAddressChangeAnswerPayload,
     FLAddressChangeSweepParams,
 )
+from app.api.address_change.services import build_address_filter
 from app.api.address_change.system_router import sweep_address_change
 from app.api.outbox.system_router import post_handout
 from app.core.collections import Collection
+from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import ADDRESS_CHANGE_WAITING_PERIOD_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
 from tests import documents
@@ -280,20 +282,25 @@ _LINKS = {"address_change_link": "token", "address_change_notice": "stop_token"}
 
 @dataclass(frozen=True)
 class Minted:
-    """A write's answer, and the raw links the Postausgang's hand-out minted for the mails it owed, as the drain receives them.
+    """The change a write started or re-sent, and the raw links the hand-out minted for the mails it owed, as the drain receives them.
 
-    `None` where the write owed no such mail.
+    A link is `None` where the write owed no such mail.
     """
 
-    answer: Any
+    id: ObjectId
     token: str | None
     stop_token: str | None
 
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self.answer, name)
+
+async def the_live_change(database: AsyncDatabase, address: str) -> ObjectId:
+    """The one live change of `address`, read off the database, since a start answers no body."""
+
+    live = await database[Collection.ADDRESS_CHANGES].find_one(build_address_filter(sign_in_identifier(address)), {"_id": 1})
+    assert live is not None, "the start left no live change"
+    return live["_id"]
 
 
-async def handed_out(database: AsyncDatabase, client: AsyncMongoClient, answer: Any, *, now: datetime = NOW) -> Minted:
+async def handed_out(database: AsyncDatabase, client: AsyncMongoClient, address_change_id: ObjectId, *, now: datetime = NOW) -> Minted:
     """The links owed at `now`, minted by the real hand-out and settled as sent; any other mail it claimed is left owed and free."""
 
     # Claim after claim until one holds nothing, each holding its rows past the next: a page of older mail comes first.
@@ -318,7 +325,7 @@ async def handed_out(database: AsyncDatabase, client: AsyncMongoClient, answer: 
             {"_id": {"$in": others}}, {"$set": {"lease": None, "leased_until": None}, "$inc": {"attempts": -1}}
         )
 
-    return Minted(answer=answer, token=links.get("token"), stop_token=links.get("stop_token"))
+    return Minted(id=address_change_id, token=links.get("token"), stop_token=links.get("stop_token"))
 
 
 async def start(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = NEW_EMAIL, released: bool = True, **given: Any) -> Minted:
@@ -328,19 +335,15 @@ async def start(database: AsyncDatabase, client: AsyncMongoClient, *, email: str
     """
 
     now = given.get("germany_now", NOW)
-    started = await handed_out(
-        database,
-        client,
-        await call(post_address_change, database, client, address_change_data=FLAccountAddressChangePayload(email=email), **given),
-        now=now,
-    )
+    await call(post_address_change, database, client, address_change_data=FLAccountAddressChangePayload(email=email), **given)
+    started = await handed_out(database, client, await the_live_change(database, given.get("identifier", EMAIL)), now=now)
     if not released:
         return started
 
     await answer(database, client, started.stop_token, germany_now=now)
-    confirmed = await handed_out(database, client, started.answer, now=now)
+    confirmed = await handed_out(database, client, started.id, now=now)
 
-    return Minted(answer=started.answer, token=confirmed.token, stop_token=started.stop_token)
+    return Minted(id=started.id, token=confirmed.token, stop_token=started.stop_token)
 
 
 def stop_here(database: AsyncDatabase, client: AsyncMongoClient, **given: Any) -> Awaitable[Any]:
@@ -351,21 +354,13 @@ async def administrator_starts(
     database: AsyncDatabase, client: AsyncMongoClient, *, address: str = EMAIL, email: str = NEW_EMAIL, **given: Any
 ) -> Minted:
     payload = FLAddressChangeAdminPayload.model_validate({"address": address, "email": email})
-    return await handed_out(
-        database,
-        client,
-        await call(post_address_change_admin, database, client, address_change_data=payload, **given),
-        now=given.get("germany_now", NOW),
-    )
+    await call(post_address_change_admin, database, client, address_change_data=payload, **given)
+    return await handed_out(database, client, await the_live_change(database, address), now=given.get("germany_now", NOW))
 
 
 async def resend(database: AsyncDatabase, client: AsyncMongoClient, address_change_id: ObjectId, **given: Any) -> Minted:
-    return await handed_out(
-        database,
-        client,
-        await call(resend_confirmation, database, client, address_change_id=address_change_id, **given),
-        now=given.get("germany_now", NOW),
-    )
+    await call(resend_confirmation, database, client, address_change_id=address_change_id, **given)
+    return await handed_out(database, client, address_change_id, now=given.get("germany_now", NOW))
 
 
 def running(database: AsyncDatabase, client: AsyncMongoClient, *, operator: str = ADMIN) -> Awaitable[Any]:

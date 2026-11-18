@@ -46,6 +46,7 @@ SPIELTAG_VIERTELFINALE = ObjectId("6890a1b2c3d4e5f6072600a1")
 SPIELTAG_HALBFINALE = ObjectId("6890a1b2c3d4e5f6072600a2")
 VIERTELFINALE = ObjectId("6890a1b2c3d4e5f607260011")
 HALBFINALE = ObjectId("6890a1b2c3d4e5f607260012")
+HALBFINALE_NR = 5
 SPIELORT = ObjectId("6890a1b2c3d4e5f6072600b1")
 SCHIEDSRICHTER = ObjectId("6890a1b2c3d4e5f6072600c1")
 
@@ -77,7 +78,7 @@ def bracket() -> list[dict[str, Any]]:
     halbfinale = documents.spiel_document(
         spiel_id=HALBFINALE,
         saison_id=SAISON_ID,
-        spiel_nr=5,
+        spiel_nr=HALBFINALE_NR,
         spieltag_id=SPIELTAG_HALBFINALE,
         saison_phase="halbfinale",
         team1=side(BETA),
@@ -166,4 +167,4 @@ async def test_a_dry_run_moving_the_bracket_leaves_every_collection_as_it_was(se
 
     # The premise: the preview judged a save that would move another fixture, so it had something to write.
     assert response.status_code == 200, response.text
-    assert [moved["spiel_id"] for moved in response.json()["advanced_to"]] == [str(HALBFINALE)]
+    assert response.json()["advanced_to"] == [HALBFINALE_NR]

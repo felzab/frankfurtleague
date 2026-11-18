@@ -13,6 +13,7 @@ from app.api.registrierungen.system_router import sweep_registrierungen
 from app.core.collections import Collection
 from app.core.transactions import SWEEP_PAGE
 from app.shared.tokens import hash_token
+from tests.acts import deletions_of
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.database import a_clean_database
@@ -166,13 +167,14 @@ class TestTheDeadlineClock:
 class TestTheSeasonsOwnEnd:
     async def test_it_takes_every_undecided_row_whatever_the_pupil_answered(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await sweep(database, client)
+            await sweep(database, client)
 
-            return response, await standing(database)
+            return await deletions_of(database, "retention.registrierungen"), await standing(database)
 
-        response, left = await on_a_league(mongo_replica_set_url, body, status="past")
+        erasures, left = await on_a_league(mongo_replica_set_url, body, status="past")
 
-        assert response.erased_without_decision == 4
+        # The decline clock's one page, then the season's end's: its four undecided rows, confirmed or not.
+        assert [(label, count) for _, label, count, _ in erasures] == [(SAISON_ID, 1), (SAISON_ID, 4)]
         # The other season's row alone: the declined one goes to the decline clock in the same pass,
         # and every removal here names this season.
         assert left == [OTHER_SEASON_OID]
@@ -200,7 +202,7 @@ class TestOneRowHoldsBackNoOther:
 
         answer, left = await on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
-        assert (answer.erased_declined, answer.erased_unconfirmed, answer.failed) == (0, 0, 2)
+        assert answer.failed == 2
         assert {DECLINED_OID, EXPIRED_OID} <= set(left)
 
 
@@ -223,28 +225,28 @@ class TestAPageAndOneMoreIsDrainedRatherThanRefused:
     """
 
     @pytest.mark.parametrize(
-        ("clock", "overrides", "status", "counted"),
+        ("clock", "overrides", "status"),
         [
-            pytest.param(
-                "deadline", {"confirmation": confirmation(EXPIRED_OID, deadline=YESTERDAY)}, "active", "erased_unconfirmed", id="deadline"
-            ),
-            pytest.param("season's end", {}, "past", "erased_without_decision", id="season's end"),
+            pytest.param("deadline", {"confirmation": confirmation(EXPIRED_OID, deadline=YESTERDAY)}, "active", id="deadline"),
+            pytest.param("season's end", {}, "past", id="season's end"),
             pytest.param(
                 "decline",
                 {"status": "declined", "decision": {"made_at": "2026-02-15", "reason": None}},
                 "active",
-                "erased_declined",
                 id="decline",
             ),
         ],
     )
-    async def test_every_due_row_goes_in_one_pass(self, mongo_replica_set_url: str, clock: str, overrides: Any, status: str, counted: str):
+    async def test_every_due_row_goes_in_one_pass(self, mongo_replica_set_url: str, clock: str, overrides: Any, status: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.REGISTRIERUNGEN].delete_many({})
             await database[Collection.REGISTRIERUNGEN].insert_many(overflowing(**overrides))
-            response = await sweep(database, client)
+            await sweep(database, client)
+            erasures = await deletions_of(database, "retention.registrierungen")
 
-            return getattr(response, counted), await database[Collection.REGISTRIERUNGEN].count_documents({"saison_id": SAISON_ID})
+            return sum(count or 0 for _, _, count, _ in erasures), await database[Collection.REGISTRIERUNGEN].count_documents(
+                {"saison_id": SAISON_ID}
+            )
 
         erased_count, left = await on_a_league(mongo_replica_set_url, body, status=status)
 
@@ -262,12 +264,15 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
         A command added to the call turns this red, so the call is judged against the request's deadline again.
         """
 
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Any, Counter[str]]:
-            return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, sweep)
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[list[int | None], Counter[str]]:
+            _, names = await commands_by_name(mongo_replica_set_url, DATABASE_NAME, sweep)
 
-        answer, names = await on_a_league(mongo_replica_set_url, body)
+            return [count for _, _, count, _ in await deletions_of(database, "retention.registrierungen")], names
 
-        assert (answer.erased_declined, answer.erased_unconfirmed) == (1, 1)
+        erased, names = await on_a_league(mongo_replica_set_url, body)
+
+        # The decline clock's page and the deadline's, one row each.
+        assert erased == [1, 1]
         assert sum(names.values()) == COMMANDS, names
 
 
