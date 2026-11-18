@@ -13,7 +13,7 @@ from app.api.saisons.services import entry_is_a_nominee
 from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError, link_expired, link_invalid
+from app.core.exceptions import APIError, link_expired
 from app.shared.age import whole_years_between
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_evidence import TextVersions, compose_initial, compose_renewed
@@ -228,28 +228,18 @@ def build_confirmation_filter(*, token_hash: str) -> Mapping[str, Any]:
     return {"confirmation.token_hashes": token_hash}
 
 
-# An inclusion, so the rest of a registration -- the names, the address, the shirt number, the position and the
-# Stufe -- is what this base-tier read cannot serve.
+# What the link's view and its answer read. An inclusion, so the rest of a registration -- the names, the address, the
+# shirt number, the position and the Stufe -- is what this base-tier read cannot serve; the `_id` it carries keys the
+# answer's write, and the view builds its answer field by field.
 
 # Neither hash is projected: the filter above matches on them, and a hash a handler never reads is a
 # credential carried through a base-tier request for nothing.
-CONFIRMATION_VIEW_FIELDS: Mapping[str, int] = {
+CONFIRMATION_FIELDS: Mapping[str, int] = {
     "confirmation.deadline": 1,
     "status": 1,
     "saison_id": 1,
     "team_id": 1,
     # The stamp alone: nothing the pupil answered reaches the link's view.
-    "einwilligung.confirmed_at": 1,
-    # Suppressed here alone: only the answer's read below has a patch filter to key on it.
-    "_id": 0,
-}
-
-# The view's fields beside the id its write is keyed on: the press judges the link, the stamp and the club's row.
-CONFIRMATION_ANSWER_FIELDS: Mapping[str, int] = {
-    "confirmation.deadline": 1,
-    "status": 1,
-    "saison_id": 1,
-    "team_id": 1,
     "einwilligung.confirmed_at": 1,
 }
 
@@ -287,16 +277,6 @@ def state_of(*, registrierung_raw: Mapping[str, Any], departed: bool, today: str
     )
 
     return "expired" if over else "valid"
-
-
-def find_unknown_token_refusal(*, found: bool) -> APIError | None:
-    """Why this token opens nothing, or `None`.
-
-    One answer for unknown and for swept with the registration: nothing tells either from a stranger's
-    guess, and naming which would say more than the guess knew.
-    """
-
-    return None if found else link_invalid()
 
 
 def find_expired_token_refusal(*, confirmation: Any, status: Any, departed: bool, today: str) -> APIError | None:

@@ -6,9 +6,8 @@ from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterConfirmationViewResponse,
 )
 from app.api.schiedsrichter.services import (
-    CONFIRMATION_ANSWER_FIELDS,
     CONFIRMATION_FIELD,
-    CONFIRMATION_VIEW_FIELDS,
+    CONFIRMATION_FIELDS,
     EINWILLIGUNG_FIELD,
     answered_at_of,
     build_token_filter,
@@ -17,12 +16,11 @@ from app.api.schiedsrichter.services import (
     find_age_refusal,
     find_already_answered_refusal,
     find_expired_token_refusal,
-    find_unknown_token_refusal,
     state_of,
 )
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
-from app.core.crud import patch_past_the_version_in_db, refuse
+from app.core.crud import patch_past_the_version_in_db, pull_by_token, refuse
 from app.core.dependencies import (
     DBClient,
     GermanDay,
@@ -66,10 +64,9 @@ async def get_confirmation_view(
     # A POST that reads, so the token travels in a body and never in a URL.
     token_hash = hash_token(view_data.token)
 
-    # `find_one` rather than `pull_one_from_db`: a miss is this endpoint's own refusal, never a 404.
-    raw = await schiedsrichter_collection.find_one(build_token_filter(token_hash=token_hash), projection=dict(CONFIRMATION_VIEW_FIELDS))
-    refuse(find_unknown_token_refusal(found=raw is not None))
-    assert raw is not None
+    raw = await pull_by_token(
+        collection=schiedsrichter_collection, db_filter=build_token_filter(token_hash=token_hash), projection=CONFIRMATION_FIELDS
+    )
 
     block = raw[CONFIRMATION_FIELD]
     einwilligung = raw.get(EINWILLIGUNG_FIELD)
@@ -113,11 +110,12 @@ async def post_confirmation(
         Outside one, it would overwrite the answer already given.
         """
 
-        raw = await schiedsrichter_collection.find_one(
-            build_token_filter(token_hash=token_hash), projection=dict(CONFIRMATION_ANSWER_FIELDS), session=session
+        raw = await pull_by_token(
+            collection=schiedsrichter_collection,
+            db_filter=build_token_filter(token_hash=token_hash),
+            projection=CONFIRMATION_FIELDS,
+            session=session,
         )
-        refuse(find_unknown_token_refusal(found=raw is not None))
-        assert raw is not None
 
         # The stamp is asked first, as `state_of` ranks it: a person who answered on the last
         # valid day and presses again is told their answer stands, never that the link expired and
@@ -171,11 +169,12 @@ async def post_decline(
     async def object_for_the_person(session: AsyncClientSession) -> None:
         """One transaction for a single update, so a second press landing between the read and the write is refused by the first answer."""
 
-        raw = await schiedsrichter_collection.find_one(
-            build_token_filter(token_hash=token_hash), projection=dict(CONFIRMATION_ANSWER_FIELDS), session=session
+        raw = await pull_by_token(
+            collection=schiedsrichter_collection,
+            db_filter=build_token_filter(token_hash=token_hash),
+            projection=CONFIRMATION_FIELDS,
+            session=session,
         )
-        refuse(find_unknown_token_refusal(found=raw is not None))
-        assert raw is not None
 
         refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FIELD), confirmation=raw[CONFIRMATION_FIELD]))
         refuse(find_expired_token_refusal(deadline=raw[CONFIRMATION_FIELD]["deadline"], today=today))

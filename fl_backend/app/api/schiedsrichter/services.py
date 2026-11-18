@@ -15,7 +15,7 @@ from app.core import clock
 from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError, link_expired, link_invalid
+from app.core.exceptions import APIError, link_expired
 from app.shared.age import whole_years_between
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_evidence import TextVersions, compose_initial
@@ -225,16 +225,6 @@ def answered_at_of(*, state: FLSchiedsrichterConfirmationState, einwilligung: An
     return None
 
 
-def find_unknown_token_refusal(*, found: bool) -> APIError | None:
-    """Why this token opens nothing, or `None`.
-
-    One answer for unknown, replaced by a later mint, and deleted with the referee: nothing
-    distinguishes them from a stranger's guess, and naming which would say more than the guess knew.
-    """
-
-    return None if found else link_invalid()
-
-
 def find_expired_token_refusal(*, deadline: str, today: str) -> APIError | None:
     """Why this link is over, or `None`."""
 
@@ -357,18 +347,10 @@ def owes_reactivation_mint(*, stored: Mapping[str, Any]) -> bool:
     )
 
 
-# An inclusion and never an exclusion: a base-tier caller holds the whole credential, so the rest
-# of the row is what must not reach them.
-CONFIRMATION_VIEW_FIELDS: Mapping[str, int] = {
-    f"{EINWILLIGUNG_FIELD}.confirmed_at": 1,
-    f"{CONFIRMATION_FIELD}.deadline": 1,
-    DECLINED_AT_PATH: 1,
-    # Suppressed here alone: this endpoint stores nothing, so it needs no key to patch on.
-    "_id": 0,
-}
-
-# The answer takes its wording from the payload rather than the row.
-CONFIRMATION_ANSWER_FIELDS: Mapping[str, int] = {
+# What the link's view and its two answers read. An inclusion and never an exclusion: a base-tier caller holds the whole
+# credential, so the rest of the row is what must not reach them. The `_id` it carries keys an answer's write, and the
+# view builds its answer field by field; an answer takes its wording from the payload rather than the row.
+CONFIRMATION_FIELDS: Mapping[str, int] = {
     f"{EINWILLIGUNG_FIELD}.confirmed_at": 1,
     f"{CONFIRMATION_FIELD}.deadline": 1,
     DECLINED_AT_PATH: 1,

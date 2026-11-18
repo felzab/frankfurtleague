@@ -17,8 +17,7 @@ from app.api.registrierungen.schemas import (
     FLRegistrierungConfirmationViewResponse,
 )
 from app.api.registrierungen.services import (
-    CONFIRMATION_ANSWER_FIELDS,
-    CONFIRMATION_VIEW_FIELDS,
+    CONFIRMATION_FIELDS,
     build_confirmation_filter,
     compose_confirmation,
     compose_confirmation_update,
@@ -29,7 +28,6 @@ from app.api.registrierungen.services import (
     find_expired_token_refusal,
     find_stufe_refusal,
     find_team_departed_refusal,
-    find_unknown_token_refusal,
     find_window_refusal,
     saison_takes_registrierungen,
     state_of,
@@ -40,7 +38,7 @@ from app.api.spieler.services import find_full_kader_refusal
 from app.core.clock import days_after, utc_stamp
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.crud import patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
+from app.core.crud import patch_one_in_db, post_one_to_db, pull_by_token, pull_one_from_db, refuse
 from app.core.dependencies import (
     DBClient,
     GermanDay,
@@ -341,10 +339,9 @@ async def get_confirmation_view(
 
     token_hash = hash_token(view_data.token)
 
-    # `find_one` rather than `pull_one_from_db`: a miss is this endpoint's own refusal, never a 404.
-    raw = await registrierungen_collection.find_one(build_confirmation_filter(token_hash=token_hash), projection=dict(CONFIRMATION_VIEW_FIELDS))
-    refuse(find_unknown_token_refusal(found=raw is not None))
-    assert raw is not None
+    raw = await pull_by_token(
+        collection=registrierungen_collection, db_filter=build_confirmation_filter(token_hash=token_hash), projection=CONFIRMATION_FIELDS
+    )
 
     # `find_one` rather than `pull_one_from_db`: no team is ever deleted, so a miss is a broken
     # invariant rather than a 404 this view could answer, and never an empty slot in the consent text.
@@ -386,11 +383,12 @@ async def post_confirmation(
     async def answer_for_the_pupil(session: AsyncClientSession) -> None:
         # One transaction, so a second press landing between the read and the write is refused by the stamp rather than
         # overwriting the answer already given.
-        raw = await registrierungen_collection.find_one(
-            build_confirmation_filter(token_hash=token_hash), projection=dict(CONFIRMATION_ANSWER_FIELDS), session=session
+        raw = await pull_by_token(
+            collection=registrierungen_collection,
+            db_filter=build_confirmation_filter(token_hash=token_hash),
+            projection=CONFIRMATION_FIELDS,
+            session=session,
         )
-        refuse(find_unknown_token_refusal(found=raw is not None))
-        assert raw is not None
 
         departed = await _team_departed(saison_teams_collection=saison_teams_collection, registrierung_raw=raw, session=session)
         refuse(find_expired_token_refusal(confirmation=raw.get("confirmation"), status=raw.get("status"), departed=departed, today=today))
