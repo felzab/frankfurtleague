@@ -148,12 +148,6 @@ class FLRegistrierungAdminRow(BaseReadModel):
     unmailed: bool
 
 
-class FLRegistrierungenAdminFilterParams(BaseModel):
-    """Which season's pending registrations the list reads, whole up to the cap: its page narrows them."""
-
-    saison_id: str
-
-
 class FLRegistrierungenAdminListResponse(BaseAPIResponse):
     """One season's pending registrations, newest first."""
 
