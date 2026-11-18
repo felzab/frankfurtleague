@@ -18,7 +18,7 @@ from app.core.crud import pull_many_from_db, pull_one_from_db
 from app.core.dependencies import RegistrierungenReadCollection, SaisonsReadCollection, SaisonTeamsReadCollection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
-# Admin-guarded, not base, as the application's own list is: a registration holds a pupil's name,
+# Admin-guarded, not base: a registration holds a pupil's name,
 # their address and, once they have confirmed, their date of birth.
 
 # The public router shares this prefix at base tier and reads no stored registration but the one a
@@ -29,7 +29,7 @@ router = APIRouter(
 )
 
 
-# Two static segments, matching `GET /saisons/list/admin`.
+# Two static segments, so the admin tier lists every season-scoped resource under one shape.
 @router.get("/list/admin", summary="One Saison's pending Registrierungen for its list")
 async def get_registrierungen_admin(
     registrierungen_collection: RegistrierungenReadCollection,

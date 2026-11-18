@@ -27,9 +27,8 @@ from app.shared.schemas.literals import (
 )
 from app.shared.schemas.responses import BasePayload, BaseReadModel
 
-# --- The invite's read, the submission and the administrator's read of what it stored. Every
-# payload below is reached from a request body alone, so each forbids an undeclared key; the read
-# models stay lax.
+# Every payload below is reached from a request body alone, so each forbids an undeclared key; the
+# read models stay lax.
 
 
 class FLRegistrierungDecision(BaseModel):
@@ -116,10 +115,10 @@ class FLPostRegistrierungPayload(BasePayload):
     first_name: CustomKontaktName
     last_name: CustomKontaktName
     email: CustomEmail
-    # Each nullable with the caller stating the null rather than omitting it, as a squad payload's
-    # three are: the answer is then the pupil's and not a default nobody chose.
+    # Each nullable with the caller stating the null rather than omitting it: the answer is then the
+    # pupil's and not a default nobody chose.
     position: FLSpielerPosition | None
-    # Tightened on the write side alone, as a squad row's is.
+    # Tightened on the write side alone.
     nummer: str | None = Field(pattern=KADER_NUMMER_PATTERN)
     stufe: FLSpielerStufe | None
 
@@ -140,9 +139,9 @@ class FLRegistrierungAdminRow(BaseReadModel):
     # The name the club plays the season under; null for a club no longer standing in the season.
     team_name: str | None
     submitted_at: CustomDateString
-    # Composed by the read, off the consent record's own stamp (`registrierung_is_confirmed`).
+    # Composed by the read, off the consent record's own stamp.
     confirmed: bool
-    # Composed by the read, off the mail's own stamp (`registrierung_was_left_unmailed`).
+    # Composed by the read, off the mail's own stamp.
     unmailed: bool
 
 
@@ -154,8 +153,8 @@ class FLRegistrierungenAdminListResponse(BaseReadModel):
     complete: bool
 
 
-# --- The confirmation. The token is the whole credential, as it is for the application's link, so
-# both endpoints are base-tier and every payload forbids an undeclared key.
+# The confirmation's token is the whole credential, so both its endpoints are base-tier and every
+# payload forbids an undeclared key.
 
 
 class FLRegistrierungConfirmationViewResponse(BaseReadModel):
@@ -175,7 +174,7 @@ class FLRegistrierungConfirmationViewResponse(BaseReadModel):
     # The link's last day, stored at the mint: the page states it as the mail did.
     deadline: CustomDateString
     # The day of the pupil's own answer, so a reopened link says what they did and when; null on every state showing
-    # no answer, as a referee's confirmation view serves it.
+    # no answer.
     answered_at: CustomOptionalDateString
 
 
@@ -210,7 +209,7 @@ class FLRegistrierungConfirmationResponse(BaseReadModel):
     media: bool
 
 
-# --- The retention sweep, system tier. The backend decides and erases; nothing a pupil's record holds leaves here.
+# The backend decides and erases; nothing a pupil's record holds leaves the sweep's answer.
 
 
 class FLRegistrierungSweepResponse(BaseReadModel):
@@ -224,9 +223,8 @@ class FLRegistrierungSweepResponse(BaseReadModel):
     failed: int
 
 
-# --- The team's decision, person tier. No model below declares `email`, `phone`, `birth_date` or
-# `einwilligung`: a seat holder reads who registered and decides, and a pupil's address and birthdate
-# are the league administrators' alone.
+# No model below declares `email`, `phone`, `birth_date` or `einwilligung`: a seat holder reads who
+# registered and decides, and a pupil's address and birthdate are the league administrators' alone.
 
 
 class FLRegistrierungPerson(BaseModel):

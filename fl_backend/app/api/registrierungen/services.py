@@ -27,9 +27,6 @@ from app.shared.schemas.bounds import (
 )
 from app.shared.schemas.literals import FLConfirmationState
 
-# --- The invite's read and the submission. Every refusal below is judged before the one write, in
-# the order the router asks them in.
-
 # The state a submission arrives in, and the only one it may arrive in: the other is written by the
 # team's decline.
 SUBMITTED = "submitted"
@@ -64,7 +61,7 @@ def find_window_refusal(*, saison_status: Any, registrierung: Any) -> APIError |
 def find_team_departed_refusal(*, austritt: Any) -> APIError | None:
     """`document_not_found`: the invite's team has left the season, so its link opens nothing, as a revoked invite's does.
 
-    The record's presence and never its `date`, as a seat's grant reads it.
+    The record's presence and never its `date`.
     """
 
     if austritt is None:
@@ -221,10 +218,6 @@ def build_registrierungen_sort() -> list[tuple[str, int]]:
     return [("submitted_at", -1), ("_id", -1)]
 
 
-# --- The confirmation. Every predicate below reads a missing `confirmation` block as "nothing to
-# confirm".
-
-
 def build_confirmation_filter(*, token_hash: str) -> Mapping[str, Any]:
     """Every link the row was mailed.
 
@@ -330,8 +323,7 @@ def find_already_confirmed_refusal(*, einwilligung: Any) -> APIError | None:
 def find_age_refusal(*, birth_date: str, today: str) -> APIError | None:
     """Why the typed date is refused, or `None`. Judged before any write, so a mistyped year spends nothing."""
 
-    # The pupil's own floor and never a contact seat's, so raising one cannot silently raise the other. One range, as the
-    # referee's is judged.
+    # The pupil's own floor and never a contact seat's, so raising one cannot silently raise the other.
     if REGISTRIERUNG_MIN_AGE_YEARS <= whole_years_between(born=birth_date, today=today) <= BIRTH_DATE_MAX_AGE_YEARS:
         return None
 
@@ -392,8 +384,6 @@ def compose_confirmation_update(
 
     return {"$set": {"birth_date": birth_date, "einwilligung": record}}
 
-
-# --- The retention sweep. Each clock is a pure predicate over one document and `today`.
 
 # The other member of the status enum, read by the clock below and written by the team's decline.
 DECLINED: Final = "declined"
@@ -467,9 +457,6 @@ def decline_erasure_is_due(*, registrierung_raw: Mapping[str, Any], today: str) 
     made_at = decision.get("made_at") if isinstance(decision, Mapping) else None
 
     return isinstance(made_at, str) and days_after(day=made_at, days=DECLINED_RETENTION_DAYS) <= today
-
-
-# --- The team's decision: the pending read, the admission and the decline a seat holder makes.
 
 
 def build_open_filter(*, saison_id: str, team_id: Any) -> Mapping[str, Any]:

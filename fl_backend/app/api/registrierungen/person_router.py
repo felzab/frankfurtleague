@@ -246,8 +246,6 @@ async def admit(
     """
 
     async def admit_the_pupil(session: AsyncClientSession) -> FLRegistrierungAdmissionResponse:
-        """Judge, then write the person, the squad row and the erasure. Everything judged is read in-session."""
-
         registrierung_raw = await _pull_the_teams_open_row(
             registrierungen_collection=registrierungen_collection,
             registrierung_id=registrierung_id,
@@ -501,7 +499,7 @@ async def patch_einwilligung(
     """
 
     chosen: dict[FLEinwilligungChoice, object] = {"scope": einwilligung_data.scope, "media": einwilligung_data.media}
-    # One instant for every attempt, as the pupil record's own consent press stamps it.
+    # One instant for every attempt.
     at = utc_stamp(germany_now)
     journal = Journal()
 

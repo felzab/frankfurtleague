@@ -213,8 +213,6 @@ async def post_registrierung(
     key = None if idempotency_key is None else str(idempotency_key)
 
     async def store_or_replay(session: AsyncClientSession) -> FLPostRegistrierungResponse:
-        """The replay, or every refusal in the flow's order and then the one write, in one transaction."""
-
         # Before every judgement: a replay answers what the first request did, even where the invite
         # has been revoked or the window has closed since.
         # The id alone: the registration its first press stored, whose mail that press owed. A form whose details
@@ -233,7 +231,7 @@ async def post_registrierung(
         junction_raw = await saison_teams_collection.find_one(
             {"saison_id": saison_id, "team_id": team_id}, JUNCTION_PROJECTION, session=session
         )
-        # Ahead of the window, as the view asks it: a dead link reads dead whatever the window says.
+        # Ahead of the window: a dead link reads dead whatever the window says.
         refuse(find_team_departed_refusal(austritt=(junction_raw or {}).get("austritt")))
 
         saison_raw = await pull_one_from_db(
@@ -386,9 +384,7 @@ async def post_confirmation(
     token_hash = hash_token(answer_data.token)
 
     async def answer_for_the_pupil(session: AsyncClientSession) -> FLRegistrierungConfirmationResponse:
-        """Judge, then write. Everything judged is read in-session, so a retry re-judges it.
-
-        One transaction, so a second press landing between the read and the write is refused by
+        """One transaction, so a second press landing between the read and the write is refused by
         the stamp rather than overwriting the answer already given.
         """
 

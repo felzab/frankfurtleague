@@ -24,7 +24,7 @@ from app.core.security import SYSTEM_TIER
 from app.core.transactions import SWEEP_PAGE, Batch, drain, refuse_a_stalled_page
 from app.shared.saison import season_has_ended
 
-# System tier, as the application sweep's own router is: this pass holds no session, so `bind_actor` would refuse it.
+# System tier: this pass holds no session, so `bind_actor` would refuse it.
 router = APIRouter(prefix="/registrierungen/sweep", dependencies=SYSTEM_TIER)
 
 
@@ -68,7 +68,7 @@ async def sweep_registrierungen(
         return result.deleted_count
 
     async def erase_the_undecided(session: AsyncClientSession, batch: Batch) -> tuple[int, int]:
-        """The season's own end. Read in-session, so a retry re-judges."""
+        """The season's own end."""
 
         rows = await batch.saw(
             pull_many_from_db(
@@ -98,7 +98,7 @@ async def sweep_registrierungen(
         return len(rows), await erase_page(ids, session)
 
     async def erase_the_unconfirmed(session: AsyncClientSession, batch: Batch) -> tuple[int, int]:
-        """The deadline clock. Read in-session, so a retry re-judges."""
+        """The deadline clock."""
 
         rows = await batch.saw(
             pull_many_from_db(
@@ -122,7 +122,7 @@ async def sweep_registrierungen(
         return len(rows), await erase_page(ids, session)
 
     async def erase_declined(session: AsyncClientSession, batch: Batch) -> tuple[int, int]:
-        """The decline clock. Read in-session, so a retry re-judges."""
+        """The decline clock."""
 
         rows = await batch.saw(
             pull_many_from_db(
