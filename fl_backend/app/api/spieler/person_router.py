@@ -135,7 +135,7 @@ async def _allowed_stufen(*, saisons_collection: ReadCollection, saison_id: str,
     saison_raw = await saisons_collection.find_one({"_id": saison_id}, projection={"rules": 1}, session=session)
     assert saison_raw is not None
 
-    # Through the model the rules are written under, as `refuse_a_full_kader` reads the cap: a list
+    # Through the model the rules are written under: a list
     # that model refuses, an empty one included, fails here rather than reaching the page.
     return FLSaisonRules.model_validate(saison_raw["rules"]).allowed_stufen
 
@@ -208,8 +208,6 @@ async def patch_kader_row(
     row = _live_row(team_id=team_id, saison_id=saison_id, spieler_id=spieler_id)
 
     async def edit_the_row(session: AsyncClientSession) -> FLKaderRow:
-        """Judge, then rewrite the row. Everything judged is read in-session."""
-
         await refuse_without_a_seat(identifier, records, team_id=team_id, saison_id=saison_id, session=session)
 
         # The 404 before any rule: a rule judged on a row this team does not hold would tell the
@@ -310,7 +308,6 @@ async def delete_kader_row(
     return await transact(db, take_the_row_out)
 
 
-# A router of its own for its prefix.
 spieler_router = APIRouter(
     prefix="/spieler",
     dependencies=PERSON_TIER,

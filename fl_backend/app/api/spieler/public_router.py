@@ -21,7 +21,7 @@ async def get_spieler_by_id(spieler_id: CustomObjectId, spieler_collection: Spie
     # Not the flattened squad shape a club page's squad serves: those are season-scoped, and picking a season
     # here would make the answer depend on a default nobody asked for.
 
-    # An allow-list, as the squad read's `$project` is: the whole person is a birthdate, an address
+    # An allow-list: the whole person is a birthdate, an address
     # and a consent record, and one materialised here to be discarded is one a later edit can serve.
     spieler_raw = await pull_one_from_db(
         collection=spieler_collection,
