@@ -4,9 +4,6 @@
 
 - Install with `pnpm install --frozen-lockfile` in `fl_frontend` and
   `uv sync --project fl_backend --dev --frozen` at the root.
-- Run a frontend tool as `pnpm run <script>` or `pnpm exec <bin>`, never `npx`. The install fetches
-  the Node release `fl_frontend/package.json :: devEngines` pins, which pnpm runs, and `npx` refuses
-  whenever the machine's own Node is another release.
 - Run git in Git Bash, never PowerShell: the harness checks a PowerShell command's directory, not
   where its git points.
 
