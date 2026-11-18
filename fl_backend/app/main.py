@@ -1,5 +1,4 @@
 from collections.abc import Mapping
-from http import HTTPStatus
 from typing import Any, Final
 
 from fastapi import APIRouter, FastAPI
@@ -54,7 +53,7 @@ from app.api.teams.person_router import router as teams_person_router
 from app.core.codes import Rule
 from app.core.config import BackendConfig
 from app.core.db import lifespan
-from app.core.exception_handlers import FAILURE_RESPONSES, FAILURE_STATUSES, register_exception_handlers
+from app.core.exception_handlers import register_exception_handlers
 from app.core.logging import fl_logger
 from app.core.middlewares import TracedApp
 from app.shared.schemas.bounds import (
@@ -112,27 +111,33 @@ def operation_id(route: APIRoute) -> str:
 
 SCHEMA_REF = "#/components/schemas/{model}"
 
-
-def failure_response(status: HTTPStatus) -> dict[str, Any]:
-    return {
-        "description": status.phrase,
-        "content": {"application/json": {"schema": {"$ref": SCHEMA_REF.format(model=FLFailureBody.__name__)}}},
-    }
+# The one response every operation's failures share: the body is `FLFailureBody` whatever the status, and its
+# `error_code` is `Code`, so the document lists every code once rather than per operation or per status.
+FAILURE_RESPONSE: Final = "Failure"
+FAILURE_DESCRIPTION: Final = "A refusal or a fault, its status naming which"
+# Under `default`, never left out: an operation declaring neither a 422 nor a `default` is published with FastAPI's
+# own `HTTPValidationError`, a body this API never sends.
+FAILURE_RESPONSES: Final[dict[int | str, dict[str, Any]]] = {
+    "default": {"$ref": f"#/components/responses/{FAILURE_RESPONSE}", "description": FAILURE_DESCRIPTION}
+}
 
 
 def with_failure_responses(document: Mapping[str, Any]) -> dict[str, Any]:
-    """`document` publishing the shared response every operation's `FAILURE_RESPONSES` refers to, and the bodies they carry.
+    """`document` publishing the shared response every operation's `FAILURE_RESPONSES` refers to, and the bodies it carries.
 
-    FastAPI publishes a model only where an operation names it, and these are named by reference.
+    FastAPI publishes a model only where an operation names it, and this one is named by reference.
     """
 
     components = document.get("components", {})
     bodies = models_json_schema([(FLFailureBody, "serialization")], ref_template=SCHEMA_REF)[1]["$defs"]
     # Sorted as FastAPI sorts what it generates, so a rewrite of the committed document moves no schema.
     schemas = dict(sorted({**components.get("schemas", {}), **bodies}.items()))
-    responses = {str(int(status)): failure_response(status) for status in FAILURE_STATUSES}
+    failure = {
+        "description": FAILURE_DESCRIPTION,
+        "content": {"application/json": {"schema": {"$ref": SCHEMA_REF.format(model=FLFailureBody.__name__)}}},
+    }
 
-    return {**document, "components": {**components, "schemas": schemas, "responses": responses}}
+    return {**document, "components": {**components, "schemas": schemas, "responses": {FAILURE_RESPONSE: failure}}}
 
 
 # Every alias a frontend constant is checked against: a value a page, a mail or a control states, and the domain

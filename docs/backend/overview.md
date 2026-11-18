@@ -130,7 +130,7 @@ can be another field of the same payload, such as a span's start, but the body n
 refused value or a stack trace. A code names one failure rather than a status class, and
 `fl_backend/app/core/codes.py :: Code` is every code's one spelling. `fl_backend/openapi.json`
 lists them once, as the failure body's `error_code` on the one shared
-response each status refers to, and never per operation. The status
+response every operation's `default` refers to, whatever the status. The status
 follows RFC 9110: 409 where the target's current state refuses the request, 422 where the payload
 contradicts itself, 404 where what it names does not exist, 403 only where the caller's own
 authority or standing does. Every refusal is one `APIError(status, code)`
