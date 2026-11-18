@@ -6,7 +6,7 @@ from app.api.teams.schemas import (
     FLTabelleResponse,
     FLTeam,
 )
-from app.api.teams.services import build_tabelle
+from app.api.teams.standings import build_tabelle
 from app.shared.schemas.literals import FLSpielerStufe
 
 # Typed as the `Literal` list `FLSaisonRules` declares: a bare `list[str]` is invariant against it.

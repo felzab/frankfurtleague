@@ -10,7 +10,7 @@ from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.spielplan import EnteredTeam, Spielplan, draw_spielplan
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel, FLSpielListAdapter
 from app.api.spiele.services import find_wiring_refusal, judge_spieltag_occupancy, resolve_bracket
-from app.api.teams.services import DecidedStanding
+from app.api.teams.standings import DecidedStanding
 from app.shared.schemas.literals import FLGruppenNames
 from tests.documents import rules_document
 from tests.payloads import spiel_patch_body

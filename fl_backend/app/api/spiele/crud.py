@@ -72,14 +72,8 @@ from app.api.spiele.services import (
     voided_ergebnisse_of,
 )
 from app.api.teams.schemas import FLTeamListAdapter
-from app.api.teams.services import (
-    ZERO_STATISTIK,
-    DecidedStanding,
-    build_decided_standings,
-    build_statistik_by_team,
-    build_team_pipeline,
-    offered_gruppen,
-)
+from app.api.teams.services import ZERO_STATISTIK, build_statistik_by_team, build_team_pipeline, offered_gruppen
+from app.api.teams.standings import DecidedStanding, build_decided_standings
 from app.core import clock
 from app.core.codes import Code
 from app.core.crud import (

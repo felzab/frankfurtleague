@@ -7,9 +7,9 @@ from app.api.teams.services import (
     AS_NAME,
     CANCELLED_AS_NAME,
     STATISTIK_AS_NAME,
-    _counted_goals,
     build_statistik_by_team,
     build_team_pipeline,
+    counted_goals,
 )
 from app.shared.schemas.literals import FLSpielerStufe
 
@@ -90,14 +90,14 @@ def test_no_stage_reads_the_shoot_out():
 def test_a_shoot_out_leaves_the_goals_it_was_played_over_alone(spiel, spiel_team_field):
     """The same rule restated in Python.
 
-    `_counted_goals` is imported private because the standings are handed the group phase alone, so
-    no public entry point reaches a knockout tie.
+    `counted_goals` is asked directly because the standings are handed the group phase alone, so
+    no standing reaches a knockout tie.
     """
     level = FLSpiel.model_validate(
         spiel(saison_phase="halbfinale", team1=spiel_team_field(tore=1), ergebnis="1:1", elfmeterschiessen={"team1": 4, "team2": 3})
     )
 
-    counted = _counted_goals(level)
+    counted = counted_goals(level)
 
     assert counted is not None
     _, tore1, _, tore2 = counted

@@ -47,7 +47,8 @@ from app.api.spiele.schemas import (
     is_unplayed,
     records_an_absence,
 )
-from app.api.teams.services import DecidedStanding, in_the_season_when_decided, offered_gruppen
+from app.api.teams.services import offered_gruppen
+from app.api.teams.standings import DecidedStanding, in_the_season_when_decided
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import FieldPath, WriteRefusal

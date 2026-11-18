@@ -17,12 +17,12 @@ from app.api.invitations.schemas import FLInvitationLinkRow
 from app.api.spielberichte.schemas import FLSpielberichtPublic
 from app.api.spiele.schemas import FLSpielJoined
 from app.api.spieler.schemas import FLSpielerPublic, FLSpielerSelfKaderRow
+
+# Imported rather than restated. Acyclic: no model of `teams` imports this file --
+# `teams/services.py` and `teams/standings.py` do, and no model there.
 from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS, FLAustritt, FLSaisonTeamEntry, FLTabelleRow, FLTeamPageTeam
 from app.core import clock
 from app.core.codes import Code, Rule
-
-# Imported rather than restated. Acyclic: no model of `teams` imports this file --
-# `teams/services.py` does, and no model there.
 from app.core.crud import Anchored
 from app.core.exceptions import Bound, rule_refusal
 from app.shared.schemas.bounds import KADER_SIZE_MAX, SAISON_ID_LENGTH
