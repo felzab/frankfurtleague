@@ -6,7 +6,6 @@ from pymongo.errors import PyMongoError
 
 from app.api.system.schemas import CheckIsLiveResponse, CheckIsReadyResponse
 from app.core.codes import Code
-from app.core.db import RETRY_AFTER
 from app.core.dependencies import DBClient
 from app.core.exceptions import APIError
 
@@ -38,5 +37,5 @@ async def check_is_ready(client: DBClient) -> JSONResponse:
     except PyMongoError:
         # The code a failed read answers, and nothing of the driver's error, which names the hosts
         # it tried: the status is the whole answer a stranger gets.
-        raise APIError(HTTPStatus.SERVICE_UNAVAILABLE, Code.DATABASE_FAILED, headers=RETRY_AFTER) from None
+        raise APIError(HTTPStatus.SERVICE_UNAVAILABLE, Code.DATABASE_FAILED) from None
     return JSONResponse(content={"status": "ok"}, status_code=status.HTTP_200_OK)

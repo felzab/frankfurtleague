@@ -387,7 +387,7 @@ class TestTheList:
 
         rows = await on_a_league(mongo_replica_set_url, body)
 
-        assert [(row.seats_filled, row.seats_confirmed) for row in rows] == [(2, 1)]
+        assert [row.seats_confirmed for row in rows] == [1]
 
     async def test_the_entry_offers_the_teams_it_would_take(self, mongo_replica_set_url: str):
         """Neither a club already entered, which the unique index refuses, nor a retired one, which `team_retired` does."""

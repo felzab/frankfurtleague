@@ -110,20 +110,14 @@ def operation_id(route: APIRoute) -> str:
     return f"{route.tags[0]}_{route.name}"
 
 
-# The two failures naming when to come back: the unavailable database's 503 and a rate refusal's 429.
-RETRY_AFTER_HEADER = {"Retry-After": {"description": "Seconds to wait before asking again", "schema": {"type": "integer"}}}
 SCHEMA_REF = "#/components/schemas/{model}"
 
 
 def failure_response(status: HTTPStatus) -> dict[str, Any]:
-    response: dict[str, Any] = {
+    return {
         "description": status.phrase,
         "content": {"application/json": {"schema": {"$ref": SCHEMA_REF.format(model=FLFailureBody.__name__)}}},
     }
-    if status in (HTTPStatus.SERVICE_UNAVAILABLE, HTTPStatus.TOO_MANY_REQUESTS):
-        response["headers"] = RETRY_AFTER_HEADER
-
-    return response
 
 
 def with_failure_responses(document: Mapping[str, Any]) -> dict[str, Any]:

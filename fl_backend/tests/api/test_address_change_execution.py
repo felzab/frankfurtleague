@@ -219,11 +219,7 @@ class TestThePersonsStart:
 
         refusal, live, first, mailed = await on_a_person(mongo_replica_set_url, body)
 
-        assert (refusal.status_code, refusal.error_code, refusal.headers) == (
-            429,
-            Code.ADDRESS_CHANGE_STARTED_RECENTLY,
-            {"Retry-After": "10"},
-        )
+        assert (refusal.status_code, refusal.error_code) == (429, Code.ADDRESS_CHANGE_STARTED_RECENTLY)
         assert (live, mailed) == ([first], 0)
 
     async def test_it_replaces_the_live_change_whose_links_then_answer_how_it_ended(self, mongo_replica_set_url: str):

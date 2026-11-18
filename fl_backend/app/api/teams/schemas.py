@@ -497,7 +497,6 @@ class FLTeamsAdminRow(BaseReadModel):
     gruppe: FLGruppenNames | None
     trikot_farbe: FLTrikotFarbe | None
     # Counted per read off the row's seats, never stored.
-    seats_filled: int = Field(ge=0)
     seats_confirmed: int = Field(ge=0)
     # The type alone, as a standing row carries it.
     austritt_type: FLAustrittType | None
