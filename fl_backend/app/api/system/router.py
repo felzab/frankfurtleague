@@ -1,10 +1,9 @@
 from http import HTTPStatus
 
-from fastapi import APIRouter, status
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter
 from pymongo.errors import PyMongoError
 
-from app.api.system.schemas import CheckIsLiveResponse, CheckIsReadyResponse
+from app.api.system.schemas import ProbeResponse
 from app.core.codes import Code
 from app.core.dependencies import DBClient
 from app.core.exceptions import APIError
@@ -14,19 +13,19 @@ from app.core.exceptions import APIError
 router = APIRouter(prefix="/system")
 
 
-@router.get("/is_live", response_model=CheckIsLiveResponse, summary="Liveness probe")
-async def check_is_live() -> JSONResponse:
+@router.get("/is_live", summary="Liveness probe")
+async def check_is_live() -> ProbeResponse:
     """
     Liveness: is this process serving requests?
 
     Unauthenticated, and it does not touch the database: it must not fail for reasons a restart
     cannot fix.
     """
-    return JSONResponse(content={"status": "ok"}, status_code=status.HTTP_200_OK)
+    return ProbeResponse()
 
 
-@router.get("/is_ready", response_model=CheckIsReadyResponse, summary="Readiness probe")
-async def check_is_ready(client: DBClient) -> JSONResponse:
+@router.get("/is_ready", summary="Readiness probe")
+async def check_is_ready(client: DBClient) -> ProbeResponse:
     """
     Readiness: whether this process reaches its database, 503 where a ping does not return within the request's deadline.
 
@@ -38,4 +37,4 @@ async def check_is_ready(client: DBClient) -> JSONResponse:
         # The code a failed read answers, and nothing of the driver's error, which names the hosts
         # it tried: the status is the whole answer a stranger gets.
         raise APIError(HTTPStatus.SERVICE_UNAVAILABLE, Code.DATABASE_FAILED) from None
-    return JSONResponse(content={"status": "ok"}, status_code=status.HTTP_200_OK)
+    return ProbeResponse()
