@@ -958,54 +958,6 @@ def find_entry_refusal(saison_status: str, gruppe: FLGruppenNames, rules: FLSais
     return None
 
 
-def find_gruppe_swap_refusal(
-    *,
-    team1_gruppe: str | None,
-    team2_gruppe: str | None,
-    saison_status: str,
-    # `has_started`: a swap rewrites fixtures, and once the season is under
-    # way a fixture is a record of who played it. Before the start the save refuses a result
-    # (`ergebnis_before_saison_start`), which keeps records out of what the rewrite moves.
-    started: bool,
-) -> WriteRefusal | None:
-    """Why exchanging these two clubs' groups must be refused, or `None`.
-
-    **The order is the argument**: it narrows from "not a swap" through the season. The season's start is the one lock,
-    an exit is recorded only from it (`austritt_before_saison_start`) and the start never moves later past a stored one
-    (`saison_start_austritt_stored`), so the fixtures an exchange rewrites never field a club that has left.
-    """
-
-    missing = [label for label, gruppe in (("team1", team1_gruppe), ("team2", team2_gruppe)) if gruppe is None]
-    if missing:
-        return WriteRefusal(
-            error_code=Code.SWAP_NOT_A_SWAP,
-            status=HTTPStatus.UNPROCESSABLE_CONTENT,
-            fields=(("team1_id",), ("team2_id",)),
-        )
-
-    # One club named on both sides reads its one group twice, so it is refused here as no swap.
-    if team1_gruppe == team2_gruppe:
-        return WriteRefusal(
-            error_code=Code.SWAP_NOT_A_SWAP,
-            status=HTTPStatus.UNPROCESSABLE_CONTENT,
-            fields=(("team1_id",), ("team2_id",)),
-        )
-
-    if saison_status == "past":
-        return WriteRefusal(
-            error_code=Code.SAISON_PAST,
-            status=HTTPStatus.CONFLICT,
-        )
-
-    if started:
-        return WriteRefusal(
-            error_code=Code.SWAP_SAISON_STARTED,
-            status=HTTPStatus.CONFLICT,
-        )
-
-    return None
-
-
 def find_replacement_pair_refusal(*, team_id: Any, incoming_team_id: Any) -> WriteRefusal | None:
     """Why this replacement names one club on both ends, or `None`. Judged before any read."""
 

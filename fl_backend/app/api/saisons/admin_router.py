@@ -64,6 +64,7 @@ from app.api.saisons.services import (
     decided_podium,
     find_activation_refusal,
     find_berichte_refusal,
+    find_gruppe_swap_refusal,
     find_rules_freeze_refusal,
     find_rules_refusal,
     find_saison_create_refusal,
@@ -82,7 +83,6 @@ from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
 from app.api.spielberichte.crud import anchor_the_season_reported_in, count_submitted_berichte
 from app.api.spiele.schemas import TAKEN_PLACE_FIELDS, FLSpielListAdapter, has_taken_place
 from app.api.spieler.services import CAPPED_KADER_ROW
-from app.api.teams.services import find_gruppe_swap_refusal
 from app.core.codes import Code
 from app.core.concurrency import concurrently
 from app.core.crud import (
