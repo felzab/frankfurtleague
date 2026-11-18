@@ -108,7 +108,7 @@ from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import Journal
 from app.core.routing import SAFE
 from app.core.security import BASE_TIER
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.schemas.bounds import BEWERBUNG_KONTAKT_MAX_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.einwilligung import by_choice
@@ -311,9 +311,8 @@ async def post_bewerbung(
         return FLCreatedResponse(created_id=created.inserted_id)
 
     # The key lookup is the transaction's first read: a first press committed before this snapshot is
-    # found, and one committed after it makes the anchors or the insert a write conflict `with_transaction` retries.
-    async with transaction_session(db) as session:
-        return await session.with_transaction(store_or_replay)
+    # found, and one committed after it makes the anchors or the insert a write conflict `transact` retries.
+    return await transact(db, store_or_replay)
 
 
 async def _schule_name(*, bewerbung_raw: Mapping[str, Any], teams_collection: TeamsReadCollection) -> str:
@@ -653,5 +652,4 @@ async def post_einwilligung(
         )
 
     async with journal:
-        async with transaction_session(db) as session:
-            return await session.with_transaction(answer_for_the_person)
+        return await transact(db, answer_for_the_person)

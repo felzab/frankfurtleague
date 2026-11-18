@@ -15,7 +15,7 @@ from app.core.crud import patch_past_the_version_in_db, refuse
 from app.core.dependencies import BewerbungenCollection, DBClient, GermanyNow
 from app.core.journal import Journal
 from app.core.security import PERSON_TIER, PersonIdentifier
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.einwilligung_evidence import FLEinwilligungChoice
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.einwilligung import FLSeatEinwilligungPayload, by_choice
@@ -84,5 +84,4 @@ async def patch_einwilligung(
             journal.note("withdrawal", [f"{Collection.BEWERBUNGEN}/{bewerbung['_id']}"], choices=list(moved), seats=rollen)
 
     async with journal:
-        async with transaction_session(db) as session:
-            await session.with_transaction(write)
+        await transact(db, write)

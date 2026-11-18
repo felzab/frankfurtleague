@@ -34,7 +34,7 @@ from app.core.dependencies import (
 )
 from app.core.recording import record_act
 from app.core.routing import by_id
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 
@@ -146,8 +146,7 @@ async def post_ban_list_entry(
 
         return created
 
-    async with transaction_session(db) as session:
-        post_operation = await session.with_transaction(judge_and_ban)
+    post_operation = await transact(db, judge_and_ban)
 
     return FLPostBanListEntryResponse(created_id=post_operation.inserted_id)
 
@@ -172,7 +171,6 @@ async def delete_ban_list_entry(
         await delete_many_from_db(collection=ban_list_collection, db_filter={"_id": ban_list_entry_id}, session=session)
         await record_act(collection=ban_list_collection, action="ban.removed", record_id=ban_list_entry_id, session=session)
 
-    async with transaction_session(db) as session:
-        await session.with_transaction(lift_the_ban)
+    await transact(db, lift_the_ban)
 
     return FLBanListWriteResponse(ban_list_entry_id=ban_list_entry_id)

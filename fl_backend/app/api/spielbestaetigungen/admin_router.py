@@ -60,7 +60,7 @@ from app.core.dependencies import (
 from app.core.exceptions import APIError, DocumentNotFoundError, WriteRefusal, as_judged_on_stored_state
 from app.core.recording import record_act
 from app.core.routing import by_id
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
@@ -140,8 +140,7 @@ async def enter_spielbestaetigung(
 
         return entered
 
-    async with transaction_session(db) as session:
-        await session.with_transaction(settle_for_the_party)
+    await transact(db, settle_for_the_party)
 
 
 @router.post(
@@ -225,8 +224,7 @@ async def discard_spielbestaetigung(
 
         return discarded
 
-    async with transaction_session(db) as session:
-        await session.with_transaction(discard_the_proposal)
+    await transact(db, discard_the_proposal)
 
 
 @router.post(
@@ -307,5 +305,4 @@ async def adopt_spielbestaetigung(
             # this request carries none.
             refuse(as_judged_on_stored_state(WriteRefusal.of(refused), twins=ADOPTION_TWINS))
 
-    async with transaction_session(db) as session:
-        await session.with_transaction(adopt_the_proposal)
+    await transact(db, adopt_the_proposal)

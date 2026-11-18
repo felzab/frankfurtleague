@@ -66,7 +66,7 @@ from app.core.dependencies import (
 from app.core.readonly import ReadCollection
 from app.core.routing import SAFE
 from app.core.security import BASE_TIER
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS,
@@ -317,9 +317,8 @@ async def post_registrierung(
         return FLPostRegistrierungResponse(registrierung_id=registrierung_id)
 
     # The key lookup is the transaction's first read: a first press committed before this snapshot is
-    # found, and one committed after it makes the anchor or the insert a write conflict `with_transaction` retries.
-    async with transaction_session(db) as session:
-        return await session.with_transaction(store_or_replay)
+    # found, and one committed after it makes the anchor or the insert a write conflict `transact` retries.
+    return await transact(db, store_or_replay)
 
 
 # The confirmation link's two endpoints: the token is the whole credential, so both are base-tier as
@@ -428,5 +427,4 @@ async def post_confirmation(
             media=answer_data.media,
         )
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(answer_for_the_pupil)
+    return await transact(db, answer_for_the_pupil)

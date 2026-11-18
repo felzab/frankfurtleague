@@ -120,7 +120,7 @@ async def enqueue_mails(
         raise ValueError("every mail one write owes carries a key of its own")
 
     # A first run committed before this snapshot is found; one committed after it makes the insert a write conflict the
-    # caller's `with_transaction` retries, which then finds it.
+    # caller's `transact` retries, which then finds it.
     stored = await outbox_collection.find({"key": {"$in": [mail.key for mail in mails]}}, {"key": 1, "_id": 0}, session=session).to_list(
         length=None
     )

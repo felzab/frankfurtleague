@@ -47,7 +47,7 @@ from app.core.journal import Journal
 from app.core.recording import record_act
 from app.core.routing import SAFE
 from app.core.security import ActorEmail
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.folding import sign_in_identifier
 
 router = APIRouter(
@@ -215,5 +215,5 @@ async def post_erasure(
         await record_act(collection=action_log_collection, action="erasure.on_request", label=erasure_data.reason, session=session)
         journal.note("erasure", erasure.records, seats=erasure.seats, rows=erasure.rows)
 
-    async with journal, transaction_session(db) as session:
-        await session.with_transaction(erase_the_address)
+    async with journal:
+        await transact(db, erase_the_address)

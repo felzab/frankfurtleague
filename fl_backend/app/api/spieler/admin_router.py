@@ -54,7 +54,7 @@ from app.core.dependencies import (
 )
 from app.core.recording import record_act
 from app.core.routing import by_id
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
@@ -221,9 +221,8 @@ async def patch_spieler_saison(
         return FLPatchSpielerSaisonResponse(version=composite_version(person_raw, row_raw))
 
     # One transaction, or a refusal of the row's part leaves the person's half saved under an editor reading it as failed.
-    # `with_transaction` is safe to retry, every write deriving from the payload and an in-session read.
-    async with transaction_session(db) as session:
-        return await session.with_transaction(save_the_person_and_their_row)
+    # `transact` is safe to retry, every write deriving from the payload and an in-session read.
+    return await transact(db, save_the_person_and_their_row)
 
 
 @router.delete(
@@ -256,8 +255,7 @@ async def delete_saison_spieler(
                 collection=saison_spieler_collection, action="spieler.deregistered", record_id=spieler_id, label=saison_id, session=session
             )
 
-    async with transaction_session(db) as session:
-        await session.with_transaction(take_the_player_out)
+    await transact(db, take_the_player_out)
 
 
 @router.post(
@@ -330,5 +328,4 @@ async def reactivate_saison_spieler(
                 collection=saison_spieler_collection, action="spieler.reactivated", record_id=spieler_id, label=saison_id, session=session
             )
 
-    async with transaction_session(db) as session:
-        await session.with_transaction(bring_the_player_back)
+    await transact(db, bring_the_player_back)

@@ -30,7 +30,7 @@ from app.core.crud import (
 from app.core.dependencies import DBClient, GermanDay, SpieleCollection, SpielorteCollection, SpielorteReadCollection
 from app.core.recording import record_act
 from app.core.routing import by_id
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.responses import FLCreatedResponse
 
@@ -101,8 +101,7 @@ async def post_spielort(
 
         return created
 
-    async with transaction_session(db) as session:
-        post_operation = await session.with_transaction(enter_the_venue)
+    post_operation = await transact(db, enter_the_venue)
 
     return FLCreatedResponse(
         created_id=post_operation.inserted_id,
@@ -145,8 +144,7 @@ async def patch_spielort(
 
         return FLPatchSpielortResponse(version=FLSpielort(**updated_document_raw).version)
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(save_the_venue)
+    return await transact(db, save_the_venue)
 
 
 @router.delete(
@@ -185,8 +183,7 @@ async def delete_spielort(
 
     # Soft, since a played match names the venue by id. The stamp inside the judgement's transaction, so a booking
     # committing after the read above conflicts on the venue it anchors rather than landing unseen.
-    async with transaction_session(db) as session:
-        await session.with_transaction(retire_the_venue)
+    await transact(db, retire_the_venue)
 
 
 @router.post(
@@ -212,5 +209,4 @@ async def reactivate_spielort(
                 session=session,
             )
 
-    async with transaction_session(db) as session:
-        await session.with_transaction(bring_the_venue_back)
+    await transact(db, bring_the_venue_back)

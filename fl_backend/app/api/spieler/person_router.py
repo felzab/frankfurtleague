@@ -60,7 +60,7 @@ from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_KONTAKT, FLAction, record_act
 from app.core.routing import by_id
 from app.core.security import PERSON_TIER, PersonIdentifier
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.einwilligung_evidence import FLEinwilligungChoice
 from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
 from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload, by_choice
@@ -259,8 +259,7 @@ async def patch_kader_row(
             saison_spieler_collection=saison_spieler_collection, team_id=team_id, saison_id=saison_id, spieler_id=spieler_id, session=session
         )
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(edit_the_row)
+    return await transact(db, edit_the_row)
 
 
 @router.delete(
@@ -308,8 +307,7 @@ async def delete_kader_row(
             saison_spieler_collection=saison_spieler_collection, team_id=team_id, saison_id=saison_id, spieler_id=spieler_id, session=session
         )
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(take_the_row_out)
+    return await transact(db, take_the_row_out)
 
 
 # A router of its own for its prefix.
@@ -381,8 +379,7 @@ async def patch_einwilligung(
             journal.note("withdrawal", [f"{Collection.SPIELER}/{row['_id']}"], choices=list(choices))
 
     async with journal:
-        async with transaction_session(db) as session:
-            await session.with_transaction(write)
+        await transact(db, write)
 
 
 # Declared ahead of `/self/{saison_id}`, whose parameter would otherwise take the word (FastAPI's "Order matters").

@@ -36,7 +36,7 @@ from app.core.dependencies import (
 from app.core.journal import Journal
 from app.core.recording import ACT_BY_PERSON, record_act
 from app.core.security import PERSON_TIER, PersonIdentifier
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 
 # No Funktion asked: a person erases themselves holding none at all.
 router = APIRouter(
@@ -107,8 +107,8 @@ async def post_account_erasure(
         await record_act(collection=action_log_collection, action="erasure.own", by=ACT_BY_PERSON, session=session)
         journal.note("erasure", erasure.records, seats=erasure.seats, rows=erasure.rows)
 
-    async with journal, transaction_session(db) as session:
-        await session.with_transaction(erase_the_address)
+    async with journal:
+        await transact(db, erase_the_address)
 
 
 @router.get(

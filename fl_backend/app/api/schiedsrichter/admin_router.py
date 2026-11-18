@@ -63,7 +63,7 @@ from app.core.dependencies import (
 )
 from app.core.recording import record_act
 from app.core.routing import by_id
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.schemas.custom import CustomRouteObjectId
 
 # Admin-guarded, not base: a referee is a pupil, so their contact details and school are admin-tier, as is the fee,
@@ -170,8 +170,7 @@ async def post_schiedsrichter(
 
     # One transaction over the judgement, the insert and the mail: a row written outside it would stand with a link
     # owed that an administrator was then told had been refused.
-    async with transaction_session(db) as session:
-        post_operation = await session.with_transaction(judge_and_create)
+    post_operation = await transact(db, judge_and_create)
 
     return FLPostSchiedsrichterResponse(
         created_id=post_operation.inserted_id,
@@ -247,9 +246,8 @@ async def patch_schiedsrichter(
 
     # One transaction: a save storing a corrected address without the link it owes, or owing one the save rolled
     # back, mails the wrong mailbox. Every write derives from the payload and an in-session read, so a
-    # `with_transaction` retry is safe.
-    async with transaction_session(db) as session:
-        answer, re_minted = await session.with_transaction(correct_and_ask)
+    # `transact` retry is safe.
+    answer, re_minted = await transact(db, correct_and_ask)
 
     if re_minted:
         answer.confirmation = FLSchiedsrichterMint(deadline=confirmation_deadline_from(today=today), email=email)
@@ -308,8 +306,7 @@ async def delete_schiedsrichter(
 
     # The stamp inside the judgement's transaction, so a booking committing after the read of the
     # fixtures conflicts on the referee it anchors rather than landing unseen.
-    async with transaction_session(db) as session:
-        await session.with_transaction(retire_the_referee)
+    await transact(db, retire_the_referee)
 
 
 @router.post(
@@ -371,8 +368,7 @@ async def reactivate_schiedsrichter(
         return email
 
     # One transaction, so a row never comes back without the link it was owed.
-    async with transaction_session(db) as session:
-        minted_for = await session.with_transaction(reactivate_and_ask)
+    minted_for = await transact(db, reactivate_and_ask)
 
     return FLSchiedsrichterReactivateResponse(
         confirmation=None if minted_for is None else FLSchiedsrichterMint(deadline=confirmation_deadline_from(today=today), email=minted_for),
@@ -439,7 +435,6 @@ async def invite_schiedsrichter(
 
     # The address answered is the one read in-session above, never one the caller read before this
     # request: a save moving it in between would otherwise send the link to the previous mailbox.
-    async with transaction_session(db) as session:
-        minted_for = await session.with_transaction(judge_and_mint)
+    minted_for = await transact(db, judge_and_mint)
 
     return FLSchiedsrichterMintResponse(confirmation=FLSchiedsrichterMint(deadline=confirmation_deadline_from(today=today), email=minted_for))

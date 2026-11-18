@@ -47,7 +47,7 @@ from app.core.dependencies import (
     TeamsCollection,
 )
 from app.core.routing import SAFE_WHEN, by_id
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomRouteObjectId
 
@@ -202,8 +202,7 @@ async def patch_spiel(
             spiel_id=spiel_id, payload=spiel_data, collections=collections, adopts_bericht=adopts_bericht, now=germany_now, session=session
         )
 
-    # `with_transaction` rather than a bare `start_transaction`: two saves in one season can
+    # `transact` rather than a bare `start_transaction`: two saves in one season can
     # write-conflict on the same advanced fixture, and the callback is safe to retry, every pass
     # re-reading what it judges.
-    async with transaction_session(db) as session:
-        return await session.with_transaction(write_and_resolve_the_bracket)
+    return await transact(db, write_and_resolve_the_bracket)

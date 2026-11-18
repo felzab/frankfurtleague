@@ -97,7 +97,7 @@ from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.core.recording import record_act
 from app.core.routing import by_id
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.literals import FLKontaktRolle
@@ -442,10 +442,9 @@ async def accept_bewerbung(
             trikot_farbe=acceptance_data.trikot_farbe,
         )
 
-    # `with_transaction`, not a bare `start_transaction`: the callback re-reads everything it judges,
+    # `transact`, not a bare `start_transaction`: the callback re-reads everything it judges,
     # so a retry after a write conflict judges the season as it stands then rather than as it stood.
-    async with transaction_session(db) as session:
-        accepted = await session.with_transaction(accept_and_enter_the_school)
+    accepted = await transact(db, accept_and_enter_the_school)
 
     return accepted
 
@@ -512,8 +511,7 @@ async def decline_bewerbung(
             now=germany_now,
         )
 
-    async with transaction_session(db) as session:
-        await session.with_transaction(decline_the_application)
+    await transact(db, decline_the_application)
 
     return FLDeclineBewerbungResponse(id=bewerbung_id)
 
@@ -607,8 +605,7 @@ async def resend_einwilligung(
 
             return matched
 
-        async with transaction_session(db) as session:
-            return await session.with_transaction(mint)
+        return await transact(db, mint)
 
     try:
         matched = await mint_on(seats)
@@ -724,5 +721,4 @@ async def post_kontakt_seat(
 
     # A transaction where the re-send beside it takes none: this write moves a person as well as a credential, so a
     # decision landing mid-request must leave neither half standing.
-    async with transaction_session(db) as session:
-        return await session.with_transaction(seat_and_mint)
+    return await transact(db, seat_and_mint)

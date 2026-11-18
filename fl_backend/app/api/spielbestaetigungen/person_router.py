@@ -54,7 +54,7 @@ from app.core.exceptions import DocumentNotFoundError
 from app.core.recording import ACT_BY_KONTAKT, ACT_BY_SCHIEDSRICHTER, record_act
 from app.core.routing import by_id
 from app.core.security import PERSON_TIER, PersonIdentifier
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.literals import FLKontaktRolle
@@ -191,8 +191,7 @@ async def post_schiedsrichter_answer(
 
         return FLSpielbestaetigungSchiedsrichterAnswerResponse(spielbestaetigung_id=spielbestaetigung_id, state=answer_data.answer)
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(answer)
+    return await transact(db, answer)
 
 
 @router.post(
@@ -327,5 +326,4 @@ async def post_team_answer(
             state=answer_data.answer, answered_by=FLSpielbestaetigungByKontakt(kind="kontakt", rolle=seat), vorschlag=vorschlag
         )
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(answer)
+    return await transact(db, answer)

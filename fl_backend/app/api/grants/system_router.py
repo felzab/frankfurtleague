@@ -6,7 +6,7 @@ from app.api.grants.schemas import FLGrantHandoverPassResponse
 from app.api.grants.services import handover_due
 from app.core.dependencies import DBClient, GermanyNow, GrantsCollection, OutboxCollection
 from app.core.security import SYSTEM_TIER
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 
 # System tier: the pass holds no session.
 router = APIRouter(
@@ -47,7 +47,6 @@ async def post_handover_pass(
 
         return 1
 
-    async with transaction_session(db) as session:
-        handed_over = await session.with_transaction(judge_and_complete)
+    handed_over = await transact(db, judge_and_complete)
 
     return FLGrantHandoverPassResponse(handed_over=handed_over)

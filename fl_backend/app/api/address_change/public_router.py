@@ -72,7 +72,7 @@ from app.core.dependencies import (
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.routing import SAFE
 from app.core.security import BASE_TIER
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 
@@ -325,8 +325,7 @@ async def post_address_change_answer(
 
         return FLAddressChangeAnswerResponse(answer="confirmed", effective_from=effective_from, effective=False)
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(answer_the_link)
+    return await transact(db, answer_the_link)
 
 
 async def _answer_for_the_address_on_file(
@@ -428,5 +427,4 @@ async def post_address_change_stop(
 
         return FLAddressChangeStopResponse(stopped=True)
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(stop_the_change)
+    return await transact(db, stop_the_change)

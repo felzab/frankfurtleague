@@ -39,7 +39,7 @@ from app.core.crud import ANCHOR_FIELD, patch_many_in_db, patch_past_the_version
 from app.core.dependencies import DB, BanListReadCollection, BewerbungenCollection, DBClient, GermanyNow, OutboxCollection
 from app.core.logging import fl_logger
 from app.core.security import SYSTEM_TIER
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import mint_token
 
@@ -244,8 +244,7 @@ async def post_handout(
             unreadable,
         )
 
-    async with transaction_session(db_client) as session:
-        mails, lease, abandoned, unreadable = await session.with_transaction(claim)
+    mails, lease, abandoned, unreadable = await transact(db_client, claim)
 
     # Past the commit, so a retried claim logs each once; the kind and the row alone, the facts holding addresses.
     for row in unreadable:
@@ -375,5 +374,4 @@ async def post_event(
 
         return applied
 
-    async with transaction_session(db_client) as session:
-        return FLOutboxEventResponse(applied=await session.with_transaction(record))
+    return FLOutboxEventResponse(applied=await transact(db_client, record))

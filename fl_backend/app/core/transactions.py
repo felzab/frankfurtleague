@@ -123,6 +123,13 @@ async def transaction_session(client: AsyncMongoClient) -> AsyncGenerator[AsyncC
             raise
 
 
+async def transact[T](client: AsyncMongoClient, callback: Callable[[AsyncClientSession], Awaitable[T]]) -> T:
+    """`callback` in one transaction on a session of its own, run, committed and retried by the driver's `with_transaction`."""
+
+    async with transaction_session(client) as session:
+        return await session.with_transaction(callback)
+
+
 # A pass's page: one read's ceiling, and one past it tells a full page from a truncated one.
 SWEEP_PAGE: Final = LIST_LIMIT_DEFAULT
 
@@ -216,10 +223,9 @@ def _deadline_left() -> float | None:
 
 
 async def _transacted[T](db: AsyncMongoClient, callback: Callable[[AsyncClientSession, Batch], Awaitable[T]], batch: Batch) -> T:
-    """`callback` over `batch` in one transaction, handed the session by the driver's own `with_transaction`."""
+    """`callback` over `batch` in one transaction."""
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(lambda transacting: callback(transacting, batch))
+    return await transact(db, lambda session: callback(session, batch))
 
 
 def carried_by_a_row(failure: Exception) -> bool:

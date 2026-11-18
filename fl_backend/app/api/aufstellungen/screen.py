@@ -53,7 +53,7 @@ from app.core.crud import (
 from app.core.exceptions import DocumentNotFoundError, WriteRefusal
 from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_KONTAKT
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.schemas.literals import FLSaisonStatus, FLSpielSide
 
 
@@ -305,5 +305,4 @@ async def save_aufstellung_screen(
 
         return _compose(state=state, team_id=team_id, saved=written, people=people, now=now), saved is None
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(write)
+    return await transact(db, write)

@@ -78,7 +78,7 @@ from app.core.journal import Journal
 from app.core.recording import ACT_BY_KONTAKT, record_act
 from app.core.routing import by_id
 from app.core.security import PERSON_TIER, PersonIdentifier
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.einwilligung_evidence import FLEinwilligungChoice
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -378,8 +378,7 @@ async def admit(
         )
 
     # The squad cap's own write moved the season.
-    async with transaction_session(db) as session:
-        return await session.with_transaction(admit_the_pupil)
+    return await transact(db, admit_the_pupil)
 
 
 @router.post(
@@ -477,8 +476,7 @@ async def decline(
 
         return FLRegistrierungDeclineResponse(registrierung_id=registrierung_id, first_name=registrierung_raw["first_name"])
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(decline_for_the_team)
+    return await transact(db, decline_for_the_team)
 
 
 # A prefix of its own: a pending registrant reaches their own row, and no team's.
@@ -539,5 +537,4 @@ async def patch_einwilligung(
             journal.note("withdrawal", [f"{Collection.REGISTRIERUNGEN}/{row['_id']}"], choices=list(moved))
 
     async with journal:
-        async with transaction_session(db) as session:
-            await session.with_transaction(write)
+        await transact(db, write)

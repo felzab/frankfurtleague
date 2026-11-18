@@ -34,7 +34,7 @@ from app.core.dependencies import (
 from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import by_id
 from app.core.security import ActorEmail
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 
@@ -117,8 +117,7 @@ async def post_grant(
 
         return FLGrantWriteResponse(grant_id=grant_id)
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(judge_and_grant)
+    return await transact(db, judge_and_grant)
 
 
 @router.delete(by_id("grant_id"), summary="Remove an administrator, or withdraw a waiting addition")
@@ -158,8 +157,7 @@ async def delete_grant(
             session=session,
         )
 
-    async with transaction_session(db) as session:
-        await session.with_transaction(judge_and_revoke)
+    await transact(db, judge_and_revoke)
 
     return FLGrantWriteResponse(grant_id=grant_id)
 
@@ -204,8 +202,7 @@ async def post_handover(
             session=session,
         )
 
-    async with transaction_session(db) as session:
-        await session.with_transaction(judge_and_start)
+    await transact(db, judge_and_start)
 
     return FLGrantWriteResponse(grant_id=grant_id)
 
@@ -239,7 +236,6 @@ async def delete_handover(
             session=session,
         )
 
-    async with transaction_session(db) as session:
-        await session.with_transaction(judge_and_stop)
+    await transact(db, judge_and_stop)
 
     return FLGrantWriteResponse(grant_id=grant_id)

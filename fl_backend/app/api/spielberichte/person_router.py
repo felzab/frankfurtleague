@@ -46,7 +46,7 @@ from app.core.dependencies import (
 from app.core.recording import ACT_BY_SCHIEDSRICHTER, record_act
 from app.core.routing import by_id
 from app.core.security import PERSON_TIER, PersonIdentifier
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.schemas.custom import CustomRouteObjectId
 
 # The referee's own router: the person's identifier is bound at router level, and each handler judges their referee
@@ -214,8 +214,7 @@ async def put_spielbericht_bericht(
 
         return FLSpielberichtSchiedsrichterResponse.model_validate(view), created
 
-    async with transaction_session(db) as session:
-        answer, created = await session.with_transaction(write_the_report)
+    answer, created = await transact(db, write_the_report)
 
     # RFC 9110's PUT: a write creating the report says so.
     if created:

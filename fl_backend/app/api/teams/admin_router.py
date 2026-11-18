@@ -139,7 +139,7 @@ from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.core.recording import record_act
 from app.core.routing import by_id
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import mint_token
@@ -493,9 +493,8 @@ async def post_team_entry(
         return team_id
 
     # One transaction: a refused entry leaves no new club behind it, which the list would then offer as if chosen.
-    # `with_transaction` is safe to retry, the callback re-reading everything it judges.
-    async with transaction_session(db) as session:
-        return FLPostTeamEntryResponse(team_id=await session.with_transaction(found_and_enter))
+    # `transact` is safe to retry, the callback re-reading everything it judges.
+    return FLPostTeamEntryResponse(team_id=await transact(db, found_and_enter))
 
 
 @router.delete(
@@ -542,8 +541,7 @@ async def delete_team(
 
     # Soft, since the seasons it played still happened. The stamp inside the judgement's transaction: an entry writes
     # nothing read here, so the club it anchors (`pull_a_club_to_enter`) is the one document the two conflict on.
-    async with transaction_session(db) as session:
-        await session.with_transaction(retire_the_club)
+    await transact(db, retire_the_club)
 
 
 @router.post(
@@ -565,8 +563,7 @@ async def reactivate_team(
                 collection=teams_collection, action="team.reactivated", record_id=team_id, label=str(revived["name"]), session=session
             )
 
-    async with transaction_session(db) as session:
-        await session.with_transaction(bring_the_club_back)
+    await transact(db, bring_the_club_back)
 
 
 @router.patch(
@@ -663,9 +660,8 @@ async def patch_team_saison(
         return FLPatchTeamSaisonResponse(version=composite_version(stored_team, stored_row))
 
     # One transaction, or a refusal of the row's part leaves the club's half saved under an editor reading it as failed.
-    # `with_transaction` is safe to retry, every write deriving from the payload and an in-session read.
-    async with transaction_session(db) as session:
-        return await session.with_transaction(save_the_club_and_its_row)
+    # `transact` is safe to retry, every write deriving from the payload and an in-session read.
+    return await transact(db, save_the_club_and_its_row)
 
 
 @router.put(
@@ -739,8 +735,7 @@ async def put_austritt(
         )
 
     # One transaction: what the exit owes commits with it or neither does.
-    async with transaction_session(db) as session:
-        await session.with_transaction(record_the_exit)
+    await transact(db, record_the_exit)
 
 
 @router.put(
@@ -805,8 +800,7 @@ async def put_kontakt_seat(
         # One person, so one link at most.
         return FLKontaktSeatResponse(email=confirmations[0].email if confirmations else None)
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(seat_the_person)
+    return await transact(db, seat_the_person)
 
 
 @router.post(
@@ -964,10 +958,9 @@ async def replace_saison_team(
         )
 
     # One transaction over every write: a row handed over while its fixtures are not leaves the
-    # season fielding a club that holds no place in it. `with_transaction` is safe to retry, the
+    # season fielding a club that holds no place in it. `transact` is safe to retry, the
     # callback re-reading everything it judges on.
-    async with transaction_session(db) as session:
-        return await session.with_transaction(hand_the_row_over)
+    return await transact(db, hand_the_row_over)
 
 
 @router.post(
@@ -1049,8 +1042,7 @@ async def invite_kontakt(
 
         return FLKontaktInviteResponse(saison_id=saison_id, team_id=team_id, confirmation=mint)
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(judge_and_mint)
+    return await transact(db, judge_and_mint)
 
 
 @router.post(
@@ -1073,7 +1065,7 @@ async def post_invitation(
     registration window does, judged afresh at each opening.
     """
 
-    # Outside the callback: `with_transaction` may run it again, and a fresh value per attempt would
+    # Outside the callback: `transact` may run it again, and a fresh value per attempt would
     # answer a raw link whose hash is not the one the winning attempt stored.
     raw_token, token_hash = mint_token()
 
@@ -1116,8 +1108,7 @@ async def post_invitation(
 
     # One transaction over the revoke and the mint: `uniq_invitation_live` refuses the second live row
     # outright, so the two landing apart would leave the mint failing against the team's own old link.
-    async with transaction_session(db) as session:
-        invitation_id = await session.with_transaction(mint_the_link)
+    invitation_id = await transact(db, mint_the_link)
 
     return FLInvitationMintResponse(
         saison_id=saison_id,
@@ -1163,8 +1154,7 @@ async def delete_invitation(
 
         return before
 
-    async with transaction_session(db) as session:
-        revoked = await session.with_transaction(revoke_the_link)
+    revoked = await transact(db, revoke_the_link)
 
     return FLInvitationWriteResponse(saison_id=saison_id, team_id=team_id, invitation_id=revoked["_id"])
 
@@ -1237,5 +1227,4 @@ async def post_invitation_dispatch(
 
         return FLInvitationMailResponse(mailed=len(recipients))
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(owe_the_link)
+    return await transact(db, owe_the_link)

@@ -63,7 +63,7 @@ from app.core.readonly import ReadCollection
 from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.security import ActorEmail
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.literals import FLAddressChangeWay, FLAdminTier
@@ -237,8 +237,7 @@ async def post_address_change_admin(
 
     # One transaction over the judgement and the write: a record written outside it would stand with a live link an
     # administrator was then told had been refused.
-    async with transaction_session(db) as session:
-        return await session.with_transaction(judge_and_start_the_change)
+    return await transact(db, judge_and_start_the_change)
 
 
 @router.post(
@@ -305,8 +304,7 @@ async def invite_address_change(
 
         return FLAddressChangeIdResponse(id=address_change_id)
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(judge_and_remint_the_change)
+    return await transact(db, judge_and_remint_the_change)
 
 
 @router.delete(
@@ -350,5 +348,4 @@ async def delete_address_change(
         return FLAddressChangeIdResponse(id=address_change_id)
 
     # One transaction, so the write and the log row recording it land together.
-    async with transaction_session(db) as session:
-        return await session.with_transaction(discard_the_change)
+    return await transact(db, discard_the_change)

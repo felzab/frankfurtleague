@@ -61,7 +61,7 @@ from app.core.dependencies import (
 from app.core.journal import Journal
 from app.core.readonly import ReadCollection
 from app.core.security import PERSON_TIER, PersonIdentifier
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.einwilligung_evidence import FLEinwilligungChoice
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.einwilligung import FLSeatEinwilligungPayload, by_choice
@@ -169,8 +169,7 @@ async def patch_einwilligung(
             journal.note("withdrawal", [f"{Collection.SAISON_TEAMS}/{row['_id']}"], choices=list(choices), seats=rollen)
 
     async with journal:
-        async with transaction_session(db) as session:
-            await session.with_transaction(write)
+        await transact(db, write)
 
 
 # What a team's pages read of the confirmation rows of its fixtures: the judgement's fields, and the answer's way and

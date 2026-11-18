@@ -130,7 +130,7 @@ from app.core.exceptions import WriteRefusal
 from app.core.logging import fl_logger
 from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_SYSTEM, record_act
-from app.core.transactions import transaction_session
+from app.core.transactions import transact
 from app.shared.schemas.literals import FLGruppenNames
 
 router = APIRouter(
@@ -400,8 +400,7 @@ async def post_saison(
 
         return created
 
-    async with transaction_session(db) as session:
-        post_operation = await session.with_transaction(enter_the_season)
+    post_operation = await transact(db, enter_the_season)
 
     return FLPostSaisonResponse(
         created_id=str(post_operation.inserted_id),
@@ -579,11 +578,10 @@ async def patch_saison(
 
         return FLPatchSaisonResponse(version=patched[VERSION_FIELD])
 
-    # `with_transaction`, not a bare `start_transaction`: a draw and an undraw write `saisons` too,
+    # `transact`, not a bare `start_transaction`: a draw and an undraw write `saisons` too,
     # so one landing under a `$set` that changes something conflicts, and the retry judges the
     # season as that rival left it.
-    async with transaction_session(db) as session:
-        patched = await session.with_transaction(judge_and_write_the_rules)
+    patched = await transact(db, judge_and_write_the_rules)
 
     return patched
 
@@ -749,11 +747,10 @@ async def activate_saison(
 
         return FLActivateSaisonResponse(deactivated=demoted.modified_count)
 
-    # `with_transaction`, not a bare `start_transaction`: a draw filling the outgoing season or an
+    # `transact`, not a bare `start_transaction`: a draw filling the outgoing season or an
     # undraw emptying the target writes a season this one writes too, so it conflicts and the
     # retry judges the league again rather than closing it blind.
-    async with transaction_session(db) as session:
-        rolled_over = await session.with_transaction(judge_and_roll_the_league_over)
+    rolled_over = await transact(db, judge_and_roll_the_league_over)
 
     return rolled_over
 
@@ -856,10 +853,9 @@ async def swap_gruppen(
 
         return swapped
 
-    # `with_transaction`, not a bare `start_transaction`: two admins on one season can write-conflict,
+    # `transact`, not a bare `start_transaction`: two admins on one season can write-conflict,
     # and a retry judges these rows as the rival left them.
-    async with transaction_session(db) as session:
-        return await session.with_transaction(exchange_the_two_gruppen)
+    return await transact(db, exchange_the_two_gruppen)
 
 
 @router.post(
@@ -1065,10 +1061,9 @@ async def post_spielplan(
             removed_spiele=removed_spiele,
         )
 
-    # `with_transaction`, not a bare `start_transaction`, and a retry is safe because the draw
+    # `transact`, not a bare `start_transaction`, and a retry is safe because the draw
     # generates its own ids and wires by `spiel_nr`, never by one.
-    async with transaction_session(db) as session:
-        drawn_response = await session.with_transaction(draw_the_whole_season)
+    drawn_response = await transact(db, draw_the_whole_season)
 
     return drawn_response
 
@@ -1156,10 +1151,9 @@ async def delete_spielplan(
             watermark_cleared=before.get("spielplan") is not None,
         )
 
-    # `with_transaction`, not a bare `start_transaction`, and a retry is safe because the undraw
+    # `transact`, not a bare `start_transaction`, and a retry is safe because the undraw
     # removes a set by filter rather than by any id it read.
-    async with transaction_session(db) as session:
-        undrawn = await session.with_transaction(undraw_the_whole_season)
+    undrawn = await transact(db, undraw_the_whole_season)
 
     return undrawn
 
@@ -1309,8 +1303,7 @@ async def _mail_one_team(
     # Caught outside the session: a failure the session never sees leaves the transaction open on the
     # server.
     try:
-        async with transaction_session(db) as session:
-            return await session.with_transaction(mint_where_the_team_qualifies)
+        return await transact(db, mint_where_the_team_qualifies)
     except PyMongoError as failure:
         # Per team: every team already done is committed with its mails. A commit sent and never answered may have revoked
         # this team's link and owed its mails too, so its line says unknown rather than failed.

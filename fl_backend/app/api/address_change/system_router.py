@@ -51,7 +51,7 @@ from app.core.logging import fl_logger
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.routing import SAFE
 from app.core.security import SYSTEM_TIER
-from app.core.transactions import UNKNOWN_COMMIT_RESULT, diagnosis_of, transaction_session
+from app.core.transactions import UNKNOWN_COMMIT_RESULT, diagnosis_of, transact
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.tokens import hash_token
@@ -110,8 +110,7 @@ async def _end_the_lapsed_changes(
 
         return result.modified_count
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(end_the_lapsed_changes)
+    return await transact(db, end_the_lapsed_changes)
 
 
 async def _make_the_due_change_take_effect(
@@ -190,8 +189,7 @@ async def _make_the_due_change_take_effect(
         await record_act(collection=address_changes_collection, action="retention.address_changes", by=ACT_BY_SYSTEM, count=1, session=session)
         return "discarded"
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(take_effect)
+    return await transact(db, take_effect)
 
 
 @router.post(
@@ -244,7 +242,7 @@ async def sweep_address_change(
         pass handles.
         """
 
-        # The only branch an unanswered commit reaches: `with_transaction` retries one until the deadline and raises
+        # The only branch an unanswered commit reaches: `transact` retries one until the deadline and raises
         # it as a timeout keeping the label.
         if isinstance(failure, PyMongoError) and failure.timeout:
             uncertain = failure.has_error_label(UNKNOWN_COMMIT_RESULT)
