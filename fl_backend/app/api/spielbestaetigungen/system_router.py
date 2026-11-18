@@ -8,7 +8,13 @@ from pymongo import ASCENDING, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.aufstellungen.services import aufstellung_marks, aufstellung_reminder_owed, aufstellung_stands
+from app.api.aufstellungen.services import (
+    aufstellung_marks,
+    aufstellung_reminder_key,
+    aufstellung_reminder_owed,
+    aufstellung_stands,
+    build_aufstellung_reminder_filter,
+)
 from app.api.invitations.services import confirmed_recipients
 from app.api.outbox.schemas import (
     FLAufstellungReminderData,
@@ -37,9 +43,7 @@ from app.api.spielbestaetigungen.services import (
     ansetzung_digest_of,
     answers_at_its_end,
     asked_with_its_move,
-    aufstellung_reminder_key,
     build_answerable_filter,
-    build_aufstellung_reminder_filter,
     build_held_filter,
     build_holding_filter,
     build_reminder_filter,
