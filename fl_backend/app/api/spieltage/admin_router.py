@@ -35,7 +35,7 @@ from app.core.dependencies import (
 from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.transactions import transact
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 
 router = APIRouter(
     prefix="/spieltage",
@@ -50,7 +50,7 @@ router = APIRouter(
     summary="One Spieltag for the admin editor",
 )
 async def get_spieltag_admin(
-    spieltag_id: CustomRouteObjectId,
+    spieltag_id: CustomObjectId,
     spieltage_collection: SpieltageReadCollection,
     saisons_collection: SaisonsReadCollection,
 ) -> FLSpieltagAdminResponse:
@@ -135,7 +135,7 @@ async def _refuse_an_out_of_order_start(
     summary="Re-date a Spieltag",
 )
 async def patch_spieltag(
-    spieltag_id: CustomRouteObjectId,
+    spieltag_id: CustomObjectId,
     spieltag_data: FLPatchSpieltagPayload,
     spieltage_collection: SpieltageCollection,
     saisons_collection: SaisonsCollection,

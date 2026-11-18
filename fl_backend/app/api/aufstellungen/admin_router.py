@@ -18,7 +18,7 @@ from app.core.dependencies import (
     SpielerReadCollection,
 )
 from app.core.routing import by_id
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 
 router = APIRouter(
     prefix="/aufstellungen",
@@ -30,8 +30,8 @@ AUFSTELLUNG_PATH = f"{by_id('spiel_id')}{by_id('team_id')}"
 
 @router.get(AUFSTELLUNG_PATH, summary="One club's line-up for one fixture as an administrator reads it")
 async def get_aufstellung(
-    spiel_id: CustomRouteObjectId,
-    team_id: CustomRouteObjectId,
+    spiel_id: CustomObjectId,
+    team_id: CustomObjectId,
     spiele_collection: SpieleReadCollection,
     saison_spieler_collection: SaisonSpielerReadCollection,
     spieler_collection: SpielerReadCollection,
@@ -62,8 +62,8 @@ async def get_aufstellung(
     responses={201: {"model": FLAufstellungResponse, "description": "The line-up did not stand before, and this save created it"}},
 )
 async def put_aufstellung(
-    spiel_id: CustomRouteObjectId,
-    team_id: CustomRouteObjectId,
+    spiel_id: CustomObjectId,
+    team_id: CustomObjectId,
     aufstellung_data: FLAufstellungPayload,
     response: Response,
     spiele_collection: SpieleReadCollection,

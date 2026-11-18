@@ -7,7 +7,7 @@ from app.core.crud import pull_one_from_db
 from app.core.dependencies import SaisonsReadCollection, SpieltageReadCollection
 from app.core.routing import by_id
 from app.core.security import BASE_TIER
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 
 router = APIRouter(
     prefix="/spieltage",
@@ -17,7 +17,7 @@ router = APIRouter(
 
 @router.get(by_id("spieltag_id"), summary="One Spieltag")
 async def get_spieltag(
-    spieltag_id: CustomRouteObjectId,
+    spieltag_id: CustomObjectId,
     spieltage_collection: SpieltageReadCollection,
     saisons_collection: SaisonsReadCollection,
 ) -> FLSpieltageSingleResponse:

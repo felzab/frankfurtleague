@@ -31,7 +31,7 @@ from app.core.dependencies import DBClient, GermanDay, SpieleCollection, Spielor
 from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.transactions import transact
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.responses import FLCreatedResponse
 
 # Admin-guarded, not base. `default_mietpreis` is money, which only an administrator reads, and the only field
@@ -66,7 +66,7 @@ async def get_spielorte(
 
 
 @router.get(by_id("spielort_id"), summary="One Spielort")
-async def get_spielort(spielort_id: CustomRouteObjectId, spielorte_collection: SpielorteReadCollection) -> FLSpielorteSingleResponse:
+async def get_spielort(spielort_id: CustomObjectId, spielorte_collection: SpielorteReadCollection) -> FLSpielorteSingleResponse:
     """One venue, a retired one included, with the `version` its save sends back."""
 
     spielort_raw = await pull_one_from_db(collection=spielorte_collection, db_filter={"_id": spielort_id})
@@ -114,7 +114,7 @@ async def post_spielort(
     summary="Update a Spielort",
 )
 async def patch_spielort(
-    spielort_id: CustomRouteObjectId,
+    spielort_id: CustomObjectId,
     spielort_data: FLPatchSpielortPayload,
     spielorte_collection: SpielorteCollection,
     db: DBClient,
@@ -154,7 +154,7 @@ async def patch_spielort(
     summary="Deactivate a Spielort (soft delete)",
 )
 async def delete_spielort(
-    spielort_id: CustomRouteObjectId,
+    spielort_id: CustomObjectId,
     spielorte_collection: SpielorteCollection,
     spiele_collection: SpieleCollection,
     db: DBClient,
@@ -194,7 +194,7 @@ async def delete_spielort(
     summary="Bring a deactivated Spielort back",
 )
 async def reactivate_spielort(
-    spielort_id: CustomRouteObjectId,
+    spielort_id: CustomObjectId,
     spielorte_collection: SpielorteCollection,
     db: DBClient,
 ) -> None:

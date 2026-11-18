@@ -62,7 +62,7 @@ from app.core.routing import by_id
 from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transact
 from app.shared.einwilligung_evidence import FLEinwilligungChoice
-from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload, by_choice
 from app.shared.schemas.literals import FLSpielerStufe
 
@@ -158,7 +158,7 @@ async def _the_row_as_written(
 
 @router.get(SQUAD_PATH, summary="Read a team's squad as its seat holder")
 async def get_kader(
-    team_id: CustomRouteObjectId,
+    team_id: CustomObjectId,
     saison_id: str,
     identifier: PersonIdentifier,
     saison_spieler_collection: SaisonSpielerReadCollection,
@@ -189,9 +189,9 @@ async def get_kader(
     summary="Update a squad entry as its team's seat holder",
 )
 async def patch_kader_row(
-    team_id: CustomRouteObjectId,
+    team_id: CustomObjectId,
     saison_id: str,
-    spieler_id: CustomRouteObjectId,
+    spieler_id: CustomObjectId,
     row_data: FLPatchKaderRowPayload,
     identifier: PersonIdentifier,
     saison_spieler_collection: SaisonSpielerCollection,
@@ -267,9 +267,9 @@ async def patch_kader_row(
     summary="Take a Spieler out of the squad as its team's seat holder (retire)",
 )
 async def delete_kader_row(
-    team_id: CustomRouteObjectId,
+    team_id: CustomObjectId,
     saison_id: str,
-    spieler_id: CustomRouteObjectId,
+    spieler_id: CustomObjectId,
     identifier: PersonIdentifier,
     saison_spieler_collection: SaisonSpielerCollection,
     records: SubjectLookup,

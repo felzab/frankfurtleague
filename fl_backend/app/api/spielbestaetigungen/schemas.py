@@ -17,7 +17,7 @@ from app.shared.schemas.custom import (
     parse_empty_string_to_none,
 )
 from app.shared.schemas.literals import FLKontaktRolle
-from app.shared.schemas.responses import BaseAPIResponse, BasePayload, BaseReadModel
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 type FLSpielbestaetigungAnswerKind = Literal["agreed", "declined"]
 
@@ -226,7 +226,7 @@ class FLSpielbestaetigungTeamAnswerPayload(BasePayload):
         return _an_acceptance_gives_no_reason(reason, info)
 
 
-class FLSpielbestaetigungAnswerResponse(BaseAPIResponse):
+class FLSpielbestaetigungAnswerResponse(BaseReadModel):
     """What the answer recorded: its way, the seat it came from, and the answering club's own proposal. No receipt is mailed off it."""
 
     state: FLSpielbestaetigungAnswerKind
@@ -258,7 +258,7 @@ class FLSpielbestaetigungSchiedsrichterAnswerPayload(BasePayload):
         return _an_acceptance_gives_no_reason(reason, info)
 
 
-class FLSpielbestaetigungSchiedsrichterAnswerResponse(BaseAPIResponse):
+class FLSpielbestaetigungSchiedsrichterAnswerResponse(BaseReadModel):
     spielbestaetigung_id: CustomObjectId
     state: FLSpielbestaetigungAnswerKind
 
@@ -267,7 +267,7 @@ class FLSpielbestaetigungSchiedsrichterAnswerResponse(BaseAPIResponse):
 # link and no name.
 
 
-class FLSpielbestaetigungSweepResponse(BaseAPIResponse):
+class FLSpielbestaetigungSweepResponse(BaseReadModel):
     """One season's pass, counted: what it closed, the rows it asked or reminded, and the mails it owed the Postausgang."""
 
     saison_id: str

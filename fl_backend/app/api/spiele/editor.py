@@ -45,7 +45,7 @@ from app.shared.einwilligung import is_confirmed
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.literals import FLSaisonStatus, FLSpielSide
-from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
+from app.shared.schemas.responses import BaseReadModel
 
 
 class FLSpielEditorSpielort(BaseReadModel):
@@ -134,7 +134,7 @@ class FLSpielbestaetigungEditorRow(FLSpielbestaetigung):
     lapsed_on: CustomDateString | None
 
 
-class FLSpieleAdminSingleResponse(BaseAPIResponse):
+class FLSpieleAdminSingleResponse(BaseReadModel):
     """One fixture for the match editor, money and `version` included, and all its sections offer and show beside it."""
 
     spiel: FLSpielJoinedAdmin

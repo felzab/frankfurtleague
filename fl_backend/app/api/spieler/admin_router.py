@@ -55,7 +55,7 @@ from app.core.dependencies import (
 from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.transactions import transact
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 
 router = APIRouter(
     prefix="/spieler",
@@ -101,7 +101,7 @@ async def get_spieler_admin(
     summary="What the Spieler editor shows, in one read",
 )
 async def get_spieler_saison(
-    spieler_id: CustomRouteObjectId,
+    spieler_id: CustomObjectId,
     saison_id: str,
     spieler_collection: SpielerReadCollection,
     saison_spieler_collection: SaisonSpielerReadCollection,
@@ -147,7 +147,7 @@ async def get_spieler_saison(
     summary="Save the Spieler editor: the person and their squad row of the season, in one transaction",
 )
 async def patch_spieler_saison(
-    spieler_id: CustomRouteObjectId,
+    spieler_id: CustomObjectId,
     saison_id: str,
     spieler_data: FLPatchSpielerSaisonPayload,
     spieler_collection: SpielerCollection,
@@ -232,7 +232,7 @@ async def patch_spieler_saison(
     summary="Remove a Spieler from a squad",
 )
 async def delete_saison_spieler(
-    spieler_id: CustomRouteObjectId,
+    spieler_id: CustomObjectId,
     saison_id: str,
     saison_spieler_collection: SaisonSpielerCollection,
     db: DBClient,
@@ -265,7 +265,7 @@ async def delete_saison_spieler(
     summary="Put a Spieler back in a squad they left",
 )
 async def reactivate_saison_spieler(
-    spieler_id: CustomRouteObjectId,
+    spieler_id: CustomObjectId,
     saison_id: str,
     saison_spieler_collection: SaisonSpielerCollection,
     saison_teams_collection: SaisonTeamsCollection,

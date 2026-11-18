@@ -36,7 +36,7 @@ from app.core.routing import by_id
 from app.core.security import ActorEmail
 from app.core.transactions import transact
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 
 router = APIRouter(
     prefix="/grants",
@@ -122,7 +122,7 @@ async def post_grant(
 
 @router.delete(by_id("grant_id"), summary="Remove an administrator, or withdraw a waiting addition")
 async def delete_grant(
-    grant_id: CustomRouteObjectId,
+    grant_id: CustomObjectId,
     grants_collection: GrantsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
@@ -164,7 +164,7 @@ async def delete_grant(
 
 @router.post(f"{by_id('grant_id')}/handover", summary="Hand the owner role over to an administrator")
 async def post_handover(
-    grant_id: CustomRouteObjectId,
+    grant_id: CustomObjectId,
     grants_collection: GrantsCollection,
     ban_list_collection: BanListCollection,
     outbox_collection: OutboxCollection,
@@ -209,7 +209,7 @@ async def post_handover(
 
 @router.delete(f"{by_id('grant_id')}/handover", summary="Stop a waiting handover")
 async def delete_handover(
-    grant_id: CustomRouteObjectId,
+    grant_id: CustomObjectId,
     grants_collection: GrantsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,

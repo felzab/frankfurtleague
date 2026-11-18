@@ -9,7 +9,7 @@ from app.core.exceptions import rule_refusal
 from app.shared.schemas.bounds import AUFSTELLUNG_STARTERS_MAX
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomTimeString, CustomVersion, FLUtcInstant
 from app.shared.schemas.literals import FLSaisonPhase, FLSaisonStatus, FLSonderereignis, FLSpielerPosition
-from app.shared.schemas.responses import BaseAPIResponse, BasePayload, BaseReadModel
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 # The most pupils one line-up names, far above any squad: the squad itself is the rule a save is judged by, and this
 # only bounds what a request may carry.
@@ -121,7 +121,7 @@ class FLAufstellungMarks(BaseReadModel):
     due_at: FLUtcInstant
 
 
-class FLAufstellungResponse(BaseAPIResponse):
+class FLAufstellungResponse(BaseReadModel):
     """One club's line-up screen for one fixture: the squad to pick from, the stored line-up and what its save sends back.
 
     A finished season's line-up, which `saison_status` marks, is read-only.

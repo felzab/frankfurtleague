@@ -17,7 +17,7 @@ from app.core.journal import Journal
 from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transact
 from app.shared.einwilligung_evidence import FLEinwilligungChoice
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.einwilligung import FLSeatEinwilligungPayload, by_choice
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 
@@ -34,7 +34,7 @@ router = APIRouter(prefix="/bewerbungen", dependencies=PERSON_TIER)
     summary="Withdraw a seat holder's own WhatsApp and media consent on a pending Bewerbung",
 )
 async def patch_einwilligung(
-    bewerbung_id: CustomRouteObjectId,
+    bewerbung_id: CustomObjectId,
     einwilligung_data: FLSeatEinwilligungPayload,
     identifier: PersonIdentifier,
     bewerbungen_collection: BewerbungenCollection,

@@ -14,7 +14,7 @@ from app.shared.schemas.custom import (
 )
 from app.shared.schemas.kontakt import CustomEmail, CustomStoredAddress
 from app.shared.schemas.literals import FLAddressChangeEndKind, FLAddressChangeWaitsOn, FLAddressChangeWay, FLAdminTier
-from app.shared.schemas.responses import BaseAPIResponse, BasePayload
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 type FLAddressChangeAnswer = Literal["confirmed", "declined"]
 
@@ -71,7 +71,7 @@ class FLAddressChangeOpenMove(BaseModel):
     new: str
 
 
-class FLAddressChangeMovesResponse(BaseAPIResponse):
+class FLAddressChangeMovesResponse(BaseReadModel):
     """The sign-in accounts the effects still owe to carry, server to server alone: each names two addresses.
 
     A page at a time; a full page means more wait.
@@ -84,7 +84,7 @@ class FLAddressChangeMovesDonePayload(BasePayload):
     ids: list[CustomObjectId] = Field(min_length=1, max_length=LIST_LIMIT_DEFAULT)
 
 
-class FLAddressChangeMovesDoneResponse(BaseAPIResponse):
+class FLAddressChangeMovesDoneResponse(BaseReadModel):
     # The carries this call took off their changes; an id owing none is not counted.
     done: int = Field(ge=0)
 
@@ -103,7 +103,7 @@ class FLAddressChangeAddressPayload(BasePayload):
         return self
 
 
-class FLAddressChangeAddressResponse(BaseAPIResponse):
+class FLAddressChangeAddressResponse(BaseReadModel):
     """A live change's new address and nothing else, server to server alone."""
 
     # Folded as the sign-in store keys an account; null where the key names no live change.
@@ -154,7 +154,7 @@ class FLAddressChangeViewEnded(BaseModel):
     confirmed_on: CustomDateString | None
 
 
-class FLAddressChangeViewResponse(BaseAPIResponse):
+class FLAddressChangeViewResponse(BaseReadModel):
     """What one address link opens: never a name or the id.
 
     The new address only where its holder judges by it: the new mailbox's `valid` link, and the address on file's link while
@@ -170,7 +170,7 @@ class FLAddressChangeAnswerPayload(BasePayload):
     answer: FLAddressChangeAnswer
 
 
-class FLAddressChangeAnswerResponse(BaseAPIResponse):
+class FLAddressChangeAnswerResponse(BaseReadModel):
     """The answer recorded, and no address of the change: the notices an effect owes are queued, never answered."""
 
     answer: FLAddressChangeAnswer
@@ -180,7 +180,7 @@ class FLAddressChangeAnswerResponse(BaseAPIResponse):
     effective: bool
 
 
-class FLAddressChangeStopResponse(BaseAPIResponse):
+class FLAddressChangeStopResponse(BaseReadModel):
     stopped: Literal[True]
 
 
@@ -201,7 +201,7 @@ class FLAddressChangeAdminOpen(BaseModel):
     expired: bool
 
 
-class FLAddressChangeAdminListResponse(BaseAPIResponse):
+class FLAddressChangeAdminListResponse(BaseReadModel):
     """The running changes this administrator may act on, newest first."""
 
     changes: list[FLAddressChangeAdminOpen]
@@ -214,7 +214,7 @@ class FLAddressChangeAdminPayload(BasePayload):
     email: CustomEmail
 
 
-class FLAddressChangeIdResponse(BaseAPIResponse):
+class FLAddressChangeIdResponse(BaseReadModel):
     """A started, re-sent or discarded change: its mails are owed in the Postausgang, so no link is answered."""
 
     id: CustomObjectId
@@ -226,7 +226,7 @@ class FLAddressChangeSweepParams(BaseModel):
     after: CustomObjectId | None = None
 
 
-class FLAddressChangeSweepResponse(BaseAPIResponse):
+class FLAddressChangeSweepResponse(BaseReadModel):
     """One call's share of the live changes whose step lapsed or whose waiting time ended."""
 
     removed: int

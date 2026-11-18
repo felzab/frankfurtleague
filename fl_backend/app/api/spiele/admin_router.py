@@ -49,7 +49,7 @@ from app.core.dependencies import (
 from app.core.routing import SAFE_WHEN, by_id
 from app.core.transactions import transact
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 
 router = APIRouter(
     prefix="/spiele",
@@ -94,7 +94,7 @@ async def get_spiele_spielplan(
     summary="One Spiel and all the match editor offers and shows beside it",
 )
 async def get_spiel_admin(
-    spiel_id: CustomRouteObjectId,
+    spiel_id: CustomObjectId,
     spiele_collection: SpieleReadCollection,
     saisons_collection: SaisonsReadCollection,
     spielorte_collection: SpielorteReadCollection,
@@ -142,7 +142,7 @@ async def previewing(
     openapi_extra=SAFE_WHEN,
 )
 async def patch_spiel(
-    spiel_id: CustomRouteObjectId,
+    spiel_id: CustomObjectId,
     spiel_data: FLPatchSpielDataPayload,
     db: DBClient,
     spiele_collection: SpieleCollection,

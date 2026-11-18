@@ -81,7 +81,7 @@ from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transact
 from app.shared.einwilligung_evidence import FLEinwilligungChoice
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload, by_choice
 
 # A person's route in place of `bind_actor`: a seat holder signs in by code and holds no grant, so the
@@ -94,7 +94,7 @@ router = APIRouter(prefix="/registrierungen", dependencies=PERSON_TIER)
     summary="A team's pending registrations for one season",
 )
 async def get_open_registrierungen(
-    team_id: CustomRouteObjectId,
+    team_id: CustomObjectId,
     saison_id: str,
     identifier: PersonIdentifier,
     registrierungen_collection: RegistrierungenReadCollection,
@@ -229,7 +229,7 @@ async def _pull_the_teams_open_row(
     summary="Admit a registration into the team's squad",
 )
 async def admit(
-    registrierung_id: CustomRouteObjectId,
+    registrierung_id: CustomObjectId,
     admit_data: FLRegistrierungAdmitPayload,
     identifier: PersonIdentifier,
     registrierungen_collection: RegistrierungenCollection,
@@ -386,7 +386,7 @@ async def admit(
     summary="Decline a registration",
 )
 async def decline(
-    registrierung_id: CustomRouteObjectId,
+    registrierung_id: CustomObjectId,
     decline_data: FLRegistrierungDeclinePayload,
     identifier: PersonIdentifier,
     registrierungen_collection: RegistrierungenCollection,
@@ -489,7 +489,7 @@ spieler_router = APIRouter(prefix="/registrierungen/account", dependencies=PERSO
     summary="Withdraw a pupil's own publication and media consent on their pending registration",
 )
 async def patch_einwilligung(
-    registrierung_id: CustomRouteObjectId,
+    registrierung_id: CustomObjectId,
     einwilligung_data: FLAccountEinwilligungPayload,
     identifier: PersonIdentifier,
     registrierungen_collection: RegistrierungenCollection,

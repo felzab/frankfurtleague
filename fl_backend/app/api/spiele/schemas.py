@@ -31,7 +31,7 @@ from app.shared.schemas.literals import (
     FLSonderereignis,
     FLSpielSide,
 )
-from app.shared.schemas.responses import BaseAPIResponse, BasePayload, BaseReadModel
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 # Each tuple below answers one question, whoever asks it. They are deliberately not one predicate: a
 # single boolean would make independent questions agree by accident, and a field telling five events
@@ -683,7 +683,7 @@ FLSpielJoinedListAdapter = TypeAdapter(list[FLSpielJoined])
 FLSpielJoinedInternalListAdapter = TypeAdapter(list[FLSpielJoinedInternal])
 
 
-class FLSpieleSingleResponse(BaseAPIResponse):
+class FLSpieleSingleResponse(BaseReadModel):
     spiel: FLSpielJoined
 
 
@@ -735,7 +735,7 @@ FLSpielRecipient = Annotated[FLSpielRecipientTeam | FLSpielRecipientSchiedsricht
 FLSpielRecipientListAdapter: TypeAdapter[list[FLSpielRecipient]] = TypeAdapter(list[FLSpielRecipient])
 
 
-class FLPatchSpielDataResponse(BaseAPIResponse):
+class FLPatchSpielDataResponse(BaseReadModel):
     """Every fixture the save moved beyond its own edit, each with the result it destroyed, and the fixture's `version` after it.
 
     `voided_results` is the set a save names in its body to delete those results, and `recipients`, on a `dry_run` alone,

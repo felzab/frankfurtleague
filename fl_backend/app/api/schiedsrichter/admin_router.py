@@ -64,7 +64,7 @@ from app.core.dependencies import (
 from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.transactions import transact
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 
 # Admin-guarded, not base: a referee is a pupil, so their contact details and school are admin-tier, as is the fee,
 # which is money.
@@ -97,7 +97,7 @@ async def get_schiedsrichter(
     summary="One Schiedsrichter",
 )
 async def get_schiedsrichter_by_id(
-    schiedsrichter_id: CustomRouteObjectId,
+    schiedsrichter_id: CustomObjectId,
     schiedsrichter_collection: SchiedsrichterReadCollection,
     outbox_collection: OutboxReadCollection,
     today: GermanDay,
@@ -186,7 +186,7 @@ async def post_schiedsrichter(
     summary="Update a Schiedsrichter",
 )
 async def patch_schiedsrichter(
-    schiedsrichter_id: CustomRouteObjectId,
+    schiedsrichter_id: CustomObjectId,
     schiedsrichter_data: FLPatchSchiedsrichterPayload,
     schiedsrichter_collection: SchiedsrichterCollection,
     outbox_collection: OutboxCollection,
@@ -262,7 +262,7 @@ async def patch_schiedsrichter(
     summary="Deactivate a Schiedsrichter (soft delete)",
 )
 async def delete_schiedsrichter(
-    schiedsrichter_id: CustomRouteObjectId,
+    schiedsrichter_id: CustomObjectId,
     schiedsrichter_collection: SchiedsrichterCollection,
     spiele_collection: SpieleCollection,
     db: DBClient,
@@ -316,7 +316,7 @@ async def delete_schiedsrichter(
     summary="Bring a deactivated Schiedsrichter back",
 )
 async def reactivate_schiedsrichter(
-    schiedsrichter_id: CustomRouteObjectId,
+    schiedsrichter_id: CustomObjectId,
     schiedsrichter_collection: SchiedsrichterCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
@@ -382,7 +382,7 @@ async def reactivate_schiedsrichter(
     summary="Send a Schiedsrichter a fresh confirmation link",
 )
 async def invite_schiedsrichter(
-    schiedsrichter_id: CustomRouteObjectId,
+    schiedsrichter_id: CustomObjectId,
     schiedsrichter_collection: SchiedsrichterCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,

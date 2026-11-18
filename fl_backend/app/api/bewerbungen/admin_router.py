@@ -99,7 +99,7 @@ from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.transactions import transact
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLKontaktRolle
 
 # Admin-guarded, not base: an application carries three people's names, addresses, telephone numbers and dates of
@@ -203,7 +203,7 @@ async def get_bewerbungen_admin(
 
 @router.get(by_id("bewerbung_id"), summary="One Bewerbung for its review page")
 async def get_bewerbung(
-    bewerbung_id: CustomRouteObjectId,
+    bewerbung_id: CustomObjectId,
     bewerbungen_collection: BewerbungenReadCollection,
     teams_collection: TeamsReadCollection,
     saisons_collection: SaisonsReadCollection,
@@ -266,7 +266,7 @@ def _key(bewerbung_id: Any, *parts: str) -> str:
     summary="Accept a Bewerbung and enter the school into the season",
 )
 async def accept_bewerbung(
-    bewerbung_id: CustomRouteObjectId,
+    bewerbung_id: CustomObjectId,
     acceptance_data: FLAcceptBewerbungPayload,
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsCollection,
@@ -454,7 +454,7 @@ async def accept_bewerbung(
     summary="Decline a Bewerbung",
 )
 async def decline_bewerbung(
-    bewerbung_id: CustomRouteObjectId,
+    bewerbung_id: CustomObjectId,
     decline_data: FLDeclineBewerbungPayload,
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsCollection,
@@ -521,7 +521,7 @@ async def decline_bewerbung(
     summary="Re-send one seat's confirmation link",
 )
 async def resend_einwilligung(
-    bewerbung_id: CustomRouteObjectId,
+    bewerbung_id: CustomObjectId,
     seat: str,
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsCollection,
@@ -629,7 +629,7 @@ async def resend_einwilligung(
     summary="Write the person one contact seat holds and mail them a fresh link",
 )
 async def post_kontakt_seat(
-    bewerbung_id: CustomRouteObjectId,
+    bewerbung_id: CustomObjectId,
     seat: str,
     seat_data: FLBewerbungKontaktSeatPayload,
     bewerbungen_collection: BewerbungenCollection,

@@ -51,7 +51,7 @@ from app.shared.schemas.literals import (
     FLSchulform,
     FLTrikotFarbe,
 )
-from app.shared.schemas.responses import BaseAPIResponse, BasePayload, BaseReadModel
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 # Read off the closed set rather than chosen beside it: a cap over the set size is one
 # `offered_gruppen` serves short while refusing nothing.
@@ -366,7 +366,7 @@ class FLTabelle(RootModel[Mapping[FLGruppenNames, list[FLTabelleRow]]]):
     """
 
 
-class FLTabelleResponse(BaseAPIResponse):
+class FLTabelleResponse(BaseReadModel):
     """One season's Tabelle: each group's standing over the group phase, and how many of each group advance."""
 
     gruppen: FLTabelle
@@ -387,7 +387,7 @@ class FLSaisonTeamEntry(BaseReadModel):
 FLSaisonTeamEntryListAdapter = TypeAdapter(list[FLSaisonTeamEntry])
 
 
-class FLSaisonTeamsResponse(BaseAPIResponse):
+class FLSaisonTeamsResponse(BaseReadModel):
     """A season's clubs, by name."""
 
     teams: list[FLSaisonTeamEntry]
@@ -473,7 +473,7 @@ class FLPatchTeamSaisonPayload(_TeamPayload):
     version: CustomVersion
 
 
-class FLPatchTeamSaisonResponse(BaseAPIResponse):
+class FLPatchTeamSaisonResponse(BaseReadModel):
     """The count the editor's next save sends."""
 
     version: int = Field(ge=0)
@@ -501,7 +501,7 @@ class FLPostTeamEntryPayload(BasePayload):
     trikot_farbe: FLTrikotFarbe | None
 
 
-class FLPostTeamEntryResponse(BaseAPIResponse):
+class FLPostTeamEntryResponse(BaseReadModel):
     """The club the entry wrote a row for, whose editor the list opens."""
 
     team_id: CustomObjectId
@@ -587,7 +587,7 @@ class FLTeamEntryOffer(BaseReadModel):
     taken: list[FLTrikotFarbe]
 
 
-class FLTeamsAdminListResponse(BaseAPIResponse):
+class FLTeamsAdminListResponse(BaseReadModel):
     """One season's Teams list, and what its create dialog offers."""
 
     teams: list[FLTeamsAdminRow]
@@ -607,7 +607,7 @@ class FLTeamSaisonFacts(BaseReadModel):
     registrierung_end: CustomOptionalDateString
 
 
-class FLTeamsSingleResponse(BaseAPIResponse):
+class FLTeamsSingleResponse(BaseReadModel):
     """One team, from `GET /teams/{team_id}`."""
 
     format: Literal["single"] = "single"
@@ -623,14 +623,14 @@ class FLKontaktMint(BaseModel):
     email: str
 
 
-class FLKontaktSeatResponse(BaseAPIResponse):
+class FLKontaktSeatResponse(BaseReadModel):
     """Where the seat write's link went."""
 
     # The address the fresh link is owed to, as stored. Null where the seat keeps its person, who keeps their link.
     email: str | None
 
 
-class FLKontaktInviteResponse(BaseAPIResponse):
+class FLKontaktInviteResponse(BaseReadModel):
     """A fresh link owed one seat, and its pair where the Trainer holds both; the old link opens nothing from this write on."""
 
     saison_id: str
@@ -638,7 +638,7 @@ class FLKontaktInviteResponse(BaseAPIResponse):
     confirmation: FLKontaktMint
 
 
-class FLReplaceSaisonTeamResponse(BaseAPIResponse):
+class FLReplaceSaisonTeamResponse(BaseReadModel):
     """The junction row as the replacement left it, plus what it reached beyond that row.
 
     `austritt` is cleared and not echoed: a club that has not withdrawn needs nothing done about it.

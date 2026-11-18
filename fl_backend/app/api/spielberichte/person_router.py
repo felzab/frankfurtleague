@@ -47,7 +47,7 @@ from app.core.recording import ACT_BY_SCHIEDSRICHTER, record_act
 from app.core.routing import by_id
 from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transact
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 
 # The referee's own router: the person's identifier is bound at router level, and each handler judges their referee
 # records in its own session.
@@ -64,7 +64,7 @@ BERICHT_PATH = f"{by_id('spiel_id')}/bericht"
     summary="One fixture's report as its referee reads it",
 )
 async def get_spielbericht_bericht(
-    spiel_id: CustomRouteObjectId,
+    spiel_id: CustomObjectId,
     identifier: PersonIdentifier,
     spiele_collection: SpieleReadCollection,
     saisons_collection: SaisonsReadCollection,
@@ -119,7 +119,7 @@ async def get_spielbericht_bericht(
     },
 )
 async def put_spielbericht_bericht(
-    spiel_id: CustomRouteObjectId,
+    spiel_id: CustomObjectId,
     bericht_data: FLSpielberichtPayload,
     response: Response,
     identifier: PersonIdentifier,

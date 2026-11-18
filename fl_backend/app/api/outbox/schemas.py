@@ -9,7 +9,7 @@ from app.core.collections import Collection
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomObjectId, CustomStrippedNonEmptyString, CustomTimeString
 from app.shared.schemas.kontakt import CustomEmail, CustomStoredAddress
 from app.shared.schemas.literals import FLAddressChangeWay, FLAdminTier, FLGruppenNames, FLKontaktRolle, FLKontaktRow, FLTrikotFarbe
-from app.shared.schemas.responses import BaseAPIResponse, BasePayload, BaseReadModel
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 # Each kind of mail is one member of `FLOutboxData` below, carrying the facts its builder renders and never a
 # sentence: a date where the mail prints one, a seat where it names one. A kind joins with the write that owes it, its
@@ -533,7 +533,7 @@ class FLOutboxHandout(BaseReadModel):
     attempt: int = Field(ge=1)
 
 
-class FLOutboxHandoutResponse(BaseAPIResponse):
+class FLOutboxHandoutResponse(BaseReadModel):
     """The owed mails one claim holds, oldest first; `lease` is null exactly where it holds none."""
 
     lease: str | None
@@ -570,7 +570,7 @@ class FLOutboxResultPayload(BasePayload):
         return self
 
 
-class FLOutboxResultResponse(BaseAPIResponse):
+class FLOutboxResultResponse(BaseReadModel):
     sent: int = Field(ge=0)
     repeated: int = Field(ge=0)
     abandoned: int = Field(ge=0)
@@ -609,7 +609,7 @@ class FLOutboxEventPayload(BasePayload):
     at: AwareDatetime
 
 
-class FLOutboxEventResponse(BaseAPIResponse):
+class FLOutboxEventResponse(BaseReadModel):
     """Whether the event reached a row; false where no row has the id, or the row's state may not follow into it.
 
     False rather than a refusal: the provider repeats a settled event for hours if anything but a success answers it.

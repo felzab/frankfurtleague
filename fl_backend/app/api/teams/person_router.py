@@ -63,7 +63,7 @@ from app.core.readonly import ReadCollection
 from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transact
 from app.shared.einwilligung_evidence import FLEinwilligungChoice
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.einwilligung import FLSeatEinwilligungPayload, by_choice
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle, FLSpielSide
 
@@ -104,7 +104,7 @@ def _seats_of(kontakte: Mapping[str, Any]) -> list[FLTeamSeat]:
     summary="Change a seat holder's own WhatsApp and media consent on one team's season",
 )
 async def patch_einwilligung(
-    team_id: CustomRouteObjectId,
+    team_id: CustomObjectId,
     saison_id: str,
     einwilligung_data: FLSeatEinwilligungPayload,
     identifier: PersonIdentifier,
@@ -312,7 +312,7 @@ async def _pull_team_spiele(
     summary="A team's Übersicht in one season",
 )
 async def get_team_overview(
-    team_id: CustomRouteObjectId,
+    team_id: CustomObjectId,
     saison_id: str,
     identifier: PersonIdentifier,
     teams_collection: TeamsReadCollection,
@@ -426,7 +426,7 @@ async def get_team_overview(
     summary="A team's fixtures in one season, with what is open on each",
 )
 async def get_team_spiele(
-    team_id: CustomRouteObjectId,
+    team_id: CustomObjectId,
     saison_id: str,
     identifier: PersonIdentifier,
     saison_teams_collection: SaisonTeamsReadCollection,

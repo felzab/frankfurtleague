@@ -140,7 +140,7 @@ from app.core.readonly import ReadCollection
 from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.transactions import transact
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import mint_token
 
@@ -344,7 +344,7 @@ async def get_teams_admin(
     summary="One team in one season for the admin editor",
 )
 async def get_team_saison_admin(
-    team_id: CustomRouteObjectId,
+    team_id: CustomObjectId,
     saison_id: str,
     teams_collection: TeamsReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
@@ -505,7 +505,7 @@ async def post_team_entry(
     summary="Retire a team (soft delete)",
 )
 async def delete_team(
-    team_id: CustomRouteObjectId,
+    team_id: CustomObjectId,
     teams_collection: TeamsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
@@ -554,7 +554,7 @@ async def delete_team(
     summary="Bring a retired team back",
 )
 async def reactivate_team(
-    team_id: CustomRouteObjectId,
+    team_id: CustomObjectId,
     teams_collection: TeamsCollection,
     db: DBClient,
 ) -> None:
@@ -575,7 +575,7 @@ async def reactivate_team(
     summary="Save the team editor: the club and its row of the season, in one transaction",
 )
 async def patch_team_saison(
-    team_id: CustomRouteObjectId,
+    team_id: CustomObjectId,
     saison_id: str,
     team_data: FLPatchTeamSaisonPayload,
     teams_collection: TeamsCollection,
@@ -674,7 +674,7 @@ async def patch_team_saison(
     summary="Record a team's exit from a season",
 )
 async def put_austritt(
-    team_id: CustomRouteObjectId,
+    team_id: CustomObjectId,
     saison_id: str,
     austritt_data: FLAustrittPayload,
     saison_teams_collection: SaisonTeamsCollection,
@@ -747,7 +747,7 @@ async def put_austritt(
     summary="Write the person one contact seat holds",
 )
 async def put_kontakt_seat(
-    team_id: CustomRouteObjectId,
+    team_id: CustomObjectId,
     saison_id: str,
     seat: str,
     seat_data: FLKontaktSeatPayload,
@@ -812,7 +812,7 @@ async def put_kontakt_seat(
     summary="Replace a club in a season, keeping its schedule",
 )
 async def replace_saison_team(
-    team_id: CustomRouteObjectId,
+    team_id: CustomObjectId,
     saison_id: str,
     replacement_data: FLReplaceSaisonTeamPayload,
     teams_collection: TeamsCollection,
@@ -974,7 +974,7 @@ async def replace_saison_team(
     summary="Send one contact seat a fresh confirmation link",
 )
 async def invite_kontakt(
-    team_id: CustomRouteObjectId,
+    team_id: CustomObjectId,
     saison_id: str,
     seat: str,
     saison_teams_collection: SaisonTeamsCollection,
@@ -1057,7 +1057,7 @@ async def invite_kontakt(
     summary="Mint this team's registration link for a season",
 )
 async def post_invitation(
-    team_id: CustomRouteObjectId,
+    team_id: CustomObjectId,
     saison_id: str,
     invitations_collection: InvitationsCollection,
     saison_teams_collection: SaisonTeamsCollection,
@@ -1129,7 +1129,7 @@ async def post_invitation(
     summary="Revoke this team's live registration link for a season",
 )
 async def delete_invitation(
-    team_id: CustomRouteObjectId,
+    team_id: CustomObjectId,
     saison_id: str,
     invitations_collection: InvitationsCollection,
     teams_collection: TeamsCollection,
@@ -1170,7 +1170,7 @@ async def delete_invitation(
     summary="Mail this team's live registration link to its confirmed contact seats",
 )
 async def post_invitation_dispatch(
-    team_id: CustomRouteObjectId,
+    team_id: CustomObjectId,
     saison_id: str,
     mail_data: FLInvitationMailPayload,
     invitations_collection: InvitationsCollection,

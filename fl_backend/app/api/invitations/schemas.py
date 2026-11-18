@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 
 from app.api.outbox.schemas import FLOutboxStatus
 from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
-from app.shared.schemas.responses import BaseAPIResponse, BasePayload, BaseReadModel
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 
 class FLInvitation(BaseReadModel):
@@ -35,7 +35,7 @@ class FLInvitationRow(FLInvitation):
     delivery: FLOutboxStatus | None
 
 
-class FLInvitationMintResponse(BaseAPIResponse):
+class FLInvitationMintResponse(BaseReadModel):
     """A freshly minted registration link, and the only answer that ever carries its raw value: no later read recovers it."""
 
     saison_id: CustomNonEmptyString
@@ -44,7 +44,7 @@ class FLInvitationMintResponse(BaseAPIResponse):
     token: CustomNonEmptyString
 
 
-class FLInvitationWriteResponse(BaseAPIResponse):
+class FLInvitationWriteResponse(BaseReadModel):
     """The revoked link, which stays stored so a delivery event about it still lands."""
 
     saison_id: CustomNonEmptyString
@@ -94,13 +94,13 @@ class FLInvitationMailPayload(BasePayload):
     invitation_id: CustomObjectId
 
 
-class FLInvitationMailResponse(BaseAPIResponse):
+class FLInvitationMailResponse(BaseReadModel):
     """How many the team's live link is owed to: its confirmed seats, one per stored address, 0 where nobody confirmed."""
 
     mailed: int = Field(ge=0)
 
 
-class FLInvitationDispatchResponse(BaseAPIResponse):
+class FLInvitationDispatchResponse(BaseReadModel):
     """How the season's press came out, counted in teams."""
 
     saison_id: CustomNonEmptyString

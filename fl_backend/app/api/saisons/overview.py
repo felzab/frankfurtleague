@@ -45,7 +45,7 @@ from app.core import clock
 from app.core.collections import Collection
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.literals import KONTAKT_ROLLEN
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.responses import BaseReadModel
 
 # The four cards, in the urgency order the page shows them: what is due by a deadline, the results, the fixtures'
 # slots and casts, then the applications.
@@ -195,7 +195,7 @@ class FLOverviewCard(BaseModel):
     rows: list[FLOverviewRow]
 
 
-class FLSaisonOverviewResponse(BaseAPIResponse):
+class FLSaisonOverviewResponse(BaseReadModel):
     # All four cards in `CARDS`' order, an empty one included, so the page keeps one shape every day.
     cards: list[FLOverviewCard]
 

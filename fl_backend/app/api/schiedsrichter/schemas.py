@@ -23,7 +23,7 @@ from app.shared.schemas.custom import (
 from app.shared.schemas.einwilligung import FLSchiedsrichterTextVersions, cite_their_kind, refuse_a_stale_grant
 from app.shared.schemas.kontakt import CustomKontaktName, CustomStoredAddress, FLKontakt, FLKontaktPayload
 from app.shared.schemas.literals import FLEinwilligungScope, FLSonderereignis
-from app.shared.schemas.responses import BaseAPIResponse, BasePayload, BaseReadModel
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 # What a referee's link shows reopened. `declined` beside the states every link page shares: the referee objects
 # through the same link, and the entry stays until its clock runs out.
@@ -133,18 +133,18 @@ class FLSchiedsrichterFilterParams(BaseModel):
     include_inactive: bool = False
 
 
-class FLSchiedsrichterListResponse(BaseAPIResponse):
+class FLSchiedsrichterListResponse(BaseReadModel):
     schiedsrichter: list[FLSchiedsrichter]
 
 
-class FLPostSchiedsrichterResponse(BaseAPIResponse):
+class FLPostSchiedsrichterResponse(BaseReadModel):
     # Never null: the payload requires an address, and entering one is the invitation.
     confirmation: FLSchiedsrichterMint
 
     created_id: CustomObjectId
 
 
-class FLPatchSchiedsrichterResponse(BaseAPIResponse):
+class FLPatchSchiedsrichterResponse(BaseReadModel):
     # The referee's version after the save, which the editor's next save sends.
     version: int
     # Null unless the save moved an unconfirmed referee's address, which retires the link posted to
@@ -152,27 +152,27 @@ class FLPatchSchiedsrichterResponse(BaseAPIResponse):
     confirmation: FLSchiedsrichterMint | None = None
 
 
-class FLSchiedsrichterReactivateResponse(BaseAPIResponse):
+class FLSchiedsrichterReactivateResponse(BaseReadModel):
     """The reactivation's answer: its own rather than the retire's, being the one of the pair that can mint."""
 
     # Null unless the row came back unanswered and holding an address a link can go to.
     confirmation: FLSchiedsrichterMint | None = None
 
 
-class FLSchiedsrichterSweepResponse(BaseAPIResponse):
+class FLSchiedsrichterSweepResponse(BaseReadModel):
     """One pass of the unconfirmed entries' clock: the entries it erased and the ones it passed over, which stay due."""
 
     erased: int
     failed: int
 
 
-class FLSchiedsrichterMintResponse(BaseAPIResponse):
+class FLSchiedsrichterMintResponse(BaseReadModel):
     """The re-send's answer. Never null: where no link may be minted a refusal answers instead."""
 
     confirmation: FLSchiedsrichterMint
 
 
-class FLSchiedsrichterConfirmationViewResponse(BaseAPIResponse):
+class FLSchiedsrichterConfirmationViewResponse(BaseReadModel):
     """What one confirmation link opens, and nothing that says who its person is.
 
     The link went to an address an administrator typed and nobody has confirmed, which behind a typo is a stranger's.
@@ -205,7 +205,7 @@ class FLSchiedsrichterConfirmationPayload(BasePayload):
         return self
 
 
-class FLSchiedsrichterConfirmationResponse(BaseAPIResponse):
+class FLSchiedsrichterConfirmationResponse(BaseReadModel):
     """What the person just recorded, as their press sent it.
 
     A caller holding a leaked token learns nothing it did not already post.
@@ -216,7 +216,7 @@ class FLSchiedsrichterConfirmationResponse(BaseAPIResponse):
     confirmed_at: CustomDateString
 
 
-class FLSchiedsrichterSingleResponse(BaseAPIResponse):
+class FLSchiedsrichterSingleResponse(BaseReadModel):
     schiedsrichter: FLSchiedsrichter
     # Whether the link's deadline has passed today, judged by the rule its press refuses on, so the
     # editor reads no day of its own; false where the row holds no such link.
@@ -271,7 +271,7 @@ class FLSchiedsrichterSpiel(BaseReadModel):
     bericht_owed: bool
 
 
-class FLSchiedsrichterSpieleResponse(BaseAPIResponse):
+class FLSchiedsrichterSpieleResponse(BaseReadModel):
     """A referee's fixtures of one season, open work first."""
 
     saison_id: str

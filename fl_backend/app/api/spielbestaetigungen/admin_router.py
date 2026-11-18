@@ -61,7 +61,7 @@ from app.core.exceptions import APIError, DocumentNotFoundError, WriteRefusal, a
 from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.transactions import transact
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 
 router = APIRouter(
     prefix="/spielbestaetigungen",
@@ -75,7 +75,7 @@ router = APIRouter(
     summary="Record a party's Zusage on its behalf",
 )
 async def enter_spielbestaetigung(
-    spielbestaetigung_id: CustomRouteObjectId,
+    spielbestaetigung_id: CustomObjectId,
     enter_data: FLSpielbestaetigungEnterPayload,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spiele_collection: SpieleCollection,
@@ -149,7 +149,7 @@ async def enter_spielbestaetigung(
     summary="Discard a club's proposed date",
 )
 async def discard_spielbestaetigung(
-    spielbestaetigung_id: CustomRouteObjectId,
+    spielbestaetigung_id: CustomObjectId,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spiele_collection: SpieleCollection,
     saison_teams_collection: SaisonTeamsCollection,
@@ -234,7 +234,7 @@ async def discard_spielbestaetigung(
     summary="Adopt a club's proposed date",
 )
 async def adopt_spielbestaetigung(
-    spielbestaetigung_id: CustomRouteObjectId,
+    spielbestaetigung_id: CustomObjectId,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spiele_collection: SpieleCollection,
     teams_collection: TeamsCollection,

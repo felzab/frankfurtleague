@@ -36,7 +36,7 @@ from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.transactions import transact
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 
 router = APIRouter(
     prefix="/ban_list",
@@ -156,7 +156,7 @@ async def post_ban_list_entry(
     summary="Lift a ban",
 )
 async def delete_ban_list_entry(
-    ban_list_entry_id: CustomRouteObjectId,
+    ban_list_entry_id: CustomObjectId,
     ban_list_collection: BanListCollection,
     db: DBClient,
 ) -> FLBanListWriteResponse:

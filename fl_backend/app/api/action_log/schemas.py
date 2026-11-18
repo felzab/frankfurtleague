@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from app.core.recording import FLAction, FLActionType
 from app.shared.schemas.bounds import ACTION_LOG_DAY_MAX, ACTION_LOG_DAY_MIN, ACTION_LOG_SEARCH_MAX_LENGTH, KONTAKT_EMAIL_MAX_LENGTH
 from app.shared.schemas.custom import CustomObjectId, FLUtcInstant
-from app.shared.schemas.responses import BaseAPIResponse, BasePayload
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 
 class FLActionLogRecord(BaseModel):
@@ -49,7 +49,7 @@ class FLActionLogEntry(BaseModel):
     count: int | None
 
 
-class FLActionLogListResponse(BaseAPIResponse):
+class FLActionLogListResponse(BaseReadModel):
     action_log: list[FLActionLogEntry]
     # Where the next page starts, null on the last.
     cursor: CustomObjectId | None

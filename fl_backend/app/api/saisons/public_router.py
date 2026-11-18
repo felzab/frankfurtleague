@@ -71,7 +71,7 @@ from app.core.readonly import ReadCollection
 from app.core.routing import by_id
 from app.core.security import BASE_TIER
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 
 router = APIRouter(
     prefix="/saisons",
@@ -472,7 +472,7 @@ async def get_teams(saison_id: str, saisons_collection: SaisonsReadCollection, t
 @router.get(f"/{{saison_id}}/teams{by_id('team_id')}", summary="One team's page in one Saison")
 async def get_team(
     saison_id: str,
-    team_id: CustomRouteObjectId,
+    team_id: CustomObjectId,
     saisons_collection: SaisonsReadCollection,
     teams_collection: TeamsReadCollection,
     spiele_collection: SpieleReadCollection,
@@ -529,7 +529,7 @@ async def get_team(
 @router.get(f"/{{saison_id}}/spiele{by_id('spiel_id')}", summary="One Spiel's page")
 async def get_spiel(
     saison_id: str,
-    spiel_id: CustomRouteObjectId,
+    spiel_id: CustomObjectId,
     saisons_collection: SaisonsReadCollection,
     spiele_collection: SpieleReadCollection,
     teams_collection: TeamsReadCollection,

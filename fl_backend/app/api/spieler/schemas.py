@@ -11,7 +11,7 @@ from app.shared.schemas.literals import (
     FLSpielerPosition,
     FLSpielerStufe,
 )
-from app.shared.schemas.responses import BaseAPIResponse, BasePayload, BaseReadModel
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 # `[0-9]`, never `\d`: Python's `\d` matches Unicode decimal digits where the frontend mirror's
 # does not, and the two ends must accept and refuse the same shirt.
@@ -134,7 +134,7 @@ class FLSaisonSpielerRow(BaseModel):
     version: int = 0
 
 
-class FLSpielerSingleResponse(BaseAPIResponse):
+class FLSpielerSingleResponse(BaseReadModel):
     """One player as an anonymous visitor may read them, the surname an initial and no squad field of any season."""
 
     spieler_id: CustomObjectId
@@ -162,7 +162,7 @@ class FLSpielerAdminRow(BaseReadModel):
     nummer_double: bool
 
 
-class FLSpielerAdminListResponse(BaseAPIResponse):
+class FLSpielerAdminListResponse(BaseReadModel):
     """One season's squad rows, every team's, live and ausgetragen alike, sorted by name."""
 
     spieler: list[FLSpielerAdminRow]
@@ -185,7 +185,7 @@ class FLSpielerSaisonKader(_SaisonSpielerWritable, BaseReadModel):
     inactive_since: CustomOptionalDateString
 
 
-class FLSpielerSaisonAdminResponse(BaseAPIResponse):
+class FLSpielerSaisonAdminResponse(BaseReadModel):
     """What the Spieler editor shows in one read: the person, their row of the season, and what its boxes may offer."""
 
     # The one count this page saves on, its two documents' added.
@@ -198,13 +198,13 @@ class FLSpielerSaisonAdminResponse(BaseAPIResponse):
     taken_rollen: list[FLSpielerRolle]
 
 
-class FLPatchSpielerSaisonResponse(BaseAPIResponse):
+class FLPatchSpielerSaisonResponse(BaseReadModel):
     """The count the editor's next save sends."""
 
     version: int = Field(ge=0)
 
 
-class FLKaderRow(BaseAPIResponse):
+class FLKaderRow(BaseReadModel):
     """One squad row as its team's seat holder reads it, the surname whole and no address or telephone number."""
 
     # Declared from nothing rather than a public model unmasked, so the whole surname reaches no
@@ -227,7 +227,7 @@ class FLKaderRow(BaseAPIResponse):
     version: int = 0
 
 
-class FLKaderResponse(BaseAPIResponse):
+class FLKaderResponse(BaseReadModel):
     """A team's squad for one season, live and ausgetragen rows alike, with the Stufen the season's rules offer."""
 
     team_id: CustomObjectId

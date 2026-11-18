@@ -28,7 +28,7 @@ from app.core.exceptions import Bound, rule_refusal
 from app.shared.schemas.bounds import KADER_SIZE_MAX, SAISON_ID_LENGTH
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomTimeString, CustomVersion, refuse_reversed_span
 from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus, FLSonderereignis, FLSpielerStufe
-from app.shared.schemas.responses import BaseAPIResponse, BasePayload, BaseReadModel
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 
 class FLSaisonForfeitErgebnis(BaseModel):
@@ -304,7 +304,7 @@ class FLPatchSaisonPayload(_SaisonPayload):
     version: CustomVersion
 
 
-class FLPatchSaisonResponse(BaseAPIResponse):
+class FLPatchSaisonResponse(BaseReadModel):
     # The season's version after the save, which the editor's next save sends.
     version: int
 
@@ -320,7 +320,7 @@ class FLSwapGruppenPayload(BasePayload):
     team2_id: CustomObjectId
 
 
-class FLSwapGruppenResponse(BaseAPIResponse):
+class FLSwapGruppenResponse(BaseReadModel):
     """Both junction rows as the swap left them, plus `rewritten_spiele` -- the second half of the write, reported not assumed."""
 
     # Stated on a response because the swap builds this model
@@ -358,7 +358,7 @@ class FLSaisonsAdminRefusals(BaseReadModel):
     create: Code | None
 
 
-class FLSaisonsAdminListResponse(BaseAPIResponse):
+class FLSaisonsAdminListResponse(BaseReadModel):
     """Every season, with the id the next create mints and why a create would be refused now."""
 
     format: Literal["list"] = "list"
@@ -383,7 +383,7 @@ SAISON_FRAME_FIELDS: Final = ("start_date", "end_date")
 SAISON_FRAME_ORDER: Final[Mapping[str, int]] = {"_id": -1}
 
 
-class FLSaisonFrameResponse(BaseAPIResponse):
+class FLSaisonFrameResponse(BaseReadModel):
     """Every season the public may read, the newest first, and the one the site is on.
 
     `active_saison_id` is null for a league no season has been activated in; a season stays active, finished or not,
@@ -394,7 +394,7 @@ class FLSaisonFrameResponse(BaseAPIResponse):
     active_saison_id: str | None
 
 
-class FLOwnSaisonsResponse(BaseAPIResponse):
+class FLOwnSaisonsResponse(BaseReadModel):
     """The seasons a signed-in person holds a row in, the newest first, which their own frame's season button offers.
 
     A season the public frame withholds, a planned one, is served as any other: the person's row in it is what the
@@ -404,16 +404,16 @@ class FLOwnSaisonsResponse(BaseAPIResponse):
     saisons: list[FLSaisonFrameEntry]
 
 
-class FLSaisonsSingleResponse(BaseAPIResponse):
+class FLSaisonsSingleResponse(BaseReadModel):
     format: Literal["single"] = "single"
     saison: FLSaison
 
 
-class FLPostSaisonResponse(BaseAPIResponse):
+class FLPostSaisonResponse(BaseReadModel):
     created_id: str
 
 
-class FLActivateSaisonResponse(BaseAPIResponse):
+class FLActivateSaisonResponse(BaseReadModel):
     """How many seasons the activation moved off `active` -- normally exactly one."""
 
     deactivated: int
@@ -449,7 +449,7 @@ class FLGenerateSpielplanPayload(BasePayload):
     shape: FLSpielplanShape | None = Field(default=None)
 
 
-class FLGenerateSpielplanResponse(BaseAPIResponse):
+class FLGenerateSpielplanResponse(BaseReadModel):
     """What the draw wrote, and what a confirmed replace deleted first, flat rather than nested.
 
     An admin reads the written counts without a second request, and they are the same numbers the
@@ -469,7 +469,7 @@ class FLGenerateSpielplanResponse(BaseAPIResponse):
     removed_spiele: int = Field(default=0, ge=0)
 
 
-class FLUndrawSpielplanResponse(BaseAPIResponse):
+class FLUndrawSpielplanResponse(BaseReadModel):
     """What removing the season's Spielplan took away, on the shape the draw reports.
 
     Both counts are zero on a season already undrawn, which is why the watermark is reported apart:
@@ -506,7 +506,7 @@ class FLSaisonDrawn(BaseReadModel):
     generated_at: CustomDateString | None
 
 
-class FLSaisonAdminResponse(BaseAPIResponse):
+class FLSaisonAdminResponse(BaseReadModel):
     """What the season editor shows, in one read: its season, clubs, shapes and matchdays, its acts' states and its registration links.
 
     `shapes` is every shape the season's other rules admit, judged as the draw judges a shape it is given;
@@ -533,7 +533,7 @@ class FLTeamPageSpiel(FLSpielJoined):
 FLTeamPageSpielListAdapter: Final = TypeAdapter(list[FLTeamPageSpiel])
 
 
-class FLTeamPageResponse(BaseAPIResponse):
+class FLTeamPageResponse(BaseReadModel):
     """One club's page in one season: the club, its row of the Tabelle, its matches and its squad.
 
     `standing` is null for a club no group of the Tabelle lists, one that left the league; `spiele` are in the order the
@@ -564,7 +564,7 @@ class FLSpielSideStandings(BaseReadModel):
     team2: FLSpielSideStanding | None
 
 
-class FLSpielPageResponse(BaseAPIResponse):
+class FLSpielPageResponse(BaseReadModel):
     """One match as its page and its pop-up show it.
 
     The match, its matchday's `position` and its phase's count of matchdays, which together name the matchday, where
@@ -676,7 +676,7 @@ class FLBewerbungWindow(BaseReadModel):
     end: CustomDateString
 
 
-class FLLandingResponse(BaseAPIResponse):
+class FLLandingResponse(BaseReadModel):
     """The landing's facts: the season the site is on, null for a league that has none, an open window, and the league's figures."""
 
     saison: FLLandingSaison | None

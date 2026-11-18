@@ -65,7 +65,7 @@ from app.core.routing import by_id
 from app.core.security import ActorEmail
 from app.core.transactions import transact
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLAddressChangeWay, FLAdminTier
 
 router = APIRouter(
@@ -245,7 +245,7 @@ async def post_address_change_admin(
     summary="Send a pending address a fresh link",
 )
 async def invite_address_change(
-    address_change_id: CustomRouteObjectId,
+    address_change_id: CustomObjectId,
     address_changes_collection: AddressChangeCollection,
     outbox_collection: OutboxCollection,
     records: SubjectLookup,
@@ -312,7 +312,7 @@ async def invite_address_change(
     summary="Discard a pending address change",
 )
 async def delete_address_change(
-    address_change_id: CustomRouteObjectId,
+    address_change_id: CustomObjectId,
     address_changes_collection: AddressChangeCollection,
     grants_collection: GrantsCollection,
     outbox_collection: OutboxCollection,

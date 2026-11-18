@@ -56,7 +56,7 @@ from app.core.routing import by_id
 from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transact
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLKontaktRolle
 
 # A referee and a club's seat holder answer here, each answer recorded under the answering party's Funktion.
@@ -85,7 +85,7 @@ def _answering_seat(*, spielbestaetigung_raw: Mapping[str, Any] | None, seats: I
     summary="Accept or decline one of the signed-in referee's own fixture assignments",
 )
 async def post_schiedsrichter_answer(
-    spielbestaetigung_id: CustomRouteObjectId,
+    spielbestaetigung_id: CustomObjectId,
     answer_data: FLSpielbestaetigungSchiedsrichterAnswerPayload,
     identifier: PersonIdentifier,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
@@ -199,7 +199,7 @@ async def post_schiedsrichter_answer(
     summary="Confirm a fixture's Ansetzung as the team's seat holder, or decline it proposing another date",
 )
 async def post_team_answer(
-    spielbestaetigung_id: CustomRouteObjectId,
+    spielbestaetigung_id: CustomObjectId,
     answer_data: FLSpielbestaetigungTeamAnswerPayload,
     identifier: PersonIdentifier,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,

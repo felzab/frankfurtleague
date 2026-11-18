@@ -7,7 +7,7 @@ from app.core.crud import Anchored
 from app.shared.schemas.custom import CustomObjectId, FLUtcInstant
 from app.shared.schemas.kontakt import CustomEmail, CustomStoredAddress
 from app.shared.schemas.literals import FLAdminTier
-from app.shared.schemas.responses import BaseAPIResponse, BasePayload
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 # What a notice is about: an addition, a removal, a handover, or a holder's own address change.
 FLGrantChange = Literal["granted", "revoked", "handover", "address"]
@@ -44,7 +44,7 @@ class FLGrantRow(BaseModel):
     owner_from: FLUtcInstant | None
 
 
-class FLGrantsListResponse(BaseAPIResponse):
+class FLGrantsListResponse(BaseReadModel):
     """Every grant, never in part, a waiting addition among them."""
 
     grants: list[FLGrantRow]
@@ -55,11 +55,11 @@ class FLPostGrantPayload(BasePayload):
     email: CustomEmail
 
 
-class FLGrantWriteResponse(BaseAPIResponse):
+class FLGrantWriteResponse(BaseReadModel):
     """The grant the act named."""
 
     grant_id: CustomObjectId
 
 
-class FLGrantHandoverPassResponse(BaseAPIResponse):
+class FLGrantHandoverPassResponse(BaseReadModel):
     handed_over: int = Field(ge=0)

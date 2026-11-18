@@ -6,7 +6,7 @@ from app.core.crud import Anchored
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import SPIELORT_NAME_MAX_LENGTH
 from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString, CustomVersion
-from app.shared.schemas.responses import BaseAPIResponse, BasePayload, BaseReadModel
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 
 # Private, so the payloads and the read model state these fields once: a base no endpoint names
@@ -57,14 +57,14 @@ class FLSpielorteFilterParams(BaseModel):
     include_inactive: bool = False
 
 
-class FLSpielorteListResponse(BaseAPIResponse):
+class FLSpielorteListResponse(BaseReadModel):
     spielorte: list[FLSpielort]
 
 
-class FLPatchSpielortResponse(BaseAPIResponse):
+class FLPatchSpielortResponse(BaseReadModel):
     # The venue's version after the save, which the editor's next save sends.
     version: int
 
 
-class FLSpielorteSingleResponse(BaseAPIResponse):
+class FLSpielorteSingleResponse(BaseReadModel):
     spielort: FLSpielort
