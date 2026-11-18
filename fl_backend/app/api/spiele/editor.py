@@ -23,10 +23,17 @@ from app.api.spielberichte.schemas import (
 )
 from app.api.spielberichte.services import SIDES, bericht_state_of
 from app.api.spielbestaetigungen.crud import JUDGED_JUNCTION_FIELDS, pull_admin_rows
-from app.api.spielbestaetigungen.schemas import FLSpielbestaetigung, FLSpielbestaetigungState
+from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAnswer, FLSpielbestaetigungAppointment, FLSpielbestaetigungState
 from app.api.spielbestaetigungen.services import AnsetzungState, austritte_of, due_by_of, lapsed_on, reason_of, state_of
 from app.api.spiele.crud import pull_saison_membership
-from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel, FLSpielJoinedAdmin, FLSpielListAdapter, FLSpielTeamFieldPayload
+from app.api.spiele.schemas import (
+    FLPatchSpielDataPayload,
+    FLSpiel,
+    FLSpielbestaetigungParty,
+    FLSpielJoinedAdmin,
+    FLSpielListAdapter,
+    FLSpielTeamFieldPayload,
+)
 from app.api.spiele.services import (
     SaisonMembership,
     build_spiele_pipeline,
@@ -115,12 +122,18 @@ class FLSpielEditorAufstellungMarks(BaseReadModel):
     team2: FLAufstellungMarks | None
 
 
-class FLSpielbestaetigungEditorRow(FLSpielbestaetigung):
+class FLSpielbestaetigungEditorRow(BaseReadModel):
     """A confirmation row as the match editor reads it, and the state it stands in, a closed row's included.
 
     Never `vorschlag`, which only a club's own page tells: an open row reads `valid` while its party may still answer.
     """
 
+    party: FLSpielbestaetigungParty
+    # The slot the row asked about, which an answer about a slot the match has left is shown beside.
+    ansetzung: FLSpielbestaetigungAppointment
+    # Null until the party was owed a mail, so a row nobody could be asked on reads as never asked.
+    asked_at: CustomOptionalDateString
+    answer: FLSpielbestaetigungAnswer | None
     state: FLSpielbestaetigungState
     # The day the party's answer is due by: a club's `deadline`, and a referee's slot, whom no deadline binds.
     due_by: CustomDateString

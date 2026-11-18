@@ -144,24 +144,18 @@ describe("the match editor before its season's start", () => {
 });
 
 describe("the match editor's answers", () => {
-  const ansetzung = { date: "2026-11-14", time: "16:00:00", spielort_id: null, team1_id: TEAM1, team2_id: TEAM2, digest: "d" };
+  const ansetzung = { date: "2026-11-14", time: "16:00:00" };
   /** The first club's row reading as `state`, unanswered and open unless `fields` say otherwise. */
   const row = (
     state: FLSpielbestaetigungEditorRow["state"],
     fields: Partial<FLSpielbestaetigungEditorRow> = {},
   ): FLSpielbestaetigungEditorRow => ({
-    id: "64b0000000000000000000a1",
-    saison_id: "2027",
-    spiel_id: SPIEL_ID,
     party: { kind: "team", team_id: TEAM1 },
     ansetzung,
-    deadline: "2026-11-10",
     due_by: "2026-11-10",
     lapsed_on: null,
     asked_at: "2026-11-03",
-    reminded_at: null,
     answer: null,
-    closed: null,
     state,
     ...fields,
   });
@@ -195,7 +189,7 @@ describe("the match editor's answers", () => {
     },
     {
       reads: "agreed, its row closed at the kick-off",
-      rows: [row("agreed", { answer: agreement, closed: { reason: "spiel_past" } })],
+      rows: [row("agreed", { answer: agreement })],
       shown: { chip: agreed, line: { record: "05.11.2026" } },
     },
     {
@@ -204,7 +198,6 @@ describe("the match editor's answers", () => {
       rows: [
         row("agreed", {
           answer: { ...agreement, kind: "declined", vorschlag: { date: "2026-11-21", time: "16:00:00" } },
-          closed: { reason: "discarded" },
         }),
       ],
       shown: { chip: agreed, line: COPY.admin.actionLog.action["spielbestaetigung.vorschlag_discarded"] },
@@ -212,7 +205,7 @@ describe("the match editor's answers", () => {
     {
       // Newer than the agreement under it, which was about the slot the match has left.
       reads: "about a slot the match has left",
-      rows: [row("invalid"), row("agreed", { id: "64b0000000000000000000a0", answer: agreement })],
+      rows: [row("invalid"), row("agreed", { answer: agreement })],
       shown: notAsked,
     },
     {
@@ -223,7 +216,7 @@ describe("the match editor's answers", () => {
     },
     {
       reads: "about a call-off since undone",
-      rows: [row("cancelled", { closed: { reason: "cancelled" } })],
+      rows: [row("cancelled")],
       shown: notAsked,
     },
     // Minted while the club held no confirmed seat, so no mail asked it: chased for an answer, it has no link to give one.

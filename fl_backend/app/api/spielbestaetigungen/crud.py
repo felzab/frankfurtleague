@@ -6,7 +6,6 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.outbox.services import enqueue_mails
-from app.api.spielbestaetigungen.schemas import FLSpielbestaetigung
 from app.api.spielbestaetigungen.services import (
     ANSETZUNG_QUELLEN,
     CLOSE_FIELDS,
@@ -98,11 +97,10 @@ async def pull_ansetzung_state(
 
 # --- The administrator's read.
 
-# What the match editor serves of a row, read off the model it is served as: an allow-list, so a block a row still carries and
-# no administrator reads, an old seat's address among them, never leaves the database.
-ADMIN_ROW_FIELDS: Final[list[str]] = [
-    field.validation_alias if isinstance(field.validation_alias, str) else name for name, field in FLSpielbestaetigung.model_fields.items()
-]
+# What the match editor reads of a row: what it serves, and what the row's state, due day and lapse are judged by. An
+# allow-list, so a block a row still carries and no administrator reads, an old seat's address among them, never leaves
+# the database.
+ADMIN_ROW_FIELDS: Final = ["party", "ansetzung", "deadline", "asked_at", "answer", "closed"]
 
 
 async def pull_admin_rows(*, spielbestaetigungen_collection: ReadCollection, db_filter: Mapping[str, Any]) -> list[Mapping[str, Any]]:
