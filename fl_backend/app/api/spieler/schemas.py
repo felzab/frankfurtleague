@@ -115,7 +115,7 @@ class FLSpielerRecord(_SpielerPerson, Anchored):
 FLSpielerListAdapter = TypeAdapter(list[FLSpielerPublic])
 
 
-class FLSaisonSpielerRow(BaseModel):
+class FLSaisonSpielerRow(Anchored):
     """The junction document as it is stored: the declared shape only, validated against no read."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")

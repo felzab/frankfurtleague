@@ -76,7 +76,7 @@ async def write_aufstellung(
         )
     # After the line-up's own write, on every save: a draw's removal writes the season, so no line-up is left on a
     # fixture the removal took, and so does the activation ending it, which no save then outlives. The save's judgement
-    # of the season's status, asked again outside the transaction, leaves a gap before the commit this closes.
+    # of the season's status holds through its commit by this anchor.
     await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
 
     await record_act(

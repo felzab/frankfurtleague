@@ -154,7 +154,7 @@ async def _read_state(
 
 
 def _judge_the_fixture(state: _State, *, locks: bool, now: datetime) -> None:
-    """The fixture's season and its clock, as a save asks them inside its transaction and again outside it.
+    """The fixture's season and its clock, as a save asks them inside its transaction.
 
     `saison_past` first, as the match report's write asks it: a finished season's record takes no write at all, from
     anybody. A seat never meets it, since a finished season grants no seat and `role_not_held` comes first.
@@ -256,6 +256,9 @@ async def save_aufstellung_screen(
     aufstellungen_collection: AsyncCollection,
     saisons_collection: AsyncCollection,
     spieler_collection: AsyncCollection,
+    # The fixture and the squad rows the save judges, which it anchors.
+    spiele_collection: AsyncCollection,
+    saison_spieler_collection: AsyncCollection,
     db: AsyncMongoClient,
     now: datetime,
 ) -> FLVersionResponse:
@@ -292,18 +295,21 @@ async def save_aufstellung_screen(
             label=spiel_label(spiel["saison_id"], spiel["spiel_nr"]),
             session=session,
         )
+        # What else the save judged, each after the line-up's own write, as the season's anchor is: a fixture re-dated or
+        # re-fielded, or a pupil newly named taken out of the squad, under this save then conflicts with it, and the retry
+        # judges what that write left. The other club's save and the fixture's save anchor or write the fixture too, so they
+        # retry one another.
+        await anchor_in_db(collection=spiele_collection, db_filter={"_id": spiel_id}, session=session)
+        if new:
+            await anchor_in_db(
+                collection=saison_spieler_collection,
+                db_filter={"saison_id": spiel["saison_id"], "spieler_id": {"$in": sorted(new)}},
+                session=session,
+            )
         if seat is not None:
             # The season row the seat was judged off: a seat ended under this save then conflicts with it, as the
-            # team's answer to a fixture does, so no line-up is saved from a seat its holder has left. After the line-up's
-            # own write, as the season's anchor is.
+            # team's answer to a fixture does, so no line-up is saved from a seat its holder has left.
             await anchor_in_db(collection=seat.saison_teams, db_filter={"saison_id": spiel["saison_id"], "team_id": team_id}, session=session)
-
-        # Nothing else judged is written here, so a season closed, a fixture re-dated or re-fielded or a pupil ausgetragen
-        # conflicts with nothing: judged again outside the transaction, as the match report's write judges its own.
-        async with db.start_session(snapshot=True) as outside:
-            current = await _read_state(seat=seat, spiel_id=spiel_id, team_id=team_id, reads=reads, session=outside)
-        _judge_the_fixture(current, locks=seat is not None, now=now)
-        judge_the_names(entries=entries, new=new, nameless=nameless, kader=current.kader)
 
         return FLVersionResponse(version=written[VERSION_FIELD])
 
