@@ -355,7 +355,6 @@ class FLSaisonsAdminRefusals(BaseReadModel):
 class FLSaisonsAdminListResponse(BaseReadModel):
     """Every season, with the id the next create mints and why a create would be refused now."""
 
-    format: Literal["list"] = "list"
     saisons: list[FLSaisonAdminListed]
     next_saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
     refusals: FLSaisonsAdminRefusals
