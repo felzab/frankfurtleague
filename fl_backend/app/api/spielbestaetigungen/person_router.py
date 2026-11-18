@@ -10,7 +10,13 @@ from app.api.identity.crud import roles_of
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.schemas import FLSubjectSeat
 from app.api.identity.services import seats_on
-from app.api.spielbestaetigungen.crud import JUDGED_JUNCTION_FIELDS, JUNCTION_FIELDS, OWN_ROW_FIELDS, pull_ansetzung_state
+from app.api.spielbestaetigungen.crud import (
+    JUDGED_JUNCTION_FIELDS,
+    JUNCTION_FIELDS,
+    OWN_ROW_FIELDS,
+    anchor_the_spiele_acted_on,
+    pull_ansetzung_state,
+)
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAppointment,
     FLSpielbestaetigungSchiedsrichterAnswerPayload,
@@ -18,7 +24,6 @@ from app.api.spielbestaetigungen.schemas import (
 )
 from app.api.spielbestaetigungen.services import (
     TEAM_ANSWER_FIELDS,
-    AnsetzungState,
     ansetzung_left_refusal,
     build_answerable_filter,
     compose_answer_update,
@@ -44,7 +49,6 @@ from app.core.dependencies import (
     SaisonTeamsCollection,
     SpielbestaetigungenCollection,
     SpieleCollection,
-    SpieleReadCollection,
     SpieltageReadCollection,
 )
 from app.core.exceptions import DocumentNotFoundError
@@ -172,18 +176,14 @@ async def post_schiedsrichter_answer(
                 # Mapped to that judgement's refusal, so no `document_not_found` is published for a miss no caller meets.
                 refuse(ansetzung_left_refusal())
         else:
-            # The acceptance writes no fixture, so a move, a reassignment or a club's exit landing under this transaction
-            # raises no conflict: all judged again outside it before answering.
-            current = await pull_ansetzung_state(
-                spiele_collection=spiele_collection,
-                saison_teams_collection=saison_teams_collection,
-                spielbestaetigung_raw=row,
-                junction_projection=JUDGED_JUNCTION_FIELDS,
-                session=None,
+            # What the acceptance judged and does not write, so a move, a reassignment or a club's exit landing under it
+            # conflicts with it, and the retry judges what that write left.
+            await anchor_the_spiele_acted_on(spiele_collection=spiele_collection, spiel_ids=[row["spiel_id"]], session=session)
+            await anchor_in_db(
+                collection=saison_teams_collection,
+                db_filter={"saison_id": row["saison_id"], "team_id": {"$in": [junction["team_id"] for junction in ansetzung_state.junctions]}},
+                session=session,
             )
-            # An undraw removing the fixture deletes this row in its transaction, a write conflict while this one holds it.
-            assert current is not None
-            refuse(find_unanswerable_refusal(spielbestaetigung_raw=row, ansetzung_state=current, now=germany_now))
 
     await transact(db, answer)
 
@@ -198,7 +198,7 @@ async def post_team_answer(
     answer_data: FLSpielbestaetigungTeamAnswerPayload,
     identifier: PersonIdentifier,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
-    spiele_collection: SpieleReadCollection,
+    spiele_collection: SpieleCollection,
     saison_teams_collection: SaisonTeamsCollection,
     spieltage_collection: SpieltageReadCollection,
     records: SubjectLookup,
@@ -236,37 +236,32 @@ async def post_team_answer(
         # One snapshot with the row, and the fixture is removed with its rows in one transaction.
         assert ansetzung_state is not None
 
-        async def judge(current: AnsetzungState, reads: AsyncClientSession | None) -> None:
-            """Every refusal after the seat's, over this Ansetzung and reads under `reads`: asked in the transaction, then again outside it."""
+        refuse(find_unanswerable_refusal(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, now=germany_now))
 
-            refuse(find_unanswerable_refusal(spielbestaetigung_raw=row, ansetzung_state=current, now=germany_now))
+        if vorschlag is not None:
+            refuse(find_vorschlag_past_refusal(vorschlag=vorschlag, today=today))
 
-            if vorschlag is not None:
-                refuse(find_vorschlag_past_refusal(vorschlag=vorschlag, today=today))
+            stored = FLSpiel.model_validate(ansetzung_state.spiel)
+            refuse(find_vorschlag_unchanged_refusal(vorschlag=vorschlag, spiel=stored))
+            proposed = proposal_payload(stored, vorschlag)
 
-                stored = FLSpiel.model_validate(current.spiel)
-                refuse(find_vorschlag_unchanged_refusal(vorschlag=vorschlag, spiel=stored))
-                proposed = proposal_payload(stored, vorschlag)
+            # The administrator's save's judges in its order, each read just ahead of the one refusal that consumes it.
+            membership = await pull_saison_membership(
+                saison_teams_collection=saison_teams_collection, saison_id=stored.saison_id, session=session
+            )
+            # The composer spelled at the call: its kept sides are what disarm this check's no-membership code here.
+            refuse(judged_as_a_proposal(find_eligibility_refusal(stored.id, proposal_payload(stored, vorschlag), [stored], membership)))
 
-                # The administrator's save's judges in its order, each read just ahead of the one refusal that consumes it.
-                membership = await pull_saison_membership(
-                    saison_teams_collection=saison_teams_collection, saison_id=stored.saison_id, session=reads
-                )
-                # The composer spelled at the call: its kept sides are what disarm this check's no-membership code here.
-                refuse(judged_as_a_proposal(find_eligibility_refusal(stored.id, proposal_payload(stored, vorschlag), [stored], membership)))
+            span = await pull_spieltag_span(spieltage_collection=spieltage_collection, spieltag_id=stored.spieltag_id, session=session)
+            if span is not None:
+                refuse(judged_as_a_proposal(find_spiel_date_refusal(date=proposed.date, spieltag_start=span.start, spieltag_end=span.end)))
 
-                span = await pull_spieltag_span(spieltage_collection=spieltage_collection, spieltag_id=stored.spieltag_id, session=reads)
-                if span is not None:
-                    refuse(judged_as_a_proposal(find_spiel_date_refusal(date=proposed.date, spieltag_start=span.start, spieltag_end=span.end)))
-
-                # Last, as in the save: it validates every season's fixtures, and a hand-edited one raises, answering 500 for a
-                # proposal an earlier rule refuses. Only claims the stored fixture did not make.
-                booked = await pull_booked_slots(
-                    spiele_collection=spiele_collection, spiel_id=stored.id, claims=find_claims_made(stored, proposed), session=reads
-                )
-                refuse(judged_as_a_proposal(find_clash_refusal(date=proposed.date, time=proposed.time, booked=booked)))
-
-        await judge(ansetzung_state, session)
+            # Last, as in the save: it validates every season's fixtures, and a hand-edited one raises, answering 500 for a
+            # proposal an earlier rule refuses. Only claims the stored fixture did not make.
+            booked = await pull_booked_slots(
+                spiele_collection=spiele_collection, spiel_id=stored.id, claims=find_claims_made(stored, proposed), session=session
+            )
+            refuse(judged_as_a_proposal(find_clash_refusal(date=proposed.date, time=proposed.time, booked=booked)))
 
         try:
             await patch_one_in_db(
@@ -282,13 +277,17 @@ async def post_team_answer(
             # the filter repeats that judgement on the write.
             refuse(first_press_refusal())
 
-        # The season row the seat was judged off: an erasure or a Widerspruch emptying the seat under this answer then
-        # conflicts with it, so no reason typed from a seat its holder has left outlives the step taking that holder's reasons.
+        # Both clubs' season rows: the seat was judged off its own club's, so an erasure or a Widerspruch emptying the seat
+        # under this answer conflicts with it, and no reason typed from a seat its holder has left outlives the step taking
+        # that holder's reasons; and either club's exit was judged off its row. The fixture too, so a move or a re-fielding
+        # conflicts. A re-dated matchday or a rival booking of the proposed slot stays unanchored: the answer writes no
+        # fixture, and the adoption judges the proposal again as the fixture's save judges it.
         await anchor_in_db(
             collection=saison_teams_collection,
-            db_filter={"saison_id": row["saison_id"], "team_id": row["party"]["team_id"]},
+            db_filter={"saison_id": row["saison_id"], "team_id": {"$in": [junction["team_id"] for junction in ansetzung_state.junctions]}},
             session=session,
         )
+        await anchor_the_spiele_acted_on(spiele_collection=spiele_collection, spiel_ids=[row["spiel_id"]], session=session)
 
         await record_act(
             collection=spielbestaetigungen_collection,
@@ -301,20 +300,5 @@ async def post_team_answer(
             label=str(row["saison_id"]),
             session=session,
         )
-
-        # A club's exit deciding this fixture conflicts with the anchor above: the exit writes its own club's season row and
-        # anchors every opponent it tells, this club among them, since the seat answering is a confirmed one. Nothing else
-        # judged is written here, so a move, a re-dated matchday or a rival booking landing under this transaction raises
-        # no conflict: all judged again outside it before answering.
-        current = await pull_ansetzung_state(
-            spiele_collection=spiele_collection,
-            saison_teams_collection=saison_teams_collection,
-            spielbestaetigung_raw=row,
-            junction_projection=JUNCTION_FIELDS,
-            session=None,
-        )
-        # An undraw removing the fixture deletes this row in its transaction, a write conflict while this one holds it.
-        assert current is not None
-        await judge(current, None)
 
     await transact(db, answer)

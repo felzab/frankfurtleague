@@ -90,7 +90,13 @@ async def enter_spielbestaetigung(
     goes at the season's end.
     """
 
-    async def judged(row: Mapping[str, Any], *, session: AsyncClientSession | None) -> None:
+    async def settle_for_the_party(session: AsyncClientSession) -> Mapping[str, Any]:
+        row = await pull_one_from_db(
+            collection=spielbestaetigungen_collection,
+            db_filter={"_id": spielbestaetigung_id},
+            projection=["saison_id", "spiel_id", "party", "ansetzung", "answer", "closed"],
+            session=session,
+        )
         # The fixture and the clubs' exits, as the pass's close judges them: an agreement it would shut settles nothing.
         state = await pull_ansetzung_state(
             spiele_collection=spiele_collection,
@@ -102,15 +108,6 @@ async def enter_spielbestaetigung(
         if state is None:
             raise DocumentNotFoundError()
         refuse(find_enter_refusal(spielbestaetigung_raw=row, ansetzung_state=state, now=germany_now))
-
-    async def settle_for_the_party(session: AsyncClientSession) -> Mapping[str, Any]:
-        row = await pull_one_from_db(
-            collection=spielbestaetigungen_collection,
-            db_filter={"_id": spielbestaetigung_id},
-            projection=["saison_id", "spiel_id", "party", "ansetzung", "answer", "closed"],
-            session=session,
-        )
-        await judged(row, session=session)
 
         try:
             # The state term as a seat's press writes it. A seat's answer committing under
@@ -134,9 +131,14 @@ async def enter_spielbestaetigung(
             session=session,
         )
 
-        # The settle writes no fixture and no season row, so a save or an exit landing under this transaction raises no
-        # conflict: judged again outside it before answering.
-        await judged(row, session=None)
+        # What the settle judged and does not write, so a save moving the fixture or an exit landing under it conflicts with
+        # it, and the retry judges what that write left.
+        await anchor_the_spiele_acted_on(spiele_collection=spiele_collection, spiel_ids=[row["spiel_id"]], session=session)
+        await anchor_in_db(
+            collection=saison_teams_collection,
+            db_filter={"saison_id": row["saison_id"], "team_id": {"$in": [junction["team_id"] for junction in state.junctions]}},
+            session=session,
+        )
 
         return entered
 

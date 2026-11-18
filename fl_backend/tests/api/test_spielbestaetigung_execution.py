@@ -328,10 +328,7 @@ class ConfirmationsRunningARivalBeforeTheWrite(InterleavedCollection):
 
 
 class TestASpielMovedMidAnswerIsJudgedAgain:
-    """The administrator moves the fixture while a club answers: the answer reads the fixture and writes none of it.
-
-    So the move raises no conflict, and only the re-read outside the transaction sees it.
-    """
+    """The administrator moves the fixture while a club answers: the answer anchors the fixture it judged, so the two conflict."""
 
     async def test_the_answer_is_refused_on_the_move_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -340,7 +337,7 @@ class TestASpielMovedMidAnswerIsJudgedAgain:
 
             confirmations = ConfirmationsRunningARivalBeforeTheWrite(database[Collection.SPIELBESTAETIGUNGEN], move)
             outcome = await outcome_of(press_answer(database, client, holder(TEAM1, "trainer"), spielbestaetigungen=confirmations))
-            # Once: a second arrival would be a retry, which a write conflict causes and a move must not.
+            # Once: the retry is refused on the move before it reaches the write again.
             confirmations.assert_landed_inside(serially=0)
 
             return outcome, (await row_now(database, ROW1))["answer"], confirmations.passes
@@ -362,12 +359,6 @@ async def narrow_the_matchday(database: AsyncDatabase) -> None:
     await database[Collection.SPIELTAGE].update_one({"_id": SPIELTAG}, {"$set": {"end": "2126-05-14"}})
 
 
-async def book_the_referee_beside_it(database: AsyncDatabase) -> None:
-    await database[Collection.SPIELE].insert_one(
-        spiel(NEIGHBOUR, spiel_nr=2, date=PROPOSAL[0], time="19:00:00", spielort=None, team1=None, team2=None)
-    )
-
-
 async def let_a_team_leave_before_the_proposal(database: AsyncDatabase) -> None:
     exit_record = {"type": "rueckzug", "reason": "Schule zieht zurück", "date": PROPOSAL[0]}
     await database[Collection.SAISON_TEAMS].update_one({"team_id": TEAM2}, {"$set": {"austritt": exit_record}})
@@ -384,13 +375,14 @@ Overtaking = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[None]]
 
 
 class TestWhatTheProposalIsJudgedOnMovingMidAnswerIsJudgedAgain:
-    """Each a write the answer's transaction reads and never writes, so none conflicts: the re-judgement outside it is all that sees them."""
+    """Each a write to a document the answer judges and anchors, so it conflicts and the retry refuses the answer.
+
+    A re-dated matchday or a rival booking of the proposed slot stays open: the adoption judges the proposal again.
+    """
 
     @pytest.mark.parametrize(
         ("rival", "code"),
         [
-            pytest.param(narrow_the_matchday, Code.SPIEL_OUTSIDE_SPIELTAG, id="the-matchday-narrowed"),
-            pytest.param(book_the_referee_beside_it, Code.SPIEL_DOUBLE_BOOKED, id="a-rival-booking-of-the-referee"),
             pytest.param(let_a_team_leave_before_the_proposal, Code.ELIGIBILITY_DISQUALIFIED, id="a-club-leaving-before-the-new-day"),
         ],
     )
@@ -410,7 +402,7 @@ class TestWhatTheProposalIsJudgedOnMovingMidAnswerIsJudgedAgain:
 
         assert outcome == code
         assert answer is None
-        # Once: none of these conflicts, so a retry would mean the rival was caught some other way.
+        # Once: the retry is refused on what moved before it reaches the write again.
         assert passes == 1
 
 
@@ -554,12 +546,27 @@ class TestTheAdministratorsZusage:
         assert judged == 2
 
     async def test_an_exit_landing_inside_the_settle_refuses_it(self, mongo_replica_set_url: str):
-        """The settle writes no season row, so the exit raises no conflict: only the re-read outside the transaction sees it."""
+        """The settle anchors the clubs' season rows it judged, so the exit conflicts with it and the retry refuses."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             confirmations = ConfirmationsRunningARivalBeforeTheWrite(
                 database[Collection.SPIELBESTAETIGUNGEN], lambda: let_the_opponent_leave_by_the_match_day(database, client)
             )
+            outcome = await outcome_of(enter(database, client, ROW1, spielbestaetigungen=confirmations))
+            confirmations.assert_landed_inside(serially=0)
+
+            return outcome, (await row_now(database, ROW1))["answer"], confirmations.passes
+
+        assert await on_a_spiel(mongo_replica_set_url, body) == (Code.ANSETZUNG_NOT_ENTERABLE, None, 1)
+
+    async def test_a_move_landing_inside_the_settle_refuses_it(self, mongo_replica_set_url: str):
+        """The settle anchors the fixture it judged, so the move conflicts with it and the retry refuses."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            async def move() -> None:
+                await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"time": "19:30:00"}})
+
+            confirmations = ConfirmationsRunningARivalBeforeTheWrite(database[Collection.SPIELBESTAETIGUNGEN], move)
             outcome = await outcome_of(enter(database, client, ROW1, spielbestaetigungen=confirmations))
             confirmations.assert_landed_inside(serially=0)
 
@@ -1166,8 +1173,8 @@ async def book_ute(database: AsyncDatabase) -> None:
 
 
 class TestAReassignmentLandingMidAnswer:
-    async def test_an_acceptance_is_refused_on_the_re_read(self, mongo_replica_set_url: str):
-        """The acceptance writes no fixture, so the reassignment raises no conflict: the re-read outside it alone refuses."""
+    async def test_an_acceptance_is_refused_on_the_retry(self, mongo_replica_set_url: str):
+        """The acceptance anchors the fixture it judged, so the reassignment conflicts with it and the retry refuses."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             confirmations = ConfirmationsRunningARivalBeforeTheWrite(database[Collection.SPIELBESTAETIGUNGEN], lambda: book_ute(database))
@@ -1177,6 +1184,20 @@ class TestAReassignmentLandingMidAnswer:
             return outcome, (await row_now(database, REFEREE_ROW))["answer"], confirmations.passes
 
         assert await on_a_refereed_spiel(mongo_replica_set_url, body) == (Code.ANSETZUNG_CHANGED, None, 1)
+
+    async def test_an_acceptance_is_refused_on_a_club_leaving_by_the_match_day(self, mongo_replica_set_url: str):
+        """The acceptance anchors the clubs' season rows it judged, so the exit conflicts with it and the retry refuses."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            confirmations = ConfirmationsRunningARivalBeforeTheWrite(
+                database[Collection.SPIELBESTAETIGUNGEN], lambda: let_the_opponent_leave_by_the_match_day(database, client)
+            )
+            outcome = await outcome_of(einsatz_answer(database, client, spielbestaetigungen=confirmations))
+            confirmations.assert_landed_inside(serially=0)
+
+            return outcome, (await row_now(database, REFEREE_ROW))["answer"], confirmations.passes
+
+        assert await on_a_refereed_spiel(mongo_replica_set_url, body) == (Code.ANSETZUNG_DECIDED, None, 1)
 
     async def test_a_decline_never_takes_the_new_referee_off(self, mongo_replica_set_url: str):
         """The decline writes the fixture the reassignment wrote, so it is retried and judged afresh rather than emptying Ute's slot."""
