@@ -116,7 +116,9 @@ job bounded by its own `timeout-minutes` and by no other time budget.
   grade, tone, heading rung — rather than a locally better shape. An existing shape is judged on
   merit unless a ratified decision (§7) holds it. **A string a visitor reads ships under
   [`docs/frontend/copy.md`](../docs/frontend/copy.md)**, a menu entry, a page title and an address
-  included; the owner flags on its screen what they dislike.
+  included; the owner flags on its screen what they dislike. A brief that designs a look, builds a
+  page or draws a review board carries [its rules](orchestra/writer.md#looks-pages-and-boards), and
+  the owner is asked only a fork the industry standard and their stated taste leave open.
 - **Duplication is cheaper than the wrong abstraction**: abstract only what changes for the same
   reason, discovered from three real instances and never imposed on two that rhyme, and read a
   candidate's history first — several duplications here are ratified.
@@ -185,8 +187,9 @@ the clause governs.
 **Before proposing a change on a surface, open the rules file for one you are about to touch even if
 no read has pulled it in.** [`backend.md`](rules/backend.md), [`frontend.md`](rules/frontend.md)
 and [`cross-surface.md`](rules/cross-surface.md) hold the traps each surface springs. A rules file
-written during a session does not load in that session; brief its rule in words to each agent
-dispatched afterwards.
+loads on the first read of a file its `paths` match, from the primary checkout as it stands on
+disk, uncommitted text included, for the coordinator and a writer in a worktree alike; no writer
+loads its own branch's copy, so brief in words to each agent a rule a writer's branch changes.
 
 ## 8. Documentation
 
