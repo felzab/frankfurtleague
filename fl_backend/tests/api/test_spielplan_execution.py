@@ -30,7 +30,7 @@ from app.shared.schemas.responses import FLVersionResponse
 from tests import documents
 from tests.bracket_reference import BRACKET_SEEDING
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database
-from tests.isolation import COMMITTED, InterleavedCollection, outcome_of, refused_code
+from tests.isolation import COMMITTED, outcome_of, refused_code
 from tests.records import record_collections
 from tests.stored import the_row
 from tests.worker import worker_database
@@ -665,13 +665,10 @@ class TestAReplaceTakesTheSeasonsReports:
 
 
 class TestASubmittedReportKeepsTheSpielplanFromAReplace:
-    """`spielplan_berichte_submitted` wired: the replace counts the season's submitted reports in its transaction and again outside it."""
+    """`spielplan_berichte_submitted` wired: the replace counts the season's submitted reports in its transaction."""
 
     async def test_the_reports_are_refused_ahead_of_the_shape_the_replace_proposes(self, mongo_replica_set_url: str):
-        """The count inside the transaction is the early exit: drop it and the rules refuse the shape first.
-
-        The count after the writes still refuses the replace, so only the order says the first count is there.
-        """
+        """Drop the count and the replace lands over the report; move it after the rules and they refuse the shape first."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
             await call_draw(database, client)
@@ -680,22 +677,6 @@ class TestASubmittedReportKeepsTheSpielplanFromAReplace:
             return await refused_code(call_draw(database, client, replace=True, today=REDRAWN_TODAY, shape=a_shape(qualifiers=3)))
 
         assert await on_a_seeded_saison(mongo_replica_set_url, body) == Code.SPIELPLAN_BERICHTE_SUBMITTED
-
-    async def test_a_report_submitted_mid_replace_is_counted_again_outside_it(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await call_draw(database, client)
-            berichte = InterleavedCollection(database[Collection.SPIELBERICHTE], lambda: report_a_drawn_spiel(database), before="delete_many")
-            outcome = await outcome_of(call_draw(database, client, replace=True, today=REDRAWN_TODAY, spielberichte_collection=berichte))
-            berichte.assert_landed_inside(serially=0)
-
-            return outcome, await watermark_now(database), berichte.passes
-
-        outcome, watermark, passes = await on_a_seeded_saison(mongo_replica_set_url, body)
-
-        assert outcome == Code.SPIELPLAN_BERICHTE_SUBMITTED
-        # The first draw's day: the refused replace took its own back.
-        assert watermark is not None and watermark["generated_at"] == TODAY
-        assert passes == 1
 
 
 # How long the report holds its commit for the removal. The hold lets go once the removal's anchor meets the report's
