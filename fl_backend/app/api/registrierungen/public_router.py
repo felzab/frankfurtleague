@@ -7,7 +7,6 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.services import build_key_filter, days_after
-from app.api.einwilligung.services import find_self_media_refusal
 from app.api.invitations.services import find_live_invitation_filter, find_unknown_invitation_refusal
 from app.api.outbox.services import enqueue_mails
 from app.api.registrierungen.crud import judge_the_mailbox_in_session
@@ -67,6 +66,7 @@ from app.core.readonly import ReadCollection
 from app.core.routing import SAFE
 from app.core.security import BASE_TIER
 from app.core.transactions import transact
+from app.shared.einwilligung import find_self_media_refusal
 from app.shared.schemas.bounds import (
     BIRTH_DATE_MAX_AGE_YEARS,
     REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS,

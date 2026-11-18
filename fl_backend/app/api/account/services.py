@@ -4,12 +4,11 @@ One module, so the kinds' PATCHes cannot answer one press differently and the ac
 exactly as the PATCH it offers does.
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from http import HTTPStatus
 from typing import Any, Final, Literal, get_args
 
 from app.api.bewerbungen.services import bewerbung_schule, build_own_bewerbung_filter
-from app.api.einwilligung.services import media_offered
 from app.api.identity.schemas import FLSubjectSeat
 from app.api.identity.services import holds_a_seat, is_own_registrierung, own_seats
 from app.api.kontakte.services import rows_seating
@@ -19,7 +18,9 @@ from app.api.schiedsrichter.services import EINWILLIGUNG_FIELD, SELF_REFEREE_ORD
 from app.api.spieler.services import SELF_PUPIL_ORDER, build_self_pupil_filter
 from app.core.codes import Code
 from app.core.collections import Collection as DbCollection
+from app.core.crud import refuse
 from app.core.exceptions import WriteRefusal
+from app.shared.einwilligung import find_self_media_refusal, media_offered
 from app.shared.einwilligung_evidence import CHOICES, FLEinwilligungChoice, TextVersions, compose_choices, evidence_state_of, is_given
 from app.shared.schemas.einwilligung import PressTextVersions, stale_grants
 from app.shared.schemas.literals import KONTAKT_SEATS
@@ -166,6 +167,85 @@ def find_evidence_state_refusal(*, expected: Mapping[str, Any], blocks: Sequence
     return WriteRefusal(
         error_code=Code.CHOICES_STALE,
         status=HTTPStatus.CONFLICT,
+    )
+
+
+# Every consent press runs the one sequence below between finding its record and writing it, a refusal at any step
+# writing nothing. One sequence for every kind, so no two presses judge in two orders: the stale page first, then a
+# grant the record may not take, then a grant under a replaced label, then the media age.
+
+# Whether the record the press found may take a grant, asked only of a press granting something: the
+# read behind it is the Funktion lookup, and a withdrawal needs none.
+MayGive = Callable[[], Awaitable[bool]]
+
+
+async def may_always_give() -> bool:
+    """`MayGive` of a record no state of which refuses a grant: a pupil's, whose every confirmed record stands live."""
+
+    return True
+
+
+async def _before_giving(
+    *,
+    blocks: Sequence[Mapping[str, Any]],
+    chosen: Mapping[FLEinwilligungChoice, Any],
+    evidence_state: Mapping[str, Any],
+    may_give: MayGive | None,
+) -> bool:
+    """The steps every kind shares, the stale page and a grant the record may not take; whether the press grants."""
+
+    refuse(find_evidence_state_refusal(expected=evidence_state, blocks=blocks))
+
+    given = any(gives_anything(saved=block, chosen=chosen) for block in blocks)
+    if given:
+        refuse(find_giving_refusal(allowed=may_give is not None and await may_give()))
+
+    return given
+
+
+async def press_einwilligung(
+    *,
+    blocks: Sequence[Mapping[str, Any]],
+    birth_dates: Sequence[Any],
+    chosen: Mapping[FLEinwilligungChoice, Any],
+    evidence_state: Mapping[str, Any],
+    text_versions: PressTextVersions,
+    may_give: MayGive,
+    today: str,
+) -> None:
+    """A press on a kind that takes grants, refused where a step refuses it, leaving the write to the handler.
+
+    `blocks` are the consent blocks the press moves, each beside its person's stored birthdate in `birth_dates`.
+    """
+
+    await _before_giving(
+        blocks=blocks,
+        chosen=chosen,
+        evidence_state=evidence_state,
+        may_give=may_give,
+    )
+    refuse(find_grant_wording_refusal(blocks=blocks, chosen=chosen, text_versions=text_versions))
+    media = is_given("media", chosen.get("media"))
+    for block, birth_date in zip(blocks, birth_dates, strict=True):
+        refuse(find_self_media_refusal(saved=block, media=media, birth_date=birth_date, today=today))
+
+
+async def press_withdrawal(
+    *,
+    blocks: Sequence[Mapping[str, Any]],
+    chosen: Mapping[FLEinwilligungChoice, Any],
+    evidence_state: Mapping[str, Any],
+) -> None:
+    """A press on a kind taking withdrawals alone: every grant refused before any rule only a grant meets, and nothing counted.
+
+    No label is judged: a withdrawal names any its kind cites.
+    """
+
+    await _before_giving(
+        blocks=blocks,
+        chosen=chosen,
+        evidence_state=evidence_state,
+        may_give=None,
     )
 
 

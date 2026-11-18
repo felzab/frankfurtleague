@@ -1,11 +1,11 @@
 from fastapi import APIRouter, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.account.crud import press_withdrawal
 from app.api.account.services import (
     changed_seat_choices,
     compose_seat_move,
     find_own_entry_refusal,
+    press_withdrawal,
     withdrawal_line,
 )
 from app.api.identity.services import own_seats

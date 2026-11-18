@@ -69,7 +69,6 @@ from app.api.bewerbungen.services import (
     seats_past_the_bound,
     state_of,
 )
-from app.api.einwilligung.services import find_self_media_refusal
 from app.api.kontakte.crud import remove_the_seats_reasons
 from app.api.outbox.schemas import FLBewerbungObjectionData
 from app.api.outbox.services import OwedMail, enqueue_mails
@@ -109,6 +108,7 @@ from app.core.journal import Journal
 from app.core.routing import SAFE
 from app.core.security import BASE_TIER
 from app.core.transactions import transact
+from app.shared.einwilligung import find_self_media_refusal
 from app.shared.schemas.bounds import BIRTH_DATE_MAX_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.einwilligung import by_choice

@@ -5,11 +5,11 @@ from typing import Any, Final, NamedTuple
 from fastapi import APIRouter, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.account.crud import press_einwilligung
 from app.api.account.services import (
     changed_seat_choices,
     compose_seat_move,
     find_own_entry_refusal,
+    press_einwilligung,
     withdrawal_line,
 )
 from app.api.aufstellungen.schemas import FLAufstellungMarks
