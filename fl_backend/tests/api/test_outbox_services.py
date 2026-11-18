@@ -20,7 +20,13 @@ from app.api.outbox.services import (
     retry_update,
     row_of,
 )
-from app.api.spielbestaetigungen.services import austritt_notices_of, austritt_recipients_of, compose_ansetzung, spiel_mail_slot_of, team_mails
+from app.api.spielbestaetigungen.services import (
+    austritt_notices_of,
+    austritt_recipients_of,
+    compose_ansetzung,
+    spiel_mail_slot_of,
+    team_mails,
+)
 from app.core import clock
 
 APPOINTMENT = FLSpielMailAppointment(team1="Adler", team2="Bieber", date="2026-05-02", time="10:00:00")
@@ -67,7 +73,9 @@ def test_every_mail_to_a_team_s_seats_names_the_team_it_goes_to():
             occasion="dispatch",
         ),
     ]
-    (notice,) = austritt_notices_of(saison_id=SAISON_ID, team_id=OWN, spiele=[spiel], junctions=junctions)[junctions[OPPONENT]["_id"]]
+    (notice,) = austritt_notices_of(saison_id=SAISON_ID, team_id=OWN, spiele=[spiel], junctions=junctions, now=EXIT_READ)[
+        junctions[OPPONENT]["_id"]
+    ]
 
     assert [mail.team for mail in owed] == [FLOutboxTeam(saison_id=SAISON_ID, team_id=OWN)] * 2
     assert notice.team == FLOutboxTeam(saison_id=SAISON_ID, team_id=OPPONENT)
@@ -189,6 +197,8 @@ EXIT_READ = datetime(2026, 4, 20, 12, tzinfo=clock.GERMANY)
         pytest.param(a_fixture(), {}, "2026-04-10", ["schiedsrichter"], id="an opponent no confirmed seat reaches"),
         pytest.param(a_fixture(), SEATED, None, ["team"], id="a referee booked and never asked"),
         pytest.param(a_fixture(ergebnis="1:0"), SEATED, "2026-04-10", [], id="a fixture decided"),
+        # One act tells both alike, about a slot still to come: a match kicked off unrecorded is told to nobody.
+        pytest.param(a_fixture(date="2026-04-18"), SEATED, "2026-04-10", [], id="a fixture kicked off, its result not yet in"),
     ],
 )
 def test_an_exit_names_whom_its_write_and_the_pass_mail(spiel: dict[str, Any], kontakte: Any, asked_at: str | None, named: list[str]):

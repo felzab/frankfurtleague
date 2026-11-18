@@ -255,7 +255,9 @@ async def owe_the_austritt_notices_in_session(
         session=session,
     )
 
-    notices = austritt_notices_of(saison_id=saison_id, team_id=team_id, spiele=spiele, junctions={row["team_id"]: row for row in junctions})
+    notices = austritt_notices_of(
+        saison_id=saison_id, team_id=team_id, spiele=spiele, junctions={row["team_id"]: row for row in junctions}, now=now
+    )
     if not notices:
         return
 
