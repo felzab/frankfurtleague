@@ -72,8 +72,8 @@ ENV APP_VERSION=$APP_VERSION
 # stream.
 
 # --no-access-log because TraceContextMiddleware writes the request's one line, carrying the trace id
-# and a refusal's code uvicorn's could not. Importing the app takes uvicorn's own handlers off
-# (`app/core/logging.py :: setup_logging`), so what uvicorn still logs reaches the app's.
+# and a refusal's code uvicorn's could not. Importing the app takes uvicorn's own handlers off, so
+# what uvicorn still logs reaches the app's.
 
 # --timeout-graceful-shutdown at a request's whole bound, the deadline and its aborts' grace, so a
 # stop cancels no request still inside it; unset, uvicorn waits without limit.
