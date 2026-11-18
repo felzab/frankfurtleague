@@ -1,5 +1,4 @@
 from collections.abc import Mapping
-from http import HTTPStatus
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Header, status
@@ -24,10 +23,10 @@ from app.api.registrierungen.services import (
     compose_registrierung,
     confirmation_mail,
     find_already_confirmed_refusal,
+    find_closed_refusal,
     find_expired_token_refusal,
     find_stufe_refusal,
     find_team_departed_refusal,
-    find_window_refusal,
     saison_takes_registrierungen,
     state_of,
 )
@@ -35,7 +34,6 @@ from app.api.saisons.services import entry_is_a_nominee
 from app.api.spieler.crud import pull_kader_room
 from app.api.spieler.services import find_full_kader_refusal
 from app.core.clock import days_after, utc_stamp
-from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import patch_one_in_db, post_one_to_db, pull_by_token, pull_one_from_db, refuse
 from app.core.dependencies import (
@@ -56,7 +54,6 @@ from app.core.dependencies import (
     SaisonTeamsReadCollection,
     TeamsReadCollection,
 )
-from app.core.exceptions import APIError
 from app.core.readonly import ReadCollection
 from app.core.routing import SAFE
 from app.core.security import BASE_TIER
@@ -235,12 +232,11 @@ async def post_registrierung(
             collection=saisons_collection, db_filter={"_id": saison_id}, projection=SAISON_PROJECTION, session=session
         )
         rules = saison_raw.get("rules") or {}
-        refuse(find_window_refusal(saison_status=saison_raw["status"], registrierung=saison_raw.get("registrierung")))
-
-        # A club the season holds no row of takes no registration: `registrierung_closed` rather than the squad write's
-        # `kader_team_not_in_saison`, which is worded for an administrator entering a player.
-        if junction_raw is None:
-            raise APIError(HTTPStatus.CONFLICT, Code.REGISTRIERUNG_CLOSED)
+        refuse(
+            find_closed_refusal(
+                saison_status=saison_raw["status"], registrierung=saison_raw.get("registrierung"), entered=junction_raw is not None
+            )
+        )
 
         refuse(find_stufe_refusal(stufe=registrierung_data.stufe, allowed_stufen=list(rules.get("allowed_stufen") or [])))
 

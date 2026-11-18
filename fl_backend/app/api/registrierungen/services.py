@@ -41,14 +41,16 @@ def saison_takes_registrierungen(*, saison_status: Any, registrierung: Any) -> b
     return registrierung is not None and saison_status == "active" and bool(registrierung["open"])
 
 
-def find_window_refusal(*, saison_status: Any, registrierung: Any) -> APIError | None:
-    """Why this season takes no registration today, or `None`.
+def find_closed_refusal(*, saison_status: Any, registrierung: Any, entered: bool) -> APIError | None:
+    """`registrierung_closed`: this season takes no registration today, or the season holds no row of the link's club.
 
-    One code for every way `saison_takes_registrierungen` says no: naming which would report a
-    season's administrative state to an anonymous visitor.
+    One code for every way `saison_takes_registrierungen` says no: naming which would report a season's administrative
+    state to an anonymous visitor. A club out of the season answers it too rather than the squad write's
+    `kader_team_not_in_saison`, which is worded for an administrator entering a player; the link's view tells the two
+    apart by its `running` and `team_entered`.
     """
 
-    if saison_takes_registrierungen(saison_status=saison_status, registrierung=registrierung):
+    if entered and saison_takes_registrierungen(saison_status=saison_status, registrierung=registrierung):
         return None
 
     return APIError(HTTPStatus.CONFLICT, Code.REGISTRIERUNG_CLOSED)
