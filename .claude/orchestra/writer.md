@@ -40,9 +40,9 @@ Run them, and the checks of what you touched, with these commands:
   `uv run --project fl_backend --frozen ruff check scripts` and
   `uv run --project fl_backend --frozen ruff format --check scripts`, as
   `scripts/gate/verify.sh :: scope_scripts` runs them.
-- Where you changed a shell script, a hook without a suffix included: shellcheck with `-e SC1091`
-  over it, as `scripts/gate/selfcheck.sh` runs it, from the image the `shellcheck` stage of
-  `scripts/gate/tools.Dockerfile` names.
+- Where you changed a shell script, a hook without a suffix included: `./scripts/gate/selfcheck.sh`
+  from your worktree's root; it reads the whole tree, so a finding naming a file you do not own is
+  someone else's.
 - Where you touched a route handler, a page or `nginx/shared/site.conf`:
   `uv run --project fl_backend --frozen python scripts/checks/check_public_routes.py` from the root.
 - Where you changed Markdown: `pnpm run lint:md` in `fl_frontend`, and lychee through
