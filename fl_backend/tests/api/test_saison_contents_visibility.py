@@ -7,7 +7,6 @@ from httpx2 import Response
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from tests import documents
 from tests.app_client import app_client, app_under_test
 from tests.config import BASE_AUTH
@@ -32,7 +31,7 @@ SPIELER_OID = ObjectId("6890a1b2c3d4e5f607250002")
 # The club's opponent in the archived season's one played match, which only that season's figures count.
 OPPONENT_OID = ObjectId("6890a1b2c3d4e5f607250003")
 
-PREFIX = f"/api/v{API_VERSION}"
+PREFIX = "/api"
 
 
 def an_id(kind: str, saison_id: str) -> ObjectId:

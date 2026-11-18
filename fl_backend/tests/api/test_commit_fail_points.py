@@ -32,7 +32,6 @@ from app.api.teams.admin_router import put_austritt
 from app.api.teams.schemas import FLAustrittPayload
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.db import new_client
 from app.core.recording import ACT_BY_KONTAKT, record_act
 from app.core.transactions import UNKNOWN_COMMIT_RESULT
@@ -375,7 +374,7 @@ class TestAnErasureOnRequest:
 
 
 # The pupil's own consent page, whose withdrawal writes the line.
-CONSENT_PRESS = f"/api/v{API_VERSION}/spieler/self/einwilligung"
+CONSENT_PRESS = "/api/spieler/self/einwilligung"
 PERSON = "ortrud.zwiebelmayer@schule.example.org"
 PUPIL_OID = ObjectId("6890a1b2c3d4e5f607870011")
 PRESS_NOW = datetime(2126, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))

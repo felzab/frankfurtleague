@@ -21,7 +21,6 @@ from app.api.spieler.person_router import patch_kader_row
 from app.api.spieler.schemas import FLPatchKaderRowPayload
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.shared.schemas.literals import KONTAKT_SEATS
 from tests.acts import acts_of
 from tests.app_client import app_client, app_under_test
@@ -76,7 +75,7 @@ B_ANSPRECH = "b.ansprech.kader@schule.example.org"
 SEAT_PHONE = "+49 69 90009199"
 PUPIL_EMAIL_DOMAIN = "pupil.example.net"
 
-SPIELER_PATH = f"/api/v{API_VERSION}/spieler"
+SPIELER_PATH = "/api/spieler"
 
 PAYLOAD: Mapping[str, Any] = {"nummer": "11", "position": "Tor", "stufe": "Q1", "rolle": None, "version": 0}
 

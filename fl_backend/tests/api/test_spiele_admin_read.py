@@ -8,7 +8,6 @@ from httpx2 import Response
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from tests import documents
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config, grants_for_the_suite
@@ -47,7 +46,7 @@ BERICHT_CONFIRMATION_ID = ObjectId("6890a1b2c3d4e5f607230041")
 # Raised past the create's 0 by later writes: the one an adoption names.
 BERICHT_VERSION = 3
 
-ADMIN_PATH = f"/api/v{API_VERSION}/spiele/{SPIEL_ID}"
+ADMIN_PATH = f"/api/spiele/{SPIEL_ID}"
 
 
 def spiel_document() -> dict[str, Any]:
@@ -231,7 +230,7 @@ async def test_a_malformed_id_is_a_404_on_the_admin_path_too():
     One id shows the path carries the convertor; which ids are malformed is `tests/api/test_malformed_ids.py`'s.
     """
 
-    path = f"/api/v{API_VERSION}/spiele/not-an-id"
+    path = "/api/spiele/not-an-id"
 
     assert (await answered(UNANSWERED_URI, path, ADMIN_AUTH)).status_code == 404
 
@@ -276,7 +275,7 @@ async def test_the_editor_offers_the_live_rows_and_the_ones_the_spiel_books(seed
 
 
 def _editor_path(spiel_id: ObjectId) -> str:
-    return f"/api/v{API_VERSION}/spiele/{spiel_id}"
+    return f"/api/spiele/{spiel_id}"
 
 
 @pytest.mark.db

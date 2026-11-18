@@ -11,10 +11,9 @@ import re
 from collections.abc import Mapping
 from typing import Final
 
-from app.core.config import API_VERSION
 from tests.core.app_source import api_routes, application
 
-PREFIX: Final = f"/api/v{API_VERSION}/"
+PREFIX: Final = "/api/"
 
 # Each path parameter, and the collection whose name stands before it. A parameter missing here fails the case below
 # rather than passing unread, so a new kind of record is placed by hand once.

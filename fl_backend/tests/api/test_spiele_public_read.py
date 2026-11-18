@@ -202,8 +202,8 @@ REFEREE_STATES = [
 
 # The two base-tier reads listing a season's fixtures, each with the fields its answer holds beside the matchdays.
 SCHEDULE_READS = [
-    pytest.param("/api/v0/saisons/{saison_id}/spielplan", {"current_spieltag_id": None}, id="Spielplan"),
-    pytest.param("/api/v0/saisons/{saison_id}/ko_runde", {}, id="K.-o.-Runde"),
+    pytest.param("/api/saisons/{saison_id}/spielplan", {"current_spieltag_id": None}, id="Spielplan"),
+    pytest.param("/api/saisons/{saison_id}/ko_runde", {}, id="K.-o.-Runde"),
 ]
 
 

@@ -5,7 +5,7 @@ from app.core.codes import Code
 from tests.app_client import app_client
 from tests.config import UNANSWERED_DEADLINE_S, UNANSWERED_URI
 
-IS_READY = "/api/v0/system/is_ready"
+IS_READY = "/api/system/is_ready"
 
 
 async def asked_with_no_database() -> Response:

@@ -38,7 +38,6 @@ from app.api.registrierungen.public_router import get_confirmation_view
 from app.api.registrierungen.services import compose_decline_update
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.db import new_client
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.logging import JSONFormatter
@@ -480,7 +479,7 @@ class TestTheSystemsReadOfTheNewAddress:
             async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME)) as http:
                 caplog.clear()
                 with caplog.at_level(logging.INFO):
-                    response = await http.post(f"/api/v{API_VERSION}/address_change/address", headers=SYSTEM_AUTH, json={"token": minted.token})
+                    response = await http.post("/api/address_change/address", headers=SYSTEM_AUTH, json={"token": minted.token})
             return response.status_code, response.json()
 
         status, answered = await on_a_person(mongo_replica_set_url, body)
@@ -490,7 +489,7 @@ class TestTheSystemsReadOfTheNewAddress:
         # Each line parsed: a line no JSON reader reads would hide what it holds.
         documents = [json.loads(line) for line in written]
         assert [(document["path"], document["status"]) for document in documents if "path" in document] == [
-            (f"/api/v{API_VERSION}/address_change/address", 200)
+            ("/api/address_change/address", 200)
         ], "the request's own line was not captured, so the absence below holds of nothing"
         assert not [line for line in written if NEW_EMAIL in line.lower()]
 
@@ -1044,7 +1043,7 @@ class TestAHoldersOwnChange:
 
                 async def addition() -> None:
                     # The owner's addition as its page sends it, on a request of its own.
-                    response = await http.post(f"/api/v{API_VERSION}/grants", json={"email": EMAIL}, headers=StampedHeaders(OWNER, ADMIN_KEY))
+                    response = await http.post("/api/grants", json={"email": EMAIL}, headers=StampedHeaders(OWNER, ADMIN_KEY))
                     added.append(response.status_code)
 
                 racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.GRANTS], addition)

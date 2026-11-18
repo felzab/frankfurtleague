@@ -19,7 +19,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.registrierungen.services import compose_decline_update
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.shared.einwilligung_evidence import EVIDENCE, TextVersions, evidence_state_of
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_KEY, grants_for_the_suite
@@ -58,7 +57,7 @@ RETIRED = "rudolf.ruhestand@schule.example.org"
 UNCONFIRMED = "ottilie.wartezeit@schule.example.org"
 BYSTANDER = "baldur.krautzberger@example.com"
 
-ACCOUNT_PATH = f"/api/v{API_VERSION}/account/einwilligungen"
+ACCOUNT_PATH = "/api/account/einwilligungen"
 
 PAST_SAISON = "2025"
 ACTIVE_SAISON = "2026"
@@ -148,7 +147,7 @@ def _person(email: str) -> StampedHeaders:
 
 
 def _referee_path(schiedsrichter_id: ObjectId | str) -> str:
-    return f"/api/v{API_VERSION}/schiedsrichter/{schiedsrichter_id}/einwilligung"
+    return f"/api/schiedsrichter/{schiedsrichter_id}/einwilligung"
 
 
 async def _editor_save(http: AsyncClient, database: AsyncDatabase, *, version: int, default_payment: int) -> Response:
@@ -157,7 +156,7 @@ async def _editor_save(http: AsyncClient, database: AsyncDatabase, *, version: i
     await database[Collection.GRANTS].insert_many(grants_for_the_suite())
 
     return await http.patch(
-        f"/api/v{API_VERSION}/schiedsrichter/{REFEREE_OID}",
+        f"/api/schiedsrichter/{REFEREE_OID}",
         json={
             "name": "Ortrud Zwiebelmayer",
             "schule": None,
@@ -447,7 +446,7 @@ class TestGivableIsTheGrantThePressTakes:
             for seat in body["seats"]:
                 granted = await _withdrawn_then_granted(
                     http,
-                    f"/api/v{API_VERSION}/teams/{seat['team_id']}/saisons/{seat['saison_id']}/einwilligung",
+                    f"/api/teams/{seat['team_id']}/saisons/{seat['saison_id']}/einwilligung",
                     lambda media, state, seat=seat: {
                         "scope": seat["scope"],
                         "media": media,
@@ -525,7 +524,7 @@ HELD_SEATS = {(TEAM_A_OID, PAST_SAISON): 2, (TEAM_B_OID, ACTIVE_SAISON): 1, (TEA
 
 
 def _seat_path(team_id: ObjectId, saison_id: str) -> str:
-    return f"/api/v{API_VERSION}/teams/{team_id}/saisons/{saison_id}/einwilligung"
+    return f"/api/teams/{team_id}/saisons/{saison_id}/einwilligung"
 
 
 async def _rows(database: AsyncDatabase) -> dict[Any, Any]:
@@ -788,7 +787,7 @@ async def _applications(database: AsyncDatabase) -> None:
 
 
 def _application_path(bewerbung_id: ObjectId) -> str:
-    return f"/api/v{API_VERSION}/bewerbungen/{bewerbung_id}/einwilligung"
+    return f"/api/bewerbungen/{bewerbung_id}/einwilligung"
 
 
 def _withdrawal(*, state: Any = None, media: bool = False) -> dict[str, Any]:
@@ -990,7 +989,7 @@ async def _registrierungen(database: AsyncDatabase, **choices: Any) -> None:
 
 
 def _registrierung_path(registrierung_id: ObjectId) -> str:
-    return f"/api/v{API_VERSION}/registrierungen/{registrierung_id}/einwilligung"
+    return f"/api/registrierungen/{registrierung_id}/einwilligung"
 
 
 async def _registrierung_docs(database: AsyncDatabase) -> dict[Any, Any]:

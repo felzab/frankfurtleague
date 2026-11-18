@@ -26,7 +26,6 @@ from app.api.grants.services import compose_notice
 from app.api.grants.system_router import post_handover_pass
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.crud import ANCHOR_FIELD
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.security import PASSKEY_FACTOR
@@ -679,7 +678,7 @@ class TestTheMountedRouteReadsTheGrants:
                 grant_document(NORA, "administration", effective_from=at_most(effective_in_s), _id=NORA_ID)
             )
             async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME)) as http:
-                response = await http.get(f"/api/v{API_VERSION}/grants", headers=signed_in_at(NORA, int(time.time()) - 60))
+                response = await http.get("/api/grants", headers=signed_in_at(NORA, int(time.time()) - 60))
 
             return response.status_code, response.json().get("error_code")
 
@@ -694,7 +693,7 @@ class TestTheMountedRouteReadsTheGrants:
             async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME)) as http:
 
                 async def removing(address: str, auth_time: int) -> tuple[int, str | None]:
-                    response = await http.delete(f"/api/v{API_VERSION}/grants/{BERND_ID}", headers=signed_in_at(address, auth_time))
+                    response = await http.delete(f"/api/grants/{BERND_ID}", headers=signed_in_at(address, auth_time))
                     return response.status_code, response.json().get("error_code")
 
                 waiting = await removing(ANNA, older)
@@ -716,9 +715,9 @@ class TestTheMountedRouteReadsTheGrants:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[int]:
             async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME)) as http:
                 headers = StampedHeaders(BERND, ADMIN_KEY)
-                before = await http.get(f"/api/v{API_VERSION}/grants", headers=headers)
-                removed = await http.delete(f"/api/v{API_VERSION}/grants/{BERND_ID}", headers=StampedHeaders(OWNER, ADMIN_KEY))
-                after = await http.get(f"/api/v{API_VERSION}/grants", headers=headers)
+                before = await http.get("/api/grants", headers=headers)
+                removed = await http.delete(f"/api/grants/{BERND_ID}", headers=StampedHeaders(OWNER, ADMIN_KEY))
+                after = await http.get("/api/grants", headers=headers)
 
             return [before.status_code, removed.status_code, after.status_code]
 
@@ -729,9 +728,7 @@ class TestTheMountedRouteReadsTheGrants:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, ...]:
             async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME)) as http:
-                response = await http.post(
-                    f"/api/v{API_VERSION}/grants", headers=StampedHeaders(OWNER.upper(), ADMIN_KEY), json={"email": NORA_TYPED}
-                )
+                response = await http.post("/api/grants", headers=StampedHeaders(OWNER.upper(), ADMIN_KEY), json={"email": NORA_TYPED})
 
             row = await database[Collection.GRANTS].find_one({"address": NORA})
             assert row is not None

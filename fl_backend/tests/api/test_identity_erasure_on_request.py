@@ -22,7 +22,6 @@ from app.api.identity.admin_router import get_erasure_view, post_erasure
 from app.api.identity.schemas import FLErasureAddressPayload, FLErasurePayload
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.crud import ANCHOR_FIELD
 from app.core.db import collection_dependency
 from app.core.exceptions import APIError
@@ -59,7 +58,7 @@ from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_erasure_on_request_test")
 
-PATH = f"/api/v{API_VERSION}/identity/erasure"
+PATH = "/api/identity/erasure"
 VIEW_PATH = f"{PATH}/view"
 
 # The suite's owner, and an administrator holding no owner's power, who presses unless a case says otherwise.
@@ -280,7 +279,7 @@ class TestAGrantHoldersAddress:
             async with app_client(mongo_replica_set_url, app=served, now=NOW) as http:
 
                 async def grant() -> None:
-                    added = await http.post(f"/api/v{API_VERSION}/grants", json={"email": IDENTIFIER}, headers=StampedHeaders(OWNER, ADMIN_KEY))
+                    added = await http.post("/api/grants", json={"email": IDENTIFIER}, headers=StampedHeaders(OWNER, ADMIN_KEY))
                     granted.append(added.status_code)
 
                 async def pupils() -> AsyncCollection:

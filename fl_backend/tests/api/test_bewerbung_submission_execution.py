@@ -16,7 +16,6 @@ from app.api.bewerbungen.schemas import FLPostBewerbungPayload
 from app.api.bewerbungen.services import compose_kontakte
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.shared.mailbox import OPEN_LINKS_PER_MAILBOX
 from app.shared.schemas.bounds import BEWERBUNG_CONFIRMATION_DEADLINE_DAYS
@@ -504,7 +503,7 @@ async def through_the_app(url: str, body: Mapping[str, Any]) -> Submitted:
         async with app_client(url, app=app_under_test(), now=NOW) as http:
             sent = dict(BASE_AUTH)
             sent["Idempotency-Key"] = str(uuid4())
-            response = await http.post(f"/api/v{API_VERSION}/bewerbungen", json=dict(body), headers=sent)
+            response = await http.post("/api/bewerbungen", json=dict(body), headers=sent)
 
         return Submitted(response=response, stored=await database[Collection.BEWERBUNGEN].count_documents({}))
 

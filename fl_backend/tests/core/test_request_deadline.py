@@ -22,7 +22,6 @@ from pymongo.errors import ExecutionTimeout
 from app.core import middlewares
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.crud import post_one_to_db
 from app.core.db import CLOSE_TIMEOUT_S, collection_dependency, new_client
 from app.core.logging import fl_logger
@@ -345,7 +344,7 @@ class _CommitOfUnknownOutcomeForOneTeam:
 Pressed = tuple[int, float, tuple[int, int, int], dict[ObjectId, list[ObjectId]], dict[ObjectId, ObjectId]]
 
 
-DISPATCH_PATH = f"/api/v{API_VERSION}/saisons/{SAISON_ID}/invitations/dispatch"
+DISPATCH_PATH = f"/api/saisons/{SAISON_ID}/invitations/dispatch"
 
 
 @pytest.fixture(scope="module")

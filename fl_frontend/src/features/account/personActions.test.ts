@@ -63,10 +63,10 @@ const HELD = new Map<string, LookupFixture>();
 /** Every erasure the backend was asked for, with the actor header each carried. */
 const erasures: { method: string; actor: string | null }[] = [];
 
-const ERASURE_PATH = "/api/v0/identity/self/erasure";
+const ERASURE_PATH = "/api/identity/self/erasure";
 
 /** The person's own address change, and the method of every request sent to it. */
-const ADDRESS_CHANGE_PATH = "/api/v0/account/address_change";
+const ADDRESS_CHANGE_PATH = "/api/account/address_change";
 const addressChanges: string[] = [];
 
 /** Every consent save that reached the backend, by its path. */
@@ -74,7 +74,7 @@ const consentWrites: string[] = [];
 
 serveBackend(({ method, path: endpoint, headers, body }) => {
   // Under the base path the client sends it on, as the cases spell every path they compare.
-  const path = `/api/v0${endpoint}`;
+  const path = `/api${endpoint}`;
   if (path.endsWith("/einwilligung")) {
     consentWrites.push(path);
     return {};

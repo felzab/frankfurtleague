@@ -17,7 +17,6 @@ from app.api.registrierungen.services import compose_confirmation_update
 from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.shared.mailbox import OPEN_LINKS_PER_MAILBOX
 from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
@@ -370,7 +369,7 @@ async def over_the_wire(url: str, *, key: str) -> Response:
 
     async with app_client(url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
         sent = dict(BASE_AUTH) | {"Idempotency-Key": key}
-        return await http.post(f"/api/v{API_VERSION}/registrierungen", json=payload(), headers=sent)
+        return await http.post("/api/registrierungen", json=payload(), headers=sent)
 
 
 class TestTheKeyOverTheWire:

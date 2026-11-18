@@ -19,7 +19,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.registrierungen.services import compose_decline_update
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.config import ADMIN_KEY
@@ -47,7 +46,7 @@ from tests.documents import (
 from tests.erasure import erased
 from tests.session_headers import StampedHeaders
 
-PATH = f"/api/v{API_VERSION}/identity/self/erasure"
+PATH = "/api/identity/self/erasure"
 
 # A century ahead of the real clock: the TTL monitor deletes an expired tombstone, request or day's count at its next
 # pass, under a case reading it back. Every seeded day moves with it.

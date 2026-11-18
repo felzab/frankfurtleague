@@ -11,7 +11,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.registrierungen.system_router import sweep_registrierungen
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.transactions import SWEEP_PAGE
 from app.shared.tokens import hash_token
 from tests.app_client import app_client, app_under_test
@@ -284,7 +283,7 @@ async def through_the_app(url: str, path: str, *, auth: Mapping[str, str]) -> tu
         )
 
         async with app_client(url, app=app_under_test(), now=NOW) as http:
-            response = await http.post(f"/api/v{API_VERSION}{path}", json=None, headers=dict(auth))
+            response = await http.post(f"/api{path}", json=None, headers=dict(auth))
 
         return response.status_code, await database[Collection.ACTION_LOG].find({"action": "retention.registrierungen"}).to_list(length=None)
 

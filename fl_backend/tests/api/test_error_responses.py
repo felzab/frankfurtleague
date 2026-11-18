@@ -14,7 +14,6 @@ from pydantic import BaseModel, Field, ValidationError
 from pymongo.errors import BulkWriteError, ExecutionTimeout, PyMongoError
 
 from app.core.codes import Code
-from app.core.config import API_VERSION
 from app.core.exception_handlers import db_exception_handler, pydantic_validation_exception_handler
 from app.core.logging import FL_LOGGER_NAME, JSONFormatter, TraceContextFilter
 from app.main import create_shell
@@ -31,7 +30,7 @@ def client() -> TestClient:
 
 
 # A base-tier read that reaches the database, so a request passing the key meets the missing client.
-GUARDED_READ = "/api/v0/saisons/frame"
+GUARDED_READ = "/api/saisons/frame"
 
 
 def error_records(caplog) -> list[logging.LogRecord]:
@@ -125,7 +124,7 @@ class TestFailureBodies:
         """One match's methods alone is Starlette's own answer, and RFC 9110's `Allow` must list them all."""
 
         # Read on the base tier's router and saved on the administrator's.
-        response = client().put(f"/api/v{API_VERSION}/spiele/{QUERY_ID}")
+        response = client().put(f"/api/spiele/{QUERY_ID}")
 
         assert (response.status_code, response.headers["allow"]) == (405, "GET, PATCH")
 
@@ -330,8 +329,8 @@ class TestACrashIsAnsweredInsideItsRequest:
 
 # A read served over POST, which its route marks safe, and a save its route marks safe when it is a dry run. Each meets the
 # database first in its guard's grant read, before its body is judged.
-CUT_READ = f"/api/v{API_VERSION}/action_log/view"
-CUT_SAVE = f"/api/v{API_VERSION}/spiele/{QUERY_ID}"
+CUT_READ = "/api/action_log/view"
+CUT_SAVE = f"/api/spiele/{QUERY_ID}"
 
 CUTS = [
     pytest.param("POST", CUT_READ, Code.DATABASE_FAILED, id="a read over POST, marked safe"),

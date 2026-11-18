@@ -8,7 +8,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_KEY, grants_for_the_suite
 from tests.database import a_clean_database
@@ -21,7 +20,7 @@ pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_spielorte_write_test")
 
-SPIELORTE = f"/api/v{API_VERSION}/spielorte"
+SPIELORTE = "/api/spielorte"
 
 # The write router binds an actor and refuses a write carrying none.
 ACTOR = "spielorte.admin@example.com"

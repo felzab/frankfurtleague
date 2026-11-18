@@ -10,7 +10,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.identity.schemas import FLSubjectPayload, FLSubjectResponse
 from app.api.identity.system_router import get_subject
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from tests.app_client import app_client, app_under_test
 from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database
@@ -28,7 +27,7 @@ from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_identity_subject_test")
 
-PATH = f"/api/v{API_VERSION}/identity/subject"
+PATH = "/api/identity/subject"
 
 
 # Holding nothing, at the unconfirmed mailbox's local part: a read wider than the address takes that mailbox's records.

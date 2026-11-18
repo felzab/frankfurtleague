@@ -9,7 +9,6 @@ from httpx2 import Response
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from tests.app_client import app_client, app_under_test
 from tests.config import BASE_AUTH, build_test_config
 from tests.database import a_clean_database, held_corpus
@@ -23,8 +22,8 @@ CORPUS_DATABASE = build_test_config().db_base_name
 # `served_with`'s own: it clears where it seeds, and the shared corpus is one nothing may clear under its cases.
 WINDOW_DATABASE = worker_database("fl_bewerbung_window_test")
 
-PREFIX = f"/api/v{API_VERSION}/bewerbungen"
-LANDING = f"/api/v{API_VERSION}/saisons/landing"
+PREFIX = "/api/bewerbungen"
+LANDING = "/api/saisons/landing"
 
 # Injected through `get_germany_now`, so the window judgement is not made against the wall clock.
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))

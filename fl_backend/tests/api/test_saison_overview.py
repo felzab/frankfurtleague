@@ -19,7 +19,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.saisons.overview import _gaps
 from app.api.spiele.schemas import FLSpielJoinedInternal
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from tests import documents
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_AUTH, build_test_config, grants_for_the_suite
@@ -27,7 +26,7 @@ from tests.database import held_corpus
 
 SAISON = "2026"
 OTHER_SAISON = "2025"
-PATH = f"/api/v{API_VERSION}/saisons/{SAISON}/overview"
+PATH = f"/api/saisons/{SAISON}/overview"
 
 NOW = datetime(2026, 3, 15, 12, tzinfo=ZoneInfo("Europe/Berlin"))
 TODAY = "2026-03-15"

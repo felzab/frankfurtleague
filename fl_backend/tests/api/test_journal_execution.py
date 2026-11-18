@@ -19,7 +19,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.schiedsrichter.services import compose_confirmation, confirmation_deadline_from, erase_at_from
 from app.api.teams.services import compose_kontakt_confirmation
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.shared.einwilligung_evidence import TextVersions, evidence_state_of
 from app.shared.tokens import hash_token
 from tests.acts import journal_records
@@ -55,7 +54,7 @@ TODAY = "2126-10-03"
 SAISON_ID = "2026"
 ADULT = "1990-05-09"
 
-V = f"/api/v{API_VERSION}"
+V = "/api"
 
 # One person holding a pupil row, a referee row and two seats.
 PERSON = "ortrud.zwiebelmayer@schule.example.org"

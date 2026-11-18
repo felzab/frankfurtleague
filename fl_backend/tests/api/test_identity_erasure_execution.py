@@ -22,7 +22,6 @@ from app.api.registrierungen.person_router import admit
 from app.api.registrierungen.schemas import FLRegistrierungAdmitPayload
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.logging import JSONFormatter
 from app.core.security import PASSKEY_FACTOR
 from app.core.transactions import transaction_session
@@ -181,7 +180,7 @@ async def erased_on_request(url: str, *, by: str) -> Any:
 
     async with app_client(url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
         return await http.post(
-            f"/api/v{API_VERSION}/identity/erasure",
+            "/api/identity/erasure",
             json={"email": TYPED, "reason": "Mail vom 30.03.2126, Betreff: Bitte löscht alle meine Daten"},
             headers=StampedHeaders(by, ADMIN_KEY),
         )

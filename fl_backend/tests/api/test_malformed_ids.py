@@ -40,7 +40,7 @@ MALFORMED_IDS = [NON_HEX_ID, HEX_ID[:-1], f"{HEX_ID}0"]
 @pytest.mark.parametrize("spiel_id", MALFORMED_IDS)
 async def test_a_malformed_path_id_is_a_404(spiel_id: str):
     """A path identifies, so an id naming nothing is a 404 — decided by the `objectid` convertor before a handler runs."""
-    response = await answered(f"/api/v0/saisons/{SAISON_ID}/spiele/{spiel_id}")
+    response = await answered(f"/api/saisons/{SAISON_ID}/spiele/{spiel_id}")
 
     assert (response.status_code, response.json()["error_code"]) == (404, Code.NO_ROUTE)
 

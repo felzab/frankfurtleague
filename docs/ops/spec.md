@@ -41,7 +41,7 @@ network it would publish the whole API past nginx.
 services declare a healthcheck:
 
 - `frontend`: Node answers a `HEAD` of `/favicon.ico`, which renders no route and reads no backend.
-- `backend`: `/api/v0/system/is_live`, which reads no database.
+- `backend`: `/api/system/is_live`, which reads no database.
 - `cloudflared`: `cloudflared tunnel ready`, healthy while the connector holds a connection to
   Cloudflare, so a refused token restarting in a loop is never counted healthy.
 
@@ -144,9 +144,6 @@ again in a transaction of their own, and the account sweep counts an account alr
 left owed deletions or erasures, or the drain gave a mail up. The monitor alerts on a failed ping
 and on a missing one ([`runbooks.md`](runbooks.md) §9). The ping never fails the pass.
 
-**`API_VERSION` is a constant of the code rather than a setting**, so bumping it is a code change,
-and the version is spelled again at sites a commit does not all reach (§4).
-
 ### 1.2 Mounts and secrets
 
 | Host path                       | Container path        | Mode      |
@@ -212,8 +209,8 @@ prefix; order in the file decides nothing.
 | `= /api/auth/sign-in/email-otp`     | `frontend` | `authapi`, and `form`                           | 8k       |
 | `= /api/mail/delivery`              | `frontend` | none                                            | 8k       |
 | `/api/auth`                         | `frontend` | `authapi`                                       | 1m       |
-| `= /api/v0/system/is_live`          | `backend`  | none                                            | 1m       |
-| `= /api/v0/system/is_ready`         | `backend`  | `authapi`                                       | 1m       |
+| `= /api/system/is_live`             | `backend`  | none                                            | 1m       |
+| `= /api/system/is_ready`            | `backend`  | `authapi`                                       | 1m       |
 | `/_next/static/`                    | `frontend` | `action`                                        | 1m       |
 | `/confirm/`                         | `frontend` | `linkpage`, `action` and the connection ceiling | 1m       |
 | `= /registrierung` and `= /erasure` | `frontend` | `linkpage`, `action` and the connection ceiling | 1m       |
@@ -330,10 +327,14 @@ seconds old (`nginx/shared/http.conf :: resolver`). A recreated container comes 
 address with no reload; until the cached answer lapses, a request sent to the old address answers
 `502`.
 
+**The probes also answer at their former addresses**, `/api/v0/system/is_live` and
+`/api/v0/system/is_ready`, which nginx rewrites to `/api/system/is_live` and `/api/system/is_ready`
+for the one release in which the outside monitors are re-pointed (§1.9).
+
 **Every `/api/...` path but the two probes reaches Next**, some through a location naming it and the
 rest through `location /`, which answers Next's 404 where nothing routes the path. The two probes are
 exact matches so that nothing joins them. nginx merges slashes and resolves dot segments before it
-picks a location, then forwards the request line as written, so `/api/v0//system/is_live` is
+picks a location, then forwards the request line as written, so `/api//system/is_live` is
 answered by FastAPI's own not-found body: no further route opens, but the body names the framework.
 
 **A location declaring any `proxy_set_header` replaces the whole inherited set rather than extending
@@ -766,11 +767,11 @@ be true there, a check the owner makes in its list of monitors:
   - **The landing page**, `https://frankfurtleague.de/`, fails where the edge, the connector or the
     frontend does. A page whose league read failed still answers 200, so it never sees a database
     outage.
-  - **The liveness probe**, `GET https://frankfurtleague.de/api/v0/system/is_live`, fails where the
+  - **The liveness probe**, `GET https://frankfurtleague.de/api/system/is_live`, fails where the
     backend does. Every page answers 200 even then, its error page streaming after the headers. It
     names the apex host and no trailing slash, which would redirect and read green, and asks with
     `GET`, a `HEAD` being answered 405 (`fl_backend/app/api/system/router.py :: check_is_live`).
-  - **The readiness probe**, `GET https://frankfurtleague.de/api/v0/system/is_ready`, answers 503
+  - **The readiness probe**, `GET https://frankfurtleague.de/api/system/is_ready`, answers 503
     where the backend reaches no database. It asks no oftener than every two seconds, its location's
     zone allowing no more (§1.3).
   - **The heartbeat** fails where an hourly pass fails or none runs
@@ -820,31 +821,30 @@ be true there, a check the owner makes in its list of monitors:
 
 ## 3. Violation → remedy
 
-| Symptom                                                                                                  | Cause                                                                                                                                         | Remedy                                                                                                                          |
-| -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `Invalid environment variables: <NAMES>` then no traffic                                                 | The startup gate                                                                                                                              | Fix those names in the package's `.env`, then recreate the service ([`runbooks.md`](runbooks.md) §16)                           |
-| `Invalid secret files: <FILES>` then no traffic                                                          | A secret file is missing, or holds a value the gate refuses                                                                                   | Write the file named; its value is never printed                                                                                |
-| `Unreadable secret files: <PATH> (<ERRNO>)` then no traffic                                              | The service's user cannot read the file or `SECRETS_DIR`: `EACCES` its owner or mode, `EISDIR` a directory at its path, `ENOENT` no directory | Give it the user and mode §1.2 names, or write the file                                                                         |
-| `docker compose` refuses: `deploy through scripts/ops/deploy.sh, which sets TAG`                         | No `.env` pins a tag in this checkout, and the shell names none                                                                               | On the server, deploy; to reach a build by hand, prefix the command with `TAG=sha-…` ([`runbooks.md`](runbooks.md) §1)          |
-| A deploy reports live but the site is unreachable                                                        | nginx, or the connector in front of it                                                                                                        | `docker compose logs nginx`, then `docker compose logs cloudflared`                                                             |
-| No tunnel registers, or the connector restarts in a loop                                                 | The token file is missing, unreadable by uid 65532 or not this tunnel's                                                                       | `docker compose logs cloudflared`, then give the file the owner and mode §1.2 names                                             |
-| The tunnel is up and Cloudflare answers 502 or 1033                                                      | The dashboard routes a hostname to nothing, or to anything but `http://nginx:80` (§1.8)                                                       | Point both routes at `nginx:80` in the dashboard ([`runbooks.md`](runbooks.md) §1)                                              |
-| An `up` fails: `Pool overlaps with other one on this address space`                                      | Another Docker network on this host holds `172.30.0.0/24`, which `docker-compose.yml` declares so the connector's address is fixed            | Remove or re-subnet the other network, never this one                                                                           |
-| A deploy fails: nginx's running master refused the configuration `nginx -t` passed                       | A change nginx takes only at a start, such as a zone keyed anew under its old name                                                            | `docker compose restart nginx`                                                                                                  |
-| `failed to connect to the docker API at npipe:...`                                                       | Docker Desktop is not running                                                                                                                 | Start it and wait for it to settle                                                                                              |
-| The publish job in `.github/workflows/verify.yml` fails at the push with `denied` or `permission_denied` | The package does not grant this repository's workflows write access                                                                           | Package settings → Manage Actions access → add this repository with the Write role, then re-run the job                         |
-| `EBUSY`, or `.next` locked during a build                                                                | A `pnpm dev` is still running, or the folder is open in an editor                                                                             | Stop the dev server                                                                                                             |
-| `./scripts/ops/local.sh` reports `mongo` unhealthy                                                       | The local database has not elected itself primary, so no transaction opens                                                                    | Read the lines the script prints under `mongo`'s step                                                                           |
-| A db-tier run reports a wall of failures naming unique indexes                                           | A second `pytest -m db` ran beside it on the same machine                                                                                     | Re-run with nothing else on the tier                                                                                            |
-| Container unhealthy, health log empty, `FailingStreak: 0`                                                | The app died before the first probe, usually on a malformed `.env` value                                                                      | `docker compose logs <service>`                                                                                                 |
-| A directory appeared named `something;C`                                                                 | MSYS rewrote a POSIX-looking path in a hand-typed `docker run -v`                                                                             | Delete it, and prefix the command with `MSYS_NO_PATHCONV=1`                                                                     |
-| A response without the security headers                                                                  | A `location` block set a header and dropped the inherited set                                                                                 | Include `nginx/shared/security_headers.conf` in that block                                                                      |
-| Backend healthcheck fails after an API version bump                                                      | The healthcheck spells the API version itself                                                                                                 | Move the path in `docker-compose.yml`'s backend healthcheck, and in `nginx/shared/site.conf`'s two probe locations with it (§4) |
-| The uptime monitor 404s while the backend container reports healthy                                      | The liveness location still spells the old version, so the probe matches `location /` and Next answers it                                     | Move the path in `nginx/shared/site.conf`'s probe locations, then re-point the monitor (§4)                                     |
-| Uptime monitor shows green during a backend outage                                                       | The error page streams after headers, so the edge status is 200                                                                               | Monitor the liveness probe (§1.9)                                                                                               |
-| Sign-in or a link page answers `429`                                                                     | Working as intended: one network spent its zone (§1.3)                                                                                        | Nothing: a retry passes once the zone refills                                                                                   |
-| Reference data stale after a hand edit                                                                   | Working as intended: a change no save makes clears no cached entry                                                                            | Wait out the lifetime ([`runbooks.md`](runbooks.md) §20)                                                                        |
-| League table or fixtures stale after a season edit                                                       | Same cause: a season decides the default season and the points                                                                                | Same remedy                                                                                                                     |
+| Symptom                                                                                                  | Cause                                                                                                                                         | Remedy                                                                                                                 |
+| -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `Invalid environment variables: <NAMES>` then no traffic                                                 | The startup gate                                                                                                                              | Fix those names in the package's `.env`, then recreate the service ([`runbooks.md`](runbooks.md) §16)                  |
+| `Invalid secret files: <FILES>` then no traffic                                                          | A secret file is missing, or holds a value the gate refuses                                                                                   | Write the file named; its value is never printed                                                                       |
+| `Unreadable secret files: <PATH> (<ERRNO>)` then no traffic                                              | The service's user cannot read the file or `SECRETS_DIR`: `EACCES` its owner or mode, `EISDIR` a directory at its path, `ENOENT` no directory | Give it the user and mode §1.2 names, or write the file                                                                |
+| `docker compose` refuses: `deploy through scripts/ops/deploy.sh, which sets TAG`                         | No `.env` pins a tag in this checkout, and the shell names none                                                                               | On the server, deploy; to reach a build by hand, prefix the command with `TAG=sha-…` ([`runbooks.md`](runbooks.md) §1) |
+| A deploy reports live but the site is unreachable                                                        | nginx, or the connector in front of it                                                                                                        | `docker compose logs nginx`, then `docker compose logs cloudflared`                                                    |
+| No tunnel registers, or the connector restarts in a loop                                                 | The token file is missing, unreadable by uid 65532 or not this tunnel's                                                                       | `docker compose logs cloudflared`, then give the file the owner and mode §1.2 names                                    |
+| The tunnel is up and Cloudflare answers 502 or 1033                                                      | The dashboard routes a hostname to nothing, or to anything but `http://nginx:80` (§1.8)                                                       | Point both routes at `nginx:80` in the dashboard ([`runbooks.md`](runbooks.md) §1)                                     |
+| An `up` fails: `Pool overlaps with other one on this address space`                                      | Another Docker network on this host holds `172.30.0.0/24`, which `docker-compose.yml` declares so the connector's address is fixed            | Remove or re-subnet the other network, never this one                                                                  |
+| A deploy fails: nginx's running master refused the configuration `nginx -t` passed                       | A change nginx takes only at a start, such as a zone keyed anew under its old name                                                            | `docker compose restart nginx`                                                                                         |
+| `failed to connect to the docker API at npipe:...`                                                       | Docker Desktop is not running                                                                                                                 | Start it and wait for it to settle                                                                                     |
+| The publish job in `.github/workflows/verify.yml` fails at the push with `denied` or `permission_denied` | The package does not grant this repository's workflows write access                                                                           | Package settings → Manage Actions access → add this repository with the Write role, then re-run the job                |
+| `EBUSY`, or `.next` locked during a build                                                                | A `pnpm dev` is still running, or the folder is open in an editor                                                                             | Stop the dev server                                                                                                    |
+| `./scripts/ops/local.sh` reports `mongo` unhealthy                                                       | The local database has not elected itself primary, so no transaction opens                                                                    | Read the lines the script prints under `mongo`'s step                                                                  |
+| A db-tier run reports a wall of failures naming unique indexes                                           | A second `pytest -m db` ran beside it on the same machine                                                                                     | Re-run with nothing else on the tier                                                                                   |
+| Container unhealthy, health log empty, `FailingStreak: 0`                                                | The app died before the first probe, usually on a malformed `.env` value                                                                      | `docker compose logs <service>`                                                                                        |
+| A directory appeared named `something;C`                                                                 | MSYS rewrote a POSIX-looking path in a hand-typed `docker run -v`                                                                             | Delete it, and prefix the command with `MSYS_NO_PATHCONV=1`                                                            |
+| A response without the security headers                                                                  | A `location` block set a header and dropped the inherited set                                                                                 | Include `nginx/shared/security_headers.conf` in that block                                                             |
+| The uptime monitor 404s while the backend container reports healthy                                      | The monitor asks a probe's address that no exact location matches, so `location /` takes it and Next answers                                  | Point the monitor at `/api/system/is_live` or `/api/system/is_ready` (§1.9)                                            |
+| Uptime monitor shows green during a backend outage                                                       | The error page streams after headers, so the edge status is 200                                                                               | Monitor the liveness probe (§1.9)                                                                                      |
+| Sign-in or a link page answers `429`                                                                     | Working as intended: one network spent its zone (§1.3)                                                                                        | Nothing: a retry passes once the zone refills                                                                          |
+| Reference data stale after a hand edit                                                                   | Working as intended: a change no save makes clears no cached entry                                                                            | Wait out the lifetime ([`runbooks.md`](runbooks.md) §20)                                                               |
+| League table or fixtures stale after a season edit                                                       | Same cause: a season decides the default season and the points                                                                                | Same remedy                                                                                                            |
 
 Why a remedy is what it is, where a phrase cannot say:
 
@@ -865,10 +865,6 @@ Why a remedy is what it is, where a phrase cannot say:
 
 Each gap is open, waiting on work, or accepted, with its reason.
 
-- **The API version is spelled outside `API_VERSION`.** Open. Four sites spell it again:
-  `fl_frontend/src/core/api.ts :: BASE_FETCH_PATH`, which the generated client's paths must start
-  with; `docker-compose.yml`'s backend healthcheck; `nginx/shared/site.conf`'s two probe locations;
-  and `scripts/checks/edge_test.sh`. §3 carries two symptoms.
 - **A deploy's verdict reads no page.** Accepted: health is each container's healthcheck and
   nginx's reload, so a site whose every page errors can pass ([`runbooks.md`](runbooks.md) §1).
 - **Going back moves the images alone.** Accepted: the compose file and `nginx/` stay as pulled, so

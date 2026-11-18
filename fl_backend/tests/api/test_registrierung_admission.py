@@ -27,7 +27,6 @@ from app.api.registrierungen.services import (
 )
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.exceptions import DocumentNotFoundError
 from app.shared.einwilligung_evidence import evidence_state_of
 from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload, FLSpielerTextVersions
@@ -1078,7 +1077,7 @@ class TestThePendingReadServesNoAddress:
 
             async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
                 response = await http.get(
-                    f"/api/v{API_VERSION}/registrierungen/teams/{TEAM_OID}/saisons/{SAISON_ID}",
+                    f"/api/registrierungen/teams/{TEAM_OID}/saisons/{SAISON_ID}",
                     headers=StampedHeaders(ANNA, ADMIN_KEY, lane="person"),
                 )
 
