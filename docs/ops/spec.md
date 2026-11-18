@@ -327,10 +327,6 @@ seconds old (`nginx/shared/http.conf :: resolver`). A recreated container comes 
 address with no reload; until the cached answer lapses, a request sent to the old address answers
 `502`.
 
-**The probes also answer at their former addresses**, `/api/v0/system/is_live` and
-`/api/v0/system/is_ready`, which nginx rewrites to `/api/system/is_live` and `/api/system/is_ready`
-for the one release in which the outside monitors are re-pointed (§1.9).
-
 **Every `/api/...` path but the two probes reaches Next**, some through a location naming it and the
 rest through `location /`, which answers Next's 404 where nothing routes the path. The two probes are
 exact matches so that nothing joins them. nginx merges slashes and resolves dot segments before it
