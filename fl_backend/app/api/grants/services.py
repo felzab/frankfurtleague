@@ -10,7 +10,7 @@ from bson import ObjectId
 
 from app.api.grants.schemas import FLGrantChange, FLGrantNoticeStage
 from app.core.codes import Code
-from app.core.exceptions import WriteRefusal
+from app.core.exceptions import APIError
 from app.shared.schemas.custom import as_utc
 
 OWNER: Final = "owner"
@@ -45,32 +45,25 @@ def handover_due(grants: Sequence[Mapping[str, Any]], now: datetime) -> Mapping[
     return next((grant for grant in grants if grant.get("owner_from") is not None and as_utc(grant["owner_from"]) <= now.astimezone(UTC)), None)
 
 
-def find_exists_refusal(*, address: str, grants: Sequence[Mapping[str, Any]]) -> WriteRefusal | None:
+def find_exists_refusal(*, address: str, grants: Sequence[Mapping[str, Any]]) -> APIError | None:
     """`grant_exists`: a grant already holds the address, of either tier, a waiting one included."""
 
     if admin_tier_of(address, grants) is None:
         return None
 
-    return WriteRefusal(
-        error_code=Code.GRANT_EXISTS,
-        status=HTTPStatus.CONFLICT,
-        fields=(("email",),),
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.GRANT_EXISTS, fields=(("email",),))
 
 
-def find_only_owner_refusal(*, actor: str, grants: Sequence[Mapping[str, Any]]) -> WriteRefusal | None:
+def find_only_owner_refusal(*, actor: str, grants: Sequence[Mapping[str, Any]]) -> APIError | None:
     """`grant_only_owner`: only the owner adds, removes, hands over or withdraws, judged inside the transaction."""
 
     if holds_an_owners_power(actor=actor, grants=grants):
         return None
 
-    return WriteRefusal(
-        error_code=Code.GRANT_ONLY_OWNER,
-        status=HTTPStatus.FORBIDDEN,
-    )
+    return APIError(HTTPStatus.FORBIDDEN, Code.GRANT_ONLY_OWNER)
 
 
-def find_barred_refusal(*, barred: bool) -> WriteRefusal | None:
+def find_barred_refusal(*, barred: bool) -> APIError | None:
     """`grant_barred`: the address is on the ban list, which another administrator decided.
 
     The target's state, so 409: lifting the ban is what changes it.
@@ -79,32 +72,26 @@ def find_barred_refusal(*, barred: bool) -> WriteRefusal | None:
     if not barred:
         return None
 
-    return WriteRefusal(
-        error_code=Code.GRANT_BARRED,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.GRANT_BARRED)
 
 
-def find_owner_row_refusal(*, grant: Mapping[str, Any]) -> WriteRefusal | None:
+def find_owner_row_refusal(*, grant: Mapping[str, Any]) -> APIError | None:
     """`grant_owner`: the `owner` row is removed by no route and named by no handover."""
 
     if grant.get("admin_tier") != OWNER:
         return None
 
-    return WriteRefusal(
-        error_code=Code.GRANT_OWNER,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.GRANT_OWNER)
 
 
-def find_handover_refusal(*, grant: Mapping[str, Any], grants: Sequence[Mapping[str, Any]], now: datetime) -> WriteRefusal | None:
+def find_handover_refusal(*, grant: Mapping[str, Any], grants: Sequence[Mapping[str, Any]], now: datetime) -> APIError | None:
     """`grant_handover_waiting` while any row waits on one, `grant_not_in_effect` for a row whose own wait still runs."""
 
     if any(row.get("owner_from") is not None for row in grants):
-        return WriteRefusal(error_code=Code.GRANT_HANDOVER_WAITING, status=HTTPStatus.CONFLICT)
+        return APIError(HTTPStatus.CONFLICT, Code.GRANT_HANDOVER_WAITING)
 
     if not in_effect(grant, now):
-        return WriteRefusal(error_code=Code.GRANT_NOT_IN_EFFECT, status=HTTPStatus.CONFLICT)
+        return APIError(HTTPStatus.CONFLICT, Code.GRANT_NOT_IN_EFFECT)
 
     return None
 

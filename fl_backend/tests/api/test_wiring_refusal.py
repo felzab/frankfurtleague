@@ -8,7 +8,7 @@ from bson import ObjectId
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpielListAdapter
 from app.api.spiele.services import find_wiring_refusal
 from app.core.codes import Code
-from app.core.exceptions import WriteRefusal
+from app.core.exceptions import APIError
 from tests.payloads import PayloadFactory, SpielFactory, gruppenplatz, sieger, spiel_patch_body, verlierer
 
 MATCH_ID = "6890a1b2c3d4e5f60720{:04d}"
@@ -43,7 +43,7 @@ def season(spiel_at: SpielFactory) -> list[dict[str, Any]]:
     ]
 
 
-def refusal_for(season_docs: list[dict[str, Any]], nr: int, number_of_gruppen: int = 4, **overrides: Any) -> WriteRefusal | None:
+def refusal_for(season_docs: list[dict[str, Any]], nr: int, number_of_gruppen: int = 4, **overrides: Any) -> APIError | None:
     """Everything as stored plus `overrides`, so a case overriding nothing asserts that an unchanged save is legal."""
 
     stored = next(doc for doc in season_docs if doc["spiel_nr"] == nr)
@@ -55,8 +55,14 @@ def refusal_for(season_docs: list[dict[str, Any]], nr: int, number_of_gruppen: i
     )
 
 
+def answer(refusal: APIError | None) -> tuple[int, Code, tuple[Any, ...], dict[str, Any]] | None:
+    """What `refusal` would answer a client: an exception compares by identity, never by its fields."""
+
+    return None if refusal is None else (refusal.status_code, refusal.error_code, refusal.fields, dict(refusal.bounds))
+
+
 # What every arm answers: one code for every shape the season moved under, the repair being a reload.
-WIRING_REFUSAL = WriteRefusal(error_code=Code.WIRING_UNSUPPORTED, status=HTTPStatus.CONFLICT)
+WIRING_REFUSAL = (HTTPStatus.CONFLICT, Code.WIRING_UNSUPPORTED, (), {})
 
 
 class TestPhaseRules:
@@ -64,21 +70,21 @@ class TestPhaseRules:
 
     def test_a_group_spiel_carries_no_wiring(self, season):
         # The fixture's own team stays, so no maintained-side rule can refuse in the phase rule's place.
-        assert refusal_for(season, 1, team1_quelle=gruppenplatz("C", 1)) == WIRING_REFUSAL
+        assert answer(refusal_for(season, 1, team1_quelle=gruppenplatz("C", 1))) == WIRING_REFUSAL
 
     def test_a_dangling_match_number_is_refused(self, season):
         """The typo the resolution could only contain after the fact is refused at the door instead."""
-        assert refusal_for(season, 30, team1_quelle=sieger(27)) == WIRING_REFUSAL
+        assert answer(refusal_for(season, 30, team1_quelle=sieger(27))) == WIRING_REFUSAL
 
     def test_a_group_match_never_feeds_a_slot(self, season):
-        assert refusal_for(season, 30, team1_quelle=sieger(1)) == WIRING_REFUSAL
+        assert answer(refusal_for(season, 30, team1_quelle=sieger(1))) == WIRING_REFUSAL
 
     def test_a_same_round_source_is_refused(self, season):
         """Also what makes a cycle inexpressible: every edge must point at a strictly earlier round."""
-        assert refusal_for(season, 29, team1_quelle=verlierer(30)) == WIRING_REFUSAL
+        assert answer(refusal_for(season, 29, team1_quelle=verlierer(30))) == WIRING_REFUSAL
 
     def test_a_later_round_source_is_refused(self, season):
-        assert refusal_for(season, 29, team1_quelle=sieger(31)) == WIRING_REFUSAL
+        assert answer(refusal_for(season, 29, team1_quelle=sieger(31))) == WIRING_REFUSAL
 
 
 # Two brackets a season can play, by qualifier count:
@@ -128,14 +134,14 @@ class TestAGroupPlacingSeedsTheOpeningRound:
 class TestOneOutcomeOneSlot:
     def test_an_outcome_already_feeding_another_spiel_is_refused(self, season):
         """Re-pointing match 30 at match 26's winner, which 29 already holds."""
-        assert refusal_for(season, 30, team1_quelle=sieger(26)) == WIRING_REFUSAL
+        assert answer(refusal_for(season, 30, team1_quelle=sieger(26))) == WIRING_REFUSAL
 
     def test_an_outcome_cannot_feed_both_sides_of_one_spiel(self, season):
-        assert refusal_for(season, 30, team1_quelle=verlierer(25), team2_quelle=verlierer(25)) == WIRING_REFUSAL
+        assert answer(refusal_for(season, 30, team1_quelle=verlierer(25), team2_quelle=verlierer(25))) == WIRING_REFUSAL
 
     def test_a_group_placing_already_seeding_another_spiel_is_refused(self, season):
         """Same rule, `gruppe` variant: Gruppensieger A cannot open two quarter-finals."""
-        assert refusal_for(season, 26, team1_quelle=gruppenplatz("A", 1)) == WIRING_REFUSAL
+        assert answer(refusal_for(season, 26, team1_quelle=gruppenplatz("A", 1))) == WIRING_REFUSAL
 
 
 class TestMaintainedSides:
@@ -143,12 +149,12 @@ class TestMaintainedSides:
 
     def test_a_hand_set_team_on_a_maintained_side_is_refused(self, season, spiel_team_field):
         """A team picked onto a wired slot would otherwise get a success toast and no effect."""
-        assert refusal_for(season, 29, team1=spiel_team_field()) == WIRING_REFUSAL
+        assert answer(refusal_for(season, 29, team1=spiel_team_field())) == WIRING_REFUSAL
 
     def test_clearing_the_team_of_a_maintained_side_is_refused(self, season, spiel_team_field):
         """Emptying the slot by hand is the same write in the other direction — the resolution owns it."""
         occupied = [doc if doc["spiel_nr"] != 29 else {**doc, "team1": spiel_team_field()} for doc in season]
-        assert refusal_for(occupied, 29, team1=None) == WIRING_REFUSAL
+        assert answer(refusal_for(occupied, 29, team1=None)) == WIRING_REFUSAL
 
 
 def stored_as(season_docs: list[dict[str, Any]], nr: int, **wiring: Any) -> list[dict[str, Any]]:
@@ -189,7 +195,7 @@ class TestAStoredShapeDoesNotLatch:
 
     def test_a_kept_source_is_still_taken(self, season):
         """Match 29 keeps 25's winner rather than being judged on it, and the season holds it either way."""
-        assert refusal_for(season, 29, team2_quelle=sieger(25)) == WIRING_REFUSAL
+        assert answer(refusal_for(season, 29, team2_quelle=sieger(25))) == WIRING_REFUSAL
 
 
 class TestEveryRefusalCarriesItsCode:

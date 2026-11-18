@@ -8,7 +8,7 @@ from app.api.outbox.schemas import FLInvitationData, FLOutboxLink, FLOutboxRefer
 from app.api.outbox.services import OwedMail
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import WriteRefusal
+from app.core.exceptions import APIError
 from app.shared.einwilligung import is_confirmed
 from app.shared.schemas.literals import KONTAKT_SEATS, FLKontaktSeat
 
@@ -19,7 +19,7 @@ WITHOUT_TOKEN_HASH: Mapping[str, int] = {"token_hashes": 0}
 
 # `find_kader_team_refusal` asks the same question of the same junction and is pinned to its own callers, so this slice
 # asks it again rather than widening that one.
-def find_team_in_saison_refusal(*, entered: bool) -> WriteRefusal | None:
+def find_team_in_saison_refusal(*, entered: bool) -> APIError | None:
     """`invitation_team_not_entered`: the season holds no junction row for this team.
 
     Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction.
@@ -28,13 +28,10 @@ def find_team_in_saison_refusal(*, entered: bool) -> WriteRefusal | None:
     if entered:
         return None
 
-    return WriteRefusal(
-        error_code=Code.INVITATION_TEAM_NOT_ENTERED,
-        status=HTTPStatus.NOT_FOUND,
-    )
+    return APIError(HTTPStatus.NOT_FOUND, Code.INVITATION_TEAM_NOT_ENTERED)
 
 
-def find_invitation_saison_past_refusal(*, saison_status: Any) -> WriteRefusal | None:
+def find_invitation_saison_past_refusal(*, saison_status: Any) -> APIError | None:
     """`saison_past`: the season has ended.
 
     A `future` season mints: an administrator prepares the links before the window opens, and the
@@ -44,13 +41,10 @@ def find_invitation_saison_past_refusal(*, saison_status: Any) -> WriteRefusal |
     if saison_status != "past":
         return None
 
-    return WriteRefusal(
-        error_code=Code.SAISON_PAST,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.SAISON_PAST)
 
 
-def find_unknown_invitation_refusal(*, invitation_raw: Mapping[str, Any] | None) -> WriteRefusal | None:
+def find_unknown_invitation_refusal(*, invitation_raw: Mapping[str, Any] | None) -> APIError | None:
     """`document_not_found`: the link value the visitor presented opens no live invite.
 
     Takes the row the caller's own read found, so that read runs in the caller's transaction. A revoked
@@ -60,10 +54,7 @@ def find_unknown_invitation_refusal(*, invitation_raw: Mapping[str, Any] | None)
     if invitation_raw is not None:
         return None
 
-    return WriteRefusal(
-        error_code=Code.DOCUMENT_NOT_FOUND,
-        status=HTTPStatus.NOT_FOUND,
-    )
+    return APIError(HTTPStatus.NOT_FOUND, Code.DOCUMENT_NOT_FOUND)
 
 
 # The partial filter `uniq_invitation_live` is built on, spelled as it is: the equality with `None`

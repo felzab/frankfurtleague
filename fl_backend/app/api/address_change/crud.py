@@ -59,7 +59,7 @@ from app.api.spieler.services import build_self_pupil_filter
 from app.core.clock import days_after, german_day
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, delete_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db
-from app.core.exceptions import WriteRefusal, as_judged_on_stored_state
+from app.core.exceptions import APIError, as_judged_on_stored_state
 from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.shared.folding import sign_in_identifier
@@ -520,7 +520,7 @@ async def judge_the_effect_in_session(
     return Verdict(cause=None, empty=False)
 
 
-def refusal_of(cause: FLAddressChangeCause | None) -> WriteRefusal | None:
+def refusal_of(cause: FLAddressChangeCause | None) -> APIError | None:
     """The refusal a press answers for the judgement's cause, where the link's view shows a state and the pass ends the change.
 
     On no field: the press's body holds its token and its answer, and the box these two name is the address tool's.

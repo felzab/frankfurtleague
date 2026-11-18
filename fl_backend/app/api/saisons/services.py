@@ -11,7 +11,7 @@ from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS
 from app.api.teams.services import offered_gruppen
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import Twins, WriteRefusal, as_judged_on_stored_state
+from app.core.exceptions import APIError, Twins, as_judged_on_stored_state
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus
 
@@ -146,7 +146,7 @@ def next_saison_id(newest_id: str | None) -> str:
     return str(FIRST_SAISON_YEAR) if newest_id is None else str(int(newest_id) + 1)
 
 
-def find_saison_create_refusal(*, future_stands: bool) -> WriteRefusal | None:
+def find_saison_create_refusal(*, future_stands: bool) -> APIError | None:
     """`create_saison_future_stands`, with no path: a planned season stands, so the next one is already made.
 
     Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction. Two creates racing
@@ -157,10 +157,10 @@ def find_saison_create_refusal(*, future_stands: bool) -> WriteRefusal | None:
     if not future_stands:
         return None
 
-    return WriteRefusal(error_code=Code.CREATE_SAISON_FUTURE_STANDS, status=HTTPStatus.CONFLICT)
+    return APIError(HTTPStatus.CONFLICT, Code.CREATE_SAISON_FUTURE_STANDS)
 
 
-def find_saison_start_refusal(*, stored_start_date: str, proposed_start_date: str, taken_place: bool) -> WriteRefusal | None:
+def find_saison_start_refusal(*, stored_start_date: str, proposed_start_date: str, taken_place: bool) -> APIError | None:
     """Why moving this season's start must be refused, or `None`: once a fixture of it has taken place, the start is fixed.
 
     Editable until then, so a season frozen early is unlocked by moving its start. After a match, moving it would
@@ -171,13 +171,10 @@ def find_saison_start_refusal(*, stored_start_date: str, proposed_start_date: st
     if stored_start_date == proposed_start_date or not taken_place:
         return None
 
-    return WriteRefusal(
-        error_code=Code.SAISON_START_TAKEN_PLACE,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.SAISON_START_TAKEN_PLACE)
 
 
-def find_saison_start_austritt_refusal(*, stored_start_date: str, proposed_start_date: str, austritt_stored: bool) -> WriteRefusal | None:
+def find_saison_start_austritt_refusal(*, stored_start_date: str, proposed_start_date: str, austritt_stored: bool) -> APIError | None:
     """Why moving this season's start later must be refused, or `None`: a club's exit is stored.
 
     An exit is recorded only from the start date (`austritt_before_saison_start`); a start moved later would make the
@@ -188,15 +185,10 @@ def find_saison_start_austritt_refusal(*, stored_start_date: str, proposed_start
     if not austritt_stored or proposed_start_date <= stored_start_date:
         return None
 
-    return WriteRefusal(
-        error_code=Code.SAISON_START_AUSTRITT_STORED,
-        status=HTTPStatus.CONFLICT,
-        fields=(("start_date",),),
-        bounds={"latest": stored_start_date},
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.SAISON_START_AUSTRITT_STORED, fields=(("start_date",),), bounds={"latest": stored_start_date})
 
 
-def find_saison_past_refusal(*, saison_status: str) -> WriteRefusal | None:
+def find_saison_past_refusal(*, saison_status: str) -> APIError | None:
     """`saison_past` for a write a finished season's record no longer takes: a fixture's save, a matchday's re-dating, a club's season row.
 
     Pure. A caller's read of `status` stays current through its write set: `activate_saison` anchors the fixtures of every
@@ -206,10 +198,7 @@ def find_saison_past_refusal(*, saison_status: str) -> WriteRefusal | None:
     if saison_status != "past":
         return None
 
-    return WriteRefusal(
-        error_code=Code.SAISON_PAST,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.SAISON_PAST)
 
 
 # What a started season holds fixed: a league does not change its scoring or its seeding mid-season.
@@ -243,7 +232,7 @@ def _forfeit_unentschieden_in_a_knockout(rules: FLSaisonRules) -> bool:
     return bool(knockout_phases_for(qualifier_count(rules))) and rules.forfeit_ergebnis.sieger_tore == rules.forfeit_ergebnis.verlierer_tore
 
 
-def find_rules_freeze_refusal(*, saison_status: str, started: bool, stored: FLSaisonRules, proposed: FLSaisonRules) -> WriteRefusal | None:
+def find_rules_freeze_refusal(*, saison_status: str, started: bool, stored: FLSaisonRules, proposed: FLSaisonRules) -> APIError | None:
     """Why this edit of a started season's rules must be refused, or `None`.
 
     Judged before `find_rules_refusal`: no point naming a bound when the whole edit is refused anyway.
@@ -258,10 +247,7 @@ def find_rules_freeze_refusal(*, saison_status: str, started: bool, stored: FLSa
     if all(getattr(stored, field) == getattr(proposed, field) for field in FROZEN_RULES_FIELDS):
         return None
 
-    return WriteRefusal(
-        error_code=Code.RULES_SAISON_STARTED,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.RULES_SAISON_STARTED)
 
 
 def find_rules_refusal(
@@ -275,7 +261,7 @@ def find_rules_refusal(
     # The largest count any single matchday of a phase holds, never the sum.
     attached_by_phase: Mapping[FLSaisonPhase, int] | None = None,
     drawn_spiele: int = 0,
-) -> WriteRefusal | None:
+) -> APIError | None:
     """Why these rules must be refused, or `None`."""
 
     # Early, as the freeze is: where a number cannot change at all, naming what it may not drop past
@@ -286,10 +272,7 @@ def find_rules_refusal(
     if stored is not None and drawn_spiele > 0:
         redrawn = [field for field in SHAPE_RULES_FIELDS if getattr(stored, field) != getattr(proposed, field)]
         if redrawn:
-            return WriteRefusal(
-                error_code=Code.RULES_SHAPE_AFTER_SPIELPLAN,
-                status=HTTPStatus.CONFLICT,
-            )
+            return APIError(HTTPStatus.CONFLICT, Code.RULES_SHAPE_AFTER_SPIELPLAN)
 
     # Before the bracket rule, being narrower: it names two fields an admin can compare, where the
     # bracket's answer is a property of their product.
@@ -297,9 +280,9 @@ def find_rules_refusal(
     # The excess, against the stored one: `rules` is required on the patch, so a dates-only edit
     # resubmits a stored violation unchanged, and shrinking an excess repairs it.
     if excess > 0 and (stored is None or excess > stored.qualifiers_per_gruppe - stored.teams_per_gruppe):
-        return WriteRefusal(
-            error_code=Code.RULES_QUALIFIERS_ABOVE_GRUPPE,
-            status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        return APIError(
+            HTTPStatus.UNPROCESSABLE_CONTENT,
+            Code.RULES_QUALIFIERS_ABOVE_GRUPPE,
             fields=(("rules", "qualifiers_per_gruppe"),),
             bounds={"max": proposed.teams_per_gruppe},
         )
@@ -308,9 +291,9 @@ def find_rules_refusal(
     # the season.
     draw_excess = proposed.draw_points - proposed.win_points
     if draw_excess > 0 and (stored is None or draw_excess > stored.draw_points - stored.win_points):
-        return WriteRefusal(
-            error_code=Code.RULES_UNENTSCHIEDEN_OUTVALUES_WIN,
-            status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        return APIError(
+            HTTPStatus.UNPROCESSABLE_CONTENT,
+            Code.RULES_UNENTSCHIEDEN_OUTVALUES_WIN,
             fields=(("rules", "draw_points"),),
             bounds={"max": proposed.win_points},
         )
@@ -318,9 +301,9 @@ def find_rules_refusal(
     # The same order one rung down, judged by its excess as the draw's is: a loss is never the better result.
     loss_excess = proposed.loss_points - proposed.draw_points
     if loss_excess > 0 and (stored is None or loss_excess > stored.loss_points - stored.draw_points):
-        return WriteRefusal(
-            error_code=Code.RULES_NIEDERLAGE_OUTVALUES_UNENTSCHIEDEN,
-            status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        return APIError(
+            HTTPStatus.UNPROCESSABLE_CONTENT,
+            Code.RULES_NIEDERLAGE_OUTVALUES_UNENTSCHIEDEN,
             fields=(("rules", "loss_points"),),
             bounds={"max": proposed.draw_points},
         )
@@ -330,10 +313,7 @@ def find_rules_refusal(
     # Against the stored product: an unchanged product carries an unchanged verdict, so equality
     # alone lets the dates-only edit through, `rules` being required on the patch.
     if not knockout_phases_for(qualifiers) and qualifiers != stored_qualifiers:
-        return WriteRefusal(
-            error_code=Code.RULES_BRACKET_IMPOSSIBLE,
-            status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        )
+        return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.RULES_BRACKET_IMPOSSIBLE)
 
     # After the bracket rule, which is narrower and answers first: a product with no bracket plays
     # no knockout round, so a count taken over one measures a season the admin has not asked for.
@@ -342,18 +322,15 @@ def find_rules_refusal(
     # The excess, as the two rules above judge theirs: `rules` is required on the patch, so a dates-only edit
     # resubmits a stored count unchanged and any step that shrinks one repairs the season.
     if spiele > LIST_LIMIT_DEFAULT and (stored_spiele is None or spiele > stored_spiele):
-        return WriteRefusal(
-            error_code=Code.RULES_SPIELE_OVER_ONE_READ,
-            status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        )
+        return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.RULES_SPIELE_OVER_ONE_READ)
 
     # No shoot-out can break it: a composed forfeit discards one, so a level award leaves
     # `_outcome_of` advancing nobody. Only the step that pairs the two
     # is refused.
     if _forfeit_unentschieden_in_a_knockout(proposed) and (stored is None or not _forfeit_unentschieden_in_a_knockout(stored)):
-        return WriteRefusal(
-            error_code=Code.RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT,
-            status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        return APIError(
+            HTTPStatus.UNPROCESSABLE_CONTENT,
+            Code.RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT,
             fields=(("rules", "forfeit_ergebnis", "sieger_tore"),),
             bounds={"min": proposed.forfeit_ergebnis.verlierer_tore + 1},
         )
@@ -367,39 +344,26 @@ def find_rules_refusal(
         if stranded:
             # The groups are a prefix of the closed set, so the fewest that still offer every occupied one run to the last.
             in_use = max(offered_gruppen(MAX_NUMBER_OF_GROUPS).index(gruppe) for gruppe in stranded) + 1
-            return WriteRefusal(
-                error_code=Code.RULES_GRUPPEN_IN_USE,
-                status=HTTPStatus.CONFLICT,
-                fields=(("rules", "number_of_gruppen"),),
-                bounds={"min": in_use},
-            )
+            return APIError(HTTPStatus.CONFLICT, Code.RULES_GRUPPEN_IN_USE, fields=(("rules", "number_of_gruppen"),), bounds={"min": in_use})
 
     if proposed.teams_per_gruppe < stored.teams_per_gruppe:
         fullest = max(occupancy_by_gruppe.values(), default=0)
         if fullest > proposed.teams_per_gruppe:
-            return WriteRefusal(
-                error_code=Code.RULES_CAPACITY_BELOW_USE,
-                status=HTTPStatus.CONFLICT,
-                fields=(("rules", "teams_per_gruppe"),),
-                bounds={"min": fullest},
+            return APIError(
+                HTTPStatus.CONFLICT, Code.RULES_CAPACITY_BELOW_USE, fields=(("rules", "teams_per_gruppe"),), bounds={"min": fullest}
             )
 
     # Only where the patch lowers it, on `rules_capacity_below_use`'s shape: a cap left where it stands is not
     # this edit's doing, and refusing it would bar the very edit that repairs the season.
     if proposed.max_kader_size < stored.max_kader_size and largest_kader > proposed.max_kader_size:
-        return WriteRefusal(
-            error_code=Code.RULES_KADER_BELOW_USE,
-            status=HTTPStatus.CONFLICT,
-            fields=(("rules", "max_kader_size"),),
-            bounds={"min": largest_kader},
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.RULES_KADER_BELOW_USE, fields=(("rules", "max_kader_size"),), bounds={"min": largest_kader})
 
     # Only where the patch lowers it: `rules` is required, so a dates-only edit resubmits a count
     # already under the wiring, and refusing that would leave the season unpatchable.
     if proposed.qualifiers_per_gruppe < highest_wired_platz and proposed.qualifiers_per_gruppe < stored.qualifiers_per_gruppe:
-        return WriteRefusal(
-            error_code=Code.RULES_QUALIFIERS_BELOW_WIRING,
-            status=HTTPStatus.CONFLICT,
+        return APIError(
+            HTTPStatus.CONFLICT,
+            Code.RULES_QUALIFIERS_BELOW_WIRING,
             fields=(("rules", "qualifiers_per_gruppe"),),
             bounds={"min": highest_wired_platz},
         )
@@ -411,10 +375,7 @@ def find_rules_refusal(
         # Only where the step narrows the phase: a count nothing changed is not this edit's doing,
         # and refusing it would leave the season unpatchable.
         if attached > expected and expected < expected_matches(stored, phase):
-            return WriteRefusal(
-                error_code=Code.RULES_SPIELTAG_OVER_ITS_PHASE,
-                status=HTTPStatus.CONFLICT,
-            )
+            return APIError(HTTPStatus.CONFLICT, Code.RULES_SPIELTAG_OVER_ITS_PHASE)
 
     return None
 
@@ -448,7 +409,7 @@ def find_saison_span_refusal(
     end_date: str,
     rules: FLSaisonRules,
     spieltag_spans: Sequence[tuple[str, str]],
-) -> WriteRefusal | None:
+) -> APIError | None:
     """Why this season's span must be refused, or `None`.
 
     `spieltag_spans` is every dated matchday of the season, as `(start, end)`: a span the season no
@@ -461,9 +422,9 @@ def find_saison_span_refusal(
     if offered_days < required_days:
         # On the end, as the span's own rule sits there, its bound the earliest end the schedule fits: the start is the
         # day the locks read, the box a season's length is repaired on is its end.
-        return WriteRefusal(
-            error_code=Code.SAISON_SPAN_BELOW_SPIELPLAN,
-            status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        return APIError(
+            HTTPStatus.UNPROCESSABLE_CONTENT,
+            Code.SAISON_SPAN_BELOW_SPIELPLAN,
             fields=(("end_date",),),
             bounds={"earliest": (date.fromisoformat(start_date) + timedelta(days=required_days - 1)).isoformat()},
         )
@@ -472,12 +433,7 @@ def find_saison_span_refusal(
     first, last = min((span[0] for span in spieltag_spans), default=start_date), max((span[1] for span in spieltag_spans), default=end_date)
     short = tuple(path for path, falls_short in ((("start_date",), first < start_date), (("end_date",), last > end_date)) if falls_short)
     if short:
-        return WriteRefusal(
-            error_code=Code.SAISON_SPAN_BELOW_SPIELTAGE,
-            status=HTTPStatus.CONFLICT,
-            fields=short,
-            bounds={"start": first, "end": last},
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.SAISON_SPAN_BELOW_SPIELTAGE, fields=short, bounds={"start": first, "end": last})
 
     return None
 
@@ -492,7 +448,7 @@ DRAW_TWINS: Twins = {
 }
 
 
-def as_the_draw_answers(refusal: WriteRefusal | None) -> WriteRefusal | None:
+def as_the_draw_answers(refusal: APIError | None) -> APIError | None:
     """`refusal` as the draw answers it: under its twin where it weighed a stored value, else on the status line alone.
 
     Never on a field: the draw's payload states the shape under `shape` or not at all, so a path under `rules` names
@@ -588,7 +544,7 @@ def unplayed_spiel_nrs(spiele: Iterable[FLSpiel]) -> list[int]:
 
 def find_activation_refusal(
     *, target_status: str, target_spiele: int, undated_spieltage: int, outgoing_unplayed: Sequence[int]
-) -> WriteRefusal | None:
+) -> APIError | None:
     """Why this rollover must be refused, or `None`.
 
     `undated_spieltage` counts the target season's matchdays holding no `start`; `outgoing_unplayed`
@@ -598,32 +554,20 @@ def find_activation_refusal(
     # The target first: an incumbent an admin can go and finish is beside the point where the season
     # they are promoting may not be promoted at all.
     if target_status == "past":
-        return WriteRefusal(
-            error_code=Code.SAISON_PAST,
-            status=HTTPStatus.CONFLICT,
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.SAISON_PAST)
 
     if target_spiele == 0:
-        return WriteRefusal(
-            error_code=Code.ACTIVATE_TARGET_UNDRAWN,
-            status=HTTPStatus.CONFLICT,
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.ACTIVATE_TARGET_UNDRAWN)
 
     # After the undrawn target and before the incumbent: an undrawn season holds no matchday to
     # date, so this refusal would name a repair the admin cannot make there.
     if undated_spieltage > 0:
-        return WriteRefusal(
-            error_code=Code.ACTIVATE_SPIELTAGE_UNDATED,
-            status=HTTPStatus.CONFLICT,
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.ACTIVATE_SPIELTAGE_UNDATED)
 
     if not outgoing_unplayed:
         return None
 
-    return WriteRefusal(
-        error_code=Code.ACTIVATE_SAISON_UNFINISHED,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.ACTIVATE_SAISON_UNFINISHED)
 
 
 # The one status a draw, a replace and an undraw run on, and the one nothing returns a season to
@@ -641,7 +585,7 @@ def _planning_window_is_open(*, saison_status: str, recorded_spiele: int) -> boo
     return saison_status == PLANNING_STATUS and recorded_spiele == 0
 
 
-def find_replace_window_refusal(*, saison_status: str, recorded_spiele: int) -> WriteRefusal | None:
+def find_replace_window_refusal(*, saison_status: str, recorded_spiele: int) -> APIError | None:
     """`spielplan_replace_outside_its_window`: a replace asked outside the planning window, or `None`.
 
     Apart from `find_spielplan_refusal`, which asks it of every replace, because it is the part of a replace's judgement no
@@ -651,10 +595,7 @@ def find_replace_window_refusal(*, saison_status: str, recorded_spiele: int) -> 
     if _planning_window_is_open(saison_status=saison_status, recorded_spiele=recorded_spiele):
         return None
 
-    return WriteRefusal(
-        error_code=Code.SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW)
 
 
 def find_spielplan_refusal(
@@ -667,7 +608,7 @@ def find_spielplan_refusal(
     # Neither defaults: a caller that forgot `recorded_spiele` would replace a season already played.
     replace: bool,
     recorded_spiele: int,
-) -> WriteRefusal | None:
+) -> APIError | None:
     """Why drawing this season's Spielplan must be refused, or `None`.
 
     Each refuses on its own, so the order decides only which one an admin reads: what no group
@@ -677,16 +618,10 @@ def find_spielplan_refusal(
     # What a confirmed replace is about to delete is no reason to turn it away, so `spielplan_already_drawn`
     # and `spielplan_spieltage_held` step aside for one. `spielplan_replace_outside_its_window` below is what bounds it instead.
     if spiele_drawn > 0 and not replace:
-        return WriteRefusal(
-            error_code=Code.SPIELPLAN_ALREADY_DRAWN,
-            status=HTTPStatus.CONFLICT,
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.SPIELPLAN_ALREADY_DRAWN)
 
     if spieltage_held > 0 and not replace:
-        return WriteRefusal(
-            error_code=Code.SPIELPLAN_SPIELTAGE_HELD,
-            status=HTTPStatus.CONFLICT,
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.SPIELPLAN_SPIELTAGE_HELD)
 
     # Whether the season holds anything to delete or not: the flag is the operation the caller asked
     # for, and one flag meaning a replace here and a first draw there is the ambiguity this closes.
@@ -697,10 +632,7 @@ def find_spielplan_refusal(
     # would otherwise be unschedulable for good, and `activate_target_undrawn` keeps the state rare. A
     # replace is `future`-only, above.
     if saison_status == "past":
-        return WriteRefusal(
-            error_code=Code.SAISON_PAST,
-            status=HTTPStatus.CONFLICT,
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.SAISON_PAST)
 
     offered = offered_gruppen(rules.number_of_gruppen)
 
@@ -714,27 +646,21 @@ def find_spielplan_refusal(
     off_size = off_size or any(held > 0 and gruppe not in offered for gruppe, held in occupancy_by_gruppe.items())
 
     if off_size:
-        return WriteRefusal(
-            error_code=Code.SPIELPLAN_GRUPPEN_OFF_RULES,
-            status=HTTPStatus.CONFLICT,
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.SPIELPLAN_GRUPPEN_OFF_RULES)
 
     return None
 
 
-def find_berichte_refusal(*, berichte: int) -> WriteRefusal | None:
+def find_berichte_refusal(*, berichte: int) -> APIError | None:
     """Why a replace or an undraw must be refused for the referees' reports it would delete with the fixtures, or `None`."""
 
     if berichte == 0:
         return None
 
-    return WriteRefusal(
-        error_code=Code.SPIELPLAN_BERICHTE_SUBMITTED,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.SPIELPLAN_BERICHTE_SUBMITTED)
 
 
-def find_undraw_refusal(*, saison_status: str, recorded_spiele: int) -> WriteRefusal | None:
+def find_undraw_refusal(*, saison_status: str, recorded_spiele: int) -> APIError | None:
     """Why removing this season's Spielplan must be refused, or `None`.
 
     The replace's window, read off the operation and not off what there is to remove: a season
@@ -744,10 +670,7 @@ def find_undraw_refusal(*, saison_status: str, recorded_spiele: int) -> WriteRef
     if _planning_window_is_open(saison_status=saison_status, recorded_spiele=recorded_spiele):
         return None
 
-    return WriteRefusal(
-        error_code=Code.SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW)
 
 
 def find_gruppe_swap_refusal(
@@ -759,7 +682,7 @@ def find_gruppe_swap_refusal(
     # way a fixture is a record of who played it. Before the start the save refuses a result
     # (`ergebnis_before_saison_start`), which keeps records out of what the rewrite moves.
     started: bool,
-) -> WriteRefusal | None:
+) -> APIError | None:
     """Why exchanging these two clubs' groups must be refused, or `None`.
 
     **The order is the argument**: it narrows from "not a swap" through the season. The season's start is the one lock,
@@ -769,30 +692,16 @@ def find_gruppe_swap_refusal(
 
     missing = [label for label, gruppe in (("team1", team1_gruppe), ("team2", team2_gruppe)) if gruppe is None]
     if missing:
-        return WriteRefusal(
-            error_code=Code.SWAP_NOT_A_SWAP,
-            status=HTTPStatus.UNPROCESSABLE_CONTENT,
-            fields=(("team1_id",), ("team2_id",)),
-        )
+        return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.SWAP_NOT_A_SWAP, fields=(("team1_id",), ("team2_id",)))
 
     # One club named on both sides reads its one group twice, so it is refused here as no swap.
     if team1_gruppe == team2_gruppe:
-        return WriteRefusal(
-            error_code=Code.SWAP_NOT_A_SWAP,
-            status=HTTPStatus.UNPROCESSABLE_CONTENT,
-            fields=(("team1_id",), ("team2_id",)),
-        )
+        return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.SWAP_NOT_A_SWAP, fields=(("team1_id",), ("team2_id",)))
 
     if saison_status == "past":
-        return WriteRefusal(
-            error_code=Code.SAISON_PAST,
-            status=HTTPStatus.CONFLICT,
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.SAISON_PAST)
 
     if started:
-        return WriteRefusal(
-            error_code=Code.SWAP_SAISON_STARTED,
-            status=HTTPStatus.CONFLICT,
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.SWAP_SAISON_STARTED)
 
     return None

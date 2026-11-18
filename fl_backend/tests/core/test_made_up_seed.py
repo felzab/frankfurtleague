@@ -30,7 +30,7 @@ from app.api.spieltage.services import DatedNeighbour, find_spieltag_order_refus
 from app.api.teams.services import find_austritt_refusal
 from app.core import clock
 from app.core.config import MONGODB_URI_FILE, SECRET_FILES
-from app.core.exceptions import WriteRefusal
+from app.core.exceptions import APIError
 from tests.boot import BACKEND_ROOT, environment, secrets_folder
 from tests.made_up_seed import LANDING_STATES, UNJUDGED, MadeUpLeague, Season, is_local_server
 
@@ -122,7 +122,7 @@ def refused_writes(league: MadeUpLeague) -> list[str]:
 
     found: list[str] = []
 
-    def judge(refusal: WriteRefusal | None, what: str) -> None:
+    def judge(refusal: APIError | None, what: str) -> None:
         if refusal is not None:
             found.append(f"{refusal.error_code}: {what}")
 

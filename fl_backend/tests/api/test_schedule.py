@@ -7,7 +7,7 @@ from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_rules_refusal, total_season_spiele
 from app.api.spiele.schemas import MAX_QUALIFIERS, PHASE_ORDER
 from app.core.codes import Code
-from app.core.exceptions import WriteRefusal
+from app.core.exceptions import APIError
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.literals import FLSaisonPhase
 from tests.documents import rules_document
@@ -35,7 +35,7 @@ def widest_legal_rules() -> FLSaisonRules:
     return rules(groups=groups, per_group=ceiling("teams_per_gruppe"), qualifiers=MAX_QUALIFIERS // groups)
 
 
-def refusal_for(shape: FLSaisonRules) -> WriteRefusal | None:
+def refusal_for(shape: FLSaisonRules) -> APIError | None:
     """A create's reading of one shape, which is also the draw's: `stored=None`, nothing entered, no bracket slot wired."""
 
     return find_rules_refusal(stored=None, proposed=shape, occupancy_by_gruppe={}, highest_wired_platz=0)

@@ -6,7 +6,7 @@ import pytest
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_rules_freeze_refusal, find_rules_refusal, find_undraw_refusal
 from app.core.codes import Code
-from app.core.exceptions import WriteRefusal
+from app.core.exceptions import APIError
 from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase
 
 
@@ -55,7 +55,7 @@ def judge(
     attached: Mapping[FLSaisonPhase, int] | None = None,
     drawn: int = 0,
     started: bool = False,
-) -> WriteRefusal | None:
+) -> APIError | None:
     """Both judgements in the order `patch_saison` asks them: the freeze, then the rules."""
 
     stored = rules() if stored is None else stored

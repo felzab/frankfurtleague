@@ -14,7 +14,7 @@ from app.core import clock
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import refuse
-from app.core.exceptions import WriteRefusal
+from app.core.exceptions import APIError
 from app.shared.schemas.bounds import AUFSTELLUNG_DUE_DAYS, AUFSTELLUNG_LOCK_HOURS, AUFSTELLUNG_REMINDER_DAYS, AUFSTELLUNG_STARTERS_MAX
 from app.shared.schemas.literals import FLSpielSide
 
@@ -98,22 +98,22 @@ def aufstellung_reminder_key(*, spiel_id: Any, team_id: Any, seat: str) -> str:
 # --- What a save judges, each refusal writing nothing.
 
 
-def find_undated_refusal(marks: FLAufstellungMarks | None) -> WriteRefusal | None:
+def find_undated_refusal(marks: FLAufstellungMarks | None) -> APIError | None:
     """`aufstellung_spiel_undated`: a fixture holding no day or no hour owes no line-up and takes none, from anybody."""
 
     if marks is not None:
         return None
 
-    return WriteRefusal(error_code=Code.AUFSTELLUNG_SPIEL_UNDATED, status=HTTPStatus.CONFLICT)
+    return APIError(HTTPStatus.CONFLICT, Code.AUFSTELLUNG_SPIEL_UNDATED)
 
 
-def find_locked_refusal(marks: FLAufstellungMarks | None) -> WriteRefusal | None:
+def find_locked_refusal(marks: FLAufstellungMarks | None) -> APIError | None:
     """`aufstellung_locked`: from the lock the line-up is the administration's. A seat's alone, and never for being due or overdue."""
 
     if marks is None or marks.phase != "locked":
         return None
 
-    return WriteRefusal(error_code=Code.AUFSTELLUNG_LOCKED, status=HTTPStatus.CONFLICT)
+    return APIError(HTTPStatus.CONFLICT, Code.AUFSTELLUNG_LOCKED)
 
 
 def judge_the_kickoff(marks: FLAufstellungMarks | None, *, locks: bool) -> None:
@@ -153,7 +153,7 @@ def newly_named(entries: Sequence[FLAufstellungEntry], saved: Mapping[str, Any] 
 
 def find_not_in_kader_refusal(
     *, entries: Sequence[FLAufstellungEntry], new: set[ObjectId], nameless: int, kader: Sequence[Mapping[str, Any]]
-) -> WriteRefusal | None:
+) -> APIError | None:
     """`spieler_not_in_kader`: a pupil newly named is in the club's live squad, and an entry naming nobody is one the line-up holds.
 
     `nameless` counts the stored entries naming nobody: a save keeps that many and adds none, since only an erasure
@@ -169,10 +169,10 @@ def find_not_in_kader_refusal(
     if not outside:
         return None
 
-    return WriteRefusal(error_code=Code.SPIELER_NOT_IN_KADER, status=HTTPStatus.CONFLICT, fields=outside)
+    return APIError(HTTPStatus.CONFLICT, Code.SPIELER_NOT_IN_KADER, fields=outside)
 
 
-def find_nominee_refusal(*, entries: Sequence[FLAufstellungEntry], kader: Sequence[Mapping[str, Any]]) -> WriteRefusal | None:
+def find_nominee_refusal(*, entries: Sequence[FLAufstellungEntry], kader: Sequence[Mapping[str, Any]]) -> APIError | None:
     """`aufstellung_nominee_without_shortage`: a line-up names nominees only into the gap its regular players leave below eleven.
 
     A pupil holding no squad row of the club, and an entry naming nobody, count as regular players: only a row says who
@@ -186,11 +186,8 @@ def find_nominee_refusal(*, entries: Sequence[FLAufstellungEntry], kader: Sequen
         return None
 
     # The bound on the list, so the screen words the eleven from the server rather than a copied figure.
-    return WriteRefusal(
-        error_code=Code.AUFSTELLUNG_NOMINEE_WITHOUT_SHORTAGE,
-        status=HTTPStatus.CONFLICT,
-        fields=(("spieler",),),
-        bounds={"max": AUFSTELLUNG_STARTERS_MAX},
+    return APIError(
+        HTTPStatus.CONFLICT, Code.AUFSTELLUNG_NOMINEE_WITHOUT_SHORTAGE, fields=(("spieler",),), bounds={"max": AUFSTELLUNG_STARTERS_MAX}
     )
 
 

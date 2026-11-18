@@ -19,7 +19,7 @@ from app.api.spieler.services import SELF_PUPIL_ORDER, build_self_pupil_filter
 from app.core.codes import Code
 from app.core.collections import Collection as DbCollection
 from app.core.crud import refuse
-from app.core.exceptions import WriteRefusal
+from app.core.exceptions import APIError
 from app.shared.einwilligung import find_self_media_refusal, media_offered
 from app.shared.einwilligung_evidence import CHOICES, FLEinwilligungChoice, TextVersions, compose_choices, evidence_state_of, is_given
 from app.shared.schemas.einwilligung import PressTextVersions, stale_grants
@@ -102,7 +102,7 @@ def withdrawal_line(
 
 def find_grant_wording_refusal(
     *, blocks: Sequence[Mapping[str, Any]], chosen: Mapping[FLEinwilligungChoice, Any], text_versions: PressTextVersions
-) -> WriteRefusal | None:
+) -> APIError | None:
     """`grant_wording_stale`: a choice this press moves onto a grant on any of `blocks` names a replaced label.
 
     Only a choice that moves: the writers stamp no other, so an unchanged grant beside a withdrawal from a page loaded
@@ -116,14 +116,10 @@ def find_grant_wording_refusal(
     if not stale:
         return None
 
-    return WriteRefusal(
-        error_code=Code.GRANT_WORDING_STALE,
-        status=HTTPStatus.CONFLICT,
-        fields=tuple(("text_versions", choice) for choice in stale),
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.GRANT_WORDING_STALE, fields=tuple(("text_versions", choice) for choice in stale))
 
 
-def find_giving_refusal(*, allowed: bool) -> WriteRefusal | None:
+def find_giving_refusal(*, allowed: bool) -> APIError | None:
     """`giving_not_allowed`: the record is the person's own and takes a withdrawal alone, so a grant on it is refused.
 
     Its own code, not `role_not_held`'s: the record was found, so naming the cause hides nothing.
@@ -132,13 +128,10 @@ def find_giving_refusal(*, allowed: bool) -> WriteRefusal | None:
     if allowed:
         return None
 
-    return WriteRefusal(
-        error_code=Code.GIVING_NOT_ALLOWED,
-        status=HTTPStatus.FORBIDDEN,
-    )
+    return APIError(HTTPStatus.FORBIDDEN, Code.GIVING_NOT_ALLOWED)
 
 
-def find_own_entry_refusal(*, held: bool) -> WriteRefusal | None:
+def find_own_entry_refusal(*, held: bool) -> APIError | None:
     """`role_not_held` on a person's own record: the address holds no record this operation may read or change.
 
     One answer for another person's id, an unconfirmed record and none at all, so the refusal tells
@@ -148,13 +141,10 @@ def find_own_entry_refusal(*, held: bool) -> WriteRefusal | None:
     if held:
         return None
 
-    return WriteRefusal(
-        error_code=Code.ROLE_NOT_HELD,
-        status=HTTPStatus.FORBIDDEN,
-    )
+    return APIError(HTTPStatus.FORBIDDEN, Code.ROLE_NOT_HELD)
 
 
-def find_evidence_state_refusal(*, expected: Mapping[str, Any], blocks: Sequence[Any]) -> WriteRefusal | None:
+def find_evidence_state_refusal(*, expected: Mapping[str, Any], blocks: Sequence[Any]) -> APIError | None:
     """`choices_stale`: a choice's evidence moved since the page was served.
 
     Refused rather than merged: a stale page sends the other choice as it last saw it, and taking that
@@ -164,10 +154,7 @@ def find_evidence_state_refusal(*, expected: Mapping[str, Any], blocks: Sequence
     if dict(expected) == evidence_state_of(blocks=blocks):
         return None
 
-    return WriteRefusal(
-        error_code=Code.CHOICES_STALE,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.CHOICES_STALE)
 
 
 # Every consent press runs the one sequence below between finding its record and writing it, a refusal at any step

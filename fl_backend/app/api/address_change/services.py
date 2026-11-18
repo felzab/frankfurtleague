@@ -13,7 +13,7 @@ from typing import Any, Final, Literal
 
 from app.core.clock import german_day
 from app.core.codes import Code
-from app.core.exceptions import APIError, WriteRefusal
+from app.core.exceptions import APIError
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAITING_PERIOD_DAYS, GRANT_WAIT_HOURS, OWNER_WAIT_DAYS
 from app.shared.schemas.custom import as_utc
@@ -298,50 +298,40 @@ def masked_address(email: str) -> str:
     return f"{local[:1]}•••@{shortened}"
 
 
-def find_unknown_refusal(*, found: bool) -> WriteRefusal | None:
+def find_unknown_refusal(*, found: bool) -> APIError | None:
     """`link_invalid`: the link matches no change, live or kept, and so answers nothing about one."""
 
     if found:
         return None
 
-    return WriteRefusal(error_code=Code.LINK_INVALID, status=HTTPStatus.NOT_FOUND)
+    return APIError(HTTPStatus.NOT_FOUND, Code.LINK_INVALID)
 
 
-def find_ended_refusal(*, is_open: bool) -> WriteRefusal | None:
+def find_ended_refusal(*, is_open: bool) -> APIError | None:
     """`address_change_ended`: the change this link or id names has ended, or this link was answered already."""
 
     if is_open:
         return None
 
-    return WriteRefusal(
-        error_code=Code.ADDRESS_CHANGE_ENDED,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.ADDRESS_CHANGE_ENDED)
 
 
-def find_expired_refusal(*, expired: bool) -> WriteRefusal | None:
+def find_expired_refusal(*, expired: bool) -> APIError | None:
     """`link_expired`: the step the change waits on lapsed: either link's question."""
 
     if not expired:
         return None
 
-    return WriteRefusal(
-        error_code=Code.LINK_EXPIRED,
-        status=HTTPStatus.GONE,
-    )
+    return APIError(HTTPStatus.GONE, Code.LINK_EXPIRED)
 
 
-def find_taken_refusal(*, taken: bool) -> WriteRefusal | None:
+def find_taken_refusal(*, taken: bool) -> APIError | None:
     """`address_change_taken`: another pupil signs in on the new address, and one address is one pupil (`uniq_spieler_email`)."""
 
     if not taken:
         return None
 
-    return WriteRefusal(
-        error_code=Code.ADDRESS_CHANGE_TAKEN,
-        status=HTTPStatus.CONFLICT,
-        fields=(("email",),),
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.ADDRESS_CHANGE_TAKEN, fields=(("email",),))
 
 
 # One mail every thirty seconds for a person's start, held here rather than at the edge: a server action posts its
@@ -368,7 +358,7 @@ def find_restart_refusal(*, live_valid_until: Any, now: datetime) -> APIError | 
     return APIError(HTTPStatus.TOO_MANY_REQUESTS, Code.ADDRESS_CHANGE_STARTED_RECENTLY, headers={"Retry-After": str(math.ceil(left))})
 
 
-def find_unchanged_refusal(*, address: str, folded: str) -> WriteRefusal | None:
+def find_unchanged_refusal(*, address: str, folded: str) -> APIError | None:
     """`address_change_unchanged`: the typed address signs in as the one on file, so it would ask a mailbox already proved.
 
     `folded` is the typed address's sign-in identifier, which the caller folds; `address` is one already.
@@ -378,25 +368,19 @@ def find_unchanged_refusal(*, address: str, folded: str) -> WriteRefusal | None:
         return None
 
     # Naming neither address: the message reaches the refusal's log line.
-    return WriteRefusal(
-        error_code=Code.ADDRESS_CHANGE_UNCHANGED,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.ADDRESS_CHANGE_UNCHANGED)
 
 
-def find_nothing_refusal(*, empty: bool) -> WriteRefusal | None:
+def find_nothing_refusal(*, empty: bool) -> APIError | None:
     """`address_change_nothing`: the address holds nothing a change moves, so there is nothing to change."""
 
     if not empty:
         return None
 
-    return WriteRefusal(
-        error_code=Code.ADDRESS_CHANGE_NOTHING,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.ADDRESS_CHANGE_NOTHING)
 
 
-def find_occupied_refusal(*, occupied: bool) -> WriteRefusal | None:
+def find_occupied_refusal(*, occupied: bool) -> APIError | None:
     """`address_change_occupied`: an entry names the new address, and moving the person onto it would join two people's.
 
     Never judged at the person's own start, which would tell its holder which addresses hold entries.
@@ -405,32 +389,22 @@ def find_occupied_refusal(*, occupied: bool) -> WriteRefusal | None:
     if not occupied:
         return None
 
-    return WriteRefusal(
-        error_code=Code.ADDRESS_CHANGE_OCCUPIED,
-        status=HTTPStatus.CONFLICT,
-        fields=(("email",),),
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.ADDRESS_CHANGE_OCCUPIED, fields=(("email",),))
 
 
-def find_new_taken_refusal(*, taken: bool) -> WriteRefusal | None:
+def find_new_taken_refusal(*, taken: bool) -> APIError | None:
     """`address_change_new_taken`: a re-send's new address has come to be another pupil's or to hold an entry, on a page with no box to mark."""
 
     if not taken:
         return None
 
-    return WriteRefusal(
-        error_code=Code.ADDRESS_CHANGE_NEW_TAKEN,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.ADDRESS_CHANGE_NEW_TAKEN)
 
 
-def find_new_granted_refusal(*, granted: bool) -> WriteRefusal | None:
+def find_new_granted_refusal(*, granted: bool) -> APIError | None:
     """`address_change_new_granted`: the new address holds a grant already, and one address holds one grant."""
 
     if not granted:
         return None
 
-    return WriteRefusal(
-        error_code=Code.ADDRESS_CHANGE_NEW_GRANTED,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.ADDRESS_CHANGE_NEW_GRANTED)

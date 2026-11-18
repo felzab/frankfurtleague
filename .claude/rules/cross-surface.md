@@ -19,7 +19,7 @@ Each fails silently. The ratified decisions for the seams are in `docs/decisions
   `ownWords` leaves out falls through to a shared failure line naming no reason, and on a save sends
   the admin to a retry the same rule refuses again.
 - A bound the backend moves without naming it in the rule's context or the refusal's bounds
-  (`fl_backend/app/core/exceptions.py :: WriteRefusal`) leaves a frontend line stale in silence.
+  (`fl_backend/app/core/exceptions.py :: APIError`) leaves a frontend line stale in silence.
 - `fl_backend/openapi.json` lists every code once and names none per endpoint, so which codes an
   endpoint answers is read from the service that raises them.
 - A test invents an address, a site or a telephone number only from values set aside for it: a

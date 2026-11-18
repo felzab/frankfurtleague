@@ -13,7 +13,7 @@ from app.api.saisons.services import entry_is_a_nominee
 from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import WriteRefusal
+from app.core.exceptions import APIError
 from app.shared.age import whole_years_between
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_evidence import TextVersions, compose_initial, compose_renewed
@@ -48,7 +48,7 @@ def saison_takes_registrierungen(*, saison_status: Any, registrierung: Any) -> b
     return registrierung is not None and saison_status == "active" and bool(registrierung["open"])
 
 
-def find_window_refusal(*, saison_status: Any, registrierung: Any) -> WriteRefusal | None:
+def find_window_refusal(*, saison_status: Any, registrierung: Any) -> APIError | None:
     """Why this season takes no registration today, or `None`.
 
     One code for every way `saison_takes_registrierungen` says no: naming which would report a
@@ -58,13 +58,10 @@ def find_window_refusal(*, saison_status: Any, registrierung: Any) -> WriteRefus
     if saison_takes_registrierungen(saison_status=saison_status, registrierung=registrierung):
         return None
 
-    return WriteRefusal(
-        error_code=Code.REGISTRIERUNG_CLOSED,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.REGISTRIERUNG_CLOSED)
 
 
-def find_team_departed_refusal(*, austritt: Any) -> WriteRefusal | None:
+def find_team_departed_refusal(*, austritt: Any) -> APIError | None:
     """`document_not_found`: the invite's team has left the season, so its link opens nothing, as a revoked invite's does.
 
     The record's presence and never its `date`, as a seat's grant reads it.
@@ -73,13 +70,10 @@ def find_team_departed_refusal(*, austritt: Any) -> WriteRefusal | None:
     if austritt is None:
         return None
 
-    return WriteRefusal(
-        error_code=Code.DOCUMENT_NOT_FOUND,
-        status=HTTPStatus.NOT_FOUND,
-    )
+    return APIError(HTTPStatus.NOT_FOUND, Code.DOCUMENT_NOT_FOUND)
 
 
-def find_team_junction_refusal(*, entered: bool) -> WriteRefusal | None:
+def find_team_junction_refusal(*, entered: bool) -> APIError | None:
     """`registrierung_closed`: the season holds no junction row for the invite's team.
 
     Its own code rather than the squad write's `kader_team_not_in_saison`, which is worded for an
@@ -89,13 +83,10 @@ def find_team_junction_refusal(*, entered: bool) -> WriteRefusal | None:
     if entered:
         return None
 
-    return WriteRefusal(
-        error_code=Code.REGISTRIERUNG_CLOSED,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.REGISTRIERUNG_CLOSED)
 
 
-def find_stufe_refusal(*, stufe: Any, allowed_stufen: Sequence[str]) -> WriteRefusal | None:
+def find_stufe_refusal(*, stufe: Any, allowed_stufen: Sequence[str]) -> APIError | None:
     """`registrierung_stufe_not_allowed`: the season's rules do not offer this Stufe.
 
     A null passes: the form may leave it unanswered. Refused server-side because
@@ -105,10 +96,7 @@ def find_stufe_refusal(*, stufe: Any, allowed_stufen: Sequence[str]) -> WriteRef
     if stufe is None or stufe in allowed_stufen:
         return None
 
-    return WriteRefusal(
-        error_code=Code.REGISTRIERUNG_STUFE_NOT_ALLOWED,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.REGISTRIERUNG_STUFE_NOT_ALLOWED)
 
 
 def admits_a_nominee(*, kader_raw: Mapping[str, Any] | None, registrierung: Mapping[str, Any] | None, submitted_at: str) -> bool:
@@ -121,7 +109,7 @@ def admits_a_nominee(*, kader_raw: Mapping[str, Any] | None, registrierung: Mapp
     return (kader_raw is not None and bool(kader_raw["is_nachnominiert"])) or entry_is_a_nominee(registrierung=registrierung, day=submitted_at)
 
 
-def find_kader_refusal(*, full: WriteRefusal | None) -> WriteRefusal | None:
+def find_kader_refusal(*, full: APIError | None) -> APIError | None:
     """`registrierung_kader_full`: the squad has no room for this entry, the answer the link's `kader_free` gives.
 
     `full` is `find_full_kader_refusal`'s verdict, the cap's one copy, which this words for the link's holder rather
@@ -132,10 +120,7 @@ def find_kader_refusal(*, full: WriteRefusal | None) -> WriteRefusal | None:
         return None
 
     # No figure in the message: a stranger holding a link learns nothing about a squad's size.
-    return WriteRefusal(
-        error_code=Code.REGISTRIERUNG_KADER_FULL,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.REGISTRIERUNG_KADER_FULL)
 
 
 def compose_registrierung(
@@ -337,7 +322,7 @@ def state_of(*, registrierung_raw: Mapping[str, Any], departed: bool, today: str
     return "expired" if over else "valid"
 
 
-def find_unknown_token_refusal(*, found: bool) -> WriteRefusal | None:
+def find_unknown_token_refusal(*, found: bool) -> APIError | None:
     """Why this token opens nothing, or `None`.
 
     One answer for unknown and for swept with the registration: nothing tells either from a stranger's
@@ -347,37 +332,28 @@ def find_unknown_token_refusal(*, found: bool) -> WriteRefusal | None:
     if found:
         return None
 
-    return WriteRefusal(
-        error_code=Code.LINK_INVALID,
-        status=HTTPStatus.NOT_FOUND,
-    )
+    return APIError(HTTPStatus.NOT_FOUND, Code.LINK_INVALID)
 
 
-def find_expired_token_refusal(*, confirmation: Any, status: Any, departed: bool, today: str) -> WriteRefusal | None:
+def find_expired_token_refusal(*, confirmation: Any, status: Any, departed: bool, today: str) -> APIError | None:
     """Why this link is over, or `None`. Judged before the stamp: a registration decided while the link stood open takes no answer either."""
 
     if not link_is_over(confirmation=confirmation, status=status, departed=departed, today=today):
         return None
 
-    return WriteRefusal(
-        error_code=Code.LINK_EXPIRED,
-        status=HTTPStatus.GONE,
-    )
+    return APIError(HTTPStatus.GONE, Code.LINK_EXPIRED)
 
 
-def find_already_confirmed_refusal(*, einwilligung: Any) -> WriteRefusal | None:
+def find_already_confirmed_refusal(*, einwilligung: Any) -> APIError | None:
     """Why this registration takes no second answer, or `None`. The single use: the stamp is what spends a link, never a nulled hash."""
 
     if not registrierung_is_confirmed(einwilligung=einwilligung):
         return None
 
-    return WriteRefusal(
-        error_code=Code.CONFIRMATION_EXISTS,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.CONFIRMATION_EXISTS)
 
 
-def find_age_refusal(*, birth_date: str, today: str) -> WriteRefusal | None:
+def find_age_refusal(*, birth_date: str, today: str) -> APIError | None:
     """Why the typed date is refused, or `None`. Judged before any write, so a mistyped year spends nothing."""
 
     # The pupil's own floor and never a contact seat's, so raising one cannot silently raise the other. One range, as the
@@ -385,9 +361,9 @@ def find_age_refusal(*, birth_date: str, today: str) -> WriteRefusal | None:
     if REGISTRIERUNG_MIN_AGE_YEARS <= whole_years_between(born=birth_date, today=today) <= BIRTH_DATE_MAX_AGE_YEARS:
         return None
 
-    return WriteRefusal(
-        error_code=Code.CONFIRMATION_AGE,
-        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+    return APIError(
+        HTTPStatus.UNPROCESSABLE_CONTENT,
+        Code.CONFIRMATION_AGE,
         fields=(("birth_date",),),
         bounds={"min": REGISTRIERUNG_MIN_AGE_YEARS, "max": BIRTH_DATE_MAX_AGE_YEARS},
     )
@@ -568,7 +544,7 @@ def build_admission_erasure_filter(*, registrierung_id: Any, saison_id: str, add
     return {"saison_id": saison_id, "$or": [{"_id": registrierung_id}, dict(build_own_registrierung_filter(address))]}
 
 
-def find_unknown_registrierung_refusal(*, found: bool) -> WriteRefusal | None:
+def find_unknown_registrierung_refusal(*, found: bool) -> APIError | None:
     """`role_not_held` for an id no registration holds, the answer the seat check gives another team's row.
 
     One answer for both, so a signed-in stranger learns nothing of which ids exist.
@@ -577,13 +553,10 @@ def find_unknown_registrierung_refusal(*, found: bool) -> WriteRefusal | None:
     if found:
         return None
 
-    return WriteRefusal(
-        error_code=Code.ROLE_NOT_HELD,
-        status=HTTPStatus.FORBIDDEN,
-    )
+    return APIError(HTTPStatus.FORBIDDEN, Code.ROLE_NOT_HELD)
 
 
-def find_unconfirmed_refusal(*, einwilligung: Any) -> WriteRefusal | None:
+def find_unconfirmed_refusal(*, einwilligung: Any) -> APIError | None:
     """`registrierung_unconfirmed`: the pupil has not answered their own link, so nobody may admit them yet.
 
     Asked at the write as well as marked on the read: the list and the press are two requests.
@@ -592,10 +565,7 @@ def find_unconfirmed_refusal(*, einwilligung: Any) -> WriteRefusal | None:
     if registrierung_is_confirmed(einwilligung=einwilligung):
         return None
 
-    return WriteRefusal(
-        error_code=Code.REGISTRIERUNG_UNCONFIRMED,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.REGISTRIERUNG_UNCONFIRMED)
 
 
 def person_deviates(*, registrierung_raw: Mapping[str, Any], spieler_raw: Mapping[str, Any]) -> bool:
@@ -613,7 +583,7 @@ def find_person_refusal(
     registrierung_raw: Mapping[str, Any],
     address_raw: Mapping[str, Any] | None,
     spieler_id: Any,
-) -> WriteRefusal | None:
+) -> APIError | None:
     """`registrierung_person_not_named`: the body names nobody this registration may be admitted into.
 
     A resolved address is the person: the body only confirms it, and must where name or birthdate
@@ -630,13 +600,10 @@ def find_person_refusal(
     if answered:
         return None
 
-    return WriteRefusal(
-        error_code=Code.REGISTRIERUNG_PERSON_NOT_NAMED,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.REGISTRIERUNG_PERSON_NOT_NAMED)
 
 
-def find_already_in_kader_refusal(*, kader_raw: Mapping[str, Any] | None) -> WriteRefusal | None:
+def find_already_in_kader_refusal(*, kader_raw: Mapping[str, Any] | None) -> APIError | None:
     """`registrierung_already_in_kader`: the person already plays in a squad this season, and a season holds one row per player.
 
     A retired row is no refusal: the admission rewrites it, whichever team it was on.
@@ -645,10 +612,7 @@ def find_already_in_kader_refusal(*, kader_raw: Mapping[str, Any] | None) -> Wri
     if kader_raw is None or kader_raw.get("inactive_since") is not None:
         return None
 
-    return WriteRefusal(
-        error_code=Code.REGISTRIERUNG_ALREADY_IN_KADER,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.REGISTRIERUNG_ALREADY_IN_KADER)
 
 
 def nummern_in_kader(rows: Iterable[Mapping[str, Any]]) -> frozenset[str]:

@@ -14,7 +14,7 @@ from app.api.spieltage.schemas import (
     FLSpieltag,
 )
 from app.core.codes import Code
-from app.core.exceptions import WriteRefusal
+from app.core.exceptions import APIError
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLSaisonStatus
 
@@ -89,24 +89,18 @@ def find_spieltag_span_refusal(
     saison_start: str,
     saison_end: str,
     spiel_dates: Sequence[str],
-) -> WriteRefusal | None:
+) -> APIError | None:
     """Why this matchday's span must be refused, or `None`.
 
     `spiel_dates` is every dated fixture of the matchday; an undated one constrains nothing.
     """
 
     if start < saison_start or end > saison_end:
-        return WriteRefusal(
-            error_code=Code.SPIELTAG_OUTSIDE_SAISON,
-            status=HTTPStatus.CONFLICT,
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.SPIELTAG_OUTSIDE_SAISON)
 
     outside = sorted(date for date in spiel_dates if date < start or date > end)
     if outside:
-        return WriteRefusal(
-            error_code=Code.SPIELTAG_SPAN_BELOW_SPIELE,
-            status=HTTPStatus.CONFLICT,
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.SPIELTAG_SPAN_BELOW_SPIELE)
 
     return None
 
@@ -146,7 +140,7 @@ def find_spieltag_order_refusal(
     stored_start: str | None,
     previous: DatedNeighbour | None,
     following: DatedNeighbour | None,
-) -> WriteRefusal | None:
+) -> APIError | None:
     """Why this matchday's `start` must be refused for its place in the phase, or `None`.
 
     `previous` and `following` are the nearest dated matchday below and above this `position`; an
@@ -161,15 +155,9 @@ def find_spieltag_order_refusal(
     # The predecessor first, and both are reachable at once only for a first dating landing between
     # two neighbours already out of order: the earlier position is the pair a reader checks first.
     if previous is not None and moved_earlier and start < previous.start:
-        return WriteRefusal(
-            error_code=Code.SPIELTAG_START_OUT_OF_ORDER,
-            status=HTTPStatus.CONFLICT,
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.SPIELTAG_START_OUT_OF_ORDER)
 
     if following is not None and moved_later and following.start < start:
-        return WriteRefusal(
-            error_code=Code.SPIELTAG_START_OUT_OF_ORDER,
-            status=HTTPStatus.CONFLICT,
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.SPIELTAG_START_OUT_OF_ORDER)
 
     return None
