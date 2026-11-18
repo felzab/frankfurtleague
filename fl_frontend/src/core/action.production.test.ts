@@ -9,9 +9,6 @@ import { seat } from "@/test-support/subjectFixtures";
 
 import { COPY } from "./copy";
 
-// Under the production build's `NODE_ENV` (`fl_frontend/vitest.config.mts :: PRODUCTION_BUILD`): only its format writes
-// every value a line is handed, an `error` that is no `Error` among them, which an action's lines are held to.
-
 /** The endpoint each case's body sends to. */
 const PROBE = "/probe";
 
@@ -19,7 +16,7 @@ const PROBE = "/probe";
 const backend = serveBackend(({ method, path }) => (method === "POST" && path === PROBE ? {} : undefined));
 const { arriveAs } = signedInRequest();
 /** Every line the real logger writes, read off standard output. */
-const log = captureLog("production");
+const log = captureLog();
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { action } = await import("./action");

@@ -15,11 +15,9 @@ type Build = { collection: string; name: string; key: unknown; options: IndexOpt
 const clientEvents = new EventEmitter();
 
 const builds: Build[] = [];
-// Under the production build's `NODE_ENV` (`fl_frontend/vitest.config.mts :: PRODUCTION_BUILD`): only its format writes
-// every value a line is handed, an `error` that is no `Error` among them, which a refused build's line is held to.
 
 /** Every line the real logger writes, read off standard output. */
-const log = captureLog("production");
+const log = captureLog();
 
 /** Each error line written, by its event and fields. */
 const errorLines = () => log.lines().flatMap(({ level, message, fields }) => (level === "ERROR" ? [{ event: message, fields }] : []));

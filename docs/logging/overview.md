@@ -16,9 +16,8 @@ on the others by searching for that id.
 | Frontend | Its own lines through one logger; Next's and a library's output prints as it prints                       | `fl_frontend/src/core/logging.ts`                                                                |
 | Backend  | One access line per request, a line per server failure, and every library's lines in the same envelope    | `fl_backend/app/core/middlewares.py :: TraceContextMiddleware`, `fl_backend/app/core/logging.py` |
 
-The frontend writes JSON from a production build, the image's and the local stack's alike, and a
-plain line under `next dev`, by the runtime's own `NODE_ENV`. The backend writes JSON whenever its
-output is not a terminal, which a container never is.
+Both application services write one JSON document per line wherever they run: a production
+build, the local stack, `next dev`, a terminal and a test run alike.
 
 ## Following one request
 
@@ -102,10 +101,9 @@ nginx rate-limits it and the route caps every field. A failure rendered on the s
 
 ## In development
 
-`next dev` writes the frontend's line as `LEVEL message {fields as JSON}`, with a stack on the lines
-after it (`fl_frontend/src/core/logging.ts`). The backend writes
-`LEVEL timestamp module:line - message key=value…` to a terminal, with no colour and the stack
-below it. With no nginx in front, whichever service receives the request mints the trace. `./scripts/ops/local.sh` runs the whole stack with the production format.
+`next dev` and a backend run in a terminal write the same JSON document as production, so a line
+read in development is the line a production search finds. With no nginx in front, whichever
+service receives the request mints the trace.
 
 ## Read next
 

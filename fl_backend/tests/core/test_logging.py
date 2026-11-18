@@ -21,7 +21,7 @@ PARENT = "b" * 16
 WELL_FORMED = f"00-{TRACE}-{PARENT}-01"
 
 
-# One table both formatters run, `fl_frontend/src/core/logging.production.test.ts` holding the other half.
+# One table both formatters run, `fl_frontend/src/core/logging.test.ts` holding the other half.
 LOG_ADDRESSES: Final = json.loads((Path(__file__).resolve().parents[1] / "shared" / "log_addresses.json").read_bytes().decode("utf-8"))
 
 # One table both trace readers refuse, `fl_frontend/src/core/trace.test.ts` holding the other half.

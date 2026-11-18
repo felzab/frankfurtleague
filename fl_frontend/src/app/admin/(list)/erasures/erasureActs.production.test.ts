@@ -1,5 +1,3 @@
-// Under a production build's logger, which writes each line as the JSON document a failure's every field reaches:
-// the plain line other projects write drops an `error` that is no `Error`, so a value handed there would pass unseen.
 import { describe, expect, it, onTestFinished } from "vitest";
 
 import { COPY } from "@/core/copy";
@@ -12,7 +10,7 @@ import { captureLog } from "@/test-support/stdoutCapture";
 const ERASED = "max@example.org";
 
 /** Every line the real logger writes, read off standard output. */
-const log = captureLog("production");
+const log = captureLog();
 
 // The erasure itself, answered for the address the case erases alone.
 serveBackend(({ method, path, body }) =>

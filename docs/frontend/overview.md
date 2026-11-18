@@ -243,8 +243,8 @@ global `fetch` that sends nothing, the sign-in store as the library's own memory
 request-time functions. The lint
 (`fl_frontend/eslint-rules/no-own-module-double.mjs`) refuses a test's stand-in of any other module
 of ours, save the few that are nothing but their edge and a server function as a client calls it. A
-`*.production.test.ts` file runs under the `NODE_ENV` that `next build` inlines, so its cases read
-the log lines a production build writes.
+`*.production.test.ts` file runs under the `NODE_ENV` that `next build` inlines, so its cases run
+the branches a production build takes, such as the scheduler's start.
 
 ## Read next
 
