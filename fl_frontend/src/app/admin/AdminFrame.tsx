@@ -39,7 +39,6 @@ const RAIL_GROUPS: RailGroup[] = [
       { id: "bewerbungen", label: ROUTES.adminBewerbungen.title, saison: "adminBewerbungen", icon: "bewerbungen" },
       { id: "teams", label: ROUTES.adminTeams.title, saison: "adminTeams", icon: "teams" },
       { id: "spieler", label: ROUTES.adminSpieler.title, saison: "adminSpieler", icon: "spieler" },
-      { id: "registrierungen", label: ROUTES.adminRegistrierungen.title, saison: "adminRegistrierungen", icon: "registrierungen" },
     ],
   },
   {

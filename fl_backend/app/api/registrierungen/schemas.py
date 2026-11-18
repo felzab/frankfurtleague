@@ -123,30 +123,6 @@ class FLPostRegistrierungPayload(BasePayload):
     stufe: FLSpielerStufe | None
 
 
-class FLRegistrierungAdminRow(BaseReadModel):
-    """One pending registration as the Registrierungen list shows it: the pupil's name and nothing else of them."""
-
-    id: CustomObjectId
-    first_name: CustomNonEmptyString
-    last_name: CustomNonEmptyString
-    team_id: CustomObjectId
-    # The name the club plays the season under; null for a club no longer standing in the season.
-    team_name: str | None
-    submitted_at: CustomDateString
-    # Composed by the read, off the consent record's own stamp.
-    confirmed: bool
-    # Composed by the read, off the mail's own stamp.
-    unmailed: bool
-
-
-class FLRegistrierungenAdminListResponse(BaseReadModel):
-    """One season's pending registrations, newest first."""
-
-    registrierungen: list[FLRegistrierungAdminRow]
-    # Whether every row was served, which an administrator must be able to trust.
-    complete: bool
-
-
 # The confirmation's token is the whole credential, so both its endpoints are base-tier and every
 # payload forbids an undeclared key.
 

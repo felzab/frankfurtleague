@@ -1,12 +1,12 @@
 /**
  * E2E · the administration's editors, under each project, where no lower tier sees a club editor's one save reach only
- * one of its two records, a squad row's save get lost, or the season's Registrierungen fail on the seed's real rows.
+ * one of its two records, or a squad row's save get lost.
  */
 import { expect } from "@playwright/test";
 
 import { choose, enteredDialog, save, saveBar, typeInto } from "./support/controls";
 import { ADMINISTRATOR_STATE, test } from "./support/journey";
-import { nameOf, PEOPLE, PLANNED, RUNNING } from "./support/madeUpLeague";
+import { PLANNED, RUNNING } from "./support/madeUpLeague";
 
 test.use({ storageState: ADMINISTRATOR_STATE });
 
@@ -39,7 +39,7 @@ test("a known club enters the planned season, and its editor's one save reaches 
   await expect(main.getByRole("button", { name: /Trikotfarbe/ })).toContainText(colour);
 });
 
-test("a pupil's squad row saves from its editor, and the season's Registrierungen stand", async ({ page, squadded }) => {
+test("a pupil's squad row saves from its editor", async ({ page, squadded }) => {
   await page.goto(`/admin/saisons/${RUNNING}/spieler`);
   await page.getByRole("main").getByRole("link", { name: squadded }).click();
   await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: squadded })).toBeVisible();
@@ -51,9 +51,4 @@ test("a pupil's squad row saves from its editor, and the season's Registrierunge
   // Read back from the server.
   await page.reload();
   await expect(number).toHaveValue("23");
-
-  await page.goto(`/admin/saisons/${RUNNING}/registrierungen`);
-  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Registrierungen" })).toBeVisible();
-  // The heading stands over an empty list too: a pupil's row of the seed is what says the list was read.
-  await expect(page.getByRole("main").getByRole("link", { name: nameOf(PEOPLE.administration.registration), exact: true })).toBeVisible();
 });

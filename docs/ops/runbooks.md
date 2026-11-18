@@ -447,8 +447,8 @@ about five seconds at production's round trip, and a press naming another mailbo
 some 300 presses at once on one mailbox pass the request's deadline, the time going on conflict retries in one process, which
 a larger pool hardly shortens: most answer 500 having stored and mailed nothing, and a few commit with the answer lost, which
 the same key replays. Whether production's one process reaches that deadline is not measured. A registration counts the same way
-(`fl_backend/app/api/registrierungen/public_router.py :: post_registrierung`), reads the same on its list and has no „Link
-senden“: its row lapses on its deadline, and a press after that is mailed.
+(`fl_backend/app/api/registrierungen/public_router.py :: post_registrierung`), but no page shows that it went unmailed and
+none offers „Link senden“: its row lapses on its deadline, and a press after that is mailed.
 
 **Declining does not shrink the working set.** A decided application stays listed, the record being what the
 decision was taken against (`fl_backend/app/api/bewerbungen/admin_router.py :: get_bewerbungen_admin`), so an operator who declines down the queue and sees the
@@ -490,7 +490,8 @@ Where each role's data is read:
 
 - **Pupil.**
   - `/admin/saisons/{saison}/spieler/{spieler}`, in each season the person holds a squad row.
-  - `/admin/saisons/{saison}/registrierungen`, for a registration still awaiting its team.
+  - A registration still awaiting its team, which no page of the administration lists: a read-only
+    query on `registrierungen.email` finds it, run with `mongosh --file`.
   - Every match report entry naming them, a goal or a card with its colour and its minute
     (`spielberichte.bericht.scorers.spieler_id`, `spielberichte.bericht.cards.spieler_id`). No page
     lists these by person; a read-only query on those two fields finds them, run with

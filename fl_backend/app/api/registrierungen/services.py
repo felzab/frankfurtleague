@@ -187,23 +187,9 @@ def registrierung_is_confirmed(*, einwilligung: Any) -> bool:
     return is_confirmed(einwilligung)
 
 
-def registrierung_was_left_unmailed(*, confirmation: Any) -> bool:
-    """Whether no mail is owed this row, which the block's null `sent_at` keeps.
-
-    Its submission's or its address move's mailbox stood past `OPEN_LINKS_PER_MAILBOX`, or the move found its link over.
-    """
-
-    return isinstance(confirmation, Mapping) and confirmation.get("sent_at") is None
-
-
 # No token hash leaves a team's read of its registration. An exclusion: an inclusion list would restate every field
 # a registration holds.
 WITHOUT_TOKEN_HASHES: Mapping[str, int] = {"confirmation.token_hashes": 0}
-
-
-# What the admin list reads of a row, the consent's stamp alone of its record, which `registrierung_is_confirmed` judges,
-# and the mail's, which `registrierung_was_left_unmailed` does.
-REGISTRIERUNG_LIST_FIELDS: Final = ("first_name", "last_name", "team_id", "submitted_at", "einwilligung.confirmed_at", "confirmation.sent_at")
 
 
 def build_registrierungen_sort() -> list[tuple[str, int]]:

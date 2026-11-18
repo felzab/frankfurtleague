@@ -359,11 +359,6 @@ export const ROUTES = {
     title: null,
     crawl: "disallow",
   },
-  adminRegistrierungen: {
-    path: (saison: string) => `/admin/saisons/${saison}/registrierungen` as const,
-    title: COPY.page.registrierungen,
-    crawl: "disallow",
-  },
   adminAdministrators: {
     path: () => "/admin/administrators" as const,
     title: COPY.page.adminAdministrators,
