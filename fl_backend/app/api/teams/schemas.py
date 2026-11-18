@@ -277,8 +277,7 @@ class _TeamWritable(BaseModel):
     # omitted key would clear a school form and fan the clearing out as an edit somebody asked for.
     schulform: FLSchulform | None
     # Rendered straight into an href on a public page, so the scheme is constrained here as well as
-    # in the frontend (`validate_external_url`). Null where a school
-    # has no site: `""` renders as a link to the page it sits on.
+    # in the frontend. Null where a school has no site: `""` renders as a link to the page it sits on.
     website_url: CustomOptionalExternalUrl
     # Public on every read, a data-protection expert consulted: a school's street stays on the base
     # tier, and the application form asking for it says so.
@@ -300,11 +299,7 @@ FLTeamListAdapter = TypeAdapter(list[FLTeam])
 
 
 class FLTeamRecord(_TeamWritable, BaseReadModel, Anchored):
-    """The club document as it is stored, and what the write endpoints echo.
-
-    The season-scoped fields would mean re-running the team pipeline, whose junction join is strict
-    -- and a club being created holds no row yet.
-    """
+    """The club document as it is stored."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     inactive_since: CustomOptionalDateString
@@ -387,7 +382,7 @@ class FLTeamMembership(BaseReadModel):
     austritt: FLAustritt | None
     trikot_farbe: FLTrikotFarbe | None
     kontakte: FLSaisonTeamKontakte | None
-    # Each seat's link as the editor shows it, the referee editor's twin. Defaulted: `$project` omits a
+    # Each seat's link as the editor shows it. Defaulted: `$project` omits a
     # key the stored row has not got, and a row holds none until a save mints its first link.
     confirmations: FLSaisonTeamConfirmationsView | None = None
     # The row's count of writes, which its two editors' saves send back.
@@ -415,8 +410,8 @@ class _TeamPayload(_TeamWritable, BasePayload):
     ]
     shorthand: CustomShorthand
     # Stripped on the write side too: `validate_external_url` leaves surrounding whitespace on the
-    # value, so a pasted URL would be stored with it. Composed from `str` as the application's twin
-    # is, so the ceiling is judged before the host regex runs.
+    # value, so a pasted URL would be stored with it. Composed from `str`, so the ceiling is judged
+    # before the host regex runs.
     website_url: Annotated[
         Annotated[
             str,
@@ -429,8 +424,6 @@ class _TeamPayload(_TeamWritable, BasePayload):
     ]
 
 
-# Two names for one shape rather than an alias: the create and the edit are free to diverge, and an
-# alias would carry a change to either one into the other.
 class FLPostTeamPayload(_TeamPayload):
     pass
 
@@ -558,7 +551,7 @@ class FLTeamEntryOffer(BaseReadModel):
     gruppen: list[FLTeamGruppeOffer]
     # Only a `future` season takes an entry; every other refusal is about the group or the club the dialog picks.
     closed: bool
-    # The colours a row of the season holds, which `trikot_farbe_taken` refuses.
+    # The colours a row of the season holds, which no entry may take.
     taken: list[FLTrikotFarbe]
 
 
@@ -575,10 +568,10 @@ class FLTeamSaisonFacts(BaseReadModel):
     id: str
     status: FLSaisonStatus
     start_date: CustomDateString
-    # `has_started`, which an exit is refused before.
+    # Whether the season has started, which an exit is refused before.
     begun: bool
-    # The registration window's end, past which an entry through the link is a nominee (`entry_is_a_nominee`), the link
-    # opening on until the season ends; null for a season storing no window.
+    # The registration window's end, past which an entry through the link is a nominee, the link opening on until the
+    # season ends; null for a season storing no window.
     registrierung_end: CustomOptionalDateString
 
 
@@ -632,7 +625,7 @@ class FLReplaceSaisonTeamResponse(BaseReadModel):
     # Reseeded from the incoming club, exactly as entry seeds them.
     name: CustomNonEmptyString
     shorthand: CustomShorthand
-    # The fixtures whose side moved to the incoming club, reported rather than assumed, as the group swap reports its own.
+    # The fixtures whose side moved to the incoming club, reported rather than assumed.
     rewritten_spiele: int
     # Reported for the same reason, and separately: the outgoing club's squad leaves the season with
     # it, and zero is a real answer -- a club can hold a junction row and no squad at all.

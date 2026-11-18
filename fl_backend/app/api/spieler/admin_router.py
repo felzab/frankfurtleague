@@ -70,7 +70,7 @@ PERSON_SAVE_FIELDS: Final = ("first_name", "last_name", "birth_date")
 ROW_SAVE_FIELDS: Final = ("nummer", "position", "stufe", "rolle")
 
 
-# Two static segments, matching `GET /saisons/list/admin`.
+# Two static segments, so the admin tier lists every season-scoped resource under one shape.
 @router.get("/list/admin", summary="One Saison's squad rows for its list")
 async def get_spieler_admin(
     saison_id: str,
@@ -169,8 +169,6 @@ async def patch_spieler_saison(
     row_part = spieler_data.model_dump(mode="json", include=set(ROW_SAVE_FIELDS))
 
     async def save_the_person_and_their_row(session: AsyncClientSession) -> FLPatchSpielerSaisonResponse:
-        """Judge both parts, then write what moved. Everything judged is read in-session, so a retry re-judges it."""
-
         person_raw = await pull_one_from_db(
             collection=spieler_collection, db_filter=person_filter, projection=[*PERSON_SAVE_FIELDS, VERSION_FIELD], session=session
         )
@@ -224,7 +222,6 @@ async def patch_spieler_saison(
         return FLPatchSpielerSaisonResponse(version=composite_version(person_raw, row_raw))
 
     # One transaction, or a refusal of the row's part leaves the person's half saved under an editor reading it as failed.
-    # `transact` is safe to retry, every write deriving from the payload and an in-session read.
     return await transact(db, save_the_person_and_their_row)
 
 
@@ -277,8 +274,6 @@ async def reactivate_saison_spieler(
     """Clear a squad row's `inactive_since`, the row returning with the number, position and role it had."""
 
     async def bring_the_player_back(session: AsyncClientSession) -> None:
-        """Judge, then revive the row. Everything judged is read in-session."""
-
         # Read for its `team_id` and its `rolle`: the row names the squad it is returning to and the
         # role it comes back holding, and the payload carries neither.
         # A missing row 404s here rather than inside `set_inactive_since`, which would answer the same.
@@ -294,7 +289,7 @@ async def reactivate_saison_spieler(
         team_in_saison = (
             await saison_teams_collection.count_documents({"saison_id": saison_id, "team_id": stored_raw["team_id"]}, limit=1, session=session)
         ) > 0
-        # Asked before the cap, as both siblings ask it: a full squad is not a fact worth reporting
+        # Asked before the cap: a full squad is not a fact worth reporting
         # about a club the season does not hold.
         if not team_in_saison:
             raise APIError(HTTPStatus.CONFLICT, Code.KADER_TEAM_NOT_IN_SAISON)

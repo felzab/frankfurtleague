@@ -199,8 +199,7 @@ def _team_spiele_pipeline(*, saison_id: str, team_id: Any) -> list[Mapping[str, 
     return [
         *build_spiele_pipeline(db_filter=build_team_spiele_filter(saison_id=saison_id, team_id=team_id), sort_by=[("spiel_nr", 1)]),
         SPIELTAG_POSITION_LOOKUP,
-        # Its entries alone, on the unique `(spiel_id, team_id)` key: whether one stands (`aufstellung_stands`) is all either
-        # page reads.
+        # Its entries alone, on the unique `(spiel_id, team_id)` key: whether one stands is all either page reads.
         {
             "$lookup": {
                 "from": Collection.AUFSTELLUNGEN,
@@ -275,7 +274,7 @@ def _side_of(spiel_raw: Mapping[str, Any], team_id: Any) -> FLSpielSide:
 
 
 def _marks_of(spiel_raw: Mapping[str, Any], now: datetime) -> FLAufstellungMarks | None:
-    # A fixture decided, called off or fielding a club out by its day owes no line-up, as the line-up's reminder judges it.
+    # A fixture decided, called off or fielding a club out by its day owes no line-up.
     if joined_decision_of(spiel_raw) is not None:
         return None
 

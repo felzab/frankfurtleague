@@ -5988,10 +5988,7 @@ export interface FLTeamPanelSpiel {
 }
 
 /**
- * The club document as it is stored, and what the write endpoints echo.
- *
- * The season-scoped fields would mean re-running the team pipeline, whose junction join is strict
- * -- and a club being created holds no row yet.
+ * The club document as it is stored.
  */
 export interface FLTeamRecord {
   address: FLAddress;

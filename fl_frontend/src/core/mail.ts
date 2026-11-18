@@ -40,7 +40,7 @@ function senderRow(sender: MailSender): string {
 /** Every reply reaches the league's mailbox, whichever address sent the mail. */
 const REPLY_TO = KONTAKT_EMAIL;
 
-// Bounds the whole call, as a backend call's bound does: a per-attempt budget would multiply by the
+// Bounds the whole call: a per-attempt budget would multiply by the
 // attempts below, and the backend's lease on a page of sends, its `LEASE_DURATION`, is counted from both.
 export const MAIL_TIMEOUT_MS = 15000;
 
@@ -261,7 +261,7 @@ async function drain(): Promise<void> {
     for (const mail of mails) {
       const report = { lease, ...(await sendHandedOut(mail)) };
       // The provider's name for a refusal is its own token, kept only where the endpoint takes it: the outcome stands
-      // without one, as the delivery route keeps a delivery event's.
+      // without one.
       const response = await outboxPostResult(OutboxPostResultBody.safeParse(report).data ?? { ...report, delivery_reason: null });
       for (const field of Object.keys(response) as (keyof DrainCount)[]) sinceLastPass[field] += response[field];
     }

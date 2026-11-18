@@ -24,7 +24,7 @@ class FLTeamPanelSpielbestaetigung(BaseModel):
     discards it.
     """
 
-    # The row an answer names (`POST /spielbestaetigungen/{spielbestaetigung_id}/answer/team`).
+    # The row the team's answer names.
     spielbestaetigung_id: CustomObjectId
     spiel_id: CustomObjectId
     ansetzung: FLSpielbestaetigungViewAnsetzung
@@ -83,8 +83,7 @@ class FLTeamOverviewResponse(BaseReadModel):
     spielbestaetigungen: list[FLTeamPanelSpielbestaetigung]
     aufstellungen: list[FLTeamPanelAufstellung]
     registrierungen: list[FLTeamPanelRegistrierung]
-    # Whether every pending registration is listed, as `FLOpenRegistrierungenResponse.complete` says of the same read: the
-    # box draws the whole list, so a cut one says so there too.
+    # Whether every pending registration is listed: the box draws the whole list, so a cut one says so there too.
     registrierungen_complete: bool
     # One per person, an empty slot answered with no name: three, or two where the Trainer holds a second seat.
     seats: list[FLTeamSeat]
@@ -120,18 +119,18 @@ class FLAustrittRecipients(BaseReadModel):
 class FLTeamSaisonAdminResponse(BaseReadModel):
     """What the team editor shows in one read: the club, its row of the season, and what each of its acts would meet."""
 
-    # The one count this page saves on (`composite_version`).
+    # The one count this page saves on.
     version: int = Field(ge=0)
     team: FLTeamRecord
     saison: FLTeamSaisonFacts
     # Null for a club holding no row of the season, a retired one reached through the list's filter.
     membership: FLTeamMembership | None
     gruppen: list[FLTeamGruppeOffer]
-    # Whether the group's write would refuse `entry_gruppe_locked`, the club's fixtures being drawn.
+    # Whether the group's write would refuse a move, the club's fixtures being drawn.
     gruppe_locked: bool
-    # The colours another row of the season holds, which `trikot_farbe_taken` refuses; this club's own stays open to it.
+    # The colours another row of the season holds, which the save refuses; this club's own stays open to it.
     taken_trikot_farben: list[FLTrikotFarbe]
-    # The newest running or planned season the club stands in, which `retire_blocked` refuses over.
+    # The newest running or planned season the club stands in, which blocks retiring it.
     retire_blocked_by: str | None
     # Null with `membership`.
     link: FLTeamLinkState | None

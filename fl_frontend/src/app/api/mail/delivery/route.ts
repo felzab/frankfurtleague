@@ -71,8 +71,8 @@ function outboxStateFrom({ type, data }: OutboxEvent): Pick<FLOutboxEventPayload
 
 /**
  * The write one event asks for, or `null` where it asks none: an event about no row, a mail sent before the Postausgang
- * among them, and one that leaves no state. Every `null` is answered 200: the provider retries a non-200 for
- * thirty-two hours and then disables the endpoint.
+ * among them, and one that leaves no state. Every `null` is answered 200, so the provider neither retries it nor
+ * disables the endpoint over it.
  */
 function readOutboxEvent(raw: unknown): FLOutboxEventPayload | null {
   const read = OutboxEventSchema.safeParse(raw);
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
   const headers = Object.fromEntries(SVIX_HEADERS.map((name) => [name, request.headers.get(name) ?? ""]));
 
   if (!signedByProvider(raw, headers)) {
-    // 400 rather than 503: a forgery is not worth thirty-two hours of retries, and neither is a
+    // 400 rather than 503: a forgery is not worth the provider's retries, and neither is a
     // timestamp outside the verifier's tolerance. Nothing of the body reaches the line.
     logger.warn("mail.delivery_unsigned");
     return NO_SIGNATURE();

@@ -17633,7 +17633,7 @@
         "type": "object"
       },
       "FLTeamRecord": {
-        "description": "The club document as it is stored, and what the write endpoints echo.\n\nThe season-scoped fields would mean re-running the team pipeline, whose junction join is strict\n-- and a club being created holds no row yet.",
+        "description": "The club document as it is stored.",
         "properties": {
           "address": {
             "$ref": "#/components/schemas/FLAddress"

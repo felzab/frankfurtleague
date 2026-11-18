@@ -338,7 +338,7 @@ def build_team_saisons_pipeline(team_id: Any) -> list[Mapping[str, Any]]:
                 "pipeline": [
                     {
                         "$project": {
-                            # The row's id, which its links' mails are owed about: `with_link_state` reads their state by it.
+                            # The row's id, which its links' mails are owed about.
                             "_id": 1,
                             "saison_id": 1,
                             "gruppe": 1,
@@ -360,13 +360,13 @@ def build_team_saisons_pipeline(team_id: Any) -> list[Mapping[str, Any]]:
 
 
 def membership_row_ids(teams_raw: Sequence[Mapping[str, Any]]) -> list[Any]:
-    """Every season row the memberships read holds a link on, whose mails `states_of` reads."""
+    """Every season row the memberships read holds a link on."""
 
     return [row["_id"] for team in teams_raw for row in team.get("memberships", []) if isinstance(row.get("confirmations"), Mapping)]
 
 
 def _seat_state(row: Mapping[str, Any], seat: str) -> str:
-    """The seat the mail carrying this seat's link was owed about (`kontakt_reference`): the one a Trainer mirrors, where one link holds both.
+    """The seat the mail carrying this seat's link was owed about: the one a Trainer mirrors, where one link holds both.
 
     One link holds both exactly where the two entries are one: the write minting it stores the same entry under each,
     and its hand-out writes the same hash into both.
@@ -383,7 +383,7 @@ def _seat_state(row: Mapping[str, Any], seat: str) -> str:
 def with_link_state(
     teams_raw: Sequence[Mapping[str, Any]], *, today: str, states: Mapping[tuple[Any, str | None], FLOutboxStatus]
 ) -> list[dict[str, Any]]:
-    """The memberships read with each stored seat link judged as its press judges it (`saison_link_is_over`), and what became of its mail.
+    """The memberships read with each stored seat link judged as its press judges it, and what became of its mail.
 
     Lapsed only on an unanswered seat: an answered seat's link has nothing left to collect. The row's id goes here, the
     membership naming its row by its season.
@@ -542,8 +542,8 @@ def compose_seat_block(
 def find_kontakt_taken_refusal(*, kontakte: Mapping[str, Any], seats: Sequence[FLKontaktSeat]) -> APIError | None:
     """Why this person cannot hold these seats, or `None`: another seat's person holds their address or their number.
 
-    `find_repeated_contact_refusal`'s rule, asked of the seats this write leaves. The seats
-    it writes are one person, so they are never compared with each other.
+    Asked of the seats this write leaves. The seats it writes are one person, so they are never compared with each
+    other.
     """
 
     person = kontakte[seats[0]]
@@ -556,10 +556,6 @@ def find_kontakt_taken_refusal(*, kontakte: Mapping[str, Any], seats: Sequence[F
         return APIError(HTTPStatus.CONFLICT, Code.KONTAKT_PHONE_TAKEN, fields=(("phone",),))
 
     return None
-
-
-# --- The confirmation link a seat an administrator typed in is mailed, stored beside the slot at
-# `confirmations.<slot>` as an application keeps its own.
 
 
 def compose_kontakt_confirmation(*, today: str) -> dict[str, Any]:
@@ -700,7 +696,7 @@ def kontakt_row_of(*, saison_status: Any, austritt: Any) -> FLKontaktRow:
 def find_kontakt_row_refusal(*, saison_status: Any, austritt: Any) -> APIError | None:
     """`kontakt_row_without_saison`: the row's season has ended, or its team has left it, so a link asks about a seat nobody holds.
 
-    Judged before the seat, as the invitation's season check is: no seat repairs the row.
+    Judged before the seat: no seat repairs the row.
     """
 
     if row_takes_confirmations(saison_status=saison_status, austritt=austritt):
@@ -768,7 +764,7 @@ def teams_admin_rows(
     """The Teams list: the season's rows, or under `retired` the league's retired clubs, each club in no season row with no group.
 
     A club is retired from the league rather than from a season, so that one filter reads past the season's rows: it is
-    the way back to a club no season list holds. `rows` and `clubs` arrive sorted by name.
+    the way back to a club no season list holds. `rows` and `teams` arrive sorted by name.
     """
 
     retired = {team["_id"]: team["inactive_since"] for team in teams if team.get("inactive_since") is not None}
@@ -879,9 +875,8 @@ def find_austritt_refusal(*, start_date: str, started: bool) -> APIError | None:
 
     Judged on the act, whatever day the exit is dated: while the season has not started the group swap stays open, and an
     exit standing then would leave the swap fielding a departed club. The season save refuses moving the start past a
-    stored exit (`saison_start_austritt_stored`), so an exit never stands on a season that reads as unstarted again.
-    `started` is `has_started`. `earliest` is the first day an exit may be recorded, on the
-    exit record as a whole rather than its date: no date the exit could carry passes sooner.
+    stored exit, so an exit never stands on a season that reads as unstarted again. The refusal names the exit's `date`,
+    and `earliest` is the first day an exit may be recorded.
     """
 
     if started:
@@ -921,9 +916,8 @@ def find_replacement_pair_refusal(*, team_id: Any, incoming_team_id: Any) -> API
 def find_replacement_refusal(
     *,
     saison_status: str,
-    # `has_started`: once the season is under way, a club leaves it by its
-    # Austritt and is never replaced. Before the start the save refuses a result
-    # (`ergebnis_before_saison_start`), which keeps the incoming club from inheriting a record it never made.
+    # Once the season is under way, a club leaves it by its Austritt and is never replaced. Before the
+    # start the save refuses a result, which keeps the incoming club from inheriting a record it never made.
     started: bool,
     incoming_inactive_since: str | None,
     incoming_already_entered: bool,
@@ -940,7 +934,7 @@ def find_replacement_refusal(
     if started:
         return APIError(HTTPStatus.CONFLICT, Code.REPLACE_SAISON_STARTED)
 
-    # The league before the season, as `enter_a_team` judges it: a club that has left the league
+    # The league before the season: a club that has left the league
     # is a candidate for no season at all, and picking a different one would not repair it.
     retired = find_team_entry_refusal(inactive_since=incoming_inactive_since)
     if retired is not None:
@@ -952,12 +946,12 @@ def find_replacement_refusal(
     return None
 
 
-# A club standing in one of these is still in the league's programme, so `retire_blocked` refuses retiring it.
+# A club standing in one of these is still in the league's programme, so retiring it is refused.
 _RETIRE_BLOCKING_STATUSES: tuple[str, ...] = ("active", "future")
 
 
 def saison_blocking_retirement(saisons: Iterable[Mapping[str, Any]]) -> str | None:
-    """The newest of these seasons `retire_blocked` refuses over, which the editor names, or `None`."""
+    """The newest of these seasons that blocks retiring the club, which the editor names, or `None`."""
 
     return max((str(saison["_id"]) for saison in saisons if saison["status"] in _RETIRE_BLOCKING_STATUSES), default=None)
 

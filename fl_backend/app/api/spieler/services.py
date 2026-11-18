@@ -323,9 +323,6 @@ def find_kader_stufe_refusal(*, stufe: str | None, stored_stufe: str | None, all
     return APIError(HTTPStatus.CONFLICT, Code.KADER_STUFE_NOT_ALLOWED)
 
 
-# --- The pupil's own record.
-
-
 def build_self_pupil_filter(identifier: str) -> Mapping[str, Any]:
     """The one pupil row this address holds.
 

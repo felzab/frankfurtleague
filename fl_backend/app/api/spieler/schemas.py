@@ -192,9 +192,9 @@ class FLSpielerSaisonAdminResponse(BaseReadModel):
     version: int = Field(ge=0)
     person: FLSpielerSaisonPerson
     kader: FLSpielerSaisonKader
-    # What the Stufe box may offer, beside a value the row already holds (`kader_stufe_not_allowed`).
+    # What the Stufe box may offer, beside a value the row already holds.
     allowed_stufen: list[FLSpielerStufe] = Field(min_length=1)
-    # The roles another live row of the squad holds (`kader_rolle_taken`).
+    # The roles another live row of the squad holds, which the save refuses.
     taken_rollen: list[FLSpielerRolle]
 
 
