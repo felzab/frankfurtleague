@@ -56,7 +56,6 @@ from app.api.teams.schemas import (
     FLKontaktSeatPayload,
     FLKontaktSeatResponse,
     FLPatchTeamSaisonPayload,
-    FLPatchTeamSaisonResponse,
     FLPostTeamEntryPayload,
     FLPostTeamEntryResponse,
     FLReplaceSaisonTeamPayload,
@@ -144,6 +143,7 @@ from app.core.routing import by_id
 from app.core.transactions import transact
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import KONTAKT_SEATS
+from app.shared.schemas.responses import FLVersionResponse
 from app.shared.tokens import mint_token
 
 router = APIRouter(
@@ -580,7 +580,7 @@ async def patch_team_saison(
     saisons_collection: SaisonsCollection,
     spiele_collection: SpieleCollection,
     db: DBClient,
-) -> FLPatchTeamSaisonResponse:
+) -> FLVersionResponse:
     """Save the team editor's one version: the club, its name on its unfinished seasons' rows, and this season's group and colour.
 
     A `past` season keeps the club's fields open and fixes the row's group and colour, and a group move and a colour
@@ -589,7 +589,7 @@ async def patch_team_saison(
 
     row_filter = {"team_id": team_id, "saison_id": saison_id}
 
-    async def save_the_team_and_its_row(session: AsyncClientSession) -> FLPatchTeamSaisonResponse:
+    async def save_the_team_and_its_row(session: AsyncClientSession) -> FLVersionResponse:
         team_raw = await pull_one_from_db(collection=teams_collection, db_filter={"_id": team_id}, projection=[VERSION_FIELD], session=session)
         row_raw = await pull_one_from_db(
             collection=saison_teams_collection, db_filter=row_filter, projection=["gruppe", "trikot_farbe", VERSION_FIELD], session=session
@@ -656,7 +656,7 @@ async def patch_team_saison(
         )
         await record_act(collection=teams_collection, action="team.changed", record_id=team_id, label=team_data.name, session=session)
 
-        return FLPatchTeamSaisonResponse(version=composite_version(stored_team, stored_row))
+        return FLVersionResponse(version=composite_version(stored_team, stored_row))
 
     # One transaction, or a refusal of the row's part leaves the club's half saved under an editor reading it as failed.
     return await transact(db, save_the_team_and_its_row)

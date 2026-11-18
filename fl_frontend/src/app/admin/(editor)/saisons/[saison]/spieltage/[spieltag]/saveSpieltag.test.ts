@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
 
-import type { FLSpieltagAdmin, FLSpieltagAdminResponse, FLSpieltagWriteResponse } from "@/core/generated/client/types";
+import type { FLSpieltagAdmin, FLSpieltagAdminResponse, FLVersionResponse } from "@/core/generated/client/types";
 
 const SPIELTAG_ID = "64b000000000000000000002";
 
@@ -23,7 +23,7 @@ const STORED: FLSpieltagAdmin = {
 /** The editor's read, one version behind the stored matchday. */
 const EDITOR_VERSION = 3;
 
-const WRITTEN: FLSpieltagWriteResponse = { spieltag_id: SPIELTAG_ID, version: 5 };
+const WRITTEN: FLVersionResponse = { version: 5 };
 
 // The save reads the matchday again and writes it, so the real guard, query, generated call and dispatch all run;
 // anything else is unanswered and fails the case.

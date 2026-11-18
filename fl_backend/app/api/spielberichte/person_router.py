@@ -1,6 +1,4 @@
-from http import HTTPStatus
-
-from fastapi import APIRouter, Response
+from fastapi import APIRouter
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.account.services import find_own_entry_refusal
@@ -27,7 +25,7 @@ from app.api.spielberichte.services import (
     newly_named,
 )
 from app.api.spiele.services import spiel_label
-from app.core.crud import find_stale_first_save_refusal, refuse
+from app.core.crud import VERSION_FIELD, find_stale_first_save_refusal, refuse
 from app.core.dependencies import (
     DBClient,
     GermanyNow,
@@ -48,6 +46,7 @@ from app.core.routing import by_id
 from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transact
 from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.responses import FLVersionResponse
 
 # The referee's own router: the person's identifier is bound at router level, and each handler judges their referee
 # records in its own session.
@@ -114,14 +113,10 @@ async def get_spielbericht_bericht(
 @router.put(
     BERICHT_PATH,
     summary="Write one fixture's report as its referee",
-    responses={
-        201: {"model": FLSpielberichtSchiedsrichterResponse, "description": "The report did not stand before, and this write created it"},
-    },
 )
 async def put_spielbericht_bericht(
     spiel_id: CustomObjectId,
     bericht_data: FLSpielberichtPayload,
-    response: Response,
     identifier: PersonIdentifier,
     spiele_collection: SpieleCollection,
     saisons_collection: SaisonsCollection,
@@ -131,7 +126,7 @@ async def put_spielbericht_bericht(
     records: SubjectLookup,
     db: DBClient,
     germany_now: GermanyNow,
-) -> FLSpielberichtSchiedsrichterResponse:
+) -> FLVersionResponse:
     """Write the whole report of one fixture as its booked referee, replacing what stood, and never the fixture's result.
 
     A write changing the report clears its adoption, and `version` is the report document's as the form was served it,
@@ -140,7 +135,7 @@ async def put_spielbericht_bericht(
 
     payload = bericht_data.bericht
 
-    async def write_the_report(session: AsyncClientSession) -> tuple[FLSpielberichtSchiedsrichterResponse, bool]:
+    async def write_the_report(session: AsyncClientSession) -> FLVersionResponse:
         subject = await roles_of(identifier, records, session=session)
         refuse(find_own_entry_refusal(held=bool(subject.schiedsrichter)))
         own = [record.schiedsrichter_id for record in subject.schiedsrichter]
@@ -183,9 +178,6 @@ async def put_spielbericht_bericht(
             # judgement of the season's status, asked again outside the transaction, leaves a gap before the commit that
             # the activation ending the season, which writes its row, then meets here.
             await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=context.spiel["saison_id"], session=session)
-        named = await pull_named(
-            spieler_collection=spieler_collection, context=context, kader_open=True, bericht=document["bericht"], session=session
-        )
 
         # Nothing judged is written here, so a referee retired or taken off, a fixture re-dated or called off, a pupil
         # ausgetragen or a seat holder renamed conflicts with nothing: judged again outside the transaction.
@@ -207,15 +199,6 @@ async def put_spielbericht_bericht(
         refuse(find_saison_ended_refusal(current))
         judge_bericht(context=current, payload=payload, new=new, now=germany_now)
 
-        created = saved is None
-        view = {**compose_view(context, kader_open=True, named=named, document=document), "completed": False, "reportable": True}
+        return FLVersionResponse(version=document[VERSION_FIELD])
 
-        return FLSpielberichtSchiedsrichterResponse.model_validate(view), created
-
-    answer, created = await transact(db, write_the_report)
-
-    # RFC 9110's PUT: a write creating the report says so.
-    if created:
-        response.status_code = HTTPStatus.CREATED
-
-    return answer
+    return await transact(db, write_the_report)

@@ -7,7 +7,6 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
-from fastapi import Response
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure, PyMongoError
@@ -18,7 +17,6 @@ from app.api.saisons.schemas import (
     FLGenerateSpielplanPayload,
     FLGenerateSpielplanResponse,
     FLPatchSaisonPayload,
-    FLPatchSaisonResponse,
     FLSaisonRules,
     FLSpielplanShape,
     FLUndrawSpielplanResponse,
@@ -30,6 +28,7 @@ from app.api.teams.services import offered_gruppen
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
+from app.shared.schemas.responses import FLVersionResponse
 from tests import documents
 from tests.bracket_reference import BRACKET_SEEDING
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database
@@ -218,7 +217,7 @@ async def stored_rules(database: AsyncDatabase) -> dict[str, Any]:
     return (await the_row(database, Collection.SAISONS, {"_id": SAISON_ID}, f"the seed holds no season {SAISON_ID}"))["rules"]
 
 
-async def call_patch_rules(database: AsyncDatabase, **overrides: Any) -> FLPatchSaisonResponse:
+async def call_patch_rules(database: AsyncDatabase, **overrides: Any) -> FLVersionResponse:
     """The whole rules object every time, `rules` being required on the patch, so a case names only the value it changes.
 
     The seed's own dates, so `saison_span_below_spieltage` and `saison_span_below_spielplan` cannot be what a refusal is about,
@@ -809,7 +808,6 @@ async def a_referees_first_report(database: AsyncDatabase, client: AsyncMongoCli
         put_spielbericht_bericht(
             spiel_id=spiel_id,
             bericht_data=FLSpielberichtPayload(bericht=NULL_NULL, version=None),
-            response=Response(),
             identifier=REPORTING_REFEREE_EMAIL,
             spiele_collection=spiele,
             saisons_collection=database[Collection.SAISONS],

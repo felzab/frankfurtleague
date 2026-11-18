@@ -437,12 +437,6 @@ class FLPatchTeamSaisonPayload(_TeamPayload):
     version: CustomVersion
 
 
-class FLPatchTeamSaisonResponse(BaseReadModel):
-    """The count the editor's next save sends."""
-
-    version: int = Field(ge=0)
-
-
 class FLEntryKnownTeam(BasePayload):
     """A club the league holds, picked from the list's create dialog."""
 

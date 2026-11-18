@@ -121,8 +121,6 @@ export const saveBericht = action({
     if ("ok" in payload) return payload;
 
     const written = await spielberichtePutSpielberichtBericht(id, { version: read, bericht: payload });
-    // A write answers the report it stored, which holds a version from its first save on.
-    if (written.version === null) throw new Error("A written report was answered without its version.");
     return { ok: true, value: written.version };
   },
 });

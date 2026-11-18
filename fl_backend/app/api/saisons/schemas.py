@@ -303,11 +303,6 @@ class FLPatchSaisonPayload(_SaisonPayload):
     version: CustomVersion
 
 
-class FLPatchSaisonResponse(BaseReadModel):
-    # The season's version after the save, which the editor's next save sends.
-    version: int
-
-
 class FLSwapGruppenPayload(BasePayload):
     """The two clubs a group swap exchanges, in either order.
 

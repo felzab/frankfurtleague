@@ -1,6 +1,4 @@
-from http import HTTPStatus
-
-from fastapi import APIRouter, Response
+from fastapi import APIRouter
 
 from app.api.aufstellungen.schemas import FLAufstellungPayload, FLAufstellungResponse
 from app.api.aufstellungen.screen import AufstellungReads, SeatHolder, SeatSaver, read_aufstellung_screen, save_aufstellung_screen
@@ -21,6 +19,7 @@ from app.core.dependencies import (
 from app.core.routing import by_id
 from app.core.security import PERSON_TIER, PersonIdentifier
 from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.responses import FLVersionResponse
 
 router = APIRouter(
     prefix="/aufstellungen",
@@ -66,13 +65,11 @@ async def get_aufstellung_self(
 @router.put(
     SELF_PATH,
     summary="Save one club's line-up for one fixture as its seat holder",
-    responses={201: {"model": FLAufstellungResponse, "description": "The line-up did not stand before, and this save created it"}},
 )
 async def put_aufstellung_self(
     spiel_id: CustomObjectId,
     team_id: CustomObjectId,
     aufstellung_data: FLAufstellungPayload,
-    response: Response,
     identifier: PersonIdentifier,
     spiele_collection: SpieleReadCollection,
     saisons_collection: SaisonsCollection,
@@ -83,14 +80,14 @@ async def put_aufstellung_self(
     records: SubjectLookup,
     db: DBClient,
     germany_now: GermanyNow,
-) -> FLAufstellungResponse:
+) -> FLVersionResponse:
     """Save the whole line-up of one club for one fixture, as any contact seat of the club may until one hour before kick-off.
 
     A line-up being due or overdue refuses nothing, and `version` is the document's as the screen was served it, null
     where the screen showed no line-up.
     """
 
-    answer, created = await save_aufstellung_screen(
+    return await save_aufstellung_screen(
         seat=SeatSaver(identifier=identifier, records=records, saison_teams=saison_teams_collection),
         spiel_id=spiel_id,
         team_id=team_id,
@@ -107,9 +104,3 @@ async def put_aufstellung_self(
         db=db,
         now=germany_now,
     )
-
-    # RFC 9110's PUT: a save creating the line-up says so.
-    if created:
-        response.status_code = HTTPStatus.CREATED
-
-    return answer

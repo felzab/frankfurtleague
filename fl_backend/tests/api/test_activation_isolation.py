@@ -15,7 +15,6 @@ from app.api.saisons.schemas import (
     FLActivateSaisonResponse,
     FLGenerateSpielplanPayload,
     FLPatchSaisonPayload,
-    FLPatchSaisonResponse,
     FLSaisonRules,
 )
 from app.api.spiele.admin_router import patch_spiel
@@ -26,6 +25,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from app.core.transactions import transaction_session
+from app.shared.schemas.responses import FLVersionResponse
 from tests.database import a_clean_database
 from tests.documents import ADDRESS, rules_document, saison_document, saison_team_document, team_document
 from tests.isolation import MISCOUNTED_JUDGEMENTS, InterleavedCollection, Rival, outcome_of
@@ -268,7 +268,7 @@ async def spiele_now(database: AsyncDatabase, saison_id: str) -> int:
 
 async def call_patch_rules(
     database: AsyncDatabase, client: AsyncMongoClient, *, saisons_collection: Any, start_date: str | None = None, **overrides: Any
-) -> FLPatchSaisonResponse:
+) -> FLVersionResponse:
     """The target's seeded dates and whole rules every time, `rules` being required on the patch, so a case names only the value it moves."""
 
     seeded = seeded_saison(TARGET, "future")

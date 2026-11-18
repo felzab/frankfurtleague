@@ -40,7 +40,6 @@ from app.api.saisons.schemas import (
     FLGenerateSpielplanPayload,
     FLGenerateSpielplanResponse,
     FLPatchSaisonPayload,
-    FLPatchSaisonResponse,
     FLPostSaisonPayload,
     FLPostSaisonResponse,
     FLSaisonActRefusals,
@@ -128,6 +127,7 @@ from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.transactions import transact
 from app.shared.schemas.literals import FLGruppenNames
+from app.shared.schemas.responses import FLVersionResponse
 
 router = APIRouter(
     prefix="/saisons",
@@ -413,14 +413,14 @@ async def patch_saison(
     saison_spieler_collection: SaisonSpielerCollection,
     db: DBClient,
     today: GermanDay,
-) -> FLPatchSaisonResponse:
+) -> FLVersionResponse:
     """Save a season's dates and rules on the `version` it was read at, answering the version stored.
 
     What a started or drawn season has fixed is refused, as is a rule narrowed below what it holds; the start date is
     fixed once a fixture has taken place, and moves later only while no club's exit is stored.
     """
 
-    async def judge_and_write_the_rules(session: AsyncClientSession) -> FLPatchSaisonResponse:
+    async def judge_and_write_the_rules(session: AsyncClientSession) -> FLVersionResponse:
         # Through the session, and first: this opens the snapshot the update below is judged
         # against, so a rival writing `saisons` under the judgement conflicts instead of being
         # overwritten. A season id naming nothing raises the 404 here.
@@ -566,7 +566,7 @@ async def patch_saison(
         if saison_data.start_date != stored_raw["start_date"]:
             await anchor_in_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
 
-        return FLPatchSaisonResponse(version=patched[VERSION_FIELD])
+        return FLVersionResponse(version=patched[VERSION_FIELD])
 
     # `transact`, not a bare `start_transaction`: a draw and an undraw write `saisons` too,
     # so one landing under a `$set` that changes something conflicts, and the retry judges the

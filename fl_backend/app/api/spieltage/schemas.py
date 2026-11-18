@@ -119,9 +119,3 @@ class FLSpieltagAdminResponse(BaseReadModel):
 
     spieltag: FLSpieltagAdmin
     saison_status: FLSaisonStatus
-
-
-class FLSpieltagWriteResponse(BaseReadModel):
-    spieltag_id: CustomObjectId
-    # The matchday's version after the save, which the editor's next save sends.
-    version: int

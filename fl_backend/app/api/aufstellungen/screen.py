@@ -55,6 +55,7 @@ from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_KONTAKT
 from app.core.transactions import transact
 from app.shared.schemas.literals import FLSaisonStatus, FLSpielSide
+from app.shared.schemas.responses import FLVersionResponse
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -257,15 +258,15 @@ async def save_aufstellung_screen(
     spieler_collection: AsyncCollection,
     db: AsyncMongoClient,
     now: datetime,
-) -> tuple[FLAufstellungResponse, bool]:
-    """Save one club's whole line-up for one fixture and answer the screen it leaves, and whether this save created it.
+) -> FLVersionResponse:
+    """Save one club's whole line-up for one fixture and answer the version it leaves.
 
     A seat's save where `seat` names its holder, refused from the lock; an administrator's where it is None, at any time.
     """
 
     entries = payload.spieler
 
-    async def write(session: AsyncClientSession) -> tuple[FLAufstellungResponse, bool]:
+    async def write(session: AsyncClientSession) -> FLVersionResponse:
         state = await _read_state(seat=seat, spiel_id=spiel_id, team_id=team_id, reads=reads, session=session)
         spiel = state.spiel
         _judge_the_fixture(state, locks=seat is not None, now=now)
@@ -296,7 +297,6 @@ async def save_aufstellung_screen(
             # team's answer to a fixture does, so no line-up is saved from a seat its holder has left. After the line-up's
             # own write, as the season's anchor is.
             await anchor_in_db(collection=seat.saison_teams, db_filter={"saison_id": spiel["saison_id"], "team_id": team_id}, session=session)
-        people = await _pull_people(spieler_collection=reads.spieler, state=state, saved=written, session=session)
 
         # Nothing else judged is written here, so a season closed, a fixture re-dated or re-fielded or a pupil ausgetragen
         # conflicts with nothing: judged again outside the transaction, as the match report's write judges its own.
@@ -305,6 +305,6 @@ async def save_aufstellung_screen(
         _judge_the_fixture(current, locks=seat is not None, now=now)
         judge_the_names(entries=entries, new=new, nameless=nameless, kader=current.kader)
 
-        return _compose(state=state, team_id=team_id, saved=written, people=people, now=now), saved is None
+        return FLVersionResponse(version=written[VERSION_FIELD])
 
     return await transact(db, write)

@@ -14,7 +14,6 @@ from app.api.spieltage.schemas import (
     FLSpieltagAdmin,
     FLSpieltagAdminResponse,
     FLSpieltagRecord,
-    FLSpieltagWriteResponse,
 )
 from app.api.spieltage.services import (
     dated_neighbour,
@@ -36,6 +35,7 @@ from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.transactions import transact
 from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.responses import FLVersionResponse
 
 router = APIRouter(
     prefix="/spieltage",
@@ -139,14 +139,14 @@ async def patch_spieltag(
     saisons_collection: SaisonsCollection,
     spiele_collection: SpieleCollection,
     db: DBClient,
-) -> FLSpieltagWriteResponse:
+) -> FLVersionResponse:
     """Move a matchday's span, answering its `version` after the save.
 
     The span stays inside its season and around its own dated fixtures, and its `start` keeps the order its phase is
     dated in.
     """
 
-    async def redate_the_matchday(session: AsyncClientSession) -> FLSpieltagWriteResponse:
+    async def redate_the_matchday(session: AsyncClientSession) -> FLVersionResponse:
         stored_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id}, session=session)
 
         # The season bounds the span. Its `status` read here stays current through the write: the order's judgement
@@ -196,7 +196,7 @@ async def patch_spieltag(
             session=session,
         )
 
-        return FLSpieltagWriteResponse(spieltag_id=spieltag_id, version=FLSpieltagRecord.model_validate(updated_raw).version)
+        return FLVersionResponse(version=FLSpieltagRecord.model_validate(updated_raw).version)
 
     # One transaction over the span and the season write inside `_refuse_an_out_of_order_start`,
     # which is what makes two matchdays of one phase contend.

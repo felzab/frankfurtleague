@@ -1,6 +1,4 @@
-from http import HTTPStatus
-
-from fastapi import APIRouter, Response
+from fastapi import APIRouter
 
 from app.api.aufstellungen.schemas import FLAufstellungPayload, FLAufstellungResponse
 from app.api.aufstellungen.screen import AufstellungReads, read_aufstellung_screen, save_aufstellung_screen
@@ -19,6 +17,7 @@ from app.core.dependencies import (
 )
 from app.core.routing import by_id
 from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.responses import FLVersionResponse
 
 router = APIRouter(
     prefix="/aufstellungen",
@@ -61,13 +60,11 @@ async def get_aufstellung(
 @router.put(
     AUFSTELLUNG_PATH,
     summary="Save one club's line-up for one fixture as an administrator",
-    responses={201: {"model": FLAufstellungResponse, "description": "The line-up did not stand before, and this save created it"}},
 )
 async def put_aufstellung(
     spiel_id: CustomObjectId,
     team_id: CustomObjectId,
     aufstellung_data: FLAufstellungPayload,
-    response: Response,
     spiele_collection: SpieleReadCollection,
     saisons_collection: SaisonsCollection,
     saison_spieler_collection: SaisonSpielerReadCollection,
@@ -75,13 +72,13 @@ async def put_aufstellung(
     aufstellungen_collection: AufstellungenCollection,
     db: DBClient,
     germany_now: GermanyNow,
-) -> FLAufstellungResponse:
+) -> FLVersionResponse:
     """Save the whole line-up of one club for one fixture at any time, the hour before kick-off included.
 
     An entry naming nobody stands for a pupil erased after the match was played, and a save keeps it by sending it back.
     """
 
-    answer, created = await save_aufstellung_screen(
+    return await save_aufstellung_screen(
         seat=None,
         spiel_id=spiel_id,
         team_id=team_id,
@@ -98,9 +95,3 @@ async def put_aufstellung(
         db=db,
         now=germany_now,
     )
-
-    # RFC 9110's PUT: a save creating the line-up says so.
-    if created:
-        response.status_code = HTTPStatus.CREATED
-
-    return answer

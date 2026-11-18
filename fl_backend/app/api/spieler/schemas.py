@@ -188,12 +188,6 @@ class FLSpielerSaisonAdminResponse(BaseReadModel):
     taken_rollen: list[FLSpielerRolle]
 
 
-class FLPatchSpielerSaisonResponse(BaseReadModel):
-    """The count the editor's next save sends."""
-
-    version: int = Field(ge=0)
-
-
 class FLKaderRow(BaseReadModel):
     """One squad row as its team's seat holder reads it, the surname whole and no address or telephone number."""
 

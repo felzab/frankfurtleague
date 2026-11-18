@@ -146,7 +146,7 @@ class FLPostSchiedsrichterResponse(BaseReadModel):
 
 class FLPatchSchiedsrichterResponse(BaseReadModel):
     # The referee's version after the save, which the editor's next save sends.
-    version: int
+    version: CustomVersion
     # Null unless the save moved an unconfirmed referee's address, which retires the link posted to
     # the mailbox nobody reads.
     confirmation: FLSchiedsrichterMint | None = None

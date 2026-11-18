@@ -54,7 +54,7 @@ const state = { read: READ };
 const backend = serveBackend(({ method, path }) => {
   if (path !== `/spielberichte/spiele/${SPIEL_ID}`) return undefined;
   if (method === "GET") return state.read;
-  return method === "PUT" ? { ...state.read, version: 4 } : undefined;
+  return method === "PUT" ? { version: 4 } : undefined;
 });
 // A referee's session, through the real sign-in library: the read and the write run behind the person's guard.
 signedInRequest({ email: "pia@example.org", records: { schiedsrichter: [{ schiedsrichter_id: "64b0000000000000000000aa" }] } });
