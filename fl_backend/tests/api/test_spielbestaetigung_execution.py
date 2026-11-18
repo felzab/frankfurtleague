@@ -895,7 +895,7 @@ IDA = "ida@example.com"
 ERASED_AT = datetime(2126, 5, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 
 
-class SeasonRowsRunningARivalBeforeTheAnchor(InterleavedCollection):
+class JunctionsRunningARivalBeforeTheAnchor(InterleavedCollection):
     """The season rows the answer anchors the seat it was judged from on, a rival run once ahead of that anchor."""
 
     async def update_many(self, *args: Any, **kwargs: Any) -> Any:
@@ -903,7 +903,7 @@ class SeasonRowsRunningARivalBeforeTheAnchor(InterleavedCollection):
         return await self._collection.update_many(*args, **kwargs)
 
 
-class SeasonRowsRunningARivalBeforeTheClearing(InterleavedCollection):
+class JunctionsRunningARivalBeforeTheClearing(InterleavedCollection):
     """The season rows an erasure empties its person's seats on, a rival run once ahead of the first of those writes."""
 
     async def find_one_and_update(self, *args: Any, **kwargs: Any) -> Any:
@@ -924,12 +924,12 @@ class TestAnAnswerAndItsWritersErasureCross:
             async def erase_the_trainer() -> None:
                 await erased(database, client, IDA, germany_now=ERASED_AT)
 
-            season_rows = SeasonRowsRunningARivalBeforeTheAnchor(database[Collection.SAISON_TEAMS], erase_the_trainer)
+            junctions = JunctionsRunningARivalBeforeTheAnchor(database[Collection.SAISON_TEAMS], erase_the_trainer)
             outcome = await outcome_of(
-                decline_as_team(database, client, holder(TEAM1, "trainer"), PROPOSAL, reason=REASON, saison_teams=season_rows)
+                decline_as_team(database, client, holder(TEAM1, "trainer"), PROPOSAL, reason=REASON, saison_teams=junctions)
             )
 
-            return outcome, season_rows.passes, await row_now(database, ROW1)
+            return outcome, junctions.passes, await row_now(database, ROW1)
 
         outcome, passes, row = await on_a_spiel(mongo_replica_set_url, body)
 
@@ -944,15 +944,15 @@ class TestAnAnswerAndItsWritersErasureCross:
             async def answer_as_the_trainer() -> None:
                 await decline_as_team(database, client, holder(TEAM1, "trainer"), PROPOSAL, reason=REASON)
 
-            season_rows = SeasonRowsRunningARivalBeforeTheClearing(database[Collection.SAISON_TEAMS], answer_as_the_trainer)
-            await erased(database, client, IDA, germany_now=ERASED_AT, saison_teams_collection=season_rows)
+            junctions = JunctionsRunningARivalBeforeTheClearing(database[Collection.SAISON_TEAMS], answer_as_the_trainer)
+            await erased(database, client, IDA, germany_now=ERASED_AT, saison_teams_collection=junctions)
 
-            return season_rows, await row_now(database, ROW1)
+            return junctions, await row_now(database, ROW1)
 
-        season_rows, row = await on_a_spiel(mongo_replica_set_url, body)
+        junctions, row = await on_a_spiel(mongo_replica_set_url, body)
 
         # Serially, the one clearing of Ida's seat: a second arrival is the clearing run again after the conflict.
-        season_rows.assert_landed_inside(serially=1)
+        junctions.assert_landed_inside(serially=1)
         assert (row["answer"]["kind"], row["answer"]["by"], row["answer"]["reason"]) == (
             "declined",
             {"kind": "kontakt", "seat": "trainer"},

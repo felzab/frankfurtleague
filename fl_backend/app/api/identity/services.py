@@ -194,8 +194,8 @@ def _registrierung_entry(row: Mapping[str, Any], team_names: Mapping[tuple[Any, 
     }
 
 
-def _team_names(team_rows: Iterable[Mapping[str, Any]]) -> dict[tuple[Any, Any], Any]:
-    return {(row["saison_id"], row["team_id"]): row.get("name") for row in team_rows}
+def _team_names(junctions: Iterable[Mapping[str, Any]]) -> dict[tuple[Any, Any], Any]:
+    return {(row["saison_id"], row["team_id"]): row.get("name") for row in junctions}
 
 
 def compose_account_erasure_view(
@@ -207,11 +207,11 @@ def compose_account_erasure_view(
     pupil_rows: Sequence[Mapping[str, Any]],
     registrierung_rows: Sequence[Mapping[str, Any]],
     address_change_rows: Sequence[Mapping[str, Any]],
-    team_rows: Sequence[Mapping[str, Any]],
+    junctions: Sequence[Mapping[str, Any]],
 ) -> FLAccountErasureView:
     """The preview, from the rows the erasure's own subject read holds; no address and no birthdate reaches it."""
 
-    team_names = _team_names(team_rows)
+    team_names = _team_names(junctions)
 
     return FLAccountErasureView.model_validate(
         {

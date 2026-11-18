@@ -378,7 +378,7 @@ async def get_team_saison_admin(
     row_raw = next((row for row in team_raw["memberships"] if row["saison_id"] == saison_id), None)
 
     # Every membership is read for the seasons `retire_blocked` judges; only this season's seats are served.
-    served, season_rows, held_saisons, spiele_drawn, live = await concurrently(
+    served, junctions, held_saisons, spiele_drawn, live = await concurrently(
         _with_seat_states(
             [{**team_raw, "memberships": [] if row_raw is None else [row_raw]}],
             outbox_collection=outbox_collection,
@@ -430,7 +430,7 @@ async def get_team_saison_admin(
             saison_id=saison_id,
             team_id=team_id,
             start_date=str(saison_raw["start_date"]),
-            junctions={row["team_id"]: row for row in season_rows},
+            junctions={row["team_id"]: row for row in junctions},
             now=germany_now,
             session=session,
         )
@@ -447,9 +447,9 @@ async def get_team_saison_admin(
             registrierung_end=(saison_raw.get("registrierung") or {}).get("end"),
         ),
         membership=FLTeamMembership.model_validate(memberships[0]) if memberships else None,
-        gruppen=gruppe_offer(rules=FLSaisonRules.model_validate(saison_raw["rules"]), gruppen=[row["gruppe"] for row in season_rows]),
+        gruppen=gruppe_offer(rules=FLSaisonRules.model_validate(saison_raw["rules"]), gruppen=[row["gruppe"] for row in junctions]),
         gruppe_locked=find_gruppe_move_refusal(spiele_drawn=spiele_drawn) is not None,
-        taken_trikot_farben=assigned_trikot_farben(stored=[row.get("trikot_farbe") for row in season_rows if row["team_id"] != team_id]),
+        taken_trikot_farben=assigned_trikot_farben(stored=[row.get("trikot_farbe") for row in junctions if row["team_id"] != team_id]),
         retire_blocked_by=saison_blocking_retirement(held_saisons),
         link=link,
         austritt_recipients=[FLAustrittRecipients(date=day, recipients=recipients) for day, recipients in austritt_recipients],

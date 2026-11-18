@@ -358,7 +358,7 @@ def _joined_referee() -> Mapping[str, Any]:
     return {"$cond": [{"$eq": ["$schiedsrichter", None]}, None, {"$mergeObjects": ["$schiedsrichter", joined]}]}
 
 
-def _season_rows_lookup() -> Mapping[str, Any]:
+def _junctions_lookup() -> Mapping[str, Any]:
     """Both sides' rows of the fixture's own season: the name and shorthand each is played under, and the way it left."""
 
     return {
@@ -420,7 +420,7 @@ def build_named_spiele_pipeline(
 
     return [
         *_ordered(db_filter, sort_by, limit),
-        _season_rows_lookup(),
+        _junctions_lookup(),
         _venue_lookup(),
         {
             "$set": {
@@ -447,7 +447,7 @@ def build_spiele_pipeline(
 
     pipeline = _ordered(db_filter, sort_by, limit)
 
-    pipeline.append(_season_rows_lookup())
+    pipeline.append(_junctions_lookup())
 
     pipeline.append(_confirmations_lookup())
 
