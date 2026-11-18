@@ -534,10 +534,9 @@ async def post_einwilligung(
     async def answer_for_the_person(
         session: AsyncClientSession,
     ) -> FLBewerbungEinwilligungAnswerResponse | FLSaisonTeamEinwilligungAnswerResponse:
-        """Judge, then write. Everything judged is read in-session, so a retry re-judges it.
+        """One transaction for both branches: a decline is two writes.
 
-        One transaction for both branches: a decline is two writes, and a consent judged outside
-        the session could answer a seat a decline had just emptied.
+        A consent judged outside the session could answer a seat a decline had just emptied.
         """
 
         bewerbung_raw = await bewerbungen_collection.find_one(

@@ -181,7 +181,7 @@ async def sweep_saison(
         return result.deleted_count
 
     async def erase_the_undecided(session: AsyncClientSession, batch: Batch) -> tuple[int, int]:
-        """The season's own end, undecided having served nothing: owe the notice and erase. Read in-session, so a retry re-judges."""
+        """The season's own end, undecided having served nothing: owe the notice and erase."""
 
         rows = await batch.saw(
             pull_many_from_db(
@@ -219,7 +219,7 @@ async def sweep_saison(
         return len(rows), await erase_page(ids, session)
 
     async def remind(session: AsyncClientSession, batch: Batch) -> int:
-        """Stamp each seat due its one reminder and owe its person the mail, in one transaction. Read in-session, so a retry re-judges.
+        """Stamp each seat due its one reminder and owe its person the mail, in one transaction.
 
         Answers the rows mailed. A seat no mail reaches has its chase closed outside the share, a page of them at a few commands.
         """
@@ -311,7 +311,7 @@ async def sweep_saison(
         return len(taken)
 
     async def erase_the_unconfirmed(session: AsyncClientSession, batch: Batch) -> tuple[int, int]:
-        """The fourteen-day clock: owe the notice and erase in one transaction. Read in-session, so a retry re-judges."""
+        """The fourteen-day clock: owe the notice and erase in one transaction."""
 
         rows = await batch.saw(
             pull_many_from_db(
@@ -347,8 +347,6 @@ async def sweep_saison(
         return len(rows), await erase_page(ids, session)
 
     async def erase_declined(session: AsyncClientSession, batch: Batch) -> tuple[int, int]:
-        """The decline clock. Read in-session, so a retry re-judges."""
-
         rows = await batch.saw(
             pull_many_from_db(
                 collection=bewerbungen_collection,
@@ -376,7 +374,7 @@ async def sweep_saison(
         return len(rows), await erase_page(ids, session)
 
     async def erase_accepted(session: AsyncClientSession, batch: Batch) -> tuple[int, int]:
-        """The season-and-one clock's first half. Read in-session, the season with it, so a retry re-judges."""
+        """The season-and-one clock's first half."""
 
         rows = await batch.saw(
             pull_many_from_db(
@@ -405,7 +403,7 @@ async def sweep_saison(
         return len(rows), await erase_page(ids, session)
 
     async def clear_the_blocks(session: AsyncClientSession, batch: Batch) -> int:
-        """The season-and-one clock's second half, a share a pass. Read in-session, the season with it, so a retry re-judges."""
+        """The season-and-one clock's second half, a share a pass."""
 
         junction_rows = await batch.saw(
             pull_many_from_db(
@@ -449,7 +447,7 @@ async def sweep_saison(
         return len(taken)
 
     async def clear_the_lapsed_seats(session: AsyncClientSession, batch: Batch) -> int:
-        """A season row's seat past its own day unconfirmed, a share of rows a pass. Read in-session, so a retry re-judges."""
+        """A season row's seat past its own day unconfirmed, a share of rows a pass."""
 
         rows = await batch.saw(
             pull_many_from_db(

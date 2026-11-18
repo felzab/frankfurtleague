@@ -1,5 +1,3 @@
-"""Each refusal takes what its caller read inside its own transaction, so a retry after a conflict judges the list afresh."""
-
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime

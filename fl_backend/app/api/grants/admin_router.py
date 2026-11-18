@@ -88,8 +88,6 @@ async def post_grant(
     address = sign_in_identifier(str(payload.email))
 
     async def judge_and_grant(session: AsyncClientSession) -> FLGrantWriteResponse:
-        """Anchor and read the list, judge the actor and the address, end a change standing at it, then write the row, owing its notice."""
-
         grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
         refuse(find_only_owner_refusal(actor=operator, grants=grants))
         refuse(find_exists_refusal(address=address, grants=grants))
@@ -135,8 +133,6 @@ async def delete_grant(
     """
 
     async def judge_and_revoke(session: AsyncClientSession) -> None:
-        """Anchor and read the list, judge the actor and the row against it, then remove the row, owing its notice."""
-
         grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
         # Judged before anything about the target is answered.
         refuse(find_only_owner_refusal(actor=operator, grants=grants))
@@ -178,8 +174,6 @@ async def post_handover(
     """
 
     async def judge_and_start(session: AsyncClientSession) -> None:
-        """Anchor and read the list, judge the actor and the row against it, then date the handover, owing its notice."""
-
         grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
         refuse(find_only_owner_refusal(actor=operator, grants=grants))
 
@@ -219,8 +213,6 @@ async def delete_handover(
     """Stop a waiting handover, the role staying with the owner; only the owner stops one, and every holder in effect is told."""
 
     async def judge_and_stop(session: AsyncClientSession) -> None:
-        """Anchor and read the list, judge the actor and the row against it, then take the date off, owing its notice."""
-
         grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
         refuse(find_only_owner_refusal(actor=operator, grants=grants))
 

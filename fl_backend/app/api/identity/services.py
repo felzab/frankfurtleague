@@ -470,10 +470,7 @@ def admin_address_denied(*, identifier: str, actor: str, grants: Sequence[Mappin
 
 
 def find_admin_address_refusal(*, identifier: str, actor: str, grants: Sequence[Mapping[str, Any]]) -> APIError | None:
-    """`admin_address`: an address holding a grant is acted on only by an actor holding an owner's power.
-
-    `grants` as stored, read where the caller judges, so a retry judges them afresh.
-    """
+    """`admin_address`: an address holding a grant is acted on only by an actor holding an owner's power."""
 
     if not admin_address_denied(identifier=identifier, actor=actor, grants=grants):
         return None

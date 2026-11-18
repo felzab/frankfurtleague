@@ -171,7 +171,6 @@ async def post_erasure(
         grants = await read_grants(grants_collection=grants_collection, session=session)
         refuse(find_admin_address_refusal(identifier=identifier, actor=operator, grants=grants))
 
-        # Ahead of the erasure's first write, and in its snapshot: a retry judges the changes afresh.
         subject = await resolve_subject(
             identifier,
             saison_teams_collection=saison_teams_collection,

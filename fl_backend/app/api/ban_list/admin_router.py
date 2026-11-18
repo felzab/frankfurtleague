@@ -105,8 +105,6 @@ async def post_ban_list_entry(
     address = str(ban_list_data.email)
 
     async def judge_and_ban(session: AsyncClientSession) -> InsertOneResult:
-        """Ask the grants, read the season, then write. Each takes this transaction's session, so a retry re-runs all three."""
-
         # Through the grants' anchor: a grant of this address committing beside this ban writes the
         # same rows, so one of the two retries and meets the other's refusal.
         grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
@@ -163,8 +161,6 @@ async def delete_ban_list_entry(
     """Lift a ban before it lapses, deleting its row for good."""
 
     async def lift_the_ban(session: AsyncClientSession) -> None:
-        """Resolve the row, then remove it. Both in-session, so a retry re-resolves it."""
-
         # Resolved first so a miss is a 404: a removal taking no row is an ordinary empty result and would answer 200.
         await pull_one_from_db(collection=ban_list_collection, db_filter={"_id": ban_list_entry_id}, projection=["_id"], session=session)
 
