@@ -1522,6 +1522,30 @@ class TestAResendRacingAnAnswer:
         assert after == before
 
 
+@pytest.mark.db
+class TestAFinishedSeasonTakesNoFreshLink:
+    """Its undecided applications go at the season's end, so a link mailed then would ask a person to answer for nothing."""
+
+    async def test_a_season_closed_after_the_read_mails_nobody(self, mongo_replica_set_url: str):
+        """The season closes between the re-send's read and its write, so only a judgement inside the write's transaction sees it."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            before = await seed_an_open_ansprechperson_seat(database)
+
+            async def the_close() -> None:
+                await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"status": "past"}})
+
+            racing = ApplicationsRunningARivalAfterTheirRead(database[Collection.BEWERBUNGEN], the_close)
+            code = await refused_code(resend(database, "ansprechperson", bewerbungen=cast(AsyncCollection, racing)))
+
+            return code, before, await stored_bewerbung(database, RESEND_BEWERBUNG), await drained(database, client)
+
+        code, before, after, mails = await on_a_league(mongo_replica_set_url, body)
+
+        assert code == Code.SAISON_PAST
+        assert (after, mails) == (before, [])
+
+
 RESEAT_BEWERBUNG = ObjectId("6890a1b2c3d4e5f60792000b")
 
 # Distinct from every seeded person, so a slot this write never reached cannot compare equal to one it did.

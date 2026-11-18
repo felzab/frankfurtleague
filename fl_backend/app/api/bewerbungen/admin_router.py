@@ -60,6 +60,7 @@ from app.api.outbox.crud import states_of
 from app.api.outbox.schemas import FLBewerbungAbsageData, FLBewerbungZusageData, FLOutboxTeam
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.saisons.schemas import FLSaisonRules
+from app.api.saisons.services import find_saison_past_refusal
 from app.api.teams.crud import pull_a_team_to_enter, pull_team_names_and_codes, refuse_a_full_gruppe, refuse_a_taken_colour
 from app.api.teams.services import find_shorthand_refusal, find_team_entry_refusal, offered_gruppen
 from app.core.collections import Collection
@@ -482,6 +483,7 @@ async def resend_kontakt_confirmation(
     seat: str,
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsCollection,
+    saisons_collection: SaisonsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
     today: GermanDay,
@@ -489,7 +491,8 @@ async def resend_kontakt_confirmation(
 ) -> None:
     """Void one seat's link and mail its person a fresh one, that seat's deadline and reminder starting again from today.
 
-    Where one person holds two seats both are replaced and one link answers both.
+    Where one person holds two seats both are replaced and one link answers both. A finished season's application takes
+    no fresh link.
     """
 
     db_filter = {"_id": bewerbung_id}
@@ -530,8 +533,18 @@ async def resend_kontakt_confirmation(
         async def mint(session: AsyncClientSession) -> None:
             # In-session, as the seat write reads them: the filter holds the pressed seats alone, and the deletion day is every seat's.
             stored = await pull_one_from_db(
-                collection=bewerbungen_collection, db_filter=db_filter, projection=["kontakte", "confirmations"], session=session
+                collection=bewerbungen_collection,
+                db_filter=db_filter,
+                projection=["saison_id", "kontakte", "confirmations"],
+                session=session,
             )
+            # In-session, so a season closed before this press mails nobody a link its season's end deletes with the
+            # application. Unanchored, as the confirmation's read is: the rollover reads nothing this press writes, so one
+            # committing inside it orders as one committing just before.
+            saison_raw = await pull_one_from_db(
+                collection=saisons_collection, db_filter={"_id": stored["saison_id"]}, projection=["status"], session=session
+            )
+            refuse(find_saison_past_refusal(saison_status=str(saison_raw["status"])))
             matched = await patch_one_in_db(
                 collection=bewerbungen_collection,
                 db_filter=build_resend_filter(bewerbung_id=bewerbung_id, seats=seats),

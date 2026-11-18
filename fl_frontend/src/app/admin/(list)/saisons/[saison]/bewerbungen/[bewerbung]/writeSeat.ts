@@ -44,11 +44,15 @@ export const writeSeat = action({
   },
 });
 
-/** Sends one seat a fresh link, its old one opening nothing, for a mail that went astray or a link that lapsed. */
+/**
+ * Sends one seat a fresh link, its old one opening nothing, for a mail that went astray or a link that lapsed. A
+ * finished season's application takes none, which the status line says.
+ */
 export const sendSeatLink = action({
   lane: "admin",
   name: "sendSeatLink",
   input: BewerbungenResendKontaktConfirmationParams,
+  ownWords: ["saison_past"],
   run: async ({ bewerbung_id: id, seat }) => {
     await bewerbungenResendKontaktConfirmation(id, seat);
     return { ok: true, value: undefined };
