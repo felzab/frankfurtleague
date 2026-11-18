@@ -74,8 +74,8 @@ async def get_subject(
 ) -> FLSubjectResponse:
     """Answer which confirmed, live contact seats, pupil records and referee records one mailbox holds, with its grant.
 
-    The address is matched on the sign-in fold, and a mailbox the league holds nothing for is answered with three empty lists rather
-    than a 404.
+    The address is matched on the sign-in fold, and a mailbox the league holds nothing for is answered with empty lists and no pupil
+    rather than a 404.
     """
 
     identifier = sign_in_identifier(str(subject_data.email))

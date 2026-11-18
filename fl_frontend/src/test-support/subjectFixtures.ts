@@ -20,7 +20,7 @@ export function deepFrozen<T>(value: T): T {
  */
 export const NO_RECORDS: SubjectSession["records"] = deepFrozen({
   seats: [],
-  spieler: [],
+  spieler: null,
   schiedsrichter: [],
   unconfirmed: false,
   admin_tier: null,

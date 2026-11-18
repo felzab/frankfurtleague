@@ -15,10 +15,10 @@ import type { RequestActor } from "./requestScope";
 /** Read-only to the depth a panel reaches: what the league holds is the endpoint's to change. */
 type SubjectRecords = {
   readonly seats: readonly Readonly<FLSubjectSeat>[];
-  readonly spieler: readonly Readonly<FLSubjectSpieler>[];
+  readonly spieler: Readonly<FLSubjectSpieler> | null;
   readonly schiedsrichter: readonly Readonly<FLSubjectSchiedsrichter>[];
-  // Beside the lists rather than read off them: the lookup drops every unconfirmed record, so empty
-  // lists alone cannot tell a person awaiting confirmation from one the league holds nothing for.
+  // Beside the records rather than read off them: the lookup drops every unconfirmed record, so empty
+  // records alone cannot tell a person awaiting confirmation from one the league holds nothing for.
   readonly unconfirmed: boolean;
   // The grant the address holds, stored and never derived: whether it may act as an administrator is
   // `SubjectSession["isAdmin"]`, which the session's factor and window narrow further.

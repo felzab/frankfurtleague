@@ -204,7 +204,7 @@ def compose_account_erasure_view(
     saison_team_rows: Sequence[Mapping[str, Any]],
     bewerbung_rows: Sequence[Mapping[str, Any]],
     referee_rows: Sequence[Mapping[str, Any]],
-    pupil_rows: Sequence[Mapping[str, Any]],
+    pupil_row: Mapping[str, Any] | None,
     registrierung_rows: Sequence[Mapping[str, Any]],
     address_change_rows: Sequence[Mapping[str, Any]],
     # The season rows of the registrations' teams, which name each club that season; the seats are `saison_team_rows`.
@@ -216,7 +216,7 @@ def compose_account_erasure_view(
 
     return FLAccountErasureView.model_validate(
         {
-            "spieler": [_pupil_entry(row) for row in pupil_rows],
+            "spieler": None if pupil_row is None else _pupil_entry(pupil_row),
             "schiedsrichter": [_referee_entry(row) for row in referee_rows],
             "seats": [{**_seat_entry(row, slot), "team_name": row.get("name")} for row, slot in seats_naming(saison_team_rows, identifier)],
             "bewerbungen": [_seat_entry(row, slot) for row, slot in seats_naming(bewerbung_rows, identifier)],
@@ -232,7 +232,7 @@ def compose_erasure_view(
     saison_team_rows: Sequence[Mapping[str, Any]],
     bewerbung_rows: Sequence[Mapping[str, Any]],
     referee_rows: Sequence[Mapping[str, Any]],
-    pupil_rows: Sequence[Mapping[str, Any]],
+    pupil_row: Mapping[str, Any] | None,
     registrierung_rows: Sequence[Mapping[str, Any]],
     address_change_rows: Sequence[Mapping[str, Any]],
     grant_rows: Sequence[Mapping[str, Any]],
@@ -241,7 +241,7 @@ def compose_erasure_view(
     """The administrator's counts, from the rows the erasure's own subject read holds, a contact counted per seat."""
 
     return FLErasureViewResponse(
-        spieler=len(pupil_rows),
+        spieler=int(pupil_row is not None),
         schiedsrichter=len(referee_rows),
         kontakt_seats=len(seats_naming(saison_team_rows, identifier)),
         bewerbung_seats=len(seats_naming(bewerbung_rows, identifier)),

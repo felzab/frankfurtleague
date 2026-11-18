@@ -121,7 +121,7 @@ async def get_erasure_view(
         saison_team_rows=subject.saison_teams,
         bewerbung_rows=subject.bewerbungen,
         referee_rows=subject.schiedsrichter,
-        pupil_rows=subject.spieler,
+        pupil_row=subject.spieler,
         registrierung_rows=subject.registrierungen,
         address_change_rows=[row for row in subject.address_change if row not in withheld],
         grant_rows=subject.grants,

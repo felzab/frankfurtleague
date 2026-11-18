@@ -84,6 +84,6 @@ async def test_the_pupil_scope_reads_no_other_kind_and_a_step_reading_one_raises
         "address_changes": 0,
         "grants": 0,
     }
-    assert (subject.spieler, subject.registrierungen) == ([], [])
+    assert (subject.spieler, subject.registrierungen) == (None, [])
     with pytest.raises(RuntimeError):
         getattr(subject, kind)

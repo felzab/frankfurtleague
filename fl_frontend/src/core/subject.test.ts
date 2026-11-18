@@ -60,8 +60,8 @@ const SPIELER = { spieler_id: "b".repeat(24) };
    session holds it then asks about a mailbox this holds nothing for. */
 const RECORDS = new Map<string, Subject>([
   [ADMIN_EMAIL, { ...NO_RECORDS, seats: [SEAT], admin_tier: "administration", granted_since: "2026-01-01T00:00:00Z", account: true }],
-  [PERSON_EMAIL, { ...NO_RECORDS, spieler: [SPIELER], account: true }],
-  [FOLDED_EMAIL, { ...NO_RECORDS, spieler: [SPIELER], account: true }],
+  [PERSON_EMAIL, { ...NO_RECORDS, spieler: SPIELER, account: true }],
+  [FOLDED_EMAIL, { ...NO_RECORDS, spieler: SPIELER, account: true }],
 ]);
 
 /** The two reads the lookup answers, as the generated calls spell them below the base path. */
@@ -312,7 +312,7 @@ describe("who the seam answers for", () => {
 
     expect(answer?.isAdmin).toBe(false);
     expect(answer?.email).toBe(PERSON_EMAIL);
-    expect(answer?.records.spieler).toStrictEqual([SPIELER]);
+    expect(answer?.records.spieler).toStrictEqual(SPIELER);
     expect(actor?.email, "the request scope holds a spelling the join and the log do not share").toBe(PERSON_EMAIL);
   });
 
@@ -333,7 +333,7 @@ describe("who the seam answers for", () => {
     expect(answer?.email).toBe(FOLDED_EMAIL);
     expect(actor?.email).toBe(FOLDED_EMAIL);
     expect(lastSent().body).toStrictEqual({ email: FOLDED_EMAIL });
-    expect(answer?.records.spieler, "the lookup was asked about a mailbox the league holds nothing for").toStrictEqual([SPIELER]);
+    expect(answer?.records.spieler, "the lookup was asked about a mailbox the league holds nothing for").toStrictEqual(SPIELER);
   });
 });
 

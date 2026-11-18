@@ -238,7 +238,7 @@ def seats(answer: FLSubject) -> list[tuple[str, ObjectId, str, str, str]]:
 
 
 def is_empty(answer: FLSubject) -> bool:
-    return (answer.seats, answer.spieler, answer.schiedsrichter) == ([], [], [])
+    return (answer.seats, answer.spieler, answer.schiedsrichter) == ([], None, [])
 
 
 @pytest.mark.db
@@ -321,7 +321,7 @@ class TestTheConfirmationNarrowing:
                 await writer.abort_transaction()
 
         assert seats(open_inside) == [(ACTIVE_SAISON, TEAM_C_OID, "stellvertretung", ROW_NAME_C, "active")]
-        assert [row.spieler_id for row in open_inside.spieler] == [SPIELER_UNCONFIRMED_OID]
+        assert open_inside.spieler is not None and open_inside.spieler.spieler_id == SPIELER_UNCONFIRMED_OID
         assert [row.schiedsrichter_id for row in open_inside.schiedsrichter] == [SCHIEDSRICHTER_UNCONFIRMED_OID]
         assert [(seat.saison_id, seat.saison_status) for seat in times_inside.seats] == [(PAST_SAISON, "future"), (FUTURE_SAISON, "future")]
         assert is_empty(open_outside)

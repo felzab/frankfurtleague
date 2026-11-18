@@ -56,6 +56,7 @@ from tests.erasure_corpus import (
     FIRST_NAME,
     HOME_TEAM_OID,
     IDENTIFIER,
+    LAST_NAME,
     MOVING_PUPIL_CHANGE_OID,
     NOW,
     OTHER_CONFIRMATION_OID,
@@ -754,6 +755,16 @@ class TestThePreview:
                 return (await http.get(f"{PATH}/view", headers=as_person(TYPED))).json()["admin_tier"]
 
         assert await on_a_league(mongo_replica_set_url, body) == admin_tier
+
+    async def test_it_names_the_address_s_pupil_record_and_null_where_it_holds_none(self, mongo_replica_set_url: str):
+        """The page names the pupil the press deletes from this: read null, a pupil erases their squad places unwarned."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
+                return [(await http.get(f"{PATH}/view", headers=as_person(email))).json()["spieler"] for email in (TYPED, ELSEWHERE)]
+
+        # `ELSEWHERE` holds a referee row, a seat and a registration of its own, and no pupil row.
+        assert await on_a_league(mongo_replica_set_url, body) == [{"first_name": FIRST_NAME, "last_name": LAST_NAME}, None]
 
     async def test_it_counts_no_change_whose_link_has_not_reached_this_mailbox(self, mongo_replica_set_url: str):
         """A change still awaiting its address on file has told the new mailbox nothing, and the preview says nothing of it.

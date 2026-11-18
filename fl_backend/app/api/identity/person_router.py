@@ -162,7 +162,7 @@ async def get_account_erasure_view(
         saison_team_rows=subject.saison_teams,
         bewerbung_rows=subject.bewerbungen,
         referee_rows=subject.schiedsrichter,
-        pupil_rows=subject.spieler,
+        pupil_row=subject.spieler,
         registrierung_rows=subject.registrierungen,
         # The person's own preview counts only what reached their mailbox, which an administrator's request has not yet.
         address_change_rows=known_to_the_new_mailbox(others_naming(subject.address_change, identifier)),

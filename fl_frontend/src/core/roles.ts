@@ -73,7 +73,7 @@ export function rolesOf(subject: SubjectSession): { roles: Role[]; unconfirmed: 
         saison_end_date: seat.saison_end_date,
       })),
     // Neither row is season-scoped, so neither is narrowed.
-    ...spieler.map((row): SpielerRole => ({ kind: "spieler", spieler_id: row.spieler_id })),
+    ...(spieler === null ? [] : [{ kind: "spieler", spieler_id: spieler.spieler_id } satisfies SpielerRole]),
     ...schiedsrichter.map((row): SchiedsrichterRole => ({ kind: "schiedsrichter", schiedsrichter_id: row.schiedsrichter_id })),
     ...(subject.isAdmin ? [{ kind: "administration" } satisfies AdministrationRole] : []),
   ];

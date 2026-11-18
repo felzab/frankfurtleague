@@ -89,8 +89,10 @@ function factsOf(email: string, passkeys: number, view: FLAccountErasureViewResp
   const records = new Map<Copy, Words[]>();
   const add = (label: Copy, record: Words) => records.set(label, [...(records.get(label) ?? []), record]);
 
-  for (const { first_name: firstName, last_name: lastName } of spieler)
+  if (spieler !== null) {
+    const { first_name: firstName, last_name: lastName } = spieler;
     add(ENTRIES.spieler, { record: lastName === null ? firstName : `${firstName} ${lastName}` });
+  }
   for (const { name } of schiedsrichter) add(ENTRIES.schiedsrichter, { record: name });
   for (const { seat, team_name, saison_id } of seats) {
     add(ENTRIES.seats([seat]), ENTRIES.teamSeason({ record: team_name }, COPY.shared.saisonName(saison_id)));

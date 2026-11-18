@@ -129,7 +129,8 @@ def _judged(identifier: str, seat_rows: Rows, referee_rows: Rows, pupil_rows: Ro
             for row in live_seat_rows
             for slot in own_seats(row, identifier)
         ],
-        spieler=[FLSubjectSpieler(spieler_id=row["_id"]) for row in pupil_rows if is_own_spieler(row)],
+        # One row at most, `uniq_spieler_email` holding one pupil per address, which the selection matches by equality.
+        spieler=next((FLSubjectSpieler(spieler_id=row["_id"]) for row in pupil_rows if is_own_spieler(row)), None),
         schiedsrichter=[
             FLSubjectSchiedsrichter(schiedsrichter_id=row["_id"]) for row in live_schiedsrichter if is_own_schiedsrichter(row, identifier)
         ],
@@ -321,8 +322,9 @@ class Subject:
         return _read(self._schiedsrichter, "schiedsrichter")
 
     @property
-    def spieler(self) -> Rows:
-        return _read(self._spieler, "spieler")
+    def spieler(self) -> Mapping[str, Any] | None:
+        # One row at most, `uniq_spieler_email` holding one pupil per address, which the selection matches by equality.
+        return next(iter(_read(self._spieler, "spieler")), None)
 
     @property
     def registrierungen(self) -> Rows:
@@ -342,9 +344,10 @@ class Subject:
         A seat's row holds up to three people and another address's change names a second one, so neither stands here.
         """
 
+        pupil = self.spieler
         kinds: tuple[tuple[Collection, Rows], ...] = (
             (Collection.SCHIEDSRICHTER, self.schiedsrichter),
-            (Collection.SPIELER, self.spieler),
+            (Collection.SPIELER, [] if pupil is None else [pupil]),
             (Collection.REGISTRIERUNGEN, self.registrierungen),
             (Collection.ADDRESS_CHANGES, [row for row in self.address_change if row["address"] == self.identifier]),
             (Collection.GRANTS, self.grants),
@@ -611,19 +614,18 @@ async def erase_everything(
         )
 
     spieler, saison_spieler = 0, 0
-    if _runs(erase_person_in_session, scope):
-        for row in subject.spieler:
-            erased = await erase_person_in_session(
-                spieler_collection=spieler_collection,
-                saison_spieler_collection=saison_spieler_collection,
-                spielberichte_collection=spielberichte_collection,
-                aufstellungen_collection=aufstellungen_collection,
-                spieler_id=row["_id"],
-                now=now,
-                session=session,
-            )
-            spieler += erased.spieler
-            saison_spieler += erased.saison_spieler
+    # The scope first: an unread pupil raises rather than reading as none.
+    if _runs(erase_person_in_session, scope) and (pupil := subject.spieler) is not None:
+        erased = await erase_person_in_session(
+            spieler_collection=spieler_collection,
+            saison_spieler_collection=saison_spieler_collection,
+            spielberichte_collection=spielberichte_collection,
+            aufstellungen_collection=aufstellungen_collection,
+            spieler_id=pupil["_id"],
+            now=now,
+            session=session,
+        )
+        spieler, saison_spieler = erased.spieler, erased.saison_spieler
 
     if _runs(end_an_emptied_change_in_session, scope):
         await end_an_emptied_change_in_session(

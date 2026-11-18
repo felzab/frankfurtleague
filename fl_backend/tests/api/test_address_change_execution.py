@@ -156,7 +156,7 @@ class TestThePersonsStart:
 
         (gate, subject), after = await on_a_person(mongo_replica_set_url, body)
 
-        assert (gate.account, subject.spieler, subject.schiedsrichter, subject.seats) == (False, [], [], [])
+        assert (gate.account, subject.spieler, subject.schiedsrichter, subject.seats) == (False, None, [], [])
         # Afterwards one sign-in holds the person, and the replaced address none.
         assert after == [False, True]
 
