@@ -414,7 +414,7 @@ class LineUpsRunningARivalAtTheirRead(InterleavedCollection):
 
 
 async def test_a_pupil_withdrawn_inside_the_save_refuses_it(mongo_replica_set_url: str):
-    """The squad row is read and never written, so its change conflicts with nothing: the judgement asked after the write refuses it."""
+    """The save anchors the squad row of each pupil it newly names, so the withdrawal conflicts with it and the retry refuses."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, Any]:
         async def ole_is_withdrawn() -> None:
@@ -503,10 +503,7 @@ class TestAnErasedPupilsEntry:
 
 
 class FixturesCountingTheAttempts:
-    """`spiele` as the save reads it: each attempt of its transaction reads the fixture once there, so those reads count the attempts.
-
-    The judgement outside the transaction reads the fixture on a snapshot session, which holds no transaction.
-    """
+    """`spiele` as the save reads it: each attempt of its transaction reads the fixture once there, so those reads count the attempts."""
 
     def __init__(self, collection: Any) -> None:
         self._collection = collection
@@ -538,11 +535,14 @@ async def lina_is_erased(database: AsyncDatabase, client: AsyncMongoClient) -> N
     await erase(database, client, LINA, now=OPEN)
 
 
+async def the_fixture_is_undated(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"date": None, "time": None}})
+
+
 class TestWhatTheSaveAnchorsMovingInsideItIsRefusedInItsTransaction:
     """Each rival writes a document the save is judged on and anchors, so the anchor conflicts and the retry refuses the save.
 
-    Unanchored, the save meets the rival only in its judgement outside the transaction, which leaves a gap before the
-    commit for a rival landing after it.
+    Unanchored, the save would commit on what the rival replaced.
     """
 
     @pytest.mark.parametrize(
@@ -554,6 +554,8 @@ class TestWhatTheSaveAnchorsMovingInsideItIsRefusedInItsTransaction:
             pytest.param(the_season_is_ended, admin_saves, Code.SAISON_PAST, 0, id="the-season-ended"),
             # Committed before it, the squad without her is met once the line-up is read.
             pytest.param(lina_is_erased, seat_saves, Code.SPIELER_NOT_IN_KADER, 1, id="the-pupil-erased"),
+            # Committed before it, the fixture is refused before the line-up is read.
+            pytest.param(the_fixture_is_undated, seat_saves, Code.AUFSTELLUNG_SPIEL_UNDATED, 0, id="the-fixture-undated"),
         ],
     )
     async def test_the_save_retries_and_writes_nothing(

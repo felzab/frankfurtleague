@@ -2,7 +2,6 @@ from typing import Annotated
 
 from pydantic import AfterValidator, BaseModel, Field, StringConstraints, TypeAdapter
 
-from app.core.crud import Anchored
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import SPIELORT_NAME_MAX_LENGTH
 from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString, CustomVersion
@@ -37,7 +36,7 @@ class FLPostSpielortPayload(_SpielortPayload):
     pass
 
 
-class FLSpielort(_SpielortWritable, BaseReadModel, Anchored):
+class FLSpielort(_SpielortWritable, BaseReadModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     # Free text searched on Google Maps, so there is no scheme to check. The copy a fixture's
     # read joins is the public address surface, which is why `address` here need not be.

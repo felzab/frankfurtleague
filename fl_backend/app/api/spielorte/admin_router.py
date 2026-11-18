@@ -177,8 +177,8 @@ async def delete_spielort(
                 collection=spielorte_collection, action="spielort.retired", record_id=spielort_id, label=str(retired["name"]), session=session
             )
 
-    # Soft, since a played match names the venue by id. The stamp inside the judgement's transaction, so a booking
-    # committing after the read above conflicts on the venue it anchors rather than landing unseen.
+    # Soft, since a played match names the venue by id. A booking committing after the read above takes no anchor on the
+    # venue and lands: the fixture it leaves on a retired venue is a fault the season's Übersicht names.
     await transact(db, retire_the_venue)
 
 

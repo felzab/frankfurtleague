@@ -117,7 +117,7 @@ def find_locked_refusal(marks: FLAufstellungMarks | None) -> APIError | None:
 
 
 def judge_the_kickoff(marks: FLAufstellungMarks | None, *, locks: bool) -> None:
-    """The fixture's clock, as a save asks it inside its transaction and again outside it: `locks` for a seat's save alone."""
+    """The fixture's clock, as a save asks it inside its transaction: `locks` for a seat's save alone."""
 
     refuse(find_undated_refusal(marks))
     if locks:
@@ -192,7 +192,7 @@ def find_nominee_refusal(*, entries: Sequence[FLAufstellungEntry], kader: Sequen
 
 
 def judge_the_names(*, entries: Sequence[FLAufstellungEntry], new: set[ObjectId], nameless: int, kader: Sequence[Mapping[str, Any]]) -> None:
-    """Whom the line-up names, against the club's squad, as a save asks it inside its transaction and again outside it."""
+    """Whom the line-up names, against the club's squad, as a save asks it inside its transaction."""
 
     refuse(find_not_in_kader_refusal(entries=entries, new=new, nameless=nameless, kader=kader))
     refuse(find_nominee_refusal(entries=entries, kader=kader))

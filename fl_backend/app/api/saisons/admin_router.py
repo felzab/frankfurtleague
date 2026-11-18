@@ -902,9 +902,8 @@ async def post_spielplan(
             )
         )
         if spielplan_data.replace:
-            # An early exit, not the guarantee: refused here, the replace runs no delete and no insert, and the
-            # administrator reads the reports ahead of any rule on the proposed shape. The count after the writes is what
-            # no report escapes, since one this snapshot sees is committed and that count sees it too.
+            # Ahead of any rule on the proposed shape, so the administrator reads the reports first. A report written since
+            # this snapshot anchors the season, which the replace anchors below, so the two conflict and the retry counts it.
             refuse(
                 find_berichte_refusal(
                     berichte=await count_submitted_berichte(
@@ -982,17 +981,6 @@ async def post_spielplan(
         shape = spielplan_data.shape
         shape_written = {} if shape is None else {f"rules.{rule}": value for rule, value in shape.model_dump().items()}
 
-        if spielplan_data.replace:
-            # The count no report escapes, outside the transaction: a report's first write conflicts
-            # with this one on the season, and a correction on the report, but a document no write made does not.
-            refuse(
-                find_berichte_refusal(
-                    berichte=await count_submitted_berichte(
-                        spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=None
-                    )
-                )
-            )
-
         watermark = FLSaisonSpielplan(generated_at=today)
         # One `$set` inside the transaction: the shape and the draw it produced are one fact.
         await patch_one_in_db(
@@ -1045,8 +1033,8 @@ async def delete_spielplan(
         # fixtures are as much a record as one this endpoint wrote.
         stored_spiele = await _pull_recorded_fact_rows(spiele_collection=spiele_collection, saison_id=saison_id, session=session)
 
-        # The report count here is an early exit, refusing before anything is deleted; the count after the writes is
-        # what no report escapes.
+        # A report written since this snapshot anchors the season, which the undraw anchors below, so the two conflict and
+        # the retry counts it.
         refuse(
             _find_undraw_refusal_of(
                 saison_status=str(saison_raw["status"]),
@@ -1080,14 +1068,6 @@ async def delete_spielplan(
             return_document=ReturnDocument.BEFORE,
         )
         await record_act(collection=saisons_collection, action="saison.spielplan_deleted", label=saison_id, session=session)
-
-        # The count no report escapes, outside the transaction: a report's write conflicts with this one, but a document
-        # no write made does not.
-        refuse(
-            find_berichte_refusal(
-                berichte=await count_submitted_berichte(spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=None)
-            )
-        )
 
     # `transact`, not a bare `start_transaction`, and a retry is safe because the undraw
     # removes a set by filter rather than by any id it read.

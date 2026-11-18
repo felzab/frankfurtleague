@@ -30,7 +30,6 @@ from app.api.spiele.services import (
     CLASH_REACH_DAYS,
     MINUTES_PER_DAY,
     BookedReferee,
-    BookedReferences,
     BookedSlot,
     BookedVenue,
     ResolvedReferences,
@@ -48,7 +47,7 @@ from app.api.spiele.services import (
     find_double_bookings,
     find_double_entries,
     find_eligibility_refusal,
-    find_references_to_anchor,
+    find_referee_to_anchor,
     find_result_removal_refusal,
     find_retired_bookings,
     find_slot_claims,
@@ -545,45 +544,42 @@ class TestABookingNamingNobody:
         assert patched.schiedsrichter == (FLSpielSchiedsrichterFieldRecord(schiedsrichter_id=None, payment=20) if kept else None)
 
 
-def anchored_for(saison_docs: list[dict[str, Any]], nr: int, **overrides: Any) -> BookedReferences:
-    return find_references_to_anchor(FLSpiel.model_validate(stored_spiel(saison_docs, nr)), payload_for(saison_docs, nr, **overrides), RULES)
+def anchored_for(saison_docs: list[dict[str, Any]], nr: int, **overrides: Any) -> ObjectId | None:
+    return find_referee_to_anchor(FLSpiel.model_validate(stored_spiel(saison_docs, nr)), payload_for(saison_docs, nr, **overrides), RULES)
 
 
-def held_by(saison_docs: list[dict[str, Any]], nr: int) -> BookedReferences:
+def referee_of(saison_docs: list[dict[str, Any]], nr: int) -> ObjectId | None:
     stored = FLSpiel.model_validate(stored_spiel(saison_docs, nr))
 
-    return BookedReferences(
-        spielort_id=stored.spielort.spielort_id if stored.spielort is not None else None,
-        schiedsrichter_id=stored.schiedsrichter.schiedsrichter_id if stored.schiedsrichter is not None else None,
-    )
+    return stored.schiedsrichter.schiedsrichter_id if stored.schiedsrichter is not None else None
 
 
-class TestTheReferencesASaveAnchors:
-    """`find_references_to_anchor`: a reference either rule judges blind is anchored, and a save moving no claim serialises with nobody."""
+class TestTheRefereeASaveAnchors:
+    """`find_referee_to_anchor`: a referee either rule judges blind is anchored, and a save moving no claim serialises with nobody."""
 
     @pytest.mark.parametrize(
         ("seasoned", "nr", "overrides"),
         [
-            # The race `booking_unknown_resource` never sees: neither reference moves, and both claims do.
+            # The race `booking_unknown_resource` never sees: the referee stays, and the claim moves.
             pytest.param(as_seeded, 1, {"time": "10:00:00"}, id="a kept booking moved to another hour"),
             pytest.param(as_seeded, 1, {"date": "2026-03-14"}, id="a kept booking moved to another day"),
             *REOPENING_SAVES,
         ],
     )
-    def test_a_save_claiming_or_booking_both_rows_anew_anchors_both(self, saison, seasoned, nr, overrides):
-        """Lifting a call-off makes both claims as well, so both halves anchor it.
+    def test_a_save_claiming_or_booking_the_referee_anew_anchors_them(self, saison, seasoned, nr, overrides):
+        """Lifting a call-off makes the claim as well, so both halves anchor them.
 
-        Clearing a result makes no claim, so `find_new_bookings`' half alone anchors it.
+        Clearing a result makes no claim, so `find_new_bookings`' half alone anchors them.
         """
 
         docs = seasoned(saison)
+        booked = referee_of(docs, nr)
 
-        assert anchored_for(docs, nr, **overrides) == held_by(docs, nr)
+        assert booked is not None, "the premise: the fixture books a referee"
+        assert anchored_for(docs, nr, **overrides) == booked
 
-    def test_a_referee_swapped_at_the_same_hour_anchors_the_referee_alone(self, saison):
-        anchored = anchored_for(saison, 1, schiedsrichter=A_DIFFERENT_SCHIEDSRICHTER)
-
-        assert anchored == BookedReferences(spielort_id=None, schiedsrichter_id=ObjectId(ANOTHER_SCHIEDSRICHTER))
+    def test_a_referee_swapped_at_the_same_hour_is_anchored(self, saison):
+        assert anchored_for(saison, 1, schiedsrichter=A_DIFFERENT_SCHIEDSRICHTER) == ObjectId(ANOTHER_SCHIEDSRICHTER)
 
 
 class TestEligibility:

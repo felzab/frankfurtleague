@@ -20,7 +20,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from tests import documents
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database
-from tests.isolation import InterleavedCollection, outcome_of, refused_code
+from tests.isolation import refused_code
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -402,14 +402,6 @@ def a_report(saison_id: str) -> dict[str, Any]:
     return documents.spielbericht_document({"_id": ObjectId(), "saison_id": saison_id})
 
 
-async def report_a_drawn_spiel(database: AsyncDatabase) -> None:
-    """A submitted report on a fixture the draw holds: the refusal counts only a report whose fixture stands."""
-
-    spiel = await database[Collection.SPIELE].find_one({"saison_id": SAISON_ID})
-    assert spiel is not None, "the premise: the season is drawn"
-    await database[Collection.SPIELBERICHTE].insert_one(documents.spielbericht_document(spiel))
-
-
 class TestAnUndrawTakesTheSeasonsReports:
     async def test_the_seasons_reports_go_and_the_neighbours_stay(self, mongo_replica_set_url: str):
         """Drop the undraw's report delete and this fails: a report document would name a fixture no season holds.
@@ -429,27 +421,6 @@ class TestAnUndrawTakesTheSeasonsReports:
             )
 
         assert await on_a_seeded_saison(mongo_replica_set_url, body) == (0, 1)
-
-
-class TestASubmittedReportKeepsTheSpielplan:
-    """`spielplan_berichte_submitted` wired: the undraw counts the season's submitted reports in its transaction and again outside it."""
-
-    async def test_a_report_submitted_mid_undraw_is_counted_again_outside_it(self, mongo_replica_set_url: str):
-        """A document inserted with no write's anchor meets nothing the undraw writes: the count outside its transaction refuses it."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            drawn = await call_draw(database, client)
-            berichte = InterleavedCollection(database[Collection.SPIELBERICHTE], lambda: report_a_drawn_spiel(database), before="delete_many")
-            outcome = await outcome_of(call_undraw(database, client, spielberichte_collection=berichte))
-            berichte.assert_landed_inside(serially=0)
-
-            return drawn, outcome, await counts_now(database), berichte.passes
-
-        drawn, outcome, counts, passes = await on_a_seeded_saison(mongo_replica_set_url, body)
-
-        assert (outcome, counts) == (Code.SPIELPLAN_BERICHTE_SUBMITTED, (drawn.spieltage, drawn.spiele))
-        # Once: the insert conflicts with nothing, so no retry met it.
-        assert passes == 1
 
 
 @dataclass(frozen=True)

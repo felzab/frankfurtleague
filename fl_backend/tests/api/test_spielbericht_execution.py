@@ -26,7 +26,7 @@ from app.api.spiele.schemas import (
 )
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db
+from app.core.crud import ANCHOR_FIELD, aggregate_many_from_db
 from tests import documents
 from tests.acts import acts_of
 from tests.database import a_clean_database
@@ -214,7 +214,7 @@ async def put(
         records=record_collections(database),
         db=client,
         germany_now=NOW,
-        **handles(database, **replaced),
+        **handles(database, **{"schiedsrichter_collection": database[Collection.SCHIEDSRICHTER], **replaced}),
     )
 
 
@@ -231,12 +231,15 @@ async def stored(database: AsyncDatabase) -> list[dict[str, Any]]:
 
 class TestTheReportNeverWritesTheSpiel:
     async def test_the_spiel_and_the_tie_it_feeds_stay_as_stored(self, mongo_replica_set_url: str):
-        """A knockout feeder: a report written into the result would resolve the quarter-final's side."""
+        """A knockout feeder: a report written into the result would resolve the quarter-final's side.
+
+        The anchor's counter aside, which the report advances on its fixture and no reader sees.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            before = await database[Collection.SPIELE].find({}).sort("_id").to_list()
+            before = await database[Collection.SPIELE].find({}, {ANCHOR_FIELD: 0}).sort("_id").to_list()
             await put(database, client, bericht([tor("team1", LINA), tor("team1", None), tor("team2", MIA)]))
-            after = await database[Collection.SPIELE].find({}).sort("_id").to_list()
+            after = await database[Collection.SPIELE].find({}, {ANCHOR_FIELD: 0}).sort("_id").to_list()
 
             return before == after
 
@@ -400,7 +403,7 @@ async def retire_the_referee(database: AsyncDatabase) -> None:
 
 
 class TestWhatTheReportIsJudgedOnMovingMidWriteIsJudgedAgain:
-    """Each a write the report's transaction reads and never writes, so none conflicts: the re-judgement outside it is all that sees them."""
+    """Each a write to a document the report's transaction judges and anchors, so it conflicts and the retry refuses the write."""
 
     @pytest.mark.parametrize(
         ("rival", "code"),
@@ -424,13 +427,13 @@ class TestWhatTheReportIsJudgedOnMovingMidWriteIsJudgedAgain:
         outcome, documents_now, passes = await on_the_league(mongo_replica_set_url, body)
 
         assert (outcome, documents_now) == (code, [])
-        # Once: none of these conflicts, so a retry would mean the rival was caught some other way.
+        # Once: the retry is refused on what moved before it reaches the write again.
         assert passes == 1
 
     async def test_a_correction_conflicts_with_the_season_ending_under_it(self, mongo_replica_set_url: str):
         """A correction anchors the season as a first write does, so a retry refuses it in its transaction.
 
-        Unanchored, it meets the end only in its judgement outside the transaction, which leaves a gap before the commit.
+        Unanchored, it would commit into the ended season.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -451,7 +454,7 @@ class TestWhatTheReportIsJudgedOnMovingMidWriteIsJudgedAgain:
     async def test_a_first_write_conflicts_with_the_season_ending_under_it(self, mongo_replica_set_url: str):
         """The season's anchor conflicts with the end, so a retry refuses the write in its transaction.
 
-        Unanchored, the write meets the end only in its judgement outside the transaction.
+        Unanchored, the write would commit into the ended season.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -515,8 +518,7 @@ class TestAPupilErasedMidWriteConflictsWithTheAnchor:
         outcome, documents_now, writes = await on_the_league(mongo_replica_set_url, body)
 
         assert (outcome, documents_now) == (Code.SPIELER_NOT_IN_KADER, [])
-        # Never written: the anchor's conflict retried the transaction, whose judgement met the squad without her. An
-        # anchor the erasure missed lets the write through, to be refused by the re-judgement outside the transaction.
+        # Never written: the anchor's conflict retried the transaction, whose judgement met the squad without her.
         assert writes == 0
 
 

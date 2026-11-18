@@ -25,7 +25,7 @@ from app.api.spielberichte.services import (
     newly_named,
 )
 from app.api.spiele.services import spiel_label
-from app.core.crud import VERSION_FIELD, find_stale_first_save_refusal, refuse
+from app.core.crud import VERSION_FIELD, anchor_in_db, find_stale_first_save_refusal, refuse
 from app.core.dependencies import (
     DBClient,
     GermanyNow,
@@ -33,6 +33,7 @@ from app.core.dependencies import (
     SaisonSpielerCollection,
     SaisonSpielerReadCollection,
     SaisonsReadCollection,
+    SchiedsrichterCollection,
     SnapshotSession,
     SpielberichteCollection,
     SpielberichteReadCollection,
@@ -123,6 +124,7 @@ async def put_spielbericht_bericht(
     saison_spieler_collection: SaisonSpielerCollection,
     spieler_collection: SpielerCollection,
     spielberichte_collection: SpielberichteCollection,
+    schiedsrichter_collection: SchiedsrichterCollection,
     records: SubjectLookup,
     db: DBClient,
     germany_now: GermanyNow,
@@ -175,29 +177,20 @@ async def put_spielbericht_bericht(
                 session=session,
             )
             # On every write, after the report's own, so a rival first write meets it there rather than on the season. The
-            # judgement of the season's status, asked again outside the transaction, leaves a gap before the commit that
-            # the activation ending the season, which writes its row, then meets here.
+            # activation ending the season, which writes its row, then meets the season's status judged here.
             await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=context.spiel["saison_id"], session=session)
-
-        # Nothing judged is written here, so a referee retired or taken off, a fixture re-dated or called off, a pupil
-        # ausgetragen or a seat holder renamed conflicts with nothing: judged again outside the transaction.
-        async with db.start_session(snapshot=True) as outside:
-            subject_now = await roles_of(identifier, records, session=outside)
-        refuse(find_own_entry_refusal(held=bool(subject_now.schiedsrichter)))
-        current = await pull_bericht_context(
-            spiele_collection=spiele_collection,
-            saisons_collection=saisons_collection,
-            saison_spieler_collection=saison_spieler_collection,
-            spiel_id=spiel_id,
-            session=None,
-        )
-        refuse(
-            find_not_refereed_refusal(
-                spiel_raw=current.spiel, schiedsrichter_ids=[record.schiedsrichter_id for record in subject_now.schiedsrichter]
-            )
-        )
-        refuse(find_saison_ended_refusal(current))
-        judge_bericht(context=current, payload=payload, new=new, now=germany_now)
+            # What else the write judged, so a referee record retired or erased, a fixture re-dated, called off or given
+            # another referee, or a pupil newly named taken out of the squad, under it conflicts with it, and the retry
+            # judges what that write left.
+            await anchor_in_db(collection=schiedsrichter_collection, db_filter={"_id": {"$in": own}}, session=session)
+            await anchor_in_db(collection=spiele_collection, db_filter={"_id": spiel_id}, session=session)
+            named = sorted(set().union(*new.values()))
+            if named:
+                await anchor_in_db(
+                    collection=saison_spieler_collection,
+                    db_filter={"saison_id": context.spiel["saison_id"], "spieler_id": {"$in": named}},
+                    session=session,
+                )
 
         return FLVersionResponse(version=document[VERSION_FIELD])
 
