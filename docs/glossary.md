@@ -619,10 +619,10 @@ schools are never a Dublette.\
 
 ### `subject` — the data-protection subject one mailbox stands for
 
-**Is:** the league records one mailbox matches (its confirmed contact seats, pupil rows and referee
-rows) as three lists composed at read time, beside the flags `unconfirmed` and `barred` and the
-`admin_tier` of any grant; nothing stores one. It answers records, never a count of people, and is
-not yet a `Funktion`.\
+**Is:** the league records one mailbox matches, composed at read time: its confirmed contact seats
+and referee rows as lists, and its one pupil row or none, beside the flags `unconfirmed` and `barred`
+and the `admin_tier` of any grant; nothing stores one. It answers records, never a count of people,
+and is not yet a `Funktion`.\
 **In code:** `fl_backend/app/api/identity/schemas.py :: FLSubjectResponse`, composed by
 `fl_backend/app/api/identity/crud.py :: find_subject`.
 
