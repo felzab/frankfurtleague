@@ -1,6 +1,6 @@
 from typing import Annotated, Literal
 
-from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, ValidationInfo, field_validator
+from pydantic import AfterValidator, BaseModel, BeforeValidator, Field, StringConstraints, ValidationInfo, field_validator
 
 from app.api.spiele.schemas import FLSpielbestaetigungParty, FLSpielortFieldPublic
 from app.core.crud import Anchored
@@ -17,7 +17,7 @@ from app.shared.schemas.custom import (
     parse_empty_string_to_none,
 )
 from app.shared.schemas.literals import FLKontaktRolle
-from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
+from app.shared.schemas.responses import BaseAPIResponse, BasePayload, BaseReadModel
 
 type FLSpielbestaetigungAnswerKind = Literal["agreed", "declined"]
 
@@ -152,13 +152,11 @@ class FLSpielbestaetigungRecord(_FLSpielbestaetigungFields, Anchored):
 # --- The administrator: a row settled on its party's behalf.
 
 
-class FLSpielbestaetigungEnterPayload(BaseModel):
+class FLSpielbestaetigungEnterPayload(BasePayload):
     """The administrator's Zusage for a party that answered elsewhere, and how it was given.
 
     No way to choose: the one press records a Zusage, and a decline without a proposal would sit in no queue.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     # Required: the row is the league's record of how a date was agreed, and the reason is the part no field holds.
     reason: CustomSpielbestaetigungReason
@@ -178,8 +176,8 @@ class FLSpielbestaetigungViewAnsetzung(BaseModel):
     spielort: FLSpielortFieldPublic | None
 
 
-class FLSpielbestaetigungVorschlagPayload(FLSpielbestaetigungAppointment):
-    model_config = ConfigDict(extra="forbid")
+class FLSpielbestaetigungVorschlagPayload(FLSpielbestaetigungAppointment, BasePayload):
+    pass
 
 
 def _an_acceptance_gives_no_reason(reason: str | None, info: ValidationInfo) -> str | None:
@@ -197,10 +195,8 @@ def _an_acceptance_gives_no_reason(reason: str | None, info: ValidationInfo) -> 
 type FLSpielbestaetigungTeamState = Literal["valid", "vorschlag", "expired", "agreed", "declined"]
 
 
-class FLSpielbestaetigungTeamAnswerPayload(BaseModel):
+class FLSpielbestaetigungTeamAnswerPayload(BasePayload):
     """One club's answer about one Ansetzung, from whichever of its seats presses first."""
-
-    model_config = ConfigDict(extra="forbid")
 
     answer: FLSpielbestaetigungAnswerKind
     # Both required as keys and null where unused: an omitted key would read as a client that forgot it.
@@ -245,10 +241,8 @@ class FLSpielbestaetigungAnswerResponse(BaseAPIResponse):
 FLSpielbestaetigungSchiedsrichterState = Literal["valid", "agreed", "declined", "expired", "invalid", "cancelled"]
 
 
-class FLSpielbestaetigungSchiedsrichterAnswerPayload(BaseModel):
+class FLSpielbestaetigungSchiedsrichterAnswerPayload(BasePayload):
     """A referee's answer about one row naming them: a decline gives a reason, which the administrator reads."""
-
-    model_config = ConfigDict(extra="forbid")
 
     answer: FLSpielbestaetigungAnswerKind
     # Required as a key and null where unused, as the club's answer spells it.

@@ -1,6 +1,6 @@
 from typing import Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
+from pydantic import BaseModel, Field, TypeAdapter, model_validator
 
 from app.core.crud import Anchored
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString, CustomVersion
@@ -11,7 +11,7 @@ from app.shared.schemas.literals import (
     FLSpielerPosition,
     FLSpielerStufe,
 )
-from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
+from app.shared.schemas.responses import BaseAPIResponse, BasePayload, BaseReadModel
 
 # `[0-9]`, never `\d`: Python's `\d` matches Unicode decimal digits where the frontend mirror's
 # does not, and the two ends must accept and refuse the same shirt.
@@ -238,15 +238,13 @@ class FLKaderResponse(BaseAPIResponse):
     kader: list[FLKaderRow]
 
 
-class _KaderRowFields(BaseModel):
+class _KaderRowFields(BasePayload):
     """What an edit may change on a squad row, wholesale.
 
     The handler `$set`s these, so a field with a default would let a form that forgot it write that default over a
     stored value. No player moves between teams, so `extra="forbid"` refuses `team_id`; it is also what refuses
     `is_nachnominiert`, which no edit sets or clears.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     # Tightened on the write side alone: a read model refusing a stored number would answer 500 for
     # the whole list over one row.

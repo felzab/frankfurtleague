@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
+from pydantic import BaseModel, Field, TypeAdapter, model_validator
 
 from app.api.outbox.schemas import FLOutboxStatus
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungSchiedsrichterState
@@ -23,7 +23,7 @@ from app.shared.schemas.custom import (
 from app.shared.schemas.einwilligung import FLSchiedsrichterTextVersions, cite_their_kind, refuse_a_stale_grant
 from app.shared.schemas.kontakt import CustomKontaktName, CustomStoredAddress, FLKontakt, FLKontaktPayload
 from app.shared.schemas.literals import FLEinwilligungScope, FLSonderereignis
-from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
+from app.shared.schemas.responses import BaseAPIResponse, BasePayload, BaseReadModel
 
 # What a referee's link shows reopened. `declined` beside the states every link page shares: the referee objects
 # through the same link, and the entry stays until its clock runs out.
@@ -39,9 +39,7 @@ class _SchiedsrichterWritable(BaseModel):
 
 
 # No `id` on any payload: the path names the referee, the body describes the change (RFC 5789).
-class _SchiedsrichterPayload(_SchiedsrichterWritable):
-    model_config = ConfigDict(extra="forbid")
-
+class _SchiedsrichterPayload(_SchiedsrichterWritable, BasePayload):
     # Tightened on the write side alone: a read model refusing a stored name would answer 500 for
     # the whole list over one row. The type every person's name
     # takes, one ceiling for them all.
@@ -191,9 +189,7 @@ class FLSchiedsrichterConfirmationViewResponse(BaseAPIResponse):
     answered_at: CustomOptionalDateString
 
 
-class FLSchiedsrichterConfirmationPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class FLSchiedsrichterConfirmationPayload(BasePayload):
     token: CustomToken
     birth_date: CustomDateString
     scope: FLEinwilligungScope

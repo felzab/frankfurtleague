@@ -1,13 +1,13 @@
 import re
 from typing import Annotated, Final
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import AfterValidator, BaseModel, Field, StringConstraints
 
 from app.core.exceptions import rule_refusal
 from app.shared.schemas.bounds import BAN_REASON_MAX_LENGTH, SAISON_ID_LENGTH
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomNonEmptyString, CustomObjectId
 from app.shared.schemas.kontakt import CustomEmail, CustomStoredAddress
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.responses import BaseAPIResponse, BasePayload
 
 # A deliverable shape and never a bare `@`: „Nach Absprache @ Schulleitung" is German prose an
 # administrator writes, and refusing it catches the rare case by refusing the ordinary one.
@@ -50,9 +50,7 @@ class FLBanListRecord(FLBanListRow):
     address: CustomStoredAddress
 
 
-class FLPostBanListEntryPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class FLPostBanListEntryPayload(BasePayload):
     email: CustomEmail
     # Whether the address is told of its ban: only where it has a sign-in account, which the frontend's store alone knows.
     notify: bool

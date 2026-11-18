@@ -1,6 +1,6 @@
 from typing import Annotated, Any
 
-from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints
+from pydantic import AfterValidator, BaseModel, BeforeValidator, Field, StringConstraints
 
 from app.shared.folding import refuse_a_domain_beyond_ascii, trimmed
 from app.shared.schemas.bounds import ERASURE_REASON_MAX_LENGTH, KONTAKT_EMAIL_MAX_LENGTH, REFERENCES_ADDRESSES_MAX
@@ -10,13 +10,11 @@ from app.shared.schemas.kontakt import CustomEmail
 # The wire's spelling of the three seats, imported rather than restated: a second closed set here
 # would name a seat no other endpoint publishes.
 from app.shared.schemas.literals import FLAdminTier, FLKontaktRolle, FLSaisonStatus
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.responses import BaseAPIResponse, BasePayload
 
 
-class FLSubjectPayload(BaseModel):
+class FLSubjectPayload(BasePayload):
     """Which mailbox is asking, folded to the one spelling the join, the header and the log agree on."""
-
-    model_config = ConfigDict(extra="forbid")
 
     # In the body and on no path or query: an address in a URL reaches the edge's access line, which
     # the rule keeps a credential out of and an identifier is no better in.
@@ -170,10 +168,8 @@ class FLAccountErasureViewResponse(FLAccountErasureView, BaseAPIResponse):
     admin_tier: FLAdminTier | None
 
 
-class FLReferencesPayload(BaseModel):
+class FLReferencesPayload(BasePayload):
     """The sign-in addresses a pass of the account sweep asks about."""
-
-    model_config = ConfigDict(extra="forbid")
 
     # Each held to no address rule, nor to a length: one address refused refuses the whole batch, and every
     # pass asks again, so the sweep would delete nothing ever after.
@@ -209,10 +205,8 @@ ErasureAddress = Annotated[
 ]
 
 
-class FLErasureAddressPayload(BaseModel):
+class FLErasureAddressPayload(BasePayload):
     """The mailbox an erasure or its counts are looked up by."""
-
-    model_config = ConfigDict(extra="forbid")
 
     # In the body, since an address in a URL reaches the edge's access line.
     email: ErasureAddress

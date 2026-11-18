@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import AfterValidator, BaseModel, Field, StringConstraints
 
 from app.shared.schemas.bounds import (
     ADDRESS_CITY_MAX_LENGTH,
@@ -10,6 +10,7 @@ from app.shared.schemas.bounds import (
     ADDRESS_STREET_MAX_LENGTH,
 )
 from app.shared.schemas.custom import CustomNonEmptyString
+from app.shared.schemas.responses import BasePayload
 
 # Named because the payload below redeclares the field to add a ceiling: spelling the alphabet
 # twice would let the read and the write drift apart on which characters a house number may use.
@@ -41,9 +42,7 @@ class FLAddress(BaseModel):
 
 # What every write payload embeds. The ceilings are here and not on `FLAddress`, which a read model
 # embeds: refusing a stored value there would answer 500 for a whole list over one row.
-class FLAddressPayload(FLAddress):
-    model_config = ConfigDict(extra="forbid")
-
+class FLAddressPayload(FLAddress, BasePayload):
     # Redeclared, so the floor `CustomNonEmptyString` carries is restated beside the new ceiling. The
     # ceiling counts what arrives and the floor what the strip leaves, because a floor counting
     # characters takes spaces alone.

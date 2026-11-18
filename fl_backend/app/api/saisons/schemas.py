@@ -4,7 +4,6 @@ from typing import Annotated, Final, Literal, LiteralString, get_args
 
 from pydantic import (
     BaseModel,
-    ConfigDict,
     Field,
     TypeAdapter,
     ValidationError,
@@ -29,7 +28,7 @@ from app.core.exceptions import Bound, rule_refusal
 from app.shared.schemas.bounds import KADER_SIZE_MAX, SAISON_ID_LENGTH
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomTimeString, CustomVersion, refuse_reversed_span
 from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus, FLSonderereignis, FLSpielerStufe
-from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
+from app.shared.schemas.responses import BaseAPIResponse, BasePayload, BaseReadModel
 
 
 class FLSaisonForfeitErgebnis(BaseModel):
@@ -169,9 +168,7 @@ def _refused_at_the_end(
     )
 
 
-class _SaisonSpanPayload(_SaisonSpan):
-    model_config = ConfigDict(extra="forbid")
-
+class _SaisonSpanPayload(_SaisonSpan, BasePayload):
     # Field validators, each at the end its rule judges, reading the start off `info.data`: a model validator's refusal sits at
     # the model, a path no box answers. `start_date` is declared first, so it is validated first; where it failed it is absent
     # from `info.data`, and its own refusal is the one answered.
@@ -312,14 +309,12 @@ class FLPatchSaisonResponse(BaseAPIResponse):
     version: int
 
 
-class FLSwapGruppenPayload(BaseModel):
+class FLSwapGruppenPayload(BasePayload):
     """The two clubs a group swap exchanges, in either order.
 
     Neither side carries a `gruppe`: reading one from the payload would let a stale form write a
     group nobody stands in.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     team1_id: CustomObjectId
     team2_id: CustomObjectId
@@ -424,31 +419,27 @@ class FLActivateSaisonResponse(BaseAPIResponse):
     deactivated: int
 
 
-class FLSpielplanShape(BaseModel):
+class FLSpielplanShape(BasePayload):
     """The three rules a season's fixture list is a function of, as this draw is to run from.
 
     All three or none: the draw is one function of the whole shape, and a payload naming half
     of it would take the rest off a season about to stop matching it.
     """
 
-    model_config = ConfigDict(extra="forbid")
-
     number_of_gruppen: NumberOfGroups
     teams_per_gruppe: TeamsPerGroup
     qualifiers_per_gruppe: QualifiersPerGroup
 
 
-class FLGenerateSpielplanPayload(BaseModel):
+# An unknown key is refused here above all: a misspelled `shape` would validate as absent, so a
+# confirmed replace would destroy fixtures off the season's old rules, under a 201 reporting a shape
+# that never moved.
+class FLGenerateSpielplanPayload(BasePayload):
     """Whether this draw may replace what the season already holds, and the shape it runs from.
 
     An absent body is a first draw off the season's own rules: nothing is destroyed and no
     number moves by omission.
     """
-
-    # The payload the rule was found on: a misspelled `shape` validates as
-    # absent, so a confirmed replace destroys fixtures off the season's old rules, under a 201
-    # reporting a shape that never moved.
-    model_config = ConfigDict(extra="forbid")
 
     replace: bool = Field(default=False)
 

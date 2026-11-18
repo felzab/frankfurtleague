@@ -1,12 +1,12 @@
 from typing import Annotated
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
+from pydantic import AfterValidator, BaseModel, Field, StringConstraints, TypeAdapter
 
 from app.core.crud import Anchored
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import SPIELORT_NAME_MAX_LENGTH
 from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString, CustomVersion
-from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
+from app.shared.schemas.responses import BaseAPIResponse, BasePayload, BaseReadModel
 
 
 # Private, so the payloads and the read model state these fields once: a base no endpoint names
@@ -21,9 +21,7 @@ class _SpielortWritable(BaseModel):
 
 # No `id` on any payload: the path names the venue, the body describes the change (RFC 5789). The
 # bounded address sits here rather than on the writable base, which the read model shares.
-class _SpielortPayload(_SpielortWritable):
-    model_config = ConfigDict(extra="forbid")
-
+class _SpielortPayload(_SpielortWritable, BasePayload):
     address: FLAddressPayload
     # Stripped on the write side alone: the name is shown on every fixture at this ground and composed into
     # `maps_link`, so spaces alone reach both. The ceiling counts what arrives, so the published `maxLength` is what the

@@ -1,10 +1,10 @@
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationInfo, field_validator
+from pydantic import BaseModel, Field, TypeAdapter, ValidationInfo, field_validator
 
 from app.api.spiele.schemas import FLSpielJoined, FLSpielJoinedAdmin
 from app.shared.schemas.bounds import SAISON_ID_LENGTH
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomVersion, refuse_reversed_span
 from app.shared.schemas.literals import FLSaisonPhase, FLSaisonStatus
-from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
+from app.shared.schemas.responses import BaseAPIResponse, BasePayload, BaseReadModel
 
 
 class FLSpieltagRecord(BaseModel):
@@ -40,9 +40,7 @@ class FLSpieltagAdmin(FLSpieltag):
     count_spieltage_in_phase: int = Field(ge=1)
 
 
-class FLPatchSpieltagPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class FLPatchSpieltagPayload(BasePayload):
     # The span alone: `saison_id`, `saison_phase` and `position` are settled when the season's
     # schedule is generated, and the fixtures drawn against them are not rewritten here.
 

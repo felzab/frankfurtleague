@@ -1,10 +1,10 @@
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 from app.api.outbox.schemas import FLOutboxStatus
 from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
-from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
+from app.shared.schemas.responses import BaseAPIResponse, BasePayload, BaseReadModel
 
 
 class FLInvitation(BaseReadModel):
@@ -87,10 +87,8 @@ class FLTeamLinkState(BaseModel):
     skipped: FLInvitationSkipReason | None
 
 
-class FLInvitationMailPayload(BaseModel):
+class FLInvitationMailPayload(BasePayload):
     """The team's live link, to be mailed to its confirmed seats."""
-
-    model_config = ConfigDict(extra="forbid")
 
     # The row the panel read, so a link replaced or withdrawn since is refused rather than another one mailed.
     invitation_id: CustomObjectId

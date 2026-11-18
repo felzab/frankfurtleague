@@ -1,12 +1,12 @@
 from collections.abc import Mapping
 from typing import Any, ClassVar, Final, Literal, TypeAliasType, get_args, get_origin
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 
 from app.core.exceptions import rule_refusal
 from app.shared.einwilligung_evidence import CHOICES, FLEinwilligungChoice, TextVersions, is_given
 from app.shared.schemas.literals import FLEinwilligungScope, FLKontaktKenntnisnahmeScope
-from app.shared.schemas.responses import BaseReadModel
+from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 # The label of each consent's current wording, the one a grant names: a page loaded before a deploy moved a label shows
 # words a grant's record would then cite.
@@ -86,16 +86,14 @@ class FLEinwilligungState(BaseModel):
 
 # As a press echoes it. Forbidden rather than ignored: a key the precondition does not compare would
 # read as judged.
-class FLEinwilligungStatePayload(FLEinwilligungState):
-    model_config = ConfigDict(extra="forbid")
+class FLEinwilligungStatePayload(FLEinwilligungState, BasePayload):
+    pass
 
 
 # The labels a press was given under, one per choice, each recorded on that choice's evidence. Both on every press, so
 # neither choice is judged by nothing; one model per kind of record, whose scope wordings differ. Each admits every label
 # its kind's records may cite, and `stale_grants` holds a grant to the current one.
-class _TextVersions(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class _TextVersions(BasePayload):
     # The label a grant of each choice names.
     current: ClassVar[Mapping[FLEinwilligungChoice, str]]
 
@@ -178,11 +176,9 @@ def cite_their_kind(evidence_set: FLEinwilligungEvidenceSet, kind: type[_TextVer
 # The account presses' payloads take any label their kind cites, a grant's included: only a choice the press moves onto
 # a grant must name its current one, and which choices move is the stored record's to say, which the writer reads. A
 # page loaded before a rewording still withdraws one choice while leaving the other granted.
-class _OwnEinwilligungPayload(BaseModel):
+class _OwnEinwilligungPayload(BasePayload):
     # Both choices on every press, and no member defaulted: a default would let a page that forgot one
     # reset the person's other choice.
-    model_config = ConfigDict(extra="forbid")
-
     scope: FLEinwilligungScope
     media: bool
     # The record's `evidence_state` as the page was served it.
@@ -201,13 +197,11 @@ class FLSchiedsrichterAccountEinwilligungPayload(_OwnEinwilligungPayload):
     text_versions: FLSchiedsrichterTextVersions
 
 
-class FLSeatEinwilligungPayload(BaseModel):
+class FLSeatEinwilligungPayload(BasePayload):
     """A seat holder's own two choices for every seat they hold on one row, under any label their kind cites.
 
     Both choices on every press: a page that sent one alone would leave the other judged by nothing.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     scope: FLKontaktKenntnisnahmeScope
     media: bool
