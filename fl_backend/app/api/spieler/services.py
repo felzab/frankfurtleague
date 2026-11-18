@@ -179,18 +179,6 @@ def build_live_kader_filter(*, saison_id: str, team_id: CustomObjectId, excludin
     }
 
 
-def find_kader_team_refusal(*, team_in_saison: bool) -> APIError | None:
-    """Why this squad row must be refused, or `None`.
-
-    A shared shirt number is refused on no write path: the model permits it on purpose.
-    """
-
-    if not team_in_saison:
-        return APIError(HTTPStatus.CONFLICT, Code.KADER_TEAM_NOT_IN_SAISON)
-
-    return None
-
-
 class KaderRoom(NamedTuple):
     """One squad's capped rows and its season's `max_kader_size`."""
 
@@ -202,7 +190,7 @@ def find_full_kader_refusal(*, room: KaderRoom, nominee: bool) -> APIError | Non
     """`kader_full` where the squad takes no further entry, or `None`.
 
     A nominee stands outside the cap. The one verdict on whether a squad takes an entry, so a write and a read cannot
-    disagree. Its own function rather than a clause in `find_kader_team_refusal`, which answers the club question alone.
+    disagree.
     """
 
     if nominee or room.size < room.cap:
@@ -232,8 +220,7 @@ def build_live_rolle_filter(
 def find_kader_rolle_refusal(*, rolle: FLSpielerRolle | None, taken: bool) -> APIError | None:
     """Why this squad role may not be given away, or `None`.
 
-    Its own function rather than a clause in `find_kader_team_refusal`, which answers the club question
-    alone.
+    A role is one squad row's, where a shared shirt number is refused on no write path: the model permits it on purpose.
     """
 
     # A row holding no role competes with nobody, which is what makes the rule at-most-one rather

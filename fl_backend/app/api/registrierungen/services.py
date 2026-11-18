@@ -73,19 +73,6 @@ def find_team_departed_refusal(*, austritt: Any) -> APIError | None:
     return APIError(HTTPStatus.NOT_FOUND, Code.DOCUMENT_NOT_FOUND)
 
 
-def find_team_junction_refusal(*, entered: bool) -> APIError | None:
-    """`registrierung_closed`: the season holds no junction row for the invite's team.
-
-    Its own code rather than the squad write's `kader_team_not_in_saison`, which is worded for an
-    administrator entering a player: one rule keeps one German sentence.
-    """
-
-    if entered:
-        return None
-
-    return APIError(HTTPStatus.CONFLICT, Code.REGISTRIERUNG_CLOSED)
-
-
 def find_stufe_refusal(*, stufe: Any, allowed_stufen: Sequence[str]) -> APIError | None:
     """`registrierung_stufe_not_allowed`: the season's rules do not offer this Stufe.
 
@@ -542,18 +529,6 @@ def build_admission_erasure_filter(*, registrierung_id: Any, saison_id: str, add
     """
 
     return {"saison_id": saison_id, "$or": [{"_id": registrierung_id}, dict(build_own_registrierung_filter(address))]}
-
-
-def find_unknown_registrierung_refusal(*, found: bool) -> APIError | None:
-    """`role_not_held` for an id no registration holds, the answer the seat check gives another team's row.
-
-    One answer for both, so a signed-in stranger learns nothing of which ids exist.
-    """
-
-    if found:
-        return None
-
-    return APIError(HTTPStatus.FORBIDDEN, Code.ROLE_NOT_HELD)
 
 
 def find_unconfirmed_refusal(*, einwilligung: Any) -> APIError | None:

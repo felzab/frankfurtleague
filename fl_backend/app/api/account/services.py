@@ -119,18 +119,6 @@ def find_grant_wording_refusal(
     return APIError(HTTPStatus.CONFLICT, Code.GRANT_WORDING_STALE, fields=tuple(("text_versions", choice) for choice in stale))
 
 
-def find_giving_refusal(*, allowed: bool) -> APIError | None:
-    """`giving_not_allowed`: the record is the person's own and takes a withdrawal alone, so a grant on it is refused.
-
-    Its own code, not `role_not_held`'s: the record was found, so naming the cause hides nothing.
-    """
-
-    if allowed:
-        return None
-
-    return APIError(HTTPStatus.FORBIDDEN, Code.GIVING_NOT_ALLOWED)
-
-
 def find_own_entry_refusal(*, held: bool) -> APIError | None:
     """`role_not_held` on a person's own record: the address holds no record this operation may read or change.
 
@@ -184,8 +172,8 @@ async def _before_giving(
     refuse(find_evidence_state_refusal(expected=evidence_state, blocks=blocks))
 
     given = any(gives_anything(saved=block, chosen=chosen) for block in blocks)
-    if given:
-        refuse(find_giving_refusal(allowed=may_give is not None and await may_give()))
+    if given and (may_give is None or not await may_give()):
+        raise APIError(HTTPStatus.FORBIDDEN, Code.GIVING_NOT_ALLOWED)
 
     return given
 

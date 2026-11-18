@@ -834,18 +834,6 @@ def find_shorthand_refusal(*, taken: bool) -> APIError | None:
     return APIError(HTTPStatus.CONFLICT, Code.DUPLICATE_KEY, fields=(("shorthand",),))
 
 
-def find_trikot_farbe_refusal(*, taken: bool) -> APIError | None:
-    """`trikot_farbe_taken` on the colour: another row of the season holds it, and a season's kit colour is one team's.
-
-    Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction.
-    """
-
-    if not taken:
-        return None
-
-    return APIError(HTTPStatus.CONFLICT, Code.TRIKOT_FARBE_TAKEN, fields=(("trikot_farbe",),))
-
-
 def find_team_entry_refusal(*, inactive_since: str | None) -> APIError | None:
     """Why this club may not be entered into any season, or `None`.
 

@@ -141,6 +141,8 @@ class Code(StrEnum):
     # One code for every write taking a person's media consent, the account presses and the three
     # confirmations alike, so each page maps one refusal.
     MEDIA_AGE = auto()
+    # A grant on a record that is the person's own and takes a withdrawal alone: its own code, not `role_not_held`'s, since
+    # the record was found and naming the cause hides nothing.
     GIVING_NOT_ALLOWED = auto()
     ELIGIBILITY_DISQUALIFIED = auto()
     # The adoption's twins, one per side: it judges the fixture's stored sides, so no path names which.

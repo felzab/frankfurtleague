@@ -17,20 +17,6 @@ from app.shared.schemas.literals import KONTAKT_SEATS, FLKontaktSeat
 WITHOUT_TOKEN_HASH: Mapping[str, int] = {"token_hashes": 0}
 
 
-# `find_kader_team_refusal` asks the same question of the same junction and is pinned to its own callers, so this slice
-# asks it again rather than widening that one.
-def find_team_in_saison_refusal(*, entered: bool) -> APIError | None:
-    """`invitation_team_not_entered`: the season holds no junction row for this team.
-
-    Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction.
-    """
-
-    if entered:
-        return None
-
-    return APIError(HTTPStatus.NOT_FOUND, Code.INVITATION_TEAM_NOT_ENTERED)
-
-
 def find_invitation_saison_past_refusal(*, saison_status: Any) -> APIError | None:
     """`saison_past`: the season has ended.
 

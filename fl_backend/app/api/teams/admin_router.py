@@ -1,6 +1,7 @@
 import secrets
 from collections.abc import Mapping, Sequence
 from datetime import datetime
+from http import HTTPStatus
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, status
@@ -27,7 +28,6 @@ from app.api.invitations.services import (
     compose_sent_update,
     confirmed_recipients,
     find_invitation_saison_past_refusal,
-    find_team_in_saison_refusal,
     invitation_reference,
     owed_invitation_mails,
     plan_invitation_dispatch,
@@ -95,6 +95,7 @@ from app.api.teams.services import (
     teams_admin_rows,
     with_link_state,
 )
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.concurrency import concurrently
 from app.core.crud import (
@@ -136,7 +137,7 @@ from app.core.dependencies import (
     TeamsCollection,
     TeamsReadCollection,
 )
-from app.core.exceptions import DocumentNotFoundError
+from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.core.recording import record_act
 from app.core.routing import by_id
@@ -1086,8 +1087,8 @@ async def post_invitation(
         refuse(find_invitation_saison_past_refusal(saison_status=str(saison_raw["status"])))
 
         row = await saison_teams_collection.find_one({"saison_id": saison_id, "team_id": team_id}, {"austritt": 1, "name": 1}, session=session)
-        refuse(find_team_in_saison_refusal(entered=row is not None))
-        assert row is not None
+        if row is None:
+            raise APIError(HTTPStatus.NOT_FOUND, Code.INVITATION_TEAM_NOT_ENTERED)
         refuse(find_austritt_standing_refusal(stored=row.get("austritt")))
 
         # `patch_many_in_db` where at most one row can match: holding no live invitation is the state
