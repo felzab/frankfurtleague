@@ -136,7 +136,7 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
                 einwilligung=documents.own_einwilligung_document(
                     text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2126-03-02"
                 ),
-                confirmation={"token_hashes": ["c" * 64], "sent_at": "2126-03-01", "deadline": "2126-03-15", "declined_at": None},
+                confirmation={"token_hashes": ["c" * 64], "sent_at": "2126-03-01", "deadline": "2126-03-15"},
             ),
             # Entered by an administrator under the same address and never confirmed: not this person's record yet.
             documents.schiedsrichter_document(UNCONFIRMED_REFEREE_OID, email=EMAIL, name="Lenore Q.", default_payment=20, einwilligung=None),

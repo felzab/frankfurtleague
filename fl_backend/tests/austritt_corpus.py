@@ -17,9 +17,11 @@ from tests.documents import kontaktperson_document
 from tests.outbox import drained
 
 SAISON_ID = "2026"
-EXIT_DAY = "2026-05-10"
-DAY_BEFORE = "2026-05-09"
-LATER = "2026-09-20"
+# After the mail clock the exit's write runs on (`tests/outbox.py :: MAIL_NOW`): an exit tells an opponent of fixtures
+# still to come alone.
+EXIT_DAY = "2126-05-10"
+DAY_BEFORE = "2126-05-09"
+LATER = "2126-09-20"
 
 # Fixed rather than generated, so a failure names the same row every run.
 DEPARTED = ObjectId("6890a1b2c3d4e5f607760001")

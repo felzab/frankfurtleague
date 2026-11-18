@@ -20,7 +20,14 @@ from app.api.outbox.services import (
     retry_update,
     row_of,
 )
-from app.api.spielbestaetigungen.services import austritt_notices_of, austritt_recipients_of, compose_ansetzung, spiel_mail_slot_of, team_mails
+from app.api.spielbestaetigungen.services import (
+    austritt_notices_of,
+    austritt_recipients_of,
+    compose_ansetzung,
+    moved_notice_of,
+    spiel_mail_slot_of,
+    team_mails,
+)
 from app.core import clock
 
 APPOINTMENT = FLSpielMailAppointment(team1="Adler", team2="Bieber", date="2026-05-02", time="10:00:00")
@@ -67,7 +74,9 @@ def test_every_mail_to_a_team_s_seats_names_the_team_it_goes_to():
             occasion="dispatch",
         ),
     ]
-    (notice,) = austritt_notices_of(saison_id=SAISON_ID, team_id=OWN, spiele=[spiel], junctions=junctions)[junctions[OPPONENT]["_id"]]
+    (notice,) = austritt_notices_of(saison_id=SAISON_ID, team_id=OWN, spiele=[spiel], junctions=junctions, now=EXIT_READ)[
+        junctions[OPPONENT]["_id"]
+    ]
 
     assert [mail.team for mail in owed] == [FLOutboxTeam(saison_id=SAISON_ID, team_id=OWN)] * 2
     assert notice.team == FLOutboxTeam(saison_id=SAISON_ID, team_id=OPPONENT)
@@ -143,6 +152,22 @@ def test_a_move_s_notice_names_the_ground_the_fixture_moved_to():
     assert slot is not None and slot.spielort == "Halle Nord"
 
 
+def test_a_move_off_its_ground_tells_the_parties_of_no_ground():
+    """A ground read off a fixture holding none raises inside the pass, which then tells nobody the fixture moved."""
+
+    spiel = {
+        "date": "2026-05-02",
+        "time": "10:00:00",
+        "team1": {"team_id": OWN, "name": "Adler"},
+        "team2": {"team_id": OPPONENT, "name": "Bieber"},
+        "spielort": None,
+    }
+
+    notice = moved_notice_of(party_kind="team", appointment=APPOINTMENT, moved_to=spiel_mail_slot_of(spiel), stays=True)
+
+    assert notice.moved_to is not None and notice.moved_to.spielort is None
+
+
 def test_a_move_s_notice_queued_before_it_named_the_ground_and_the_party_still_reads():
     """A row the release before queued holds neither key: refused, the hand-out would pass it over and nobody would be told."""
 
@@ -189,6 +214,8 @@ EXIT_READ = datetime(2026, 4, 20, 12, tzinfo=clock.GERMANY)
         pytest.param(a_fixture(), {}, "2026-04-10", ["schiedsrichter"], id="an opponent no confirmed seat reaches"),
         pytest.param(a_fixture(), SEATED, None, ["team"], id="a referee booked and never asked"),
         pytest.param(a_fixture(ergebnis="1:0"), SEATED, "2026-04-10", [], id="a fixture decided"),
+        # One act tells both alike, about a slot still to come: a match kicked off unrecorded is told to nobody.
+        pytest.param(a_fixture(date="2026-04-18"), SEATED, "2026-04-10", [], id="a fixture kicked off, its result not yet in"),
     ],
 )
 def test_an_exit_names_whom_its_write_and_the_pass_mail(spiel: dict[str, Any], kontakte: Any, asked_at: str | None, named: list[str]):

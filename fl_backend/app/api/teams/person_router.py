@@ -265,7 +265,9 @@ def _spielbestaetigung_of(
         row=own,
         state=state,
         vorschlag_open=vorschlag_open,
-        lapsed_on=lapsed_on(spielbestaetigung_raw=own, reason=reason, spiel=spiel_raw, austritte=austritte_of(ansetzung_state), now=now),
+        lapsed_on=lapsed_on(
+            spielbestaetigung_raw=own, reason=reason, spiel=spiel_raw, austritte=austritte_of(ansetzung_state.junctions), now=now
+        ),
     )
 
 

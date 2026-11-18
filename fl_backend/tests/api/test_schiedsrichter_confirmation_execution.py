@@ -212,8 +212,11 @@ async def decline(database: AsyncDatabase, client: AsyncMongoClient, token: str 
     await post_decline(
         decline_data=FLTokenPayload(token=token),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        spiele_collection=database[Collection.SPIELE],
+        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         db=client,
         today=today,
+        germany_now=NOW,
     )
 
 
@@ -250,6 +253,8 @@ class TestTheCreateIsTheInvitation:
         assert row[CONFIRMATION_FIELD]["deadline"] == confirmation_deadline_from(today=TODAY)
         # The clock the TTL index reads: absent, the unanswered entry outlives the fourteen days the notice promises.
         assert row[ERASE_AT_FIELD].replace(tzinfo=UTC) == erase_at_from(deadline=confirmation_deadline_from(today=TODAY))
+        # Stored null, as a registration's: absent, the read and record models requiring the keys refuse the row.
+        assert (row[EINWILLIGUNG_FIELD], row["birth_date"]) == (None, None)
 
 
 class TestANameAnotherRefereeHolds:
@@ -315,7 +320,7 @@ class TestACorrectedAddressReMintsAndRetiresTheOldLink:
 
         assert saved.answer.confirmation is None
         assert row["kontakt"]["email"] == CORRECTED_EMAIL
-        assert CONFIRMATION_FIELD not in row
+        assert row[CONFIRMATION_FIELD] is None
         assert old_link.error_code == Code.LINK_INVALID
         assert row[ERASE_AT_FIELD] == clock
 
@@ -360,7 +365,7 @@ class TestTheReSend:
         refused, row = await on_a_league(mongo_replica_set_url, body)
 
         assert refused.error_code == Code.SCHIEDSRICHTER_RETIRED
-        assert CONFIRMATION_FIELD not in row
+        assert row[CONFIRMATION_FIELD] is None
 
     # No null: every referee record holds an address, which the record model and the read-back hold it to.
     @pytest.mark.parametrize("email", ["no-address"])
@@ -376,7 +381,7 @@ class TestTheReSend:
         refused, row = await on_a_league(mongo_replica_set_url, body, referees=[referee_document(email=email)])
 
         assert (refused.error_code, refused.status_code) == (Code.SCHIEDSRICHTER_NO_ADDRESS, 409)
-        assert CONFIRMATION_FIELD not in row
+        assert row[CONFIRMATION_FIELD] is None
 
     async def test_a_referee_who_has_already_answered_is_refused_and_keeps_their_block(self, mongo_replica_set_url: str):
         """A fresh link for them can never be spent, and minting one would start the deletion clock on a confirmed entry."""
@@ -394,7 +399,7 @@ class TestTheReSend:
 
         assert refused.error_code == Code.CONFIRMATION_EXISTS
         assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(first.token))]
-        assert ERASE_AT_FIELD not in row
+        assert row[ERASE_AT_FIELD] is None
 
 
 async def reactivate(database: AsyncDatabase, client: AsyncMongoClient) -> Mailed:
@@ -429,7 +434,7 @@ class TestTheReactivation:
         assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(response.token))]
         assert ERASE_AT_FIELD in row
 
-    async def test_a_referee_who_has_answered_comes_back_unasked(self, mongo_replica_set_url: str):
+    async def test_a_referee_who_confirmed_comes_back_unasked(self, mongo_replica_set_url: str):
         """A mint here replaces a confirmed person's block and starts the clock that deletes the entry they confirmed."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -443,7 +448,7 @@ class TestTheReactivation:
 
         assert response.token is None
         assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(first.token))]
-        assert ERASE_AT_FIELD not in row
+        assert row[ERASE_AT_FIELD] is None
 
 
 class TestTheConfirmation:
@@ -475,7 +480,7 @@ class TestTheConfirmation:
                 "media": {"at": "2026-04-01T10:30:00+00:00", "text_version": TEXT_VERSIONS["media"]},
             },
         }
-        assert ERASE_AT_FIELD not in row
+        assert row[ERASE_AT_FIELD] is None
 
     async def test_a_second_press_is_refused(self, mongo_replica_set_url: str):
         """A second press writing would replace the publication scope the person chose first."""
@@ -528,51 +533,27 @@ class TestTheConfirmation:
         assert row.get("birth_date") is None
 
 
-class TestTheDecline:
-    async def test_a_declined_entry_keeps_its_clock_and_is_asked_nothing_again(self, mongo_replica_set_url: str):
-        """The privacy notice says a declined entry goes on the unconfirmed one's clock, and nobody mails a person who objected.
+class TestTheObjection:
+    async def test_it_erases_the_entry_in_its_own_write_and_its_link_opens_nothing(self, mongo_replica_set_url: str):
+        """The privacy notice says an objection deletes the entry, as a contact seat's empties the seat.
 
-        Dropped from the clock, the entry outlives what the notice promises; asked again, the person is mailed against their
-        objection. Neither shows on any page. Reopened, the link names the day of the objection, which nothing else does.
+        Left on its link's clock, the entry outlives the objection by up to fourteen days; a link still opening it takes a
+        consent the person refused. Neither shows on any page.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await resend(database, client)
-            clock = (await stored(database))[ERASE_AT_FIELD]
             await decline(database, client, minted.token)
 
-            with pytest.raises(APIError) as asked_again:
-                await resend(database, client)
-
-            view = await read_view(database, minted.token)
-            return clock, await stored(database), asked_again.value, (view.state, view.answered_at)
-
-        clock, row, asked_again, state = await on_a_league(mongo_replica_set_url, body)
-
-        assert row[CONFIRMATION_FIELD]["declined_at"] == TODAY
-        assert row[ERASE_AT_FIELD] == clock
-        assert row.get(EINWILLIGUNG_FIELD) is None
-        assert asked_again.error_code == Code.CONFIRMATION_EXISTS
-        assert state == ("declined", TODAY)
-
-    async def test_a_declined_link_is_spent_and_takes_no_consent(self, mongo_replica_set_url: str):
-        """A consent through a link its person objected through would store a birthdate and a publication scope against that objection."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            minted = await resend(database, client)
-            await decline(database, client, minted.token)
-
-            with pytest.raises(APIError) as refused:
+            with pytest.raises(APIError) as reopened:
+                await read_view(database, minted.token)
+            with pytest.raises(APIError) as consented:
                 await confirm(database, client, minted.token)
 
-            return refused.value, await stored(database)
+            left = await database[Collection.SCHIEDSRICHTER].count_documents({"_id": SCHIEDSRICHTER_OID})
+            return left, reopened.value.error_code, consented.value.error_code
 
-        refused, row = await on_a_league(mongo_replica_set_url, body)
-
-        assert refused.error_code == Code.CONFIRMATION_EXISTS
-        assert row.get(EINWILLIGUNG_FIELD) is None
-        assert row.get("birth_date") is None
-        assert ERASE_AT_FIELD in row
+        assert await on_a_league(mongo_replica_set_url, body) == (0, Code.LINK_INVALID, Code.LINK_INVALID)
 
 
 CONFIRMED_OID = ObjectId("6890a1b2c3d4e5f607810002")
@@ -581,7 +562,7 @@ CONFIRMED_EMAIL = "rosetti@example.com"
 
 class TestTheClock:
     async def test_a_lapsed_entry_goes_and_a_confirmed_one_stays(self, mongo_replica_set_url: str):
-        """The privacy notice gives an unconfirmed or declined entry fourteen days.
+        """The privacy notice gives an unconfirmed entry fourteen days.
 
         Erased early, or a confirmed entry erased at all, a referee the league keeps is gone.
         """

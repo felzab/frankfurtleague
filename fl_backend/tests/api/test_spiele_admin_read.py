@@ -26,7 +26,6 @@ SCHIEDSRICHTER_ID = ObjectId("6890a1b2c3d4e5f607230022")
 LIVE_SPIELORT_ID = ObjectId("6890a1b2c3d4e5f607230023")
 RETIRED_SPIELORT_ID = ObjectId("6890a1b2c3d4e5f607230024")
 UNCONFIRMED_SCHIEDSRICHTER_ID = ObjectId("6890a1b2c3d4e5f607230025")
-DECLINED_SCHIEDSRICHTER_ID = ObjectId("6890a1b2c3d4e5f607230026")
 
 MIETPREIS = 80
 PAYMENT = 30
@@ -80,7 +79,7 @@ def spielort_row(spielort_id: ObjectId, name: str, *, inactive_since: str | None
 
 
 def schiedsrichter_rows() -> list[dict[str, Any]]:
-    """The booked referee, retired since and confirmed; a live one who never answered; and one who objected."""
+    """The booked referee, retired since and confirmed, and a live one who never answered: an objection leaves no entry."""
 
     confirmed = documents.own_einwilligung_document(text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2026-01-10")
     return [
@@ -94,19 +93,6 @@ def schiedsrichter_rows() -> list[dict[str, Any]]:
         ),
         documents.schiedsrichter_document(
             UNCONFIRMED_SCHIEDSRICHTER_ID, email="bo@example.com", name="Bo Lenz", default_payment=25, einwilligung=None
-        ),
-        documents.schiedsrichter_document(
-            DECLINED_SCHIEDSRICHTER_ID,
-            email="cleo@example.com",
-            name="Cleo Rau",
-            default_payment=25,
-            einwilligung=None,
-            confirmation={
-                "token_hashes": [],
-                "sent_at": "2026-03-01",
-                "deadline": "2026-03-15",
-                "declined_at": "2026-03-02",
-            },
         ),
     ]
 
@@ -257,8 +243,8 @@ async def test_the_admin_key_gets_the_spiel_with_the_rent_and_the_payment(seeded
 async def test_the_editor_offers_the_live_rows_and_the_ones_the_spiel_books(seeded_url: str):
     """Offering a retired row the fixture does not book puts a booking on the editor the save then refuses.
 
-    The fixture's own retired venue and referee stay offered, so the booking keeps its name; an unconfirmed referee, one
-    who objected among them, is offered marked, the save refusing them.
+    The fixture's own retired venue and referee stay offered, so the booking keeps its name; an unconfirmed referee is
+    offered marked, the save refusing them.
     """
 
     answer = (await answered(seeded_url, ADMIN_PATH, ADMIN_AUTH)).json()
@@ -267,7 +253,6 @@ async def test_the_editor_offers_the_live_rows_and_the_ones_the_spiel_books(seed
     assert [(row["name"], row["confirmed"], row["inactive_since"]) for row in answer["schiedsrichter"]] == [
         ("Ada Kern", True, "2026-04-01"),
         ("Bo Lenz", False, None),
-        ("Cleo Rau", False, None),
     ]
     assert (answer["spielbericht"], answer["spielbestaetigungen"]) == (None, [])
 

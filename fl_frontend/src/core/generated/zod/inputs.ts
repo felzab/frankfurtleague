@@ -556,8 +556,8 @@ export const BewerbungenPostBewerbungBody = zod
 /**
  * Record one person's consent or Widerspruch for the seat their link opens, and for a second seat they hold.
  *
- * A Widerspruch empties the slot, and on an application it tells the Ansprechperson who still stands, in a notice that
- * is the deletion notice too.
+ * A Widerspruch empties the slot and writes the Protokoll's row, and on an application it tells the Ansprechperson who
+ * still stands, in a notice that is the deletion notice too.
  * @summary Confirm or decline one seat of a Bewerbung or of a team's season row
  */
 export const bewerbungenPostConfirmationBodyOneBirthDateRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
@@ -1582,10 +1582,9 @@ export const SchiedsrichterPostConfirmationBody = zod.object({
 });
 
 /**
- * Record the referee's objection to the entry their link opens: its day, and nothing else of the person.
+ * Erase the entry the referee's link opens, on their objection, as a contact seat's objection empties the seat.
  *
- * The entry is erased at the midnight after its link's deadline, and until then no booking takes it and nobody asks
- * the person again.
+ * The entry goes as the hourly pass erases one: its coming bookings removed, a played fixture's kept naming nobody.
  * @summary Decline one Schiedsrichter's entry
  */
 export const schiedsrichterPostDeclineBodyTokenMax = 128;
@@ -1599,9 +1598,10 @@ export const SchiedsrichterPostDeclineBody = zod
   .describe("The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.");
 
 /**
- * What this token opens: the link's state and deadline, the age bounds and the day of the person's own answer.
+ * What this token opens: the link's state and deadline, the age bounds and the day of the person's consent.
  *
- * A confirmed or an expired link is served in that state rather than refused, so a reopened link shows what became of it.
+ * A confirmed or an expired link is served in that state rather than refused, so a reopened link shows what became of it;
+ * an objection erased the entry, so its link opens nothing.
  * @summary What one Schiedsrichter confirmation link opens
  */
 export const schiedsrichterGetConfirmationViewBodyTokenMax = 128;

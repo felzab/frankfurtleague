@@ -343,7 +343,9 @@ class TestTheDayARowLapsed:
         raw, state = row(**fields), ansetzung_state(**situation)
         reason = reason_of(spielbestaetigung_raw=raw, ansetzung_state=state, now=now)
 
-        assert lapsed_on(spielbestaetigung_raw=raw, reason=reason, spiel=state.spiel, austritte=austritte_of(state), now=now) == lapsed
+        assert (
+            lapsed_on(spielbestaetigung_raw=raw, reason=reason, spiel=state.spiel, austritte=austritte_of(state.junctions), now=now) == lapsed
+        )
 
     def test_a_referee_is_due_by_the_slot_and_a_team_by_its_deadline(self):
         assert (due_by_of(row(**REFEREES)), due_by_of(row())) == (DATE, DEADLINE)

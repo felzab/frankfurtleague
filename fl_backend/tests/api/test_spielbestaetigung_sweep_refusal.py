@@ -125,6 +125,18 @@ class TestWhyARowCloses:
             pytest.param(TEAM, {"sonderereignis": "nichtantreten_team2"}, {}, "cancelled", id="a no-show entered before the day"),
             pytest.param(TEAM, {"sonderereignis": "nichtantreten_team2", "date": TODAY}, {}, "spiel_decided", id="a no-show on the day"),
             pytest.param(TEAM, {"time": "19:00:00"}, {BETA: TODAY}, "austritt", id="the opponent gone, ahead of the move"),
+            # The exit's own write told the opponent, so a no-show entered after it is no call-off to mail again; the
+            # referee is still told the booking is off.
+            *(
+                pytest.param(
+                    party,
+                    {"sonderereignis": "nichtantreten_team2", "date": days_after(day=TODAY, days=1)},
+                    {BETA: TODAY},
+                    "austritt",
+                    id=f"the {kind} told of an exit, ahead of a no-show before the day",
+                )
+                for kind, party in (("club", TEAM), ("referee", REFEREE))
+            ),
             pytest.param(REFEREE, {"schiedsrichter": None}, {}, "schiedsrichter_switched", id="the referee taken off"),
             pytest.param(
                 REFEREE, {"schiedsrichter": None, "time": "19:00:00"}, {}, "schiedsrichter_switched", id="taken off, ahead of the move"

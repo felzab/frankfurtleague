@@ -585,9 +585,9 @@ is done to an address, never to a person.\
 **Is:** one person's own answer to the link mailed about their own record (a contact seat, a
 pending registration or a referee row), with the bookkeeping beside it: the link's hashes, the days
 it was sent and chased, and its `deadline`. The link's second door, on a seat and a referee row
-alone, is the `Widerspruch`: code says `objection` and stamps `declined_at`, and it is never the
-Art. 21 DSGVO objection. It empties a seat at once, and a referee's entry goes at the midnight
-after its link's deadline.\
+alone, is the `Widerspruch`: code says `objection`, and it is never the Art. 21 DSGVO objection. It
+empties a seat at once and stamps `declined_at` beside it, and it erases a referee's entry in the
+same write.\
 **In code:** `fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungConfirmationRecord`,
 `fl_backend/app/api/registrierungen/schemas.py :: FLRegistrierungConfirmationRecord`,
 `fl_backend/app/api/schiedsrichter/schemas.py :: FLSchiedsrichterConfirmationRecord` and

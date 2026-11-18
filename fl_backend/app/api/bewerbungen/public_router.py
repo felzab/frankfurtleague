@@ -99,6 +99,7 @@ from app.core.dependencies import (
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import Journal
+from app.core.recording import ACT_BY_KONTAKT, record_act
 from app.core.routing import SAFE
 from app.core.security import BASE_TIER
 from app.core.transactions import transact
@@ -416,14 +417,15 @@ async def post_confirmation(
     saisons_collection: SaisonsCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     outbox_collection: OutboxCollection,
+    teams_collection: TeamsReadCollection,
     db: DBClient,
     today: GermanDay,
     germany_now: GermanyNow,
 ) -> None:
     """Record one person's consent or Widerspruch for the seat their link opens, and for a second seat they hold.
 
-    A Widerspruch empties the slot, and on an application it tells the Ansprechperson who still stands, in a notice that
-    is the deletion notice too.
+    A Widerspruch empties the slot and writes the Protokoll's row, and on an application it tells the Ansprechperson who
+    still stands, in a notice that is the deletion notice too.
     """
 
     token_hash = hash_token(answer_data.token)
@@ -498,6 +500,14 @@ async def post_confirmation(
         await remove_the_seats_reasons(
             spielbestaetigungen_collection=spielbestaetigungen_collection,
             held=[HeldSeats(saison_id=before["saison_id"], team_id=before["team_id"], seats=seats)],
+            session=session,
+        )
+        await record_act(
+            collection=saison_teams_collection,
+            action="team.seat_objected",
+            by=ACT_BY_KONTAKT,
+            team=str(before["name"]),
+            record_id=before["team_id"],
             session=session,
         )
         journal.note("objection", [f"{Collection.SAISON_TEAMS}/{row['_id']}"], seats=seats)
@@ -575,6 +585,15 @@ async def post_confirmation(
             return_document=ReturnDocument.AFTER,
         )
 
+        # By the school, as the administration's own seat act is: the application's team is no club's yet.
+        await record_act(
+            collection=bewerbungen_collection,
+            action="bewerbung.seat_objected",
+            by=ACT_BY_KONTAKT,
+            record_id=bewerbung_raw["_id"],
+            label=await pull_schule_name(bewerbung_raw=updated_raw, teams_collection=teams_collection, session=session),
+            session=session,
+        )
         journal.note("objection", [f"{Collection.BEWERBUNGEN}/{bewerbung_raw['_id']}"], seats=seats)
 
         # Off the updated document, so an Ansprechperson who has just declined leaves this null and

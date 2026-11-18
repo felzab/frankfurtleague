@@ -1,47 +1,16 @@
 """
-API · a retired referee's row, judged as the reactivation and the editor's save read it
+API · a confirmed referee's row, judged as the editor's save reads it
 
-A person who answered their link either way is asked nothing again: one who objected and is mailed a fresh link is
-asked for what they refused. A confirmed referee's address keys their sign-in, retired or not, so only an address
-change moves it.
+A confirmed referee's address keys their sign-in, retired or not, so only an address change moves it.
 """
 
 from typing import Any
 
-import pytest
-
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload
-from app.api.schiedsrichter.services import (
-    CONFIRMATION_FIELD,
-    EINWILLIGUNG_FIELD,
-    find_confirmed_address_refusal,
-    owes_reactivation_mint,
-    save_moves_the_link,
-)
+from app.api.schiedsrichter.services import EINWILLIGUNG_FIELD, find_confirmed_address_refusal, save_moves_the_link
 from app.core.codes import Code
 
 EMAIL = "anna.koerner@example.com"
-
-
-def retired_row(*, declined_at: str | None) -> dict[str, Any]:
-    """The fields `INVITE_FIELDS` projects: retired, holding an address a link can go to, and never confirmed."""
-
-    return {
-        "inactive_since": "2026-01-01",
-        "kontakt": {"email": EMAIL},
-        EINWILLIGUNG_FIELD: {"confirmed_at": None},
-        CONFIRMATION_FIELD: {"declined_at": declined_at},
-    }
-
-
-@pytest.mark.parametrize(
-    ("declined_at", "owed"),
-    [
-        pytest.param("2026-03-03", False, id="objected"),
-    ],
-)
-def test_a_referee_who_objected_is_minted_no_link(declined_at: str | None, owed: bool):
-    assert owes_reactivation_mint(stored=retired_row(declined_at=declined_at)) is owed
 
 
 def confirmed_row(*, inactive_since: str | None) -> dict[str, Any]:

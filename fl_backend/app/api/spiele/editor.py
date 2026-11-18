@@ -386,7 +386,7 @@ async def read_spiel_editor(
     )
     junctions = await _junctions_of(confirmations, saison_id=spiel.saison_id, saison_teams_collection=saison_teams_collection)
     ansetzung_state = AnsetzungState(spiel=spiele_raw[0], junctions=junctions)
-    austritte = austritte_of(ansetzung_state)
+    austritte = austritte_of(ansetzung_state.junctions)
 
     def editor_row(row: Mapping[str, Any]) -> FLSpielbestaetigungEditorRow:
         reason = reason_of(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, now=now)

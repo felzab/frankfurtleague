@@ -22,7 +22,7 @@ serveBackend(({ method, path, body }) =>
 // The read runs under the trace the edge sent, read off `next/headers`, which answers only inside Next's request.
 doubleNextRequest();
 
-const { END, TO_HOME } = await import("./ends");
+const { END } = await import("./ends");
 const { default: SchiedsrichterConfirmationPage } = await import("./page");
 
 const DAY = "2026-11-04";
@@ -39,24 +39,15 @@ async function stateFor(served: Partial<FLSchiedsrichterConfirmationViewResponse
   return page.props.page;
 }
 
-// A link opened again after its answer offers no press the backend could refuse, so the end it shows is the only
-// account of what the person did: an objection shown as a confirmation, or the reverse, misleads in silence, and a
-// review of the page meets one of these states at most, each needing a link of its own.
+// A link opened again after its consent offers no press the backend could refuse, so the end it shows is the only
+// account of what the person did: shown as anything else, it misleads in silence, and a review of the page meets this
+// state only through a confirmed link of its own.
 describe("a referee's link, opened again", () => {
   it("says the entry was confirmed, and when, leading to the account", async () => {
     expect(await stateFor({ state: "confirmed", answered_at: DAY })).toMatchObject({
       state: "alreadyDone",
       title: COPY.shared.end.doneOn(END.confirmed.title, DAY),
       next: TO_ACCOUNT,
-    });
-  });
-
-  it("says the entry was objected to, and when, on the declined tint, leading home", async () => {
-    expect(await stateFor({ state: "declined", answered_at: DAY })).toMatchObject({
-      state: "alreadyDone",
-      title: COPY.shared.end.doneOn(END.objected.title, DAY),
-      next: TO_HOME,
-      declined: true,
     });
   });
 });

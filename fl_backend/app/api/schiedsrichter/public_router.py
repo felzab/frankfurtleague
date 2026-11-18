@@ -1,6 +1,7 @@
 from fastapi import APIRouter, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from app.api.schiedsrichter.crud import erase_referee_in_session
 from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterConfirmationPayload,
     FLSchiedsrichterConfirmationViewResponse,
@@ -12,7 +13,6 @@ from app.api.schiedsrichter.services import (
     answered_at_of,
     build_token_filter,
     compose_confirmation_update,
-    compose_decline_update,
     find_already_answered_refusal,
     find_expired_token_refusal,
     state_of,
@@ -26,8 +26,11 @@ from app.core.dependencies import (
     GermanyNow,
     SchiedsrichterCollection,
     SchiedsrichterReadCollection,
+    SpielbestaetigungenCollection,
+    SpieleCollection,
 )
 from app.core.journal import Journal
+from app.core.recording import ACT_BY_SCHIEDSRICHTER, record_act
 from app.core.routing import SAFE
 from app.core.security import BASE_TIER
 from app.core.transactions import transact
@@ -56,9 +59,10 @@ async def get_confirmation_view(
     schiedsrichter_collection: SchiedsrichterReadCollection,
     today: GermanDay,
 ) -> FLSchiedsrichterConfirmationViewResponse:
-    """What this token opens: the link's state and deadline, the age bounds and the day of the person's own answer.
+    """What this token opens: the link's state and deadline, the age bounds and the day of the person's consent.
 
-    A confirmed or an expired link is served in that state rather than refused, so a reopened link shows what became of it.
+    A confirmed or an expired link is served in that state rather than refused, so a reopened link shows what became of it;
+    an objection erased the entry, so its link opens nothing.
     """
 
     # A POST that reads, so the token travels in a body and never in a URL.
@@ -80,7 +84,7 @@ async def get_confirmation_view(
         minimum_age=SCHIEDSRICHTER_MIN_AGE_YEARS,
         maximum_age=BIRTH_DATE_MAX_AGE_YEARS,
         deadline=block["deadline"],
-        answered_at=answered_at_of(state=state, einwilligung=einwilligung, confirmation=block),
+        answered_at=answered_at_of(state=state, einwilligung=einwilligung),
     )
 
 
@@ -120,7 +124,7 @@ async def post_confirmation(
         # The stamp is asked first, as `state_of` ranks it: a person who answered on the last
         # valid day and presses again is told their answer stands, never that the link expired and
         # to ask for another.
-        refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FIELD), confirmation=raw[CONFIRMATION_FIELD]))
+        refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FIELD)))
         refuse(find_expired_token_refusal(deadline=raw[CONFIRMATION_FIELD]["deadline"], today=today))
         refuse(find_age_refusal(birth_date=answer_data.birth_date, today=today, minimum_age=SCHIEDSRICHTER_MIN_AGE_YEARS))
         refuse(find_self_media_refusal(saved=None, media=answer_data.media, birth_date=answer_data.birth_date, today=today))
@@ -153,13 +157,15 @@ async def post_confirmation(
 async def post_decline(
     decline_data: FLTokenPayload,
     schiedsrichter_collection: SchiedsrichterCollection,
+    spiele_collection: SpieleCollection,
+    spielbestaetigungen_collection: SpielbestaetigungenCollection,
     db: DBClient,
     today: GermanDay,
+    germany_now: GermanyNow,
 ) -> None:
-    """Record the referee's objection to the entry their link opens: its day, and nothing else of the person.
+    """Erase the entry the referee's link opens, on their objection, as a contact seat's objection empties the seat.
 
-    The entry is erased at the midnight after its link's deadline, and until then no booking takes it and nobody asks
-    the person again.
+    The entry goes as the hourly pass erases one: its coming bookings removed, a played fixture's kept naming nobody.
     """
 
     token_hash = hash_token(decline_data.token)
@@ -167,7 +173,7 @@ async def post_decline(
 
     @journal.attempted
     async def object_for_the_person(session: AsyncClientSession) -> None:
-        """One transaction for a single update, so a second press landing between the read and the write is refused by the first answer."""
+        """One transaction, so a consent landing between the read and the erasure conflicts rather than being erased unseen."""
 
         raw = await pull_by_token(
             collection=schiedsrichter_collection,
@@ -176,13 +182,20 @@ async def post_decline(
             session=session,
         )
 
-        refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FIELD), confirmation=raw[CONFIRMATION_FIELD]))
+        refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FIELD)))
         refuse(find_expired_token_refusal(deadline=raw[CONFIRMATION_FIELD]["deadline"], today=today))
 
-        # Past the count: the objection's day is no field the editor saves.
-        await patch_past_the_version_in_db(
-            collection=schiedsrichter_collection, db_filter={"_id": raw["_id"]}, update=compose_decline_update(today=today), session=session
+        await erase_referee_in_session(
+            schiedsrichter_collection=schiedsrichter_collection,
+            spiele_collection=spiele_collection,
+            spielbestaetigungen_collection=spielbestaetigungen_collection,
+            schiedsrichter_id=raw["_id"],
+            now=germany_now,
+            session=session,
         )
+        # Nameless, as the pass's erasure is: the entry it would name is gone.
+        await record_act(collection=schiedsrichter_collection, action="schiedsrichter.objected", by=ACT_BY_SCHIEDSRICHTER, session=session)
+        # The restore's replay reads the erased record's id off this line and erases it again.
         journal.note("objection", [f"{Collection.SCHIEDSRICHTER}/{raw['_id']}"])
 
     async with journal:

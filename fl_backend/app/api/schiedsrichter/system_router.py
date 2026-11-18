@@ -23,7 +23,7 @@ router = APIRouter(
 SCHIEDSRICHTER_ERASED_PER_PAGE: Final = 10
 
 
-@router.post("", summary="Erase the referee entries whose link lapsed unanswered or declined")
+@router.post("", summary="Erase the referee entries whose link lapsed unanswered")
 async def sweep_schiedsrichter(
     schiedsrichter_collection: SchiedsrichterCollection,
     spiele_collection: SpieleCollection,
@@ -31,7 +31,7 @@ async def sweep_schiedsrichter(
     db: DBClient,
     germany_now: GermanyNow,
 ) -> FLSchiedsrichterSweepResponse:
-    """Erase every referee entry nobody confirmed, or whose person objected, once the midnight after its link's last day has passed.
+    """Erase every referee entry nobody confirmed once the midnight after its link's last day has passed.
 
     Each goes as a person's own erasure takes a referee entry, and one whose erasure fails is counted in `failed` and
     stays due for the next pass.

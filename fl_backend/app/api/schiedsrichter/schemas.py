@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Literal, Self
+from typing import Self
 
 from pydantic import BaseModel, Field, TypeAdapter, model_validator
 
@@ -22,12 +22,8 @@ from app.shared.schemas.custom import (
 )
 from app.shared.schemas.einwilligung import FLSchiedsrichterTextVersions, cite_their_kind, refuse_a_stale_grant
 from app.shared.schemas.kontakt import CustomKontaktName, CustomStoredAddress, FLKontakt, FLKontaktPayload
-from app.shared.schemas.literals import FLEinwilligungScope, FLSonderereignis
+from app.shared.schemas.literals import FLConfirmationState, FLEinwilligungScope, FLSonderereignis
 from app.shared.schemas.responses import BasePayload, BaseReadModel
-
-# What a referee's link shows reopened. `declined` beside the states every link page shares: the referee objects
-# through the same link, and the entry stays until its clock runs out.
-type FLSchiedsrichterConfirmationState = Literal["valid", "confirmed", "declined", "expired"]
 
 
 class _SchiedsrichterWritable(BaseModel):
@@ -70,13 +66,6 @@ class FLSchiedsrichterMint(BaseModel):
     email: CustomNonEmptyString
 
 
-class FLSchiedsrichterConfirmation(FLConfirmation):
-    """A referee's confirmation bookkeeping as an administrator reads it, the objection's day with it."""
-
-    # Null until the person objects through their link.
-    declined_at: CustomOptionalDateString = None
-
-
 class FLSchiedsrichter(_SchiedsrichterWritable, BaseReadModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     # Without the payload's ceiling and pattern: a read refusing a stored name would answer 500 for the whole list.
@@ -86,17 +75,16 @@ class FLSchiedsrichter(_SchiedsrichterWritable, BaseReadModel):
     schule: str | None
     # On no payload: deactivation goes through the delete endpoint, which stamps the date itself.
     inactive_since: CustomOptionalDateString
-    # Defaulted, on no payload: the create stores no record or birthdate before confirmation, and an address
-    # correction on a retired, unconfirmed referee drops the link.
-    # Refusing an absent key would 500 the list.
-    confirmation: FLSchiedsrichterConfirmation | None = None
-    einwilligung: FLEinwilligung | None = None
-    birth_date: CustomOptionalDateString = None
+    # On no payload, each stored null until it holds a value: the create stores no record or birthdate before
+    # confirmation, and an address correction on a retired, unconfirmed referee nulls the link.
+    confirmation: FLConfirmation | None
+    einwilligung: FLEinwilligung | None
+    birth_date: CustomOptionalDateString
     # The writes counted so far, which the editor's save sends back.
-    version: int = 0
+    version: int
 
 
-class FLSchiedsrichterConfirmationRecord(FLSchiedsrichterConfirmation):
+class FLSchiedsrichterConfirmationRecord(FLConfirmation):
     """One referee's confirmation bookkeeping as `schiedsrichter` stores it, its links' hashes with it."""
 
     # Empty until the hand-out mints the link the write owed; each hand-out's link replaces the one before it.
@@ -115,9 +103,9 @@ class FLSchiedsrichterRecord(FLSchiedsrichter, Anchored):
     """A referee as `schiedsrichter` stores them."""
 
     kontakt: FLSchiedsrichterKontaktRecord
-    confirmation: FLSchiedsrichterConfirmationRecord | None = None
-    # Held while the entry is unanswered or declined, and absent once confirmed, which the hourly pass never erases.
-    erase_at: datetime | None = None
+    confirmation: FLSchiedsrichterConfirmationRecord | None
+    # Held while the entry is unanswered, and null once confirmed, which the hourly pass never erases.
+    erase_at: datetime | None
 
     @model_validator(mode="after")
     def _cites_a_referees_wordings(self) -> Self:
@@ -164,7 +152,7 @@ class FLSchiedsrichterConfirmationViewResponse(BaseReadModel):
     The link went to an address an administrator typed and nobody has confirmed, which behind a typo is a stranger's.
     """
 
-    state: FLSchiedsrichterConfirmationState
+    state: FLConfirmationState
     minimum_age: int
     # Served, so the page bounds the birthdate by the limits the write judges, never a copy.
     maximum_age: int = Field(gt=0)

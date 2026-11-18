@@ -26,6 +26,7 @@ from app.api.schiedsrichter.services import (
     INVITE_FIELDS,
     build_unplayed_assignment_filter,
     compose_correction_update,
+    compose_entry,
     compose_mint_update,
     confirmation_deadline_from,
     confirmation_expired,
@@ -149,7 +150,7 @@ async def post_schiedsrichter(
             collection=schiedsrichter_collection,
             document={
                 **schiedsrichter_data.model_dump(mode="json"),
-                **compose_mint_update(today=today),
+                **compose_entry(today=today),
             },
             session=session,
         )
@@ -385,7 +386,7 @@ async def resend_confirmation(
         )
 
         refuse(find_retired_refusal(inactive_since=stored.get("inactive_since")))
-        refuse(find_already_answered_refusal(einwilligung=stored.get(EINWILLIGUNG_FIELD), confirmation=stored.get(CONFIRMATION_FIELD)))
+        refuse(find_already_answered_refusal(einwilligung=stored.get(EINWILLIGUNG_FIELD)))
 
         email = stored["kontakt"]["email"]
         refuse(find_missing_address_refusal(email=email))

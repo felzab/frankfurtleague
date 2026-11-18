@@ -22,7 +22,7 @@ const unanswered = (delivery: FLOutboxStatus | null): FLSchiedsrichterSingleResp
     birth_date: null,
     default_payment: 20,
     kontakt: { email: "mia@example.org", phone: null },
-    confirmation: { sent_at: "2026-11-01", deadline: "2026-11-15", declined_at: null },
+    confirmation: { sent_at: "2026-11-01", deadline: "2026-11-15" },
     einwilligung: null,
     inactive_since: null,
     version: 2,

@@ -306,3 +306,28 @@ async def test_each_press_writes_one_line_naming_its_record_and_no_address(
     assert status < 300
     assert (line["act"], line["records"], line["seats"]) == (kind, [f"{collection}/{record_id}"], slots)
     assert "@" not in str(line)
+
+
+# Each objection's one Protokoll row, as what was done, by whom, for which club, on which record and about which school.
+# A referee's names no record: the objection erased it.
+OBJECTION_ROWS = {
+    "an objection on an application": ("bewerbung.seat_objected", "kontakt", None, DECLINED_APPLICATION_OID, "Helmholtz-Gymnasium"),
+    "an objection on a season row": ("team.seat_objected", "kontakt", "Helmholtz", TEAM_OID, None),
+    "a referee's objection": ("schiedsrichter.objected", "schiedsrichter", None, None, None),
+}
+
+
+@pytest.mark.parametrize("press", OBJECTION_ROWS, ids=OBJECTION_ROWS)
+async def test_each_objection_writes_one_protokoll_row(mongo_replica_set_url: str, press: str):
+    """Unrecorded, a refusal leaves the administration a chip on a seat at most, and on a referee erased at once nothing."""
+
+    act = PRESSES[press][0]
+
+    async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True) as (_client, database):
+        await seeded(database)
+        async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
+            status = (await act(http, database)).status_code
+        rows = await database[Collection.ACTION_LOG].find().to_list(length=None)
+
+    assert status < 300
+    assert [(row["action"], row["by"], row["team"], row["record_id"], row["label"]) for row in rows] == [OBJECTION_ROWS[press]]

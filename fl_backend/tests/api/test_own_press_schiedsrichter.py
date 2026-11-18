@@ -14,11 +14,10 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.schiedsrichter.admin_router import patch_schiedsrichter
-from app.api.schiedsrichter.public_router import post_confirmation, post_decline
+from app.api.schiedsrichter.public_router import post_confirmation
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLSchiedsrichterConfirmationPayload
 from app.api.schiedsrichter.services import compose_mint_update
 from app.core.collections import Collection
-from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.database import a_clean_database
@@ -73,12 +72,6 @@ async def confirm(database: AsyncDatabase, client: AsyncMongoClient) -> None:
     )
 
 
-async def decline(database: AsyncDatabase, client: AsyncMongoClient) -> None:
-    await post_decline(
-        decline_data=FLTokenPayload(token=TOKEN), schiedsrichter_collection=database[Collection.SCHIEDSRICHTER], db=client, today=TODAY
-    )
-
-
 Press = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[None]]
 
 
@@ -117,10 +110,4 @@ class TestTheEditorsSaveLandsOverTheAnswer:
 
         assert row["schule"] == "Carl-Schurz-Schule"
         assert (row["birth_date"], row["einwilligung"]["confirmed_at"], row["einwilligung"]["media"]) == (BIRTH_DATE, TODAY, True)
-        assert "erase_at" not in row
-
-    async def test_an_objection_stands_beside_the_save(self, mongo_replica_set_url: str):
-        row = await pressed_then_saved(mongo_replica_set_url, decline)
-
-        assert row["schule"] == "Carl-Schurz-Schule"
-        assert row["confirmation"]["declined_at"] == TODAY
+        assert row["erase_at"] is None

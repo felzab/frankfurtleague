@@ -42,8 +42,9 @@ const REQUIRED = { birth_date: requires(shape.birth_date, null), scope: requires
 
 /**
  * `/confirm/schiedsrichter`, the link a referee's entry mails them, on the mailed-page template: the question, with
- * „Eintrag bestätigen“ and the refusal „Widersprechen“; the done states; the link opened again, saying what the
- * person did and on which day; and the link no longer valid, an expired, mistyped or tampered link alike.
+ * „Eintrag bestätigen“ and the refusal „Widersprechen“; the done states; the link opened again after a confirmation,
+ * saying on which day; and the link no longer valid, an expired, mistyped or tampered link alike, and one whose entry
+ * an objection erased.
  */
 export default function SchiedsrichterConfirmationPage({ searchParams }: Props) {
   return <MailedPage page={readState(searchParams)} />;
@@ -55,15 +56,11 @@ const readView = cache(async (token: string): Promise<FLSchiedsrichterConfirmati
   runWithIncomingTrace(() => linkViewOf(schiedsrichterGetConfirmationView({ token }))),
 );
 
-/** The link opened again after its answer: what the person did and on which day, with the one place to go next. */
-function alreadyDone(view: FLSchiedsrichterConfirmationViewResponse, kind: "confirmed" | "objected"): MailedState {
-  // The view serves the answer's day on these two states alone; one missing is a backend older than this page.
+/** The link opened again after its consent: on which day, with the account as the one place to go next. */
+function alreadyConfirmed(view: FLSchiedsrichterConfirmationViewResponse): MailedState {
+  // The view serves the consent's day on this state alone; one missing is a backend older than this page.
   if (view.answered_at === null) return INVALID;
-  const day = dayOf(view.answered_at);
-  const { title } = END[kind];
-  return kind === "confirmed"
-    ? { state: "alreadyDone", title: COPY.shared.end.doneOn(title, day), next: TO_ACCOUNT }
-    : { state: "alreadyDone", title: COPY.shared.end.doneOn(title, day), next: TO_HOME, declined: true };
+  return { state: "alreadyDone", title: COPY.shared.end.doneOn(END.confirmed.title, dayOf(view.answered_at)), next: TO_ACCOUNT };
 }
 
 async function readState(searchParams: Props["searchParams"]): Promise<MailedState> {
@@ -79,9 +76,7 @@ async function readState(searchParams: Props["searchParams"]): Promise<MailedSta
     case "expired":
       return INVALID;
     case "confirmed":
-      return alreadyDone(view, "confirmed");
-    case "declined":
-      return alreadyDone(view, "objected");
+      return alreadyConfirmed(view);
     case "valid": {
       // Berlin's day, which the backend judges the age on.
       const today = dayIn(now());

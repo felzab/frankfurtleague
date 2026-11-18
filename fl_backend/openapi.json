@@ -966,12 +966,14 @@
           "team.reactivated",
           "team.austritt_entered",
           "team.seat_changed",
+          "team.seat_objected",
           "team.replaced",
           "team.invitation_created",
           "team.invitation_withdrawn",
           "bewerbung.accepted",
           "bewerbung.declined",
           "bewerbung.seat_changed",
+          "bewerbung.seat_objected",
           "registrierung.admitted",
           "registrierung.declined",
           "spieler.changed",
@@ -981,6 +983,7 @@
           "schiedsrichter.changed",
           "schiedsrichter.retired",
           "schiedsrichter.reactivated",
+          "schiedsrichter.objected",
           "spielort.created",
           "spielort.changed",
           "spielort.retired",
@@ -4575,6 +4578,27 @@
       "FLCitedMediaTextVersion": {
         "const": "2026-11-media-1",
         "type": "string"
+      },
+      "FLConfirmation": {
+        "description": "One person's confirmation bookkeeping as an administrator reads it.",
+        "properties": {
+          "deadline": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Deadline",
+            "type": "string"
+          },
+          "sent_at": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Sent At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sent_at",
+          "deadline"
+        ],
+        "title": "FLConfirmation",
+        "type": "object"
       },
       "FLConfirmationDeadlineDays": {
         "const": 14,
@@ -9782,7 +9806,7 @@
           "confirmation": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLSchiedsrichterConfirmation"
+                "$ref": "#/components/schemas/FLConfirmation"
               },
               {
                 "type": "null"
@@ -9841,7 +9865,6 @@
             "title": "Schule"
           },
           "version": {
-            "default": 0,
             "title": "Version",
             "type": "integer"
           }
@@ -9886,40 +9909,6 @@
           "text_versions"
         ],
         "title": "FLSchiedsrichterAccountEinwilligungPayload",
-        "type": "object"
-      },
-      "FLSchiedsrichterConfirmation": {
-        "description": "A referee's confirmation bookkeeping as an administrator reads it, the objection's day with it.",
-        "properties": {
-          "deadline": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Deadline",
-            "type": "string"
-          },
-          "declined_at": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Declined At"
-          },
-          "sent_at": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Sent At",
-            "type": "string"
-          }
-        },
-        "required": [
-          "sent_at",
-          "deadline",
-          "declined_at"
-        ],
-        "title": "FLSchiedsrichterConfirmation",
         "type": "object"
       },
       "FLSchiedsrichterConfirmationData": {
@@ -9979,15 +9968,6 @@
         "title": "FLSchiedsrichterConfirmationPayload",
         "type": "object"
       },
-      "FLSchiedsrichterConfirmationState": {
-        "enum": [
-          "valid",
-          "confirmed",
-          "declined",
-          "expired"
-        ],
-        "type": "string"
-      },
       "FLSchiedsrichterConfirmationViewResponse": {
         "description": "What one confirmation link opens, and nothing that says who its person is.\n\nThe link went to an address an administrator typed and nobody has confirmed, which behind a typo is a stranger's.",
         "properties": {
@@ -10018,7 +9998,7 @@
             "type": "integer"
           },
           "state": {
-            "$ref": "#/components/schemas/FLSchiedsrichterConfirmationState"
+            "$ref": "#/components/schemas/FLConfirmationState"
           }
         },
         "required": [
@@ -17374,7 +17354,7 @@
     },
     "/api/bewerbungen/confirmation": {
       "post": {
-        "description": "Record one person's consent or Widerspruch for the seat their link opens, and for a second seat they hold.\n\nA Widerspruch empties the slot, and on an application it tells the Ansprechperson who still stands, in a notice that\nis the deletion notice too.",
+        "description": "Record one person's consent or Widerspruch for the seat their link opens, and for a second seat they hold.\n\nA Widerspruch empties the slot and writes the Protokoll's row, and on an application it tells the Ansprechperson who\nstill stands, in a notice that is the deletion notice too.",
         "operationId": "bewerbungen_post_confirmation",
         "requestBody": {
           "content": {
@@ -19783,7 +19763,7 @@
     },
     "/api/schiedsrichter/confirmation/decline": {
       "post": {
-        "description": "Record the referee's objection to the entry their link opens: its day, and nothing else of the person.\n\nThe entry is erased at the midnight after its link's deadline, and until then no booking takes it and nobody asks\nthe person again.",
+        "description": "Erase the entry the referee's link opens, on their objection, as a contact seat's objection empties the seat.\n\nThe entry goes as the hourly pass erases one: its coming bookings removed, a played fixture's kept naming nobody.",
         "operationId": "schiedsrichter_post_decline",
         "requestBody": {
           "content": {
@@ -19817,7 +19797,7 @@
     },
     "/api/schiedsrichter/confirmation/view": {
       "post": {
-        "description": "What this token opens: the link's state and deadline, the age bounds and the day of the person's own answer.\n\nA confirmed or an expired link is served in that state rather than refused, so a reopened link shows what became of it.",
+        "description": "What this token opens: the link's state and deadline, the age bounds and the day of the person's consent.\n\nA confirmed or an expired link is served in that state rather than refused, so a reopened link shows what became of it;\nan objection erased the entry, so its link opens nothing.",
         "operationId": "schiedsrichter_get_confirmation_view",
         "requestBody": {
           "content": {
@@ -19932,7 +19912,7 @@
     },
     "/api/schiedsrichter/sweep": {
       "post": {
-        "description": "Erase every referee entry nobody confirmed, or whose person objected, once the midnight after its link's last day has passed.\n\nEach goes as a person's own erasure takes a referee entry, and one whose erasure fails is counted in `failed` and\nstays due for the next pass.",
+        "description": "Erase every referee entry nobody confirmed once the midnight after its link's last day has passed.\n\nEach goes as a person's own erasure takes a referee entry, and one whose erasure fails is counted in `failed` and\nstays due for the next pass.",
         "operationId": "schiedsrichter_sweep_schiedsrichter",
         "responses": {
           "200": {
@@ -19955,7 +19935,7 @@
             "SystemKey": []
           }
         ],
-        "summary": "Erase the referee entries whose link lapsed unanswered or declined",
+        "summary": "Erase the referee entries whose link lapsed unanswered",
         "tags": [
           "schiedsrichter"
         ]

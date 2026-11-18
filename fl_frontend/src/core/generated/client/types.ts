@@ -518,12 +518,14 @@ export const FLAction = {
   teamreactivated: "team.reactivated",
   teamaustritt_entered: "team.austritt_entered",
   teamseat_changed: "team.seat_changed",
+  teamseat_objected: "team.seat_objected",
   teamreplaced: "team.replaced",
   teaminvitation_created: "team.invitation_created",
   teaminvitation_withdrawn: "team.invitation_withdrawn",
   bewerbungaccepted: "bewerbung.accepted",
   bewerbungdeclined: "bewerbung.declined",
   bewerbungseat_changed: "bewerbung.seat_changed",
+  bewerbungseat_objected: "bewerbung.seat_objected",
   registrierungadmitted: "registrierung.admitted",
   registrierungdeclined: "registrierung.declined",
   spielerchanged: "spieler.changed",
@@ -533,6 +535,7 @@ export const FLAction = {
   schiedsrichterchanged: "schiedsrichter.changed",
   schiedsrichterretired: "schiedsrichter.retired",
   schiedsrichterreactivated: "schiedsrichter.reactivated",
+  schiedsrichterobjected: "schiedsrichter.objected",
   spielortcreated: "spielort.created",
   spielortchanged: "spielort.changed",
   spielortretired: "spielort.retired",
@@ -2149,6 +2152,16 @@ export const FLCardColour = {
   gelb_rot: "gelb_rot",
   rot: "rot",
 } as const;
+
+/**
+ * One person's confirmation bookkeeping as an administrator reads it.
+ */
+export interface FLConfirmation {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  deadline: string;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  sent_at: string;
+}
 
 export type FLConfirmationDeadlineDays = 14;
 
@@ -4120,20 +4133,9 @@ export interface FLSaisonsAdminListResponse {
   saisons: FLSaisonAdminListed[];
 }
 
-/**
- * A referee's confirmation bookkeeping as an administrator reads it, the objection's day with it.
- */
-export interface FLSchiedsrichterConfirmation {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  deadline: string;
-  declined_at: string | null;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  sent_at: string;
-}
-
 export interface FLSchiedsrichter {
   birth_date: string | null;
-  confirmation: FLSchiedsrichterConfirmation | null;
+  confirmation: FLConfirmation | null;
   /** @minimum 0 */
   default_payment: number;
   einwilligung: FLEinwilligung | null;
@@ -4179,15 +4181,6 @@ export interface FLSchiedsrichterConfirmationPayload {
   token: string;
 }
 
-export type FLSchiedsrichterConfirmationState = (typeof FLSchiedsrichterConfirmationState)[keyof typeof FLSchiedsrichterConfirmationState];
-
-export const FLSchiedsrichterConfirmationState = {
-  valid: "valid",
-  confirmed: "confirmed",
-  declined: "declined",
-  expired: "expired",
-} as const;
-
 /**
  * What one confirmation link opens, and nothing that says who its person is.
  *
@@ -4200,7 +4193,7 @@ export interface FLSchiedsrichterConfirmationViewResponse {
   /** @exclusiveMinimum 0 */
   maximum_age: number;
   minimum_age: number;
-  state: FLSchiedsrichterConfirmationState;
+  state: FLConfirmationState;
 }
 
 export interface FLSchiedsrichterListResponse {

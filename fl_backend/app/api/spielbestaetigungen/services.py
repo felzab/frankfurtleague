@@ -202,13 +202,13 @@ def _reason_now(
 ) -> FLSpielbestaetigungClosedReason | None:
     """Why the pass's next close would shut this row, read off its own judge: a page never shows or refuses otherwise than it records."""
 
-    return reason_to_close(row=spielbestaetigung_raw, spiel=ansetzung_state.spiel, austritte=austritte_of(ansetzung_state), now=now)
+    return reason_to_close(row=spielbestaetigung_raw, spiel=ansetzung_state.spiel, austritte=austritte_of(ansetzung_state.junctions), now=now)
 
 
-def austritte_of(ansetzung_state: AnsetzungState) -> dict[Any, str]:
-    """Each club's exit day off the season rows `ansetzung_state` holds, as `reason_to_close` and `lapsed_on` take them."""
+def austritte_of(rows: Iterable[Mapping[str, Any]]) -> dict[Any, str]:
+    """Each club's exit day off its season row, as `reason_to_close` and `lapsed_on` take them; a row holding no exit day has none."""
 
-    return {row.get("team_id"): str(date) for row in ansetzung_state.junctions if (date := (row.get("austritt") or {}).get("date")) is not None}
+    return {row.get("team_id"): str(date) for row in rows if (date := (row.get("austritt") or {}).get("date")) is not None}
 
 
 def _past_deadline(*, spielbestaetigung_raw: Mapping[str, Any], now: datetime) -> bool:
@@ -803,12 +803,14 @@ def reason_to_close(
     # Ahead of a move, neither leaving a new Ansetzung to announce; on the fixture's day as it stands, or the row's where
     # the fixture lost its date.
     tag = spiel.get("date") or ansetzung["date"]
+    exits = [austritte[team_id] for team_id in team_ids if team_id in austritte]
     # Ahead of the decision a no-show records: entered before the day, nobody is due at the ground, so its
-    # parties are told and shown a call-off.
+    # parties are told and shown a call-off. An exit by the day first: its own write told each opponent, which one
+    # act tells once, and the referee is told the booking is off.
     if clock.german_day(now) < tag and spiel.get("sonderereignis") in SONDEREREIGNIS_CALLING_OFF_BEFORE_ITS_DAY:
-        return "cancelled"
+        return "austritt" if any(day <= tag for day in exits) else "cancelled"
 
-    decided = decision_of(spiel=spiel, austritte=[austritte[team_id] for team_id in team_ids if team_id in austritte], tag=tag)
+    decided = decision_of(spiel=spiel, austritte=exits, tag=tag)
     if decided is not None:
         return decided
 
@@ -978,7 +980,13 @@ def _notice_to_come(*, row: Mapping[str, Any], reason: Any, spiel: Mapping[str, 
     if reason == "ansetzung_changed" and spiel.get("date") is not None:
         slots.append(spiel)
 
-    return any(not is_played(date=slot["date"], time=slot.get("time"), now=now) for slot in slots)
+    return any(_to_come(slot, now=now) for slot in slots)
+
+
+def _to_come(slot: Mapping[str, Any], *, now: datetime) -> bool:
+    """Whether a slot is still to come at `now`, by its kick-off: what an act tells a referee and an opponent about alike."""
+
+    return not is_played(date=slot.get("date"), time=slot.get("time"), now=now)
 
 
 def notice_owed(*, row: Mapping[str, Any], reason: FLSpielbestaetigungClosedReason, spiel: Mapping[str, Any], now: datetime) -> bool:
@@ -1180,12 +1188,12 @@ def build_austritt_spiele_filter(*, saison_id: str, team_id: Any, exit_day: str)
 
 
 def austritt_notices_of(
-    *, saison_id: str, team_id: Any, spiele: Iterable[Mapping[str, Any]], junctions: Mapping[Any, Mapping[str, Any]]
+    *, saison_id: str, team_id: Any, spiele: Iterable[Mapping[str, Any]], junctions: Mapping[Any, Mapping[str, Any]], now: datetime
 ) -> dict[Any, list[OwedMail]]:
     """Each opponent's notice, one mail per mailbox of its confirmed seats, keyed by that row; `junctions` maps clubs to their season rows.
 
-    One notice however many fixtures, listing every one still open: neither decided, nor called off, nor closed to the
-    opponent by an exit of its own. Keyed by the two clubs and the seat, never the day, so nobody is told twice: an
+    One notice however many fixtures, listing every one still open at `now`: to come, neither decided, nor called off,
+    nor closed to the opponent by an exit of its own. Keyed by the two clubs and the seat, never the day, so nobody is told twice: an
     exit stands once recorded. Each mail is about the departed club's row: on the opponent's seat it would stand in
     for the seat's link mail, whose delivery the team editor reads.
     """
@@ -1193,7 +1201,7 @@ def austritt_notices_of(
     open_spiele: dict[Any, list[FLSpielMailEntry]] = {}
     ordered = sorted(spiele, key=lambda spiel: (spiel.get("date") is None, spiel.get("date") or "", spiel.get("time") or ""))
     for spiel in ordered:
-        opponent = _open_opponent_of(spiel=spiel, team_id=team_id, junctions=junctions)
+        opponent = _open_opponent_of(spiel=spiel, team_id=team_id, junctions=junctions, now=now)
         if opponent is not None:
             team1, team2 = team_id_of(spiel, "team1"), team_id_of(spiel, "team2")
             open_spiele.setdefault(opponent["team_id"], []).append(
@@ -1222,15 +1230,18 @@ def austritt_notices_of(
     return notices
 
 
-def _open_opponent_of(*, spiel: Mapping[str, Any], team_id: Any, junctions: Mapping[Any, Mapping[str, Any]]) -> Mapping[str, Any] | None:
+def _open_opponent_of(
+    *, spiel: Mapping[str, Any], team_id: Any, junctions: Mapping[Any, Mapping[str, Any]], now: datetime
+) -> Mapping[str, Any] | None:
     """The season row of the club's opponent in a fixture still open between them, or `None`.
 
-    Open: both sides fielded, the fixture neither decided nor called off, nor closed to the opponent by an exit of its own.
+    Open: both sides fielded, still to come as a referee's notice judges it, the fixture neither decided nor called off,
+    nor closed to the opponent by an exit of its own.
     """
 
     team1, team2 = team_id_of(spiel, "team1"), team_id_of(spiel, "team2")
     opponent = junctions.get(team2 if team1 == team_id else team1)
-    if opponent is None or team1 is None or team2 is None:
+    if opponent is None or team1 is None or team2 is None or not _to_come(spiel, now=now):
         return None
 
     own_exit = (opponent.get("austritt") or {}).get("date")
@@ -1256,14 +1267,14 @@ def austritt_recipients_of(
     exit's own read takes it. A referee is told by the pass's close, judged by its rules for an exit on that day.
     """
 
-    austritte = {row["team_id"]: str(day) for row in junctions.values() if (day := (row.get("austritt") or {}).get("date")) is not None}
+    austritte = austritte_of(junctions.values())
     held: dict[Any, list[Mapping[str, Any]]] = {}
     for row in rows:
         held.setdefault(row["spiel_id"], []).append(row)
 
     reached: list[tuple[str | None, Mapping[str, Any]]] = []
     for spiel in spiele:
-        opponent = _open_opponent_of(spiel=spiel, team_id=team_id, junctions=junctions)
+        opponent = _open_opponent_of(spiel=spiel, team_id=team_id, junctions=junctions, now=now)
         if opponent is not None and confirmed_recipients(kontakte=opponent.get("kontakte")):
             reached.append((spiel.get("date"), {"kind": "team", "team_id": opponent["team_id"]}))
 

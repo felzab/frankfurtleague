@@ -29,21 +29,16 @@ class TestWhatALeakedLinkLearns:
         }
 
     @pytest.mark.parametrize(
-        ("einwilligung", "declined_at", "answered_at"),
-        [
-            ({"confirmed_at": "2026-03-02"}, None, "2026-03-02"),
-            (None, "2026-03-03", "2026-03-03"),
-            (None, None, None),
-        ],
-        ids=["confirmed", "declined", "unanswered"],
+        ("einwilligung", "answered_at"),
+        [({"confirmed_at": "2026-03-02"}, "2026-03-02"), (None, None)],
+        ids=["confirmed", "unanswered"],
     )
     def test_the_view_names_the_day_of_the_answer_its_state_shows_and_no_other(
-        self, einwilligung: Mapping[str, str] | None, declined_at: str | None, answered_at: str | None
+        self, einwilligung: Mapping[str, str] | None, answered_at: str | None
     ):
-        confirmation = {"deadline": "2026-04-15", "declined_at": declined_at}
-        state = state_of(einwilligung=einwilligung, confirmation=confirmation, today="2026-04-01")
+        state = state_of(einwilligung=einwilligung, confirmation={"deadline": "2026-04-15"}, today="2026-04-01")
 
-        assert answered_at_of(state=state, einwilligung=einwilligung, confirmation=confirmation) == answered_at
+        assert answered_at_of(state=state, einwilligung=einwilligung) == answered_at
 
     def test_the_press_answers_no_body(self):
         """The press's answer, which the same token holder reads, carries nothing: a model added to it is a field leaked."""

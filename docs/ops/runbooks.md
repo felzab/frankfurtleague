@@ -1250,7 +1250,8 @@ the person's evidence having gone with the lost window:
 - **A withdrawal** is set again on its record; a seat's in the `einwilligung` of each slot its
   `seats` name, and no other.
 - **A seat's Widerspruch** empties its seats again.
-- **A referee's** is stamped again in `confirmation.declined_at`, with the line's German day.
+- **A referee's** erases the entry again: its file sets the record's `erase_at` to the run's
+  instant, so the next hourly pass erases it as an objection does, its coming bookings with it.
 
 A line names the choice and no value, and each choice withholds by one value on each kind of
 record. `scope` is set to `internal` on a pupil, a referee or a registration, and to `kontakt_data`

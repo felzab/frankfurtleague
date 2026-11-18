@@ -222,6 +222,9 @@ const ACCOUNT_ERASED = "Konto gelöscht";
 const DELETED = "Gelöscht";
 // One word for every retention pass, its noun saying what it took.
 const DELETED_BY_PASS = "Nach Frist gelöscht";
+// One word for every person's objection through their own link, a seat's and a referee's alike: the act's question was
+// „Eintrag widersprechen?“.
+const ENTRY_OBJECTED = "Eintrag widersprochen";
 
 /**
  * A wait a sentence states, in the unit its bound is published in. Each figure is a literal, so a bound that moves fails
@@ -1151,8 +1154,8 @@ export const COPY = catalogue({
       kontaktData: "Kontaktdaten",
       confirmation: "Bestätigung",
       /**
-       * The fact saying where the referee's confirmation stands, one of the three lines below or, while it is still
-       * awaited, `COPY.admin.spiel.answerBy`.
+       * The fact saying where the referee's confirmation stands, `confirmedOn` or `expiredOn` below or, while it is
+       * still awaited, `COPY.admin.spiel.answerBy`; `objectedOn` is a contact seat's, an objection erasing a referee.
        */
       state: "Stand",
       /** Beside the act that mailed a fresh link, and the save whose corrected address did: the address it went to. */
@@ -1663,12 +1666,14 @@ export const COPY = catalogue({
         "team.reactivated": "Team reaktiviert",
         "team.austritt_entered": "Austritt eingetragen",
         "team.seat_changed": "Sitz geändert",
+        "team.seat_objected": ENTRY_OBJECTED,
         "team.replaced": "Team ersetzt",
         "team.invitation_created": "Registrierungslink angelegt",
         "team.invitation_withdrawn": "Registrierungslink zurückgezogen",
         "bewerbung.accepted": "Bewerbung angenommen",
         "bewerbung.declined": "Bewerbung abgelehnt",
         "bewerbung.seat_changed": "Sitz geändert",
+        "bewerbung.seat_objected": ENTRY_OBJECTED,
         "spieler.changed": "Spieler geändert",
         "spieler.deregistered": "Spieler ausgetragen",
         "spieler.reactivated": "Spieler reaktiviert",
@@ -1678,6 +1683,7 @@ export const COPY = catalogue({
         "schiedsrichter.changed": "Schiedsrichter geändert",
         "schiedsrichter.retired": "Schiedsrichter stillgelegt",
         "schiedsrichter.reactivated": "Schiedsrichter reaktiviert",
+        "schiedsrichter.objected": ENTRY_OBJECTED,
         "spielort.created": "Spielort angelegt",
         "spielort.changed": "Spielort geändert",
         "spielort.retired": "Spielort stillgelegt",
