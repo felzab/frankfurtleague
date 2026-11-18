@@ -30,16 +30,7 @@ REQUEST_DEADLINE_S: Final = 10.0
 
 @dataclass
 class RequestDeadline:
-    """Where the request's deadline falls, which pymongo holds and publishes no getter for, and what its aborts spent past it.
-
-    The aborts' grace (`ABORT_GRACE_S`) is the time the request's aborts may
-    run past `at`, all of them together, charged after each abort: the first abort past the deadline
-    gets the whole grace, and each later one what the earlier ones left. Never time counted from `at`:
-    the request reaches an abort only when its next database operation meets the deadline, however
-    long after it, and every moment between would come out of the abort that frees the transaction's
-    documents. Never a grace apiece either: a loop of cut transactions would wait one out per
-    transaction.
-    """
+    """Where the request's deadline falls, which pymongo holds and publishes no getter for, and what its aborts spent past it."""
 
     at: float
     aborting_s: float = 0.0

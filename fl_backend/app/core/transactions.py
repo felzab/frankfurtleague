@@ -23,7 +23,12 @@ from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 NO_DATA_TEXT: Final = "//- No Data -//"
 
-# Counted as `RequestDeadline` says; far above a round trip, and inside the page's margin.
+# The time a request's aborts may run past its deadline, all of them together, charged after each abort: the first
+# abort past the deadline gets the whole grace, and each later one what the earlier ones left. Never time counted from
+# the deadline: the request reaches an abort only when its next database operation meets the deadline, however long
+# after it, and every moment between would come out of the abort that frees the transaction's documents. Never a grace
+# apiece either: a loop of cut transactions would wait one out per transaction. Far above a round trip, and inside the
+# page's margin.
 ABORT_GRACE_S: Final = 1.0
 
 # NoSuchTransaction and TransactionCommitted: the server holds nothing open, the driver's own abort
@@ -35,7 +40,7 @@ UNKNOWN_COMMIT_RESULT: Final = "UnknownTransactionCommitResult"
 
 
 def _abort_budget() -> float:
-    """What is left of the request's deadline and of its grace, counted as `RequestDeadline` says, or a whole grace outside a request."""
+    """What is left of the request's deadline and of its grace, counted as `ABORT_GRACE_S` says, or a whole grace outside a request."""
 
     deadline = request_deadline_var.get()
     if deadline is None:
