@@ -85,6 +85,7 @@ def registrierung_document(**overrides: Any) -> dict[str, Any]:
         "einwilligung": None,
         "confirmation": {**compose_confirmation(today="2026-03-26", deadline=TOMORROW, mailed=True), "token_hashes": [TOKEN_HASH]},
         "decision": None,
+        "idempotency_key": str(REGISTRIERUNG_OID),
         **overrides,
     }
 

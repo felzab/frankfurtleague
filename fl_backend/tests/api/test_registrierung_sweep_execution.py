@@ -88,6 +88,7 @@ def registrierung(registrierung_id: ObjectId, *, saison_id: str = SAISON_ID, **o
         "einwilligung": None,
         "confirmation": confirmation(registrierung_id),
         "decision": None,
+        "idempotency_key": str(registrierung_id),
         **overrides,
     }
 
