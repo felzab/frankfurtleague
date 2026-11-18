@@ -139,8 +139,8 @@ export function buildBewerbungReminderEmail({ saison_id, schule, deadline }: FLB
 
 /**
  * The Ansprechperson's link mail, a first contact as every seat's is: the address was typed into a form, and nothing
- * says its reader typed it. `pending` names the other seats by role alone and the mail names no school, so a mistyped
- * address hands a stranger nobody.
+ * says its reader typed it. `pending` names the other seats and none of their holders, and the mail names no school,
+ * so a mistyped address hands a stranger nobody.
  */
 export function buildBewerbungReceivedEmail(
   { saison_id, seats, pending, deadline }: FLBewerbungReceivedData,

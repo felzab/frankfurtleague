@@ -59,7 +59,7 @@ async def remove_the_seats_reasons(
     held: Sequence[HeldSeats],
     session: AsyncClientSession,
 ) -> None:
-    """Every reason typed from these seats out of the confirmation rows, matched by team, season and role.
+    """Every reason typed from these seats out of the confirmation rows, matched by team, season and seat.
 
     An answer records the seat and never its holder, so this is the one way a seat holder's erasure reaches a reason.
     """

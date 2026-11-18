@@ -511,7 +511,7 @@ async def discard_row(
 
 class TestTheAdministratorsZusage:
     async def test_it_names_nobody_and_a_seats_press_after_it_finds_the_row_answered(self, mongo_replica_set_url: str):
-        """Key for key: a role or a holder on it would let a person's erasure reach the league's reason."""
+        """Key for key: a seat or a holder on it would let a person's erasure reach the league's reason."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await enter(database, client, ROW1)
@@ -938,7 +938,7 @@ class TestAnAnswerAndItsWritersErasureCross:
         assert (outcome, row["answer"]) == (Code.ANSETZUNG_FOREIGN_ROW, None)
 
     async def test_an_answer_landing_inside_the_erasure_has_its_reason_taken(self, mongo_replica_set_url: str):
-        """The erasure run again finds the reason the answer stored from the seat, and nulls it; the way and the role stay."""
+        """The erasure run again finds the reason the answer stored from the seat, and nulls it; the way and the seat stay."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def answer_as_the_trainer() -> None:
