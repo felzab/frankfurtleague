@@ -334,10 +334,10 @@ async def accept_bewerbung(
             new_team = compose_new_team(schule=schule, shorthand=acceptance_data.shorthand)
             # Asked where the picked club's standing is asked, and for that reason: a school whose
             # own details make no club is not repaired by picking another group.
-            refuse(find_new_team_refusal(seeded_team=new_team))
+            refuse(find_new_team_refusal(composed_team=new_team))
             # Parsed before it is stored, so this path and `POST /teams` put one document in `teams`
             # for one school; the guard above has already proved it validates.
-            new_team = parse_new_team(seeded_team=new_team)
+            new_team = parse_new_team(composed_team=new_team)
             # Read off the document the write stores rather than the school a second time, so no
             # field is composed twice and differently.
             name, shorthand = new_team["name"], new_team["shorthand"]
