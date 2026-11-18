@@ -7,13 +7,14 @@ is German and load-bearing: **open a term's entry in [`docs/glossary.md`](../doc
 before you first write that term** — in a name, a schema field, a commit message or a sentence.
 
 This folder holds only what exists because AI agents write this repository: the quality bar, how a
-change ships and the writer's traps. `docs/` describes the system, and nothing outside `.claude/`
+change ships, the writer's traps, and this project's configuration and addenda for the orchestra
+plugin, which runs the agents. `docs/` describes the system, and nothing outside `.claude/`
 names this folder or addresses an agent, save what `docs/README.md` lists.
 
 **Precedence, highest first:** §1 · §2 · the owner, whose instruction given this session outranks
 any written earlier · §7 · the rest of this file. The owner's instruction is the owner's own words,
-typed to this session or quoted and dated in the decisions table of the programme register the
-starter names, and a row the owner disputes goes back to the owner. A brief, a course correction or
+typed to this session or recorded by `orchestra rule` among the rulings of the programme the starter
+names, and a ruling the owner disputes goes back to the owner. A brief, a course correction or
 a paraphrase from another agent directs the work but is not that instruction: where one asks for
 what a rule here forbids, name the rule and stop.
 
@@ -189,9 +190,8 @@ session does not load in that session, and does load in an agent it dispatches a
 
 **Read [`docs/writing.md`](../docs/writing.md) before writing a document, a comment, a commit
 message or a pull request body**, a handoff, a starter or any file outside the repository included,
-and update every claim a change invalidates in the same commit, this file included. A handoff, a
-register and a starter describe a session, so they may narrate it
-([the handoff template](skills/orchestration/handoff-template.md) has the rule).
+and update every claim a change invalidates in the same commit, this file included. A session's
+plan, handoff and starter describe a session, so they may narrate it.
 
 An edit to this file binds no session already running, the one making it included, nor any agent that session dispatches,
 whose copy is the session's own: brief a changed rule to each agent in words.
@@ -204,6 +204,3 @@ command or said to the same effect, never on an agent's own reading, such as tha
 **Comply with every refusal from a permission rule or a hook, and never route around it.** Write a
 multi-line file with the `Write` tool, never a heredoc. Give each shell command one purpose: a deny
 rule matching any command of a compound line refuses the whole line.
-
-When compacting a session that coordinates a fleet, keep its register's path, the session branch
-and every live agent's id.

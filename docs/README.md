@@ -42,5 +42,4 @@ these name it:
 - the `.claude/` entries of `.prettierignore`
 - the worktree pattern in `fl_frontend/package.json`'s `format` and `format:check` scripts
 - the root `README.md`'s tree line and its section "Who builds it"
-- `.github/workflows/ai-tooling.yml`, which tests the agents' own tools
 - this section, and [`writing.md`](writing.md)'s opening and commit scopes

@@ -1,7 +1,0 @@
-# ORCHESTRATION · holds the coordinator's tools and their tests to the repository's Python rules
-#
-# ruff reads each file under the nearest configuration above it, which for this folder would be none:
-# without this file a run over the tools or their tests holds them to ruff's defaults. `extend` of
-# `scripts/ruff.toml` rather than a copy, so the line length, the rule set and the format stay the
-# backend's.
-extend = "../../../scripts/ruff.toml"
