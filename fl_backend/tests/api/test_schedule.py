@@ -1,7 +1,5 @@
 from typing import get_args
 
-import pytest
-
 from app.api.saisons.schedule import schedule_for
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_rules_refusal, total_season_spiele
@@ -49,14 +47,13 @@ class TestThePhaseSet:
 
 
 class TestTheMatchForThirdPlace:
-    @pytest.mark.parametrize(("groups", "qualifiers", "bracket"), [(2, 2, 4)])
-    def test_the_season_total_counts_it(self, groups: int, qualifiers: int, bracket: int):
-        """`bracket` is the knockout's matches by hand: `qualifiers - 1` played out, plus one for third place."""
+    def test_the_season_total_counts_it(self):
+        """Two groups of four into a semi-final: six matches in each group, `C(4, 2)`, and four in the bracket by hand.
 
-        shape = rules(groups=groups, per_group=4, qualifiers=qualifiers)
+        The bracket's four are its three played out and one for third place.
+        """
 
-        # Six matches in each group of four, `C(4, 2)`.
-        assert total_season_spiele(shape) == groups * 6 + bracket
+        assert total_season_spiele(rules(groups=2, per_group=4, qualifiers=2)) == 2 * 6 + 4
 
 
 class TestTheWholeSeason:

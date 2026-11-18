@@ -169,14 +169,6 @@ def legal_combinations() -> set[tuple[int, int]]:
     }
 
 
-def bracket_slots(field: int) -> list[int]:
-    """The seed standing in each slot, left to right: seed s draws `field + 1 - s`, and each half is the same bracket again."""
-
-    if field == 1:
-        return [1]
-    return [seed for half in bracket_slots(field // 2) for seed in (half, field + 1 - half)]
-
-
 def meeting_round(slot: int, other: int) -> int:
     """Which round two slots meet in with both winning throughout: the halving that first puts them in one block."""
 

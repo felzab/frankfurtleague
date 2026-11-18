@@ -224,11 +224,13 @@ class TestAStartedSeasonFreezes:
         assert refusal is not None
         assert refusal.error_code == Code.RULES_SAISON_STARTED
 
-    # One field: the status is judged once ahead of the field comparison, which the case above walks field by field.
-    @pytest.mark.parametrize(("field", "changed"), FROZEN_CASES[:1], ids=[field for field, _ in FROZEN_CASES[:1]])
-    def test_a_finished_season_stays_frozen_whatever_its_dates(self, field: str, changed: dict[str, Any]):
-        """`past` freezes too, so a finished season none of whose group fixtures carries a date is not reopened."""
+    def test_a_finished_season_stays_frozen_whatever_its_dates(self):
+        """`past` freezes too, so a finished season none of whose group fixtures carries a date is not reopened.
 
+        One field: the status is judged once ahead of the field comparison, which the case above walks field by field.
+        """
+
+        _, changed = FROZEN_CASES[0]
         refusal = judge(status="past", stored=rules(), proposed=rules(**changed))
 
         assert refusal is not None
