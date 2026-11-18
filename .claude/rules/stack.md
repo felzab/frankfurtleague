@@ -13,7 +13,7 @@ paths:
   - "docker-compose*.yml"
 ---
 
-# The stack's documentation, and what it will not catch
+# The stack's documentation
 
 `.claude/CLAUDE.md` §4's sources: grep a package's `llms.txt` before answering about its API or
 writing a line that depends on it.
@@ -22,7 +22,6 @@ writing a line that depends on it.
 | ----------------------- | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
 | **Next.js**             | [docs/llms.txt](https://nextjs.org/docs/llms.txt)                                   | [docs/llms-full.txt](https://nextjs.org/docs/llms-full.txt)                 |
 | **React Aria**          | [llms.txt](https://react-aria.adobe.com/llms.txt)                                   | — (index only)                                                              |
-| **shadcn/ui**           | [llms.txt](https://ui.shadcn.com/llms.txt)                                          | — (index only)                                                              |
 | **Vitest**              | [llms.txt](https://vitest.dev/llms.txt)                                             | [llms-full.txt](https://vitest.dev/llms-full.txt)                           |
 | **Pydantic**            | [llms.txt](https://pydantic.dev/docs/validation/latest/llms.txt)                    | [llms-full.txt](https://pydantic.dev/docs/validation/latest/llms-full.txt)  |
 | **Zod**                 | [llms.txt](https://zod.dev/llms.txt)                                                | [llms-full.txt](https://zod.dev/llms-full.txt)                              |
@@ -49,15 +48,3 @@ writing a line that depends on it.
   [FastAPI](https://fastapi.tiangolo.com) · [Playwright](https://playwright.dev/docs/intro) ·
   [PyMongo](https://www.mongodb.com/docs/languages/python/pymongo-driver/current/). For a package
   missing from this table, probe `<docs-root>/llms.txt` and add the row when one turns up.
-- The hooks under `.claude/hooks/` run a bare `node`, the machine's own: keep it at the release
-  `fl_frontend/package.json :: devEngines` names, and move it when the pin moves.
-
-## Deprecations the toolchain will NOT catch
-
-These compile, pass, and silently do nothing:
-
-| Never                                   | Always                               |
-| --------------------------------------- | ------------------------------------ |
-| `@tailwind base/components/utilities`   | `@import "tailwindcss"`              |
-| `getServerSideProps` / `getStaticProps` | Server Components + `use cache`      |
-| A direct DB query for application data  | FastAPI (the sign-in store excepted) |

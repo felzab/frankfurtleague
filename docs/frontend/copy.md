@@ -23,7 +23,7 @@ you write one; the strings themselves live in the catalogue, `fl_frontend/src/co
    module or a component.
 2. **Under a field stands only one of `COPY.shared.field`'s patterns**, filled with the rule's
    bounds: one phrase, no full stop, no article, no field name, at most 80 characters.
-3. **A new pattern is added only where it serves many fields**, and only once the owner approves it.
+3. **A new pattern is added only where it serves many fields.**
 4. **Everything else stands on the status line or in a callout** as one short declarative catalogue
    sentence saying what is so, never why it is so or how to repair it.
 5. **The sign-in follows the same rules**: its code boxes show a pattern-form phrase, and every other

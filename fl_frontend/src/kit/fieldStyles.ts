@@ -274,9 +274,9 @@ export const toggleRow = tv({
 });
 
 /**
- * The drawn box of a checkbox or a radio, a pixel down so it centres on the label's first line. Checked or
- * chosen, it fills with the link green: a checkbox's tick on it is the page's ground, white in the light
- * theme and near-black in the dark, and a radio keeps a 4-px ring of it around a dot of the ground.
+ * The drawn box of a checkbox or a radio, a pixel down so it centres on the label's first line. Checked or chosen, it
+ * fills with the link green: a checkbox's tick on it is the page's ground, white in the light theme and near-black in
+ * the dark, and a radio keeps a 4-px ring of it around a dot of the ground.
  */
 export const toggleBox = tv({
   base: `mt-px flex size-4.5 shrink-0 items-center justify-center border transition-colors duration-(--motion-state) ${hoverLook({ host: "toggle" })}`,
@@ -341,8 +341,9 @@ export const choiceCard = tv({
 export const radioDot = tv({ base: "size-2.5 rounded-full bg-bg" });
 
 /**
- * A switch's track, its thumb resting two pixels inside it. On, it fills with the link green; off, it keeps
- * the muted fill inside a 1-px edge in the fields' edge colour, so it shows against the page in either theme.
+ * A switch's track, its thumb resting two pixels inside it, a pixel down so its top stands level with a checkbox's
+ * or a radio's box. On, it fills with the link green; off, it keeps the muted fill inside a 1-px edge in the fields'
+ * edge colour, so it shows against the page in either theme.
  */
 export const switchTrack = tv({
   base: `mt-px flex h-5 w-9 shrink-0 items-center rounded-full px-0.5 transition-colors duration-(--motion-state) ${hoverLook({ host: "toggle" })}`,

@@ -1,0 +1,84 @@
+# Writer: this repository
+
+## Installs
+
+- Install with `pnpm install --frozen-lockfile` in `fl_frontend` and
+  `uv sync --project fl_backend --dev --frozen` at the root.
+- Run git in Git Bash, never PowerShell: the harness checks a PowerShell command's directory, not
+  where its git points.
+
+## The targeted set
+
+Your set is the tests of every file you changed and of every module importing one, found through
+every import form the tree uses: the `@/` alias, a relative path and a dotted Python module. Add the
+tests naming a registry that gains a member, and the sweeps, which judge a whole tree rather than
+the modules they import:
+
+- where you touched `fl_backend/app`, every test importing `fl_backend/tests/core/app_source.py`,
+  which judges every operation of the mounted application;
+- where you touched `fl_frontend/src`, every test importing
+  `fl_frontend/src/test-support/treeWalk.ts`, which reads the tree's source, directly or through a
+  module importing it.
+
+Run them, and the checks of what you touched, with these commands:
+
+- Frontend tests: `pnpm run test:base <files>` in `fl_frontend`, split into several runs where
+  Windows refuses the line as too long.
+- Backend and script tests: `uv run --project fl_backend --frozen pytest <paths>` from the root. The
+  root holds no `pyproject.toml`, so a bare `uv run` there runs no pytest. A path under
+  `scripts/tests` runs from Git Bash alone, the one shell whose bash
+  `scripts/tests/conftest.py :: pytest_configure` lets run the cases.
+- Where you touched `fl_frontend`: `pnpm run typecheck`, `pnpm run lint`, `pnpm run knip` and
+  `pnpm run knip:prod`. The typecheck runs `next typegen` first, without which a fresh worktree's
+  `tsc` passes a page that breaks Next's route types. The two knip runs fail an export or a file
+  your change left unread, which no test reaches.
+- Where you touched the backend: from `fl_backend`, `uv run --frozen python -m pyright`,
+  `uv run --frozen ruff check app tests` and `uv run --frozen ruff format --check app tests`, as
+  `scripts/gate/verify.sh :: scope_backend` runs them.
+- Where you touched `scripts`: `uv run --project ../fl_backend --frozen python -m pyright` from
+  `scripts`, where pyright finds its configuration, and from the root
+  `uv run --project fl_backend --frozen ruff check scripts` and
+  `uv run --project fl_backend --frozen ruff format --check scripts`, as
+  `scripts/gate/verify.sh :: scope_scripts` runs them.
+- Where you changed a shell script, a hook without a suffix included: `./scripts/gate/selfcheck.sh`
+  from your worktree's root; it reads the whole tree, so a finding naming a file you do not own is
+  someone else's.
+- Where you touched a route handler, a page or `nginx/shared/site.conf`:
+  `uv run --project fl_backend --frozen python scripts/checks/check_public_routes.py` from the root.
+- Where you changed Markdown: `pnpm run lint:md` in `fl_frontend`, and lychee through
+  `./scripts/gate/verify.sh --docs` from your worktree's root. Each reads the whole tree, so a
+  finding naming a file you do not own is someone else's.
+
+`--docs` is the one scope of `./scripts/gate/verify.sh` you run; the gate's other scopes and its
+whole run are the coordinator's.
+
+## The contract
+
+Where your change moves `fl_backend/openapi.json`, run `pnpm run contract` in `fl_frontend`. It
+writes the document and the generated client under `fl_frontend/src/core/generated/`, and both are
+committed with the change.
+
+## Commits
+
+A commit message follows `docs/writing.md`, section "Commit messages". Write it with the Write tool
+into your scratch folder and commit it with `git commit -F <file>`: the shell tool turns a typed
+`\\` into `\`, and cuts off a long command, one of 9 KB among them.
+
+## Traps
+
+- No package is added or moved. `fl_frontend/pnpm-workspace.yaml :: minimumReleaseAge` and
+  `fl_backend/pyproject.toml :: exclude-newer` refuse a release younger than their window, and an
+  exclusion from either is a workaround the owner must approve. Where the work needs a package,
+  message the coordinator.
+- The database tier runs one file at a time, `uv run --frozen pytest -m db <file>` from
+  `fl_backend`, and only where your brief allows database files. It never runs whole, as
+  `pytest -m db` with no path and `pnpm run test:db` run it. Each run starts its own containers.
+- No check runs against an environment's database, which reaches real data, unless your brief names
+  that exact command.
+- Never run `./scripts/ops/local.sh`: its ports 3000 and 27017 are fixed, and the machine holds one
+  stack.
+- Never run `pnpm run format` or any formatter over a folder, which rewrites files other agents
+  own. Format your own files by name, as `.claude/CLAUDE.md` section 6 says.
+- A programme's rulings are numbered in its records outside this public repository, so no ruling's
+  number goes into a tracked file: code, comment, test name or document. A commit body cites one
+  only where your brief gives its number.

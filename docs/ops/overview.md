@@ -65,11 +65,10 @@ visible from a configuration file in this repository.
   than the origin's on the same file (2026-08-01), so Next keeps compressing at the origin, nginx
   passing its answers on as they are, and brotli is never precompressed at build time
   (`docs/decisions.md`).
-- **The AI-crawler opt-out is an enforcement in one edge setting, and a request as well once a
-  second is switched on.** Cloudflare's AI-bot controls block the AI-training crawlers. Once its
-  managed `robots.txt` is switched on, it puts their list before the rules
-  `fl_frontend/src/app/robots.ts` writes, which each crawler chooses whether to obey; while it is off,
-  nothing asks them ([`spec.md`](spec.md#18-the-edges-declared-state) records whether each is on).
+- **The AI-crawler opt-out is an enforcement in one edge setting and a request in a second.**
+  Cloudflare's AI-bot controls block the AI-training crawlers. Its managed `robots.txt` puts their
+  list before the rules `fl_frontend/src/app/robots.ts` writes, which each crawler chooses whether to
+  obey ([`spec.md`](spec.md#18-the-edges-declared-state) records whether each is on).
   **The failure to watch for is a link preview that
   silently stops rendering**, because previews are fetched by `facebookexternalhit`, an agent
   neither setting is aimed at: consolidation moving preview fetching behind one they name would break every
