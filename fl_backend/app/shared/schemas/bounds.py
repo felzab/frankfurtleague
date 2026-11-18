@@ -32,10 +32,11 @@ SPIEL_NOTE_MAX_LENGTH: Final = 4096
 # into an outbound email as well as stored. Named so the frontend mirror refuses at the same length.
 BEWERBUNG_DECISION_REASON_MAX_LENGTH: Final = 1000
 
-# The ceiling refuses a mistyped century rather than a real age.
 type FLBewerbungKontaktMinAgeYears = Literal[16]
 BEWERBUNG_KONTAKT_MIN_AGE_YEARS: Final[FLBewerbungKontaktMinAgeYears] = 16
-BEWERBUNG_KONTAKT_MAX_AGE_YEARS: Final = 120
+
+# Every birth date's ceiling, in each flow taking one: it refuses a mistyped century rather than a real age.
+BIRTH_DATE_MAX_AGE_YEARS: Final = 120
 
 # The Ansprechperson's floor and the Stellvertretung's: those two sign what binds the school, which
 # asks contractual capacity rather than the age a person consents for themselves at.

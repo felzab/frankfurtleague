@@ -68,7 +68,7 @@ from app.core.routing import SAFE
 from app.core.security import BASE_TIER
 from app.core.transactions import transact
 from app.shared.schemas.bounds import (
-    BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
+    BIRTH_DATE_MAX_AGE_YEARS,
     REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS,
     REGISTRIERUNG_MIN_AGE_YEARS,
 )
@@ -360,7 +360,7 @@ async def get_confirmation_view(
         schule=str(team_raw["full_name"]),
         saison_id=str(raw["saison_id"]),
         minimum_age=REGISTRIERUNG_MIN_AGE_YEARS,
-        maximum_age=BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
+        maximum_age=BIRTH_DATE_MAX_AGE_YEARS,
         # The token filter matched inside the block, so it stands, and its record model requires the day.
         deadline=str(raw["confirmation"]["deadline"]),
         answered_at=(raw.get("einwilligung") or {}).get("confirmed_at"),

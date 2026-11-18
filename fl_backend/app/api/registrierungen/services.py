@@ -19,7 +19,7 @@ from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_evidence import TextVersions, compose_initial, compose_renewed
 from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.bounds import (
-    BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
+    BIRTH_DATE_MAX_AGE_YEARS,
     DECLINED_RETENTION_DAYS,
     REGISTRIERUNG_MIN_AGE_YEARS,
 )
@@ -378,16 +378,16 @@ def find_already_confirmed_refusal(*, einwilligung: Any) -> WriteRefusal | None:
 def find_age_refusal(*, birth_date: str, today: str) -> WriteRefusal | None:
     """Why the typed date is refused, or `None`. Judged before any write, so a mistyped year spends nothing."""
 
-    # The pupil's own floor and never a contact seat's, so raising one cannot silently raise the other; the ceiling is
-    # every consent flow's, refusing a mistyped century rather than a real age. One range, as the referee's is judged.
-    if REGISTRIERUNG_MIN_AGE_YEARS <= whole_years_between(born=birth_date, today=today) <= BEWERBUNG_KONTAKT_MAX_AGE_YEARS:
+    # The pupil's own floor and never a contact seat's, so raising one cannot silently raise the other. One range, as the
+    # referee's is judged.
+    if REGISTRIERUNG_MIN_AGE_YEARS <= whole_years_between(born=birth_date, today=today) <= BIRTH_DATE_MAX_AGE_YEARS:
         return None
 
     return WriteRefusal(
         error_code=Code.CONFIRMATION_AGE,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         fields=(("birth_date",),),
-        bounds={"min": REGISTRIERUNG_MIN_AGE_YEARS, "max": BEWERBUNG_KONTAKT_MAX_AGE_YEARS},
+        bounds={"min": REGISTRIERUNG_MIN_AGE_YEARS, "max": BIRTH_DATE_MAX_AGE_YEARS},
     )
 
 

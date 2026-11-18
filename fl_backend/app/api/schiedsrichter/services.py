@@ -22,7 +22,7 @@ from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_evidence import TextVersions, compose_initial
 from app.shared.folding import league_address, sign_in_identifier
 from app.shared.schemas.bounds import (
-    BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
+    BIRTH_DATE_MAX_AGE_YEARS,
     SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS,
     SCHIEDSRICHTER_MIN_AGE_YEARS,
 )
@@ -277,14 +277,14 @@ def find_age_refusal(*, birth_date: str, today: str) -> WriteRefusal | None:
     The bounds go with the refusal, so the field's message names the range the write judges.
     """
 
-    if SCHIEDSRICHTER_MIN_AGE_YEARS <= whole_years_between(born=birth_date, today=today) <= BEWERBUNG_KONTAKT_MAX_AGE_YEARS:
+    if SCHIEDSRICHTER_MIN_AGE_YEARS <= whole_years_between(born=birth_date, today=today) <= BIRTH_DATE_MAX_AGE_YEARS:
         return None
 
     return WriteRefusal(
         error_code=Code.CONFIRMATION_AGE,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         fields=(("birth_date",),),
-        bounds={"min": SCHIEDSRICHTER_MIN_AGE_YEARS, "max": BEWERBUNG_KONTAKT_MAX_AGE_YEARS},
+        bounds={"min": SCHIEDSRICHTER_MIN_AGE_YEARS, "max": BIRTH_DATE_MAX_AGE_YEARS},
     )
 
 

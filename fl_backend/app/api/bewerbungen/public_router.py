@@ -109,7 +109,7 @@ from app.core.journal import Journal
 from app.core.routing import SAFE
 from app.core.security import BASE_TIER
 from app.core.transactions import transact
-from app.shared.schemas.bounds import BEWERBUNG_KONTAKT_MAX_AGE_YEARS
+from app.shared.schemas.bounds import BIRTH_DATE_MAX_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.einwilligung import by_choice
 from app.shared.schemas.responses import FLCreatedResponse
@@ -364,7 +364,7 @@ async def _saison_view(
         rolle=seat,
         also_rolle=also,
         minimum_age=minimum_age_for(seats),
-        maximum_age=BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
+        maximum_age=BIRTH_DATE_MAX_AGE_YEARS,
         deadline=seat_deadline_of(confirmations=row.get("confirmations"), seat=seat),
         answered_at=seat_answered_at(kontakte=row.get("kontakte"), confirmations=row.get("confirmations"), seat=seat),
     )
@@ -425,7 +425,7 @@ async def get_einwilligung_view(
         rolle=seat,
         also_rolle=also,
         minimum_age=minimum_age_for(seats),
-        maximum_age=BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
+        maximum_age=BIRTH_DATE_MAX_AGE_YEARS,
         deadline=seat_deadline_of(confirmations=bewerbung_raw.get("confirmations"), seat=seat),
         answered_at=seat_answered_at(kontakte=bewerbung_raw.get("kontakte"), confirmations=bewerbung_raw.get("confirmations"), seat=seat),
     )

@@ -14,7 +14,7 @@ from app.api.registrierungen.services import find_age_refusal as find_pupil_age_
 from app.api.schiedsrichter.services import find_age_refusal as find_referee_age_refusal
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
-from app.shared.schemas.bounds import BEWERBUNG_KONTAKT_MAX_AGE_YEARS, REGISTRIERUNG_MIN_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
+from app.shared.schemas.bounds import BIRTH_DATE_MAX_AGE_YEARS, REGISTRIERUNG_MIN_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
 
 TODAY = "2026-04-01"
 # A contact seat's floor is the caller's, the highest of the seats a person holds.
@@ -40,5 +40,5 @@ def test_every_raise_carries_the_range_its_page_serves(judge: Callable[[str], Wr
     assert (refusal.error_code, refusal.fields, refusal.bounds) == (
         Code.CONFIRMATION_AGE,
         (("birth_date",),),
-        {"min": floor, "max": BEWERBUNG_KONTAKT_MAX_AGE_YEARS},
+        {"min": floor, "max": BIRTH_DATE_MAX_AGE_YEARS},
     )

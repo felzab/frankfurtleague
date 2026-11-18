@@ -16,10 +16,10 @@ from app.shared.schemas.bounds import (
     ADDRESS_DISTRICT_MAX_LENGTH,
     BEWERBUNG_DECISION_REASON_MAX_LENGTH,
     BEWERBUNG_KADER_SIZE_MAX,
-    BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     BEWERBUNG_STUFENGROESSE_MAX,
     BEWERBUNG_TRIKOT_SET_MAX_LENGTH,
     BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
+    BIRTH_DATE_MAX_AGE_YEARS,
     SAISON_ID_LENGTH,
     TEAM_FULL_NAME_MAX_LENGTH,
     TEAM_NAME_MAX_LENGTH,
@@ -335,7 +335,7 @@ def age_outside_the_bounds(*, birth_date: str, today: str, minimum_age: int) -> 
     age = whole_years_between(born=birth_date, today=today)
 
     # The caller's floor, never a constant read here: a person's is the highest of the seats they hold.
-    return not minimum_age <= age <= BEWERBUNG_KONTAKT_MAX_AGE_YEARS
+    return not minimum_age <= age <= BIRTH_DATE_MAX_AGE_YEARS
 
 
 class FLBewerbungKontaktpersonPayload(_KontaktpersonWritablePayload):
