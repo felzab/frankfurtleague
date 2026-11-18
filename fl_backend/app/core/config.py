@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Annotated, Any, Final
 
 from fastapi import Request
-from pydantic import AfterValidator, BaseModel, Field, SecretStr, ValidationError, field_validator
+from pydantic import AfterValidator, BaseModel, Field, SecretStr, ValidationError, ValidationInfo, field_validator
 from pydantic_core import ErrorDetails
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SecretsSettingsSource, SettingsConfigDict, SettingsError
 
@@ -63,7 +63,15 @@ class _SecretFields(BaseModel):
 
     internal_api_key_base: InternalAPIKey = Field(description="Base internal API-key")
     internal_api_key_system: InternalAPIKey = Field(description="Internal API-key for the system router")
-    internal_api_key_admin: InternalAPIKey = Field(description="Internal API-key for the admin router")
+    internal_api_key_admin: InternalAPIKey = Field(description="Internal API-key for the routers a signed-in person or an administrator calls")
+
+    # Against each key declared above, which `info.data` holds once it passed: two tiers holding one key are one tier,
+    # every holder of the lower key reaching the other's routes. Refused at the later key, so the refusal names a file.
+    @field_validator("internal_api_key_system", "internal_api_key_admin")
+    def validate_distinct_key(cls, key: SecretStr, info: ValidationInfo) -> SecretStr:
+        if key in (info.data.get("internal_api_key_base"), info.data.get("internal_api_key_system")):
+            raise ValueError("holds another internal key's value")
+        return key
 
     @field_validator("mongodb_uri")
     def validate_mongodb_uri(cls, value: SecretStr) -> SecretStr:

@@ -1,15 +1,5 @@
 export type Bound = string | number | boolean | number[];
 
-export const CheckIsLiveResponseValue = {
-  status: "ok",
-} as const;
-export type CheckIsLiveResponse = typeof CheckIsLiveResponseValue;
-
-export const CheckIsReadyResponseValue = {
-  status: "ok",
-} as const;
-export type CheckIsReadyResponse = typeof CheckIsReadyResponseValue;
-
 export type Code = (typeof Code)[keyof typeof Code];
 
 export const Code = {
@@ -5626,6 +5616,11 @@ export interface FLVersionResponse {
 
 export type FLWhatsappTextVersion = "2026-11-whatsapp-1";
 
+export const ProbeResponseValue = {
+  status: "ok",
+} as const;
+export type ProbeResponse = typeof ProbeResponseValue;
+
 export type Rule = (typeof Rule)[keyof typeof Rule];
 
 export const Rule = {
@@ -5653,54 +5648,9 @@ export const Rule = {
 } as const;
 
 /**
- * Bad Request
+ * A refusal or a fault, its status naming which
  */
-export type N400Response = FLFailureBody;
-
-/**
- * Unauthorized
- */
-export type N401Response = FLFailureBody;
-
-/**
- * Forbidden
- */
-export type N403Response = FLFailureBody;
-
-/**
- * Not Found
- */
-export type N404Response = FLFailureBody;
-
-/**
- * Conflict
- */
-export type N409Response = FLFailureBody;
-
-/**
- * Gone
- */
-export type N410Response = FLFailureBody;
-
-/**
- * Unprocessable Content
- */
-export type N422Response = FLFailureBody;
-
-/**
- * Too Many Requests
- */
-export type N429Response = FLFailureBody;
-
-/**
- * Internal Server Error
- */
-export type N500Response = FLFailureBody;
-
-/**
- * Service Unavailable
- */
-export type N503Response = FLFailureBody;
+export type FailureResponse = FLFailureBody;
 
 export type AddressChangeSweepAddressChangeParams = {
   after?: string | null;

@@ -6,14 +6,10 @@ import { signedInRequest } from "@/test-support/session";
 import { captureLog } from "@/test-support/stdoutCapture";
 import { assertionFor, CREDENTIAL_ID } from "@/test-support/testAuthenticator";
 
-// Under the production build's `NODE_ENV` (`fl_frontend/vitest.config.mts :: PRODUCTION_BUILD`): only its format writes
-// a line's `trace_id` and every `error` it is handed, an `error` that is no `Error` among them, which this file holds
-// the sign-in's lines to.
-
 serveBackend();
 const { store, outbox } = signedInRequest();
 /** Every line the real logger writes, read off standard output. */
-const log = captureLog("production");
+const log = captureLog();
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { auth } = await import("./auth/library");

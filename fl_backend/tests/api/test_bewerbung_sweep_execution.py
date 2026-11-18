@@ -288,6 +288,7 @@ async def confirm_every_seat(database: AsyncDatabase, bewerbung_id: ObjectId) ->
             takes_the_notice_back=False,
         ),
         expected_version=None,
+        session=None,
         return_document=ReturnDocument.BEFORE,
     )
 

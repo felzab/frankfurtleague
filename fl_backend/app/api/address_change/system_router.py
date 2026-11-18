@@ -354,6 +354,7 @@ async def post_address_change_moves_done(
         collection=address_changes_collection,
         db_filter={"_id": {"$in": sorted(set(done_data.ids))}, "move": {"$type": "object"}},
         update={"$unset": {"move": ""}},
+        session=None,
     )
 
 

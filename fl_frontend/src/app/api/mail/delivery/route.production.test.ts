@@ -7,14 +7,11 @@ import { networkFailure, serveBackend } from "@/test-support/backend";
 import { doubleNextRequest } from "@/test-support/nextRequest";
 import { captureLog } from "@/test-support/stdoutCapture";
 
-// Under the production build's `NODE_ENV` (`fl_frontend/vitest.config.mts :: PRODUCTION_BUILD`): only its format writes
-// every value a line is handed, an `error` that is no `Error` among them, which a line naming no recipient is held to.
-
 /** Its own throwaway, minted per run: this file signs the events it verifies. */
 const webhookSecret = `whsec_${randomBytes(24).toString("base64")}`;
 
 /** Every line the real logger writes, read off standard output. */
-const log = captureLog("production");
+const log = captureLog();
 
 // The Postausgang's event endpoint alone, never reached: the backend fails every event this file forwards.
 serveBackend(({ method, path }) => (method === "POST" && path === "/outbox/event" ? networkFailure() : undefined));

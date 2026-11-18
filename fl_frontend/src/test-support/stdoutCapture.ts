@@ -62,7 +62,6 @@ function beginCapture(read: (raw: string) => void): { faults: string[]; restore:
  * asynchronously; a chunk that is no one document fails the call once `run` has ended.
  */
 export async function documentsWrittenByAsync(run: () => Promise<unknown>): Promise<Record<string, unknown>[]> {
-  requireProductionBuild();
   const documents: Record<string, unknown>[] = [];
   const { faults, restore } = beginCapture((raw) => {
     if (raw.slice(0, -1).includes("\n")) throw new Error("more than one document in one write");
@@ -78,51 +77,26 @@ export async function documentsWrittenByAsync(run: () => Promise<unknown>): Prom
   return documents;
 }
 
-/** One line the application's logger wrote, read back from the one of its two formats its capture reads. */
+/** One line the application's logger wrote, read back from its JSON document. */
 export type LoggedLine = {
   readonly level: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
   readonly message: string;
-  /** The fields the call passed, without `trace_id` and `error`, which the plain format does not write as fields. */
+  /** The fields the call passed, without `trace_id` and `error`, which the document writes beside them. */
   readonly fields: Record<string, unknown>;
-  /** The error's stack, scrubbed as written, in both formats; its first line names the error and its message. */
+  /** The error's stack, scrubbed as written; its first line names the error and its message. */
   readonly stack: string | undefined;
+  /** The line's trace, `SYSTEM` outside every request. */
+  readonly traceId: string;
   /**
-   * The line's trace, as the production document writes it, `SYSTEM` outside every request. Absent under the plain
-   * format, which writes none.
-   */
-  readonly traceId?: string;
-  /**
-   * The error as the production document writes it: an `Error` as its name, message and stack, any other value as
-   * itself, scrubbed. Absent where the call passed none, and under the plain format, which writes only an `Error`'s
-   * stack and nothing of any other value.
+   * The error as written: an `Error` as its name, message and stack, any other value as itself, scrubbed. Absent where
+   * the call passed none.
    */
   readonly error?: unknown;
   /** The chunk as written: what a case proving that a value never reached the stream searches. */
   readonly raw: string;
 };
 
-const PLAIN_LINE = /^(DEBUG|INFO|WARNING|ERROR|CRITICAL) /;
-
-/** The plain line `next dev` and every test project but `unit-production` write: `LEVEL message {fields}`, the stack below. */
-function readPlain(raw: string): LoggedLine {
-  const level = PLAIN_LINE.exec(raw)?.[1] as LoggedLine["level"] | undefined;
-  if (level === undefined) throw new Error("a line that is no plain line");
-  const [head = "", ...stackLines] = raw.slice(0, -1).split("\n");
-  const rest = head.slice(level.length + 1);
-  // The fields close the first line, and a message holding " {" leaves a remainder no parse accepts, so the first
-  // split that parses is the fields'.
-  for (let at = rest.indexOf(" {"); at !== -1; at = rest.indexOf(" {", at + 1)) {
-    try {
-      const fields = JSON.parse(rest.slice(at + 1)) as Record<string, unknown>;
-      return { level, message: rest.slice(0, at), fields, stack: stackLines.length > 0 ? stackLines.join("\n") : undefined, raw };
-    } catch {
-      // Not yet the fields: a brace inside the message.
-    }
-  }
-  throw new Error("a plain log line without its fields");
-}
-
-/** The JSON document a production build writes, its `timestamp` and `service` set aside. */
+/** The JSON document the logger writes, its `timestamp` and `service` set aside. */
 function readDocument(raw: string): LoggedLine {
   const {
     level,
@@ -147,25 +121,9 @@ function readDocument(raw: string): LoggedLine {
 }
 
 /**
- * Refuses a reader of the production document anywhere but under a production build's `NODE_ENV`, which the
- * `unit-production` project sets: elsewhere the logger writes the plain line, which carries no trace and no `error`, so
- * a case proving one kept off a line would pass on a line that never carries it. A suite renamed out of the project
- * fails here instead.
- */
-function requireProductionBuild(): void {
-  assert(
-    process.env.NODE_ENV === "production",
-    `the production document read under NODE_ENV ${String(process.env.NODE_ENV)}: name the file *.production.test.ts`,
-  );
-}
-
-/**
  * Every line the application's logger writes from this call to the end of the file: a case reads the stream the
  * logger really writes rather than a double of the logger. Called at module level, before the subject's import, so a
  * line written while the subject loads is caught too.
- * - It reads one format: the plain line, or with `"production"` the JSON document a production build writes, which a
- *   case reading a line's `traceId` or `error`, or proving a value kept off a line, needs. A line in the other format
- *   is one the capture cannot read.
  * - Each case begins with no line, so it reads only what its run wrote, its `beforeEach` hooks' lines among them;
  *   `clear` empties the lines mid-case.
  * - A chunk the logger did not write goes on to the runner's reporter untouched, whatever its shape.
@@ -176,15 +134,13 @@ function requireProductionBuild(): void {
  *   since no case may read it. Vitest marks no point between a case's body and its first after-hook, so an `afterEach`
  *   registered after this call, or inside a `describe`, writes inside the case's window.
  */
-export function captureLog(build?: "production"): { lines(): readonly LoggedLine[]; clear(): void } {
-  if (build === "production") requireProductionBuild();
-  const read = build === "production" ? readDocument : readPlain;
+export function captureLog(): { lines(): readonly LoggedLine[]; clear(): void } {
   const lines: LoggedLine[] = [];
   /** Whether a case's window is open, from the case's start to the capture's `afterEach`. */
   let inCase = false;
   const { faults, restore, passOn } = beginCapture((raw) => {
     if (!inCase) passOn(raw);
-    lines.push(read(raw));
+    lines.push(readDocument(raw));
   });
 
   aroundEach(async (runTest) => {

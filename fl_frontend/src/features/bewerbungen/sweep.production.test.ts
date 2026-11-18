@@ -3,8 +3,7 @@ import { expect, it } from "vitest";
 import { networkFailure, serveBackend } from "@/test-support/backend";
 import { captureLog } from "@/test-support/stdoutCapture";
 
-/* Run under a production build's `NODE_ENV`, whose JSON line carries `trace_id`: the plain line every other project
-   writes leaves it out, and the trace is what joins a half's failure line to the backend's own for that request. */
+// The line's `trace_id` is what joins a half's failure line to the backend's own for that request.
 
 const SAISONS = ["2526", "2627"];
 
@@ -24,7 +23,7 @@ const backend = serveBackend(({ method, path }) => {
   if (call === "POST /schiedsrichter/sweep") return { erased: 0, failed: 0 };
   return undefined;
 });
-const log = captureLog("production");
+const log = captureLog();
 
 const { runBewerbungSweep } = await import("./sweep");
 

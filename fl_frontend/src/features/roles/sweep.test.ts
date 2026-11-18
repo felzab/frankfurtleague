@@ -7,10 +7,6 @@ import { captureLog } from "@/test-support/stdoutCapture";
 import type { FLReferencesPayload, FLReferencesResponse } from "@/core/generated/client/types";
 import type { MemoryDB } from "better-auth/adapters/memory";
 
-/* Run under a production build's `NODE_ENV`, whose JSON line carries `trace_id` and every `error` handed the logger:
-   the plain line every other project writes leaves out the trace and any `error` that is no `Error`, so a case proving
-   which trace a line carries, or that a value never reached a line, reads the JSON. */
-
 /** The sign-in store under the real library: its own in-memory one, emptied before every case. */
 const store = memoryStore("__flAccountSweepStore");
 
@@ -37,7 +33,7 @@ const backend = serveBackend(({ method, path, body }) => {
   return answer instanceof Response ? answer : ({ unreferenced: [...answer] } satisfies FLReferencesResponse);
 });
 const { owed } = registerAuthDoubles({ specifiers: { "@better-auth/mongo-adapter": ADAPTER } });
-const log = captureLog("production");
+const log = captureLog();
 
 const { auth } = await import("@/core/auth/library");
 const { REFERENCES_ADDRESSES_MAX, runAccountSweep } = await import("./sweep");
@@ -73,7 +69,7 @@ const errorFields = () =>
     .filter(({ level }) => level === "ERROR")
     .map(({ message, fields }) => ({ message, fields }));
 
-/** Every ERROR line as the production build wrote it, its time, service and level set aside, its error where it has one. */
+/** Every ERROR line as the logger wrote it, its time, service and level set aside, its error where it has one. */
 const failures = (): Record<string, unknown>[] =>
   log
     .lines()

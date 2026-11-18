@@ -191,6 +191,10 @@ so a key outside the class would boot and then answer every internal request 500
 only reader, so `"`, `#`, `$`, `'`, `\` and the backtick are part of the class. A key from
 `openssl rand -hex 32`, as [`runbooks.md`](runbooks.md) §16 generates one, is one every build takes.
 
+**The three keys differ from one another**: two tiers holding one key are one tier, every holder of
+the lower key reaching the other's routes. Each application service refuses to boot where two hold
+one value, naming the later file of the pair in the order base, system, admin.
+
 **`internal_api_key_admin` is what names an actor**: the backend believes the actor headers on a
 request carrying it (`fl_backend/app/core/security.py :: get_session_actor`), so its holders are the
 two application services alone, and only the private network reaches the backend

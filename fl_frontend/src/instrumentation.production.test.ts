@@ -125,7 +125,7 @@ registerAuthDoubles({
   },
   specifiers: { "@better-auth/mongo-adapter": memoryAdapterDouble(STORE) },
 });
-const log = captureLog("production");
+const log = captureLog();
 
 const { register } = await import("./instrumentation");
 const { auth } = await import("@/core/auth/library");

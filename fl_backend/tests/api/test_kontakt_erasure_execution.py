@@ -209,6 +209,7 @@ async def a_row_with_a_history(database: AsyncDatabase, collection: str, row_id:
         db_filter={"_id": row_id},
         update={"$set": {"kontakte": LIVE_BLOCKS[row_id]}},
         expected_version=None,
+        session=None,
         return_document=ReturnDocument.BEFORE,
     )
     await patch_one_in_db(
@@ -216,6 +217,7 @@ async def a_row_with_a_history(database: AsyncDatabase, collection: str, row_id:
         db_filter={"_id": row_id},
         update={"$set": {"gruppe": "B"}},
         expected_version=None,
+        session=None,
         return_document=ReturnDocument.BEFORE,
     )
 
@@ -230,6 +232,7 @@ async def a_bewerbung_with_a_history(database: AsyncDatabase, row_id: ObjectId) 
         db_filter={"_id": row_id},
         update={"$set": {"kontakte": LIVE_BLOCKS[row_id]}},
         expected_version=None,
+        session=None,
         return_document=ReturnDocument.BEFORE,
     )
     await patch_one_in_db(
@@ -237,6 +240,7 @@ async def a_bewerbung_with_a_history(database: AsyncDatabase, row_id: ObjectId) 
         db_filter={"_id": row_id},
         update={"$set": {"kader.good_spieler": 4}},
         expected_version=None,
+        session=None,
         return_document=ReturnDocument.BEFORE,
     )
 

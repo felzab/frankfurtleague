@@ -13,8 +13,6 @@ import {
 import type {
   AddressChangeSweepAddressChangeParams,
   BewerbungenGetBewerbungenAdminParams,
-  CheckIsLiveResponse,
-  CheckIsReadyResponse,
   FLAcceptBewerbungPayload,
   FLAccountAddressChangePayload,
   FLAccountAddressChangeResponse,
@@ -145,6 +143,7 @@ import type {
   FLTokenPayload,
   FLVersionResponse,
   IdentitySweepErasureParams,
+  ProbeResponse,
   RegistrierungenGetRegistrierungenAdminParams,
   SchiedsrichterGetSchiedsrichterParams,
   SpieleGetSpieleSpielplanParams,
@@ -2832,8 +2831,8 @@ export const getSystemCheckIsLiveUrl = () => {
  * cannot fix.
  * @summary Liveness probe
  */
-export const systemCheckIsLive = async (options?: Parameters<typeof unkeyedTransport>[1]): Promise<CheckIsLiveResponse> => {
-  return unkeyedTransport<CheckIsLiveResponse>(getSystemCheckIsLiveUrl(), {
+export const systemCheckIsLive = async (options?: Parameters<typeof unkeyedTransport>[1]): Promise<ProbeResponse> => {
+  return unkeyedTransport<ProbeResponse>(getSystemCheckIsLiveUrl(), {
     ...options,
     method: "GET",
   });
@@ -2849,8 +2848,8 @@ export const getSystemCheckIsReadyUrl = () => {
  * Unauthenticated, for a monitor outside.
  * @summary Readiness probe
  */
-export const systemCheckIsReady = async (options?: Parameters<typeof unkeyedTransport>[1]): Promise<CheckIsReadyResponse> => {
-  return unkeyedTransport<CheckIsReadyResponse>(getSystemCheckIsReadyUrl(), {
+export const systemCheckIsReady = async (options?: Parameters<typeof unkeyedTransport>[1]): Promise<ProbeResponse> => {
+  return unkeyedTransport<ProbeResponse>(getSystemCheckIsReadyUrl(), {
     ...options,
     method: "GET",
   });

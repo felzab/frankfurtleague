@@ -13,7 +13,8 @@ function thrownBy(run: () => unknown): unknown {
   return undefined;
 }
 
-const KEY = "k".repeat(64);
+/** A key of the class, distinct per letter, as each tier holds its own. */
+const keyOf = (letter: string) => letter.repeat(64);
 
 /** Production's environment as a deploy sets it, every variable well formed. */
 const VARIABLES = {
@@ -29,9 +30,9 @@ const FILES = {
   AUTH_SECRET: "s".repeat(32),
   AUTH_RESEND_KEY: "re_key",
   RESEND_WEBHOOK_SECRET: "whsec_key",
-  INTERNAL_API_KEY_BASE: KEY,
-  INTERNAL_API_KEY_SYSTEM: KEY,
-  INTERNAL_API_KEY_ADMIN: KEY,
+  INTERNAL_API_KEY_BASE: keyOf("b"),
+  INTERNAL_API_KEY_SYSTEM: keyOf("s"),
+  INTERNAL_API_KEY_ADMIN: keyOf("a"),
   TURNSTILE_SECRET_KEY: "0x4AAAAAAAsecretKeyOfTheLeague",
   BETTERSTACK_HEARTBEAT_URL: "https://uptime.example/heartbeat",
 };
@@ -69,4 +70,13 @@ describe("a production boot", () => {
   ])("is refused %s", (_, variables, files, refusal) => {
     expect(thrownBy(() => judgedSettings(variables, files))).toStrictEqual(new BootRefusal(refusal));
   });
+});
+
+// Two tiers holding one key are one tier, on every deployment: the backend refuses the same boot at the same file.
+it("refuses a boot whose admin key holds the base key's value, naming the later file", () => {
+  const files = { ...FILES, INTERNAL_API_KEY_ADMIN: FILES.INTERNAL_API_KEY_BASE };
+
+  expect(thrownBy(() => judgedSettings({ ...VARIABLES, APP_ENV: "local" }, files))).toStrictEqual(
+    new BootRefusal("Invalid secret files: internal_api_key_admin"),
+  );
 });

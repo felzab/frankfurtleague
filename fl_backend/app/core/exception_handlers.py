@@ -146,28 +146,6 @@ async def duplicate_key_exception_handler(request: Request, exc: DuplicateKeyErr
     return error_response(status.HTTP_409_CONFLICT, Code.DUPLICATE_KEY)
 
 
-# Every failure status an operation answers; the 405 of a method no operation serves is none of them.
-FAILURE_STATUSES: Final = (
-    HTTPStatus.BAD_REQUEST,
-    HTTPStatus.UNAUTHORIZED,
-    HTTPStatus.FORBIDDEN,
-    HTTPStatus.NOT_FOUND,
-    HTTPStatus.CONFLICT,
-    HTTPStatus.GONE,
-    HTTPStatus.UNPROCESSABLE_CONTENT,
-    HTTPStatus.TOO_MANY_REQUESTS,
-    HTTPStatus.INTERNAL_SERVER_ERROR,
-    HTTPStatus.SERVICE_UNAVAILABLE,
-)
-FAILURE_RESPONSE_REF: Final = "#/components/responses/{status}"
-
-# Declared on every operation alike, each a reference to its status's one shared response: the body's
-# `error_code` is `Code`, so the document lists every code once rather than per operation.
-FAILURE_RESPONSES: Final[dict[int | str, dict[str, Any]]] = {
-    int(status): {"$ref": FAILURE_RESPONSE_REF.format(status=int(status))} for status in FAILURE_STATUSES
-}
-
-
 async def db_exception_handler(request: Request, exc: PyMongoError):
     # A write outside a transaction carries no label, so a deadline cutting any request but a safe one
     # is answered unknown: it may have sent a write that landed, and unknown never sends a person to

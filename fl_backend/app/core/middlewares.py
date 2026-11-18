@@ -12,9 +12,8 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.core.logging import fl_logger, trace_id_var
 
-# W3C Trace Context, version 00 alone: a malformed header is attacker-chosen log text. Anchored
-# as the frontend's mirror is, with `\A` and `\Z`: `$` admits a trailing newline onto a line.
-TRACEPARENT = re.compile(r"\A00-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}\Z")
+# W3C Trace Context, version 00 alone: a malformed header is attacker-chosen log text.
+TRACEPARENT = re.compile(r"00-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}")
 # Each is invalid by the standard, and a validator admitting one hands every request the same id.
 ZERO_TRACE_ID = "0" * 32
 ZERO_PARENT_ID = "0" * 16
@@ -31,16 +30,7 @@ REQUEST_DEADLINE_S: Final = 10.0
 
 @dataclass
 class RequestDeadline:
-    """Where the request's deadline falls, which pymongo holds and publishes no getter for, and what its aborts spent past it.
-
-    The aborts' grace (`ABORT_GRACE_S`) is the time the request's aborts may
-    run past `at`, all of them together, charged after each abort: the first abort past the deadline
-    gets the whole grace, and each later one what the earlier ones left. Never time counted from `at`:
-    the request reaches an abort only when its next database operation meets the deadline, however
-    long after it, and every moment between would come out of the abort that frees the transaction's
-    documents. Never a grace apiece either: a loop of cut transactions would wait one out per
-    transaction.
-    """
+    """Where the request's deadline falls, which pymongo holds and publishes no getter for, and what its aborts spent past it."""
 
     at: float
     aborting_s: float = 0.0
@@ -72,7 +62,6 @@ def record_error_code(code: str) -> None:
 def resolve_trace_id(header_value: str | None) -> str:
     """The incoming `traceparent`'s trace id when the header is well-formed, a freshly minted one otherwise."""
     if header_value is not None:
-        # `fullmatch` besides the pattern's own anchors, so neither alone is the guard.
         match = TRACEPARENT.fullmatch(header_value)
         if match and match.group(1) != ZERO_TRACE_ID and match.group(2) != ZERO_PARENT_ID:
             return match.group(1)
@@ -141,9 +130,6 @@ class TraceContextMiddleware:
         fl_logger.info(
             "http.answered",
             extra={
-                # Explicit as well as filter-stamped, so a handler without `TraceContextFilter`
-                # still reads the request's id on this record.
-                "trace_id": trace_id_var.get(),
                 "method": request.method,
                 "path": path,
                 "status": status,
