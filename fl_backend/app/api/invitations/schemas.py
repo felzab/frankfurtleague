@@ -78,8 +78,8 @@ class FLTeamLinkState(BaseModel):
     """A team's registration link: the live link, whether it opens anything, and what the season's press would do for the team."""
 
     invitation: FLInvitationRow | None
-    # Composed here rather than derived by the reader, as the application form's window is: a link is live and opens
-    # nothing while the season takes no registration, the window's end shutting nothing.
+    # Composed here rather than derived by the reader: a link is live and opens nothing while the season takes no
+    # registration, the window's end shutting nothing.
     running: bool
     # Whether the season stands paused: the window can read closed for its dates alone.
     paused: bool

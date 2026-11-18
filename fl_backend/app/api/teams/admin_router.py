@@ -163,7 +163,7 @@ async def _rewrite_the_outgoing_teams_sides(
     """Hand this club's sides to the incoming one by its `team_id` alone; returns how many fixtures moved.
 
     Every read joins a side's name from its season row, so no name is written here. Named by `_id` off a snapshot
-    taken before any write, as `_rewrite_gruppenphase_sides` is.
+    taken before any write.
     """
 
     # One `update_many` writes one path with one value, so the passes split by slot.
@@ -282,8 +282,8 @@ async def _served_invitation(live: Mapping[str, Any], *, outbox_collection: Read
     return FLInvitationRow.model_validate({**live, "delivery": state})
 
 
-# Two static segments, as `GET /saisons/list/admin` has, so the admin tier lists every season-scoped
-# resource under one shape. No id route at this prefix ends in `/admin`, so none can shadow this one.
+# Two static segments, so the admin tier lists every season-scoped resource under one shape. No id
+# route at this prefix ends in `/admin`, so none can shadow this one.
 @router.get(
     "/list/admin",
     summary="One season's Teams list and what its create dialog offers",
@@ -497,7 +497,6 @@ async def post_team_entry(
         return team_id
 
     # One transaction: a refused entry leaves no new club behind it, which the list would then offer as if chosen.
-    # `transact` is safe to retry, the callback re-reading everything it judges.
     return FLPostTeamEntryResponse(team_id=await transact(db, found_and_enter))
 
 
@@ -520,8 +519,6 @@ async def delete_team(
     """
 
     async def retire_the_team(session: AsyncClientSession) -> None:
-        """Judge the club's seasons, then stamp it. Everything judged is read in-session, so a retry re-judges it."""
-
         # Two small reads rather than a lookup: a club holds a handful of rows, the league a few seasons.
         junction_rows = await pull_whole_from_db(
             collection=saison_teams_collection,
@@ -595,8 +592,6 @@ async def patch_team_saison(
     row_filter = {"team_id": team_id, "saison_id": saison_id}
 
     async def save_the_team_and_its_row(session: AsyncClientSession) -> FLPatchTeamSaisonResponse:
-        """Judge both parts, then write both. Everything judged is read in-session, so a retry re-judges it."""
-
         team_raw = await pull_one_from_db(collection=teams_collection, db_filter={"_id": team_id}, projection=[VERSION_FIELD], session=session)
         row_raw = await pull_one_from_db(
             collection=saison_teams_collection, db_filter=row_filter, projection=["gruppe", "trikot_farbe", VERSION_FIELD], session=session
@@ -628,7 +623,7 @@ async def patch_team_saison(
             )
 
         # Judged only where the save moves it: a colour a row already stores beside another's must not lock the club's
-        # other fields, as `find_kader_stufe_refusal` passes a stored Stufe.
+        # other fields.
         if team_data.trikot_farbe != row_raw.get("trikot_farbe"):
             await refuse_a_taken_colour(
                 saison_teams_collection=saison_teams_collection,
@@ -666,7 +661,6 @@ async def patch_team_saison(
         return FLPatchTeamSaisonResponse(version=composite_version(stored_team, stored_row))
 
     # One transaction, or a refusal of the row's part leaves the club's half saved under an editor reading it as failed.
-    # `transact` is safe to retry, every write deriving from the payload and an in-session read.
     return await transact(db, save_the_team_and_its_row)
 
 
@@ -777,8 +771,6 @@ async def put_kontakt_seat(
     nonce = secrets.token_hex(8)
 
     async def seat_the_person(session: AsyncClientSession) -> FLKontaktSeatResponse:
-        """Judge, then write. Everything judged is read in-session, so a retry re-judges it."""
-
         stored = await pull_one_from_db(
             collection=saison_teams_collection,
             db_filter={"team_id": team_id, "saison_id": saison_id},
@@ -832,16 +824,14 @@ async def replace_saison_team(
     The row's exit, colour, contacts and their links are cleared, and the outgoing club's live squad rows retired.
     """
 
-    # Before any read, as the group swap judges its pair: this one is refused whatever the season holds.
+    # Before any read: this one is refused whatever the season holds.
     refuse(find_replacement_pair_refusal(team_id=team_id, incoming_team_id=replacement_data.incoming_team_id))
 
-    # Outside the transaction, as the group swap reads it: an unknown season is a 404 about the
-    # season rather than about a junction row nobody expected to find in it.
+    # Outside the transaction: an unknown season is a 404 about the season rather than about a
+    # junction row nobody expected to find in it.
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
 
     async def hand_the_row_over(session: AsyncClientSession) -> FLReplaceSaisonTeamResponse:
-        """The whole replacement: judge, rewrite the fixtures, then the row. Everything it decides on is read in-session."""
-
         # For the 404 and the people leaving with the row, and deliberately not a read of the club it
         # names: a replacement repairs a row whose `team_id` resolves to no `teams` document, so nothing
         # here may require one.
@@ -899,8 +889,8 @@ async def replace_saison_team(
             session=session,
         )
 
-        # The row's identity, reseeded as `enter_a_team` seeds one at entry: every fixture of the season reads its
-        # side's name from here. No `tore`: a replacement runs only before the season's start, when the save refuses a
+        # The row's identity, reseeded as at entry: every fixture of the season reads its side's name from
+        # here. No `tore`: a replacement runs only before the season's start, when the save refuses a
         # result.
         incoming_side = {
             "team_id": replacement_data.incoming_team_id,
@@ -919,9 +909,8 @@ async def replace_saison_team(
         updated_raw = await patch_one_in_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "team_id": team_id},
-            # `austritt` cleared: left standing it marks the incoming club withdrawn to
-            # `find_eligibility_refusal` and `_may_hold_a_platz`. The colour, the contacts and their links
-            # leave with the outgoing school.
+            # `austritt` cleared: left standing it marks the incoming club withdrawn. The colour, the
+            # contacts and their links leave with the outgoing school.
             update={"$set": {**incoming_side, "austritt": None, "trikot_farbe": None, "kontakte": None, "confirmations": None}},
             session=session,
             expected_version=None,
@@ -933,7 +922,7 @@ async def replace_saison_team(
         await clear_seats(bewerbungen_collection, applications, outgoing, session, names=outgoing_names)
 
         # Ausgetragen, not moved: the players did not transfer, and a row left standing would name a
-        # season its club now holds no junction row in -- what `kader_team_not_in_saison` refuses to create.
+        # season its club now holds no junction row in, a squad row the squad's save refuses to create.
         # Live rows alone, so an earlier exit keeps its own date.
         retired_kader = await patch_many_in_db(
             collection=saison_spieler_collection,
@@ -965,8 +954,7 @@ async def replace_saison_team(
         )
 
     # One transaction over every write: a row handed over while its fixtures are not leaves the
-    # season fielding a club that holds no place in it. `transact` is safe to retry, the
-    # callback re-reading everything it judges on.
+    # season fielding a club that holds no place in it.
     return await transact(db, hand_the_row_over)
 
 
@@ -1002,8 +990,6 @@ async def invite_kontakt(
     nonce = secrets.token_hex(8)
 
     async def judge_and_mint(session: AsyncClientSession) -> FLKontaktInviteResponse:
-        """Judge the seat, then replace the link and owe its mail, everything judged read in-session for a retry to re-judge."""
-
         stored = await pull_one_from_db(
             collection=saison_teams_collection,
             db_filter=db_filter,
@@ -1077,8 +1063,6 @@ async def post_invitation(
     raw_token, token_hash = mint_token()
 
     async def mint_the_link(session: AsyncClientSession) -> Any:
-        """Judge the season and the junction, then revoke and mint. Everything judged is read in-session, so a retry re-judges it."""
-
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"], session=session)
 
         # Before the junction: a season that has ended cannot be repaired by entering the team into

@@ -162,10 +162,7 @@ async def enter_a_team(
     trikot_farbe: FLTrikotFarbe | None,
     session: AsyncClientSession,
 ) -> str:
-    """Judge this club's entry into the season and write its row, in the caller's transaction, answering the club's name.
-
-    Everything judged is read in-session.
-    """
+    """Judge this club's entry into the season and write its row, in the caller's transaction, answering the club's name."""
 
     # The one read of the club, and it earns its place twice over: an id naming nothing 404s here rather than inserting
     # a row pointing at no club, and the season's own copy of the name and shorthand is seeded from it.

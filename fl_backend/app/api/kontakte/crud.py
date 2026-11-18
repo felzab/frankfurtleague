@@ -89,7 +89,7 @@ async def erase_kontaktperson_in_session(
     # Required, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
 ) -> None:
-    """Clear the seats of the rows the caller read in-session, so a retry re-reads them."""
+    """Clear this person's seats off the rows the caller read, and every reason typed from a seat they leave."""
 
     # Folded again, the fold being idempotent: every match below compares the fold, so an unfolded
     # spelling would match no seat and the erasure would commit having removed nothing.
