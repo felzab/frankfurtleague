@@ -6,7 +6,6 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Query, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
-from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.schemas import (
     FLAcceptBewerbungPayload,
@@ -50,6 +49,7 @@ from app.api.bewerbungen.services import (
     paired_seat,
     parse_new_team,
     people_with_address,
+    pull_schule_name,
     schule_name,
     seat_named,
     seats_confirmed_of,
@@ -236,18 +236,6 @@ def _decision(*, today: str, reason: str | None) -> dict[str, Any]:
     """The decision block both endpoints write, so the two cannot spell one field differently."""
 
     return {"made_at": today, "reason": reason}
-
-
-async def _schule_text(*, bewerbung_raw: Mapping[str, Any], teams_collection: AsyncCollection, session: AsyncClientSession) -> str:
-    """The school a mail names: as submitted, or the picked club as the league holds it."""
-
-    schule = bewerbung_raw.get("schule")
-    if isinstance(schule, Mapping):
-        return str(schule.get("team_name") or "")
-
-    team = await teams_collection.find_one({"_id": bewerbung_raw.get("team_id")}, {"name": 1}, session=session)
-
-    return str((team or {}).get("name") or "")
 
 
 # One application a call, the bulk accept calling it once per card, so a refusal lands on its card and nothing already
@@ -457,7 +445,7 @@ async def decline_bewerbung(
             expected_version=decline_data.version,
             return_document=ReturnDocument.BEFORE,
         )
-        team = await _schule_text(bewerbung_raw=stored_raw, teams_collection=teams_collection, session=session)
+        team = await pull_schule_name(bewerbung_raw=stored_raw, teams_collection=teams_collection, session=session)
         await record_act(collection=bewerbungen_collection, action="bewerbung.declined", record_id=bewerbung_id, label=team, session=session)
         await enqueue_mails(
             outbox_collection=outbox_collection,
@@ -563,7 +551,7 @@ async def resend_kontakt_confirmation(
                         kontakte=matched["kontakte"],
                         seats=seats,
                         saison_id=str(matched["saison_id"]),
-                        schule=await _schule_text(bewerbung_raw=matched, teams_collection=teams_collection, session=session),
+                        schule=await pull_schule_name(bewerbung_raw=matched, teams_collection=teams_collection, session=session),
                         deadline=confirmation_deadline,
                         key=outbox_key(bewerbung_id, "resend", seats[0], nonce),
                     )
@@ -656,7 +644,7 @@ async def post_kontakt_seat(
             expected_version=seat_data.version,
             return_document=ReturnDocument.AFTER,
         )
-        schule = await _schule_text(bewerbung_raw=bewerbung_raw, teams_collection=teams_collection, session=session)
+        schule = await pull_schule_name(bewerbung_raw=bewerbung_raw, teams_collection=teams_collection, session=session)
         await record_act(
             collection=bewerbungen_collection, action="bewerbung.seat_changed", record_id=bewerbung_id, label=schule, session=session
         )

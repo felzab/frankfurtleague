@@ -3,6 +3,7 @@ from http import HTTPStatus
 from typing import Any, Final, Literal, TypeIs, get_args
 
 from pydantic import ValidationError
+from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungState,
@@ -24,6 +25,7 @@ from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
+from app.core.readonly import ReadCollection
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_evidence import TextVersions, compose_choices
 from app.shared.folding import normalise_phone, sign_in_identifier
@@ -708,22 +710,13 @@ def compose_confirmation_update(
     return {"$set": written}
 
 
-# The two pages' own fills: the account page states a seat's words with these too, so each confirmation
-# page and the account page fill `{schule}` alike.
 def saison_schule(row: Mapping[str, Any]) -> str:
-    """What the season row's confirmation page fills `{schule}` with: the name the club carries that season."""
+    """What the season row's confirmation page fills `{schule}` with: the name the club carries that season.
+
+    An application's page, its mails and the account page fill it with `schule_name`.
+    """
 
     return str(row.get("name") or "")
-
-
-def bewerbung_schule(*, bewerbung_raw: Mapping[str, Any], team_name: Any) -> str:
-    """What the application's confirmation page fills `{schule}` with: the school as submitted, or the picked club's own name."""
-
-    schule = bewerbung_raw.get("schule")
-    if isinstance(schule, Mapping):
-        return str(schule.get("team_name") or "")
-
-    return str(team_name or "")
 
 
 def build_own_bewerbung_filter(*identifiers: str) -> Mapping[str, Any]:
@@ -1260,13 +1253,34 @@ def undecided_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], saison_status:
 
 
 def schule_name(*, bewerbung_raw: Mapping[str, Any], team_names: Mapping[Any, str]) -> str:
-    """The school's name as submitted, or the picked club's as the router resolved it; empty where neither resolves."""
+    """The school's name as submitted, or the picked club's own as `team_names` holds it; empty where neither resolves.
+
+    Empty rather than refused for a club that cannot be found: no club is ever deleted, and a page or a mail naming no
+    school still does its job where a 500 would not.
+    """
 
     schule = bewerbung_raw.get("schule")
     if isinstance(schule, Mapping):
         return str(schule.get("team_name") or "")
 
     return team_names.get(bewerbung_raw.get("team_id"), "")
+
+
+async def pull_schule_name(
+    *, bewerbung_raw: Mapping[str, Any], teams_collection: ReadCollection, session: AsyncClientSession | None = None
+) -> str:
+    """`schule_name` of one application, reading the picked club's name where it names no school of its own.
+
+    `session` where a transaction reads it, so the name is the one that transaction sees.
+    """
+
+    team = (
+        None
+        if isinstance(bewerbung_raw.get("schule"), Mapping)
+        else await teams_collection.find_one({"_id": bewerbung_raw.get("team_id")}, {"name": 1}, session=session)
+    )
+
+    return schule_name(bewerbung_raw=bewerbung_raw, team_names={} if team is None else {team["_id"]: str(team.get("name") or "")})
 
 
 def outbox_key(bewerbung_id: Any, *parts: str) -> str:
