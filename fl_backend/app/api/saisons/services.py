@@ -690,12 +690,8 @@ def find_gruppe_swap_refusal(
     (`saison_start_austritt_stored`), so the fixtures an exchange rewrites never field a club that has left.
     """
 
-    missing = [label for label, gruppe in (("team1", team1_gruppe), ("team2", team2_gruppe)) if gruppe is None]
-    if missing:
-        return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.SWAP_NOT_A_SWAP, fields=(("team1_id",), ("team2_id",)))
-
-    # One club named on both sides reads its one group twice, so it is refused here as no swap.
-    if team1_gruppe == team2_gruppe:
+    # A side in no group is no swap, and nor is one club named on both sides, which reads its one group twice.
+    if team1_gruppe is None or team2_gruppe is None or team1_gruppe == team2_gruppe:
         return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.SWAP_NOT_A_SWAP, fields=(("team1_id",), ("team2_id",)))
 
     if saison_status == "past":

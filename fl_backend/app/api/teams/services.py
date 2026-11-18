@@ -717,10 +717,7 @@ def find_kontakt_seat_refusal(*, kontakte: Any, seat: str) -> APIError | None:
 
     slot = kontakte.get(seat) if isinstance(kontakte, Mapping) else None
 
-    if not isinstance(slot, Mapping):
-        return APIError(HTTPStatus.CONFLICT, Code.KONTAKT_SEAT_WITHOUT_CONFIRMATION)
-
-    if _seat_is_stamped(slot):
+    if not isinstance(slot, Mapping) or _seat_is_stamped(slot):
         return APIError(HTTPStatus.CONFLICT, Code.KONTAKT_SEAT_WITHOUT_CONFIRMATION)
 
     return None
