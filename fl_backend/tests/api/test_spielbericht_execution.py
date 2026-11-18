@@ -216,7 +216,7 @@ async def put(
         identifier=email,
         records=record_collections(database),
         db=client,
-        now=NOW,
+        germany_now=NOW,
         **handles(database, **replaced),
     )
 
@@ -224,7 +224,7 @@ async def put(
 async def form_read(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = REFEREE_EMAIL) -> Any:
     async with client.start_session(snapshot=True) as session:
         return await get_spielbericht_bericht(
-            spiel_id=SPIEL, identifier=email, records=record_collections(database), session=session, now=NOW, **handles(database)
+            spiel_id=SPIEL, identifier=email, records=record_collections(database), session=session, germany_now=NOW, **handles(database)
         )
 
 
@@ -823,7 +823,7 @@ class TestTheOverviewFindsEveryReportAwaitingTheAdministrator:
                     teams_collection=database[Collection.TEAMS],
                     spielorte_collection=database[Collection.SPIELORTE],
                     schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                    now=NOW,
+                    germany_now=NOW,
                 )
                 reports = [row for card in overview.cards for row in card.rows if isinstance(row, FLOverviewSpielberichtRow)]
                 return {row.spiel.id for row in reports}, [(row.spiel.id, row.state) for row in reports]

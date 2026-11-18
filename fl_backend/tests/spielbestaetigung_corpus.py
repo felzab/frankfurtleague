@@ -379,7 +379,7 @@ async def a_pass(
         aufstellungen_collection=collections.get("aufstellungen", database[Collection.AUFSTELLUNGEN]),
         db=client,
         today=today,
-        now=clock_of(today) if now is None else now,
+        germany_now=clock_of(today) if now is None else now,
     )
 
 

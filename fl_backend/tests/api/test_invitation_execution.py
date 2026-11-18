@@ -189,7 +189,7 @@ async def read_state(database: AsyncDatabase, team_id: ObjectId) -> Any:
             schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
             session=session,
             today=TODAY,
-            now=clock.german_instant(TODAY, "12:00:00"),
+            germany_now=clock.german_instant(TODAY, "12:00:00"),
         )
 
 

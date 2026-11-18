@@ -105,7 +105,7 @@ async def get_spiel_admin(
     spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
     aufstellungen_collection: AufstellungenReadCollection,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLSpieleAdminSingleResponse:
     """
     The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.
@@ -126,7 +126,7 @@ async def get_spiel_admin(
         spielbestaetigungen_collection=spielbestaetigungen_collection,
         saison_teams_collection=saison_teams_collection,
         aufstellungen_collection=aufstellungen_collection,
-        now=now,
+        now=germany_now,
     )
 
 
@@ -156,7 +156,7 @@ async def patch_spiel(
     aufstellungen_collection: AufstellungenCollection,
     # Read on a `dry_run` alone, for whom the confirmation pass would mail of the save.
     spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
-    now: GermanyNow,
+    germany_now: GermanyNow,
     adopts_bericht: Annotated[
         int | None,
         Query(ge=0, description="The `version` of the fixture's Spielbericht the editor was seeded from, to stamp it adopted"),
@@ -193,13 +193,13 @@ async def patch_spiel(
                 payload=spiel_data,
                 collections=collections,
                 spielbestaetigungen_collection=spielbestaetigungen_collection,
-                now=now,
+                now=germany_now,
                 session=session,
             )
 
     async def write_and_resolve_the_bracket(session: AsyncClientSession) -> FLPatchSpielDataResponse:
         return await save_spiel_in_session(
-            spiel_id=spiel_id, payload=spiel_data, collections=collections, adopts_bericht=adopts_bericht, now=now, session=session
+            spiel_id=spiel_id, payload=spiel_data, collections=collections, adopts_bericht=adopts_bericht, now=germany_now, session=session
         )
 
     # `with_transaction` rather than a bare `start_transaction`: two saves in one season can

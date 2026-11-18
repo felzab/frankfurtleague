@@ -190,7 +190,7 @@ def counted_by_the_handler(email: str) -> Awaitable[Any]:
         address_changes_collection=NO_HANDLE,
         session=NO_HANDLE,
         operator=OPERATOR,
-        now=NOW,
+        germany_now=NOW,
     )
 
 

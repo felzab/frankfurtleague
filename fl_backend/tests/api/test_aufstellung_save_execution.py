@@ -145,7 +145,7 @@ async def seat_saves(
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         records=record_collections(database),
         db=client,
-        now=now,
+        germany_now=now,
     )
     return answer, response.status_code
 
@@ -175,7 +175,7 @@ async def admin_saves(
             spieler_collection=database[Collection.SPIELER],
             aufstellungen_collection=database[Collection.AUFSTELLUNGEN] if aufstellungen is None else aufstellungen,
             db=client,
-            now=now,
+            germany_now=now,
         )
     return answer, response.status_code
 
@@ -202,7 +202,7 @@ async def seat_reads(
             aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
             records=record_collections(database),
             session=session,
-            now=now,
+            germany_now=now,
         )
 
 
@@ -220,7 +220,7 @@ async def admin_reads(
             spieler_collection=database[Collection.SPIELER],
             aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
             session=session,
-            now=now,
+            germany_now=now,
         )
 
 

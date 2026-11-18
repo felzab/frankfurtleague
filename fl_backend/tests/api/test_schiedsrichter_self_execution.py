@@ -159,7 +159,7 @@ def own_spiele(identifier: str = OTTO) -> Any:
                 spiele_collection=database[Collection.SPIELE],
                 records=record_collections(database),
                 session=session,
-                now=NOW,
+                germany_now=NOW,
             )
 
     return call

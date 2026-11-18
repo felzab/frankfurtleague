@@ -103,7 +103,7 @@ async def pressed_then_saved(url: str, press: Press) -> dict[str, Any]:
             outbox_collection=database[Collection.OUTBOX],
             db=client,
             today=TODAY,
-            now=MAIL_NOW,
+            germany_now=MAIL_NOW,
         )
         row = await database[Collection.SCHIEDSRICHTER].find_one({"_id": SCHIEDSRICHTER_OID})
         assert row is not None

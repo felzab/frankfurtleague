@@ -36,5 +36,5 @@ async def ban_through_the_route(
             outbox_collection=database[Collection.OUTBOX],
             db=client,
             today=today,
-            now=datetime.fromisoformat(today).replace(hour=12, tzinfo=ZoneInfo("Europe/Berlin")),
+            germany_now=datetime.fromisoformat(today).replace(hour=12, tzinfo=ZoneInfo("Europe/Berlin")),
         )

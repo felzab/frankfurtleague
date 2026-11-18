@@ -142,7 +142,7 @@ async def claimed(database: AsyncDatabase, client: AsyncMongoClient, *, now: dat
         ban_list_collection=database[Collection.BAN_LIST],
         db=database,
         db_client=client,
-        now=claimable(now),
+        germany_now=claimable(now),
     )
 
 
@@ -165,7 +165,7 @@ async def reported(
             delivery_reason=delivery_reason,
         ),
         outbox_collection=database[Collection.OUTBOX],
-        now=now,
+        germany_now=now,
     )
 
 
@@ -470,7 +470,7 @@ class TestTheSignInCode:
                     to=NORA, data=FLSignInCodeData(kind="sign_in_code"), secret="chiffrat", valid_until=valid_until
                 ),
                 outbox_collection=database[Collection.OUTBOX],
-                now=NOW,
+                germany_now=NOW,
             )
             first = await claimed(database, client)
             (mail,) = first.mails

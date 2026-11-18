@@ -129,7 +129,7 @@ async def post_schiedsrichter(
     outbox_collection: OutboxCollection,
     db: DBClient,
     today: GermanDay,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLPostSchiedsrichterResponse:
     """Create a referee and owe them their confirmation link, answering the address and the deadline it goes to.
 
@@ -162,7 +162,7 @@ async def post_schiedsrichter(
             email=email,
             deadline=confirmation_deadline_from(today=today),
             version=0,
-            now=now,
+            now=germany_now,
             session=session,
         )
 
@@ -192,7 +192,7 @@ async def patch_schiedsrichter(
     outbox_collection: OutboxCollection,
     db: DBClient,
     today: GermanDay,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLPatchSchiedsrichterResponse:
     """Update a referee on the `version` the editor was served, answering the version stored.
 
@@ -239,7 +239,7 @@ async def patch_schiedsrichter(
                 email=email,
                 deadline=confirmation_deadline_from(today=today),
                 version=updated_document.version,
-                now=now,
+                now=germany_now,
                 session=session,
             )
 
@@ -322,7 +322,7 @@ async def reactivate_schiedsrichter(
     outbox_collection: OutboxCollection,
     db: DBClient,
     today: GermanDay,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLSchiedsrichterReactivateResponse:
     """Bring a retired referee back into the picker and every default read.
 
@@ -364,7 +364,7 @@ async def reactivate_schiedsrichter(
                 email=email,
                 deadline=confirmation_deadline_from(today=today),
                 version=updated[VERSION_FIELD],
-                now=now,
+                now=germany_now,
                 session=session,
             )
 
@@ -389,7 +389,7 @@ async def invite_schiedsrichter(
     outbox_collection: OutboxCollection,
     db: DBClient,
     today: GermanDay,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLSchiedsrichterMintResponse:
     """Owe this referee a fresh confirmation link, which the Postausgang mints and mails, and answer where it goes.
 
@@ -431,7 +431,7 @@ async def invite_schiedsrichter(
             email=str(email),
             deadline=confirmation_deadline_from(today=today),
             version=updated[VERSION_FIELD],
-            now=now,
+            now=germany_now,
             session=session,
         )
 

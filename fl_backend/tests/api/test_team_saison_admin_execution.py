@@ -134,7 +134,7 @@ async def editor(database: AsyncDatabase, team_id: ObjectId = ADLER, *, referees
             schiedsrichter_collection=database[Collection.SCHIEDSRICHTER] if referees is None else referees,
             session=session,
             today=TODAY,
-            now=clock.german_instant(TODAY, "12:00:00"),
+            germany_now=clock.german_instant(TODAY, "12:00:00"),
         )
 
 

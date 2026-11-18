@@ -94,7 +94,7 @@ async def post_schiedsrichter_answer(
     saisons_collection: SaisonsCollection,
     records: SubjectLookup,
     db: DBClient,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLSpielbestaetigungSchiedsrichterAnswerResponse:
     """Record the signed-in referee's first answer about a fixture they are booked on, until its kick-off: accept, or decline giving a reason.
 
@@ -102,7 +102,7 @@ async def post_schiedsrichter_answer(
     either answer can move the referee's name on the public fixture.
     """
 
-    today = clock.german_day(now)
+    today = clock.german_day(germany_now)
 
     async def answer(session: AsyncClientSession) -> FLSpielbestaetigungSchiedsrichterAnswerResponse:
         """Judge, then write. Everything judged is read in-session, so a retry re-judges it."""
@@ -136,7 +136,7 @@ async def post_schiedsrichter_answer(
         )
         # One snapshot with the row, and the fixture is removed with its rows in one transaction.
         assert ansetzung_state is not None
-        refuse(find_unanswerable_refusal(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, now=now))
+        refuse(find_unanswerable_refusal(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, now=germany_now))
 
         try:
             await patch_one_in_db(
@@ -187,7 +187,7 @@ async def post_schiedsrichter_answer(
             )
             # An undraw removing the fixture deletes this row in its transaction, a write conflict while this one holds it.
             assert current is not None
-            refuse(find_unanswerable_refusal(spielbestaetigung_raw=row, ansetzung_state=current, now=now))
+            refuse(find_unanswerable_refusal(spielbestaetigung_raw=row, ansetzung_state=current, now=germany_now))
 
         return FLSpielbestaetigungSchiedsrichterAnswerResponse(spielbestaetigung_id=spielbestaetigung_id, state=answer_data.answer)
 
@@ -209,7 +209,7 @@ async def post_team_answer(
     spieltage_collection: SpieltageReadCollection,
     records: SubjectLookup,
     db: DBClient,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLSpielbestaetigungAnswerResponse:
     """Record one club's answer about one Ansetzung, from whichever of its confirmed seats presses first, and the seat it came from.
 
@@ -217,7 +217,7 @@ async def post_team_answer(
     administrator's own save of that date would be.
     """
 
-    today = clock.german_day(now)
+    today = clock.german_day(germany_now)
     vorschlag = (
         None
         if answer_data.vorschlag is None
@@ -247,7 +247,7 @@ async def post_team_answer(
         async def judge(current: AnsetzungState, reads: AsyncClientSession | None) -> None:
             """Every refusal after the seat's, over this Ansetzung and reads under `reads`: asked in the transaction, then again outside it."""
 
-            refuse(find_unanswerable_refusal(spielbestaetigung_raw=row, ansetzung_state=current, now=now))
+            refuse(find_unanswerable_refusal(spielbestaetigung_raw=row, ansetzung_state=current, now=germany_now))
 
             if vorschlag is not None:
                 refuse(find_vorschlag_past_refusal(vorschlag=vorschlag, today=today))

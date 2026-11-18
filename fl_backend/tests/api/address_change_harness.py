@@ -304,7 +304,7 @@ async def handed_out(database: AsyncDatabase, client: AsyncMongoClient, answer: 
             ban_list_collection=database[Collection.BAN_LIST],
             db=database,
             db_client=client,
-            now=claimable(now),
+            germany_now=claimable(now),
         )
     ).mails:
         mails += claim.mails

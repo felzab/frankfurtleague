@@ -164,7 +164,7 @@ async def move(
             spielberichte_collection=database[Collection.SPIELBERICHTE],
             aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
             spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-            now=NOW,
+            germany_now=NOW,
             dry_run=dry_run,
         )
 
@@ -187,7 +187,7 @@ async def press_answer(database: AsyncDatabase, client: AsyncMongoClient, row_id
         spieltage_collection=database[Collection.SPIELTAGE],
         records=record_collections(database),
         db=client,
-        now=NOW,
+        germany_now=NOW,
     )
 
 
@@ -1588,7 +1588,7 @@ async def as_the_referee(database: AsyncDatabase, client: AsyncMongoClient, answ
         saisons_collection=database[Collection.SAISONS],
         records=record_collections(database),
         db=client,
-        now=NOW,
+        germany_now=NOW,
     )
 
 

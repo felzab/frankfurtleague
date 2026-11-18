@@ -139,7 +139,7 @@ async def create(database: AsyncDatabase, client: AsyncMongoClient, *, email: st
         outbox_collection=database[Collection.OUTBOX],
         db=client,
         today=today,
-        now=MAIL_NOW,
+        germany_now=MAIL_NOW,
     )
 
     return await mailed(database, client, answer)
@@ -155,7 +155,7 @@ async def correct(database: AsyncDatabase, client: AsyncMongoClient, *, email: s
         outbox_collection=database[Collection.OUTBOX],
         db=client,
         today=today,
-        now=MAIL_NOW,
+        germany_now=MAIL_NOW,
     )
 
     return await mailed(database, client, answer)
@@ -170,7 +170,7 @@ async def resend(
         outbox_collection=database[Collection.OUTBOX],
         db=client,
         today=today,
-        now=MAIL_NOW,
+        germany_now=MAIL_NOW,
     )
 
     return await mailed(database, client, answer)
@@ -403,7 +403,7 @@ async def reactivate(database: AsyncDatabase, client: AsyncMongoClient) -> Maile
         outbox_collection=database[Collection.OUTBOX],
         db=client,
         today=TODAY,
-        now=MAIL_NOW,
+        germany_now=MAIL_NOW,
     )
 
     return await mailed(database, client, answer)

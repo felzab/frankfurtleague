@@ -356,7 +356,7 @@ async def get_team_saison_admin(
     schiedsrichter_collection: SchiedsrichterReadCollection,
     session: SnapshotSession,
     today: GermanDay,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLTeamSaisonAdminResponse:
     """What the team editor shows in one read: the club, its row of the season, and what each act of the page would meet.
 
@@ -428,7 +428,7 @@ async def get_team_saison_admin(
             team_id=team_id,
             start_date=str(saison_raw["start_date"]),
             vereine={row["team_id"]: row for row in season_rows},
-            now=now,
+            now=germany_now,
             session=session,
         )
     )

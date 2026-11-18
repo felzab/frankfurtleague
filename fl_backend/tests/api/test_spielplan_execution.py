@@ -818,7 +818,7 @@ async def a_referees_first_report(database: AsyncDatabase, client: AsyncMongoCli
             spielberichte_collection=database[Collection.SPIELBERICHTE],
             records=record_collections(database),
             db=client,
-            now=REPORTED_AT,
+            germany_now=REPORTED_AT,
         )
     )
 

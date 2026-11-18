@@ -138,7 +138,7 @@ class TestAnExitLandingMidSaveIsJudgedAgain:
                     spielberichte_collection=database[Collection.SPIELBERICHTE],
                     aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
                     spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-                    now=NOW,
+                    germany_now=NOW,
                 )
             )
             spiele.assert_landed_inside(serially=0)

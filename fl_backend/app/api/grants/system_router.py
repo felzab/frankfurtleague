@@ -23,7 +23,7 @@ async def post_handover_pass(
     grants_collection: GrantsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLGrantHandoverPassResponse:
     """Move the owner role to the row whose `owner_from` has passed, the old owner staying an administrator, and tell every holder.
 
@@ -33,7 +33,7 @@ async def post_handover_pass(
     async def judge_and_complete(session: AsyncClientSession) -> int:
         """Judge the list in this transaction: a stop or a removal beside the pass writes a row this writes, so it conflicts and retries."""
 
-        due = handover_due(await read_grants(grants_collection=grants_collection, session=session), now)
+        due = handover_due(await read_grants(grants_collection=grants_collection, session=session), germany_now)
         if due is None:
             return 0
 
@@ -41,7 +41,7 @@ async def post_handover_pass(
             due,
             grants_collection=grants_collection,
             outbox_collection=outbox_collection,
-            now=now,
+            now=germany_now,
             session=session,
         )
 

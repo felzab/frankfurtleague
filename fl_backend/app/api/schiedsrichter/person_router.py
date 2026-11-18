@@ -120,7 +120,7 @@ async def get_self_spiele(
     spiele_collection: SpieleReadCollection,
     records: SubjectLookup,
     session: SnapshotSession,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLSchiedsrichterSpieleResponse:
     """Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, open work first.
 
@@ -140,7 +140,7 @@ async def get_self_spiele(
     )
 
     return FLSchiedsrichterSpieleResponse(
-        saison_id=saison_id, spiele=order_self_spiele([compose_self_spiel(spiel, now=now) for spiel in spiele])
+        saison_id=saison_id, spiele=order_self_spiele([compose_self_spiel(spiel, now=germany_now) for spiel in spiele])
     )
 
 

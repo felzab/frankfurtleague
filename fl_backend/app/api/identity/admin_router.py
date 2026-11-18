@@ -73,7 +73,7 @@ async def get_erasure_view(
     address_changes_collection: AddressChangeReadCollection,
     session: SnapshotSession,
     operator: ActorEmail,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLErasureViewResponse:
     """Count what `POST /identity/erasure` would remove or empty for this address, by kind, naming nothing and storing nothing.
 
@@ -126,7 +126,7 @@ async def get_erasure_view(
         address_change_rows=[row for row in subject.address_change if row not in withheld],
         grant_rows=subject.grants,
         # Partitioned as the erasure partitions them, so the count is the bookings it takes off.
-        spiele=sum(not is_played(date=spiel.get("date"), time=spiel.get("time"), now=now) for spiel in booked),
+        spiele=sum(not is_played(date=spiel.get("date"), time=spiel.get("time"), now=germany_now) for spiel in booked),
     )
 
 

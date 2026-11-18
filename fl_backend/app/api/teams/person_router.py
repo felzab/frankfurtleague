@@ -322,7 +322,7 @@ async def get_team_overview(
     registrierungen_collection: RegistrierungenReadCollection,
     records: SubjectLookup,
     session: SnapshotSession,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLTeamOverviewResponse:
     """Everything a team's Übersicht shows in one read, for a person holding any contact seat on the team in this season.
 
@@ -361,7 +361,7 @@ async def get_team_overview(
     spielbestaetigungen: list[FLTeamPanelSpielbestaetigung] = []
     aufstellungen: list[FLTeamPanelAufstellung] = []
     for spiel in sorted(spiele, key=lambda spiel: (str(spiel.get("date") or ""), str(spiel.get("time") or ""), spiel["spiel_nr"])):
-        spielbestaetigung = _spielbestaetigung_of(spiel, team_id=team_id, vereine=vereine, now=now)
+        spielbestaetigung = _spielbestaetigung_of(spiel, team_id=team_id, vereine=vereine, now=germany_now)
         if spielbestaetigung is not None and spielbestaetigung.state != "agreed":
             answer = spielbestaetigung.row.get("answer") or {}
             declined = spielbestaetigung.state == "declined"
@@ -384,7 +384,7 @@ async def get_team_overview(
                 )
             )
 
-        marks = _marks_of(spiel, now)
+        marks = _marks_of(spiel, germany_now)
         # Open work alone: one the team can still enter, on a fixture still to be played.
         if marks is not None and not marks.stored and marks.phase != "locked":
             aufstellungen.append(
@@ -434,7 +434,7 @@ async def get_team_spiele(
     spiele_collection: SpieleReadCollection,
     records: SubjectLookup,
     session: SnapshotSession,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLTeamSpieleResponse:
     """Every fixture of the team in this season in the order the draw numbered them, for a person holding any contact seat on it.
 
@@ -455,13 +455,13 @@ async def get_team_spiele(
     )
 
     def served(spiel: Mapping[str, Any]) -> dict[str, Any]:
-        spielbestaetigung = _spielbestaetigung_of(spiel, team_id=team_id, vereine=vereine, now=now)
+        spielbestaetigung = _spielbestaetigung_of(spiel, team_id=team_id, vereine=vereine, now=germany_now)
 
         return {
             **spiel,
             **matchday_of(spiel),
             "spielbestaetigung": None if spielbestaetigung is None else spielbestaetigung.state,
-            "aufstellung": _marks_of(spiel, now),
+            "aufstellung": _marks_of(spiel, germany_now),
         }
 
     return FLTeamSpieleResponse(

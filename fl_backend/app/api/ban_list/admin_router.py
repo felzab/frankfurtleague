@@ -95,7 +95,7 @@ async def post_ban_list_entry(
     outbox_collection: OutboxCollection,
     db: DBClient,
     today: GermanDay,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLPostBanListEntryResponse:
     """Ban an address: it cannot sign in, and no mail leaves for it but the ban's own notice, sent where `notify` is set.
 
@@ -141,7 +141,7 @@ async def post_ban_list_entry(
                         data=FLBanData(kind="ban", ban_reason=ban_list_data.ban_reason, barred_until_saison_id=barred_until_saison_id),
                     )
                 ],
-                now=now,
+                now=germany_now,
             )
 
         return created

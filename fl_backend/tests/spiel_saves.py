@@ -249,7 +249,7 @@ async def call_patch(
         db=client,
         **wired(patch_spiel, database, **{name: handle for name, handle in replaced.items() if handle is not None}),
         adopts_bericht=adopts_bericht,
-        now=ADOPTED_AT if now is None else now,
+        germany_now=ADOPTED_AT if now is None else now,
         dry_run=dry_run,
     )
 

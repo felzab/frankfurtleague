@@ -220,7 +220,7 @@ async def press_answer(
         spieltage_collection=either(database, Collection.SPIELTAGE, spieltage),
         records=record_collections(database),
         db=client,
-        now=now,
+        germany_now=now,
     )
 
 
@@ -491,7 +491,7 @@ async def enter(database: AsyncDatabase, client: AsyncMongoClient, row_id: Objec
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         db=client,
         today=TODAY,
-        now=NOW,
+        germany_now=NOW,
     )
 
 
@@ -505,7 +505,7 @@ async def discard_row(
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         outbox_collection=database[Collection.OUTBOX],
         db=client,
-        now=NOW,
+        germany_now=NOW,
     )
 
 
@@ -729,7 +729,7 @@ async def adopt(
         aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
         db=client,
         today=today,
-        now=MAIL_NOW,
+        germany_now=MAIL_NOW,
     )
 
 
@@ -877,7 +877,7 @@ class TestTheQueueListsASpielItsConfirmationsPutThere:
                 teams_collection=database[Collection.TEAMS],
                 spielorte_collection=database[Collection.SPIELORTE],
                 schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                now=noon(today),
+                germany_now=noon(today),
             )
 
             return {
@@ -988,7 +988,7 @@ class TestADiscardAndASeatHoldersErasureCross:
                 saison_teams_collection=database[Collection.SAISON_TEAMS],
                 outbox_collection=database[Collection.OUTBOX],
                 db=client,
-                now=NOW,
+                germany_now=NOW,
             )
             confirmations.assert_landed_inside(serially=0)
             told = await database[Collection.OUTBOX].find({"kind": "spiel_vorschlag_discarded"}, {"to": 1, "_id": 0}).to_list()
@@ -1095,7 +1095,7 @@ async def einsatz_answer(
         saisons_collection=database[Collection.SAISONS],
         records=record_collections(database),
         db=client,
-        now=now,
+        germany_now=now,
     )
 
 
@@ -1222,7 +1222,7 @@ async def save(
         spielberichte_collection=database[Collection.SPIELBERICHTE],
         aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        now=NOW,
+        germany_now=NOW,
         dry_run=dry_run,
     )
 

@@ -37,7 +37,7 @@ async def get_aufstellung(
     spieler_collection: SpielerReadCollection,
     aufstellungen_collection: AufstellungenReadCollection,
     session: SnapshotSession,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLAufstellungResponse:
     """The line-up screen of one club for one fixture, as the club's own seat holders read it."""
 
@@ -51,7 +51,7 @@ async def get_aufstellung(
             spieler=spieler_collection,
             aufstellungen=aufstellungen_collection,
         ),
-        now=now,
+        now=germany_now,
         session=session,
     )
 
@@ -72,7 +72,7 @@ async def put_aufstellung(
     spieler_collection: SpielerCollection,
     aufstellungen_collection: AufstellungenCollection,
     db: DBClient,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLAufstellungResponse:
     """Save the whole line-up of one club for one fixture at any time, the hour before kick-off included.
 
@@ -94,7 +94,7 @@ async def put_aufstellung(
         saisons_collection=saisons_collection,
         spieler_collection=spieler_collection,
         db=db,
-        now=now,
+        now=germany_now,
     )
 
     # RFC 9110's PUT: a save creating the line-up says so.

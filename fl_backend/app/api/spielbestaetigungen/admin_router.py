@@ -82,7 +82,7 @@ async def enter_spielbestaetigung(
     saison_teams_collection: SaisonTeamsCollection,
     db: DBClient,
     today: GermanDay,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> None:
     """Record that the party of an open confirmation agreed to its Ansetzung elsewhere than signed in, the reason saying how.
 
@@ -101,7 +101,7 @@ async def enter_spielbestaetigung(
         )
         if state is None:
             raise DocumentNotFoundError()
-        refuse(find_enter_refusal(spielbestaetigung_raw=row, ansetzung_state=state, now=now))
+        refuse(find_enter_refusal(spielbestaetigung_raw=row, ansetzung_state=state, now=germany_now))
 
     async def settle_for_the_party(session: AsyncClientSession) -> Mapping[str, Any]:
         row = await pull_one_from_db(
@@ -156,7 +156,7 @@ async def discard_spielbestaetigung(
     saison_teams_collection: SaisonTeamsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> None:
     """Close a club's open decline proposing another date, which then stands as that club's one answer to this Ansetzung.
 
@@ -184,7 +184,7 @@ async def discard_spielbestaetigung(
             session=session,
         )
         state = AnsetzungState(spiel=found[0], vereine=vereine)
-        refuse(find_discard_refusal(spielbestaetigung_raw=row, ansetzung_state=state, now=now))
+        refuse(find_discard_refusal(spielbestaetigung_raw=row, ansetzung_state=state, now=germany_now))
         # A save moving the match writes the fixture, and a club's exit every fixture of its season, so either landing
         # beside this write conflicts with it and the retry judges the fixture it left, rather than the club being told
         # that a slot stands which the match has left.
@@ -221,7 +221,7 @@ async def discard_spielbestaetigung(
         if mails:
             # A seat emptied or an address moved beside this write conflicts with it rather than leaving the old mailbox told.
             await anchor_the_mailboxes_told(saison_teams_collection=saison_teams_collection, saison_team_ids=[verein["_id"]], session=session)
-        await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=mails, now=now)
+        await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=mails, now=germany_now)
 
         return discarded
 
@@ -248,7 +248,7 @@ async def adopt_spielbestaetigung(
     aufstellungen_collection: AufstellungenCollection,
     db: DBClient,
     today: GermanDay,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> None:
     """Move a fixture to the date and hour a club's open decline proposes, through the fixture's own save and refused as it is.
 
@@ -285,7 +285,7 @@ async def adopt_spielbestaetigung(
         )
         if state is None:
             raise DocumentNotFoundError()
-        refuse(find_adoption_refusal(spielbestaetigung_raw=row, ansetzung_state=state, now=now))
+        refuse(find_adoption_refusal(spielbestaetigung_raw=row, ansetzung_state=state, now=germany_now))
         vorschlag = FLSpielbestaetigungAppointment.model_validate(row["answer"]["vorschlag"])
         refuse(as_judged_on_stored_state(find_vorschlag_past_refusal(vorschlag=vorschlag, today=today), twins=ADOPTION_TWINS))
 
@@ -298,7 +298,7 @@ async def adopt_spielbestaetigung(
                 payload=proposal_payload(FLSpiel.model_validate(state.spiel), vorschlag),
                 collections=collections,
                 adopts_bericht=None,
-                now=now,
+                now=germany_now,
                 act="spielbestaetigung.vorschlag_adopted",
                 session=session,
             )

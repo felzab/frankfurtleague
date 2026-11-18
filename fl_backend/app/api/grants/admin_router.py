@@ -77,7 +77,7 @@ async def post_grant(
     outbox_collection: OutboxCollection,
     db: DBClient,
     operator: ActorEmail,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLGrantWriteResponse:
     """Add an address as `administration`, holding once its wait has passed; only the owner adds one, and no request grants `owner`.
 
@@ -103,7 +103,7 @@ async def post_grant(
                 address_changes_collection=address_changes_collection,
                 db_filter={"_id": live["_id"]},
                 kind="discarded",
-                now=now,
+                now=germany_now,
                 session=session,
             )
 
@@ -111,7 +111,7 @@ async def post_grant(
             address=address,
             grants_collection=grants_collection,
             outbox_collection=outbox_collection,
-            now=now,
+            now=germany_now,
             session=session,
         )
 
@@ -128,7 +128,7 @@ async def delete_grant(
     outbox_collection: OutboxCollection,
     db: DBClient,
     operator: ActorEmail,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLGrantWriteResponse:
     """Remove a grant for good, its address losing access on its next request, or withdraw an addition still waiting.
 
@@ -154,7 +154,7 @@ async def delete_grant(
             grant=grant,
             grants_collection=grants_collection,
             outbox_collection=outbox_collection,
-            now=now,
+            now=germany_now,
             session=session,
         )
 
@@ -172,7 +172,7 @@ async def post_handover(
     outbox_collection: OutboxCollection,
     db: DBClient,
     operator: ActorEmail,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLGrantWriteResponse:
     """Start handing the owner role to an administrator in effect, completing once its wait has passed; the owner stays the owner until then.
 
@@ -190,7 +190,7 @@ async def post_handover(
             raise DocumentNotFoundError()
 
         refuse(find_owner_row_refusal(grant=grant))
-        refuse(find_handover_refusal(grant=grant, grants=grants, now=now))
+        refuse(find_handover_refusal(grant=grant, grants=grants, now=germany_now))
         refuse(
             find_barred_refusal(
                 barred=await address_is_barred(ban_list_collection=ban_list_collection, address=str(grant["address"]), session=session)
@@ -200,7 +200,7 @@ async def post_handover(
             grant,
             grants_collection=grants_collection,
             outbox_collection=outbox_collection,
-            now=now,
+            now=germany_now,
             session=session,
         )
 
@@ -217,7 +217,7 @@ async def delete_handover(
     outbox_collection: OutboxCollection,
     db: DBClient,
     operator: ActorEmail,
-    now: GermanyNow,
+    germany_now: GermanyNow,
 ) -> FLGrantWriteResponse:
     """Stop a waiting handover, the role staying with the owner; only the owner stops one, and every holder in effect is told."""
 
@@ -235,7 +235,7 @@ async def delete_handover(
             grant,
             grants_collection=grants_collection,
             outbox_collection=outbox_collection,
-            now=now,
+            now=germany_now,
             session=session,
         )
 
