@@ -750,6 +750,12 @@ class TestTheDryRunNamesWhomThePassWouldMail:
         await database[Collection.SPIELBESTAETIGUNGEN].insert_many(
             [documents.spielbestaetigung_document(filling, party=party, asked_at="2026-03-01") for party in parties]
         )
+        # Each club through a confirmed seat, as the pass mails a club: one holding none is told nothing.
+        for team_id, first_name in ((GAMMA, "Gisela"), (DELTA, "Dario")):
+            seat = documents.kontaktperson_document(first_name, confirmed_at="2026-03-01")
+            await database[Collection.SAISON_TEAMS].update_one(
+                {"team_id": team_id}, {"$set": {"kontakte": documents.kontakte_document(trainer=seat)}}
+            )
 
     @staticmethod
     def fixtures() -> list[dict[str, Any]]:

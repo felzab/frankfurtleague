@@ -1291,6 +1291,19 @@ class TestTheDryRunNamesWhomTheSaveHasThePassMail:
         assert sorted((party.model_dump() for party in recipients), key=str) == sorted(told, key=str)
         assert time == TIME, "the dry run wrote the fixture"
 
+    async def test_a_club_holding_no_confirmed_seat_is_not_named(self, mongo_replica_set_url: str):
+        """The pass mails a club through its confirmed seats alone: named here, the question would promise a mail never sent."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SAISON_TEAMS].update_one({"team_id": TEAM2}, {"$set": {"kontakte": documents.kontakte_document()}})
+            preview = await save(database, client, await spiel_now(database), dry_run=True, time="19:30:00")
+
+            return preview.recipients
+
+        recipients = await on_a_refereed_spiel(mongo_replica_set_url, body)
+
+        assert sorted((party.model_dump() for party in recipients), key=str) == sorted([TEAM1_PARTY, OTTOS], key=str)
+
     async def test_a_party_no_read_of_the_editor_holds_is_named_by_its_own_record(self, mongo_replica_set_url: str):
         """A referee no list of the editor holds is still named in the question naming the save's mails.
 

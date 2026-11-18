@@ -1006,7 +1006,7 @@ def parties_told_of_the_change(
     The clubs' exits as they stand and as the act leaves them, the same mapping twice where the act records none.
     Judged by the close's own rules (`reason_to_close`, `notice_owed`), so the page naming whom an act mails and the
     pass mailing them cannot disagree; a row the close ends as the fixture stands is no mail of the change. Whether a
-    party is reached is the pass's: a club with no seat holding an address, or a referee with none, is told nothing.
+    club is reached is its seats', which `parties_mailed` judges.
     """
 
     told: list[Mapping[str, Any]] = []
@@ -1018,6 +1018,16 @@ def parties_told_of_the_change(
             told.append(row["party"])
 
     return told
+
+
+def parties_mailed(parties: Iterable[Mapping[str, Any]], *, kontakte: Mapping[Any, Any]) -> list[Mapping[str, Any]]:
+    """Those of `parties` a notice reaches, as `team_mails` sends it; `kontakte` maps each club to its seats as they stand.
+
+    A referee always, every record holding an address; a club only through a confirmed seat, so a page naming whom an
+    act mails names no club the pass mails nothing. Still a forecast: the pass reads the seats as they stand when it runs.
+    """
+
+    return [party for party in parties if party["kind"] != "team" or confirmed_recipients(kontakte=kontakte.get(party["team_id"]))]
 
 
 def spiel_mail_appointment_of(*, spielbestaetigung_raw: Mapping[str, Any], names: tuple[str, str]) -> FLSpielMailAppointment:
