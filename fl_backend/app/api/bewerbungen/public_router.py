@@ -17,6 +17,7 @@ from app.api.bewerbungen.schemas import (
 from app.api.bewerbungen.services import (
     EINWILLIGUNG_ANSWER_FIELDS,
     EINWILLIGUNG_VIEW_FIELDS,
+    FORM_WINDOW_FIELDS,
     OPEN_LINK_FIELDS,
     SAISON_EINWILLIGUNG_ANSWER_FIELDS,
     SAISON_EINWILLIGUNG_FIELDS,
@@ -50,6 +51,7 @@ from app.api.bewerbungen.services import (
     minimum_age_for,
     objection_is_announced,
     open_links_on,
+    outbox_key,
     owed_at_submission,
     paired_seat,
     saison_link_pair,
@@ -114,14 +116,6 @@ from app.shared.tokens import hash_token
 # below carries a person's details. The confirmation link's two endpoints are base-tier too: its token is the whole
 # credential, as a sign-in code is.
 router = APIRouter(prefix="/bewerbungen", dependencies=BASE_TIER)
-
-
-# The state a submission arrives in, and the only one it may arrive in: the other two are the triage's.
-SUBMITTED = "submitted"
-
-# What a season read takes on this tier: the window, and the status judging it, served only as whether it ended. A
-# `future` season is otherwise withheld from this tier, one taking applications included; its carve-out is this much.
-WINDOW_PROJECTION = ["bewerbung", "status"]
 
 
 @router.get("/saisons/{saison_id}/form", summary="What one Saison's application form shows")
@@ -222,7 +216,7 @@ async def post_bewerbung(
         # The season first, so a submission arriving after the deadline is refused before anything about
         # the applicant is looked up.
         saison_raw = await pull_one_from_db(
-            collection=saisons_collection, db_filter={"_id": bewerbung_data.saison_id}, projection=WINDOW_PROJECTION, session=session
+            collection=saisons_collection, db_filter={"_id": bewerbung_data.saison_id}, projection=FORM_WINDOW_FIELDS, session=session
         )
         refuse(find_window_refusal(saison_status=saison_raw["status"], bewerbung=saison_raw.get("bewerbung"), today=today))
 
@@ -268,7 +262,7 @@ async def post_bewerbung(
             document={
                 "saison_id": bewerbung_data.saison_id,
                 "submitted_at": today,
-                "status": SUBMITTED,
+                "status": "submitted",
                 # Written explicitly, both of them: the record model requires each key, so an omitted
                 # one is a document the read-back refuses rather than a stored null.
                 "team_id": bewerbung_data.team_id,
@@ -612,7 +606,7 @@ async def post_confirmation(
                 mails=[
                     OwedMail(
                         # The press's instant: a seat refilled since a Widerspruch owes a notice of its own, and a retry keeps this one.
-                        key=f"{Collection.BEWERBUNGEN}/{bewerbung_raw['_id']}/objection/{seat}/{at}",
+                        key=outbox_key(bewerbung_raw["_id"], "objection", seat, at),
                         to=declined_email,
                         data=FLBewerbungObjectionData(
                             kind="bewerbung_objection",

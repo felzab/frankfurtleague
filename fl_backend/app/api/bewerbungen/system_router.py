@@ -19,6 +19,7 @@ from app.api.bewerbungen.services import (
     deletion_is_due,
     lapsed_seats,
     next_saison_id,
+    outbox_key,
     owed_deletion_notices,
     owed_link,
     people_with_address,
@@ -269,7 +270,7 @@ async def sweep_saison(
                     # The deadline the seat's last mail gave; a reminder does not move it.
                     deadline=str(row["confirmations"][seats[0]]["deadline"]),
                     # The day too: a re-send clears the stamp, and the seat's next reminder is a mail of its own.
-                    key=f"{Collection.BEWERBUNGEN}/{row['_id']}/reminder/{seats[0]}/{today}",
+                    key=outbox_key(row["_id"], "reminder", seats[0], today),
                 )
                 for _, seats in people_of[row["_id"]]
             ]

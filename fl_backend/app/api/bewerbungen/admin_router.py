@@ -45,6 +45,7 @@ from app.api.bewerbungen.services import (
     find_unconfirmed_kontakte_refusal,
     is_duplicate,
     mailed_seats,
+    outbox_key,
     owed_link,
     paired_seat,
     parse_new_team,
@@ -249,10 +250,6 @@ async def _schule_text(*, bewerbung_raw: Mapping[str, Any], teams_collection: As
     return str((team or {}).get("name") or "")
 
 
-def _key(bewerbung_id: Any, *parts: str) -> str:
-    return "/".join([str(Collection.BEWERBUNGEN), str(bewerbung_id), *parts])
-
-
 # One application a call, the bulk accept calling it once per card, so a refusal lands on its card and nothing already
 # done is undone: one request over a season's applications would outrun `REQUEST_DEADLINE_S`.
 @router.post(
@@ -399,7 +396,7 @@ async def accept_bewerbung(
             session=session,
             mails=[
                 OwedMail(
-                    key=_key(bewerbung_id, "zusage", seats[0]),
+                    key=outbox_key(bewerbung_id, "zusage", seats[0]),
                     to=email,
                     data=FLBewerbungZusageData(
                         kind="bewerbung_zusage",
@@ -467,7 +464,7 @@ async def decline_bewerbung(
             session=session,
             mails=[
                 OwedMail(
-                    key=_key(bewerbung_id, "absage", seats[0]),
+                    key=outbox_key(bewerbung_id, "absage", seats[0]),
                     to=email,
                     data=FLBewerbungAbsageData(
                         kind="bewerbung_absage",
@@ -568,7 +565,7 @@ async def resend_kontakt_confirmation(
                         saison_id=str(matched["saison_id"]),
                         schule=await _schule_text(bewerbung_raw=matched, teams_collection=teams_collection, session=session),
                         deadline=confirmation_deadline,
-                        key=_key(bewerbung_id, "resend", seats[0], nonce),
+                        key=outbox_key(bewerbung_id, "resend", seats[0], nonce),
                     )
                 ],
                 now=germany_now,
@@ -674,7 +671,7 @@ async def post_kontakt_seat(
                     saison_id=str(bewerbung_raw["saison_id"]),
                     schule=schule,
                     deadline=confirmation_deadline,
-                    key=_key(bewerbung_id, "seat", seats[0], nonce),
+                    key=outbox_key(bewerbung_id, "seat", seats[0], nonce),
                 )
             ],
             now=germany_now,

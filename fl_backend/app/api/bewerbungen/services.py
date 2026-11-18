@@ -38,7 +38,7 @@ from app.shared.schemas.bounds import (
     SAISON_ID_LENGTH,
     SIGNATORY_MIN_AGE_YEARS,
 )
-from app.shared.schemas.literals import KONTAKT_SEATS, FLKontaktSeat, FLTrikotFarbe
+from app.shared.schemas.literals import KONTAKT_SEATS, FLKontaktKenntnisnahmeScope, FLKontaktSeat, FLTrikotFarbe
 
 
 def find_triage_refusal(*, status: str) -> APIError | None:
@@ -250,10 +250,6 @@ def compose_kontakte(*, kontakte: Mapping[str, Any], today: str) -> dict[str, An
     composed["trainer_is_also"] = kontakte["trainer_is_also"]
 
     return composed
-
-
-KONTAKT_SCOPE = "kontakt_data"
-KONTAKT_SCOPE_WHATSAPP = "kontakt_data_whatsapp"
 
 
 def confirmation_deadline_from(*, today: str) -> str:
@@ -689,6 +685,7 @@ def compose_confirmation_update(
     (`leaving_moves_the_deletion_day`).
     """
 
+    scope: FLKontaktKenntnisnahmeScope = "kontakt_data_whatsapp" if whatsapp else "kontakt_data"
     written: dict[str, Any] = {}
     for seat in seats:
         path = f"kontakte.{seat}.einwilligung"
@@ -700,7 +697,7 @@ def compose_confirmation_update(
             compose_choices(
                 path=path,
                 saved=kontakte[seat]["einwilligung"],
-                set_fields={"scope": KONTAKT_SCOPE_WHATSAPP if whatsapp else KONTAKT_SCOPE, "media": media},
+                set_fields={"scope": scope, "media": media},
                 at=at,
                 text_versions=text_versions,
             )
@@ -1272,6 +1269,15 @@ def schule_name(*, bewerbung_raw: Mapping[str, Any], team_names: Mapping[Any, st
     return team_names.get(bewerbung_raw.get("team_id"), "")
 
 
+def outbox_key(bewerbung_id: Any, *parts: str) -> str:
+    """The key a mail about this application is owed under, the hand-out's idempotency key once stored.
+
+    One spelling for every kind, since a key spelt otherwise after a deploy owes a stored mail a second time.
+    """
+
+    return "/".join([str(Collection.BEWERBUNGEN), str(bewerbung_id), *parts])
+
+
 def bewerbung_link(seats: Sequence[str], *, replaced: bool) -> FLOutboxLink:
     """Where one person's mailed link lives on the application, and the addresses it is minted for while they still stand.
 
@@ -1344,7 +1350,6 @@ def owed_at_submission(
 
     mails: list[OwedMail] = []
     for email, seats in people_with_address(kontakte=kontakte, seats=[seat for seat in KONTAKT_SEATS if seat not in unmailed]):
-        stem = f"{Collection.BEWERBUNGEN}/{bewerbung_id}"
         if "ansprechperson" not in seats:
             mails.append(
                 owed_link(
@@ -1354,14 +1359,14 @@ def owed_at_submission(
                     saison_id=saison_id,
                     schule=schule,
                     deadline=deadline,
-                    key=f"{stem}/confirmation/{seats[0]}",
+                    key=outbox_key(bewerbung_id, "confirmation", seats[0]),
                 )
             )
             continue
         others: list[FLKontaktSeat] = [seat for seat in KONTAKT_SEATS if seat not in seats]
         mails.append(
             OwedMail(
-                key=f"{stem}/received",
+                key=outbox_key(bewerbung_id, "received"),
                 to=email,
                 data=FLBewerbungReceivedData(
                     kind="bewerbung_received",
@@ -1394,7 +1399,7 @@ def owed_deletion_notices(*, bewerbung_raw: Mapping[str, Any], saison_id: str) -
 
     return [
         OwedMail(
-            key=f"{Collection.BEWERBUNGEN}/{bewerbung_raw['_id']}/deletion/{seats[0]}",
+            key=outbox_key(bewerbung_raw["_id"], "deletion", seats[0]),
             to=email,
             data=FLDeletionNoticeData(kind="deletion_notice", saison_id=saison_id),
         )
@@ -1417,6 +1422,12 @@ def assigned_trikot_farben(*, stored: Sequence[Any]) -> list[FLTrikotFarbe]:
     return [colour for colour in get_args(FLTrikotFarbe.__value__) if colour in held]
 
 
+# What a season read takes on this tier: the window, and the status judging it, served only as whether it ended. A
+# `future` season is otherwise withheld from this tier, one taking applications included; its carve-out is this much,
+# for the form's page and the submission alike.
+FORM_WINDOW_FIELDS: Mapping[str, int] = {"bewerbung": 1, "status": 1}
+
+
 def build_form_pipeline(*, saison_id: str) -> list[Mapping[str, Any]]:
     """What the form's page needs from one aggregation over the season's row, the window's carve-out at this tier.
 
@@ -1425,7 +1436,7 @@ def build_form_pipeline(*, saison_id: str) -> list[Mapping[str, Any]]:
 
     return [
         {"$match": {"_id": saison_id}},
-        {"$project": {"bewerbung": 1, "status": 1}},
+        {"$project": FORM_WINDOW_FIELDS},
         {
             "$lookup": {
                 "from": Collection.SAISON_TEAMS,
