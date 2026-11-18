@@ -60,7 +60,7 @@ from app.api.spiele.services import (
 )
 from app.core import clock
 from app.core.codes import Code
-from app.core.exceptions import WriteRefusal
+from app.core.exceptions import APIError
 from tests import documents
 from tests.isolation import refused_code
 from tests.payloads import PayloadFactory, sieger, spiel_patch_body
@@ -181,9 +181,7 @@ def payload_for(saison_docs: list[dict[str, Any]], nr: int, **overrides: Any) ->
     return FLPatchSpielDataPayload.model_validate(spiel_patch_body(stored, **overrides))
 
 
-def eligibility_refusal_for(
-    saison_docs: list[dict[str, Any]], nr: int, membership: dict[str, str | None], **overrides: Any
-) -> WriteRefusal | None:
+def eligibility_refusal_for(saison_docs: list[dict[str, Any]], nr: int, membership: dict[str, str | None], **overrides: Any) -> APIError | None:
     """`membership` maps a club to the day it is disqualified from, or `None` while it competes — `pull_saison_membership`'s rows, keyed."""
 
     stored = stored_spiel(saison_docs, nr)
@@ -414,7 +412,7 @@ class TestComposingTheBookings:
         assert patched.spielort is None and patched.schiedsrichter is None
 
 
-def booking_refusal(saison_docs: list[dict[str, Any]], nr: int, resolved: ResolvedReferences, **overrides: Any) -> WriteRefusal | None:
+def booking_refusal(saison_docs: list[dict[str, Any]], nr: int, resolved: ResolvedReferences, **overrides: Any) -> APIError | None:
     stored = stored_spiel(saison_docs, nr)
 
     return find_booking_refusal(
@@ -1004,7 +1002,7 @@ def advancement(
     )
 
 
-def advancement_refusal(saison_docs: list[dict[str, Any]], *advancements: SlotAdvancement) -> WriteRefusal | None:
+def advancement_refusal(saison_docs: list[dict[str, Any]], *advancements: SlotAdvancement) -> APIError | None:
     return find_advancement_occupancy_refusal(FLSpielListAdapter.validate_python(saison_docs), list(advancements))
 
 
@@ -1224,7 +1222,7 @@ class TestRemovingATeamFromAPlayedSpiel:
         assert self.removal(saison, 2, team2=None) == Code.ERGEBNIS_SIDE_EMPTIED
 
 
-def state_refusal_for(saison_docs: list[dict[str, Any]], nr: int, **overrides: Any) -> WriteRefusal | None:
+def state_refusal_for(saison_docs: list[dict[str, Any]], nr: int, **overrides: Any) -> APIError | None:
     """`find_state_refusal` reads the payload alone — the event and the two goal counts arrive in one body."""
 
     return find_state_refusal(payload_for(saison_docs, nr, **overrides))
@@ -1443,7 +1441,7 @@ def _holders_of(spiele: list[FLSpielJoinedAdmin]) -> list[FLSpielSlotHolder]:
     return [FLSpielSlotHolder.model_validate(spiel.model_dump(by_alias=False) | {"_id": spiel.id}) for spiel in spiele]
 
 
-def _clash_refusal_of(stored: FLSpielJoinedAdmin, holders: list[FLSpielSlotHolder], **changes: Any) -> WriteRefusal | None:
+def _clash_refusal_of(stored: FLSpielJoinedAdmin, holders: list[FLSpielSlotHolder], **changes: Any) -> APIError | None:
     """`spiel_double_booked` on a save of `stored` changing `changes`, judged over the claims it makes as `judge` judges them."""
 
     payload = payload_for([stored.model_dump()], stored.spiel_nr).model_copy(update=changes)

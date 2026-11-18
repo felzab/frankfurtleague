@@ -47,17 +47,12 @@ describe("a start, an account standing at the new address", () => {
     expect(requestsSent()).toStrictEqual([]);
   });
 
-  it.each(["address_change_taken", "address_change_occupied"] as const)("is refused by the backend's %s in the same sentence", async (code) => {
-    // The backend names the new address's box, as its `find_taken_refusal` and `find_occupied_refusal` do.
-    backend.answerWith(({ method, path }) =>
-      method === "POST" && path === "/address_change"
-        ? refusal(code, { fields: [{ path: ["email"], kind: code, ctx: {}, in: "body" }] })
-        : undefined,
-    );
+  it("is refused by the backend's address_change_taken in the same sentence", async () => {
+    backend.answerWith(({ method, path }) => (method === "POST" && path === "/address_change" ? refusal("address_change_taken") : undefined));
 
     expect(await startLostMailboxChange(START)).toStrictEqual({
       ok: false,
-      errorCode: code,
+      errorCode: "address_change_taken",
       reason: SERVER_COPY.refusalLine.address_change_taken,
     });
     expect(backend.sent.map(({ body }) => body)).toStrictEqual([{ address: START.address, email: NEW_ADDRESS }]);
@@ -66,14 +61,32 @@ describe("a start, an account standing at the new address", () => {
 
 // The re-mint kills the earlier link, so a fresh one refused at its press costs the person the one that worked.
 describe("a re-send, an account standing at the new address", () => {
-  it("is refused in the re-send's own sentence, and nothing is posted", async () => {
+  it("is refused in the start's sentence, and nothing is posted", async () => {
     accountAt(NEW_ADDRESS);
 
     expect(await resendChangeLink({ address_change_id: ID, holder: ADMIN_EMAIL })).toMatchObject({
       ok: false,
-      reason: SERVER_COPY.refusalLine.address_change_new_taken,
+      reason: SERVER_COPY.refusalLine.address_change_taken,
     });
     // The new address's read alone: no re-mint.
     expect(requestsSent()).toStrictEqual(["POST /address_change/address"]);
+  });
+});
+
+// The backend's answer when another person's records came to stand at the new address since the start.
+describe("a re-send, the new address someone's", () => {
+  it("is refused by the backend's address_change_taken in the start's sentence", async () => {
+    backend.answerWith(({ method, path, body }) => {
+      if (method === "POST" && path === "/address_change/address" && (body as FLAddressChangeAddressPayload).address_change_id === ID) {
+        return { email: NEW_ADDRESS } satisfies FLAddressChangeAddressResponse;
+      }
+      return method === "POST" && path === `/address_change/${ID}/invite` ? refusal("address_change_taken") : undefined;
+    });
+
+    expect(await resendChangeLink({ address_change_id: ID, holder: ADMIN_EMAIL })).toStrictEqual({
+      ok: false,
+      errorCode: "address_change_taken",
+      reason: SERVER_COPY.refusalLine.address_change_taken,
+    });
   });
 });

@@ -122,7 +122,7 @@ from app.core.dependencies import (
     SpieltageReadCollection,
     TeamsReadCollection,
 )
-from app.core.exceptions import WriteRefusal
+from app.core.exceptions import APIError
 from app.core.logging import fl_logger
 from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_SYSTEM, record_act
@@ -295,7 +295,7 @@ async def get_saison_admin(
         )
     )
 
-    def code_of(refusal: WriteRefusal | None) -> Code | None:
+    def code_of(refusal: APIError | None) -> Code | None:
         return None if refusal is None else refusal.error_code
 
     entered = {row["team_id"] for row in rows}
@@ -313,7 +313,7 @@ async def get_saison_admin(
     for row in rows:
         occupancy[row["gruppe"]] = occupancy.get(row["gruppe"], 0) + 1
 
-    def draw_refusal(*, replace: bool) -> WriteRefusal | None:
+    def draw_refusal(*, replace: bool) -> APIError | None:
         return find_spielplan_refusal(
             saison_status=saison_status,
             spiele_drawn=len(recorded_rows),
@@ -590,7 +590,7 @@ async def _judge_the_activation(
     spiele_collection: ReadCollection,
     spieltage_collection: ReadCollection,
     session: AsyncClientSession | None,
-) -> tuple[list[Any], WriteRefusal | None]:
+) -> tuple[list[Any], APIError | None]:
     """The seasons activating this one would close, and why it must be refused, or `None`.
 
     Read by the activation in its transaction and by the editor's read outside one, so the act the editor offers is the act
@@ -659,7 +659,7 @@ async def _pull_recorded_fact_rows(
     )
 
 
-def _find_undraw_refusal_of(*, saison_status: str, recorded_spiele: int, berichte: int) -> WriteRefusal | None:
+def _find_undraw_refusal_of(*, saison_status: str, recorded_spiele: int, berichte: int) -> APIError | None:
     """The undraw's whole judgement, in its order: its window, then the reports it would delete."""
 
     return find_undraw_refusal(saison_status=saison_status, recorded_spiele=recorded_spiele) or find_berichte_refusal(berichte=berichte)

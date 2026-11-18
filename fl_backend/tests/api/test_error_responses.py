@@ -26,7 +26,7 @@ from tests.core.app_source import application
 
 def client() -> TestClient:
     # No context manager, so the lifespan must not run: a client that never opens the database makes
-    # the first guarded read raise a real `no_database_client` rather than a hand-mocked exception.
+    # the first guarded read fail on the missing client, a real 500 `unhandled_crash` rather than a hand-mocked exception.
     return TestClient(application(), raise_server_exceptions=False)
 
 
@@ -61,7 +61,7 @@ class NestedPayload(BaseModel):
     names: list[NamePayload]
 
 
-# A second app: `client()`'s routes all 503 on the database dependency before parsing can fail, so a
+# A second app: `client()`'s routes all fail on the database dependency before parsing can fail, so a
 # payload refusal needs a route that depends on nothing, and so does a success that writes its access line.
 VALIDATION_APP = create_shell()
 ANSWERED_PATH = "/answered"

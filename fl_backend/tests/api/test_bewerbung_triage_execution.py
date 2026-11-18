@@ -1258,7 +1258,7 @@ class TestCorrectingOneContactAddress:
         # The new address is nobody's to find in the log.
         assert CORRECTED_EMAIL not in str(rows)
 
-    @pytest.mark.parametrize(("field", "taken"), [("email", Code.BEWERBUNG_KONTAKT_EMAIL_TAKEN), ("phone", Code.BEWERBUNG_KONTAKT_PHONE_TAKEN)])
+    @pytest.mark.parametrize(("field", "taken"), [("email", Code.KONTAKT_EMAIL_TAKEN), ("phone", Code.KONTAKT_PHONE_TAKEN)])
     async def test_a_detail_another_contact_person_holds_is_refused_and_nothing_is_written(
         self, mongo_replica_set_url: str, field: str, taken: Code
     ):

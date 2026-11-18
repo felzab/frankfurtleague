@@ -16,7 +16,6 @@ class Code(StrEnum):
     # A save carrying the `version` its form was read at, which another write has since raised: the record changed since it
     # was opened, a removal included.
     VERSION_STALE = auto()
-    NO_DATABASE_CLIENT = auto()
     DATABASE_FAILED = auto()
     # A write that may stand: its own code, because a page told "failed" sends the person to repeat a
     # write that is already there.
@@ -44,15 +43,12 @@ class Code(StrEnum):
     # A link whose deadline passed, or whose application was decided: either spends it for good, a re-send minting
     # another token.
     LINK_EXPIRED = auto()
+    # The new address is a pupil's, an entry's or a grant's, which the start, the re-send and the press answer alike.
     ADDRESS_CHANGE_TAKEN = auto()
-    # A re-send's: its page holds no box for `address_change_taken` or `address_change_occupied` to mark.
-    ADDRESS_CHANGE_NEW_TAKEN = auto()
     ADDRESS_CHANGE_UNCHANGED = auto()
     # A 429: a person's own start pressed again inside the interval its last mail stands for.
     ADDRESS_CHANGE_STARTED_RECENTLY = auto()
     ADDRESS_CHANGE_NOTHING = auto()
-    ADDRESS_CHANGE_NEW_GRANTED = auto()
-    ADDRESS_CHANGE_OCCUPIED = auto()
     ANSETZUNG_ANSWERED = auto()
     ANSETZUNG_DEADLINE_PAST = auto()
     ANSETZUNG_CHANGED = auto()
@@ -103,8 +99,6 @@ class Code(StrEnum):
     BEWERBUNG_SEAT_ALREADY_ANSWERED = auto()
     CONFIRMATION_AGE = auto()
     BEWERBUNG_KONTAKTE_UNCONFIRMED = auto()
-    BEWERBUNG_KONTAKT_EMAIL_TAKEN = auto()
-    BEWERBUNG_KONTAKT_PHONE_TAKEN = auto()
     BEWERBUNG_KONTAKT_REPEATED = auto()
     TRIKOT_FARBE_TAKEN = auto()
     # Judged on a reference the save moves, or keeps on a fixture it reopens: `spielort_still_booked` lets a venue
@@ -146,6 +140,8 @@ class Code(StrEnum):
     # One code for every write taking a person's media consent, the account presses and the three
     # confirmations alike, so each page maps one refusal.
     MEDIA_AGE = auto()
+    # A grant on a record that is the person's own and takes a withdrawal alone: its own code, not `role_not_held`'s, since
+    # the record was found and naming the cause hides nothing.
     GIVING_NOT_ALLOWED = auto()
     ELIGIBILITY_DISQUALIFIED = auto()
     # The adoption's twins, one per side: it judges the fixture's stored sides, so no path names which.
@@ -161,6 +157,7 @@ class Code(StrEnum):
     # rather than a 409, whatever the team's own state.
     ROLE_NOT_HELD = auto()
     KONTAKT_SEAT_WITHOUT_CONFIRMATION = auto()
+    # A seat's address or number another seat's person holds, on a season row's seat or an application's alike.
     KONTAKT_EMAIL_TAKEN = auto()
     KONTAKT_PHONE_TAKEN = auto()
     KONTAKT_ROW_WITHOUT_SAISON = auto()
@@ -184,7 +181,6 @@ class Code(StrEnum):
     REGISTRIERUNG_CLOSED = auto()
     REGISTRIERUNG_STUFE_NOT_ALLOWED = auto()
     CONFIRMATION_EXISTS = auto()
-    REGISTRIERUNG_KADER_FULL = auto()
     REGISTRIERUNG_UNCONFIRMED = auto()
     REGISTRIERUNG_PERSON_NOT_NAMED = auto()
     REGISTRIERUNG_ALREADY_IN_KADER = auto()

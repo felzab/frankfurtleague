@@ -32,7 +32,6 @@ export const startLostMailboxChange = action({
     "admin_address",
     "address_change_nothing",
     "address_change_taken",
-    "address_change_occupied",
     "address_change_unchanged",
     "email_not_accepted",
   ],
@@ -61,10 +60,10 @@ export const resendChangeLink = action({
   passkey: true,
   name: "resendChangeLink",
   input: AddressChangeInviteAddressChangeParams.extend(PAGE_HOLDER),
-  ownWords: ["own_address", "admin_address", "address_change_new_taken"],
+  ownWords: ["own_address", "admin_address", "address_change_taken"],
   run: async ({ address_change_id }) => {
     if (await accountAtNewAddress({ address_change_id })) {
-      return { ok: false, errorCode: "address_change_new_taken", reason: SERVER_COPY.refusalLine.address_change_new_taken };
+      return { ok: false, errorCode: "address_change_taken", reason: SERVER_COPY.refusalLine.address_change_taken };
     }
     await addressChangeInviteAddressChange(address_change_id);
     return { ok: true, value: undefined };

@@ -67,7 +67,7 @@ class TestAResultBeforeTheStartIsRefused:
         refusal = judged(stored(), started=False, **overrides)
 
         assert refusal is not None
-        assert (refusal.error_code, refusal.status) == (Code.ERGEBNIS_BEFORE_SAISON_START, HTTPStatus.CONFLICT)
+        assert (refusal.error_code, refusal.status_code) == (Code.ERGEBNIS_BEFORE_SAISON_START, HTTPStatus.CONFLICT)
 
     def test_a_stored_result_changed_is_refused(self):
         """A result from before the rule is no licence to type another over it."""

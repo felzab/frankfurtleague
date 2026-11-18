@@ -1,3 +1,5 @@
+export type Bound = string | number | boolean | number[];
+
 export const CheckIsLiveResponseValue = {
   status: "ok",
 } as const;
@@ -14,7 +16,6 @@ export const Code = {
   document_not_found: "document_not_found",
   duplicate_key: "duplicate_key",
   version_stale: "version_stale",
-  no_database_client: "no_database_client",
   database_failed: "database_failed",
   unknown_outcome: "unknown_outcome",
   activate_saison_unfinished: "activate_saison_unfinished",
@@ -26,12 +27,9 @@ export const Code = {
   address_change_ended: "address_change_ended",
   link_expired: "link_expired",
   address_change_taken: "address_change_taken",
-  address_change_new_taken: "address_change_new_taken",
   address_change_unchanged: "address_change_unchanged",
   address_change_started_recently: "address_change_started_recently",
   address_change_nothing: "address_change_nothing",
-  address_change_new_granted: "address_change_new_granted",
-  address_change_occupied: "address_change_occupied",
   ansetzung_answered: "ansetzung_answered",
   ansetzung_deadline_past: "ansetzung_deadline_past",
   ansetzung_changed: "ansetzung_changed",
@@ -71,8 +69,6 @@ export const Code = {
   bewerbung_seat_already_answered: "bewerbung_seat_already_answered",
   confirmation_age: "confirmation_age",
   bewerbung_kontakte_unconfirmed: "bewerbung_kontakte_unconfirmed",
-  bewerbung_kontakt_email_taken: "bewerbung_kontakt_email_taken",
-  bewerbung_kontakt_phone_taken: "bewerbung_kontakt_phone_taken",
   bewerbung_kontakt_repeated: "bewerbung_kontakt_repeated",
   trikot_farbe_taken: "trikot_farbe_taken",
   booking_unknown_resource: "booking_unknown_resource",
@@ -117,7 +113,6 @@ export const Code = {
   registrierung_closed: "registrierung_closed",
   registrierung_stufe_not_allowed: "registrierung_stufe_not_allowed",
   confirmation_exists: "confirmation_exists",
-  registrierung_kader_full: "registrierung_kader_full",
   registrierung_unconfirmed: "registrierung_unconfirmed",
   registrierung_person_not_named: "registrierung_person_not_named",
   registrierung_already_in_kader: "registrierung_already_in_kader",
@@ -2447,7 +2442,7 @@ export const FLRefusedFieldIn = {
   cookie: "cookie",
 } as const;
 
-export type FLRefusedFieldCtx = { [key: string]: string | number | boolean | number[] };
+export type FLRefusedFieldCtx = { [key: string]: Bound };
 
 export interface FLRefusedField {
   ctx: FLRefusedFieldCtx;

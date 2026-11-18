@@ -31,7 +31,7 @@ export const writeSeat = action({
     phone: shape.phone,
     version: numberBox(shape.version),
   }),
-  ownWords: ["bewerbung_kontakt_email_taken", "bewerbung_kontakt_phone_taken", "email_not_accepted"],
+  ownWords: ["kontakt_email_taken", "kontakt_phone_taken", "email_not_accepted"],
   paths: { email: "email", phone: "phone" },
   examples: {
     first_name: COPY.shared.field.exampleFirstName,

@@ -15,7 +15,7 @@ from app.core import clock
 from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import WriteRefusal
+from app.core.exceptions import APIError
 from app.shared.age import whole_years_between
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_evidence import TextVersions, compose_initial
@@ -44,7 +44,7 @@ def build_unplayed_assignment_filter(schiedsrichter_id: Any) -> Mapping[str, Any
     return {**build_assignment_filter(schiedsrichter_id), **unplayed_filter()}
 
 
-def find_referee_name_refusal(*, taken: bool) -> WriteRefusal | None:
+def find_referee_name_refusal(*, taken: bool) -> APIError | None:
     """`duplicate_key` on the name: another referee, a retired one included, holds it.
 
     Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction. The unique index still
@@ -54,14 +54,10 @@ def find_referee_name_refusal(*, taken: bool) -> WriteRefusal | None:
     if not taken:
         return None
 
-    return WriteRefusal(
-        error_code=Code.DUPLICATE_KEY,
-        status=HTTPStatus.CONFLICT,
-        fields=(("name",),),
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.DUPLICATE_KEY, fields=(("name",),))
 
 
-def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRefusal | None:
+def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> APIError | None:
     """Why retiring this referee must be refused, or `None`.
 
     `upcoming_spiel_nrs` is `unplayed_spiel_nrs`'s definition of "still to come", named with its count on the path's
@@ -71,9 +67,9 @@ def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRe
     if not upcoming_spiel_nrs:
         return None
 
-    return WriteRefusal(
-        error_code=Code.SCHIEDSRICHTER_STILL_ASSIGNED,
-        status=HTTPStatus.CONFLICT,
+    return APIError(
+        HTTPStatus.CONFLICT,
+        Code.SCHIEDSRICHTER_STILL_ASSIGNED,
         fields=(("schiedsrichter_id",),),
         location="path",
         bounds={"spiel_nrs": list(upcoming_spiel_nrs), "count": len(upcoming_spiel_nrs)},
@@ -230,7 +226,7 @@ def answered_at_of(*, state: FLSchiedsrichterConfirmationState, einwilligung: An
     return None
 
 
-def find_unknown_token_refusal(*, found: bool) -> WriteRefusal | None:
+def find_unknown_token_refusal(*, found: bool) -> APIError | None:
     """Why this token opens nothing, or `None`.
 
     One answer for unknown, replaced by a later mint, and deleted with the referee: nothing
@@ -240,38 +236,29 @@ def find_unknown_token_refusal(*, found: bool) -> WriteRefusal | None:
     if found:
         return None
 
-    return WriteRefusal(
-        error_code=Code.LINK_INVALID,
-        status=HTTPStatus.NOT_FOUND,
-    )
+    return APIError(HTTPStatus.NOT_FOUND, Code.LINK_INVALID)
 
 
-def find_expired_token_refusal(*, deadline: str, today: str) -> WriteRefusal | None:
+def find_expired_token_refusal(*, deadline: str, today: str) -> APIError | None:
     """Why this link is over, or `None`."""
 
     if not link_is_over(deadline=deadline, today=today):
         return None
 
-    return WriteRefusal(
-        error_code=Code.LINK_EXPIRED,
-        status=HTTPStatus.GONE,
-    )
+    return APIError(HTTPStatus.GONE, Code.LINK_EXPIRED)
 
 
-def find_already_answered_refusal(*, einwilligung: Any, confirmation: Any) -> WriteRefusal | None:
+def find_already_answered_refusal(*, einwilligung: Any, confirmation: Any) -> APIError | None:
     """Why this entry takes no second answer, or `None`. The single use: a stamp or an objection is what spends the link."""
 
     # The answer and never a nulled hash: the hash stays live so a second press is told why.
     if not has_answered(einwilligung=einwilligung, confirmation=confirmation):
         return None
 
-    return WriteRefusal(
-        error_code=Code.CONFIRMATION_EXISTS,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.CONFIRMATION_EXISTS)
 
 
-def find_age_refusal(*, birth_date: str, today: str) -> WriteRefusal | None:
+def find_age_refusal(*, birth_date: str, today: str) -> APIError | None:
     """Why the typed date is refused, or `None`. Judged before any write, so a mistyped year spends nothing.
 
     The bounds go with the refusal, so the field's message names the range the write judges.
@@ -280,15 +267,15 @@ def find_age_refusal(*, birth_date: str, today: str) -> WriteRefusal | None:
     if SCHIEDSRICHTER_MIN_AGE_YEARS <= whole_years_between(born=birth_date, today=today) <= BIRTH_DATE_MAX_AGE_YEARS:
         return None
 
-    return WriteRefusal(
-        error_code=Code.CONFIRMATION_AGE,
-        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+    return APIError(
+        HTTPStatus.UNPROCESSABLE_CONTENT,
+        Code.CONFIRMATION_AGE,
         fields=(("birth_date",),),
         bounds={"min": SCHIEDSRICHTER_MIN_AGE_YEARS, "max": BIRTH_DATE_MAX_AGE_YEARS},
     )
 
 
-def find_retired_refusal(*, inactive_since: Any) -> WriteRefusal | None:
+def find_retired_refusal(*, inactive_since: Any) -> APIError | None:
     """Why a retired referee takes no fresh link, or `None`.
 
     A refusal to collect and never a retire-first gate: a row taking no new booking would be asked
@@ -298,13 +285,10 @@ def find_retired_refusal(*, inactive_since: Any) -> WriteRefusal | None:
     if inactive_since is None:
         return None
 
-    return WriteRefusal(
-        error_code=Code.SCHIEDSRICHTER_RETIRED,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.SCHIEDSRICHTER_RETIRED)
 
 
-def find_missing_address_refusal(*, email: str) -> WriteRefusal | None:
+def find_missing_address_refusal(*, email: str) -> APIError | None:
     """Why there is nobody to send to, or `None`: a stored address the fold cannot canonicalise, such as a placeholder.
 
     Refused here and not at the calling surface alone: a mint that wrote `sent_at` for a row
@@ -314,10 +298,7 @@ def find_missing_address_refusal(*, email: str) -> WriteRefusal | None:
     try:
         league_address(email)
     except ValueError:
-        return WriteRefusal(
-            error_code=Code.SCHIEDSRICHTER_NO_ADDRESS,
-            status=HTTPStatus.CONFLICT,
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.SCHIEDSRICHTER_NO_ADDRESS)
 
     return None
 
@@ -337,7 +318,7 @@ def save_moves_the_link(*, stored: Mapping[str, Any], payload_email: str) -> boo
     return _address_moves(stored=stored, payload_email=payload_email)
 
 
-def find_confirmed_address_refusal(*, stored: Mapping[str, Any], payload_email: str) -> WriteRefusal | None:
+def find_confirmed_address_refusal(*, stored: Mapping[str, Any], payload_email: str) -> APIError | None:
     """`schiedsrichter_address_only_per_change`: a save moving a confirmed referee's address, which keys their sign-in.
 
     Only an address change moves it. Refused whole: landing the rest, an editor stale on the address would lose its other fields unseen.
@@ -346,10 +327,7 @@ def find_confirmed_address_refusal(*, stored: Mapping[str, Any], payload_email: 
     if not is_confirmed(einwilligung=stored.get(EINWILLIGUNG_FIELD)) or not _address_moves(stored=stored, payload_email=payload_email):
         return None
 
-    return WriteRefusal(
-        error_code=Code.SCHIEDSRICHTER_ADDRESS_ONLY_PER_CHANGE,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.SCHIEDSRICHTER_ADDRESS_ONLY_PER_CHANGE)
 
 
 def compose_correction_update(

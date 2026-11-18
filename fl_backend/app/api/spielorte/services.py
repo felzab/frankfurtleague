@@ -4,7 +4,7 @@ from typing import Any
 
 from app.api.spiele.schemas import unplayed_filter
 from app.core.codes import Code
-from app.core.exceptions import WriteRefusal
+from app.core.exceptions import APIError
 from app.shared.schemas.addresses import FLAddress
 
 
@@ -19,7 +19,7 @@ def build_unplayed_booking_filter(spielort_id: Any) -> Mapping[str, Any]:
     return {"spielort.spielort_id": spielort_id, **unplayed_filter()}
 
 
-def find_venue_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRefusal | None:
+def find_venue_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> APIError | None:
     """Why retiring this venue must be refused, or `None`.
 
     `upcoming_spiel_nrs` is `unplayed_spiel_nrs`'s definition, so the two rules cannot disagree
@@ -30,16 +30,16 @@ def find_venue_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRefu
     if not upcoming_spiel_nrs:
         return None
 
-    return WriteRefusal(
-        error_code=Code.SPIELORT_STILL_BOOKED,
-        status=HTTPStatus.CONFLICT,
+    return APIError(
+        HTTPStatus.CONFLICT,
+        Code.SPIELORT_STILL_BOOKED,
         fields=(("spielort_id",),),
         location="path",
         bounds={"spiel_nrs": list(upcoming_spiel_nrs), "count": len(upcoming_spiel_nrs)},
     )
 
 
-def find_venue_name_refusal(*, taken: bool) -> WriteRefusal | None:
+def find_venue_name_refusal(*, taken: bool) -> APIError | None:
     """`duplicate_key` on the name: another venue, a retired one included, holds it.
 
     Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction.
@@ -49,8 +49,4 @@ def find_venue_name_refusal(*, taken: bool) -> WriteRefusal | None:
     if not taken:
         return None
 
-    return WriteRefusal(
-        error_code=Code.DUPLICATE_KEY,
-        status=HTTPStatus.CONFLICT,
-        fields=(("name",),),
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.DUPLICATE_KEY, fields=(("name",),))

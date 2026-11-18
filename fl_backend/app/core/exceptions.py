@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field, replace
 from http import HTTPStatus
 from typing import Any, Literal, LiteralString
 
@@ -46,6 +45,9 @@ class APIError(Exception):
     `PydanticCustomError`'s context is: the caller words the field's line from them, so a bound the server moves moves
     the line with it. A refusal naming no field carries none. `location` says where its fields arrived, the body unless
     a by-id write's refusal names the path's id.
+
+    A check returns one unraised, or `None`, so its caller orders several through `refuse` and a page can be served the
+    code a press would meet before anyone presses.
     """
 
     def __init__(
@@ -78,43 +80,13 @@ class DocumentNotFoundError(APIError):
         super().__init__(HTTPStatus.NOT_FOUND, Code.DOCUMENT_NOT_FOUND)
 
 
-@dataclass(frozen=True, kw_only=True)
-class WriteRefusal:
-    """Why an endpoint refuses: the code, the status its check chose, the body paths it judged, and the bounds its rule holds them to.
-
-    Named fields, not a tuple, so a check spells its `status` beside the code. `bounds` reach the caller as `APIError`'s
-    do, on each field in `fields`.
-    """
-
-    error_code: Code
-    status: HTTPStatus
-    fields: tuple[FieldPath, ...] = ()
-    bounds: Mapping[str, Bound] = field(default_factory=dict)
-    location: FieldLocation = "body"
-
-    def error(self) -> APIError:
-        return APIError(self.status, self.error_code, fields=self.fields, bounds=self.bounds, location=self.location)
-
-    @classmethod
-    def of(cls, error: APIError) -> WriteRefusal:
-        """The refusal `error` raised, for a write answering a step it runs as its own: a refusal carries no headers."""
-
-        return cls(
-            error_code=error.error_code,
-            status=HTTPStatus(error.status_code),
-            fields=error.fields,
-            bounds=error.bounds,
-            location=error.location,
-        )
-
-
 # A write's twin of each code it shares with a payload write: by the code alone, or, where one code covers several
 # fields, by the first name of the path it judged, as the catalogue keys a sentence by that name, since the twin names
 # no path for the catalogue to read.
 type Twins = Mapping[Code, Code | Mapping[str, Code]]
 
 
-def as_judged_on_stored_state(refusal: WriteRefusal | None, *, twins: Twins) -> WriteRefusal | None:
+def as_judged_on_stored_state(refusal: APIError | None, *, twins: Twins) -> APIError | None:
     """`refusal` as a write judging stored values it carries no body for answers it.
 
     Under its twin, a 409, where `twins` names one for a code a payload write shares, else its code and status alone:
@@ -129,9 +101,9 @@ def as_judged_on_stored_state(refusal: WriteRefusal | None, *, twins: Twins) -> 
         head = refusal.fields[0][0] if refusal.fields else None
         twin = twin.get(head) if isinstance(head, str) else None
     if twin is not None:
-        return WriteRefusal(error_code=twin, status=HTTPStatus.CONFLICT)
+        return APIError(HTTPStatus.CONFLICT, twin)
 
-    return replace(refusal, fields=(), bounds={})
+    return APIError(HTTPStatus(refusal.status_code), refusal.error_code)
 
 
 # RFC 9110's 401 must carry a challenge, and `Bearer` would name the tier key, which passed: the

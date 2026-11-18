@@ -23,7 +23,7 @@ from app.api.teams.schemas import FLPostTeamPayload
 from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import WriteRefusal
+from app.core.exceptions import APIError
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_evidence import TextVersions, compose_choices
 from app.shared.folding import normalise_phone, sign_in_identifier
@@ -41,7 +41,7 @@ from app.shared.schemas.bounds import (
 from app.shared.schemas.literals import KONTAKT_SEATS, FLKontaktSeat, FLTrikotFarbe
 
 
-def find_triage_refusal(*, status: str) -> WriteRefusal | None:
+def find_triage_refusal(*, status: str) -> APIError | None:
     """Why this application may no longer be decided, or `None`.
 
     One code for both endpoints: which of the two arrived second is nothing an administrator can act
@@ -49,15 +49,12 @@ def find_triage_refusal(*, status: str) -> WriteRefusal | None:
     """
 
     if status != "submitted":
-        return WriteRefusal(
-            error_code=Code.BEWERBUNG_ALREADY_DECIDED,
-            status=HTTPStatus.CONFLICT,
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.BEWERBUNG_ALREADY_DECIDED)
 
     return None
 
 
-def find_acceptance_subject_refusal(*, team_id: Any | None, schule: Mapping[str, Any] | None) -> WriteRefusal | None:
+def find_acceptance_subject_refusal(*, team_id: Any | None, schule: Mapping[str, Any] | None) -> APIError | None:
     """Why this application resolves to no single club to enter, or `None`.
 
     While it is `submitted`, exactly one of the two carries a value -- a rule the write path holds
@@ -65,10 +62,7 @@ def find_acceptance_subject_refusal(*, team_id: Any | None, schule: Mapping[str,
     """
 
     if (team_id is None) == (schule is None):
-        return WriteRefusal(
-            error_code=Code.BEWERBUNG_SUBJECT_UNRESOLVED,
-            status=HTTPStatus.CONFLICT,
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.BEWERBUNG_SUBJECT_UNRESOLVED)
 
     return None
 
@@ -84,14 +78,14 @@ _TEAM_FIELDS_FROM_SCHULE = {
 }
 
 
-def find_acceptance_code_refusal(*, new_school: bool, shorthand: str | None) -> WriteRefusal | None:
+def find_acceptance_code_refusal(*, new_school: bool, shorthand: str | None) -> APIError | None:
     """Why this acceptance's code is refused, or `None`: a new school takes one, and a picked club keeps its own.
 
     A body's fault, which only the stored application can show: the dialog asks the code of a new school alone.
     """
 
     if new_school == (shorthand is None):
-        return WriteRefusal(error_code=Code.PAYLOAD_REFUSED, status=HTTPStatus.UNPROCESSABLE_CONTENT, fields=(("shorthand",),))
+        return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.PAYLOAD_REFUSED, fields=(("shorthand",),))
 
     return None
 
@@ -127,7 +121,7 @@ def parse_new_team(*, composed_team: Mapping[str, Any]) -> dict[str, Any]:
     return FLPostTeamPayload.model_validate(composed_team).model_dump(mode="json")
 
 
-def find_new_team_refusal(*, composed_team: Mapping[str, Any]) -> WriteRefusal | None:
+def find_new_team_refusal(*, composed_team: Mapping[str, Any]) -> APIError | None:
     """Why the school's details make no club, or `None`.
 
     Through the payload itself, never a copy: nothing else judges them, so a scheme-less `website_url` would reach
@@ -139,10 +133,7 @@ def find_new_team_refusal(*, composed_team: Mapping[str, Any]) -> WriteRefusal |
     # Narrow on purpose: anything else raised here is a fault in this code, and a 409 blaming the
     # school for one is a refusal nobody can act on.
     except ValidationError:
-        return WriteRefusal(
-            error_code=Code.BEWERBUNG_SCHULE_UNUSABLE,
-            status=HTTPStatus.CONFLICT,
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.BEWERBUNG_SCHULE_UNUSABLE)
 
     return None
 
@@ -177,7 +168,7 @@ def form_window_state(*, saison_status: Any, bewerbung: Mapping[str, Any], today
     return "upcoming" if bewerbung["open"] and today < str(bewerbung["start"]) else "closed"
 
 
-def find_window_refusal(*, saison_status: Any, bewerbung: Any, today: str) -> WriteRefusal | None:
+def find_window_refusal(*, saison_status: Any, bewerbung: Any, today: str) -> APIError | None:
     """Why this season is taking no application today, or `None`.
 
     One code for every way `saison_takes_bewerbungen` says no: naming which would report a
@@ -187,13 +178,10 @@ def find_window_refusal(*, saison_status: Any, bewerbung: Any, today: str) -> Wr
     if saison_takes_bewerbungen(saison_status=saison_status, bewerbung=bewerbung, today=today):
         return None
 
-    return WriteRefusal(
-        error_code=Code.BEWERBUNG_WINDOW_CLOSED,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.BEWERBUNG_WINDOW_CLOSED)
 
 
-def find_submission_subject_refusal(*, team_id: Any | None, schule: Any | None) -> WriteRefusal | None:
+def find_submission_subject_refusal(*, team_id: Any | None, schule: Any | None) -> APIError | None:
     """Why this submission resolves to no single school, or `None`.
 
     Its own code beside `find_acceptance_subject_refusal`, which asks this of a stored application:
@@ -201,16 +189,12 @@ def find_submission_subject_refusal(*, team_id: Any | None, schule: Any | None) 
     """
 
     if (team_id is None) == (schule is None):
-        return WriteRefusal(
-            error_code=Code.BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED,
-            status=HTTPStatus.UNPROCESSABLE_CONTENT,
-            fields=(("team_id",), ("schule",)),
-        )
+        return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED, fields=(("team_id",), ("schule",)))
 
     return None
 
 
-def find_picked_team_refusal(*, team_raw: Mapping[str, Any] | None) -> WriteRefusal | None:
+def find_picked_team_refusal(*, team_raw: Mapping[str, Any] | None) -> APIError | None:
     """Why the club the applicant picked is not one to apply as, or `None`.
 
     One code for a club that does not exist and one that has left: the picker offers neither, so
@@ -218,15 +202,12 @@ def find_picked_team_refusal(*, team_raw: Mapping[str, Any] | None) -> WriteRefu
     """
 
     if team_raw is None or team_raw.get("inactive_since") is not None:
-        return WriteRefusal(
-            error_code=Code.BEWERBUNG_PICKED_TEAM_UNUSABLE,
-            status=HTTPStatus.CONFLICT,
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.BEWERBUNG_PICKED_TEAM_UNUSABLE)
 
     return None
 
 
-def find_already_entered_refusal(*, entered: bool) -> WriteRefusal | None:
+def find_already_entered_refusal(*, entered: bool) -> APIError | None:
     """Why this club may not apply for this season or be entered into it, or `None`.
 
     A club already holding the season's junction row is in it, so an application would ask for
@@ -234,10 +215,7 @@ def find_already_entered_refusal(*, entered: bool) -> WriteRefusal | None:
     """
 
     if entered:
-        return WriteRefusal(
-            error_code=Code.BEWERBUNG_PICKED_TEAM_ALREADY_ENTERED,
-            status=HTTPStatus.CONFLICT,
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.BEWERBUNG_PICKED_TEAM_ALREADY_ENTERED)
 
     return None
 
@@ -413,7 +391,7 @@ def seat_holding(*, bewerbung_raw: Mapping[str, Any], token_hash: str) -> FLKont
     return None
 
 
-def find_unknown_token_refusal(*, seat: FLKontaktSeat | None) -> WriteRefusal | None:
+def find_unknown_token_refusal(*, seat: FLKontaktSeat | None) -> APIError | None:
     """Why this token opens nothing, or `None`.
 
     One answer for unknown, voided by a re-send, and deleted with the application: nothing
@@ -421,10 +399,7 @@ def find_unknown_token_refusal(*, seat: FLKontaktSeat | None) -> WriteRefusal | 
     """
 
     if seat is None:
-        return WriteRefusal(
-            error_code=Code.LINK_INVALID,
-            status=HTTPStatus.NOT_FOUND,
-        )
+        return APIError(HTTPStatus.NOT_FOUND, Code.LINK_INVALID)
 
     return None
 
@@ -460,17 +435,14 @@ def link_is_over(*, deadline: Any, status: Any, today: str) -> bool:
     return _is_decided(status) or _deadline_passed(deadline=deadline, today=today)
 
 
-def find_expired_token_refusal(*, deadline: Any, status: Any, today: str) -> WriteRefusal | None:
+def find_expired_token_refusal(*, deadline: Any, status: Any, today: str) -> APIError | None:
     """Why this link is over, or `None`. Judged before the seat: a seat on a decided application is never answered again.
 
     410: no write moves a live link's deadline, a re-send minting another token.
     """
 
     if link_is_over(deadline=deadline, status=status, today=today):
-        return WriteRefusal(
-            error_code=Code.LINK_EXPIRED,
-            status=HTTPStatus.GONE,
-        )
+        return APIError(HTTPStatus.GONE, Code.LINK_EXPIRED)
 
     return None
 
@@ -499,19 +471,16 @@ def seat_is_answered(*, kontakte: Any, confirmations: Any, seat: str) -> bool:
     return not isinstance(confirmations, Mapping) or not isinstance(confirmations.get(seat), Mapping)
 
 
-def find_already_answered_refusal(*, kontakte: Any, confirmations: Any, seat: str) -> WriteRefusal | None:
+def find_already_answered_refusal(*, kontakte: Any, confirmations: Any, seat: str) -> APIError | None:
     """Why this seat takes no second answer, or `None`. The single use: the stamps are what spend a link, never a nulled hash."""
 
     if seat_is_answered(kontakte=kontakte, confirmations=confirmations, seat=seat):
-        return WriteRefusal(
-            error_code=Code.BEWERBUNG_SEAT_ALREADY_ANSWERED,
-            status=HTTPStatus.CONFLICT,
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.BEWERBUNG_SEAT_ALREADY_ANSWERED)
 
     return None
 
 
-def find_age_refusal(*, birth_date: str, today: str, minimum_age: int) -> WriteRefusal | None:
+def find_age_refusal(*, birth_date: str, today: str, minimum_age: int) -> APIError | None:
     """Why the typed date is refused, or `None`.
 
     Its own code rather than a `payload_refused`, whose mark on the field names no floor. Judged before any write, so
@@ -519,9 +488,9 @@ def find_age_refusal(*, birth_date: str, today: str, minimum_age: int) -> WriteR
     """
 
     if age_outside_the_bounds(birth_date=birth_date, today=today, minimum_age=minimum_age):
-        return WriteRefusal(
-            error_code=Code.CONFIRMATION_AGE,
-            status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        return APIError(
+            HTTPStatus.UNPROCESSABLE_CONTENT,
+            Code.CONFIRMATION_AGE,
             fields=(("birth_date",),),
             bounds={"min": minimum_age, "max": BIRTH_DATE_MAX_AGE_YEARS},
         )
@@ -607,7 +576,7 @@ def saison_state_of(*, row: Mapping[str, Any], seat: str, today: str, saison_sta
     return state
 
 
-def find_saison_deadline_refusal(*, deadline: Any, today: str) -> WriteRefusal | None:
+def find_saison_deadline_refusal(*, deadline: Any, today: str) -> APIError | None:
     """Why a season row's link takes no answer past its own deadline, or `None`.
 
     410: no write moves this deadline, a re-send minting another token.
@@ -616,13 +585,10 @@ def find_saison_deadline_refusal(*, deadline: Any, today: str) -> WriteRefusal |
     if not saison_link_is_over(deadline=deadline, today=today):
         return None
 
-    return WriteRefusal(
-        error_code=Code.LINK_EXPIRED,
-        status=HTTPStatus.GONE,
-    )
+    return APIError(HTTPStatus.GONE, Code.LINK_EXPIRED)
 
 
-def find_saison_past_einwilligung_refusal(*, saison_status: Any, austritt: Any) -> WriteRefusal | None:
+def find_saison_past_einwilligung_refusal(*, saison_status: Any, austritt: Any) -> APIError | None:
     """Why a season row's link takes no consent once its season has ended or its team left it, or `None`.
 
     410: no write reopens a past season, and a Widerspruch is still taken, the person removing
@@ -632,10 +598,7 @@ def find_saison_past_einwilligung_refusal(*, saison_status: Any, austritt: Any) 
     if row_takes_confirmations(saison_status=saison_status, austritt=austritt):
         return None
 
-    return WriteRefusal(
-        error_code=Code.KONTAKT_SAISON_PAST,
-        status=HTTPStatus.GONE,
-    )
+    return APIError(HTTPStatus.GONE, Code.KONTAKT_SAISON_PAST)
 
 
 def saison_link_pair(*, kontakte: Any, confirmations: Any, seat: str, token_hash: str) -> FLKontaktSeat | None:
@@ -673,15 +636,12 @@ def pending_seats(*, kontakte: Any) -> list[FLKontaktSeat]:
     return [seat for seat in KONTAKT_SEATS if not _seat_is_confirmed(kontakte, seat)]
 
 
-def find_unconfirmed_kontakte_refusal(*, kontakte: Any) -> WriteRefusal | None:
+def find_unconfirmed_kontakte_refusal(*, kontakte: Any) -> APIError | None:
     """Why this application is not yet one the league may accept, or `None`."""
 
     outstanding = pending_seats(kontakte=kontakte)
     if outstanding:
-        return WriteRefusal(
-            error_code=Code.BEWERBUNG_KONTAKTE_UNCONFIRMED,
-            status=HTTPStatus.CONFLICT,
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.BEWERBUNG_KONTAKTE_UNCONFIRMED)
 
     return None
 
@@ -952,7 +912,7 @@ def build_resend_filter(*, bewerbung_id: Any, seats: Sequence[str]) -> Mapping[s
     return {"_id": bewerbung_id, "status": "submitted", **unanswered}
 
 
-def find_repeated_contact_refusal(*, kontakte: Mapping[str, Any]) -> WriteRefusal | None:
+def find_repeated_contact_refusal(*, kontakte: Mapping[str, Any]) -> APIError | None:
     """Why this submission's block holds two people reachable alike, or `None`: every box repeating an earlier person's address or number.
 
     A body's fault, judged here rather than on the payload: a model's rule can name the block alone, and the form marks
@@ -974,12 +934,12 @@ def find_repeated_contact_refusal(*, kontakte: Mapping[str, Any]) -> WriteRefusa
         numbers.add(number)
 
     if boxes:
-        return WriteRefusal(error_code=Code.BEWERBUNG_KONTAKT_REPEATED, status=HTTPStatus.UNPROCESSABLE_CONTENT, fields=tuple(boxes))
+        return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.BEWERBUNG_KONTAKT_REPEATED, fields=tuple(boxes))
 
     return None
 
 
-def find_seat_contact_refusal(*, kontakte: Any, seats: Sequence[str], email: str, phone: str) -> WriteRefusal | None:
+def find_seat_contact_refusal(*, kontakte: Any, seats: Sequence[str], email: str, phone: str) -> APIError | None:
     """Why this address or this number cannot be the seat's, or `None`.
 
     `find_repeated_contact_refusal`'s rule asked again -- two different people are not reachable alike -- because a seat
@@ -994,15 +954,15 @@ def find_seat_contact_refusal(*, kontakte: Any, seats: Sequence[str], email: str
     # The fold `find_repeated_contact_refusal` compares by: a third spelling of "one mailbox" here would refuse where the
     # form accepted, or the reverse.
     if sign_in_identifier(email) in {sign_in_identifier(str(slot.get("email") or "")) for slot in others}:
-        return WriteRefusal(error_code=Code.BEWERBUNG_KONTAKT_EMAIL_TAKEN, status=HTTPStatus.CONFLICT, fields=(("email",),))
+        return APIError(HTTPStatus.CONFLICT, Code.KONTAKT_EMAIL_TAKEN, fields=(("email",),))
 
     if normalise_phone(phone) in {normalise_phone(str(slot.get("phone") or "")) for slot in others}:
-        return WriteRefusal(error_code=Code.BEWERBUNG_KONTAKT_PHONE_TAKEN, status=HTTPStatus.CONFLICT, fields=(("phone",),))
+        return APIError(HTTPStatus.CONFLICT, Code.KONTAKT_PHONE_TAKEN, fields=(("phone",),))
 
     return None
 
 
-def find_seat_write_refusal(*, confirmations: Any, seats: Sequence[str]) -> WriteRefusal | None:
+def find_seat_write_refusal(*, confirmations: Any, seats: Sequence[str]) -> APIError | None:
     """Why no person may be written into these seats, or `None`: one of them was erased at its person's request.
 
     Every other state takes the write, a standing seat's person replaced, a seat a Widerspruch emptied filled. The
@@ -1012,10 +972,7 @@ def find_seat_write_refusal(*, confirmations: Any, seats: Sequence[str]) -> Writ
 
     for seat in seats:
         if _entry_of(confirmations, seat) is None:
-            return WriteRefusal(
-                error_code=Code.BEWERBUNG_SEAT_ALREADY_ANSWERED,
-                status=HTTPStatus.CONFLICT,
-            )
+            return APIError(HTTPStatus.CONFLICT, Code.BEWERBUNG_SEAT_ALREADY_ANSWERED)
 
     return None
 

@@ -1,6 +1,6 @@
 import hashlib
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import datetime
 from http import HTTPStatus
 from typing import Any, Final, Literal, NamedTuple
@@ -47,7 +47,7 @@ from app.core import clock
 from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import Twins, WriteRefusal
+from app.core.exceptions import APIError, Twins
 from app.shared.schemas.bounds import (
     SPIEL_CONFIRMATION_DEADLINE_DAYS,
     SPIEL_REMINDER_DAYS,
@@ -395,22 +395,16 @@ def state_of(
     return "valid" if vorschlag_open is None else "vorschlag"
 
 
-def first_press_refusal() -> WriteRefusal:
+def first_press_refusal() -> APIError:
     """`ansetzung_answered`, built here alone: by the answered row's judgement and by the answer whose filtered write matched nothing."""
 
-    return WriteRefusal(
-        error_code=Code.ANSETZUNG_ANSWERED,
-        status=HTTPStatus.GONE,
-    )
+    return APIError(HTTPStatus.GONE, Code.ANSETZUNG_ANSWERED)
 
 
-def ansetzung_left_refusal() -> WriteRefusal:
+def ansetzung_left_refusal() -> APIError:
     """`ansetzung_changed`, built here alone: by the answered row's judgement and by a referee's decline whose fixture write matched nothing."""
 
-    return WriteRefusal(
-        error_code=Code.ANSETZUNG_CHANGED,
-        status=HTTPStatus.GONE,
-    )
+    return APIError(HTTPStatus.GONE, Code.ANSETZUNG_CHANGED)
 
 
 def team_state_of(
@@ -449,9 +443,7 @@ def schiedsrichter_state_of(
     return state
 
 
-def find_unanswerable_refusal(
-    *, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState, now: datetime
-) -> WriteRefusal | None:
+def find_unanswerable_refusal(*, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState, now: datetime) -> APIError | None:
     """Why this row takes no answer now, or `None`: answered, closed unanswered, what the close would shut it for, then the deadline.
 
     An answered row whose Ansetzung moved answers `ansetzung_answered` and reads `invalid`: the page re-reads the view on
@@ -462,10 +454,7 @@ def find_unanswerable_refusal(
         return first_press_refusal()
 
     if spielbestaetigung_raw.get("closed") is not None:
-        return WriteRefusal(
-            error_code=Code.ANSETZUNG_CLOSED,
-            status=HTTPStatus.GONE,
-        )
+        return APIError(HTTPStatus.GONE, Code.ANSETZUNG_CLOSED)
 
     reason = _reason_now(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, now=now)
 
@@ -474,41 +463,27 @@ def find_unanswerable_refusal(
 
     # A kick-off gone by is a deadline gone by too, the deadline lying before it: late rather than decided.
     if reason is not None and reason != "spiel_past":
-        return WriteRefusal(
-            error_code=Code.ANSETZUNG_DECIDED,
-            status=HTTPStatus.GONE,
-        )
+        return APIError(HTTPStatus.GONE, Code.ANSETZUNG_DECIDED)
 
     if reason is not None:
-        return WriteRefusal(
-            error_code=Code.ANSETZUNG_DEADLINE_PAST,
-            status=HTTPStatus.GONE,
-        )
+        return APIError(HTTPStatus.GONE, Code.ANSETZUNG_DEADLINE_PAST)
 
     if _past_deadline(spielbestaetigung_raw=spielbestaetigung_raw, now=now):
-        return WriteRefusal(
-            error_code=Code.ANSETZUNG_DEADLINE_PAST,
-            status=HTTPStatus.GONE,
-        )
+        return APIError(HTTPStatus.GONE, Code.ANSETZUNG_DEADLINE_PAST)
 
     return None
 
 
-def find_vorschlag_past_refusal(*, vorschlag: FLSpielbestaetigungAppointment, today: str) -> WriteRefusal | None:
+def find_vorschlag_past_refusal(*, vorschlag: FLSpielbestaetigungAppointment, today: str) -> APIError | None:
     """`ansetzung_vorschlag_past`: a proposal names a day still to come or today."""
 
     if vorschlag.date >= today:
         return None
 
-    return WriteRefusal(
-        error_code=Code.ANSETZUNG_VORSCHLAG_PAST,
-        status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        # The date box the form holds the proposal in, so it is marked where the reader typed the day.
-        fields=(("vorschlag", "date"),),
-    )
+    return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.ANSETZUNG_VORSCHLAG_PAST, fields=(("vorschlag", "date"),))
 
 
-def find_vorschlag_unchanged_refusal(*, vorschlag: FLSpielbestaetigungAppointment, spiel: FLSpiel) -> WriteRefusal | None:
+def find_vorschlag_unchanged_refusal(*, vorschlag: FLSpielbestaetigungAppointment, spiel: FLSpiel) -> APIError | None:
     """`ansetzung_vorschlag_unchanged`: a proposal names the day and hour the fixture already holds.
 
     Adopted, it would save the slot unchanged, leaving the row about it open and the proposal pressable for ever.
@@ -517,11 +492,7 @@ def find_vorschlag_unchanged_refusal(*, vorschlag: FLSpielbestaetigungAppointmen
     if (vorschlag.date, vorschlag.time) != (spiel.date, spiel.time):
         return None
 
-    return WriteRefusal(
-        error_code=Code.ANSETZUNG_VORSCHLAG_UNCHANGED,
-        status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        fields=(("vorschlag", "date"), ("vorschlag", "time")),
-    )
+    return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.ANSETZUNG_VORSCHLAG_UNCHANGED, fields=(("vorschlag", "date"), ("vorschlag", "time")))
 
 
 # What the adoption answers under a 409 twin: each judges the stored proposal or the stored fixture, which a payload
@@ -539,10 +510,10 @@ ADOPTION_TWINS: Twins = {
 }
 
 
-def judged_as_a_proposal(refusal: WriteRefusal | None) -> WriteRefusal | None:
+def judged_as_a_proposal(refusal: APIError | None) -> APIError | None:
     """A refusal of the proposal, naming no field: the paths it names are a body this request does not carry."""
 
-    return None if refusal is None else replace(refusal, fields=())
+    return None if refusal is None else APIError(HTTPStatus(refusal.status_code), refusal.error_code)
 
 
 def proposal_payload(stored: FLSpiel, vorschlag: FLSpielbestaetigungAppointment) -> FLPatchSpielDataPayload:
@@ -652,16 +623,13 @@ def compose_answer_update(
 # says the same again; a party's answer committing between the two conflicts with the write, whose retry refuses.
 
 
-def enter_refusal() -> WriteRefusal:
+def enter_refusal() -> APIError:
     """`ansetzung_not_enterable`, built here alone: by the check on the row read and by the settle whose filtered write matched nothing."""
 
-    return WriteRefusal(
-        error_code=Code.ANSETZUNG_NOT_ENTERABLE,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.ANSETZUNG_NOT_ENTERABLE)
 
 
-def find_enter_refusal(*, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState, now: datetime) -> WriteRefusal | None:
+def find_enter_refusal(*, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState, now: datetime) -> APIError | None:
     """The administrator answers only a row neither answered nor closed, nor due to be shut by the pass's next close.
 
     A deadline gone by refuses nothing: the triage queue lists such a row for the administrator to settle.
@@ -692,13 +660,10 @@ def build_discardable_filter() -> dict[str, Any]:
     return {"party.kind": "team", "answer.kind": "declined", "answer.vorschlag": {"$ne": None}, **build_closable_filter()}
 
 
-def discard_refusal() -> WriteRefusal:
+def discard_refusal() -> APIError:
     """`ansetzung_not_discardable`, built here alone: by the check on the row read and by the discard whose filtered write matched nothing."""
 
-    return WriteRefusal(
-        error_code=Code.ANSETZUNG_NOT_DISCARDABLE,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.ANSETZUNG_NOT_DISCARDABLE)
 
 
 def build_triage_rows_filter(*, saison_id: str, today: str) -> dict[str, Any]:
@@ -738,7 +703,7 @@ def holds_an_open_proposal(*, spielbestaetigung_raw: Mapping[str, Any], ansetzun
     )
 
 
-def find_discard_refusal(*, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState, now: datetime) -> WriteRefusal | None:
+def find_discard_refusal(*, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState, now: datetime) -> APIError | None:
     """Why a discard of this row must be refused, or `None`."""
 
     if holds_an_open_proposal(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, now=now):
@@ -747,13 +712,13 @@ def find_discard_refusal(*, spielbestaetigung_raw: Mapping[str, Any], ansetzung_
     return discard_refusal()
 
 
-def find_adoption_refusal(*, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState, now: datetime) -> WriteRefusal | None:
+def find_adoption_refusal(*, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState, now: datetime) -> APIError | None:
     """Why an adoption of this row must be refused, or `None`: the discard's condition, under the adoption's own code."""
 
     if holds_an_open_proposal(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, now=now):
         return None
 
-    return WriteRefusal(error_code=Code.ANSETZUNG_NOT_ADOPTABLE, status=HTTPStatus.CONFLICT)
+    return APIError(HTTPStatus.CONFLICT, Code.ANSETZUNG_NOT_ADOPTABLE)
 
 
 # --- A party's own answer, a referee's or a club's seat holder's, signed in rather than by a link.
@@ -764,16 +729,13 @@ def find_adoption_refusal(*, spielbestaetigung_raw: Mapping[str, Any], ansetzung
 REASON_OWN_DECLINE: Final = "schiedsrichter_declined"
 
 
-def foreign_row_refusal() -> WriteRefusal:
+def foreign_row_refusal() -> APIError:
     """`ansetzung_foreign_row`: one answer for an id naming no row and a row naming somebody else, so no id is confirmed to exist."""
 
-    return WriteRefusal(
-        error_code=Code.ANSETZUNG_FOREIGN_ROW,
-        status=HTTPStatus.FORBIDDEN,
-    )
+    return APIError(HTTPStatus.FORBIDDEN, Code.ANSETZUNG_FOREIGN_ROW)
 
 
-def find_foreign_row_refusal(*, spielbestaetigung_raw: Mapping[str, Any] | None, schiedsrichter_ids: Iterable[Any]) -> WriteRefusal | None:
+def find_foreign_row_refusal(*, spielbestaetigung_raw: Mapping[str, Any] | None, schiedsrichter_ids: Iterable[Any]) -> APIError | None:
     """`foreign_row_refusal` unless the row's party is one of these referee records."""
 
     party = (spielbestaetigung_raw or {}).get("party") or {}

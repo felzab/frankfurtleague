@@ -13,7 +13,7 @@ from app.api.bewerbungen.services import find_age_refusal as find_contact_age_re
 from app.api.registrierungen.services import find_age_refusal as find_pupil_age_refusal
 from app.api.schiedsrichter.services import find_age_refusal as find_referee_age_refusal
 from app.core.codes import Code
-from app.core.exceptions import WriteRefusal
+from app.core.exceptions import APIError
 from app.shared.schemas.bounds import BIRTH_DATE_MAX_AGE_YEARS, REGISTRIERUNG_MIN_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
 
 TODAY = "2026-04-01"
@@ -31,7 +31,7 @@ CONTACT_FLOOR = 18
     ids=["contact", "pupil", "referee"],
 )
 @pytest.mark.parametrize("birth_date", ["2018-01-01", "1900-01-01"], ids=["under_the_floor", "over_the_ceiling"])
-def test_every_raise_carries_the_range_its_page_serves(judge: Callable[[str], WriteRefusal | None], floor: int, birth_date: str):
+def test_every_raise_carries_the_range_its_page_serves(judge: Callable[[str], APIError | None], floor: int, birth_date: str):
     """Without the bounds, or with a floor other than the one the page served, the birthdate's message is wrong or missing."""
 
     refusal = judge(birth_date)

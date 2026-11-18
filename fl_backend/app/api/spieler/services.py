@@ -9,7 +9,7 @@ from app.api.spiele.services import build_spiele_pipeline
 from app.api.spieler.schemas import FLSpielerRolle
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import WriteRefusal
+from app.core.exceptions import APIError
 from app.shared.einwilligung import NAME_IS_PUBLIC, is_confirmed
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId
@@ -179,21 +179,6 @@ def build_live_kader_filter(*, saison_id: str, team_id: CustomObjectId, excludin
     }
 
 
-def find_kader_team_refusal(*, team_in_saison: bool) -> WriteRefusal | None:
-    """Why this squad row must be refused, or `None`.
-
-    A shared shirt number is refused on no write path: the model permits it on purpose.
-    """
-
-    if not team_in_saison:
-        return WriteRefusal(
-            error_code=Code.KADER_TEAM_NOT_IN_SAISON,
-            status=HTTPStatus.CONFLICT,
-        )
-
-    return None
-
-
 class KaderRoom(NamedTuple):
     """One squad's capped rows and its season's `max_kader_size`."""
 
@@ -201,20 +186,17 @@ class KaderRoom(NamedTuple):
     cap: int
 
 
-def find_full_kader_refusal(*, room: KaderRoom, nominee: bool) -> WriteRefusal | None:
+def find_full_kader_refusal(*, room: KaderRoom, nominee: bool) -> APIError | None:
     """`kader_full` where the squad takes no further entry, or `None`.
 
     A nominee stands outside the cap. The one verdict on whether a squad takes an entry, so a write and a read cannot
-    disagree. Its own function rather than a clause in `find_kader_team_refusal`, which answers the club question alone.
+    disagree.
     """
 
     if nominee or room.size < room.cap:
         return None
 
-    return WriteRefusal(
-        error_code=Code.KADER_FULL,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.KADER_FULL)
 
 
 def build_live_rolle_filter(
@@ -235,11 +217,10 @@ def build_live_rolle_filter(
     }
 
 
-def find_kader_rolle_refusal(*, rolle: FLSpielerRolle | None, taken: bool) -> WriteRefusal | None:
+def find_kader_rolle_refusal(*, rolle: FLSpielerRolle | None, taken: bool) -> APIError | None:
     """Why this squad role may not be given away, or `None`.
 
-    Its own function rather than a clause in `find_kader_team_refusal`, which answers the club question
-    alone.
+    A role is one squad row's, where a shared shirt number is refused on no write path: the model permits it on purpose.
     """
 
     # A row holding no role competes with nobody, which is what makes the rule at-most-one rather
@@ -247,7 +228,7 @@ def find_kader_rolle_refusal(*, rolle: FLSpielerRolle | None, taken: bool) -> Wr
     if rolle is None or not taken:
         return None
 
-    return WriteRefusal(error_code=Code.KADER_ROLLE_TAKEN, status=HTTPStatus.CONFLICT, fields=(("rolle",),))
+    return APIError(HTTPStatus.CONFLICT, Code.KADER_ROLLE_TAKEN, fields=(("rolle",),))
 
 
 def build_kader_pipeline(*, saison_id: str, team_id: CustomObjectId | None) -> list[Mapping[str, Any]]:
@@ -329,7 +310,7 @@ def build_held_rollen_filter(*, saison_id: str, team_id: CustomObjectId, excludi
     }
 
 
-def find_kader_stufe_refusal(*, stufe: str | None, stored_stufe: str | None, allowed_stufen: Sequence[str]) -> WriteRefusal | None:
+def find_kader_stufe_refusal(*, stufe: str | None, stored_stufe: str | None, allowed_stufen: Sequence[str]) -> APIError | None:
     """`kader_stufe_not_allowed`: the edit writes a Stufe the season's rules do not offer.
 
     The stored value passes: a season narrowed after the row was written leaves it valid,
@@ -339,10 +320,7 @@ def find_kader_stufe_refusal(*, stufe: str | None, stored_stufe: str | None, all
     if stufe is None or stufe == stored_stufe or stufe in allowed_stufen:
         return None
 
-    return WriteRefusal(
-        error_code=Code.KADER_STUFE_NOT_ALLOWED,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.KADER_STUFE_NOT_ALLOWED)
 
 
 # --- The pupil's own record.

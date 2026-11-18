@@ -270,12 +270,12 @@ match count follows from the season's rules and is held nowhere.
 
 ## What a write is checked against
 
-| Layer                          | Enforces                                                                        | Why not elsewhere                                                                                        |
-| ------------------------------ | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| **Pydantic models**            | Types, required keys, closed sets, ranges, patterns, lengths, cross-field shape | Every write passes its payload model, and every served read its response model, so a wrong value is loud |
-| **Unique indexes**             | One document per key (`fl_backend/app/core/constraints.py :: UNIQUE_INDEXES`)   | Only the database sees two writes racing for one key                                                     |
-| **`find_*_refusal` functions** | Everything spanning more than one document                                      | No model sees more than one document                                                                     |
-| **The pages that offer**       | Offering only legal choices, and reporting permitted states                     | A page may never be the only enforcement — a direct API call bypasses it                                 |
+| Layer                        | Enforces                                                                        | Why not elsewhere                                                                                        |
+| ---------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| **Pydantic models**          | Types, required keys, closed sets, ranges, patterns, lengths, cross-field shape | Every write passes its payload model, and every served read its response model, so a wrong value is loud |
+| **Unique indexes**           | One document per key (`fl_backend/app/core/constraints.py :: UNIQUE_INDEXES`)   | Only the database sees two writes racing for one key                                                     |
+| **Refusals in the services** | Everything spanning more than one document                                      | No model sees more than one document                                                                     |
+| **The pages that offer**     | Offering only legal choices, and reporting permitted states                     | A page may never be the only enforcement — a direct API call bypasses it                                 |
 
 Nothing in the database refuses a document of another shape, so a migration is followed by
 `python -m app.readback` (`fl_backend/app/readback.py`), which reads every stored document back through its
@@ -283,6 +283,12 @@ record model and names each one it refuses. **The pages narrow the offer and nam
 they never replace the refusal.** The entry form disables a group it can see is full, and the endpoint still
 judges the entry, because a stale form and a direct request each reach it; on a public page the direct
 request is anyone's.
+
+A refusal is an `APIError` (`fl_backend/app/core/exceptions.py`), in one of two forms. A
+`find_*_refusal` function in a slice's `services.py` returns one or `None`, where it judges data, orders
+several conditions, has several callers or tells a page in advance what a press would meet; its caller
+raises it through `refuse`. A refusal that turns one boolean its one caller computed is raised where it is
+judged, `if taken: raise APIError(...)`.
 
 Every refusal reaches a client as a **code** and never as a message, the frontend writing every word a person
 reads; `fl_backend/app/core/codes.py :: Code` is each code's one spelling, and `fl_backend/openapi.json` lists

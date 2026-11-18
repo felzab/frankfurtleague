@@ -45,7 +45,7 @@ ACTOR = "admin@example.com"
 
 
 def client() -> TestClient:
-    """No lifespan, so nothing opens the database: a request clearing every session check fails on `no_database_client`, which is observable."""
+    """No lifespan, so nothing opens the database: a request clearing every session check fails on the missing client with a 500."""
 
     return TestClient(app_under_test(), raise_server_exceptions=False)
 
@@ -84,7 +84,7 @@ def test_a_request_without_the_admin_key_sets_no_actor():
     ],
 )
 def test_a_request_naming_no_session_is_refused_before_the_grant_read(headers: Mapping[str, str | bytes]):
-    """The real read and no database: a 503 here would mean the grants were asked before the session was read."""
+    """The real read and no database: a 500 here would mean the grants were asked before the session was read."""
 
     sent = {**ADMIN_KEY} if not headers else {**ADMIN_KEY, **actor_headers(ACTOR), **headers}
     response = client().get(READ_PATH, headers=sent)

@@ -21,7 +21,7 @@ from app.api.spiele.schemas import (
 from app.api.teams.schemas import FLKontaktMint, FLTeamGruppeOffer, FLTeamListState, FLTeamsAdminRow, FLTeamStatistik, FLTeamStatistikScope
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import WriteRefusal
+from app.core.exceptions import APIError
 from app.shared.einwilligung import is_confirmed
 from app.shared.folding import normalise_phone, person_name_key, sign_in_identifier
 from app.shared.schemas.custom import CustomObjectId
@@ -539,7 +539,7 @@ def compose_seat_block(
     return {**block, **dict.fromkeys(seats, slot), "trainer_is_also": claim}, seats
 
 
-def find_kontakt_taken_refusal(*, kontakte: Mapping[str, Any], seats: Sequence[FLKontaktSeat]) -> WriteRefusal | None:
+def find_kontakt_taken_refusal(*, kontakte: Mapping[str, Any], seats: Sequence[FLKontaktSeat]) -> APIError | None:
     """Why this person cannot hold these seats, or `None`: another seat's person holds their address or their number.
 
     `find_repeated_contact_refusal`'s rule, asked of the seats this write leaves. The seats
@@ -550,10 +550,10 @@ def find_kontakt_taken_refusal(*, kontakte: Mapping[str, Any], seats: Sequence[F
     others = [held for slot in KONTAKT_SEATS if slot not in seats and isinstance(held := kontakte.get(slot), Mapping)]
 
     if sign_in_identifier(person["email"]) in {sign_in_identifier(str(held.get("email") or "")) for held in others}:
-        return WriteRefusal(error_code=Code.KONTAKT_EMAIL_TAKEN, status=HTTPStatus.CONFLICT, fields=(("email",),))
+        return APIError(HTTPStatus.CONFLICT, Code.KONTAKT_EMAIL_TAKEN, fields=(("email",),))
 
     if normalise_phone(person["phone"]) in {normalise_phone(str(held.get("phone") or "")) for held in others}:
-        return WriteRefusal(error_code=Code.KONTAKT_PHONE_TAKEN, status=HTTPStatus.CONFLICT, fields=(("phone",),))
+        return APIError(HTTPStatus.CONFLICT, Code.KONTAKT_PHONE_TAKEN, fields=(("phone",),))
 
     return None
 
@@ -697,7 +697,7 @@ def kontakt_row_of(*, saison_status: Any, austritt: Any) -> FLKontaktRow:
     return "saison_past" if saison_status == "past" else "exited"
 
 
-def find_kontakt_row_refusal(*, saison_status: Any, austritt: Any) -> WriteRefusal | None:
+def find_kontakt_row_refusal(*, saison_status: Any, austritt: Any) -> APIError | None:
     """`kontakt_row_without_saison`: the row's season has ended, or its team has left it, so a link asks about a seat nobody holds.
 
     Judged before the seat, as the invitation's season check is: no seat repairs the row.
@@ -706,10 +706,10 @@ def find_kontakt_row_refusal(*, saison_status: Any, austritt: Any) -> WriteRefus
     if row_takes_confirmations(saison_status=saison_status, austritt=austritt):
         return None
 
-    return WriteRefusal(error_code=Code.KONTAKT_ROW_WITHOUT_SAISON, status=HTTPStatus.CONFLICT)
+    return APIError(HTTPStatus.CONFLICT, Code.KONTAKT_ROW_WITHOUT_SAISON)
 
 
-def find_kontakt_seat_refusal(*, kontakte: Any, seat: str) -> WriteRefusal | None:
+def find_kontakt_seat_refusal(*, kontakte: Any, seat: str) -> APIError | None:
     """Why this seat is sent no fresh link, or `None`: it holds nobody, or its person has confirmed it.
 
     A fresh link on a confirmed seat would replace a spent one with a credential nothing can answer.
@@ -717,17 +717,8 @@ def find_kontakt_seat_refusal(*, kontakte: Any, seat: str) -> WriteRefusal | Non
 
     slot = kontakte.get(seat) if isinstance(kontakte, Mapping) else None
 
-    if not isinstance(slot, Mapping):
-        return WriteRefusal(
-            error_code=Code.KONTAKT_SEAT_WITHOUT_CONFIRMATION,
-            status=HTTPStatus.CONFLICT,
-        )
-
-    if _seat_is_stamped(slot):
-        return WriteRefusal(
-            error_code=Code.KONTAKT_SEAT_WITHOUT_CONFIRMATION,
-            status=HTTPStatus.CONFLICT,
-        )
+    if not isinstance(slot, Mapping) or _seat_is_stamped(slot):
+        return APIError(HTTPStatus.CONFLICT, Code.KONTAKT_SEAT_WITHOUT_CONFIRMATION)
 
     return None
 
@@ -827,7 +818,7 @@ def teams_admin_rows(
     return [row for row in chosen if gruppe is None or row.gruppe == gruppe]
 
 
-def find_shorthand_refusal(*, taken: bool) -> WriteRefusal | None:
+def find_shorthand_refusal(*, taken: bool) -> APIError | None:
     """`duplicate_key` on the shorthand: another club, a retired one included, holds it.
 
     Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction. The unique index still
@@ -837,22 +828,10 @@ def find_shorthand_refusal(*, taken: bool) -> WriteRefusal | None:
     if not taken:
         return None
 
-    return WriteRefusal(error_code=Code.DUPLICATE_KEY, status=HTTPStatus.CONFLICT, fields=(("shorthand",),))
+    return APIError(HTTPStatus.CONFLICT, Code.DUPLICATE_KEY, fields=(("shorthand",),))
 
 
-def find_trikot_farbe_refusal(*, taken: bool) -> WriteRefusal | None:
-    """`trikot_farbe_taken` on the colour: another row of the season holds it, and a season's kit colour is one team's.
-
-    Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction.
-    """
-
-    if not taken:
-        return None
-
-    return WriteRefusal(error_code=Code.TRIKOT_FARBE_TAKEN, status=HTTPStatus.CONFLICT, fields=(("trikot_farbe",),))
-
-
-def find_team_entry_refusal(*, inactive_since: str | None) -> WriteRefusal | None:
+def find_team_entry_refusal(*, inactive_since: str | None) -> APIError | None:
     """Why this club may not be entered into any season, or `None`.
 
     Its own function beside `find_entry_refusal`: a group move re-uses that one, and a club's
@@ -860,10 +839,7 @@ def find_team_entry_refusal(*, inactive_since: str | None) -> WriteRefusal | Non
     """
 
     if inactive_since is not None:
-        return WriteRefusal(
-            error_code=Code.TEAM_RETIRED,
-            status=HTTPStatus.CONFLICT,
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.TEAM_RETIRED)
 
     return None
 
@@ -872,7 +848,7 @@ def offered_gruppen(number_of_gruppen: int) -> tuple[FLGruppenNames, ...]:
     return get_args(FLGruppenNames.__value__)[:number_of_gruppen]
 
 
-def find_gruppe_move_refusal(*, spiele_drawn: int) -> WriteRefusal | None:
+def find_gruppe_move_refusal(*, spiele_drawn: int) -> APIError | None:
     """Why this team's group move must be refused, or `None`.
 
     The window is a season where this team holds no fixture, whatever the season's status: a move
@@ -882,13 +858,10 @@ def find_gruppe_move_refusal(*, spiele_drawn: int) -> WriteRefusal | None:
     if spiele_drawn == 0:
         return None
 
-    return WriteRefusal(
-        error_code=Code.ENTRY_GRUPPE_LOCKED,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.ENTRY_GRUPPE_LOCKED)
 
 
-def find_austritt_standing_refusal(*, stored: Mapping[str, Any] | None) -> WriteRefusal | None:
+def find_austritt_standing_refusal(*, stored: Mapping[str, Any] | None) -> APIError | None:
     """`version_stale`: this row's exit stands, so the page offering another was read before it.
 
     An exit is never lifted, and its notices and closed confirmations have gone out, so nothing replaces it, whatever
@@ -898,10 +871,10 @@ def find_austritt_standing_refusal(*, stored: Mapping[str, Any] | None) -> Write
     if stored is None:
         return None
 
-    return WriteRefusal(error_code=Code.VERSION_STALE, status=HTTPStatus.CONFLICT)
+    return APIError(HTTPStatus.CONFLICT, Code.VERSION_STALE)
 
 
-def find_austritt_refusal(*, start_date: str, started: bool) -> WriteRefusal | None:
+def find_austritt_refusal(*, start_date: str, started: bool) -> APIError | None:
     """Why recording this exit must be refused, or `None`: the season has not started, and the replacement swaps its club out instead.
 
     Judged on the act, whatever day the exit is dated: while the season has not started the group swap stays open, and an
@@ -914,15 +887,10 @@ def find_austritt_refusal(*, start_date: str, started: bool) -> WriteRefusal | N
     if started:
         return None
 
-    return WriteRefusal(
-        error_code=Code.AUSTRITT_BEFORE_SAISON_START,
-        status=HTTPStatus.CONFLICT,
-        fields=(("date",),),
-        bounds={"earliest": start_date},
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.AUSTRITT_BEFORE_SAISON_START, fields=(("date",),), bounds={"earliest": start_date})
 
 
-def find_entry_refusal(saison_status: str, gruppe: FLGruppenNames, rules: FLSaisonRules, occupied: int) -> WriteRefusal | None:
+def find_entry_refusal(saison_status: str, gruppe: FLGruppenNames, rules: FLSaisonRules, occupied: int) -> APIError | None:
     """Why entering this team into the season must be refused, or `None`.
 
     `occupied` is the group's row count, rows carrying an `austritt` included: a team never leaves a
@@ -930,37 +898,24 @@ def find_entry_refusal(saison_status: str, gruppe: FLGruppenNames, rules: FLSais
     """
 
     if saison_status != "future":
-        return WriteRefusal(
-            error_code=Code.ENTRY_SAISON_NOT_FUTURE,
-            status=HTTPStatus.CONFLICT,
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.ENTRY_SAISON_NOT_FUTURE)
 
     if gruppe not in offered_gruppen(rules.number_of_gruppen):
-        return WriteRefusal(
-            error_code=Code.ENTRY_GRUPPE_NOT_OFFERED,
-            status=HTTPStatus.CONFLICT,
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.ENTRY_GRUPPE_NOT_OFFERED)
 
     if occupied >= rules.teams_per_gruppe:
-        return WriteRefusal(
-            error_code=Code.ENTRY_GRUPPE_FULL,
-            status=HTTPStatus.CONFLICT,
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.ENTRY_GRUPPE_FULL)
 
     return None
 
 
-def find_replacement_pair_refusal(*, team_id: Any, incoming_team_id: Any) -> WriteRefusal | None:
+def find_replacement_pair_refusal(*, team_id: Any, incoming_team_id: Any) -> APIError | None:
     """Why this replacement names one club on both ends, or `None`. Judged before any read."""
 
     if team_id != incoming_team_id:
         return None
 
-    return WriteRefusal(
-        error_code=Code.REPLACE_ONE_TEAM_ON_BOTH_ENDS,
-        status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        fields=(("incoming_team_id",),),
-    )
+    return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.REPLACE_ONE_TEAM_ON_BOTH_ENDS, fields=(("incoming_team_id",),))
 
 
 def find_replacement_refusal(
@@ -972,7 +927,7 @@ def find_replacement_refusal(
     started: bool,
     incoming_inactive_since: str | None,
     incoming_already_entered: bool,
-) -> WriteRefusal | None:
+) -> APIError | None:
     """Why handing this row to another club must be refused, or `None`.
 
     **The order is the argument**: the season, then the incoming club -- so a repairable refusal never
@@ -980,16 +935,10 @@ def find_replacement_refusal(
     """
 
     if saison_status == "past":
-        return WriteRefusal(
-            error_code=Code.SAISON_PAST,
-            status=HTTPStatus.CONFLICT,
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.SAISON_PAST)
 
     if started:
-        return WriteRefusal(
-            error_code=Code.REPLACE_SAISON_STARTED,
-            status=HTTPStatus.CONFLICT,
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.REPLACE_SAISON_STARTED)
 
     # The league before the season, as `enter_a_team` judges it: a club that has left the league
     # is a candidate for no season at all, and picking a different one would not repair it.
@@ -998,10 +947,7 @@ def find_replacement_refusal(
         return retired
 
     if incoming_already_entered:
-        return WriteRefusal(
-            error_code=Code.REPLACE_INCOMING_ALREADY_ENTERED,
-            status=HTTPStatus.CONFLICT,
-        )
+        return APIError(HTTPStatus.CONFLICT, Code.REPLACE_INCOMING_ALREADY_ENTERED)
 
     return None
 
@@ -1016,13 +962,10 @@ def saison_blocking_retirement(saisons: Iterable[Mapping[str, Any]]) -> str | No
     return max((str(saison["_id"]) for saison in saisons if saison["status"] in _RETIRE_BLOCKING_STATUSES), default=None)
 
 
-def find_retire_refusal(saison_statuses: Iterable[str]) -> WriteRefusal | None:
+def find_retire_refusal(saison_statuses: Iterable[str]) -> APIError | None:
     """Why retiring this club must be refused, or `None`; a club whose seasons are all `past` may be retired."""
 
     if not any(saison_status in _RETIRE_BLOCKING_STATUSES for saison_status in saison_statuses):
         return None
 
-    return WriteRefusal(
-        error_code=Code.RETIRE_BLOCKED,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.RETIRE_BLOCKED)

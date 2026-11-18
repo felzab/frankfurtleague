@@ -1,4 +1,5 @@
 from collections.abc import Mapping
+from http import HTTPStatus
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Header
@@ -28,10 +29,8 @@ from app.api.registrierungen.services import (
     find_age_refusal,
     find_already_confirmed_refusal,
     find_expired_token_refusal,
-    find_kader_refusal,
     find_stufe_refusal,
     find_team_departed_refusal,
-    find_team_junction_refusal,
     find_unknown_token_refusal,
     find_window_refusal,
     saison_takes_registrierungen,
@@ -41,6 +40,7 @@ from app.api.saisons.services import entry_is_a_nominee
 from app.api.spieler.crud import pull_kader_room
 from app.api.spieler.services import find_full_kader_refusal
 from app.core.clock import days_after, utc_stamp
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
@@ -61,6 +61,7 @@ from app.core.dependencies import (
     SaisonTeamsReadCollection,
     TeamsReadCollection,
 )
+from app.core.exceptions import APIError
 from app.core.readonly import ReadCollection
 from app.core.routing import SAFE
 from app.core.security import BASE_TIER
@@ -241,7 +242,10 @@ async def post_registrierung(
         rules = saison_raw.get("rules") or {}
         refuse(find_window_refusal(saison_status=saison_raw["status"], registrierung=saison_raw.get("registrierung")))
 
-        refuse(find_team_junction_refusal(entered=junction_raw is not None))
+        # A club the season holds no row of takes no registration: `registrierung_closed` rather than the squad write's
+        # `kader_team_not_in_saison`, which is worded for an administrator entering a player.
+        if junction_raw is None:
+            raise APIError(HTTPStatus.CONFLICT, Code.REGISTRIERUNG_CLOSED)
 
         refuse(find_stufe_refusal(stufe=registrierung_data.stufe, allowed_stufen=list(rules.get("allowed_stufen") or [])))
 
@@ -253,11 +257,9 @@ async def post_registrierung(
             excluding_spieler_id=None,
             session=session,
         )
-        refuse(
-            find_kader_refusal(
-                full=find_full_kader_refusal(room=room, nominee=entry_is_a_nominee(registrierung=saison_raw.get("registrierung"), day=today))
-            )
-        )
+        # The squad write's own `kader_full`, the answer the link's `kader_free` gives: it carries no figure, so a stranger
+        # holding a link learns nothing about a squad's size.
+        refuse(find_full_kader_refusal(room=room, nominee=entry_is_a_nominee(registrierung=saison_raw.get("registrierung"), day=today)))
 
         # A mailbox already holding its most open links is owed nothing, and nothing refuses the press: the row
         # stands unmailed and lapses on its deadline, so the answer cannot tell anybody what that mailbox holds.

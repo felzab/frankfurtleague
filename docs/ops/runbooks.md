@@ -630,11 +630,11 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   of their own, and no administrator's route overrides them. The remedy is outside the site: settle
   it with the school or provider that reassigned the mailbox, and with the person through a channel
   the league already holds.
-- **What refuses an administrator's start**: another pupil
-  signing in on the new address where a pupil row moves, an address
-  holding nothing a change moves (`address_change_nothing`), and your own address
-  (`own_address`), which you change on your own account page, and a new address any entry names,
-  confirmed or not (`address_change_occupied`), which the confirmation would refuse too: where the two
+- **What refuses an administrator's start**: an address
+  holding nothing a change moves (`address_change_nothing`), your own address
+  (`own_address`), which you change on your own account page, and a new address another pupil signs
+  in on where a pupil row moves, or any entry names, confirmed or not (`address_change_taken`), which
+  the confirmation would refuse too: where the two
   addresses are one person's, the league merges their records by hand. A banned new address is refused
   nothing: its link stops at the hand-out.
 - **The owner's own mailbox, lost or hijacked.** The address on file answers an owner's own change, so
@@ -642,7 +642,7 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   recovery write.
 - **Re-send** a link only while the change waits on the new mailbox
   (`POST /address_change/{address_change_id}/invite`); a new address taken since the start refuses the
-  re-send (`address_change_new_taken`). **Discard** a change that turns out to be
+  re-send (`address_change_taken`). **Discard** a change that turns out to be
   wrong (`DELETE /address_change/{address_change_id}`). A change whose step lapses ends within the hour
   ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)).
 - **Once a change takes effect**, the replaced address is told where an administrator started it or

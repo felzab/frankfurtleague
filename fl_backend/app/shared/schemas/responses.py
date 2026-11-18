@@ -3,6 +3,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.codes import Code
+from app.core.exceptions import Bound
 from app.shared.schemas.custom import CustomObjectId
 
 
@@ -38,7 +39,7 @@ class FLRefusedField(BaseModel):
     # The bounds the rule holds the refused value to, JSON scalars or a list of whole numbers, by the names the rule
     # gives them, one of which can be another field of the same payload: a domain rule's context, or an endpoint
     # refusal's bounds. Empty for Pydantic's own kinds and where the rule names none.
-    ctx: dict[str, str | int | float | bool | list[int]]
+    ctx: dict[str, Bound]
 
 
 # The failure body as published, never as built: the handler writes plain dicts, since a model raising inside a

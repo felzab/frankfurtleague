@@ -1,5 +1,6 @@
 from collections.abc import Mapping
 from datetime import datetime
+from http import HTTPStatus
 from typing import Any
 
 from fastapi import APIRouter
@@ -37,7 +38,6 @@ from app.api.address_change.services import (
     compose_confirmation_update,
     compose_link_update,
     find_ended_refusal,
-    find_expired_refusal,
     find_nothing_refusal,
     find_unknown_refusal,
     is_expired,
@@ -51,6 +51,7 @@ from app.api.address_change.services import (
 )
 from app.api.identity.lookup import SubjectLookup
 from app.core.clock import german_day
+from app.core.codes import Code
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
     ActionLogCollection,
@@ -69,6 +70,7 @@ from app.core.dependencies import (
     SpielerCollection,
     SpielerReadCollection,
 )
+from app.core.exceptions import APIError
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.routing import SAFE
 from app.core.security import BASE_TIER
@@ -356,7 +358,8 @@ async def _answer_for_the_address_on_file(
         )
         return FLAddressChangeAnswerResponse(answer="declined", effective_from=None, effective=False)
 
-    refuse(find_expired_refusal(expired=is_expired(record, now=germany_now)))
+    if is_expired(record, now=germany_now):
+        raise APIError(HTTPStatus.GONE, Code.LINK_EXPIRED)
     released: Mapping[str, Any] = await patch_one_in_db(
         collection=address_changes_collection,
         db_filter=db_filter,

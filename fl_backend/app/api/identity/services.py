@@ -20,7 +20,7 @@ from app.api.schiedsrichter.services import build_assignment_filter, build_self_
 from app.api.spieler.services import build_self_pupil_filter
 from app.core.codes import Code
 from app.core.collections import Collection as DbCollection
-from app.core.exceptions import WriteRefusal
+from app.core.exceptions import APIError
 from app.shared.einwilligung import is_confirmed
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.literals import KONTAKT_SEATS, FLAddressChangeViewableDenied, FLKontaktSeat, FLSaisonStatus
@@ -420,7 +420,7 @@ def may_grant_on_schiedsrichter(subject: FLSubject, schiedsrichter_id: ObjectId)
     return any(entry.schiedsrichter_id == schiedsrichter_id for entry in subject.schiedsrichter)
 
 
-def find_role_refusal(*, seats: Iterable[FLSubjectSeat], team_id: ObjectId, saison_id: str) -> WriteRefusal | None:
+def find_role_refusal(*, seats: Iterable[FLSubjectSeat], team_id: ObjectId, saison_id: str) -> APIError | None:
     """`role_not_held`: the signed-in person holds no seat on this team in this season.
 
     One answer for another team, another season and a `past` one, so the refusal tells a stranger
@@ -430,10 +430,7 @@ def find_role_refusal(*, seats: Iterable[FLSubjectSeat], team_id: ObjectId, sais
     if holds_a_seat(seats, team_id=team_id, saison_id=saison_id):
         return None
 
-    return WriteRefusal(
-        error_code=Code.ROLE_NOT_HELD,
-        status=HTTPStatus.FORBIDDEN,
-    )
+    return APIError(HTTPStatus.FORBIDDEN, Code.ROLE_NOT_HELD)
 
 
 def holds_an_owner_grant(identifier: str, grants: Iterable[Mapping[str, Any]]) -> bool:
@@ -442,16 +439,13 @@ def holds_an_owner_grant(identifier: str, grants: Iterable[Mapping[str, Any]]) -
     return any(grant["address"] == identifier and grant["admin_tier"] == OWNER for grant in grants)
 
 
-def find_owner_erasure_refusal(*, identifier: str, grants: Iterable[Mapping[str, Any]]) -> WriteRefusal | None:
+def find_owner_erasure_refusal(*, identifier: str, grants: Iterable[Mapping[str, Any]]) -> APIError | None:
     """`owner_erasure`: the owner erases their address only after a handover, nobody else being able to name an owner."""
 
     if not holds_an_owner_grant(identifier, grants):
         return None
 
-    return WriteRefusal(
-        error_code=Code.OWNER_ERASURE,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.OWNER_ERASURE)
 
 
 def is_own_address(*, identifier: str, actor: str) -> bool:
@@ -460,16 +454,13 @@ def is_own_address(*, identifier: str, actor: str) -> bool:
     return identifier == actor
 
 
-def find_own_address_refusal(*, identifier: str, actor: str) -> WriteRefusal | None:
+def find_own_address_refusal(*, identifier: str, actor: str) -> APIError | None:
     """`own_address`: an administrator's route on a mailbox refuses the mailbox they act as, both folded."""
 
     if not is_own_address(identifier=identifier, actor=actor):
         return None
 
-    return WriteRefusal(
-        error_code=Code.OWN_ADDRESS,
-        status=HTTPStatus.FORBIDDEN,
-    )
+    return APIError(HTTPStatus.FORBIDDEN, Code.OWN_ADDRESS)
 
 
 def admin_address_denied(*, identifier: str, actor: str, grants: Sequence[Mapping[str, Any]]) -> bool:
@@ -478,7 +469,7 @@ def admin_address_denied(*, identifier: str, actor: str, grants: Sequence[Mappin
     return admin_tier_of(identifier, grants) is not None and not holds_an_owners_power(actor=actor, grants=grants)
 
 
-def find_admin_address_refusal(*, identifier: str, actor: str, grants: Sequence[Mapping[str, Any]]) -> WriteRefusal | None:
+def find_admin_address_refusal(*, identifier: str, actor: str, grants: Sequence[Mapping[str, Any]]) -> APIError | None:
     """`admin_address`: an address holding a grant is acted on only by an actor holding an owner's power.
 
     `grants` as stored, read where the caller judges, so a retry judges them afresh.
@@ -487,13 +478,10 @@ def find_admin_address_refusal(*, identifier: str, actor: str, grants: Sequence[
     if not admin_address_denied(identifier=identifier, actor=actor, grants=grants):
         return None
 
-    return WriteRefusal(
-        error_code=Code.ADMIN_ADDRESS,
-        status=HTTPStatus.FORBIDDEN,
-    )
+    return APIError(HTTPStatus.FORBIDDEN, Code.ADMIN_ADDRESS)
 
 
-def find_foreign_address_change_refusal(*, addresses: Iterable[str], actor: str, grants: Sequence[Mapping[str, Any]]) -> WriteRefusal | None:
+def find_foreign_address_change_refusal(*, addresses: Iterable[str], actor: str, grants: Sequence[Mapping[str, Any]]) -> APIError | None:
     """`foreign_address_change`: without an owner's power, an erasure ends no pending change of an address holding a grant.
 
     `addresses` are the changes' own addresses, never the one erased; the message names none of them.
@@ -502,10 +490,7 @@ def find_foreign_address_change_refusal(*, addresses: Iterable[str], actor: str,
     if not any(admin_address_denied(identifier=address, actor=actor, grants=grants) for address in addresses):
         return None
 
-    return WriteRefusal(
-        error_code=Code.FOREIGN_ADDRESS_CHANGE,
-        status=HTTPStatus.FORBIDDEN,
-    )
+    return APIError(HTTPStatus.FORBIDDEN, Code.FOREIGN_ADDRESS_CHANGE)
 
 
 def address_change_viewable_denied(identifier: str, *, actor: str, grants: Sequence[Mapping[str, Any]]) -> FLAddressChangeViewableDenied | None:
@@ -602,16 +587,13 @@ def unreferenced(identifiers: Iterable[str], *, referenced: Collection[str]) -> 
     return list(dict.fromkeys(identifier for identifier in identifiers if sign_in_identifier(identifier) not in referenced))
 
 
-def find_no_owner_refusal(grant_rows: Sequence[Mapping[str, Any]]) -> WriteRefusal | None:
+def find_no_owner_refusal(grant_rows: Sequence[Mapping[str, Any]]) -> APIError | None:
     """`no_owner`: no grant is an `owner`'s, as in an empty database; a foreign one holding such a row passes, nothing telling it apart."""
 
     if any(grant.get("admin_tier") == OWNER for grant in grant_rows):
         return None
 
-    return WriteRefusal(
-        error_code=Code.NO_OWNER,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.NO_OWNER)
 
 
 # --- The season-after rule, keyed on the stored statuses and never

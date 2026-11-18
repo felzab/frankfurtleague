@@ -24,7 +24,7 @@ from pymongo.results import DeleteResult, InsertManyResult, InsertOneResult, Upd
 
 from app.core.codes import Code
 from app.core.collections import EDITED_COLLECTIONS
-from app.core.exceptions import APIError, DocumentNotFoundError, WriteRefusal
+from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
@@ -130,16 +130,16 @@ def composite_version(*documents: Mapping[str, Any]) -> int:
     return sum(int(document[VERSION_FIELD]) for document in documents)
 
 
-def find_stale_save_refusal(*documents: Mapping[str, Any], version: int) -> WriteRefusal | None:
+def find_stale_save_refusal(*documents: Mapping[str, Any], version: int) -> APIError | None:
     """`version_stale`: one of the documents an editor saves together has moved since it read them."""
 
     if composite_version(*documents) == version:
         return None
 
-    return WriteRefusal(error_code=Code.VERSION_STALE, status=HTTPStatus.CONFLICT)
+    return APIError(HTTPStatus.CONFLICT, Code.VERSION_STALE)
 
 
-def find_stale_first_save_refusal(saved: Mapping[str, Any] | None, *, version: int | None) -> WriteRefusal | None:
+def find_stale_first_save_refusal(saved: Mapping[str, Any] | None, *, version: int | None) -> APIError | None:
     """`version_stale` for the save of a document its form's first save creates.
 
     A null `version` says the form showed no document, and matches only absence: a first save committed since refuses
@@ -149,7 +149,7 @@ def find_stale_first_save_refusal(saved: Mapping[str, Any] | None, *, version: i
     if (None if saved is None else int(saved[VERSION_FIELD])) == version:
         return None
 
-    return WriteRefusal(error_code=Code.VERSION_STALE, status=HTTPStatus.CONFLICT)
+    return APIError(HTTPStatus.CONFLICT, Code.VERSION_STALE)
 
 
 def _versioned(collection: AsyncCollection, update: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -423,7 +423,7 @@ def literal_pattern(value: str) -> str:
     return re.escape(value).replace("\x00", r"\x00")
 
 
-def refuse(refusal: WriteRefusal | None) -> None:
+def refuse(refusal: APIError | None) -> None:
     """One refusal, never varargs.
 
     Varargs would run every check even after one has refused, and several call sites document the
@@ -431,7 +431,7 @@ def refuse(refusal: WriteRefusal | None) -> None:
     """
 
     if refusal is not None:
-        raise refusal.error()
+        raise refusal
 
 
 async def set_inactive_since(

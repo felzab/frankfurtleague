@@ -2,7 +2,7 @@ from collections.abc import Iterable
 from http import HTTPStatus
 
 from app.core.codes import Code
-from app.core.exceptions import WriteRefusal
+from app.core.exceptions import APIError
 from app.shared.schemas.bounds import BAN_DURATION_SAISONS, SAISON_ID_LENGTH
 
 
@@ -28,7 +28,7 @@ def compose_barred_until_saison_id(*, running_saison_id: str) -> str:
     return bound
 
 
-def find_no_saison_refusal(*, running_saison_id: str | None) -> WriteRefusal | None:
+def find_no_saison_refusal(*, running_saison_id: str | None) -> APIError | None:
     """`ban_list_no_saison`: while no season is running there is nothing to count five seasons from.
 
     A ban written there would need an unbounded row, which is the shape the lapse exists to refuse.
@@ -37,13 +37,10 @@ def find_no_saison_refusal(*, running_saison_id: str | None) -> WriteRefusal | N
     if running_saison_id is not None:
         return None
 
-    return WriteRefusal(
-        error_code=Code.BAN_LIST_NO_SAISON,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.BAN_LIST_NO_SAISON)
 
 
-def find_admin_refusal(*, address: str, administrators: Iterable[str], incoming: bool) -> WriteRefusal | None:
+def find_admin_refusal(*, address: str, administrators: Iterable[str], incoming: bool) -> APIError | None:
     """`ban_list_admin`: the address has a row in `grants`, in effect or waiting, or a holder's live change moves to it.
 
     The target's state, so 409: the ban is refused for what the address is, and ending the grant or the change is what
@@ -54,7 +51,4 @@ def find_admin_refusal(*, address: str, administrators: Iterable[str], incoming:
     if not incoming and address not in set(administrators):
         return None
 
-    return WriteRefusal(
-        error_code=Code.BAN_LIST_ADMIN,
-        status=HTTPStatus.CONFLICT,
-    )
+    return APIError(HTTPStatus.CONFLICT, Code.BAN_LIST_ADMIN)

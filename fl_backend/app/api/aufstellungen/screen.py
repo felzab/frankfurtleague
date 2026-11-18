@@ -50,7 +50,7 @@ from app.core.crud import (
     pull_whole_from_db,
     refuse,
 )
-from app.core.exceptions import DocumentNotFoundError, WriteRefusal
+from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_KONTAKT
 from app.core.transactions import transact
@@ -93,7 +93,7 @@ class _State:
     kader: Sequence[Mapping[str, Any]]
 
 
-def find_aufstellung_seat_refusal(*, seats: Sequence[FLSubjectSeat], team_id: ObjectId, saison_id: str | None) -> WriteRefusal | None:
+def find_aufstellung_seat_refusal(*, seats: Sequence[FLSubjectSeat], team_id: ObjectId, saison_id: str | None) -> APIError | None:
     """`role_not_held` for a person holding no seat on this club in the fixture's season.
 
     Where no fixture carries the id there is no season to ask, and a seat on the club in any season admits the person
@@ -105,7 +105,7 @@ def find_aufstellung_seat_refusal(*, seats: Sequence[FLSubjectSeat], team_id: Ob
     if any(seat.team_id == team_id for seat in seats):
         return None
 
-    return WriteRefusal(error_code=Code.ROLE_NOT_HELD, status=HTTPStatus.FORBIDDEN)
+    return APIError(HTTPStatus.FORBIDDEN, Code.ROLE_NOT_HELD)
 
 
 async def _pull_spiel(*, spiele_collection: ReadCollection, spiel_id: ObjectId, session: AsyncClientSession) -> Mapping[str, Any] | None:

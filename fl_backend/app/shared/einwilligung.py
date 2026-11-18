@@ -3,7 +3,7 @@ from http import HTTPStatus
 from typing import Any, Final
 
 from app.core.codes import Code
-from app.core.exceptions import WriteRefusal
+from app.core.exceptions import APIError
 from app.shared.age import whole_years_between
 from app.shared.einwilligung_evidence import is_given
 from app.shared.schemas.bounds import MEDIA_MIN_AGE_YEARS
@@ -43,7 +43,7 @@ def media_offered(*, birth_date: Any, today: str) -> bool:
         return False
 
 
-def find_self_media_refusal(*, saved: Any, media: bool, birth_date: Any, today: str) -> WriteRefusal | None:
+def find_self_media_refusal(*, saved: Any, media: bool, birth_date: Any, today: str) -> APIError | None:
     """Why a media consent moving to `true` is refused, judged on the birthdate the write leaves.
 
     Only a move off the stored block is judged, so a resent `true` never blocks the other switch.
@@ -53,8 +53,4 @@ def find_self_media_refusal(*, saved: Any, media: bool, birth_date: Any, today: 
     if not media or state_given or media_offered(birth_date=birth_date, today=today):
         return None
 
-    return WriteRefusal(
-        error_code=Code.MEDIA_AGE,
-        status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        fields=(("media",),),
-    )
+    return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.MEDIA_AGE, fields=(("media",),))

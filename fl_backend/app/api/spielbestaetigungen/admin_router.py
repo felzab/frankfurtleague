@@ -57,7 +57,7 @@ from app.core.dependencies import (
     SpieltageCollection,
     TeamsCollection,
 )
-from app.core.exceptions import APIError, DocumentNotFoundError, WriteRefusal, as_judged_on_stored_state
+from app.core.exceptions import APIError, DocumentNotFoundError, as_judged_on_stored_state
 from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.transactions import transact
@@ -124,7 +124,7 @@ async def enter_spielbestaetigung(
                 return_document=ReturnDocument.AFTER,
             )
         except DocumentNotFoundError as miss:
-            raise enter_refusal().error() from miss
+            raise enter_refusal() from miss
 
         await record_act(
             collection=spielbestaetigungen_collection,
@@ -200,7 +200,7 @@ async def discard_spielbestaetigung(
                 return_document=ReturnDocument.AFTER,
             )
         except DocumentNotFoundError as miss:
-            raise discard_refusal().error() from miss
+            raise discard_refusal() from miss
 
         await record_act(
             collection=spielbestaetigungen_collection,
@@ -304,6 +304,6 @@ async def adopt_spielbestaetigung(
         except APIError as refused:
             # As the draw answers the season write's refusals it shares: the paths the save names are its body's, and
             # this request carries none.
-            refuse(as_judged_on_stored_state(WriteRefusal.of(refused), twins=ADOPTION_TWINS))
+            refuse(as_judged_on_stored_state(refused, twins=ADOPTION_TWINS))
 
     await transact(db, adopt_the_proposal)

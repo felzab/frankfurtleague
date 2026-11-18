@@ -1,4 +1,5 @@
 from collections.abc import Iterable, Mapping
+from http import HTTPStatus
 from typing import Any
 
 from pymongo import ReturnDocument
@@ -17,9 +18,9 @@ from app.api.teams.services import (
     find_gruppe_move_refusal,
     find_shorthand_refusal,
     find_team_entry_refusal,
-    find_trikot_farbe_refusal,
 )
 from app.api.teams.standings import build_tabelle
+from app.core.codes import Code
 from app.core.concurrency import concurrently
 from app.core.crud import (
     GERMAN_COLLATION,
@@ -35,6 +36,7 @@ from app.core.crud import (
     pull_whole_from_db,
     refuse,
 )
+from app.core.exceptions import APIError
 from app.core.readonly import ReadCollection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId
@@ -68,7 +70,8 @@ async def refuse_a_taken_colour(
     held = await saison_teams_collection.count_documents(
         {"saison_id": saison_id, "trikot_farbe": trikot_farbe, **other_rows}, limit=1, session=session
     )
-    refuse(find_trikot_farbe_refusal(taken=held > 0))
+    if held > 0:
+        raise APIError(HTTPStatus.CONFLICT, Code.TRIKOT_FARBE_TAKEN, fields=(("trikot_farbe",),))
 
 
 async def refuse_a_full_gruppe(

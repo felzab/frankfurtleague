@@ -2,6 +2,7 @@
 
 from collections.abc import Mapping, Sequence
 from datetime import datetime
+from http import HTTPStatus
 from typing import Any, Final, NamedTuple
 
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -15,9 +16,10 @@ from app.api.registrierungen.services import (
     build_open_link_filter,
     build_registrierungen_sort,
     build_unconfirmed_open_filter,
-    find_unknown_registrierung_refusal,
 )
-from app.core.crud import aggregate_many_from_db, anchor_mailboxes_in_db, delete_many_from_db, refuse
+from app.core.codes import Code
+from app.core.crud import aggregate_many_from_db, anchor_mailboxes_in_db, delete_many_from_db
+from app.core.exceptions import APIError
 from app.core.readonly import ReadCollection
 from app.shared.mailbox import OPEN_LINKS_PER_MAILBOX, mailbox_anchor_ids
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
@@ -36,8 +38,8 @@ async def pull_registrierung(
     """
 
     row = await registrierungen_collection.find_one({"_id": registrierung_id}, projection=dict(WITHOUT_TOKEN_HASHES), session=session)
-    refuse(find_unknown_registrierung_refusal(found=row is not None))
-    assert row is not None
+    if row is None:
+        raise APIError(HTTPStatus.FORBIDDEN, Code.ROLE_NOT_HELD)
 
     return row
 

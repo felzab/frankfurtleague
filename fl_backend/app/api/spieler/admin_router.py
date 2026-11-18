@@ -1,3 +1,4 @@
+from http import HTTPStatus
 from typing import Final
 
 from fastapi import APIRouter, status
@@ -23,10 +24,10 @@ from app.api.spieler.services import (
     build_held_rollen_filter,
     build_kader_pipeline,
     find_kader_stufe_refusal,
-    find_kader_team_refusal,
     mark_shared_nummern,
 )
 from app.api.teams.crud import pull_saison_team_names
+from app.core.codes import Code
 from app.core.concurrency import concurrently
 from app.core.crud import (
     GERMAN_COLLATION,
@@ -52,6 +53,7 @@ from app.core.dependencies import (
     SpielerCollection,
     SpielerReadCollection,
 )
+from app.core.exceptions import APIError
 from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.transactions import transact
@@ -294,7 +296,8 @@ async def reactivate_saison_spieler(
         ) > 0
         # Asked before the cap, as both siblings ask it: a full squad is not a fact worth reporting
         # about a club the season does not hold.
-        refuse(find_kader_team_refusal(team_in_saison=team_in_saison))
+        if not team_in_saison:
+            raise APIError(HTTPStatus.CONFLICT, Code.KADER_TEAM_NOT_IN_SAISON)
 
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules"], session=session)
         await refuse_a_full_kader(

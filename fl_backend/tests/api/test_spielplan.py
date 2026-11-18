@@ -25,7 +25,7 @@ from app.api.saisons.services import (
 from app.api.saisons.spielplan import EnteredTeam, Spielplan, bracket_seeding, circle_rounds, draw_spielplan
 from app.api.spiele.schemas import PHASE_ORDER, PHASE_RANK
 from app.core.codes import Code
-from app.core.exceptions import WriteRefusal
+from app.core.exceptions import APIError
 from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSonderereignis
 from tests.bracket_reference import BRACKET_SEEDING
 from tests.documents import rules_document
@@ -555,7 +555,7 @@ def refusal_for(
     rules: FLSaisonRules = RULES,
     replace: bool = False,
     recorded: int = 0,
-) -> WriteRefusal | None:
+) -> APIError | None:
     return find_spielplan_refusal(
         saison_status=saison_status,
         spiele_drawn=spiele_drawn,
