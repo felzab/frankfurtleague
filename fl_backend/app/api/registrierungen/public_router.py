@@ -195,8 +195,7 @@ async def post_registrierung(
     germany_now: GermanyNow,
     # Version 4 alone: a guessable key lets a stranger store a registration under it first, and the
     # pupil's own press is then answered as that one.
-    # Optional, so a page loaded before the form sent one still submits, unprotected.
-    idempotency_key: Annotated[UUID4 | None, Header()] = None,
+    idempotency_key: Annotated[UUID4, Header()],
 ) -> FLCreatedResponse:
     """Store one pupil's registration for the team and season the link belongs to, and owe its confirmation mail.
 
@@ -204,7 +203,7 @@ async def post_registrierung(
     and owes no second mail.
     """
 
-    key = None if idempotency_key is None else str(idempotency_key)
+    key = str(idempotency_key)
 
     async def store_or_replay(session: AsyncClientSession) -> FLCreatedResponse:
         # Before every judgement: a replay answers what the first request did, even where the invite
@@ -212,7 +211,7 @@ async def post_registrierung(
         # The id alone: the registration its first press stored, whose mail that press owed. A form whose details
         # changed sends a new key. The key goes with its registration: a press after the row was admitted or lapsed is
         # a new registration, and one after a decline answers the declined row until the sweep erases it.
-        stored = None if key is None else await registrierungen_collection.find_one(build_key_filter(key=key), ["_id"], session=session)
+        stored = await registrierungen_collection.find_one(build_key_filter(key=key), ["_id"], session=session)
         if stored is not None:
             return FLCreatedResponse(created_id=stored["_id"])
 
@@ -282,7 +281,7 @@ async def post_registrierung(
                     confirmation=compose_confirmation(today=today, deadline=deadline, mailed=mailed),
                     today=today,
                 ),
-                **({} if key is None else {"idempotency_key": key}),
+                "idempotency_key": key,
             },
             session=session,
         )

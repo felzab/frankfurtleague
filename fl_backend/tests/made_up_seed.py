@@ -1073,7 +1073,6 @@ class MadeUpLeague:
                 if confirmed
                 else None,
                 invitation_id=self.invitations[team_name]["_id"],
-                keyed=False,
                 **({} if decision is None else {"status": "declined", "decision": dict(decision)}),
             )
 

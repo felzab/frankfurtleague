@@ -189,15 +189,14 @@ async def register(
     client: AsyncMongoClient,
     *,
     key: UUID | None = None,
-    keyless: bool = False,
     registrierungen: Any = None,
     **overrides: Any,
 ) -> Any:
-    """A fresh key per call unless the case names one or sends none, so every other case here is a first press."""
+    """A fresh key per call unless the case names one, so every other case here is a first press."""
 
     return await post_registrierung(
         registrierung_data=FLPostRegistrierungPayload.model_validate(payload(**overrides)),
-        idempotency_key=None if keyless else key or uuid4(),
+        idempotency_key=key or uuid4(),
         registrierungen_collection=registrierungen if registrierungen is not None else database[Collection.REGISTRIERUNGEN],
         invitations_collection=database[Collection.INVITATIONS],
         saisons_collection=database[Collection.SAISONS],
@@ -348,20 +347,6 @@ class TestTheSubmissionKey:
         assert (second, stored) == (first, 1)
         # `with_transaction` retries the anchor's `WriteConflict`, ahead of any insert: the second run's lookup finds the row.
         assert (lookups, failures) == (2, [])
-
-    async def test_a_press_carrying_no_key_is_still_taken_and_stores_none(self, mongo_replica_set_url: str):
-        """A page loaded before the form sent one: stored and mailed, unprotected, and outside the unique index."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            answers = [await register(database, client, keyless=True), await register(database, client, keyless=True)]
-
-            return answers, await rows_of(database), await owed_of(database)
-
-        answers, rows, owed = await on_a_league(mongo_replica_set_url, body)
-
-        assert len({answer.created_id for answer in answers}) == 2
-        assert len(rows) == len(owed) == 2
-        assert not any("idempotency_key" in row for row in rows)
 
 
 async def over_the_wire(url: str, *, key: str) -> Response:

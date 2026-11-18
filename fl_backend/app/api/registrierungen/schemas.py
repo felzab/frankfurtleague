@@ -82,7 +82,7 @@ class FLRegistrierungRecord(_RegistrierungStored):
     confirmation: FLRegistrierungConfirmationRecord | None
     decision: FLRegistrierungDecision | None
     # The submission's replay key.
-    idempotency_key: str | None = None
+    idempotency_key: str
 
 
 class FLInvitationViewResponse(BaseReadModel):

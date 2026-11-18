@@ -166,7 +166,6 @@ def valid_documents() -> dict[Collection, dict[str, Any]]:
             nummer="17",
             stufe="Q1",
             invitation_id=INVITATION_OID,
-            keyed=False,
         ),
         Collection.GRANTS: grant_document("inhaberin@example.com", "owner", effective_from=datetime(2026, 1, 1, tzinfo=UTC), _id=GRANT_OID),
         # An open team row as the pass mints it.

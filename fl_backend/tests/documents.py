@@ -531,13 +531,12 @@ def registrierung_document(
     stufe: str | None = None,
     confirmed: Mapping[str, Any] | None = None,
     invitation_id: Any = None,
-    keyed: bool = True,
     **fields: Any,
 ) -> dict[str, Any]:
     """A registration as the submission leaves it and, given `confirmed`, as its pupil's own confirmation then does, through their composers.
 
     `token` is the raw link its hash is minted from; `confirmed` the confirmation composer's keywords. Through a link nobody
-    stores unless `invitation_id` names one, and `keyed` where the submission carried the replay key the row then keeps.
+    stores unless `invitation_id` names one, and keyed by its own id, a replay key no other row holds.
     """
 
     document = {
@@ -555,7 +554,7 @@ def registrierung_document(
             confirmation={**compose_confirmation(today=submitted_at, deadline=deadline, mailed=True), "token_hashes": [hash_token(token)]},
             today=submitted_at,
         ),
-        **({"idempotency_key": str(registrierung_id)} if keyed else {}),
+        "idempotency_key": str(registrierung_id),
     }
     if confirmed is not None:
         document.update(compose_confirmation_update(**confirmed)["$set"])
