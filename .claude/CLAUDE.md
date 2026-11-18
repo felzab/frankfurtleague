@@ -174,11 +174,11 @@ machine's own are in `~/.claude/CLAUDE.md`.
 ## 7. Ratified decisions — never "fix" one
 
 **Every line of [`docs/decisions.md`](../docs/decisions.md), loaded below, is a never-clause, and
-each is deliberate.** Check them before calling anything a violation. Never flag, refactor or
-optimise one without an instruction naming it; where you believe one is wrong, another source's
-disagreement included, say so and stop — the correction is the owner's. Its argument, where one
-survives, is at the line the clause governs or in the commit `git log -S` finds for its words. A
-ruling that adds or retires a decision edits that file in the commit that makes the change.
+each is deliberate.** Check them before calling anything a violation. Never refactor or optimise
+one without the owner's instruction naming it. Where evidence shows one is wrong, report the line and
+the evidence and stop: the change is the owner's. Its argument, where one survives, is at the line
+the clause governs. A ruling that adds or retires a decision edits that file in the commit that
+makes the change.
 
 @../docs/decisions.md
 
