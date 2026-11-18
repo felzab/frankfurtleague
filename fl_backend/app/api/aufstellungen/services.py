@@ -8,7 +8,8 @@ from typing import Any, Final
 from bson import ObjectId
 
 from app.api.aufstellungen.schemas import FLAufstellungenPublic, FLAufstellungEntry, FLAufstellungMarks, FLAufstellungPhase
-from app.api.spielberichte.services import SIDES, team_id_of
+from app.api.spielberichte.services import SIDES
+from app.api.spiele.schemas import team_id_of
 from app.api.spieler.services import PUBLIC_PERSON
 from app.core import clock
 from app.core.codes import Code

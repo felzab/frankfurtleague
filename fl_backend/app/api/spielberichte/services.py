@@ -14,7 +14,7 @@ from app.api.spielberichte.schemas import (
     FLSpielberichtVorschlag,
 )
 from app.api.spielbestaetigungen.services import exit_ends_the_booking
-from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, SONDEREREIGNIS_WITHOUT_A_RESULT, FLSpielElfmeterschiessen, is_played
+from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, SONDEREREIGNIS_WITHOUT_A_RESULT, FLSpielElfmeterschiessen, is_played, team_id_of
 from app.api.spieler.services import PUBLIC_PERSON
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -122,12 +122,6 @@ def build_state_pipeline(*, saison_id: str) -> list[Mapping[str, Any]]:
         ),
         {"$project": {"_id": 0, "spiel_id": 1, "bericht": 1, "spiel": 1}},
     ]
-
-
-def team_id_of(spiel_raw: Mapping[str, Any], side: FLSpielSide) -> ObjectId | None:
-    team_field = spiel_raw.get(side)
-
-    return None if team_field is None else team_field["team_id"]
 
 
 def sides_of(spiel_raw: Mapping[str, Any]) -> dict[FLSpielSide, ObjectId | None]:

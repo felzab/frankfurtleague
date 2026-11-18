@@ -34,8 +34,8 @@ from app.api.saisons.services import (
     matchday_of,
 )
 from app.api.saisons.visibility import PublicSaison, resolve_public_saison
-from app.api.spielberichte.services import SIDES, build_public_bericht_pipeline, compose_public_bericht, team_id_of
-from app.api.spiele.schemas import FLSpielJoined, FLSpielJoinedListAdapter, FLSpielTeamFieldJoinedInternal, unplayed_filter
+from app.api.spielberichte.services import SIDES, build_public_bericht_pipeline, compose_public_bericht
+from app.api.spiele.schemas import FLSpielJoined, FLSpielJoinedListAdapter, FLSpielTeamFieldJoinedInternal, team_id_of, unplayed_filter
 from app.api.spiele.services import build_named_spiele_pipeline, build_spiele_pipeline
 from app.api.spieler.schemas import FLSpielerListAdapter
 from app.api.spieler.services import build_spieler_pipeline

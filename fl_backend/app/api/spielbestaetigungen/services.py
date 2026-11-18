@@ -42,6 +42,7 @@ from app.api.spiele.schemas import (
     FLSpielTeamFieldPayload,
     has_taken_place,
     is_played,
+    team_id_of,
 )
 from app.core import clock
 from app.core.clock import days_after
@@ -777,12 +778,6 @@ def build_held_filter(*, saison_id: str, spiel_ids: Sequence[Any]) -> dict[str, 
     return {"saison_id": saison_id, "spiel_id": {"$in": list(spiel_ids)}, **build_holding_filter()}
 
 
-def _side_id(spiel: Mapping[str, Any], side: str) -> Any:
-    block = spiel.get(side)
-
-    return block.get("team_id") if isinstance(block, Mapping) else None
-
-
 def _referee_id(spiel: Mapping[str, Any]) -> Any:
     block = spiel.get("schiedsrichter")
 
@@ -854,8 +849,8 @@ def request_is_due(*, spiel: Mapping[str, Any], austritte: Mapping[Any, str], no
         and (asked_before or date <= last_request_day(today=today))
         and spiel.get("time") is not None
         and isinstance(spiel.get("spielort"), Mapping)
-        and _side_id(spiel, "team1") is not None
-        and _side_id(spiel, "team2") is not None
+        and team_id_of(spiel, "team1") is not None
+        and team_id_of(spiel, "team2") is not None
         and spiel.get("ergebnis") is None
         and spiel.get("sonderereignis") is None
     )
@@ -863,14 +858,14 @@ def request_is_due(*, spiel: Mapping[str, Any], austritte: Mapping[Any, str], no
     # Never a row the close would shut: a club gone by the fixture's day, or a lone goal count or
     # shoot-out, would otherwise be minted, closed and minted again, a fresh request every pass. Asked as a side's row,
     # which is a party of the fixture as it stands.
-    minted = {"party": {"kind": "team", "team_id": _side_id(spiel, "team1")}, "ansetzung": compose_ansetzung(spiel)}
+    minted = {"party": {"kind": "team", "team_id": team_id_of(spiel, "team1")}, "ansetzung": compose_ansetzung(spiel)}
     return asked and reason_to_close(row=minted, spiel=spiel, austritte=austritte, now=now) is None
 
 
 def parties_of(spiel: Mapping[str, Any]) -> list[dict[str, Any]]:
     """Every party a fixture's Ansetzung asks: both sides, and its referee where the booking names one."""
 
-    parties: list[dict[str, Any]] = [{"kind": "team", "team_id": _side_id(spiel, side)} for side in ("team1", "team2")]
+    parties: list[dict[str, Any]] = [{"kind": "team", "team_id": team_id_of(spiel, side)} for side in ("team1", "team2")]
     schiedsrichter_id = _referee_id(spiel)
     if schiedsrichter_id is not None:
         parties.append({"kind": "schiedsrichter", "schiedsrichter_id": schiedsrichter_id})
@@ -1190,7 +1185,7 @@ def austritt_notices_of(
     for spiel in ordered:
         opponent = _open_opponent_of(spiel=spiel, team_id=team_id, junctions=junctions)
         if opponent is not None:
-            team1, team2 = _side_id(spiel, "team1"), _side_id(spiel, "team2")
+            team1, team2 = team_id_of(spiel, "team1"), team_id_of(spiel, "team2")
             open_spiele.setdefault(opponent["team_id"], []).append(
                 FLSpielMailEntry(team1=junctions[team1]["name"], team2=junctions[team2]["name"], date=spiel.get("date"), time=spiel.get("time"))
             )
@@ -1223,7 +1218,7 @@ def _open_opponent_of(*, spiel: Mapping[str, Any], team_id: Any, junctions: Mapp
     Open: both sides fielded, the fixture neither decided nor called off, nor closed to the opponent by an exit of its own.
     """
 
-    team1, team2 = _side_id(spiel, "team1"), _side_id(spiel, "team2")
+    team1, team2 = team_id_of(spiel, "team1"), team_id_of(spiel, "team2")
     opponent = junctions.get(team2 if team1 == team_id else team1)
     if opponent is None or team1 is None or team2 is None:
         return None

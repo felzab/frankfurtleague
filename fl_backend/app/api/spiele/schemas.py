@@ -4,6 +4,7 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Annotated, Any, Final, Literal
 
+from bson import ObjectId
 from pydantic import BaseModel, BeforeValidator, Field, TypeAdapter, model_validator
 
 from app.api.teams.schemas import FLAustritt
@@ -145,6 +146,14 @@ def is_played(*, date: str | None, time: str | None, now: datetime) -> bool:
         return date <= clock.german_day(now)
 
     return clock.german_instant(date, time) <= now
+
+
+def team_id_of(spiel: Mapping[str, Any], side: FLSpielSide) -> ObjectId | None:
+    """The club a stored or joined fixture fields on `side`, or `None` for an open side or one holding anything but a mapping."""
+
+    team_field = spiel.get(side)
+
+    return team_field.get("team_id") if isinstance(team_field, Mapping) else None
 
 
 # The one declaration of this competition's rounds; the order is the order they are played.
