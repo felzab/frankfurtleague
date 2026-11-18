@@ -185,7 +185,9 @@ class TestEveryReadScopedByASeasonResolvesIt:
 def test_the_inventory_is_read_off_the_app():
     """Not empty, so a security scheme or a parameter renamed past these filters cannot pass by matching nothing."""
 
-    assert {f"{PREFIX}/saisons/{{saison_id}}/spiele/{{spiel_id}}", f"{PREFIX}/spiele/{{spiel_id}}"} <= {path for path, _ in SEASON_SCOPED_READS}
+    assert {f"{PREFIX}/saisons/{{saison_id}}/spiele/{{spiel_id}}", f"{PREFIX}/saisons/{{saison_id}}/teams/{{team_id}}"} <= {
+        path for path, _ in SEASON_SCOPED_READS
+    }
 
 
 @pytest.mark.db
