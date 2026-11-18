@@ -1397,8 +1397,6 @@ export const COPY = catalogue({
       newSchool: "Neue Schule",
       /** A colour's description in the acceptance, by its `trikotFarbeName`. */
       wish: (farbe: string) => `Wunsch: ${farbe}`,
-      /** Over a list the read's cap cut, which a flooded season reaches. */
-      cut: "Nicht alle Bewerbungen sind geladen.",
       /** The acceptance of a new school, whose address the created team's page then shows. */
       addressPublic: "Die Adresse der Schule steht danach öffentlich auf der Teamseite.",
       /** „E-Mail an“'s value in the acceptance: it waits on every seat's answer, so every seat holds a person to mail. */
@@ -1502,11 +1500,9 @@ export const COPY = catalogue({
       reactivateConsequence: "Die Person steht wieder im Kader.",
     },
 
-    /** The Registrierungen list. */
+    /** A team's Registrierungen list. */
     registrierung: {
       search: "Registrierungen suchen",
-      /** Over a list the read's cap cut, which a link passed around reaches. */
-      cut: "Nicht alle Registrierungen sind geladen.",
     },
 
     /** Administratoren: the grants, what waits among them, and the acts on either. */

@@ -76,7 +76,6 @@ async function rowsOf(
     spielbestaetigungen: [],
     aufstellungen: [],
     registrierungen: [],
-    registrierungen_complete: true,
     seats: [],
     ...held,
   } satisfies FLTeamOverviewResponse;

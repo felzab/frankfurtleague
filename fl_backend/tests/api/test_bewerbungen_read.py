@@ -169,8 +169,8 @@ class TestTheSeasonsListRead:
 
         assert served == {row_id(PICKED): True, row_id(ALSO_PICKED): False, row_id(NEW_SCHOOL): False, row_id(DECLINED): False}
 
-    async def test_a_flood_past_the_cap_says_it_is_cut_and_cuts_no_confirmed_row(self, mongo_replica_set_url: str):
-        """The queue an anonymous form can flood: served short rather than refused, saying so, and with the season's confirmed rows."""
+    async def test_a_flood_past_the_cap_cuts_no_confirmed_row(self, mongo_replica_set_url: str):
+        """The queue an anonymous form can flood: served short rather than refused, and with the season's confirmed rows."""
 
         flood = range(1, LIST_LIMIT_DEFAULT + 2)
 
@@ -186,7 +186,6 @@ class TestTheSeasonsListRead:
         answered = await on_the_view_corpus(mongo_replica_set_url, read)
         served = [row.id for row in answered.bewerbungen]
 
-        assert answered.complete is False
         assert ObjectId(BEWERBUNG_ID.format(flood[0])) not in served
         assert served[LIST_LIMIT_DEFAULT:] == [ObjectId(BEWERBUNG_ID.format(index)) for index in (DECLINED, NEW_SCHOOL, ALSO_PICKED, PICKED)]
 

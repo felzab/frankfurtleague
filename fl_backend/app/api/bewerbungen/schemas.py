@@ -271,9 +271,6 @@ class FLBewerbungenAdminListResponse(BaseReadModel):
 
     saison: FLBewerbungEntryOffer
     bewerbungen: list[FLBewerbungListRow]
-    # Whether every row was served, which an administrator must be able to trust: this is the one list an anonymous
-    # party writes rows into. A cut drops unconfirmed rows alone, the oldest first.
-    complete: bool
 
 
 class FLBewerbungEntry(BaseModel):

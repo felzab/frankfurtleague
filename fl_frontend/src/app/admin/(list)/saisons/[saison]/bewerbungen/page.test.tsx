@@ -33,7 +33,7 @@ const row = (overrides: Partial<FLBewerbungListRow>) =>
   }) as FLBewerbungListRow;
 
 async function chips(...rows: readonly FLBewerbungListRow[]): Promise<ReadonlyArray<ChipProps | undefined>> {
-  state.read = { bewerbungen: rows, complete: true, saison: { status: "future" } };
+  state.read = { bewerbungen: rows, saison: { status: "future" } };
   const page = BewerbungenPage({ params: Promise.resolve({ saison: "2028" }), searchParams: Promise.resolve({}) } as Parameters<
     typeof BewerbungenPage
   >[0]) as { props: { list: { content: Promise<{ table: { rows: ReadonlyArray<{ chip?: ChipProps }> } }> } } };

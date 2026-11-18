@@ -1065,13 +1065,12 @@ class TestThePendingReadsCap:
             await database[Collection.REGISTRIERUNGEN].insert_many(flood)
             answered = await read(database, client)
 
-            return confirmed, [row["_id"] for row in flood], [row.registrierung_id for row in answered.registrierungen], answered.complete
+            return confirmed, [row["_id"] for row in flood], [row.registrierung_id for row in answered.registrierungen]
 
-        confirmed, flood, served, complete = await on_a_league(mongo_replica_set_url, body)
+        confirmed, flood, served = await on_a_league(mongo_replica_set_url, body)
 
         # The confirmed row kept, the room left taken by the newest unconfirmed rows, newest first: the oldest is the one cut.
         assert served == [*reversed(flood[1:]), confirmed]
-        assert complete is False
 
 
 class TestThePendingReadServesNoAddress:

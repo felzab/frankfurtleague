@@ -159,7 +159,7 @@ async def get_bewerbungen_admin(
 ) -> FLBewerbungenAdminListResponse:
     """The season's applications, newest first, holding nothing of a person, and what an acceptance would meet there.
 
-    A long list is cut, as `complete` says, but every application with a confirmed seat is served past the cut.
+    A long list is cut, but every application with a confirmed seat is served past the cut.
     """
 
     # Cut rather than refused: an anonymous public form writes these rows, so a tripwire would hand whoever writes them
@@ -168,23 +168,20 @@ async def get_bewerbungen_admin(
         return await pull_many_from_db(
             collection=bewerbungen_collection,
             db_filter=db_filter,
-            # One past the cap, so `complete` is answered without counting.
-            limit=LIST_LIMIT_DEFAULT + 1,
+            limit=LIST_LIMIT_DEFAULT,
             sort_by=build_bewerbungen_sort(order="desc"),
             projection=BEWERBUNG_LIST_FIELDS,
         )
 
-    offer, teams, read, confirmed = await concurrently(
+    offer, teams, newest, confirmed = await concurrently(
         _entry_offer(saison_id=saison_id, saisons_collection=saisons_collection),
         _doubled_teams(saison_id=saison_id, bewerbungen_collection=bewerbungen_collection),
         newest_of({"saison_id": saison_id}),
         newest_of(build_confirmed_seat_filter(saison_id=saison_id)),
     )
-    # Sliced before validation, so neither probe row is ever parsed or reaches the wire.
-    newest = read[:LIST_LIMIT_DEFAULT]
     shown = {row["_id"] for row in newest}
     # Past the newest rows, so the two reads' one order holds without a sort here.
-    served = [*newest, *(row for row in confirmed[:LIST_LIMIT_DEFAULT] if row["_id"] not in shown)]
+    served = [*newest, *(row for row in confirmed if row["_id"] not in shown)]
     team_names, team_codes = await pull_team_names_and_codes(teams_collection=teams_collection, team_ids=[row.get("team_id") for row in served])
 
     return FLBewerbungenAdminListResponse(
@@ -193,7 +190,6 @@ async def get_bewerbungen_admin(
             FLBewerbungListRow.model_validate(bewerbung_list_row(row=row, team_names=team_names, team_codes=team_codes, doubled=teams))
             for row in served
         ],
-        complete=len(read) <= LIST_LIMIT_DEFAULT,
     )
 
 

@@ -83,8 +83,6 @@ class FLTeamOverviewResponse(BaseReadModel):
     spielbestaetigungen: list[FLTeamPanelSpielbestaetigung]
     aufstellungen: list[FLTeamPanelAufstellung]
     registrierungen: list[FLTeamPanelRegistrierung]
-    # Whether every pending registration is listed: the box draws the whole list, so a cut one says so there too.
-    registrierungen_complete: bool
     # One per person, an empty slot answered with no name: three, or two where the Trainer holds a second seat.
     seats: list[FLTeamSeat]
 

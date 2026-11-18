@@ -112,10 +112,9 @@ async def get_open_registrierungen(
     # seat, the rows and the persons they resolve to from straddling a commit.
     await refuse_without_a_seat(identifier, records, team_id=team_id, saison_id=saison_id, session=session)
 
-    opened = await pull_open_registrierungen(
+    served = await pull_open_registrierungen(
         registrierungen_collection=registrierungen_collection, saison_id=saison_id, team_id=team_id, session=session
     )
-    served = opened.rows
     confirmed = [row for row in served if registrierung_is_confirmed(einwilligung=row.get("einwilligung"))]
 
     persons = await persons_at(
@@ -190,7 +189,6 @@ async def get_open_registrierungen(
         team_id=team_id,
         saison_id=saison_id,
         registrierungen=[as_served(row) for row in served],
-        complete=opened.complete,
     )
 
 

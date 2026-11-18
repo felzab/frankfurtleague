@@ -94,7 +94,6 @@ async function readList(params: Props["params"], searchParams: Props["searchPara
   return {
     filters,
     bulk: canBulk ? ROUTES.adminBewerbungenBulk.path(saison) : null,
-    cut: read.complete ? null : WORDS.cut,
     table: {
       label: ROUTES.adminBewerbungen.title,
       rows: rows.map((row) => rowOf(row, saison, read.saison.status === "past")),
@@ -119,7 +118,6 @@ export default function BewerbungenPage({ params, searchParams }: Props) {
       head={{ scope: "area", title: { route: "adminBewerbungen" } }}
       filters={list.then(({ filters }) => filters)}
       link={{ label: COPY.page.adminBewerbungenBulk, href: list.then(({ bulk }) => bulk) }}
-      notice={list.then(({ cut }) => cut)}
       list={{
         kind: "table",
         search: { label: WORDS.search },
