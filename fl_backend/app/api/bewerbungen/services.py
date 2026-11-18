@@ -308,9 +308,9 @@ def compose_confirmations(*, today: str, unmailed: Container[str] = ()) -> dict[
     return {seat: {**compose_confirmation(today=today), **({"sent_at": None} if seat in unmailed else {})} for seat in KONTAKT_SEATS}
 
 
-# The admin reads' projection, and the first exclusion projection in this tree: an inclusion list
-# would have to restate every field an application holds. Each seat keeps the hash of every link it
-# was mailed, a reminder's beside the first, and only an administrator's re-send voids them.
+# The admin reads' projection, an exclusion: an inclusion list would have to restate every field an
+# application holds. Each seat keeps the hash of every link it was mailed, a reminder's beside the
+# first, and only an administrator's re-send voids them.
 WITHOUT_TOKEN_HASHES: Mapping[str, int] = {f"confirmations.{seat}.token_hashes": 0 for seat in KONTAKT_SEATS}
 
 
@@ -899,8 +899,8 @@ def compose_resend_update(*, seats: Sequence[str], today: str, kontakte: Any, co
 def build_resend_filter(*, bewerbung_id: Any, seats: Sequence[str]) -> Mapping[str, Any]:
     """`seat_is_answered` negated per seat, as the re-send's own filter.
 
-    The re-send reads outside any transaction and replaces the whole entry, so an answer or an
-    erasure committed after its read would otherwise lose its record under a live link.
+    The re-send judges on a read outside its write's transaction and replaces the whole entry, so an answer or an
+    erasure committed after that read would otherwise lose its record under a live link.
     """
 
     unanswered: dict[str, Any] = {}
@@ -1570,8 +1570,9 @@ def build_bewerbungen_sort(*, order: str) -> list[tuple[str, int]]:
     """The triage queue's order, tie-broken by `_id`."""
 
     # `_id` breaks the tie in `order`'s own direction, so same-day rows read the way the queue does
-    # and the pair is the index's key or its exact inverse. Pinned descending, `order=asc` would
-    # match neither and scan the whole archive.
+    # and the pair is the queue index's key or its exact inverse, which serves the season overview's
+    # read filtering on the status. Pinned descending, `order=asc` would match neither and scan the
+    # whole archive. The list filters on the season alone, so it sorts the season's rows in memory.
     direction = 1 if order == "asc" else -1
 
     return [("submitted_at", direction), ("_id", direction)]

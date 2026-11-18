@@ -103,8 +103,8 @@ def _day_of(moment: datetime | None) -> str | None:
     return None if moment is None else german_day(moment)
 
 
-# Causes the press refuses for the replaced address's sake, which the view reads alike as unconfirmable. The press answers
-# each by its own code; what keeps the link's holder from telling them apart is the edge, which routes no public call here.
+# Causes the press refuses for the replaced address's sake, which the view reads alike as unconfirmable, as the press
+# answers all three with one code: the link's holder learns no more than that the new address is someone's.
 _NOT_CONFIRMABLE = frozenset({"taken", "new_granted", "occupied"})
 
 

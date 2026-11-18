@@ -710,6 +710,6 @@ async def post_kontakt_seat(
 
         return FLBewerbungKontaktSeatResponse(email=seat_data.email)
 
-    # A transaction where the re-send beside it takes none: this write moves a person as well as a credential, so a
-    # decision landing mid-request must leave neither half standing.
+    # One transaction: this write moves a person as well as a credential, so a decision landing mid-request must leave
+    # neither half standing.
     return await transact(db, seat_and_mint)
