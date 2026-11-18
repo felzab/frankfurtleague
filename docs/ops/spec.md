@@ -737,9 +737,9 @@ deliberately off.
   a training set is not.
 - **The managed `robots.txt` declares the training opt-out.** Cloudflare prepends its list of
   AI-training crawlers to the origin's `/robots.txt`
-  (<https://developers.cloudflare.com/bots/additional-configurations/managed-robots-txt/>), since
-  `fl_frontend/src/app/robots.ts` writes one rule for every crawler alike; the block above enforces
-  what this declares.
+  (<https://developers.cloudflare.com/bots/additional-configurations/managed-robots-txt/>). The
+  declaration has to come from that list, since `fl_frontend/src/app/robots.ts` writes one rule for
+  every crawler alike and names none apart. The block above enforces what this declares.
 - **No cache rule caches an HTML page or an RSC response.** A save clears Next's own cache through
   its one tag, which reaches no copy held at the edge, so an edge copy would serve the page as it
   was before the save until its own lifetime ran out (Next's installed guide,

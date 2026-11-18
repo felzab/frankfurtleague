@@ -154,8 +154,10 @@ Tailwind v4, configured in CSS: `src/app/globals.css` and the design tokens in `
 uses `oklch()`, `color-mix()` and `@property`; it does not govern Next's own polyfills.
 
 **Consistency breaks a tie between two designs**: one value, declared once as a token in
-`src/app/tokens.css` and used everywhere, wins over a value that looks better in one place alone. An
-exception is written down beside the token it departs from, where the next change finds it.
+`src/app/tokens.css` and used everywhere, wins over a value that looks better in one place alone,
+since a value that changes from place to place reads as drift rather than as one design. An exception
+is allowed by name where the check holding the scale is, as the lint allows the one spacing class off
+it (`fl_frontend/eslint.config.mjs :: TOGGLE_OFFSET`), with its reason at the class that uses it.
 
 **A block chooses its form by a container query on its own box, never by the screen's width**,
 because the rail opens and closes under one viewport, so only the box says how much room a block
@@ -186,8 +188,10 @@ kinds of part switch by the screen at `lg` instead:
 A new block takes the box's rule unless it is one of these.
 
 **On a phone, a button or another control is 40 px tall**, set by the coarse pointer
-(`pointer-coarse:h-10`, as in `fl_frontend/src/kit/Tabs.tsx`). A small text link, such as the
-footer's, keeps the height of its text.
+(`pointer-coarse:h-10`, as in `fl_frontend/src/kit/Tabs.tsx`). That is less than the 44 or 48 px
+the platforms' guides ask, since the league's visitors are mostly young and a larger control reads as
+bulky. A link the kit draws as a control (`fl_frontend/src/kit/Link.tsx :: frameLink`, a menu's
+entries) is 40 px like one; a small text link, such as the footer's, keeps the height of its text.
 
 **Every string a visitor reads comes from the catalogue**, and the kit's text props refuse one typed
 into a page: [`copy.md`](copy.md) says where each string, date and number comes from and how it is

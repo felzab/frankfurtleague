@@ -5,7 +5,7 @@ every Markdown file, markdownlint holds it to one style, and lychee resolves eve
 `#fragment` inside the repository; the gate runs all three. This page holds what no tool checks.
 
 `docs/` describes the system, and [the AI agents' folder](README.md#the-ai-agents-folder) is
-described once, in the map. No document outside `.claude/` addresses an agent.
+described in the map. No document outside `.claude/` addresses an agent.
 
 ## Documents
 
