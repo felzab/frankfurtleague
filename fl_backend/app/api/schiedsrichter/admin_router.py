@@ -46,8 +46,8 @@ from app.core.crud import (
     insert_live,
     is_held_elsewhere,
     patch_one_in_db,
-    pull_many_from_db,
     pull_one_from_db,
+    pull_whole_from_db,
     refuse,
     set_inactive_since,
 )
@@ -81,9 +81,10 @@ async def get_schiedsrichter(
 ) -> FLSchiedsrichterListResponse:
     """Every referee in name order, retired ones included where `include_inactive` asks, since a played match still names them."""
 
-    schiedsrichter_raw = await pull_many_from_db(
+    schiedsrichter_raw = await pull_whole_from_db(
         collection=schiedsrichter_collection,
         db_filter={} if filters.include_inactive else {"inactive_since": None},
+        what="the referees",
         sort_by=[("name", 1)],
         collation=GERMAN_COLLATION,
     )
@@ -284,9 +285,10 @@ async def delete_schiedsrichter(
             session=session,
         )
 
-        assigned = await pull_many_from_db(
+        assigned = await pull_whole_from_db(
             collection=spiele_collection,
             db_filter=build_unplayed_assignment_filter(schiedsrichter_id),
+            what=f"referee {schiedsrichter_id}'s unplayed fixtures",
             projection={"spiel_nr": 1},
             session=session,
         )

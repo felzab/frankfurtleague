@@ -35,8 +35,8 @@ from app.core.crud import (
     composite_version,
     find_stale_save_refusal,
     patch_one_in_db,
-    pull_many_from_db,
     pull_one_from_db,
+    pull_whole_from_db,
     refuse,
     set_inactive_since,
 )
@@ -123,9 +123,10 @@ async def get_spieler_saison(
     )
     team_id = row_raw["team_id"]
     held, club = await concurrently(
-        pull_many_from_db(
+        pull_whole_from_db(
             collection=saison_spieler_collection,
             db_filter=build_held_rollen_filter(saison_id=saison_id, team_id=team_id, excluding_spieler_id=spieler_id),
+            what=f"team {team_id}'s held roles in season {saison_id}",
             projection=["rolle"],
         ),
         # `find_one`: a club a replacement took out of the season holds no row, and this page still opens.

@@ -55,7 +55,7 @@ from app.api.teams.schemas import (
 from app.api.teams.services import build_team_pipeline, counting_spiele_match
 from app.core.collections import Collection
 from app.core.concurrency import concurrently
-from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, pull_many_from_db, pull_one_from_db
+from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, pull_many_from_db, pull_one_from_db, pull_whole_from_db
 from app.core.dependencies import (
     GermanDay,
     SaisonSpielerReadCollection,
@@ -365,7 +365,7 @@ async def _spielplan_of(
     db_filter = {"saison_id": saison_id, **phase_term}
     saison, spieltage_raw, spiele_raw = await concurrently(
         resolve_public_saison(saisons_collection=saisons_collection, saison_id=saison_id),
-        pull_many_from_db(collection=spieltage_collection, db_filter=db_filter),
+        pull_whole_from_db(collection=spieltage_collection, db_filter=db_filter, what=f"season {saison_id}'s matchdays"),
         aggregate_many_from_db(collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter=db_filter)),
     )
 

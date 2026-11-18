@@ -97,9 +97,10 @@ async def refuse_a_full_gruppe(
         session=session,
     )
 
-    occupied_rows = await pull_many_from_db(
+    occupied_rows = await pull_whole_from_db(
         collection=saison_teams_collection,
         db_filter={"saison_id": saison_id, "gruppe": gruppe},
+        what=f"season {saison_id}'s clubs in group {gruppe}",
         projection=["_id"],
         session=session,
     )
@@ -264,10 +265,9 @@ async def write_the_club(
 
     # Read through the session, so a season closed by a concurrent write cannot leave the junction rewritten and its
     # fixtures not, or the reverse.
-    open_saisons = await pull_many_from_db(
-        collection=saisons_collection, db_filter={"status": {"$ne": "past"}}, projection=["_id"], session=session
+    open_saisons = await pull_whole_from_db(
+        collection=saisons_collection, db_filter={"status": {"$ne": "past"}}, what="the seasons not past", projection=["_id"], session=session
     )
-    # One season per year against a 1024-row read: the list cannot truncate this century.
     open_saison_ids = [row["_id"] for row in open_saisons]
     # A read alone joins no write set, and the rollover writes no club row, so without this a season closed under the
     # rename would have its rows renamed after it closed; anchored, the rollover's demotion conflicts with the rename and
@@ -299,7 +299,11 @@ async def pull_tabelle(
             pipeline=build_team_pipeline(saison_id=saison_id, rules=rules),
             collation=GERMAN_COLLATION,
         ),
-        pull_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id, "saison_phase": "gruppenphase"}),
+        pull_whole_from_db(
+            collection=spiele_collection,
+            db_filter={"saison_id": saison_id, "saison_phase": "gruppenphase"},
+            what=f"season {saison_id}'s group fixtures",
+        ),
     )
 
     return build_tabelle(teams=FLTeamListAdapter.validate_python(teams_raw), spiele=FLSpielListAdapter.validate_python(spiele_raw), rules=rules)

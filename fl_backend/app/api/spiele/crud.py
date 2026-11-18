@@ -279,9 +279,10 @@ async def pull_saison_membership(
     this season must see its row.
     """
 
-    rows = await pull_many_from_db(
+    rows = await pull_whole_from_db(
         collection=saison_teams_collection,
         db_filter={"saison_id": saison_id},
+        what=f"season {saison_id}'s clubs",
         projection={"team_id": 1, "austritt": 1, "name": 1},
         session=session,
     )

@@ -22,8 +22,8 @@ from app.core.crud import (
     insert_live,
     is_held_elsewhere,
     patch_one_in_db,
-    pull_many_from_db,
     pull_one_from_db,
+    pull_whole_from_db,
     refuse,
     set_inactive_since,
 )
@@ -53,9 +53,10 @@ async def get_spielorte(
     `maps_link` is a Maps search string, not a URL.
     """
 
-    spielorte_raw = await pull_many_from_db(
+    spielorte_raw = await pull_whole_from_db(
         collection=spielorte_collection,
         db_filter={} if filters.include_inactive else {"inactive_since": None},
+        what="the venues",
         sort_by=[("name", 1)],
         collation=GERMAN_COLLATION,
     )
@@ -167,9 +168,10 @@ async def delete_spielort(
     async def retire_the_venue(session: AsyncClientSession) -> None:
         """Judge the venue's unplayed fixtures, then stamp it. Everything judged is read in-session, so a retry re-judges it."""
 
-        booked = await pull_many_from_db(
+        booked = await pull_whole_from_db(
             collection=spiele_collection,
             db_filter=build_unplayed_booking_filter(spielort_id),
+            what=f"venue {spielort_id}'s unplayed fixtures",
             projection={"spiel_nr": 1},
             session=session,
         )

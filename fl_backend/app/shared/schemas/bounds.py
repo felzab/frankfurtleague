@@ -105,7 +105,7 @@ TEAM_SHORTHAND_LENGTH: Final[FLTeamShorthandLength] = 3
 
 SAISON_ID_LENGTH: Final = 4
 
-# The most rows one list read takes: no request names a page size, so every list is cut here alone.
+# The most rows one list read takes: no request names a page size, so a list is cut here and a whole read refuses a set past it.
 LIST_LIMIT_DEFAULT: Final = 1024
 
 # The most addresses one references call judges, each costing about a millisecond, so one call stays far inside the

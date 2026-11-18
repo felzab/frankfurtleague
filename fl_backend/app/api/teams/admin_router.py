@@ -390,7 +390,9 @@ async def get_team_saison_admin(
             # The seats, exits and names too, which judge and name whom an exit would mail.
             projection=["team_id", "gruppe", "trikot_farbe", "name", "kontakte", "austritt"],
         ),
-        pull_many_from_db(collection=saisons_collection, db_filter={"_id": {"$in": held_saison_ids}}, projection=["status"]),
+        pull_whole_from_db(
+            collection=saisons_collection, db_filter={"_id": {"$in": held_saison_ids}}, what=f"team {team_id}'s seasons", projection=["status"]
+        ),
         spiele_collection.count_documents(build_team_spiele_filter(saison_id=saison_id, team_id=team_id)),
         # A list read where the answer is one row: a team legitimately holds no live invitation, and
         # `pull_one_from_db` would make that absence a 404.
@@ -519,16 +521,18 @@ async def delete_team(
         """Judge the club's seasons, then stamp it. Everything judged is read in-session, so a retry re-judges it."""
 
         # Two small reads rather than a lookup: a club holds a handful of rows, the league a few seasons.
-        junction_rows = await pull_many_from_db(
+        junction_rows = await pull_whole_from_db(
             collection=saison_teams_collection,
             db_filter={"team_id": team_id},
+            what=f"team {team_id}'s season rows",
             projection=["saison_id"],
             session=session,
         )
         saison_ids = [row["saison_id"] for row in junction_rows]
-        saison_rows = await pull_many_from_db(
+        saison_rows = await pull_whole_from_db(
             collection=saisons_collection,
             db_filter={"_id": {"$in": saison_ids}},
+            what=f"team {team_id}'s seasons",
             projection=["status"],
             session=session,
         )
@@ -868,9 +872,10 @@ async def replace_saison_team(
         # entry, and every rewritten fixture side takes the same two values.
         incoming_raw = await pull_a_club_to_enter(teams_collection=teams_collection, team_id=replacement_data.incoming_team_id, session=session)
 
-        incoming_rows = await pull_many_from_db(
+        incoming_rows = await pull_whole_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "team_id": replacement_data.incoming_team_id},
+            what=f"the incoming club's rows in season {saison_id}",
             projection=["_id"],
             session=session,
         )
@@ -885,9 +890,10 @@ async def replace_saison_team(
         )
 
         # Every phase, because the incoming club inherits the whole schedule, a bracket slot included.
-        spiele = await pull_many_from_db(
+        spiele = await pull_whole_from_db(
             collection=spiele_collection,
             db_filter={"saison_id": saison_id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]},
+            what=f"team {team_id}'s fixtures in season {saison_id}",
             projection=["team1.team_id", "team2.team_id"],
             session=session,
         )

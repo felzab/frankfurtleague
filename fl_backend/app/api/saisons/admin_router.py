@@ -193,7 +193,7 @@ async def get_saisons_admin(
     """
 
     # Oldest first: a season's id is its starting year.
-    saisons_raw = await pull_many_from_db(collection=saisons_collection, db_filter={}, sort_by=[("_id", 1)])
+    saisons_raw = await pull_whole_from_db(collection=saisons_collection, db_filter={}, what="the seasons", sort_by=[("_id", 1)])
 
     saison_ids = [str(raw["_id"]) for raw in saisons_raw]
     taken_place, finale_by_saison, teams_by_saison, spiele_by_saison, create_state = await concurrently(
@@ -602,9 +602,10 @@ async def _judge_the_activation(
     """
 
     # `$ne` on the target, so re-activating the current season is not blocked by its own fixtures.
-    outgoing = await pull_many_from_db(
+    outgoing = await pull_whole_from_db(
         collection=saisons_collection,
         db_filter={"status": "active", "_id": {"$ne": saison_id}},
+        what="the active seasons",
         projection={"_id": 1},
         session=session,
     )
@@ -615,7 +616,12 @@ async def _judge_the_activation(
     if outgoing_ids:
         unplayed = unplayed_spiel_nrs(
             FLSpielListAdapter.validate_python(
-                await pull_many_from_db(collection=spiele_collection, db_filter={"saison_id": {"$in": outgoing_ids}}, session=session)
+                await pull_whole_from_db(
+                    collection=spiele_collection,
+                    db_filter={"saison_id": {"$in": outgoing_ids}},
+                    what="the outgoing seasons' fixtures",
+                    session=session,
+                )
             )
         )
 
@@ -784,9 +790,10 @@ async def swap_gruppen(
 
         # Through the session: a retry after a write conflict has to judge these rows as they are
         # then, not as this request first saw them.
-        rows = await pull_many_from_db(
+        rows = await pull_whole_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "team_id": {"$in": both_ids}},
+            what=f"season {saison_id}'s two swapped clubs",
             projection=["team_id", "gruppe"],
             session=session,
         )
@@ -809,13 +816,14 @@ async def swap_gruppen(
             )
         )
 
-        gruppenphase_spiele = await pull_many_from_db(
+        gruppenphase_spiele = await pull_whole_from_db(
             collection=spiele_collection,
             db_filter={
                 "saison_id": saison_id,
                 "saison_phase": "gruppenphase",
                 "$or": [{"team1.team_id": {"$in": both_ids}}, {"team2.team_id": {"$in": both_ids}}],
             },
+            what=f"season {saison_id}'s group fixtures of the two swapped clubs",
             projection=["team1.team_id", "team2.team_id"],
             session=session,
         )

@@ -47,7 +47,7 @@ from app.core.crud import (
     aggregate_many_from_db,
     anchor_in_db,
     find_stale_first_save_refusal,
-    pull_many_from_db,
+    pull_whole_from_db,
     refuse,
 )
 from app.core.exceptions import DocumentNotFoundError, WriteRefusal
@@ -176,8 +176,12 @@ async def _pull_people(
     if not rest:
         return {}
 
-    people = await pull_many_from_db(
-        collection=spieler_collection, db_filter={"_id": {"$in": rest}}, projection=["first_name", "last_name"], session=session
+    people = await pull_whole_from_db(
+        collection=spieler_collection,
+        db_filter={"_id": {"$in": rest}},
+        what="the pupils a stored line-up names off the squad",
+        projection=["first_name", "last_name"],
+        session=session,
     )
 
     return {person["_id"]: person for person in people}

@@ -108,9 +108,10 @@ ADMIN_ROW_FIELDS: Final[list[str]] = [
 async def pull_admin_rows(*, spielbestaetigungen_collection: ReadCollection, db_filter: Mapping[str, Any]) -> list[Mapping[str, Any]]:
     """The rows `db_filter` selects, newest first, as an administrator reads them."""
 
-    return await pull_many_from_db(
+    return await pull_whole_from_db(
         collection=spielbestaetigungen_collection,
         db_filter=db_filter,
+        what="the match confirmations an administrator reads",
         # Rows carry no creation stamp; an ObjectId's leading bytes are its insert time.
         sort_by=[("_id", -1)],
         projection=ADMIN_ROW_FIELDS,

@@ -35,8 +35,8 @@ from app.core.crud import (
     patch_many_in_db,
     patch_one_in_db,
     post_one_to_db,
-    pull_many_from_db,
     pull_one_from_db,
+    pull_whole_from_db,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
@@ -103,8 +103,12 @@ async def pull_named(
     people = (
         []
         if not rest
-        else await pull_many_from_db(
-            collection=spieler_collection, db_filter={"_id": {"$in": sorted(rest)}}, projection=["first_name", "last_name"], session=session
+        else await pull_whole_from_db(
+            collection=spieler_collection,
+            db_filter={"_id": {"$in": sorted(rest)}},
+            what="the pupils a report names off both squads",
+            projection=["first_name", "last_name"],
+            session=session,
         )
     )
 

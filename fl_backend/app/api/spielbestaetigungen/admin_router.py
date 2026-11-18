@@ -40,7 +40,7 @@ from app.api.spielbestaetigungen.services import (
 )
 from app.api.spiele.crud import SpielSaveCollections, save_spiel_in_session
 from app.api.spiele.schemas import FLSpiel
-from app.core.crud import anchor_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
+from app.core.crud import anchor_in_db, patch_one_in_db, pull_one_from_db, pull_whole_from_db, refuse
 from app.core.dependencies import (
     AufstellungenCollection,
     DBClient,
@@ -175,9 +175,10 @@ async def discard_spielbestaetigung(
         )
         if not found:
             raise DocumentNotFoundError()
-        vereine = await pull_many_from_db(
+        vereine = await pull_whole_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": row["saison_id"], "team_id": {"$in": [row["ansetzung"]["team1_id"], row["ansetzung"]["team2_id"]]}},
+            what=f"fixture {row['spiel_id']}'s two clubs",
             # With what the notice reads too: the seats are the mailboxes told, and the name the one stated.
             projection={**JUDGED_VEREIN_FIELDS, "_id": 1, "name": 1, "kontakte": 1},
             session=session,

@@ -164,9 +164,10 @@ async def _vereine_of(rows: Sequence[Mapping[str, Any]], *, saison_id: str, sais
     if not clubs:
         return []
 
-    return await pull_many_from_db(
+    return await pull_whole_from_db(
         collection=saison_teams_collection,
         db_filter={"saison_id": saison_id, "team_id": {"$in": list(clubs)}},
+        what=f"season {saison_id}'s clubs the confirmations name",
         projection=JUDGED_VEREIN_FIELDS,
     )
 
@@ -282,9 +283,10 @@ async def _aufstellungen_of(
     """
 
     fielded = {side: field.team_id for side in SIDES if (field := getattr(spiel, side)) is not None}
-    stored_raw = await pull_many_from_db(
+    stored_raw = await pull_whole_from_db(
         collection=aufstellungen_collection,
         db_filter={"spiel_id": spiel.id, "team_id": {"$in": list(fielded.values())}},
+        what=f"fixture {spiel.id}'s line-ups",
         projection=["team_id", "spieler.starts"],
     )
     stored_by_club: dict[Any, Mapping[str, Any]] = {row["team_id"]: row for row in stored_raw}
