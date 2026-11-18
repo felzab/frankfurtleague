@@ -185,8 +185,9 @@ the clause governs.
 **Before proposing a change on a surface, open the rules file for one you are about to touch even if
 no read has pulled it in.** [`backend.md`](rules/backend.md), [`frontend.md`](rules/frontend.md)
 and [`cross-surface.md`](rules/cross-surface.md) hold the traps each surface springs. A rules file
-written during a session does not load in that session; brief its rule in words to each agent
-dispatched afterwards.
+loads on the first read of a file its `paths` match, from the primary checkout as it stands on
+disk, uncommitted text included, for the coordinator and a writer in a worktree alike; no writer
+loads its own branch's copy, so brief in words to each agent a rule a writer's branch changes.
 
 ## 8. Documentation
 
