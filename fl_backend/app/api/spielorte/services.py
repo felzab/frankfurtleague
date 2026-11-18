@@ -14,7 +14,7 @@ def compose_maps_query(name: str, address: FLAddress) -> str:
 
 
 def build_unplayed_booking_filter(spielort_id: Any) -> Mapping[str, Any]:
-    """A venue's unplayed bookings, spelled once for the retirement's refusal and any later reader."""
+    """A venue's unplayed bookings."""
 
     return {"spielort.spielort_id": spielort_id, **unplayed_filter()}
 
@@ -22,9 +22,8 @@ def build_unplayed_booking_filter(spielort_id: Any) -> Mapping[str, Any]:
 def find_venue_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> APIError | None:
     """Why retiring this venue must be refused, or `None`.
 
-    `upcoming_spiel_nrs` is `unplayed_spiel_nrs`'s definition, so the two rules cannot disagree
-    about what is still to come. The refusal names them and their count on the path's id, so the
-    administrator is told which fixtures to move first.
+    `upcoming_spiel_nrs` are the fixtures still to be played at it. The refusal names them and their count on the
+    path's id, so the administrator is told which fixtures to move first.
     """
 
     if not upcoming_spiel_nrs:

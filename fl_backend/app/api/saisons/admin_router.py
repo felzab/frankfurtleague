@@ -245,8 +245,7 @@ async def get_saison_admin(
     saison_status = str(saison_raw["status"])
 
     rows, count_spieltage, teams, finale_by_saison, activation, recorded_rows, berichte, planned = await concurrently(
-        # Whole, as the bracket's advance reads its season: a truncated list offers a club the replacement refuses as
-        # entered.
+        # Whole: a truncated list offers a club the replacement refuses as entered.
         pull_whole_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id},
@@ -367,7 +366,6 @@ async def post_saison(
     """
 
     async def enter_the_season(session: AsyncClientSession) -> InsertOneResult:
-        # Inside the transaction, so the id, the rules and the planned season are judged on one snapshot.
         state = await pull_create_state(saisons_collection=saisons_collection, session=session)
         refuse(find_saison_create_refusal(future_stands=state.future_stands))
         refuse(find_rules_refusal(stored=None, proposed=state.rules, occupancy_by_gruppe={}, highest_wired_platz=0))
@@ -425,8 +423,6 @@ async def patch_saison(
     """
 
     async def judge_and_write_the_rules(session: AsyncClientSession) -> FLPatchSaisonResponse:
-        """Judge, then write the season's dates and rules. Every figure is read in-session."""
-
         # Through the session, and first: this opens the snapshot the update below is judged
         # against, so a rival writing `saisons` under the judgement conflicts instead of being
         # overwritten. A season id naming nothing raises the 404 here.
@@ -457,8 +453,8 @@ async def patch_saison(
                     highest_platz = max(highest_platz, int(quelle.get("platz", 0)))
 
         # The fullest matchday of a phase, not the total, and keyed on the matchday's phase, which the
-        # fixture's can disagree with. Judged on the snapshot for `highest_platz`'s reason, the
-        # unreachable refusal here being `rules_spieltag_over_its_phase`.
+        # fixture's can disagree with. Judged on the snapshot and never re-read below:
+        # `rules_spieltag_over_its_phase`, the only refusal that reads it, cannot be reached at all.
         attached_by_phase: dict[Any, int] = {}
         phase_of_spieltag: dict[Any, Any] = {}
         async for spieltag in spieltage_collection.find({"saison_id": saison_id}, {"saison_phase": 1}, session=session):
@@ -626,8 +622,7 @@ async def _judge_the_activation(
     # has no repair, activation writing `status` one way only.
     target_spiele = await spiele_collection.count_documents({"saison_id": saison_id}, session=session)
 
-    # In-session where the caller holds a session, so a retry re-judges it, and `start` alone: `end` is dated with it, and a
-    # matchday half-dated is a shape no write here produces.
+    # `start` alone: `end` is dated with it, and a matchday half-dated is a shape no write here produces.
     undated_spieltage = await spieltage_collection.count_documents({"saison_id": saison_id, "start": None}, session=session)
 
     return outgoing_ids, find_activation_refusal(
@@ -683,10 +678,7 @@ async def activate_saison(
     """
 
     async def judge_and_roll_the_league_over(session: AsyncClientSession) -> FLActivateSaisonResponse:
-        """Judge, then demote every incumbent and promote the target. Every figure is read in-session."""
-
-        # Through the session, as the draw's reads are: a retry after a write conflict judges the
-        # league as it stands then. A season id naming nothing raises the 404 here, before any demotion.
+        # A season id naming nothing raises the 404 here, before any demotion.
         target_raw = await pull_one_from_db(
             collection=saisons_collection, db_filter={"_id": saison_id}, projection={"status": 1}, session=session
         )
@@ -780,12 +772,8 @@ async def swap_gruppen(
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
 
     async def exchange_the_two_gruppen(session: AsyncClientSession) -> FLSwapGruppenResponse:
-        """The whole swap: judge, then write both rows. Everything it decides on is read in-session."""
-
         both_ids = [swap_data.team1_id, swap_data.team2_id]
 
-        # Through the session: a retry after a write conflict has to judge these rows as they are
-        # then, not as this request first saw them.
         rows = await pull_whole_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "team_id": {"$in": both_ids}},
@@ -892,10 +880,6 @@ async def post_spielplan(
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
 
     async def draw_the_whole_season(session: AsyncClientSession) -> FLGenerateSpielplanResponse:
-        """Judge, then write both collections and the watermark. Everything judged is read in-session."""
-
-        # Through the session, as the group swap's callback is: a retry after a write conflict has to
-        # judge the season as it stands then, not as this request first saw it.
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
         stored_rules = FLSaisonRules.model_validate(saison_raw["rules"])
 
@@ -920,9 +904,8 @@ async def post_spielplan(
             gruppe = row["gruppe"]
             occupancy[gruppe] = occupancy.get(gruppe, 0) + 1
 
-        # Listed rather than counted, as the group swap's callback lists its own: one read answers
-        # `spielplan_already_drawn` and supplies what `spielplan_replace_outside_its_window` weighs, so the two cannot
-        # disagree about what a replace would destroy.
+        # Listed rather than counted: one read answers `spielplan_already_drawn` and supplies what
+        # `spielplan_replace_outside_its_window` weighs, so the two cannot disagree about what a replace would destroy.
         stored_spiele = await _pull_recorded_fact_rows(spiele_collection=spiele_collection, saison_id=saison_id, session=session)
 
         refuse(
@@ -1092,10 +1075,7 @@ async def delete_spielplan(
     """
 
     async def undraw_the_whole_season(session: AsyncClientSession) -> FLUndrawSpielplanResponse:
-        """Judge, then remove both collections and the watermark. Everything judged is read in-session."""
-
-        # Through the session, as the draw's reads are: a retry after a write conflict judges the
-        # season as it stands then. A season id naming nothing raises the 404 here.
+        # A season id naming nothing raises the 404 here.
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"], session=session)
 
         # The stored rows, never the watermark: a season drawn outside this API carries none, and its
@@ -1247,10 +1227,10 @@ async def _mail_one_team(
     """
 
     async def mint_where_the_team_qualifies(session: AsyncClientSession) -> _PressOutcome:
-        """Plan this team, then revoke, insert and owe where the plan says to.
+        """The invite and its mails alone are read in-session.
 
-        The invite and its mails alone are read in-session: the withdrawal and the contacts come from
-        the read before the loop, so a retry re-decides on those as they stood then.
+        The withdrawal and the contacts come from the read before the loop, so a retry re-decides on those as they stood
+        then.
         """
 
         live = await pull_many_from_db(

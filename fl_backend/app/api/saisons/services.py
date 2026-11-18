@@ -127,7 +127,7 @@ def decided_podium(finale: Sequence[FLSpielJoinedInternal]) -> DecidedPodium | N
     Every season ends in a knockout (`find_rules_refusal` refuses rules drawing none), so the Finale's matchday places
     it, and every bracket the rules admit plays a match for third place: it is decided once all four places are in, a
     played final beside an unplayed match for third place still running. A place decided once its club had left is
-    vacant, its side `None`, and still a place in (`podium_of`).
+    vacant, its side `None`, and still a place in.
     """
 
     match [side for _, side in podium_of(finale)]:
@@ -521,9 +521,8 @@ def holds_a_recorded_fact(spiel: Mapping[str, Any]) -> bool:
     if _a_side_is_off_the_draw(spiel):
         return True
 
-    # Stripped, never compared to None: the draw writes no key, clearing a note stores null, and
-    # `FLPatchSpielDataPayload.empty_strings_to_none` keeps "" off that route -- a hand edit can
-    # still leave one, and an empty note is not a record.
+    # Stripped, never compared to None: the draw writes no key, clearing a note stores null, and the fixture's save
+    # keeps "" off its route -- a hand edit can still leave one, and an empty note is not a record.
     if (spiel.get("note") or "").strip():
         return True
 
@@ -636,8 +635,8 @@ def find_spielplan_refusal(
 
     offered = offered_gruppen(rules.number_of_gruppen)
 
-    # Rows carrying an `austritt` count as occupying, exactly as `find_entry_refusal` counts them: a
-    # club that withdrew before the draw keeps its place, and the group is still the size it owes.
+    # Rows carrying an `austritt` count as occupying: a club that withdrew before the draw keeps its place, and the
+    # group is still the size it owes.
     off_size = any(occupancy_by_gruppe.get(gruppe, 0) != rules.teams_per_gruppe for gruppe in offered)
 
     # A key outside `offered` is clubs the draw would put in no round robin at all. `_teams_by_gruppe` raises

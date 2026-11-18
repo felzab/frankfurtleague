@@ -141,8 +141,6 @@ async def post_schiedsrichter(
     email = schiedsrichter_data.kontakt.email
 
     async def judge_and_create(session: AsyncClientSession) -> Any:
-        """Ask after the name, then write. The check is handed the transaction's session, so a retry re-asks it."""
-
         taken = await is_held_elsewhere(
             collection=schiedsrichter_collection, key="name", value=schiedsrichter_data.name, own_id=None, session=session
         )
@@ -204,9 +202,8 @@ async def patch_schiedsrichter(
     email = schiedsrichter_data.kontakt.email
 
     async def correct_and_ask(session: AsyncClientSession) -> tuple[FLPatchSchiedsrichterResponse, bool]:
-        # In-session, so the judgement below reads the address and the record this save replaces
-        # rather than a snapshot a rival write has already moved. A fixture names the referee by id and reads the name
-        # at its own read, so nothing else is written; each fixture keeps the `payment` agreed for it.
+        # A fixture names the referee by id and reads the name at its own read, so nothing else is written; each
+        # fixture keeps the `payment` agreed for it.
         stored = await pull_one_from_db(
             collection=schiedsrichter_collection,
             db_filter={"_id": schiedsrichter_id},
@@ -246,8 +243,7 @@ async def patch_schiedsrichter(
         return FLPatchSchiedsrichterResponse(version=updated_document.version), minted
 
     # One transaction: a save storing a corrected address without the link it owes, or owing one the save rolled
-    # back, mails the wrong mailbox. Every write derives from the payload and an in-session read, so a
-    # `transact` retry is safe.
+    # back, mails the wrong mailbox.
     answer, re_minted = await transact(db, correct_and_ask)
 
     if re_minted:
@@ -274,8 +270,6 @@ async def delete_schiedsrichter(
     """
 
     async def retire_the_referee(session: AsyncClientSession) -> None:
-        """Judge the referee's unplayed fixtures, then stamp them. Everything judged is read in-session, so a retry re-judges it."""
-
         # The row first: judging the fixtures of an id no row holds would answer 409 for a row the API says is not
         # there.
         await pull_one_from_db(
@@ -329,8 +323,6 @@ async def reactivate_schiedsrichter(
     """
 
     async def reactivate_and_ask(session: AsyncClientSession) -> str | None:
-        """Judged on the row as the transaction reads it, so a retry re-judges it."""
-
         stored = await pull_one_from_db(
             collection=schiedsrichter_collection,
             db_filter={"_id": schiedsrichter_id},
@@ -396,12 +388,6 @@ async def invite_schiedsrichter(
     """
 
     async def judge_and_mint(session: AsyncClientSession) -> str:
-        """Judge, then replace the block and owe the link, and answer the address it is owed to.
-
-        Everything judged is read in-session, so a retry re-judges it against the row as it stands
-        rather than against a snapshot.
-        """
-
         stored = await pull_one_from_db(
             collection=schiedsrichter_collection,
             db_filter={"_id": schiedsrichter_id},

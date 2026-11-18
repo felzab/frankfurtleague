@@ -38,8 +38,6 @@ async def sweep_schiedsrichter(
     """
 
     async def erase_the_lapsed(session: AsyncClientSession, batch: Batch) -> tuple[int, int]:
-        """One page: erase each entry due. Read in-session, so a retry re-judges."""
-
         rows = await batch.saw(
             pull_many_from_db(
                 collection=schiedsrichter_collection,

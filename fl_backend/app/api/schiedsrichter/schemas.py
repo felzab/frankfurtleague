@@ -34,7 +34,7 @@ class _SchiedsrichterWritable(BaseModel):
     kontakt: FLKontakt
     name: CustomNonEmptyString
     schule: CustomOptionalString
-    # No default, as a venue's `default_mietpreis` has none: the patch writes wholesale.
+    # No default: the patch writes wholesale.
     default_payment: int = Field(ge=0)
 
 
