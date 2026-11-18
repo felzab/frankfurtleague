@@ -1,5 +1,6 @@
-import { configDouble, overriding } from "@/test-support/authDoubles";
 import { describe, expect, it, vi } from "vitest";
+
+import { configDouble, overriding } from "@/test-support/authDoubles";
 
 import type { MongoClient } from "mongodb";
 

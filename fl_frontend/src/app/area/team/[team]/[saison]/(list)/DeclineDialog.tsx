@@ -1,13 +1,12 @@
+import { blankIsNull, requires } from "@/core/action";
+import { COPY } from "@/core/copy";
+import { SpielbestaetigungenPostTeamAnswerBody, spielbestaetigungenPostTeamAnswerBodyReasonOneMax } from "@/core/generated/zod/inputs";
 import { DateField } from "@/kit/DateField";
 import { Dialog } from "@/kit/Dialog";
 import { FieldGroup } from "@/kit/FieldGroup";
 import { FieldPair } from "@/kit/FieldPair";
 import { TextField } from "@/kit/TextField";
 import { TimeField } from "@/kit/TimeField";
-
-import { blankIsNull, requires } from "@/core/action";
-import { COPY } from "@/core/copy";
-import { SpielbestaetigungenPostTeamAnswerBody, spielbestaetigungenPostTeamAnswerBodyReasonOneMax } from "@/core/generated/zod/inputs";
 
 import { declineSpielbestaetigung } from "./answerSpielbestaetigung";
 

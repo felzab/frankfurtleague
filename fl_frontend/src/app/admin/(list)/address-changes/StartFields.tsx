@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 
-import { Callout } from "@/kit/Callout";
-import { TextField } from "@/kit/TextField";
-
 import { COPY } from "@/core/copy";
 import { asSignInIdentifier } from "@/core/emailAddress";
+import { Callout } from "@/kit/Callout";
+import { TextField } from "@/kit/TextField";
 
 /** What the start's write asks of its boxes, read on the server, where the schema stays. */
 export type StartRules = { required: Readonly<Record<"address" | "email", boolean>>; addressMax: number };

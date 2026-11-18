@@ -1,7 +1,8 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { memoryAdapterDouble, memoryStore, overriding, registerAuthDoubles } from "@/test-support/authDoubles";
 import { networkFailure, refusal, serveBackend, serveHost } from "@/test-support/backend";
 import { captureLog } from "@/test-support/stdoutCapture";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { FLOutboxHandout } from "@/core/generated/client/types";
 

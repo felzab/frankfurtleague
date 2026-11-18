@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 import { createElement as h } from "react";
 
-import { underNext } from "@/test-support/nextContexts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { assert, describe, expect, it, vi } from "vitest";
 
 import { SERVER_COPY } from "@/core/serverCopy";
+import { underNext } from "@/test-support/nextContexts";
 
 // Next's font loader runs only inside its own build, so each face answers empty and records what the layout asked of it.
 const faces = vi.hoisted(() => {

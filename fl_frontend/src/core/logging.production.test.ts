@@ -1,10 +1,11 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { documentsWrittenByAsync } from "@/test-support/stdoutCapture";
 import { MongoServerError } from "mongodb";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+
+import { documentsWrittenByAsync } from "@/test-support/stdoutCapture";
 
 import { logger } from "./logging";
 import { runWithRequestScope } from "./requestScope";

@@ -1,8 +1,6 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { AGREED_CHIP, DECLINED_CHIP, EXPIRED_CHIP, owedChip } from "@/kit/stateChips";
-
 import { requires } from "@/core/action";
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate, timeOf } from "@/core/format";
@@ -15,6 +13,7 @@ import { adminSpielChipOf, eventOf, previewOf, quelleWords } from "@/features/sp
 import { getAdminSpiel } from "@/features/spiele/queries";
 import { creditedSide, isNoShow } from "@/features/spiele/result";
 import { spielerName } from "@/features/spieler/constants";
+import { AGREED_CHIP, DECLINED_CHIP, EXPIRED_CHIP, owedChip } from "@/kit/stateChips";
 import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";

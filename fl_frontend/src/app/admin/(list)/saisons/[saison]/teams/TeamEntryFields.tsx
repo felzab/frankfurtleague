@@ -2,14 +2,13 @@
 
 import { useState } from "react";
 
+import { COPY } from "@/core/copy";
+import { SHORTHAND_LENGTH } from "@/features/bewerbungen/constants";
+import { schulformOptions } from "@/features/teams/options";
 import { AddressFields } from "@/kit/AddressFields";
 import { FieldGroup } from "@/kit/FieldGroup";
 import { Select } from "@/kit/Select";
 import { TextField } from "@/kit/TextField";
-
-import { COPY } from "@/core/copy";
-import { SHORTHAND_LENGTH } from "@/features/bewerbungen/constants";
-import { schulformOptions } from "@/features/teams/options";
 
 import { NEW_CLUB } from "./newClub";
 

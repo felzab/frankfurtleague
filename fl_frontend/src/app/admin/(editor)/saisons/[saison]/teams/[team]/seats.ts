@@ -1,9 +1,8 @@
-import { CONFIRMED_CHIP, ERASED_CHIP, EXPIRED_CHIP, OBJECTED_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
-
 import { COPY } from "@/core/copy";
 import { dayOf } from "@/core/format";
 import { deliveryChip } from "@/features/bewerbungen/deliveryState";
 import { KONTAKT_ROLLEN, seatBesideTrainer } from "@/features/teams/constants";
+import { CONFIRMED_CHIP, ERASED_CHIP, EXPIRED_CHIP, OBJECTED_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
 
 import type { Copy } from "@/core/copy";
 import type {

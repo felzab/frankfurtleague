@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { person, seat, SEAT } from "@/test-support/subjectFixtures";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+
+import { person, seat, SEAT } from "@/test-support/subjectFixtures";
 
 import { FLSaisonStatus } from "./generated/client/types";
 import { grantsAPanel, rolesOf, seatsAt } from "./roles";

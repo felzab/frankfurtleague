@@ -2,10 +2,9 @@
 
 import { useState } from "react";
 
+import { COPY } from "@/core/copy";
 import { DateField } from "@/kit/DateField";
 import { FieldRows } from "@/kit/FieldRows";
-
-import { COPY } from "@/core/copy";
 
 import type { CalendarDay } from "@/core/format";
 import type { NextSaison } from "@/features/saisons/nextSaison";

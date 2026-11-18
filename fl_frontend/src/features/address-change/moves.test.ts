@@ -1,6 +1,7 @@
+import { describe, expect, it } from "vitest";
+
 import { memoryAdapterDouble, memoryStore, registerAuthDoubles } from "@/test-support/authDoubles";
 import { serveBackend } from "@/test-support/backend";
-import { describe, expect, it } from "vitest";
 
 import type {
   FLAddressChangeMovesDonePayload,

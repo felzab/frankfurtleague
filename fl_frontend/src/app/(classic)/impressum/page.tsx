@@ -1,10 +1,9 @@
-import { ClassicPage, PageHead } from "@/kit/ClassicPage";
-import { Prose } from "@/kit/Prose";
-
 import { KONTAKT_EMAIL, KONTAKT_MAILTO, SOURCE_URL, VORSTAND } from "@/core/brand";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { ClassicPage, PageHead } from "@/kit/ClassicPage";
+import { Prose } from "@/kit/Prose";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { Metadata, ResolvingMetadata } from "next";

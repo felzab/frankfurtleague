@@ -1,6 +1,5 @@
-import { StatusPage } from "@/kit/StatusPage";
-
 import { SERVER_COPY } from "@/core/serverCopy";
+import { StatusPage } from "@/kit/StatusPage";
 
 import { AREA_HOME } from "./areaHome";
 

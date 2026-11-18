@@ -1,6 +1,3 @@
-import { ListPage } from "@/kit/ListPage";
-import { EXPIRED_CHIP } from "@/kit/stateChips";
-
 import { requires } from "@/core/action";
 import { ADDRESS_CHANGE_WAIT_DAYS } from "@/core/addressChange";
 import { getAdminSession } from "@/core/auth/guards";
@@ -11,6 +8,8 @@ import { ROUTES } from "@/core/routes";
 import { getAddressChanges } from "@/features/address-change/queries";
 import { SignInAddressSchema, SignInPayloadSchema } from "@/features/auth/schemas";
 import { deliveryChip } from "@/features/bewerbungen/deliveryState";
+import { ListPage } from "@/kit/ListPage";
+import { EXPIRED_CHIP } from "@/kit/stateChips";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { startLostMailboxChange } from "./addressChangeActs";

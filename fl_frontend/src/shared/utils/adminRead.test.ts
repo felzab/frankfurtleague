@@ -1,13 +1,13 @@
 import path from "node:path";
 
-import { serveBackend } from "@/test-support/backend";
-import { signedInRequest } from "@/test-support/session";
-import { thrownRedirect } from "@/test-support/thrownRedirect";
-import { filesUnder } from "@/test-support/treeWalk";
 import { describe, expect, it } from "vitest";
 
 import { ROUTES } from "@/core/routes";
 import { NOT_FOUND_METADATA } from "@/shared/utils/notFoundMetadata";
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
+import { thrownRedirect } from "@/test-support/thrownRedirect";
+import { filesUnder } from "@/test-support/treeWalk";
 
 // No answer of its own: a malformed id leaves no read to send, so any request the page makes fails the case.
 const backend = serveBackend();

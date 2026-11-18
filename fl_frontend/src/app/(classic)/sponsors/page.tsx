@@ -1,13 +1,12 @@
-import { ClassicPage, PageHead } from "@/kit/ClassicPage";
-import { Door } from "@/kit/Doors";
-import { Link } from "@/kit/Link";
-import { SponsorTiles } from "@/kit/TileGrid";
-
 import { KONTAKT_MAILTO } from "@/core/brand";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { SPONSORS } from "@/features/meta/constants";
+import { ClassicPage, PageHead } from "@/kit/ClassicPage";
+import { Door } from "@/kit/Doors";
+import { Link } from "@/kit/Link";
+import { SponsorTiles } from "@/kit/TileGrid";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { Metadata, ResolvingMetadata } from "next";

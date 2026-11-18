@@ -1,7 +1,7 @@
-import { person, seat } from "@/test-support/subjectFixtures";
 import { describe, expect, it } from "vitest";
 
 import { ROUTES } from "@/core/routes";
+import { person, seat } from "@/test-support/subjectFixtures";
 
 import { landingTargetOf, owesSignInStep, placesOf } from "./utils";
 

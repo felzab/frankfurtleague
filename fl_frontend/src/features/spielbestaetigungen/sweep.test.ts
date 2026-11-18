@@ -1,7 +1,7 @@
-import { networkFailure, serveBackend } from "@/test-support/backend";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { APINetworkError } from "@/core/errors";
+import { networkFailure, serveBackend } from "@/test-support/backend";
 
 const LIST = "/spielbestaetigungen/sweep";
 

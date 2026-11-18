@@ -1,7 +1,6 @@
-import { DECLINED_CHIP } from "@/kit/stateChips";
-
 import { COPY } from "@/core/copy";
 import { FLKontaktRolle } from "@/core/generated/client/types";
+import { DECLINED_CHIP } from "@/kit/stateChips";
 
 import type { FLBewerbungStatus } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";

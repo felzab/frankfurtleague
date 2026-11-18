@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 
+import { COPY } from "@/core/copy";
+import { dayBefore } from "@/core/dayArithmetic";
+import { formatDate, formatNumber } from "@/core/format";
+import { FLSpielerStufe } from "@/core/generated/client/types";
 import { Checkbox } from "@/kit/Checkbox";
 import { ToggleBoxes } from "@/kit/ChoiceButtons";
 import { ComboBox } from "@/kit/ComboBox";
@@ -15,11 +19,6 @@ import { Select } from "@/kit/Select";
 import { Table } from "@/kit/Table";
 import { TextField } from "@/kit/TextField";
 import { useEditor } from "@/kit/useEditor";
-
-import { COPY } from "@/core/copy";
-import { dayBefore } from "@/core/dayArithmetic";
-import { formatDate, formatNumber } from "@/core/format";
-import { FLSpielerStufe } from "@/core/generated/client/types";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, LockReason } from "@/core/copy";

@@ -27,8 +27,9 @@
 // Imported rather than global: a case's mocked clock holds the globals, and would hold the wait with them.
 import { setImmediate as nextTurn, setTimeout as wallClock } from "node:timers/promises";
 
-import { TEST_ENVIRONMENT } from "@/test-support/testEnvironment.mts";
 import { afterAll, afterEach, assert, beforeEach } from "vitest";
+
+import { TEST_ENVIRONMENT } from "@/test-support/testEnvironment.mts";
 
 import type { Code, FLRefusedField } from "@/core/generated/client/types";
 

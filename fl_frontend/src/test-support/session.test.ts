@@ -1,11 +1,12 @@
 // The session helper's own guarantee, which every signed-in suite relies on and none tests: what the sign-in library
 // owes is on record, a lookup no case answered fails its case, and nothing one case did reaches the next.
+import { describe, expect, it } from "vitest";
+
 import { ADMIN_EMAIL, answerTheLookup, ORIGIN } from "@/test-support/authDoubles";
 import { serveBackend } from "@/test-support/backend";
 import { caseFailures } from "@/test-support/caseFailures";
 import { signedInRequest } from "@/test-support/session";
 import { TEST_SECRETS } from "@/test-support/testEnvironment.mts";
-import { describe, expect, it } from "vitest";
 
 /** An address the file answers no lookup for. */
 const STRANGER = "fremde@example.org";

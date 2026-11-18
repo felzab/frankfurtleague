@@ -1,8 +1,7 @@
+import { COPY } from "@/core/copy";
 import { Dialog } from "@/kit/Dialog";
 import { Facts } from "@/kit/Facts";
 import { TextField } from "@/kit/TextField";
-
-import { COPY } from "@/core/copy";
 
 import { acceptBewerbung, declineBewerbung } from "./decideBewerbung";
 

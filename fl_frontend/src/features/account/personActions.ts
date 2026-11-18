@@ -4,8 +4,6 @@ import { refresh } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { linkInvalid } from "@/kit/mailedLinkState";
-import { TO_ACCOUNT } from "@/kit/MailedPage";
 import { z } from "zod";
 
 import { action, PAGE_HOLDER } from "@/core/action";
@@ -38,6 +36,8 @@ import { forgetMailedLink } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { SignInAddressSchema } from "@/features/auth/schemas";
+import { linkInvalid } from "@/kit/mailedLinkState";
+import { TO_ACCOUNT } from "@/kit/MailedPage";
 
 import type { ActionAnswer } from "@/core/action";
 import type { EndState } from "@/kit/MailedPage";

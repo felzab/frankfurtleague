@@ -1,8 +1,5 @@
 import { cache } from "react";
 
-import { ListPage } from "@/kit/ListPage";
-import { EXPIRED_CHIP, owedChip } from "@/kit/stateChips";
-
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -10,6 +7,8 @@ import { AUFSTELLUNG_CHIP } from "@/features/aufstellungen/constants";
 import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
 import { headedMatchOf } from "@/features/spiele/blocks";
 import { getTeamSpiele } from "@/features/spiele/queries";
+import { ListPage } from "@/kit/ListPage";
+import { EXPIRED_CHIP, owedChip } from "@/kit/stateChips";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { FLTeamPanelSpiel } from "@/core/generated/client/types";

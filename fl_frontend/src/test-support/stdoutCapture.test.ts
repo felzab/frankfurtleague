@@ -1,9 +1,10 @@
 // The log capture's own guarantee, which every suite reading the logger's lines relies on and none tests: it reads
 // the logger's chunks alone, each case from an empty record, a line it cannot read fails the case, not the writer, and
 // a line outside every case reaches the stream.
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
 import { caseFailures } from "@/test-support/caseFailures";
 import { captureLog, documentsWrittenByAsync } from "@/test-support/stdoutCapture";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 /** Every chunk the capture passes on, recorded on its way to the stream's own `write`. */
 const reached: string[] = [];

@@ -1,9 +1,9 @@
-import { serveBackend } from "@/test-support/backend";
-import { doubleNextRequest } from "@/test-support/nextRequest";
-import { posted } from "@/test-support/posted";
 import { describe, expect, it } from "vitest";
 
 import { SPIELER_TEXT_VERSIONS } from "@/core/consentWordings";
+import { serveBackend } from "@/test-support/backend";
+import { doubleNextRequest } from "@/test-support/nextRequest";
+import { posted } from "@/test-support/posted";
 
 import { CONFIRMED } from "./ends";
 

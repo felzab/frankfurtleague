@@ -2,14 +2,13 @@ import "./globals.css";
 
 import { Anton, Inter, Raleway } from "next/font/google";
 
+import { SITE_URL } from "@/core/brand";
+import { COPY } from "@/core/copy";
+import { SERVER_COPY } from "@/core/serverCopy";
 import { BrandSprite } from "@/kit/BrandSprite";
 import { RootProviders } from "@/kit/RootProviders";
 import { ThemeColor } from "@/kit/ThemeColor";
 import { WholePages } from "@/kit/WholePage";
-
-import { SITE_URL } from "@/core/brand";
-import { COPY } from "@/core/copy";
-import { SERVER_COPY } from "@/core/serverCopy";
 import { SITE_OPEN_GRAPH } from "@/shared/utils/metadata";
 
 import shareImage from "./share-image.png";

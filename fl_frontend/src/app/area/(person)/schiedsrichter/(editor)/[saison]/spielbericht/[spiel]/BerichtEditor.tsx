@@ -1,5 +1,8 @@
 "use client";
 
+import { COPY } from "@/core/copy";
+import { FLCardColour } from "@/core/generated/client/types";
+import { admitsShootOut, isNoShow, scoreOutcome } from "@/features/spiele/result";
 import { CardMark } from "@/kit/CardMark";
 import { Checkbox } from "@/kit/Checkbox";
 import { Segmented } from "@/kit/ChoiceButtons";
@@ -11,10 +14,6 @@ import { Section, SectionRule } from "@/kit/Section";
 import { Select } from "@/kit/Select";
 import { TextField } from "@/kit/TextField";
 import { useEditor } from "@/kit/useEditor";
-
-import { COPY } from "@/core/copy";
-import { FLCardColour } from "@/core/generated/client/types";
-import { admitsShootOut, isNoShow, scoreOutcome } from "@/features/spiele/result";
 
 import { counted, NO_SONDEREREIGNIS, UNKNOWN_PLAYER, wholeOnFirstSave } from "./berichtValues";
 

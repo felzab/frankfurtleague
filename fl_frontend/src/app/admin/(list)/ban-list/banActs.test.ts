@@ -1,10 +1,10 @@
-import { ADMIN_EMAIL } from "@/test-support/authDoubles";
-import { refusal, serveBackend } from "@/test-support/backend";
-import { signedInRequest } from "@/test-support/session";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { ADMIN_EMAIL } from "@/test-support/authDoubles";
+import { refusal, serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
 
 import type { FLPostBanListEntryPayload, FLPostBanListEntryResponse } from "@/core/generated/client/types";
 

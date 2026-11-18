@@ -1,3 +1,7 @@
+import { assert, beforeEach, describe, expect, it } from "vitest";
+
+import { ROUTES } from "@/core/routes";
+import { SITE_CACHE_TAG } from "@/core/siteCache";
 import {
   configDouble,
   insertOrderedAdapter,
@@ -11,10 +15,6 @@ import { serveBackend } from "@/test-support/backend";
 import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/test-support/nextRequest";
 import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures";
 import { thrownRedirect } from "@/test-support/thrownRedirect";
-import { assert, beforeEach, describe, expect, it } from "vitest";
-
-import { ROUTES } from "@/core/routes";
-import { SITE_CACHE_TAG } from "@/core/siteCache";
 
 import type { SessionRow } from "@/test-support/authDoubles";
 import type { LookupFixture } from "@/test-support/subjectFixtures";

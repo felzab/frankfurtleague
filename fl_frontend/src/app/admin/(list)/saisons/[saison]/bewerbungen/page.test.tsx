@@ -1,9 +1,9 @@
-import { serveBackend } from "@/test-support/backend";
-import { signedInRequest } from "@/test-support/session";
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 import { STANDING_CHIP } from "@/features/bewerbungen/standing";
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
 
 import type { FLBewerbungListRow } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";

@@ -1,9 +1,9 @@
-import { TO_ACCOUNT } from "@/kit/MailedPage";
-import { serveBackend } from "@/test-support/backend";
-import { doubleNextRequest } from "@/test-support/nextRequest";
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { TO_ACCOUNT } from "@/kit/MailedPage";
+import { serveBackend } from "@/test-support/backend";
+import { doubleNextRequest } from "@/test-support/nextRequest";
 
 import type { FLBewerbungEinwilligungViewResponse } from "@/core/generated/client/types";
 import type { MailedState } from "@/kit/MailedPage";

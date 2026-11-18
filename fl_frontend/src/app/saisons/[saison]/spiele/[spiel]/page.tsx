@@ -1,8 +1,5 @@
 import { notFound } from "next/navigation";
 
-import { ReadFolds } from "@/kit/ReadFolds";
-import { ReadPage } from "@/kit/ReadPage";
-
 import { COPY } from "@/core/copy";
 import { dayOf, formatDateWithWeekday, formatErgebnis, formatOrdinal, formatTime, timeOf } from "@/core/format";
 import { buildMapsSearchUrl } from "@/core/maps";
@@ -14,6 +11,8 @@ import { publicSaisonOf } from "@/features/saisons/resolvers";
 import { eventOf, headOf, matchdayOf, refereeOf, sidesOf } from "@/features/spiele/blocks";
 import { creditedSide } from "@/features/spiele/result";
 import { roleMarkOf, spielerName } from "@/features/spieler/constants";
+import { ReadFolds } from "@/kit/ReadFolds";
+import { ReadPage } from "@/kit/ReadPage";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 import { objectIdParamOf } from "@/shared/utils/routeParams";

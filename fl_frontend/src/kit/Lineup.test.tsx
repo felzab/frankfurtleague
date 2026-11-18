@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import { useState } from "react";
 
-import { renderUnderNext } from "@/test-support/nextContexts";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { renderUnderNext } from "@/test-support/nextContexts";
 
 import { Lineup, lineupValue } from "./Lineup";
 

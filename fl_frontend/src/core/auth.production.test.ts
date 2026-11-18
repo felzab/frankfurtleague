@@ -1,9 +1,10 @@
+import { assert, describe, expect, it } from "vitest";
+
 import { ADMIN_EMAIL, answerTheLookup, cookieHeader, ORIGIN, sessionByCode, signInByCode } from "@/test-support/authDoubles";
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
 import { captureLog } from "@/test-support/stdoutCapture";
 import { assertionFor, CREDENTIAL_ID } from "@/test-support/testAuthenticator";
-import { assert, describe, expect, it } from "vitest";
 
 // Under the production build's `NODE_ENV` (`fl_frontend/vitest.config.mts :: PRODUCTION_BUILD`): only its format writes
 // a line's `trace_id` and every `error` it is handed, an `error` that is no `Error` among them, which this file holds

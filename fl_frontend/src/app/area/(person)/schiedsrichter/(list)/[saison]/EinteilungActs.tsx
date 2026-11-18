@@ -1,7 +1,6 @@
+import { COPY } from "@/core/copy";
 import { Dialog } from "@/kit/Dialog";
 import { PressAct } from "@/kit/PressAct";
-
-import { COPY } from "@/core/copy";
 
 import { agreeEinteilung, declineEinteilung } from "./answerEinteilung";
 

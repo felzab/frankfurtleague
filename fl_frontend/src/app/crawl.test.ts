@@ -1,9 +1,9 @@
-import { serveBackend } from "@/test-support/backend";
-import { doubleNextRequest } from "@/test-support/nextRequest";
 import { describe, expect, it } from "vitest";
 
 import { SITE_URL } from "@/core/brand";
 import { LEGAL_PAGES, LIGA_PAGES, ROUTES, SAISONLESS_PAGES } from "@/core/routes";
+import { serveBackend } from "@/test-support/backend";
+import { doubleNextRequest } from "@/test-support/nextRequest";
 
 import type { FLSaisonFrameResponse } from "@/core/generated/client/types";
 import type { RouteEntry } from "@/core/routes";

@@ -1,6 +1,7 @@
+import { expect, it } from "vitest";
+
 import { networkFailure, serveBackend } from "@/test-support/backend";
 import { captureLog } from "@/test-support/stdoutCapture";
-import { expect, it } from "vitest";
 
 /* Run under a production build's `NODE_ENV`, whose JSON line carries `trace_id`: the plain line every other project
    writes leaves it out, and the trace is what joins a half's failure line to the backend's own for that request. */

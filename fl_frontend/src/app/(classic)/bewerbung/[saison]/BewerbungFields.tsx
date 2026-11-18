@@ -2,6 +2,9 @@
 
 import { useId, useState } from "react";
 
+import { COPY } from "@/core/copy";
+import { TRIKOT_FARBEN } from "@/core/trikotFarben";
+import { BEWERBUNG_MIN_AGE, SIGNATORY_MIN_AGE } from "@/features/bewerbungen/constants";
 import { AddressFields } from "@/kit/AddressFields";
 import { ComboBox } from "@/kit/ComboBox";
 import { ConsentLine } from "@/kit/ConsentLine";
@@ -11,10 +14,6 @@ import { Select } from "@/kit/Select";
 import { Switch } from "@/kit/Switch";
 import { TextField } from "@/kit/TextField";
 import { useUnsavedChangesWarning } from "@/kit/useUnsavedChangesWarning";
-
-import { COPY } from "@/core/copy";
-import { TRIKOT_FARBEN } from "@/core/trikotFarben";
-import { BEWERBUNG_MIN_AGE, SIGNATORY_MIN_AGE } from "@/features/bewerbungen/constants";
 
 import { NO_SECOND_SEAT, SEATS } from "./application";
 

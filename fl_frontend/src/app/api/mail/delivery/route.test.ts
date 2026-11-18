@@ -1,11 +1,12 @@
 import { randomBytes } from "node:crypto";
 import { inspect } from "node:util";
 
+import { assert, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { configDouble } from "@/test-support/authDoubles";
 import { networkFailure, refusal, serveBackend } from "@/test-support/backend";
 import { doubleNextRequest } from "@/test-support/nextRequest";
 import { captureLog } from "@/test-support/stdoutCapture";
-import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Code, FLOutboxEventPayload } from "@/core/generated/client/types";
 

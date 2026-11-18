@@ -4,9 +4,10 @@
 // failure's message, which names the request and where it was sent.
 import { setTimeout as wallClock } from "node:timers/promises";
 
+import { describe, expect, it, onTestFinished, vi } from "vitest";
+
 import { BACKEND_ORIGIN, networkFailure, serveBackend, serveHost } from "@/test-support/backend";
 import { caseFailures } from "@/test-support/caseFailures";
-import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 /** The backend's own address for `path`, as the real client spells one. */
 const endpoint = (path: string): string => `${BACKEND_ORIGIN}/api/v0${path}`;

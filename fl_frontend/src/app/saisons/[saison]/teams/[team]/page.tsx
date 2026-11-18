@@ -1,9 +1,5 @@
 import { notFound } from "next/navigation";
 
-import { ClubHead } from "@/kit/ClubHead";
-import { ReadFolds } from "@/kit/ReadFolds";
-import { ReadPage } from "@/kit/ReadPage";
-
 import { COPY } from "@/core/copy";
 import { dayOf, formatErgebnis, formatNumber, formatOrdinal } from "@/core/format";
 import { buildMapsSearchUrl } from "@/core/maps";
@@ -14,6 +10,9 @@ import { publicSaisonOf } from "@/features/saisons/resolvers";
 import { headedMatchOf, outcomeFor } from "@/features/spiele/blocks";
 import { roleMarkOf, spielerName } from "@/features/spieler/constants";
 import { austrittChip, austrittState } from "@/features/teams/constants";
+import { ClubHead } from "@/kit/ClubHead";
+import { ReadFolds } from "@/kit/ReadFolds";
+import { ReadPage } from "@/kit/ReadPage";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 import { objectIdParamOf } from "@/shared/utils/routeParams";

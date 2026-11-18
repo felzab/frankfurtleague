@@ -1,6 +1,7 @@
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+
 import { serveBackend } from "@/test-support/backend";
 import { captureLog } from "@/test-support/stdoutCapture";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 /* Every job the scheduler would run is the real one, over a backend that answers nothing: a pass armed here would send
    its first request into a case that names none, which fails it, and be on the record of what the backend saw. */

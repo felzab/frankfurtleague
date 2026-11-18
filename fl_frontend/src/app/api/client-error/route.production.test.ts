@@ -1,5 +1,6 @@
-import { documentsWrittenByAsync } from "@/test-support/stdoutCapture";
 import { describe, expect, it } from "vitest";
+
+import { documentsWrittenByAsync } from "@/test-support/stdoutCapture";
 
 const { POST } = await import("./route");
 const { NextRequest } = await import("next/server");

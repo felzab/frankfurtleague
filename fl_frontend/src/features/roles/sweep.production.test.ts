@@ -1,7 +1,8 @@
+import { assert, beforeEach, describe, expect, it } from "vitest";
+
 import { faultingAdapter, insertOrderedAdapter, memoryStore, registerAuthDoubles } from "@/test-support/authDoubles";
 import { networkFailure, refusal, serveBackend } from "@/test-support/backend";
 import { captureLog } from "@/test-support/stdoutCapture";
-import { assert, beforeEach, describe, expect, it } from "vitest";
 
 import type { FLReferencesPayload, FLReferencesResponse } from "@/core/generated/client/types";
 import type { MemoryDB } from "better-auth/adapters/memory";

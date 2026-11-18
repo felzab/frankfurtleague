@@ -1,6 +1,7 @@
+import { describe, expect, it } from "vitest";
+
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
-import { describe, expect, it } from "vitest";
 
 import type { FLSpieltagAdmin, FLSpieltagAdminResponse, FLSpieltagWriteResponse } from "@/core/generated/client/types";
 

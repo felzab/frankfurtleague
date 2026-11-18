@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
-import { renderUnderNext } from "@/test-support/nextContexts";
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { SERVER_COPY } from "@/core/serverCopy";
+import { renderUnderNext } from "@/test-support/nextContexts";
 
 import NoPopupFound from "./not-found";
 

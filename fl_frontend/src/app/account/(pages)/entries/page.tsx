@@ -1,5 +1,3 @@
-import { AccountEmpty, AccountPage } from "@/kit/AccountPage";
-
 import { MEDIA_MIN_AGE } from "@/core/bounds";
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate, formatEuro } from "@/core/format";
@@ -7,6 +5,7 @@ import { ROUTES } from "@/core/routes";
 import { requireAccountSession } from "@/features/account/account";
 import { getAccountEinwilligungen } from "@/features/account/queries";
 import { kaderName } from "@/features/spieler/constants";
+import { AccountEmpty, AccountPage } from "@/kit/AccountPage";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import { EntriesBoxes } from "./EntriesBoxes";

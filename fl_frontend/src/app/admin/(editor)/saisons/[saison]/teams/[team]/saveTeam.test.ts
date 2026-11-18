@@ -1,6 +1,7 @@
+import { describe, expect, it } from "vitest";
+
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
-import { describe, expect, it } from "vitest";
 
 const TEAM_ID = "64b000000000000000000002";
 const SAISON = "2027";

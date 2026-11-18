@@ -1,3 +1,5 @@
+import { assert, describe, expect, it } from "vitest";
+
 import {
   ADMIN_EMAIL,
   configDouble,
@@ -8,7 +10,6 @@ import {
   registerAuthDoubles,
   signInByCode,
 } from "@/test-support/authDoubles";
-import { assert, describe, expect, it } from "vitest";
 
 const STORE = "__flProxyCookieStore";
 

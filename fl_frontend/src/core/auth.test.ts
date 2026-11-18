@@ -1,6 +1,8 @@
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 
+import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
+
 import {
   ADMIN_EMAIL,
   Barrier,
@@ -21,7 +23,6 @@ import { networkFailure, serveBackend } from "@/test-support/backend";
 import { captureLog } from "@/test-support/stdoutCapture";
 import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures";
 import { assertionFor, COSE_KEY, CREDENTIAL_ID, CREDENTIAL_RAW_ID, registrationFor } from "@/test-support/testAuthenticator";
-import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { assertionAnswer } from "./auth/assertionAnswer";
 import { PASSKEY_TOUCH_SECONDS } from "./sessionLifetimes";

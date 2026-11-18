@@ -1,12 +1,12 @@
-import { serveBackend, serveHost } from "@/test-support/backend";
-import { doubleNextRequest, writtenCookies } from "@/test-support/nextRequest";
-import { posted } from "@/test-support/posted";
-import { thrownRedirect } from "@/test-support/thrownRedirect";
 import { describe, expect, it } from "vitest";
 
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 import { ROUTES } from "@/core/routes";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
+import { serveBackend, serveHost } from "@/test-support/backend";
+import { doubleNextRequest, writtenCookies } from "@/test-support/nextRequest";
+import { posted } from "@/test-support/posted";
+import { thrownRedirect } from "@/test-support/thrownRedirect";
 
 import type { FLPostRegistrierungResponse } from "@/core/generated/client/types";
 

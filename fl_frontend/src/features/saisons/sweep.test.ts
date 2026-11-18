@@ -1,7 +1,7 @@
-import { refusal, serveBackend } from "@/test-support/backend";
 import { describe, expect, it } from "vitest";
 
 import { APIBadStatusError } from "@/core/errors";
+import { refusal, serveBackend } from "@/test-support/backend";
 
 const RUN = "/identity/erasure/sweep";
 

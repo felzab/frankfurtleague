@@ -1,9 +1,9 @@
-import { serveBackend } from "@/test-support/backend";
-import { doubleNextRequest } from "@/test-support/nextRequest";
-import { thrownRedirect } from "@/test-support/thrownRedirect";
 import { describe, expect, it } from "vitest";
 
 import { ROUTES } from "@/core/routes";
+import { serveBackend } from "@/test-support/backend";
+import { doubleNextRequest } from "@/test-support/nextRequest";
+import { thrownRedirect } from "@/test-support/thrownRedirect";
 
 import type { FLSaisonFrameResponse } from "@/core/generated/client/types";
 

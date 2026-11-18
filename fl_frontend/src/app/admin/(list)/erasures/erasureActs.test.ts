@@ -1,10 +1,10 @@
-import { ADMIN_EMAIL } from "@/test-support/authDoubles";
-import { refusal, serveBackend } from "@/test-support/backend";
-import { signedInRequest } from "@/test-support/session";
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { ADMIN_EMAIL } from "@/test-support/authDoubles";
+import { refusal, serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
 
 import type { FLErasureViewResponse } from "@/core/generated/client/types";
 

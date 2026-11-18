@@ -1,10 +1,3 @@
-import { actLabel } from "@/kit/dialogAct";
-import { ListPage } from "@/kit/ListPage";
-import { ReadFolds } from "@/kit/ReadFolds";
-import { RowAct } from "@/kit/RowAct";
-import { Select } from "@/kit/Select";
-import { TextField } from "@/kit/TextField";
-
 import { GRANT_WAIT, OWNER_WAIT } from "@/core/addressChange";
 import { getAdminSession } from "@/core/auth/guards";
 import { now } from "@/core/clock";
@@ -18,6 +11,12 @@ import { getAddressChanges } from "@/features/address-change/queries";
 import { addAdministrator, removeAdministrator, startHandover, stopHandover } from "@/features/grants/actions";
 import { getGrants } from "@/features/grants/queries";
 import { GRANT_RULES } from "@/features/grants/schemas";
+import { actLabel } from "@/kit/dialogAct";
+import { ListPage } from "@/kit/ListPage";
+import { ReadFolds } from "@/kit/ReadFolds";
+import { RowAct } from "@/kit/RowAct";
+import { Select } from "@/kit/Select";
+import { TextField } from "@/kit/TextField";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { ActionAnswer } from "@/core/action";

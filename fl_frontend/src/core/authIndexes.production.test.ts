@@ -1,9 +1,10 @@
 import { EventEmitter } from "node:events";
 
-import { memoryAdapterDouble, memoryStore, registerAuthDoubles } from "@/test-support/authDoubles";
-import { captureLog } from "@/test-support/stdoutCapture";
 import { MongoNetworkTimeoutError, MongoServerError, MongoServerSelectionError } from "mongodb";
 import { assert, beforeEach, describe, expect, it } from "vitest";
+
+import { memoryAdapterDouble, memoryStore, registerAuthDoubles } from "@/test-support/authDoubles";
+import { captureLog } from "@/test-support/stdoutCapture";
 
 import type { IndexOptions } from "mongodb";
 

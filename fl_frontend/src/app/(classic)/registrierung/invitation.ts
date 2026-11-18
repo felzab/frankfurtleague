@@ -1,12 +1,11 @@
 import "server-only";
 
-import { linkInvalid } from "@/kit/mailedLinkState";
-
 import { COPY } from "@/core/copy";
 import { APIBadStatusError } from "@/core/errors";
 import { registrierungenPostInvitationView } from "@/core/generated/client/sdk";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { linkInvalid } from "@/kit/mailedLinkState";
 
 import type { FLInvitationViewResponse } from "@/core/generated/client/types";
 import type { EndState } from "@/kit/MailedPage";

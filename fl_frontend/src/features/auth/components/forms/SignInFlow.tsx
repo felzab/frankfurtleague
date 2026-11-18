@@ -3,14 +3,13 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { SignInPage } from "@/kit/SignInPage";
-import { useBotCheck } from "@/kit/useBotCheck";
-import { useFormAction } from "@/kit/useFormAction";
-
 import { loadAuthClient, usePreloadedAuthClient } from "@/core/auth/browserClient";
 import { RETURN_PARAMETER, withReturnAddress } from "@/core/auth/returnAddress";
 import { COPY } from "@/core/copy";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
+import { SignInPage } from "@/kit/SignInPage";
+import { useBotCheck } from "@/kit/useBotCheck";
+import { useFormAction } from "@/kit/useFormAction";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 
 import { handleSignIn } from "../../actions";

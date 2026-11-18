@@ -1,9 +1,9 @@
-import { ADMIN_EMAIL } from "@/test-support/authDoubles";
-import { serveBackend } from "@/test-support/backend";
-import { signedInRequest } from "@/test-support/session";
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { ADMIN_EMAIL } from "@/test-support/authDoubles";
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
 
 // No act here may reach the backend past its touch: any request but the guards' own lookups fails the case.
 const backend = serveBackend();

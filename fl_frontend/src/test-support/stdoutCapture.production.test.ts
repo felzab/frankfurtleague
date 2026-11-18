@@ -1,7 +1,8 @@
 // What the capture reads off the production build's document beyond the plain line: its trace and its error as
 // written, which the cases proving a value kept off a line read.
-import { captureLog } from "@/test-support/stdoutCapture";
 import { describe, expect, it } from "vitest";
+
+import { captureLog } from "@/test-support/stdoutCapture";
 
 const log = captureLog("production");
 

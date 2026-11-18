@@ -1,9 +1,5 @@
 import { cache } from "react";
 
-import { ConsentLine } from "@/kit/ConsentLine";
-import { mailedMetadata } from "@/kit/mailedLinkState";
-import { MailedPage } from "@/kit/MailedPage";
-
 import { requires } from "@/core/action";
 import { KONTAKT_EMAIL, KONTAKT_MAILTO } from "@/core/brand";
 import { frontend_config } from "@/core/config";
@@ -19,6 +15,9 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
 import { orderStufen } from "@/features/spieler/constants";
+import { ConsentLine } from "@/kit/ConsentLine";
+import { mailedMetadata } from "@/kit/mailedLinkState";
+import { MailedPage } from "@/kit/MailedPage";
 
 import { endOf, readInvitation, REPLAY_FIELD, TO_HOME } from "./invitation";
 import { RegistrierungFields } from "./RegistrierungFields";

@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
-import { serveBackend } from "@/test-support/backend";
-import { renderUnderNext } from "@/test-support/nextContexts";
-import { signedInRequest } from "@/test-support/session";
-import { seat } from "@/test-support/subjectFixtures";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { serveBackend } from "@/test-support/backend";
+import { renderUnderNext } from "@/test-support/nextContexts";
+import { signedInRequest } from "@/test-support/session";
+import { seat } from "@/test-support/subjectFixtures";
 
 import { agreeSpielbestaetigung, declineSpielbestaetigung } from "./answerSpielbestaetigung";
 

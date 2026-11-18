@@ -1,3 +1,5 @@
+import { assert, beforeEach, describe, expect, it } from "vitest";
+
 import {
   configDouble,
   cookieHeader,
@@ -8,7 +10,6 @@ import {
   seatEveryAddress,
 } from "@/test-support/authDoubles";
 import { assertionFor, COSE_KEY } from "@/test-support/testAuthenticator";
-import { assert, beforeEach, describe, expect, it } from "vitest";
 
 const STORE = "__flPasskeyLastUseStore";
 

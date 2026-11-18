@@ -1,11 +1,10 @@
 "use client";
 
+import { COPY } from "@/core/copy";
 import { DateField } from "@/kit/DateField";
 import { EditorPage } from "@/kit/EditorPage";
 import { FieldRows } from "@/kit/FieldRows";
 import { useEditor } from "@/kit/useEditor";
-
-import { COPY } from "@/core/copy";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";

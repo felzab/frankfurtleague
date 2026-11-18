@@ -1,8 +1,7 @@
+import { COPY } from "@/core/copy";
 import { AddressFields } from "@/kit/AddressFields";
 import { FieldGroup } from "@/kit/FieldGroup";
 import { TextField } from "@/kit/TextField";
-
-import { COPY } from "@/core/copy";
 
 import type { SpielortRules } from "./spielortRules";
 

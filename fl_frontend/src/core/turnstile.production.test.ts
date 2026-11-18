@@ -1,6 +1,7 @@
+import { assert, beforeEach, describe, expect, it } from "vitest";
+
 import { networkFailure, serveHost } from "@/test-support/backend";
 import { captureLog } from "@/test-support/stdoutCapture";
-import { assert, beforeEach, describe, expect, it } from "vitest";
 
 import type { LoggedLine } from "@/test-support/stdoutCapture";
 

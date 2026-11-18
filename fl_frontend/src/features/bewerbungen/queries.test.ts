@@ -1,6 +1,7 @@
+import { describe, expect, it } from "vitest";
+
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
-import { describe, expect, it } from "vitest";
 
 const backend = serveBackend(() => ({}));
 // An administrator's session: the read runs behind the real admin check, and only what it sends is judged.

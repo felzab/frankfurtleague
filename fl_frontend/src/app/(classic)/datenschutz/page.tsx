@@ -1,6 +1,3 @@
-import { ReadingPage } from "@/kit/Prose";
-import { Table } from "@/kit/Table";
-
 import { ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_DAYS, HOLDER_WAIT } from "@/core/addressChange";
 import { CODE_VALIDITY_MINUTES } from "@/core/authEmail";
 import { BAN_DURATION_SAISONS, DECLINED_RETENTION_DAYS, MEDIA_MIN_AGE, REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS } from "@/core/bounds";
@@ -15,6 +12,8 @@ import { BEWERBUNG_CONFIRMATION_DEADLINE_DAYS, BEWERBUNG_MIN_AGE, SIGNATORY_MIN_
 import { DATENSCHUTZ_AS_OF } from "@/features/meta/constants";
 import { REGISTRIERUNG_MIN_AGE } from "@/features/registrierungen/constants";
 import { SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS } from "@/features/schiedsrichter/constants";
+import { ReadingPage } from "@/kit/Prose";
+import { Table } from "@/kit/Table";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { ProseBlock, ProseSection, ProseText } from "@/kit/Prose";

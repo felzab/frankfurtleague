@@ -1,7 +1,8 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import { configDouble } from "@/test-support/authDoubles";
 import { networkFailure, serveBackend, serveHost } from "@/test-support/backend";
 import { TEST_SECRETS } from "@/test-support/testEnvironment.mts";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { runWithRequestScope } from "./requestScope";
 

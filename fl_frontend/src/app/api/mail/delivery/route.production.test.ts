@@ -1,10 +1,11 @@
 import { randomBytes } from "node:crypto";
 
+import { assert, describe, it, vi } from "vitest";
+
 import { configDouble } from "@/test-support/authDoubles";
 import { networkFailure, serveBackend } from "@/test-support/backend";
 import { doubleNextRequest } from "@/test-support/nextRequest";
 import { captureLog } from "@/test-support/stdoutCapture";
-import { assert, describe, it, vi } from "vitest";
 
 // Under the production build's `NODE_ENV` (`fl_frontend/vitest.config.mts :: PRODUCTION_BUILD`): only its format writes
 // every value a line is handed, an `error` that is no `Error` among them, which a line naming no recipient is held to.

@@ -1,7 +1,5 @@
 import { notFound } from "next/navigation";
 
-import { ListPage } from "@/kit/ListPage";
-
 import { COPY } from "@/core/copy";
 import { formatErgebnis, formatNumber, formatSigned } from "@/core/format";
 import { ROUTES } from "@/core/routes";
@@ -9,6 +7,7 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { getTabelle } from "@/features/saisons/queries";
 import { publicSaisonOf, resolvePublicSaisonParam } from "@/features/saisons/resolvers";
 import { austrittChip } from "@/features/teams/constants";
+import { ListPage } from "@/kit/ListPage";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
