@@ -185,7 +185,7 @@ the clause governs.
 no read has pulled it in.** The files under `.claude/rules/` — [`backend.md`](rules/backend.md),
 [`frontend.md`](rules/frontend.md), [`cross-surface.md`](rules/cross-surface.md) and
 [`stack.md`](rules/stack.md) — hold the traps each surface springs. A rules file written during a
-session does not load in that session, and does load in an agent it dispatches afterwards.
+session does not load in that session; brief its rule in words to each agent dispatched afterwards.
 
 ## 8. Documentation
 
