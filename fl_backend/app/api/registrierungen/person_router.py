@@ -7,8 +7,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.account.crud import press_withdrawal
-from app.api.account.services import compose_person_move, find_own_entry_refusal, withdrawal_line
+from app.api.account.services import compose_person_move, find_own_entry_refusal, press_withdrawal, withdrawal_line
 from app.api.identity.crud import refuse_without_a_seat
 from app.api.identity.lookup import RecordCollections, SubjectLookup
 from app.api.identity.services import is_own_registrierung
@@ -90,7 +89,7 @@ router = APIRouter(prefix="/registrierungen", dependencies=PERSON_TIER)
 
 
 @router.get(
-    "/kader/{team_id:objectid}/{saison_id}",
+    f"/kader{by_id('team_id')}/{{saison_id}}",
     summary="A team's pending registrations for one season",
 )
 async def get_open_registrierungen(

@@ -13,11 +13,12 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.public_router import post_bewerbung
 from app.api.bewerbungen.schemas import FLPostBewerbungPayload
-from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, compose_kontakte
+from app.api.bewerbungen.services import compose_kontakte
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import APIError, DocumentNotFoundError
+from app.shared.mailbox import OPEN_LINKS_PER_MAILBOX
 from app.shared.schemas.bounds import BEWERBUNG_CONFIRMATION_DEADLINE_DAYS
 from app.shared.schemas.literals import KONTAKT_SEATS
 from app.shared.tokens import hash_token

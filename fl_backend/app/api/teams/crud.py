@@ -10,7 +10,6 @@ from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import FLSpielListAdapter
 from app.api.teams.schemas import FLTabelle, FLTeamListAdapter
 from app.api.teams.services import (
-    build_tabelle,
     build_team_pipeline,
     build_team_spiele_filter,
     compose_saison_team,
@@ -20,6 +19,7 @@ from app.api.teams.services import (
     find_team_entry_refusal,
     find_trikot_farbe_refusal,
 )
+from app.api.teams.standings import build_tabelle
 from app.core.concurrency import concurrently
 from app.core.crud import (
     GERMAN_COLLATION,

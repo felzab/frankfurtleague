@@ -11,7 +11,6 @@ from pymongo.results import InsertOneResult
 
 from app.api.aufstellungen.crud import remove_the_seasons_aufstellungen
 from app.api.grants.guard import ADMIN_TIER
-from app.api.invitations.crud import owed_invitation_mails
 from app.api.invitations.schemas import (
     FLInvitation,
     FLInvitationDispatchResponse,
@@ -25,6 +24,7 @@ from app.api.invitations.services import (
     compose_invitation,
     compose_revocation_update,
     find_invitation_saison_past_refusal,
+    owed_invitation_mails,
     plan_invitation_dispatch,
 )
 from app.api.outbox.services import enqueue_mails
@@ -64,6 +64,7 @@ from app.api.saisons.services import (
     decided_podium,
     find_activation_refusal,
     find_berichte_refusal,
+    find_gruppe_swap_refusal,
     find_rules_freeze_refusal,
     find_rules_refusal,
     find_saison_create_refusal,
@@ -80,13 +81,8 @@ from app.api.saisons.services import (
 )
 from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
 from app.api.spielberichte.crud import anchor_the_season_reported_in, count_submitted_berichte
-from app.api.spiele.schemas import FLSpielListAdapter
+from app.api.spiele.schemas import TAKEN_PLACE_FIELDS, FLSpielListAdapter, has_taken_place
 from app.api.spieler.services import CAPPED_KADER_ROW
-from app.api.teams.services import (
-    TAKEN_PLACE_FIELDS,
-    find_gruppe_swap_refusal,
-    has_taken_place,
-)
 from app.core.codes import Code
 from app.core.concurrency import concurrently
 from app.core.crud import (

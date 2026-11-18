@@ -43,10 +43,12 @@ from app.api.spiele.schemas import (
     FLSpielTeamFieldJoinedInternal,
     FLSpielTeamFieldPayload,
     FLSpielVoidedErgebnis,
+    is_played,
     is_unplayed,
     records_an_absence,
 )
-from app.api.teams.services import DecidedStanding, in_the_season_when_decided, is_played, offered_gruppen
+from app.api.teams.services import offered_gruppen
+from app.api.teams.standings import DecidedStanding, in_the_season_when_decided
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import FieldPath, WriteRefusal

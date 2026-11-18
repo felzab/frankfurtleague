@@ -16,13 +16,13 @@ from app.api.aufstellungen.schemas import FLAufstellungenPublic
 from app.api.invitations.schemas import FLInvitationLinkRow
 from app.api.spielberichte.schemas import FLSpielberichtPublic
 from app.api.spiele.schemas import FLSpielJoined
-from app.api.spieler.schemas import FLSpielerPublic
+from app.api.spieler.schemas import FLSpielerPublic, FLSpielerSelfKaderRow
+
+# Imported rather than restated. Acyclic: no model of `teams` imports this file --
+# `teams/services.py` and `teams/standings.py` do, and no model there.
 from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS, FLAustritt, FLSaisonTeamEntry, FLTabelleRow, FLTeamPageTeam
 from app.core import clock
 from app.core.codes import Code, Rule
-
-# Imported rather than restated. Acyclic: no model of `teams` imports this file --
-# `teams/services.py` does, and no model there.
 from app.core.crud import Anchored
 from app.core.exceptions import Bound, rule_refusal
 from app.shared.schemas.bounds import KADER_SIZE_MAX, SAISON_ID_LENGTH
@@ -545,6 +545,24 @@ class FLTeamPageResponse(BaseReadModel):
     standing: FLTabelleRow | None
     spiele: list[FLTeamPageSpiel]
     kader: list[FLSpielerPublic]
+
+
+class FLSpielerSaisonSelfSpiel(FLTeamPageSpiel):
+    """One fixture of the pupil's club, with their own place in the club's line-up for it."""
+
+    # True where the stored line-up starts them, false where it benches them, and null where it does not name them or
+    # the club has stored none.
+    starts: bool | None
+
+
+class FLSpielerSaisonSelfResponse(BaseReadModel):
+    """A pupil's own season: where they play, and their club's fixtures."""
+
+    saison_id: str
+    # Their squad row of this season, a deregistered one included; null where they hold none.
+    kader: FLSpielerSelfKaderRow | None
+    # Empty where they hold no squad row of this season.
+    spiele: list[FLSpielerSaisonSelfSpiel]
 
 
 class FLSpielSideStanding(BaseReadModel):

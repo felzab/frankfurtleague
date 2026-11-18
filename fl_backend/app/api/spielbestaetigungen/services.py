@@ -5,7 +5,6 @@ from datetime import datetime
 from http import HTTPStatus
 from typing import Any, Final, Literal, NamedTuple
 
-from app.api.bewerbungen.services import days_after
 from app.api.invitations.services import confirmed_recipients
 from app.api.outbox.schemas import (
     FLAustrittNoticeData,
@@ -41,14 +40,15 @@ from app.api.spiele.schemas import (
     FLSpielortFieldPublic,
     FLSpielSchiedsrichterFieldPayload,
     FLSpielTeamFieldPayload,
+    has_taken_place,
+    is_played,
 )
-from app.api.teams.services import has_taken_place, is_played
 from app.core import clock
+from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import Twins, WriteRefusal
 from app.shared.schemas.bounds import (
-    AUFSTELLUNG_REMINDER_DAYS,
     SPIEL_CONFIRMATION_DEADLINE_DAYS,
     SPIEL_REMINDER_DAYS,
     SPIEL_REQUEST_LEAD_TIME_DAYS,
@@ -809,35 +809,6 @@ def last_request_day(*, today: str) -> str:
     """The latest fixture day a pass run today asks about: the request goes out once its deadline is the answer window away."""
 
     return days_after(day=today, days=SPIEL_CONFIRMATION_DEADLINE_DAYS + SPIEL_REQUEST_LEAD_TIME_DAYS)
-
-
-# --- The line-up reminder, owed by the same pass: no line-up document exists to stamp, so the mail's own keys hold it to one.
-
-
-def build_aufstellung_reminder_filter(*, saison_id: str, today: str) -> dict[str, Any]:
-    """The season's fixtures whose kick-off the line-up reminder's window can hold: from today to `AUFSTELLUNG_REMINDER_DAYS` on.
-
-    Each with a time, both sides and no decision; `aufstellung_reminder_owed` decides, this narrows the read.
-    """
-
-    return {
-        "saison_id": saison_id,
-        "date": {"$gte": today, "$lte": days_after(day=today, days=AUFSTELLUNG_REMINDER_DAYS)},
-        "time": {"$ne": None},
-        "team1": {"$ne": None},
-        "team2": {"$ne": None},
-        "ergebnis": None,
-        "sonderereignis": None,
-    }
-
-
-def aufstellung_reminder_key(*, spiel_id: Any, team_id: Any, seat: str) -> str:
-    """The key of a club's line-up reminder for a fixture to one seat's mailbox: any seat's stored is the club reminded.
-
-    The outbox keeps a row a retention after its last state, far past the window, so every later pass meets it.
-    """
-
-    return f"aufstellung/{spiel_id}/{team_id}/{seat}"
 
 
 def build_request_filter(*, saison_id: str, today: str, asked_ids: Sequence[Any]) -> dict[str, Any]:

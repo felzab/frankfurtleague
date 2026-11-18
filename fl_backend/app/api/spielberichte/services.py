@@ -5,7 +5,6 @@ from typing import Any, Final, Literal, NamedTuple, TypeIs, get_args
 
 from bson import ObjectId
 
-from app.api.bewerbungen.services import season_has_ended
 from app.api.spielberichte.schemas import (
     FLSpielberichtBericht,
     FLSpielberichtBerichtPayload,
@@ -15,13 +14,13 @@ from app.api.spielberichte.schemas import (
     FLSpielberichtVorschlag,
 )
 from app.api.spielbestaetigungen.services import exit_ends_the_booking
-from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, SONDEREREIGNIS_WITHOUT_A_RESULT, FLSpielElfmeterschiessen
+from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, SONDEREREIGNIS_WITHOUT_A_RESULT, FLSpielElfmeterschiessen, is_played
 from app.api.spieler.services import PUBLIC_PERSON
-from app.api.teams.services import is_played
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import VERSION_FIELD, refuse
 from app.core.exceptions import WriteRefusal
+from app.shared.saison import season_has_ended
 from app.shared.schemas.literals import FLSpielSide
 
 SIDES: Final[tuple[FLSpielSide, ...]] = ("team1", "team2")

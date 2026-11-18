@@ -15,7 +15,6 @@ from app.api.bewerbungen.services import (
     compose_chase_update,
     compose_lapsed_seats_update,
     compose_reminder_update,
-    days_after,
     decline_erasure_is_due,
     deletion_is_due,
     lapsed_seats,
@@ -25,8 +24,6 @@ from app.api.bewerbungen.services import (
     people_with_address,
     reminder_seats,
     schule_name,
-    season_after_has_ended,
-    season_has_ended,
     undecided_erasure_is_due,
     unreachable_seats,
 )
@@ -37,6 +34,7 @@ from app.api.spielberichte.crud import strip_the_seasons_reports
 from app.api.spielbestaetigungen.crud import strip_the_seasons_confirmations
 from app.api.spielbestaetigungen.services import HeldSeats
 from app.api.teams.crud import pull_team_names
+from app.core.clock import days_after
 from app.core.collections import Collection
 from app.core.crud import (
     anchor_in_db,
@@ -62,6 +60,7 @@ from app.core.dependencies import (
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.security import SYSTEM_TIER
 from app.core.transactions import SWEEP_PAGE, Batch, drain, refuse_a_stalled_page, run_isolated
+from app.shared.saison import season_has_ended
 from app.shared.schemas.bounds import DECLINED_RETENTION_DAYS, LIST_LIMIT_DEFAULT
 from app.shared.schemas.literals import KONTAKT_SEATS, FLKontaktSeat
 from app.shared.schemas.responses import FLSweepSaisonsResponse
@@ -93,7 +92,10 @@ async def pull_the_season_after(
     # Required: judged inside the erasing transaction, the anchor below commits with its erasure.
     session: AsyncClientSession,
 ) -> Any:
-    """`season_after_has_ended`'s input, judged in the erasing transaction: a later ended season's status, `None` while this one runs."""
+    """A later ended season's status, judged in the erasing transaction, `None` while this one runs.
+
+    The accepted clock and the contact block wait on one test: any season after this one has ended.
+    """
 
     # This season and the earliest later one that has ended, in one read: ascending ids put this season first.
     seasons = await pull_many_from_db(
@@ -112,7 +114,7 @@ async def pull_the_season_after(
     later_saison_status = next(iter(statuses.values()), None)
     # Written where its rows go, as a pupil's deletion writes one: an activation
     # committing after this read conflicts with the erasure, whose retry finds this season running.
-    if own_status == "future" and season_after_has_ended(later_saison_status=later_saison_status):
+    if own_status == "future" and season_has_ended(saison_status=later_saison_status):
         await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
 
     return later_saison_status
@@ -416,8 +418,8 @@ async def sweep_saison(
                 session=session,
             )
         )
-        if not season_after_has_ended(
-            later_saison_status=await pull_the_season_after(saison_id=saison_id, saisons_collection=saisons_collection, session=session)
+        if not season_has_ended(
+            saison_status=await pull_the_season_after(saison_id=saison_id, saisons_collection=saisons_collection, session=session)
         ):
             return 0
         # A cleared row leaves the filter, so the rows past the share are the next pass's.
@@ -494,8 +496,8 @@ async def sweep_saison(
     async def strip_the_confirmations(session: AsyncClientSession, batch: Batch) -> None:
         """The season-and-one clock's last part, a transaction apart from the blocks' share, so a failing strip holds back no block."""
 
-        if not season_after_has_ended(
-            later_saison_status=await pull_the_season_after(saison_id=saison_id, saisons_collection=saisons_collection, session=session)
+        if not season_has_ended(
+            saison_status=await pull_the_season_after(saison_id=saison_id, saisons_collection=saisons_collection, session=session)
         ):
             return
         # The season the step's one row: a strip failing is passed over alone under the season's id, never charged to a block,
@@ -509,8 +511,8 @@ async def sweep_saison(
     async def strip_the_reports(session: AsyncClientSession, batch: Batch) -> None:
         """The season-and-one clock's report part, a transaction apart from the confirmations' strip, so neither failure holds the other."""
 
-        if not season_after_has_ended(
-            later_saison_status=await pull_the_season_after(saison_id=saison_id, saisons_collection=saisons_collection, session=session)
+        if not season_has_ended(
+            saison_status=await pull_the_season_after(saison_id=saison_id, saisons_collection=saisons_collection, session=session)
         ):
             return
         batch.took([{"_id": saison_id}])
@@ -542,7 +544,7 @@ async def sweep_saison(
 
     accepted, emptied, seats_emptied = 0, 0, 0
     # A gate alone, each erasing transaction judging the season again: an activation since this read keeps its rows.
-    if season_after_has_ended(later_saison_status=later_saison_status):
+    if season_has_ended(saison_status=later_saison_status):
         accepted, passed = await drain(
             db=db,
             page_of=erase_accepted,

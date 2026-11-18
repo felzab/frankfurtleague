@@ -3,15 +3,15 @@ from typing import Any, NamedTuple
 
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.bewerbungen.services import SAISON_NOT_ENDED_FILTER, form_window_state, saison_takes_bewerbungen
+from app.api.bewerbungen.services import form_window_state, saison_takes_bewerbungen
 from app.api.saisons.schemas import FIRST_SAISON_RULES, FLSaisonRules
 from app.api.saisons.services import next_saison_id
-from app.api.spiele.schemas import FLSpielJoinedInternal, FLSpielJoinedInternalListAdapter
+from app.api.spiele.schemas import TAKEN_PLACE_FIELDS, FLSpielJoinedInternal, FLSpielJoinedInternalListAdapter, has_taken_place
 from app.api.spiele.services import build_spiele_pipeline
-from app.api.teams.services import TAKEN_PLACE_FIELDS, has_taken_place
 from app.core.crud import aggregate_many_from_db, pull_one_from_db, pull_whole_from_db
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
+from app.shared.saison import SAISON_NOT_ENDED_FILTER
 from app.shared.schemas.bounds import SAISON_ID_LENGTH
 
 CURRENT_SAISON_FILTER = {"status": "active"}

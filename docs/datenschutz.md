@@ -87,7 +87,7 @@ stand in [section 11](#11-open-and-owed-a-decision). Other documents link sectio
 - **A media consent is taken only from 18**
   (`fl_backend/app/shared/schemas/bounds.py :: MEDIA_MIN_AGE_YEARS`). The switch shows only from
   that age, and each confirmation refuses a `true` from anyone younger
-  (`fl_backend/app/api/einwilligung/services.py :: find_self_media_refusal`).
+  (`fl_backend/app/shared/einwilligung.py :: find_self_media_refusal`).
 - **Each consent choice keeps its own evidence**: when its person last set it, under which wording's
   label, and on a withdrawal the grant it ended (`fl_backend/app/shared/einwilligung_evidence.py`).
   The labels are `fl_frontend/src/core/consentWordings.ts :: CONSENT_WORDINGS`' keys, each frozen
@@ -112,7 +112,7 @@ stand in [section 11](#11-open-and-owed-a-decision). Other documents link sectio
     per-address counts under `fl_frontend/src/core/auth/signInRows.ts :: boundIdentifier`).
 - **A mailbox past the forms' bound is mailed nothing, and nobody is refused.** Once a mailbox holds
   three unanswered links of the season
-  (`fl_backend/app/api/bewerbungen/services.py :: OPEN_LINKS_PER_MAILBOX`), its plus-tagged forms
+  (`fl_backend/app/shared/mailbox.py :: OPEN_LINKS_PER_MAILBOX`), its plus-tagged forms
   among them, the next application or registration naming it sends it no link. That press stores as
   any other and is answered alike. Each form counts its own and each season its own, so a mailbox
   named on both forms, or in two running seasons, can hold three of each. The seat stands unmailed,

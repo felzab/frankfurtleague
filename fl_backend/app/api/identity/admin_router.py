@@ -14,7 +14,7 @@ from app.api.identity.services import (
     find_foreign_address_change_refusal,
     find_own_address_refusal,
 )
-from app.api.teams.services import is_played
+from app.api.spiele.schemas import is_played
 from app.core.crud import aggregate_many_from_db, refuse
 from app.core.dependencies import (
     ActionLogCollection,

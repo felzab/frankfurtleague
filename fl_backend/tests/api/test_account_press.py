@@ -12,8 +12,7 @@ from typing import Any, Final
 
 import pytest
 
-from app.api.account.crud import press_einwilligung
-from app.api.account.services import withdrawal_line
+from app.api.account.services import press_einwilligung, withdrawal_line
 from app.core.codes import Code
 from app.core.exceptions import APIError
 from app.shared.einwilligung_evidence import FLEinwilligungChoice, evidence_state_of

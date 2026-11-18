@@ -7,8 +7,7 @@ from typing import Any, Final
 import pytest
 from bson import ObjectId
 
-from app.api.invitations.crud import owed_invitation_mails
-from app.api.invitations.services import confirmed_recipients
+from app.api.invitations.services import confirmed_recipients, owed_invitation_mails
 from app.api.outbox.schemas import FLBanData, FLOutboxTeam, FLSpielMailAppointment, FLSpielMovedData, FLSpielNoticeData
 from app.api.outbox.services import (
     DELIVERY_DEADLINE,

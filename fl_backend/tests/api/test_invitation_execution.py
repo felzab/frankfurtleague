@@ -8,12 +8,12 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.invitations.crud import owed_invitation_mails
 from app.api.invitations.schemas import FLInvitationMailPayload
 from app.api.invitations.services import (
     InvitationRecipient,
     find_live_invitation_filter,
     find_unknown_invitation_refusal,
+    owed_invitation_mails,
 )
 from app.api.outbox.services import enqueue_mails, final_update
 from app.api.saisons.admin_router import get_saison_admin, post_invitations_dispatch

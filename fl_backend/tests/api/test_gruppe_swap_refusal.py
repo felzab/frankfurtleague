@@ -1,6 +1,6 @@
 from http import HTTPStatus
 
-from app.api.teams.services import find_gruppe_swap_refusal
+from app.api.saisons.services import find_gruppe_swap_refusal
 from app.core.codes import Code
 
 

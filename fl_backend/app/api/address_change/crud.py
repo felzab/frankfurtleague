@@ -29,7 +29,6 @@ from app.api.address_change.services import (
     masked_address,
     wait_tier,
 )
-from app.api.bewerbungen.services import days_after
 from app.api.grants.crud import move_the_grant_in_session, owe_in_session, pull_the_list_to_judge
 from app.api.grants.schemas import FLGrantNoticeStage
 from app.api.grants.services import compose_notice
@@ -57,7 +56,7 @@ from app.api.registrierungen.services import (
 from app.api.schiedsrichter.services import build_self_referee_filter
 from app.api.spieler.crud import another_pupil_holds
 from app.api.spieler.services import build_self_pupil_filter
-from app.core.clock import german_day
+from app.core.clock import days_after, german_day
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, delete_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db
 from app.core.exceptions import WriteRefusal, as_judged_on_stored_state

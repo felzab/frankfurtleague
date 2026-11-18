@@ -4,7 +4,6 @@ from typing import Any
 import pytest
 from bson import ObjectId
 
-from app.api.bewerbungen.services import days_after
 from app.api.spielbestaetigungen.services import (
     AnsetzungState,
     asked_with_its_move,
@@ -18,6 +17,7 @@ from app.api.spielbestaetigungen.services import (
     team_state_of,
 )
 from app.core import clock
+from app.core.clock import days_after
 
 TODAY = "2026-04-01"
 ALPHA = ObjectId("6890a1b2c3d4e5f607760001")

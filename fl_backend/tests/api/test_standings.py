@@ -8,7 +8,8 @@ from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT, FLBracketFaultGruppe, FLSpiel, FLSpielListAdapter
 from app.api.spiele.services import BracketResolution, resolve_bracket
 from app.api.teams.schemas import FLTabelleRow, FLTeam, FLTeamStatistik
-from app.api.teams.services import (
+from app.api.teams.services import build_statistik_by_team
+from app.api.teams.standings import (
     CERTAINTY_SPIEL_LIMIT,
     _decide_one_gruppe,
     _decided_on,
@@ -16,7 +17,6 @@ from app.api.teams.services import (
     _separated_placings,
     _still_to_play,
     build_decided_standings,
-    build_statistik_by_team,
     build_tabelle,
 )
 from app.shared.schemas.literals import FLSpielerStufe

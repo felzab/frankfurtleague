@@ -7,7 +7,6 @@ from typing import Any, Final, NamedTuple
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, mailbox_anchor_ids
 from app.api.registrierungen.services import (
     PERSON_IDENTITY_FIELDS,
     WITHOUT_TOKEN_HASHES,
@@ -20,6 +19,7 @@ from app.api.registrierungen.services import (
 )
 from app.core.crud import aggregate_many_from_db, anchor_mailboxes_in_db, delete_many_from_db, refuse
 from app.core.readonly import ReadCollection
+from app.shared.mailbox import OPEN_LINKS_PER_MAILBOX, mailbox_anchor_ids
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 # What the admission reads of a person: who they are, for the question, and what it overwrites.

@@ -1,7 +1,6 @@
 from fastapi import APIRouter, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.einwilligung.services import find_self_media_refusal
 from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterConfirmationPayload,
     FLSchiedsrichterConfirmationResponse,
@@ -36,6 +35,7 @@ from app.core.journal import Journal
 from app.core.routing import SAFE
 from app.core.security import BASE_TIER
 from app.core.transactions import transact
+from app.shared.einwilligung import find_self_media_refusal
 from app.shared.schemas.bounds import BIRTH_DATE_MAX_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.einwilligung import by_choice

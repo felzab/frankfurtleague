@@ -8,7 +8,7 @@ from app.api.outbox.schemas import FLOutboxLink, FLOutboxReference, FLSchiedsric
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.schiedsrichter.services import ADDRESS_PATH, TOKEN_HASHES_PATH, build_assignment_filter
 from app.api.spielbestaetigungen.services import build_referee_rows_filter
-from app.api.teams.services import is_played
+from app.api.spiele.schemas import is_played
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, delete_many_from_db, patch_many_in_db, pull_one_from_db
 from app.shared.schemas.custom import CustomObjectId

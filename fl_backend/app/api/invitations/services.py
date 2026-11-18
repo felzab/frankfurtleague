@@ -1,10 +1,13 @@
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from http import HTTPStatus
-from typing import Any, NamedTuple
+from typing import Any, Final, NamedTuple
 
 from app.api.bewerbungen.services import seat_named
 from app.api.invitations.schemas import FLInvitationSkipReason
+from app.api.outbox.schemas import FLInvitationData, FLOutboxLink, FLOutboxReference, FLOutboxTeam
+from app.api.outbox.services import OwedMail
 from app.core.codes import Code
+from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
 from app.shared.schemas.literals import KONTAKT_SEATS, FLKontaktSeat
@@ -196,3 +199,35 @@ def plan_invitation_dispatch(*, austritt: Any, kontakte: Any, invitation_raw: Ma
         return InvitationDispatchPlan([], "no_confirmed_kontaktperson")
 
     return InvitationDispatchPlan(recipients, None)
+
+
+# Where a mailed invitation link lives. No address to judge: the row names none, its recipients standing on the season row, and the
+# link is the team's rather than a person's credential. Never superseding: a link copied off the mint stays valid beside the mailed ones.
+INVITATION_LINK: Final = FLOutboxLink(paths=["token_hashes"], addresses=[], replaced=False)
+
+
+def invitation_reference(invitation_id: Any) -> FLOutboxReference:
+    """The invite a mail is about. No seat: every recipient is mailed the team's one link, and its state is the invite's."""
+
+    return FLOutboxReference(collection=Collection.INVITATIONS, id=invitation_id, seat=None)
+
+
+def owed_invitation_mails(
+    *, invitation_id: Any, team_id: Any, team_name: str, saison_id: str, recipient: Sequence[InvitationRecipient], occasion: str
+) -> list[OwedMail]:
+    """One mail per confirmed seat, each keyed by the invite, the occasion and the seat, so a replayed write owes nothing twice.
+
+    Each names its club, so a seat its holder left before the hand-out is sent no team's link.
+    """
+
+    return [
+        OwedMail(
+            key=f"{Collection.INVITATIONS}/{invitation_id}/{occasion}/{person.seat}",
+            to=person.email,
+            data=FLInvitationData(kind="invitation", team=team_name, saison_id=saison_id),
+            reference=invitation_reference(invitation_id),
+            link=INVITATION_LINK,
+            team=FLOutboxTeam(saison_id=saison_id, team_id=team_id),
+        )
+        for person in recipient
+    ]

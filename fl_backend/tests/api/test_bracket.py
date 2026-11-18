@@ -5,7 +5,7 @@ import pytest
 
 from app.api.spiele.schemas import FLBracketFaultQuelle, FLBracketFaultSlot, FLSpielListAdapter
 from app.api.spiele.services import find_gruppen_not_run, resolve_bracket
-from app.api.teams.services import DecidedStanding
+from app.api.teams.standings import DecidedStanding
 from app.shared.schemas.literals import FLGruppenNames, FLSonderereignis
 from tests.payloads import PayloadFactory, SpielFactory, gruppenplatz, sieger
 

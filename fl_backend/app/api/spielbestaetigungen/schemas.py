@@ -5,7 +5,6 @@ from pydantic import AfterValidator, BaseModel, BeforeValidator, Field, StringCo
 from app.api.spiele.schemas import FLSpielbestaetigungParty, FLSpielortFieldPublic
 from app.core.crud import Anchored
 from app.core.exceptions import rule_refusal
-from app.shared.schemas.actor import FLByAdmin
 from app.shared.schemas.bounds import SPIELBESTAETIGUNG_REASON_MAX_LENGTH
 from app.shared.schemas.custom import (
     PARAGRAPH_PATTERN,
@@ -77,6 +76,12 @@ class FLSpielbestaetigungByKontakt(BaseModel):
 
     kind: Literal["kontakt"]
     seat: FLKontaktSeat
+
+
+class FLByAdmin(BaseModel):
+    """An administrator's act, naming nobody: the record keeps how a thing was settled, not who typed it."""
+
+    kind: Literal["admin"]
 
 
 class FLSpielbestaetigungBySchiedsrichter(BaseModel):
