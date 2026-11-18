@@ -13,7 +13,7 @@ from app.api.saisons.services import entry_is_a_nominee
 from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError
+from app.core.exceptions import APIError, link_expired, link_invalid
 from app.shared.age import whole_years_between
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_evidence import TextVersions, compose_initial, compose_renewed
@@ -296,19 +296,13 @@ def find_unknown_token_refusal(*, found: bool) -> APIError | None:
     guess, and naming which would say more than the guess knew.
     """
 
-    if found:
-        return None
-
-    return APIError(HTTPStatus.NOT_FOUND, Code.LINK_INVALID)
+    return None if found else link_invalid()
 
 
 def find_expired_token_refusal(*, confirmation: Any, status: Any, departed: bool, today: str) -> APIError | None:
     """Why this link is over, or `None`. Judged before the stamp: a registration decided while the link stood open takes no answer either."""
 
-    if not link_is_over(confirmation=confirmation, status=status, departed=departed, today=today):
-        return None
-
-    return APIError(HTTPStatus.GONE, Code.LINK_EXPIRED)
+    return link_expired() if link_is_over(confirmation=confirmation, status=status, departed=departed, today=today) else None
 
 
 def find_already_confirmed_refusal(*, einwilligung: Any) -> APIError | None:

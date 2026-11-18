@@ -80,6 +80,27 @@ class DocumentNotFoundError(APIError):
         super().__init__(HTTPStatus.NOT_FOUND, Code.DOCUMENT_NOT_FOUND)
 
 
+# A mailed link's two refusals, each slice judging its own link and raising these. Factories rather than module-level
+# instances: a raised exception keeps its traceback and context, so one shared instance would carry every earlier raise's
+# frames into the next, and one request's context into another's.
+
+
+def link_invalid() -> APIError:
+    """`link_invalid` at 404: the link opens no record.
+
+    One answer for a token never minted, one a later mint replaced and one whose record is gone: nothing tells them from
+    a stranger's guess, and naming which would tell the guess more than it knew.
+    """
+
+    return APIError(HTTPStatus.NOT_FOUND, Code.LINK_INVALID)
+
+
+def link_expired() -> APIError:
+    """`link_expired` at 410: the link opens its record, which takes no answer through it any more; no write reopens it."""
+
+    return APIError(HTTPStatus.GONE, Code.LINK_EXPIRED)
+
+
 # A write's twin of each code it shares with a payload write: by the code alone, or, where one code covers several
 # fields, by the first name of the path it judged, as the catalogue keys a sentence by that name, since the twin names
 # no path for the catalogue to read.

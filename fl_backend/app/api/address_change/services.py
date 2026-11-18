@@ -12,7 +12,7 @@ from typing import Any, Final, Literal
 
 from app.core.clock import german_day
 from app.core.codes import Code
-from app.core.exceptions import APIError
+from app.core.exceptions import APIError, link_invalid
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAITING_PERIOD_DAYS, GRANT_WAIT_HOURS, OWNER_WAIT_DAYS
 from app.shared.schemas.custom import as_utc
@@ -300,10 +300,7 @@ def masked_address(email: str) -> str:
 def find_unknown_refusal(*, found: bool) -> APIError | None:
     """`link_invalid`: the link matches no change, live or kept, and so answers nothing about one."""
 
-    if found:
-        return None
-
-    return APIError(HTTPStatus.NOT_FOUND, Code.LINK_INVALID)
+    return None if found else link_invalid()
 
 
 def find_ended_refusal(*, is_open: bool) -> APIError | None:

@@ -15,7 +15,7 @@ from app.core import clock
 from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError
+from app.core.exceptions import APIError, link_expired, link_invalid
 from app.shared.age import whole_years_between
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_evidence import TextVersions, compose_initial
@@ -232,19 +232,13 @@ def find_unknown_token_refusal(*, found: bool) -> APIError | None:
     distinguishes them from a stranger's guess, and naming which would say more than the guess knew.
     """
 
-    if found:
-        return None
-
-    return APIError(HTTPStatus.NOT_FOUND, Code.LINK_INVALID)
+    return None if found else link_invalid()
 
 
 def find_expired_token_refusal(*, deadline: str, today: str) -> APIError | None:
     """Why this link is over, or `None`."""
 
-    if not link_is_over(deadline=deadline, today=today):
-        return None
-
-    return APIError(HTTPStatus.GONE, Code.LINK_EXPIRED)
+    return link_expired() if link_is_over(deadline=deadline, today=today) else None
 
 
 def find_already_answered_refusal(*, einwilligung: Any, confirmation: Any) -> APIError | None:

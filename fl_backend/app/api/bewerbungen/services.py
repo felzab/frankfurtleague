@@ -24,7 +24,7 @@ from app.api.teams.schemas import FLPostTeamPayload
 from app.core.clock import days_after
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError
+from app.core.exceptions import APIError, link_expired, link_invalid
 from app.core.readonly import ReadCollection
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_evidence import TextVersions, compose_choices
@@ -372,16 +372,9 @@ def seat_holding(*, bewerbung_raw: Mapping[str, Any], token_hash: str) -> FLKont
 
 
 def find_unknown_token_refusal(*, seat: FLKontaktSeat | None) -> APIError | None:
-    """Why this token opens nothing, or `None`.
+    """Why this token opens nothing, or `None`: no seat holds it, whether never minted, voided by a re-send or deleted with the application."""
 
-    One answer for unknown, voided by a re-send, and deleted with the application: nothing
-    distinguishes them from a stranger's guess, and naming which would say more than the guess knew.
-    """
-
-    if seat is None:
-        return APIError(HTTPStatus.NOT_FOUND, Code.LINK_INVALID)
-
-    return None
+    return link_invalid() if seat is None else None
 
 
 def seat_opens_nobody(*, slot: Mapping[str, Any] | None, state: FLBewerbungEinwilligungState) -> bool:
@@ -425,13 +418,10 @@ def find_expired_token_refusal(*, over: bool) -> APIError | None:
     """Why this link is over, or `None`. Judged before the seat: a seat on a decided application is never answered again.
 
     `over` is the record's own reading: `link_is_over` on an application, `deadline_passed` on a season row, which has no
-    decision to end its link. 410: no write moves a live link's deadline, a re-send minting another token.
+    decision to end its link. No write moves a live link's deadline, a re-send minting another token.
     """
 
-    if over:
-        return APIError(HTTPStatus.GONE, Code.LINK_EXPIRED)
-
-    return None
+    return link_expired() if over else None
 
 
 def _seat_is_confirmed(kontakte: Mapping[str, Any] | None, seat: str) -> bool:
