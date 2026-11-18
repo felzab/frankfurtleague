@@ -954,10 +954,10 @@ def find_seat_contact_refusal(*, kontakte: Any, seats: Sequence[str], email: str
     # The fold `find_repeated_contact_refusal` compares by: a third spelling of "one mailbox" here would refuse where the
     # form accepted, or the reverse.
     if sign_in_identifier(email) in {sign_in_identifier(str(slot.get("email") or "")) for slot in others}:
-        return APIError(HTTPStatus.CONFLICT, Code.BEWERBUNG_KONTAKT_EMAIL_TAKEN, fields=(("email",),))
+        return APIError(HTTPStatus.CONFLICT, Code.KONTAKT_EMAIL_TAKEN, fields=(("email",),))
 
     if normalise_phone(phone) in {normalise_phone(str(slot.get("phone") or "")) for slot in others}:
-        return APIError(HTTPStatus.CONFLICT, Code.BEWERBUNG_KONTAKT_PHONE_TAKEN, fields=(("phone",),))
+        return APIError(HTTPStatus.CONFLICT, Code.KONTAKT_PHONE_TAKEN, fields=(("phone",),))
 
     return None
 

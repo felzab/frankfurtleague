@@ -773,7 +773,7 @@ class TestTheNewAddressesOwnRecords:
 
         seen, refused, rows, notices = await on_a_person(mongo_replica_set_url, body)
 
-        assert (seen, refused) == ("not_confirmable", Code.ADDRESS_CHANGE_OCCUPIED)
+        assert (seen, refused) == ("not_confirmable", Code.ADDRESS_CHANGE_TAKEN)
         # No notice of this change's own.
         assert (rows["pupil"]["email"], rows["referee"]["kontakt"]["email"]) == (EMAIL, EMAIL)
         assert notices == []
@@ -812,7 +812,7 @@ class TestTheNewAddressesOwnRecords:
         assert await on_a_person(mongo_replica_set_url, body) == ([], 1)
 
     async def test_a_pupil_there_refuses_a_starter_holding_no_pupil_of_their_own(self, mongo_replica_set_url: str):
-        """A starter holding a pupil is refused `address_change_taken` first, so a seat-only starter is the one this kind reaches."""
+        """A starter holding a pupil meets the rule on its pupil first, so a seat-only starter is the one the entries reach."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await held_by_another(database, "a-pupil")
@@ -821,7 +821,7 @@ class TestTheNewAddressesOwnRecords:
             refused = await refused_code(answer(database, client, minted.token))
             return seen, refused, (await the_row(database, Collection.SCHIEDSRICHTER, REFEREE_OID))["kontakt"]["email"]
 
-        assert await on_a_person(mongo_replica_set_url, body, pupil=False) == ("not_confirmable", Code.ADDRESS_CHANGE_OCCUPIED, EMAIL)
+        assert await on_a_person(mongo_replica_set_url, body, pupil=False) == ("not_confirmable", Code.ADDRESS_CHANGE_TAKEN, EMAIL)
 
     async def test_entries_arriving_after_the_confirmation_end_the_change_not_in_effect(self, mongo_replica_set_url: str):
         """A waiting time lets them arrive after the press judged none, so the pass judges again and tells the new mailbox."""
@@ -927,7 +927,7 @@ class TestAHoldersOwnChange:
             refused = await refused_code(answer(database, client, minted.token))
             return seen, refused, (await change(database, minted.id))["confirmed_at"], await told(database)
 
-        assert await on_a_person(mongo_replica_set_url, body) == ("not_confirmable", Code.ADDRESS_CHANGE_NEW_GRANTED, None, [])
+        assert await on_a_person(mongo_replica_set_url, body) == ("not_confirmable", Code.ADDRESS_CHANGE_TAKEN, None, [])
 
     async def test_every_holder_is_told_at_the_second_confirmation_and_when_it_completes_the_new_address_masked(
         self, mongo_replica_set_url: str
@@ -1249,7 +1249,7 @@ class TestTheToolsStart:
         plain, refused, record = await on_a_person(mongo_replica_set_url, body)
 
         assert plain.token is not None
-        assert (refused, record["ended"]) == (Code.ADDRESS_CHANGE_OCCUPIED, None)
+        assert (refused, record["ended"]) == (Code.ADDRESS_CHANGE_TAKEN, None)
 
     @staticmethod
     async def refused_start(url: str, setup: str = "", **payload: Any) -> tuple[str, int]:

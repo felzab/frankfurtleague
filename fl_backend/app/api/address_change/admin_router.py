@@ -30,9 +30,7 @@ from app.api.address_change.services import (
     compose_link_update,
     compose_record,
     find_ended_refusal,
-    find_new_taken_refusal,
     find_nothing_refusal,
-    find_occupied_refusal,
     find_taken_refusal,
     find_unchanged_refusal,
     is_expired,
@@ -182,12 +180,12 @@ async def post_address_change_admin(
         taken = holdings.spieler is not None and await another_pupil_holds(
             spieler_collection=spieler_collection, identifier=sign_in_identifier(email), spieler_id=holdings.spieler["_id"], session=session
         )
-        refuse(find_taken_refusal(taken=taken))
-        # Judged here too, its reader trusted: a change its confirmation would refuse goes nowhere. A banned new address is
-        # refused nothing: its link stops at the hand-out.
+        # The entries judged here too, their reader trusted: a change its confirmation would refuse goes nowhere. A banned
+        # new address is refused nothing: its link stops at the hand-out.
         refuse(
-            find_occupied_refusal(
-                occupied=await address_taken(
+            find_taken_refusal(
+                taken=taken
+                or await address_taken(
                     email,
                     records=records,
                     occupancy=Occupancy(grants_collection=grants_collection, address_changes_collection=address_changes_collection),
@@ -277,7 +275,7 @@ async def invite_address_change(
             occupancy=Occupancy(grants_collection=grants_collection, address_changes_collection=address_changes_collection),
             session=session,
         )
-        refuse(find_new_taken_refusal(taken=taken or occupied))
+        refuse(find_taken_refusal(taken=taken or occupied))
         # The filter is the judgement: a change confirmed is the 404 here. A lapsed link is no refusal while the change
         # stands, which is until the next hourly pass ends it.
         updated = await patch_one_in_db(

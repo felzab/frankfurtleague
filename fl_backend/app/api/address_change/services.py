@@ -316,22 +316,19 @@ def find_ended_refusal(*, is_open: bool) -> APIError | None:
     return APIError(HTTPStatus.CONFLICT, Code.ADDRESS_CHANGE_ENDED)
 
 
-def find_expired_refusal(*, expired: bool) -> APIError | None:
-    """`link_expired`: the step the change waits on lapsed: either link's question."""
-
-    if not expired:
-        return None
-
-    return APIError(HTTPStatus.GONE, Code.LINK_EXPIRED)
-
-
 def find_taken_refusal(*, taken: bool) -> APIError | None:
-    """`address_change_taken`: another pupil signs in on the new address, and one address is one pupil (`uniq_spieler_email`)."""
+    """`address_change_taken`: the new address is someone's, and moving the person onto it would join two people's.
+
+    Another pupil signs in on it (one address is one pupil, `uniq_spieler_email`), an entry names it, or, judged at the
+    press alone, it holds a grant (one address holds one grant). One code for all three, so a link's holder learns no
+    more than that, and on no field: the start's dialog has closed before its answer, and the re-send and the press hold
+    no box. Never judged at the person's own start, which would tell its holder which addresses hold records.
+    """
 
     if not taken:
         return None
 
-    return APIError(HTTPStatus.CONFLICT, Code.ADDRESS_CHANGE_TAKEN, fields=(("email",),))
+    return APIError(HTTPStatus.CONFLICT, Code.ADDRESS_CHANGE_TAKEN)
 
 
 # One mail every thirty seconds for a person's start, held here rather than at the edge: a server action posts its
@@ -378,33 +375,3 @@ def find_nothing_refusal(*, empty: bool) -> APIError | None:
         return None
 
     return APIError(HTTPStatus.CONFLICT, Code.ADDRESS_CHANGE_NOTHING)
-
-
-def find_occupied_refusal(*, occupied: bool) -> APIError | None:
-    """`address_change_occupied`: an entry names the new address, and moving the person onto it would join two people's.
-
-    Never judged at the person's own start, which would tell its holder which addresses hold entries.
-    """
-
-    if not occupied:
-        return None
-
-    return APIError(HTTPStatus.CONFLICT, Code.ADDRESS_CHANGE_OCCUPIED, fields=(("email",),))
-
-
-def find_new_taken_refusal(*, taken: bool) -> APIError | None:
-    """`address_change_new_taken`: a re-send's new address has come to be another pupil's or to hold an entry, on a page with no box to mark."""
-
-    if not taken:
-        return None
-
-    return APIError(HTTPStatus.CONFLICT, Code.ADDRESS_CHANGE_NEW_TAKEN)
-
-
-def find_new_granted_refusal(*, granted: bool) -> APIError | None:
-    """`address_change_new_granted`: the new address holds a grant already, and one address holds one grant."""
-
-    if not granted:
-        return None
-
-    return APIError(HTTPStatus.CONFLICT, Code.ADDRESS_CHANGE_NEW_GRANTED)

@@ -8,6 +8,7 @@ out of it.
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
+from http import HTTPStatus
 from typing import Any, Final, Literal
 
 from bson import ObjectId
@@ -22,10 +23,6 @@ from app.api.address_change.services import (
     build_address_filter,
     build_owed_carry_filter,
     compose_end_update,
-    find_expired_refusal,
-    find_new_granted_refusal,
-    find_occupied_refusal,
-    find_taken_refusal,
     masked_address,
     wait_tier,
 )
@@ -57,9 +54,10 @@ from app.api.schiedsrichter.services import build_self_referee_filter
 from app.api.spieler.crud import another_pupil_holds
 from app.api.spieler.services import build_self_pupil_filter
 from app.core.clock import days_after, german_day
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, delete_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db
-from app.core.exceptions import APIError, as_judged_on_stored_state
+from app.core.exceptions import APIError
 from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.shared.folding import sign_in_identifier
@@ -523,20 +521,17 @@ async def judge_the_effect_in_session(
 def refusal_of(cause: FLAddressChangeCause | None) -> APIError | None:
     """The refusal a press answers for the judgement's cause, where the link's view shows a state and the pass ends the change.
 
-    On no field: the press's body holds its token and its answer, and the box these two name is the address tool's.
+    Every cause naming who stands at the new address answers `find_taken_refusal`'s one code, so the link's holder learns
+    no more than that the address is someone's.
     """
 
     match cause:
         case None:
             return None
         case "expired":
-            return find_expired_refusal(expired=True)
-        case "taken":
-            return as_judged_on_stored_state(find_taken_refusal(taken=True), twins={})
-        case "new_granted":
-            return find_new_granted_refusal(granted=True)
-        case "occupied":
-            return as_judged_on_stored_state(find_occupied_refusal(occupied=True), twins={})
+            return APIError(HTTPStatus.GONE, Code.LINK_EXPIRED)
+        case "taken" | "new_granted" | "occupied":
+            return APIError(HTTPStatus.CONFLICT, Code.ADDRESS_CHANGE_TAKEN)
 
 
 async def move_the_address_in_session(
