@@ -4,7 +4,6 @@ from typing import Annotated, Final, Literal, get_args
 from pydantic import (
     AfterValidator,
     BaseModel,
-    BeforeValidator,
     Field,
     RootModel,
     StringConstraints,
@@ -19,7 +18,6 @@ from app.shared.schemas.bounds import (
     TEAM_DESCRIPTION_MAX_LENGTH,
     TEAM_FULL_NAME_MAX_LENGTH,
     TEAM_NAME_MAX_LENGTH,
-    TEAM_WEBSITE_URL_MAX_LENGTH,
 )
 from app.shared.schemas.custom import (
     PARAGRAPH_PATTERN,
@@ -30,10 +28,9 @@ from app.shared.schemas.custom import (
     CustomObjectId,
     CustomOptionalDateString,
     CustomOptionalExternalUrl,
+    CustomOptionalWebsiteUrl,
     CustomShorthand,
     CustomVersion,
-    parse_empty_string_to_none,
-    validate_external_url,
 )
 from app.shared.schemas.einwilligung import (
     FLEinwilligungEvidenceSet,
@@ -405,19 +402,7 @@ class _TeamPayload(_TeamWritable, BasePayload):
         StringConstraints(min_length=1),
     ]
     shorthand: CustomShorthand
-    # Stripped on the write side too: `validate_external_url` leaves surrounding whitespace on the
-    # value, so a pasted URL would be stored with it. Composed from `str`, so the ceiling is judged
-    # before the host regex runs.
-    website_url: Annotated[
-        Annotated[
-            str,
-            StringConstraints(max_length=TEAM_WEBSITE_URL_MAX_LENGTH),
-            AfterValidator(str.strip),
-            AfterValidator(validate_external_url),
-        ]
-        | None,
-        BeforeValidator(parse_empty_string_to_none),
-    ]
+    website_url: CustomOptionalWebsiteUrl
 
 
 class FLPostTeamPayload(_TeamPayload):

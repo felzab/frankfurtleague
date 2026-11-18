@@ -6,7 +6,6 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Query, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
-from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.schemas import (
     FLAcceptBewerbungPayload,
@@ -37,20 +36,20 @@ from app.api.bewerbungen.services import (
     compose_resend_update,
     confirmation_deadline_from,
     find_acceptance_code_refusal,
-    find_acceptance_subject_refusal,
     find_already_answered_refusal,
     find_already_entered_refusal,
-    find_new_team_refusal,
     find_seat_contact_refusal,
     find_seat_write_refusal,
     find_triage_refusal,
     find_unconfirmed_kontakte_refusal,
     is_duplicate,
     mailed_seats,
+    outbox_key,
     owed_link,
     paired_seat,
     parse_new_team,
     people_with_address,
+    pull_schule_name,
     schule_name,
     seat_named,
     seats_confirmed_of,
@@ -61,6 +60,7 @@ from app.api.outbox.crud import states_of
 from app.api.outbox.schemas import FLBewerbungAbsageData, FLBewerbungZusageData, FLOutboxTeam
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.saisons.schemas import FLSaisonRules
+from app.api.saisons.services import find_saison_past_refusal
 from app.api.teams.crud import pull_a_team_to_enter, pull_team_names_and_codes, refuse_a_full_gruppe, refuse_a_taken_colour
 from app.api.teams.services import find_shorthand_refusal, find_team_entry_refusal, offered_gruppen
 from app.core.collections import Collection
@@ -239,22 +239,6 @@ def _decision(*, today: str, reason: str | None) -> dict[str, Any]:
     return {"made_at": today, "reason": reason}
 
 
-async def _schule_text(*, bewerbung_raw: Mapping[str, Any], teams_collection: AsyncCollection, session: AsyncClientSession) -> str:
-    """The school a mail names: as submitted, or the picked club as the league holds it."""
-
-    schule = bewerbung_raw.get("schule")
-    if isinstance(schule, Mapping):
-        return str(schule.get("team_name") or "")
-
-    team = await teams_collection.find_one({"_id": bewerbung_raw.get("team_id")}, {"name": 1}, session=session)
-
-    return str((team or {}).get("name") or "")
-
-
-def _key(bewerbung_id: Any, *parts: str) -> str:
-    return "/".join([str(Collection.BEWERBUNGEN), str(bewerbung_id), *parts])
-
-
 # One application a call, the bulk accept calling it once per card, so a refusal lands on its card and nothing already
 # done is undone: one request over a season's applications would outrun `REQUEST_DEADLINE_S`.
 @router.post(
@@ -288,7 +272,6 @@ async def accept_bewerbung(
         refuse(find_triage_refusal(status=str(bewerbung_raw["status"])))
         schule = bewerbung_raw.get("schule")
         picked_team_id = bewerbung_raw.get("team_id")
-        refuse(find_acceptance_subject_refusal(team_id=picked_team_id, schule=schule))
         # In-session, so the block copied into `saison_teams` below carries every person's own date and stamp, a
         # confirmation landing mid-request among them.
         refuse(find_unconfirmed_kontakte_refusal(kontakte=bewerbung_raw.get("kontakte")))
@@ -301,8 +284,8 @@ async def accept_bewerbung(
             collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status", "rules"], session=session
         )
 
-        # Exactly one of the two is filled in below, which `find_acceptance_subject_refusal` has
-        # already established -- declared here so the write at the end reads one variable, not two.
+        # One of the two is filled in below, a stored school taking its branch whatever `team_id` holds -- declared here
+        # so the write at the end reads one variable, not two.
         picked_team: Any = None
         new_team: dict[str, Any] | None = None
 
@@ -321,15 +304,10 @@ async def accept_bewerbung(
             refuse(find_already_entered_refusal(entered=entered > 0))
             name, shorthand = str(team_raw["name"]), str(team_raw["shorthand"])
         else:
-            # Composed beside the guard that judges it, and reaching for no field of the application
-            # itself: nothing here may raise before the refusal below has had its say.
-            new_team = compose_new_team(schule=schule, shorthand=acceptance_data.shorthand)
-            # Asked where the picked club's standing is asked, and for that reason: a school whose
-            # own details make no club is not repaired by picking another group.
-            refuse(find_new_team_refusal(composed_team=new_team))
-            # Parsed before it is stored, so this path and `POST /teams` put one document in `teams`
-            # for one school; the guard above has already proved it validates.
-            new_team = parse_new_team(composed_team=new_team)
+            # Judged where the picked club's standing is judged, and for that reason: a school whose own details make no
+            # club is not repaired by picking another group. Parsed before it is stored, so this path and `POST /teams`
+            # put one document in `teams` for one school.
+            new_team = parse_new_team(composed_team=compose_new_team(schule=schule, shorthand=acceptance_data.shorthand))
             # Read off the document the write stores rather than the school a second time, so no
             # field is composed twice and differently.
             name, shorthand = new_team["name"], new_team["shorthand"]
@@ -407,7 +385,7 @@ async def accept_bewerbung(
             session=session,
             mails=[
                 OwedMail(
-                    key=_key(bewerbung_id, "zusage", seats[0]),
+                    key=outbox_key(bewerbung_id, "zusage", seats[0]),
                     to=email,
                     data=FLBewerbungZusageData(
                         kind="bewerbung_zusage",
@@ -468,14 +446,14 @@ async def decline_bewerbung(
             expected_version=decline_data.version,
             return_document=ReturnDocument.BEFORE,
         )
-        team = await _schule_text(bewerbung_raw=stored_raw, teams_collection=teams_collection, session=session)
+        team = await pull_schule_name(bewerbung_raw=stored_raw, teams_collection=teams_collection, session=session)
         await record_act(collection=bewerbungen_collection, action="bewerbung.declined", record_id=bewerbung_id, label=team, session=session)
         await enqueue_mails(
             outbox_collection=outbox_collection,
             session=session,
             mails=[
                 OwedMail(
-                    key=_key(bewerbung_id, "absage", seats[0]),
+                    key=outbox_key(bewerbung_id, "absage", seats[0]),
                     to=email,
                     data=FLBewerbungAbsageData(
                         kind="bewerbung_absage",
@@ -505,6 +483,7 @@ async def resend_kontakt_confirmation(
     seat: str,
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsCollection,
+    saisons_collection: SaisonsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
     today: GermanDay,
@@ -512,7 +491,8 @@ async def resend_kontakt_confirmation(
 ) -> None:
     """Void one seat's link and mail its person a fresh one, that seat's deadline and reminder starting again from today.
 
-    Where one person holds two seats both are replaced and one link answers both.
+    Where one person holds two seats both are replaced and one link answers both. A finished season's application takes
+    no fresh link.
     """
 
     db_filter = {"_id": bewerbung_id}
@@ -553,8 +533,18 @@ async def resend_kontakt_confirmation(
         async def mint(session: AsyncClientSession) -> None:
             # In-session, as the seat write reads them: the filter holds the pressed seats alone, and the deletion day is every seat's.
             stored = await pull_one_from_db(
-                collection=bewerbungen_collection, db_filter=db_filter, projection=["kontakte", "confirmations"], session=session
+                collection=bewerbungen_collection,
+                db_filter=db_filter,
+                projection=["saison_id", "kontakte", "confirmations"],
+                session=session,
             )
+            # In-session, so a season closed before this press mails nobody a link its season's end deletes with the
+            # application. Unanchored, as the confirmation's read is: the rollover reads nothing this press writes, so one
+            # committing inside it orders as one committing just before.
+            saison_raw = await pull_one_from_db(
+                collection=saisons_collection, db_filter={"_id": stored["saison_id"]}, projection=["status"], session=session
+            )
+            refuse(find_saison_past_refusal(saison_status=str(saison_raw["status"])))
             matched = await patch_one_in_db(
                 collection=bewerbungen_collection,
                 db_filter=build_resend_filter(bewerbung_id=bewerbung_id, seats=seats),
@@ -574,9 +564,9 @@ async def resend_kontakt_confirmation(
                         kontakte=matched["kontakte"],
                         seats=seats,
                         saison_id=str(matched["saison_id"]),
-                        schule=await _schule_text(bewerbung_raw=matched, teams_collection=teams_collection, session=session),
+                        schule=await pull_schule_name(bewerbung_raw=matched, teams_collection=teams_collection, session=session),
                         deadline=confirmation_deadline,
-                        key=_key(bewerbung_id, "resend", seats[0], nonce),
+                        key=outbox_key(bewerbung_id, "resend", seats[0], nonce),
                     )
                 ],
                 now=germany_now,
@@ -667,7 +657,7 @@ async def post_kontakt_seat(
             expected_version=seat_data.version,
             return_document=ReturnDocument.AFTER,
         )
-        schule = await _schule_text(bewerbung_raw=bewerbung_raw, teams_collection=teams_collection, session=session)
+        schule = await pull_schule_name(bewerbung_raw=bewerbung_raw, teams_collection=teams_collection, session=session)
         await record_act(
             collection=bewerbungen_collection, action="bewerbung.seat_changed", record_id=bewerbung_id, label=schule, session=session
         )
@@ -682,7 +672,7 @@ async def post_kontakt_seat(
                     saison_id=str(bewerbung_raw["saison_id"]),
                     schule=schule,
                     deadline=confirmation_deadline,
-                    key=_key(bewerbung_id, "seat", seats[0], nonce),
+                    key=outbox_key(bewerbung_id, "seat", seats[0], nonce),
                 )
             ],
             now=germany_now,

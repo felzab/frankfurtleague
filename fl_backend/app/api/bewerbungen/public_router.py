@@ -1,5 +1,5 @@
-from collections.abc import Mapping, Sequence
-from typing import Annotated, Any
+from collections.abc import Sequence
+from typing import Annotated
 
 from fastapi import APIRouter, Header, status
 from pydantic import UUID4
@@ -17,13 +17,13 @@ from app.api.bewerbungen.schemas import (
 from app.api.bewerbungen.services import (
     EINWILLIGUNG_ANSWER_FIELDS,
     EINWILLIGUNG_VIEW_FIELDS,
+    FORM_WINDOW_FIELDS,
     OPEN_LINK_FIELDS,
     SAISON_EINWILLIGUNG_ANSWER_FIELDS,
     SAISON_EINWILLIGUNG_FIELDS,
     ansprechperson_mailbox,
     assigned_trikot_farben,
     bewerbung_reference,
-    bewerbung_schule,
     build_form_pipeline,
     build_open_links_filter,
     build_token_filter,
@@ -31,8 +31,8 @@ from app.api.bewerbungen.services import (
     compose_confirmations,
     compose_decline_update,
     compose_kontakte,
-    compose_saison_decline_update,
     confirmation_deadline_from,
+    deadline_passed,
     deletion_day,
     find_age_refusal,
     find_already_answered_refusal,
@@ -40,21 +40,24 @@ from app.api.bewerbungen.services import (
     find_expired_token_refusal,
     find_picked_team_refusal,
     find_repeated_contact_refusal,
-    find_saison_deadline_refusal,
     find_saison_past_einwilligung_refusal,
     find_submission_subject_refusal,
     find_unknown_token_refusal,
     find_window_refusal,
     form_window_state,
     leaving_moves_the_deletion_day,
+    link_is_over,
     minimum_age_for,
     objection_is_announced,
     open_links_on,
+    outbox_key,
     owed_at_submission,
     paired_seat,
+    pull_schule_name,
     saison_link_pair,
     saison_schule,
     saison_state_of,
+    schule_name,
     seat_answered_at,
     seat_deadline_of,
     seat_holding,
@@ -114,14 +117,6 @@ from app.shared.tokens import hash_token
 # below carries a person's details. The confirmation link's two endpoints are base-tier too: its token is the whole
 # credential, as a sign-in code is.
 router = APIRouter(prefix="/bewerbungen", dependencies=BASE_TIER)
-
-
-# The state a submission arrives in, and the only one it may arrive in: the other two are the triage's.
-SUBMITTED = "submitted"
-
-# What a season read takes on this tier: the window, and the status judging it, served only as whether it ended. A
-# `future` season is otherwise withheld from this tier, one taking applications included; its carve-out is this much.
-WINDOW_PROJECTION = ["bewerbung", "status"]
 
 
 @router.get("/saisons/{saison_id}/form", summary="What one Saison's application form shows")
@@ -222,7 +217,7 @@ async def post_bewerbung(
         # The season first, so a submission arriving after the deadline is refused before anything about
         # the applicant is looked up.
         saison_raw = await pull_one_from_db(
-            collection=saisons_collection, db_filter={"_id": bewerbung_data.saison_id}, projection=WINDOW_PROJECTION, session=session
+            collection=saisons_collection, db_filter={"_id": bewerbung_data.saison_id}, projection=FORM_WINDOW_FIELDS, session=session
         )
         refuse(find_window_refusal(saison_status=saison_raw["status"], bewerbung=saison_raw.get("bewerbung"), today=today))
 
@@ -242,9 +237,6 @@ async def post_bewerbung(
             refuse(find_already_entered_refusal(entered=entered > 0))
 
         confirmation_deadline = confirmation_deadline_from(today=today)
-        # The school as the mails name it: proposed, or the picked club as the league holds it, never as the body spells it.
-        schule_text = schule.team_name if schule is not None else str((team_raw or {}).get("name") or "")
-
         stored_kontakte = compose_kontakte(kontakte=bewerbung_data.kontakte.model_dump(mode="json"), today=today)
 
         open_links = await _open_links_by_mailbox(
@@ -263,31 +255,28 @@ async def post_bewerbung(
         )
 
         # Every refusal is behind us, so the write follows with nothing left to judge.
-        created = await post_one_to_db(
-            collection=bewerbungen_collection,
-            document={
-                "saison_id": bewerbung_data.saison_id,
-                "submitted_at": today,
-                "status": SUBMITTED,
-                # Written explicitly, both of them: the record model requires each key, so an omitted
-                # one is a document the read-back refuses rather than a stored null.
-                "team_id": bewerbung_data.team_id,
-                "schule": None if schule is None else schule.model_dump(mode="json"),
-                "kontakte": stored_kontakte,
-                "trikot": bewerbung_data.trikot.model_dump(mode="json"),
-                "kader": bewerbung_data.kader.model_dump(mode="json"),
-                # Written explicitly, as `team_id` is: the record model requires the key.
-                "stufengroesse": bewerbung_data.stufengroesse,
-                # Written even where the applicant named nobody: the record model requires the key.
-                "wunschgegner": bewerbung_data.wunschgegner,
-                # Null until the triage decides, which is what `status == "submitted"` claims.
-                "decision": None,
-                # Each seat's bookkeeping and its own deadline, so the sweep and the links have something to judge.
-                "confirmations": compose_confirmations(today=today, unmailed=unmailed),
-                "idempotency_key": key,
-            },
-            session=session,
-        )
+        document = {
+            "saison_id": bewerbung_data.saison_id,
+            "submitted_at": today,
+            "status": "submitted",
+            # Written explicitly, both of them: the record model requires each key, so an omitted
+            # one is a document the read-back refuses rather than a stored null.
+            "team_id": bewerbung_data.team_id,
+            "schule": None if schule is None else schule.model_dump(mode="json"),
+            "kontakte": stored_kontakte,
+            "trikot": bewerbung_data.trikot.model_dump(mode="json"),
+            "kader": bewerbung_data.kader.model_dump(mode="json"),
+            # Written explicitly, as `team_id` is: the record model requires the key.
+            "stufengroesse": bewerbung_data.stufengroesse,
+            # Written even where the applicant named nobody: the record model requires the key.
+            "wunschgegner": bewerbung_data.wunschgegner,
+            # Null until the triage decides, which is what `status == "submitted"` claims.
+            "decision": None,
+            # Each seat's bookkeeping and its own deadline, so the sweep and the links have something to judge.
+            "confirmations": compose_confirmations(today=today, unmailed=unmailed),
+            "idempotency_key": key,
+        }
+        created = await post_one_to_db(collection=bewerbungen_collection, document=document, session=session)
 
         await enqueue_mails(
             outbox_collection=outbox_collection,
@@ -296,7 +285,11 @@ async def post_bewerbung(
                 bewerbung_id=created.inserted_id,
                 kontakte=stored_kontakte,
                 saison_id=bewerbung_data.saison_id,
-                schule=schule_text,
+                # The school as the mails name it: proposed, or the picked club as the league holds it, never as the
+                # body spells it.
+                schule=schule_name(
+                    bewerbung_raw=document, team_names={} if team_raw is None else {team_raw["_id"]: str(team_raw.get("name") or "")}
+                ),
                 deadline=confirmation_deadline,
                 unmailed=unmailed,
             ),
@@ -308,20 +301,6 @@ async def post_bewerbung(
     # The key lookup is the transaction's first read: a first press committed before this snapshot is
     # found, and one committed after it makes the anchors or the insert a write conflict `transact` retries.
     return await transact(db, store_or_replay)
-
-
-async def _schule_name(*, bewerbung_raw: Mapping[str, Any], teams_collection: TeamsReadCollection) -> str:
-    """The school's name as submitted, or the picked club's own."""
-
-    if isinstance(bewerbung_raw.get("schule"), Mapping):
-        return bewerbung_schule(bewerbung_raw=bewerbung_raw, team_name=None)
-
-    # `find_one` rather than `pull_one_from_db`: an application without its own school names a club,
-    # and no team is ever deleted, so a miss is a broken invariant rather than a 404 the view answers.
-    team_raw = await teams_collection.find_one({"_id": bewerbung_raw["team_id"]}, projection={"name": 1})
-    assert team_raw is not None
-
-    return bewerbung_schule(bewerbung_raw=bewerbung_raw, team_name=team_raw.get("name"))
 
 
 async def _saison_view(
@@ -416,7 +395,7 @@ async def get_confirmation_view(
         state=state,
         row=None,
         saison_id=str(bewerbung_raw["saison_id"]),
-        schule=await _schule_name(bewerbung_raw=bewerbung_raw, teams_collection=teams_collection),
+        schule=await pull_schule_name(bewerbung_raw=bewerbung_raw, teams_collection=teams_collection),
         seat=seat,
         also_seat=also,
         minimum_age=minimum_age_for(seats),
@@ -464,7 +443,8 @@ async def post_confirmation(
         assert row is not None and seat is not None
 
         kontakte, confirmations = row.get("kontakte"), row.get("confirmations")
-        refuse(find_saison_deadline_refusal(deadline=seat_deadline_of(confirmations=confirmations, seat=seat), today=today))
+        # The deadline alone: a season row has no decision to end its link.
+        refuse(find_expired_token_refusal(over=deadline_passed(deadline=seat_deadline_of(confirmations=confirmations, seat=seat), today=today)))
         refuse(find_already_answered_refusal(kontakte=kontakte, confirmations=confirmations, seat=seat))
 
         other = saison_link_pair(kontakte=kontakte, confirmations=confirmations, seat=seat, token_hash=token_hash)
@@ -509,7 +489,8 @@ async def post_confirmation(
         before = await patch_one_in_db(
             collection=saison_teams_collection,
             db_filter={"_id": row["_id"]},
-            update=compose_saison_decline_update(seats=seats, today=today),
+            # Never announced: a season row carries no deletion notice.
+            update=compose_decline_update(seats=seats, today=today, announced=False),
             session=session,
             expected_version=None,
             return_document=ReturnDocument.BEFORE,
@@ -543,7 +524,9 @@ async def post_confirmation(
         kontakte, confirmations = bewerbung_raw.get("kontakte"), bewerbung_raw.get("confirmations")
         refuse(
             find_expired_token_refusal(
-                deadline=seat_deadline_of(confirmations=confirmations, seat=seat), status=bewerbung_raw.get("status"), today=today
+                over=link_is_over(
+                    deadline=seat_deadline_of(confirmations=confirmations, seat=seat), status=bewerbung_raw.get("status"), today=today
+                )
             )
         )
         refuse(find_already_answered_refusal(kontakte=kontakte, confirmations=confirmations, seat=seat))
@@ -608,7 +591,7 @@ async def post_confirmation(
                 mails=[
                     OwedMail(
                         # The press's instant: a seat refilled since a Widerspruch owes a notice of its own, and a retry keeps this one.
-                        key=f"{Collection.BEWERBUNGEN}/{bewerbung_raw['_id']}/objection/{seat}/{at}",
+                        key=outbox_key(bewerbung_raw["_id"], "objection", seat, at),
                         to=declined_email,
                         data=FLBewerbungObjectionData(
                             kind="bewerbung_objection",

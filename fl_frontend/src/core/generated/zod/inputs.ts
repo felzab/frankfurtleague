@@ -783,7 +783,8 @@ export const BewerbungenPostKontaktSeatBody = zod
 /**
  * Void one seat's link and mail its person a fresh one, that seat's deadline and reminder starting again from today.
  *
- * Where one person holds two seats both are replaced and one link answers both.
+ * Where one person holds two seats both are replaced and one link answers both. A finished season's application takes
+ * no fresh link.
  * @summary Re-send one seat's confirmation link
  */
 export const bewerbungenResendKontaktConfirmationPathBewerbungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");

@@ -84,7 +84,6 @@
           "aufstellung_spiel_undated",
           "aufstellung_nominee_without_shortage",
           "bewerbung_already_decided",
-          "bewerbung_subject_unresolved",
           "bewerbung_schule_unusable",
           "bewerbung_window_closed",
           "bewerbung_submission_subject_unresolved",
@@ -2980,18 +2979,6 @@
               }
             ]
           },
-          "reminded_at": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reminded At"
-          },
           "sent_at": {
             "anyOf": [
               {
@@ -3018,7 +3005,6 @@
         "required": [
           "sent_at",
           "deadline",
-          "reminded_at",
           "declined_at",
           "delivery",
           "state"
@@ -18068,7 +18054,7 @@
     },
     "/api/bewerbungen/{bewerbung_id}/kontakte/{seat}/confirmation/resend": {
       "post": {
-        "description": "Void one seat's link and mail its person a fresh one, that seat's deadline and reminder starting again from today.\n\nWhere one person holds two seats both are replaced and one link answers both.",
+        "description": "Void one seat's link and mail its person a fresh one, that seat's deadline and reminder starting again from today.\n\nWhere one person holds two seats both are replaced and one link answers both. A finished season's application takes\nno fresh link.",
         "operationId": "bewerbungen_resend_kontakt_confirmation",
         "parameters": [
           {

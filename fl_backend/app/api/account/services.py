@@ -8,7 +8,7 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 from http import HTTPStatus
 from typing import Any, Final, Literal, get_args
 
-from app.api.bewerbungen.services import bewerbung_schule, build_own_bewerbung_filter
+from app.api.bewerbungen.services import build_own_bewerbung_filter, schule_name
 from app.api.identity.schemas import FLSubjectSeat
 from app.api.identity.services import holds_a_seat, is_own_registrierung, own_seats
 from app.api.kontakte.services import rows_seating
@@ -421,13 +421,14 @@ def compose_bewerbung_seats_self(
 ) -> list[dict[str, Any]]:
     """One entry per pending application on which this address holds a confirmed seat, as `compose_seats_self` answers a row."""
 
+    team_names = {team_id: str(team.get("name") or "") for team_id, team in teams.items()}
     entries = []
     for row in rows:
         slots = own_seats(row, identifier)
         if not slots:
             continue
         held = [row["kontakte"][slot] for slot in slots]
-        schule = bewerbung_schule(bewerbung_raw=row, team_name=(teams.get(row.get("team_id")) or {}).get("name"))
+        schule = schule_name(bewerbung_raw=row, team_names=team_names)
         entries.append(
             {
                 "bewerbung_id": row["_id"],

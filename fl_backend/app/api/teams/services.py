@@ -7,8 +7,8 @@ from app.api.bewerbungen.services import (
     claimed_pair_seat,
     compose_einwilligung,
     confirmation_deadline_from,
+    deadline_passed,
     row_takes_confirmations,
-    saison_link_is_over,
     seat_is_answered,
 )
 from app.api.outbox.schemas import FLKontaktLinkData, FLOutboxLink, FLOutboxReference, FLOutboxStatus
@@ -393,7 +393,7 @@ def with_link_state(
 
         def expired(seat: str, link: Mapping[str, Any]) -> bool:
             open = not seat_is_answered(kontakte=row.get("kontakte"), confirmations=confirmations, seat=seat)
-            return open and saison_link_is_over(deadline=link.get("deadline"), today=today)
+            return open and deadline_passed(deadline=link.get("deadline"), today=today)
 
         return {
             seat: {**link, "expired": expired(seat, link), "delivery": states.get((row["_id"], _seat_state(row, seat)))}

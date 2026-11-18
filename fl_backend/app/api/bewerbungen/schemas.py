@@ -23,7 +23,6 @@ from app.shared.schemas.bounds import (
     SAISON_ID_LENGTH,
     TEAM_FULL_NAME_MAX_LENGTH,
     TEAM_NAME_MAX_LENGTH,
-    TEAM_WEBSITE_URL_MAX_LENGTH,
 )
 from app.shared.schemas.confirmation import CustomToken
 from app.shared.schemas.custom import (
@@ -33,10 +32,10 @@ from app.shared.schemas.custom import (
     CustomNonEmptyString,
     CustomObjectId,
     CustomOptionalDateString,
+    CustomOptionalWebsiteUrl,
     CustomShorthand,
     CustomVersion,
     parse_empty_string_to_none,
-    validate_external_url,
 )
 from app.shared.schemas.einwilligung import FLSeatTextVersions, refuse_a_stale_grant
 from app.shared.schemas.literals import (
@@ -68,8 +67,6 @@ class _FLBewerbungSeatState(BaseReadModel):
     # The day this seat's link stops working, counted from that mail, and the application goes with it if its person
     # never answers. Not the season's `Bewerbungsfrist`, which is the window the form is open in.
     deadline: CustomDateString
-    # The day this seat's one reminder was owed. A re-send and a seat write clear it.
-    reminded_at: CustomOptionalDateString
     # Beside the slot rather than inside it: a decline empties the person's slot, and a marker in
     # there would go with it.
     declined_at: CustomOptionalDateString
@@ -164,6 +161,9 @@ class FLBewerbungConfirmationRecord(_FLBewerbungSeatState):
     """One seat's bookkeeping as `bewerbungen` stores it: the hash of every link it was mailed, each live until a re-send."""
 
     token_hashes: list[str]
+    # The day this seat's one reminder was owed. A re-send and a seat write clear it. Served to nobody: the reminder
+    # clock reads it, and no page does.
+    reminded_at: CustomOptionalDateString
     # The day the clock closed this seat's chase, its last mail not having arrived, which takes it out of the clock's read.
     # A delivered mail to the seat's address, a re-send and a seat write clear it. Served to nobody: the page reads the
     # seat's last mail. A row stored without the key reads as null.
@@ -380,18 +380,7 @@ class FLBewerbungSchulePayload(FLBewerbungSchule, BasePayload):
     # Constrained here where the read model leaves it a bare string: acceptance parses this block
     # through `FLPostTeamPayload`, so a value refused there is one an administrator cannot accept.
 
-    # Composed from `str` rather than wrapping `CustomExternalUrl`, so the ceiling is judged before
-    # the host regex runs -- `validate_external_url` reads the scheme and the host and no length.
-    website_url: Annotated[
-        Annotated[
-            str,
-            StringConstraints(max_length=TEAM_WEBSITE_URL_MAX_LENGTH),
-            AfterValidator(str.strip),
-            AfterValidator(validate_external_url),
-        ]
-        | None,
-        BeforeValidator(parse_empty_string_to_none),
-    ]
+    website_url: CustomOptionalWebsiteUrl
 
 
 class FLBewerbungTrikotPayload(FLBewerbungTrikot, BasePayload):

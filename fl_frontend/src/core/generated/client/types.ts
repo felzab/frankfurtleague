@@ -50,7 +50,6 @@ export const Code = {
   aufstellung_spiel_undated: "aufstellung_spiel_undated",
   aufstellung_nominee_without_shortage: "aufstellung_nominee_without_shortage",
   bewerbung_already_decided: "bewerbung_already_decided",
-  bewerbung_subject_unresolved: "bewerbung_subject_unresolved",
   bewerbung_schule_unusable: "bewerbung_schule_unusable",
   bewerbung_window_closed: "bewerbung_window_closed",
   bewerbung_submission_subject_unresolved: "bewerbung_submission_subject_unresolved",
@@ -1284,7 +1283,6 @@ export interface FLBewerbungConfirmation {
   deadline: string;
   declined_at: string | null;
   delivery: FLOutboxStatus | null;
-  reminded_at: string | null;
   sent_at: string | null;
   state: FLBewerbungConfirmationState;
 }

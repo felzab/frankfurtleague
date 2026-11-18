@@ -90,7 +90,6 @@ class Code(StrEnum):
     # A nominee named beside eleven regular players, or more nominees than the regular players leave open of eleven.
     AUFSTELLUNG_NOMINEE_WITHOUT_SHORTAGE = auto()
     BEWERBUNG_ALREADY_DECIDED = auto()
-    BEWERBUNG_SUBJECT_UNRESOLVED = auto()
     BEWERBUNG_SCHULE_UNUSABLE = auto()
     BEWERBUNG_WINDOW_CLOSED = auto()
     BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED = auto()
