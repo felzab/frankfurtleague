@@ -326,7 +326,7 @@ async def pull_austritt_recipients(
         else []
     )
     names = {
-        **{("team", club_id): row.get("name") for club_id, row in junctions.items()},
+        **{("team", junction_team_id): row.get("name") for junction_team_id, row in junctions.items()},
         **{("schiedsrichter", row["_id"]): row["name"] for row in referees},
     }
 

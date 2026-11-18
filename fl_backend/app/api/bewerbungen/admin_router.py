@@ -36,14 +36,14 @@ from app.api.bewerbungen.services import (
     build_resend_filter,
     claimed_pair_seat,
     compose_kontakt_seat_update,
-    compose_new_club,
+    compose_new_team,
     compose_resend_update,
     confirmation_deadline_from,
     find_acceptance_code_refusal,
     find_acceptance_subject_refusal,
     find_already_answered_refusal,
     find_already_entered_refusal,
-    find_new_club_refusal,
+    find_new_team_refusal,
     find_seat_contact_refusal,
     find_seat_write_refusal,
     find_triage_refusal,
@@ -52,7 +52,7 @@ from app.api.bewerbungen.services import (
     mailed_seats,
     owed_link,
     paired_seat,
-    parse_new_club,
+    parse_new_team,
     people_with_address,
     schule_name,
     seat_named,
@@ -61,11 +61,11 @@ from app.api.bewerbungen.services import (
 )
 from app.api.grants.guard import ADMIN_TIER
 from app.api.outbox.crud import states_of
-from app.api.outbox.schemas import FLBewerbungAbsageData, FLBewerbungZusageData, FLOutboxClub
+from app.api.outbox.schemas import FLBewerbungAbsageData, FLBewerbungZusageData, FLOutboxTeam
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.teams.crud import pull_a_club_to_enter, pull_team_names_and_codes, refuse_a_full_gruppe, refuse_a_taken_colour
-from app.api.teams.services import find_club_entry_refusal, find_shorthand_refusal, offered_gruppen
+from app.api.teams.crud import pull_a_team_to_enter, pull_team_names_and_codes, refuse_a_full_gruppe, refuse_a_taken_colour
+from app.api.teams.services import find_shorthand_refusal, find_team_entry_refusal, offered_gruppen
 from app.core.collections import Collection
 from app.core.concurrency import concurrently
 from app.core.crud import (
@@ -145,7 +145,7 @@ async def _entry_of(bewerbung_raw: Mapping[str, Any], *, saison_teams_collection
     return None if row is None else FLBewerbungEntry.model_validate(row)
 
 
-async def _doubled_clubs(*, saison_id: str, bewerbungen_collection: ReadCollection) -> set[Any]:
+async def _doubled_teams(*, saison_id: str, bewerbungen_collection: ReadCollection) -> set[Any]:
     """The clubs the season's `Dublette`n collide on, which `is_duplicate` asks of a stored application."""
 
     cells = await aggregate_many_from_db(collection=bewerbungen_collection, pipeline=build_duplicates_pipeline(saison_id=saison_id))
@@ -178,9 +178,9 @@ async def get_bewerbungen_admin(
             projection=BEWERBUNG_LIST_FIELDS,
         )
 
-    offer, clubs, read, confirmed = await concurrently(
+    offer, teams, read, confirmed = await concurrently(
         _entry_offer(saison_id=saison_id, saisons_collection=saisons_collection),
-        _doubled_clubs(saison_id=saison_id, bewerbungen_collection=bewerbungen_collection),
+        _doubled_teams(saison_id=saison_id, bewerbungen_collection=bewerbungen_collection),
         newest_of({"saison_id": saison_id}),
         newest_of(build_confirmed_seat_filter(saison_id=saison_id)),
     )
@@ -189,12 +189,12 @@ async def get_bewerbungen_admin(
     shown = {row["_id"] for row in newest}
     # Past the newest rows, so the two reads' one order holds without a sort here.
     served = [*newest, *(row for row in confirmed[:LIST_LIMIT_DEFAULT] if row["_id"] not in shown)]
-    club_names, club_codes = await pull_team_names_and_codes(teams_collection=teams_collection, team_ids=[row.get("team_id") for row in served])
+    team_names, team_codes = await pull_team_names_and_codes(teams_collection=teams_collection, team_ids=[row.get("team_id") for row in served])
 
     return FLBewerbungenAdminListResponse(
         saison=offer,
         bewerbungen=[
-            FLBewerbungListRow.model_validate(bewerbung_list_row(row=row, club_names=club_names, club_codes=club_codes, doubled=clubs))
+            FLBewerbungListRow.model_validate(bewerbung_list_row(row=row, team_names=team_names, team_codes=team_codes, doubled=teams))
             for row in served
         ],
         complete=len(read) <= LIST_LIMIT_DEFAULT,
@@ -219,20 +219,20 @@ async def get_bewerbung(
 
     team_id = bewerbung_raw.get("team_id")
     saison_id = str(bewerbung_raw["saison_id"])
-    offer, (club_names, club_codes), entry, clubs = await concurrently(
+    offer, (team_names, team_codes), entry, teams = await concurrently(
         _entry_offer(saison_id=saison_id, saisons_collection=saisons_collection),
         pull_team_names_and_codes(teams_collection=teams_collection, team_ids=[team_id]),
         _entry_of(bewerbung_raw, saison_teams_collection=saison_teams_collection),
-        _doubled_clubs(saison_id=saison_id, bewerbungen_collection=bewerbungen_collection),
+        _doubled_teams(saison_id=saison_id, bewerbungen_collection=bewerbungen_collection),
     )
 
     return FLBewerbungSingleResponse(
         bewerbung=FLBewerbung(**served),
         entry=entry,
-        name=schule_name(bewerbung_raw=bewerbung_raw, club_names=club_names),
-        shorthand=club_codes.get(team_id),
+        name=schule_name(bewerbung_raw=bewerbung_raw, team_names=team_names),
+        shorthand=team_codes.get(team_id),
         seats_confirmed=seats_confirmed_of(kontakte=bewerbung_raw.get("kontakte")),
-        duplicate=is_duplicate(row=bewerbung_raw, doubled=clubs),
+        duplicate=is_duplicate(row=bewerbung_raw, doubled=teams),
         saison=offer,
     )
 
@@ -250,9 +250,9 @@ async def _schule_text(*, bewerbung_raw: Mapping[str, Any], teams_collection: As
     if isinstance(schule, Mapping):
         return str(schule.get("team_name") or "")
 
-    club = await teams_collection.find_one({"_id": bewerbung_raw.get("team_id")}, {"name": 1}, session=session)
+    team = await teams_collection.find_one({"_id": bewerbung_raw.get("team_id")}, {"name": 1}, session=session)
 
-    return str((club or {}).get("name") or "")
+    return str((team or {}).get("name") or "")
 
 
 def _key(bewerbung_id: Any, *parts: str) -> str:
@@ -311,36 +311,36 @@ async def accept_bewerbung(
 
         # Exactly one of the two is filled in below, which `find_acceptance_subject_refusal` has
         # already established -- declared here so the write at the end reads one variable, not two.
-        picked_club: Any = None
-        new_club: dict[str, Any] | None = None
+        picked_team: Any = None
+        new_team: dict[str, Any] | None = None
 
-        # Read before the count, as `enter_a_club` reads it: a club's standing in the league is
+        # Read before the count, as `enter_a_team` reads it: a club's standing in the league is
         # not repaired by picking another group, so nobody is handed a capacity figure first. A
         # school being created cannot have left, so only a picked club is checked.
         if schule is None:
-            team_raw = await pull_a_club_to_enter(teams_collection=teams_collection, team_id=picked_team_id, session=session)
-            refuse(find_club_entry_refusal(inactive_since=team_raw.get("inactive_since")))
+            team_raw = await pull_a_team_to_enter(teams_collection=teams_collection, team_id=picked_team_id, session=session)
+            refuse(find_team_entry_refusal(inactive_since=team_raw.get("inactive_since")))
             # The club's own `_id`, never the application's copy of it: this read is what proves the
             # club exists, so the id the junction row carries comes from the document it resolved.
-            picked_club = team_raw["_id"]
+            picked_team = team_raw["_id"]
             # Two applications may name one club, so the first's acceptance reaches the second here: on the status
             # line by this code, ahead of the junction's unique index, which answers only a race.
-            entered = await saison_teams_collection.count_documents({"saison_id": saison_id, "team_id": picked_club}, limit=1, session=session)
+            entered = await saison_teams_collection.count_documents({"saison_id": saison_id, "team_id": picked_team}, limit=1, session=session)
             refuse(find_already_entered_refusal(entered=entered > 0))
             name, shorthand = str(team_raw["name"]), str(team_raw["shorthand"])
         else:
             # Composed beside the guard that judges it, and reaching for no field of the application
             # itself: nothing here may raise before the refusal below has had its say.
-            new_club = compose_new_club(schule=schule, shorthand=acceptance_data.shorthand)
+            new_team = compose_new_team(schule=schule, shorthand=acceptance_data.shorthand)
             # Asked where the picked club's standing is asked, and for that reason: a school whose
             # own details make no club is not repaired by picking another group.
-            refuse(find_new_club_refusal(club_document=new_club))
+            refuse(find_new_team_refusal(seeded_team=new_team))
             # Parsed before it is stored, so this path and `POST /teams` put one document in `teams`
             # for one school; the guard above has already proved it validates.
-            new_club = parse_new_club(club_document=new_club)
+            new_team = parse_new_team(seeded_team=new_team)
             # Read off the document the write stores rather than the school a second time, so no
             # field is composed twice and differently.
-            name, shorthand = new_club["name"], new_club["shorthand"]
+            name, shorthand = new_team["name"], new_team["shorthand"]
 
         # The helper rather than `find_entry_refusal` directly: the count it takes is a read, which no
         # snapshot re-validates, so the group's capacity holds only where the season is written inside
@@ -366,15 +366,15 @@ async def accept_bewerbung(
         )
 
         # On the box a person typed it in, before the write meets `uniq_shorthand`, which answers only a race.
-        if new_club is not None:
+        if new_team is not None:
             taken = await is_held_elsewhere(collection=teams_collection, key="shorthand", value=shorthand, own_id=None, session=session)
             refuse(find_shorthand_refusal(taken=taken))
 
         # Every refusal is behind us, so the writes follow with nothing left to judge.
-        if new_club is None:
-            team_id = picked_club
+        if new_team is None:
+            team_id = picked_team
         else:
-            created = await insert_live(collection=teams_collection, document=new_club, session=session)
+            created = await insert_live(collection=teams_collection, document=new_team, session=session)
             team_id = created.inserted_id
 
         await post_one_to_db(
@@ -427,7 +427,7 @@ async def accept_bewerbung(
                         trikot_farbe=acceptance_data.trikot_farbe,
                     ),
                     # To the season row's seats written above, so the hand-out drops it once its person left the seat.
-                    club=FLOutboxClub(saison_id=saison_id, team_id=team_id),
+                    team=FLOutboxTeam(saison_id=saison_id, team_id=team_id),
                 )
                 for email, seats in people_with_address(kontakte=bewerbung_raw.get("kontakte"))
             ],

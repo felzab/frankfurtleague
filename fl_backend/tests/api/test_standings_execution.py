@@ -194,7 +194,7 @@ class TestEachBranchOfTheCountingRule:
     """Unmarked: `build_statistik_by_team` reads a list, and the differential below ties the pipeline to it."""
 
     @pytest.mark.parametrize(("scope", "table"), [("gruppenphase", GRUPPENPHASE), ("total", TOTAL)])
-    def test_each_club_reads_the_figures_worked_by_hand(self, scope: FLTeamStatistikScope, table: Mapping[ObjectId, FLTeamStatistik]):
+    def test_each_team_reads_the_figures_worked_by_hand(self, scope: FLTeamStatistikScope, table: Mapping[ObjectId, FLTeamStatistik]):
         """The derivation filters nothing, so the scope moves the figures only through the fixtures the caller hands it."""
 
         derived = build_statistik_by_team(season_in_scope(scope), RULES)

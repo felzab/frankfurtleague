@@ -8,7 +8,7 @@ from app.api.bewerbungen.schemas import FLDeclineBewerbungPayload
 from app.api.bewerbungen.services import (
     compose_kontakt_seat_update,
     compose_resend_update,
-    find_new_club_refusal,
+    find_new_team_refusal,
     find_seat_contact_refusal,
 )
 from app.core.codes import Code
@@ -43,7 +43,7 @@ class TestOnlyTheSchoolsOwnFaultIsRefused:
         """The repair that refusal offers -- decline it and type the club in by hand -- is then the wrong one."""
 
         with pytest.raises(ZorbanaxBoom):
-            find_new_club_refusal(club_document=ExplodingSchule())
+            find_new_team_refusal(seeded_team=ExplodingSchule())
 
 
 class TestADeclinesReason:

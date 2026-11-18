@@ -85,7 +85,7 @@ def _kader_row(
     )
 
 
-def _club(*saison_ids: str) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+def _team(*saison_ids: str) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """The club's document and its junction row in each season named."""
 
     return team_document(TEAM_OID, TEAM_NAME, TEAM_SHORTHAND), [
@@ -93,13 +93,13 @@ def _club(*saison_ids: str) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     ]
 
 
-async def _enter_the_club(database: AsyncDatabase, *saison_ids: str) -> None:
-    club, rows = _club(*saison_ids)
-    await database.teams.insert_one(club)
+async def _enter_the_team(database: AsyncDatabase, *saison_ids: str) -> None:
+    team, rows = _team(*saison_ids)
+    await database.teams.insert_one(team)
     await database.saison_teams.insert_many(rows)
 
 
-async def club_page(database: AsyncDatabase) -> FLTeamPageResponse:
+async def team_page(database: AsyncDatabase) -> FLTeamPageResponse:
     """The club's page in the season, whose squad is the one base-tier read of a squad."""
 
     return await get_team(
@@ -126,7 +126,7 @@ class TestTheBaseTierShape:
     def test_it_serves_exactly_the_public_fields(self):
         assert set(FLSpielerPublic.model_fields) == PUBLIC_FIELDS
 
-    def test_the_club_page_serves_the_public_shape(self):
+    def test_the_team_page_serves_the_public_shape(self):
         assert FLTeamPageResponse.model_fields["kader"].annotation == list[FLSpielerPublic]
 
 
@@ -155,7 +155,7 @@ class TestTheBaseTierReadExecuted:
         """The page's own answer, dumped as the wire carries it -- the only shape that can show nothing leaked."""
 
         async def body(database: AsyncDatabase) -> Any:
-            return (await club_page(database)).model_dump(mode="json", by_alias=True)
+            return (await team_page(database)).model_dump(mode="json", by_alias=True)
 
         return await on_a_database(url, body)
 
@@ -181,7 +181,7 @@ async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
 
     async def seed(database: AsyncDatabase) -> None:
         await database.saisons.insert_one(saison_document(SAISON, "active"))
-        await _enter_the_club(database, SAISON)
+        await _enter_the_team(database, SAISON)
         await database.spieler.insert_many(
             [
                 # Distinct forenames, none of them holding a surname as a substring: the rows
@@ -246,7 +246,7 @@ class TestThePublicationGate:
 
     async def _read(self, url: str) -> dict[str, Any]:
         async def body(database: AsyncDatabase) -> Any:
-            return (await club_page(database)).model_dump(mode="json", by_alias=True)
+            return (await team_page(database)).model_dump(mode="json", by_alias=True)
 
         return await _on_the_mask_database(url, body)
 
@@ -297,7 +297,7 @@ async def masked_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
 
     async def seed(database: AsyncDatabase) -> None:
         await database.saisons.insert_one(saison_document(SAISON, "active"))
-        await _enter_the_club(database, SAISON)
+        await _enter_the_team(database, SAISON)
         await database.spieler.insert_many(
             [spieler_document(row.oid, row.first_name, row.last_name, einwilligung=row.einwilligung) for row in MASKED_KADER.values()]
         )
@@ -344,7 +344,7 @@ class TestTheOrderIsNoOracleForAWithheldName:
         """Each row's served forename, in the club page's order: `None` is the withheld row, the corpus holding one."""
 
         async def body(database: AsyncDatabase) -> Any:
-            return [row.first_name for row in (await club_page(database)).kader]
+            return [row.first_name for row in (await team_page(database)).kader]
 
         return await body(shared_client(url)[SORT_ORACLE_DATABASE_NAMES[corpus]])
 
@@ -361,7 +361,7 @@ async def sort_oracle_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
     def withholding(withheld_forename: str) -> Callable[[AsyncDatabase], Coroutine[Any, Any, None]]:
         async def seed(database: AsyncDatabase) -> None:
             await database.saisons.insert_one(saison_document(SAISON, "active"))
-            await _enter_the_club(database, SAISON)
+            await _enter_the_team(database, SAISON)
             await database.spieler.insert_many(
                 [
                     spieler_document(SORT_ORACLE_OIDS["Zurueckgehalten"], withheld_forename, "Kessler", einwilligung=_consent("internal")),

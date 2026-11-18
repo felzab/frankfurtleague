@@ -297,9 +297,9 @@ async def _pull_team_spiele(
     spiele = await aggregate_many_from_db(
         collection=spiele_collection, pipeline=_team_spiele_pipeline(saison_id=saison_id, team_id=team_id), session=session
     )
-    clubs = {(spiel.get(side) or {}).get("team_id") for spiel in spiele for side in ("team1", "team2")} - {None}
+    team_ids = {(spiel.get(side) or {}).get("team_id") for spiel in spiele for side in ("team1", "team2")} - {None}
     junctions = await saison_teams_collection.find(
-        {"saison_id": saison_id, "team_id": {"$in": sorted(clubs, key=str)}}, JUDGED_JUNCTION_FIELDS, session=session
+        {"saison_id": saison_id, "team_id": {"$in": sorted(team_ids, key=str)}}, JUDGED_JUNCTION_FIELDS, session=session
     ).to_list(length=None)
 
     return spiele, junctions
@@ -344,8 +344,8 @@ async def get_team_overview(
         ],
         session=session,
     )
-    club = await teams_collection.find_one({"_id": team_id}, ["full_name"], session=session)
-    assert row is not None and club is not None
+    team = await teams_collection.find_one({"_id": team_id}, ["full_name"], session=session)
+    assert row is not None and team is not None
     spiele, junctions = await _pull_team_spiele(
         spiele_collection=spiele_collection,
         saison_teams_collection=saison_teams_collection,
@@ -397,7 +397,7 @@ async def get_team_overview(
         saison_id=saison_id,
         name=row["name"],
         shorthand=row["shorthand"],
-        full_name=club["full_name"],
+        full_name=team["full_name"],
         trikot_farbe=row.get("trikot_farbe"),
         rollen=rollen_on(subject.seats, team_id=team_id, saison_id=saison_id),
         spielbestaetigungen=spielbestaetigungen,

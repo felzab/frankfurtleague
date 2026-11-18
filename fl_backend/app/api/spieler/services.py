@@ -404,7 +404,7 @@ def _own_spiele_lookup(saison_id: str) -> Mapping[str, Any]:
 
     # Both sides spelled out, never `$in` over an array of the two: a fixture's empty side leaves its path missing, and
     # the club's id equals no missing value.
-    fields_the_club = {"$or": [{"$eq": ["$team1.team_id", "$$own_team_id"]}, {"$eq": ["$team2.team_id", "$$own_team_id"]}]}
+    fields_the_team = {"$or": [{"$eq": ["$team1.team_id", "$$own_team_id"]}, {"$eq": ["$team2.team_id", "$$own_team_id"]}]}
     own_entry = {
         "$first": {
             "$filter": {
@@ -420,7 +420,7 @@ def _own_spiele_lookup(saison_id: str) -> Mapping[str, Any]:
             # Prefixed, so none of the fixture read's own lookups shadows them.
             "let": {"own_team_id": "$team_id", "own_spieler_id": "$spieler_id"},
             "pipeline": [
-                *build_spiele_pipeline(db_filter={"saison_id": saison_id, "$expr": fields_the_club}, sort_by=[("spiel_nr", 1)]),
+                *build_spiele_pipeline(db_filter={"saison_id": saison_id, "$expr": fields_the_team}, sort_by=[("spiel_nr", 1)]),
                 SPIELTAG_POSITION_LOOKUP,
                 {
                     "$lookup": {

@@ -87,14 +87,14 @@ def _link_record_filter(row: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _club_seat_filter(row: Mapping[str, Any]) -> dict[str, Any]:
+def _team_seat_filter(row: Mapping[str, Any]) -> dict[str, Any]:
     """The club's season row a mail to its contact seats names, while a confirmed seat there still holds the mail's address."""
 
-    club = row["club"]
+    team = row["team"]
 
     return {
-        "saison_id": club["saison_id"],
-        "team_id": club["team_id"],
+        "saison_id": team["saison_id"],
+        "team_id": team["team_id"],
         "$or": [{f"kontakte.{seat}.email": row["to"], f"kontakte.{seat}.einwilligung.confirmed_at": {"$ne": None}} for seat in KONTAKT_ROLLEN],
     }
 
@@ -170,12 +170,12 @@ async def post_handout(
         for row in due:
             if row["_id"] in barred_ids:
                 continue
-            if row.get("club") is not None:
+            if row.get("team") is not None:
                 # An anchor on the seat's row, judged by its filter: a seat edit landing beside this claim conflicts with
                 # it, and the retry reads the seat as it then stands.
                 held = await patch_past_the_version_in_db(
                     collection=db[Collection.SAISON_TEAMS],
-                    db_filter=_club_seat_filter(row),
+                    db_filter=_team_seat_filter(row),
                     update={"$inc": {ANCHOR_FIELD: 1}},
                     session=session,
                 )

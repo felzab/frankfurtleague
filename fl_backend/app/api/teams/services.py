@@ -1335,7 +1335,7 @@ def gruppe_offer(*, rules: FLSaisonRules, gruppen: Iterable[str]) -> list[FLTeam
 def teams_admin_rows(
     *,
     rows: Sequence[Mapping[str, Any]],
-    clubs: Sequence[Mapping[str, Any]],
+    teams: Sequence[Mapping[str, Any]],
     state: FLTeamListState | None,
     gruppe: FLGruppenNames | None,
 ) -> list[FLTeamsAdminRow]:
@@ -1345,7 +1345,7 @@ def teams_admin_rows(
     the way back to a club no season list holds. `rows` and `clubs` arrive sorted by name.
     """
 
-    retired = {club["_id"]: club["inactive_since"] for club in clubs if club.get("inactive_since") is not None}
+    retired = {team["_id"]: team["inactive_since"] for team in teams if team.get("inactive_since") is not None}
     entered = {row["team_id"]: row for row in rows}
 
     def listed(row: Mapping[str, Any]) -> FLTeamsAdminRow:
@@ -1366,21 +1366,21 @@ def teams_admin_rows(
 
     if state == "retired":
         chosen = [
-            listed(entered[club["_id"]])
-            if club["_id"] in entered
+            listed(entered[team["_id"]])
+            if team["_id"] in entered
             else FLTeamsAdminRow(
-                id=club["_id"],
-                name=club["name"],
-                shorthand=club["shorthand"],
+                id=team["_id"],
+                name=team["name"],
+                shorthand=team["shorthand"],
                 gruppe=None,
                 trikot_farbe=None,
                 seats_filled=0,
                 seats_confirmed=0,
                 austritt_type=None,
-                inactive_since=club["inactive_since"],
+                inactive_since=team["inactive_since"],
             )
-            for club in clubs
-            if club["_id"] in retired
+            for team in teams
+            if team["_id"] in retired
         ]
     else:
         chosen = [listed(row) for row in rows]
@@ -1417,7 +1417,7 @@ def find_trikot_farbe_refusal(*, taken: bool) -> WriteRefusal | None:
     return WriteRefusal(error_code=Code.TRIKOT_FARBE_TAKEN, status=HTTPStatus.CONFLICT, fields=(("trikot_farbe",),))
 
 
-def find_club_entry_refusal(*, inactive_since: str | None) -> WriteRefusal | None:
+def find_team_entry_refusal(*, inactive_since: str | None) -> WriteRefusal | None:
     """Why this club may not be entered into any season, or `None`.
 
     Its own function beside `find_entry_refusal`: a group move re-uses that one, and a club's
@@ -1633,9 +1633,9 @@ def find_replacement_refusal(
             status=HTTPStatus.CONFLICT,
         )
 
-    # The league before the season, as `enter_a_club` judges it: a club that has left the league
+    # The league before the season, as `enter_a_team` judges it: a club that has left the league
     # is a candidate for no season at all, and picking a different one would not repair it.
-    retired = find_club_entry_refusal(inactive_since=incoming_inactive_since)
+    retired = find_team_entry_refusal(inactive_since=incoming_inactive_since)
     if retired is not None:
         return retired
 

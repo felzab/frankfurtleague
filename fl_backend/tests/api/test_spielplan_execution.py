@@ -393,7 +393,7 @@ class TestTheGroupPhaseIsEachGroupsOwnRoundRobin:
     that read the difference.
     """
 
-    async def test_each_group_plays_every_pair_of_its_own_clubs_once(self, mongo_replica_set_url: str):
+    async def test_each_group_plays_every_pair_of_its_own_teams_once(self, mongo_replica_set_url: str):
         """The whole round robin, not merely a legal-looking one.
 
         A repeated pair leaves two clubs that never meet, and a table neither of them was ranked by.
@@ -416,7 +416,7 @@ class TestTheGroupPhaseIsEachGroupsOwnRoundRobin:
             assert len(pairs) == len(set(pairs)), f"gruppe {gruppe} draws a pair more than once"
             assert set(pairs) == {frozenset(pair) for pair in combinations(ids, 2)}
 
-    async def test_each_side_is_stored_as_the_club_the_junction_holds(self, mongo_replica_set_url: str):
+    async def test_each_side_is_stored_as_the_team_the_junction_holds(self, mongo_replica_set_url: str):
         """The club and no goals, a drawn fixture having not happened, and no name, which every read joins off the row."""
 
         drawn = await a_drawn_season(mongo_replica_set_url)

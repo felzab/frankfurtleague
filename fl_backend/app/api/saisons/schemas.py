@@ -17,7 +17,7 @@ from app.api.invitations.schemas import FLInvitationLinkRow
 from app.api.spielberichte.schemas import FLSpielberichtPublic
 from app.api.spiele.schemas import FLSpielJoined
 from app.api.spieler.schemas import FLSpielerPublic
-from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS, FLAustritt, FLSaisonTeamEntry, FLTabelleRow, FLTeamPageClub
+from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS, FLAustritt, FLSaisonTeamEntry, FLTabelleRow, FLTeamPageTeam
 from app.core import clock
 from app.core.codes import Code, Rule
 
@@ -133,7 +133,7 @@ class FLSaisonPhaseSchedule(BaseModel):
 
     phase: FLSaisonPhase
     spieltage: int = Field(ge=0)
-    matches_per_spieltag: int = Field(ge=0)
+    spiele_per_spieltag: int = Field(ge=0)
 
 
 # Private, so the read model and both payloads state these fields once, and the base itself
@@ -541,7 +541,7 @@ class FLTeamPageResponse(BaseReadModel):
     pupil's consent does not publish them.
     """
 
-    team: FLTeamPageClub
+    team: FLTeamPageTeam
     standing: FLTabelleRow | None
     spiele: list[FLTeamPageSpiel]
     kader: list[FLSpielerPublic]

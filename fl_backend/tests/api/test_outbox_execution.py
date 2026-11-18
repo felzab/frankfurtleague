@@ -18,7 +18,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.outbox.crud import state_of
 from app.api.outbox.schemas import (
     FLBanData,
-    FLOutboxClub,
     FLOutboxData,
     FLOutboxDeliveryState,
     FLOutboxEventPayload,
@@ -29,6 +28,7 @@ from app.api.outbox.schemas import (
     FLOutboxResultPayload,
     FLOutboxResultResponse,
     FLOutboxSignInPayload,
+    FLOutboxTeam,
     FLSignInCodeData,
 )
 from app.api.outbox.services import (
@@ -114,7 +114,7 @@ async def owe(
     reference: FLOutboxReference = REFERENCE,
     spec: FLOutboxLink = LINK,
     now: datetime = NOW,
-    club: FLOutboxClub | None = None,
+    team: FLOutboxTeam | None = None,
 ) -> ObjectId:
     """One mail owed inside a transaction of its own, as a write owing it would, and the id of the row its key names."""
 
@@ -122,7 +122,7 @@ async def owe(
         await enqueue_mails(
             outbox_collection=database[Collection.OUTBOX],
             session=session,
-            mails=[OwedMail(key=key, to=NORA, data=data, reference=reference if link else None, link=spec if link else None, club=club)],
+            mails=[OwedMail(key=key, to=NORA, data=data, reference=reference if link else None, link=spec if link else None, team=team)],
             now=now,
         )
 
@@ -330,7 +330,7 @@ class TestTheDrain:
         ],
         ids=("a confirmed seat holding it", "an unconfirmed seat holding it", "a seat handed on", "no season row"),
     )
-    async def test_a_club_mail_goes_only_while_a_confirmed_seat_of_its_club_holds_its_address(
+    async def test_a_team_mail_goes_only_while_a_confirmed_seat_of_its_team_holds_its_address(
         self, mongo_replica_set_url: str, seats: dict[str, Any] | None, handed: bool
     ):
         """A send that failed is retried for days, and its seat may change hands meanwhile: the mail carries no link to judge.
@@ -338,7 +338,7 @@ class TestTheDrain:
         Another club's row holding the address confirmed sends nothing either: the seat is the mail's club's.
         """
 
-        club = FLOutboxClub(saison_id="2126", team_id=ObjectId("6890a1b2c3d4e5f607f30003"))
+        team = FLOutboxTeam(saison_id="2126", team_id=ObjectId("6890a1b2c3d4e5f607f30003"))
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SAISON_TEAMS].insert_one(
@@ -346,9 +346,9 @@ class TestTheDrain:
             )
             if seats is not None:
                 await database[Collection.SAISON_TEAMS].insert_one(
-                    saison_team_document(club.saison_id, club.team_id, "Eigen", "EIX", kontakte=kontakte_document(**seats))
+                    saison_team_document(team.saison_id, team.team_id, "Eigen", "EIX", kontakte=kontakte_document(**seats))
                 )
-            row_id = await owe(database, client, "club/1", data=BAN, club=club)
+            row_id = await owe(database, client, "club/1", data=BAN, team=team)
             answer = await claimed(database, client)
 
             return [mail.id for mail in answer.mails], row_id, (await stored(database, row_id))["state"]

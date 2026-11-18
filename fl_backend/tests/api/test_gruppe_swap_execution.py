@@ -157,7 +157,7 @@ DRAWN_ROUND_ROBIN = [gruppen_spiel(1, ALPHA, ALPHA_RIVAL), gruppen_spiel(2, BETA
 
 
 class TestASwapCommitsBothRows:
-    async def test_the_two_clubs_end_in_each_others_groups(self, mongo_replica_set_url: str):
+    async def test_the_two_teams_end_in_each_others_groups(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await call_swap(database, client, ALPHA, BETA)
             return response, await gruppen_now(database)
@@ -170,8 +170,8 @@ class TestASwapCommitsBothRows:
         assert (response.team2_id, response.team2_gruppe) == (BETA, "A")
 
 
-class TestTheDrawnSpieleMoveWithTheClubs:
-    async def test_each_club_takes_over_the_others_spiele(self, mongo_replica_set_url: str):
+class TestTheDrawnSpieleMoveWithTheTeams:
+    async def test_each_team_takes_over_the_others_spiele(self, mongo_replica_set_url: str):
         """Both slots: a rewrite handling one would leave the other naming a club that has left."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -220,7 +220,7 @@ class TestTheDrawnSpieleMoveWithTheClubs:
         assert after[1]["spieltag_id"] == before[1]["spieltag_id"]
         assert after[2]["team1"] == before[2]["team1"], "the opponent was rewritten"
 
-    async def test_a_spiel_of_neither_club_is_untouched(self, mongo_replica_set_url: str):
+    async def test_a_spiel_of_neither_team_is_untouched(self, mongo_replica_set_url: str):
         """A rewrite filtered on the season rather than on the two clubs passes every assertion above and fails this."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -236,7 +236,7 @@ class TestTheDrawnSpieleMoveWithTheClubs:
         assert sides[3] == (ALPHA_RIVAL, BETA_RIVAL)
         assert rewritten == 2, "a fixture fielding neither club was rewritten"
 
-    async def test_a_knockout_spiel_naming_a_club_is_untouched(self, mongo_replica_set_url: str):
+    async def test_a_knockout_spiel_naming_a_team_is_untouched(self, mongo_replica_set_url: str):
         """A bracket side is the resolution's or an admin's pick — a statement about the club, not its group."""
 
         knockout = {**knockout_spiel(ergebnis=None), "spiel_nr": 9, "team1": side(ALPHA), "team2": None}
@@ -250,7 +250,7 @@ class TestTheDrawnSpieleMoveWithTheClubs:
         assert sides[9] == (ALPHA, None)
         assert rewritten == 2
 
-    async def test_a_spiel_between_the_two_clubs_exchanges_both_sides(self, mongo_replica_set_url: str):
+    async def test_a_spiel_between_the_two_teams_exchanges_both_sides(self, mongo_replica_set_url: str):
         """Both clubs in one fixture: the passes are disjoint, and the count is of fixtures moved, not writes landed."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -263,7 +263,7 @@ class TestTheDrawnSpieleMoveWithTheClubs:
         assert spiele[1]["team2"] == side(ALPHA)
         assert rewritten == 1, "one fixture fielding both clubs was counted twice"
 
-    async def test_a_club_with_no_drawn_spiel_leaves_the_other_unscheduled(self, mongo_replica_set_url: str):
+    async def test_a_team_with_no_drawn_spiel_leaves_the_other_unscheduled(self, mongo_replica_set_url: str):
         """Alpha arrives with nothing scheduled: the remaining draw is the admin's."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

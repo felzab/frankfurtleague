@@ -229,7 +229,7 @@ async def test_a_report_naming_only_pupils_joins_each_by_their_id(seeded_url: st
 
 
 @pytest.mark.db
-async def test_each_side_serves_the_line_up_of_its_club_through_the_mask(seeded_url: str):
+async def test_each_side_serves_the_line_up_of_its_team_through_the_mask(seeded_url: str):
     """In the order the club entered it, the captaincy beside a published name alone; the replaced club's line-up never."""
 
     aufstellungen = (await the_page(seeded_url)).aufstellungen

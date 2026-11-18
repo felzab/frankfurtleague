@@ -16,13 +16,13 @@ DATABASE_NAME = worker_database("fl_saisons_team_view_test")
 SAISON = "2026"
 EARLIER = "2025"
 SPIELTAG = ObjectId("6890a1b2c3d4e5f607420001")
-CLUBS = {name: ObjectId(f"6890a1b2c3d4e5f60742010{index}") for index, name in enumerate(("Alpha", "Beta", "Delta", "Gamma"))}
+TEAMS = {name: ObjectId(f"6890a1b2c3d4e5f60742010{index}") for index, name in enumerate(("Alpha", "Beta", "Delta", "Gamma"))}
 
 DISQUALIFIED = {"type": "disqualifikation", "reason": "Nicht angetreten", "date": "2026-03-01"}
 
 
 def side(name: str, tore: int | None) -> dict[str, Any]:
-    return {"team_id": CLUBS[name], "tore": tore}
+    return {"team_id": TEAMS[name], "tore": tore}
 
 
 def spiel(spiel_nr: int, home: str, away: str, ergebnis: str | None = None) -> dict[str, Any]:
@@ -53,13 +53,13 @@ async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
         await database[Collection.SAISONS].insert_many(
             [documents.saison_document(SAISON, "active"), documents.saison_document(EARLIER, "past")]
         )
-        await database[Collection.TEAMS].insert_many([documents.team_document(oid, name, name[:3].upper()) for name, oid in CLUBS.items()])
+        await database[Collection.TEAMS].insert_many([documents.team_document(oid, name, name[:3].upper()) for name, oid in TEAMS.items()])
         await database[Collection.SAISON_TEAMS].insert_many(
             [
-                documents.saison_team_document(SAISON, CLUBS["Alpha"], "Alpha", "ALP"),
-                documents.saison_team_document(SAISON, CLUBS["Beta"], "Beta", "BET", austritt=dict(DISQUALIFIED)),
-                documents.saison_team_document(SAISON, CLUBS["Delta"], "Delta", "DEL"),
-                documents.saison_team_document(EARLIER, CLUBS["Gamma"], "Gamma", "GAM"),
+                documents.saison_team_document(SAISON, TEAMS["Alpha"], "Alpha", "ALP"),
+                documents.saison_team_document(SAISON, TEAMS["Beta"], "Beta", "BET", austritt=dict(DISQUALIFIED)),
+                documents.saison_team_document(SAISON, TEAMS["Delta"], "Delta", "DEL"),
+                documents.saison_team_document(EARLIER, TEAMS["Gamma"], "Gamma", "GAM"),
             ]
         )
         await database[Collection.SPIELTAGE].insert_one(documents.spieltag_document(SPIELTAG, SAISON, 2))
@@ -69,8 +69,8 @@ async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
         await database[Collection.SPIELER].insert_many([maxim, nadja])
         await database[Collection.SAISON_SPIELER].insert_many(
             [
-                documents.saison_spieler_document(maxim["_id"], SAISON, CLUBS["Alpha"], nummer="7", stufe="Q3"),
-                documents.saison_spieler_document(nadja["_id"], SAISON, CLUBS["Delta"], nummer="9", stufe="Q3"),
+                documents.saison_spieler_document(maxim["_id"], SAISON, TEAMS["Alpha"], nummer="7", stufe="Q3"),
+                documents.saison_spieler_document(nadja["_id"], SAISON, TEAMS["Delta"], nummer="9", stufe="Q3"),
             ]
         )
 
@@ -82,11 +82,11 @@ async def on_a_league(url: str, body: Callable[[AsyncDatabase], Awaitable[Any]])
     return await body(shared_client(url)[DATABASE_NAME])
 
 
-def page_of(club: str) -> Callable[[AsyncDatabase], Awaitable[Any]]:
+def page_of(team: str) -> Callable[[AsyncDatabase], Awaitable[Any]]:
     async def body(database: AsyncDatabase) -> Any:
         return await get_team(
             saison_id=SAISON,
-            team_id=CLUBS[club],
+            team_id=TEAMS[team],
             saisons_collection=database[Collection.SAISONS],
             teams_collection=database[Collection.TEAMS],
             spiele_collection=database[Collection.SPIELE],
@@ -97,7 +97,7 @@ def page_of(club: str) -> Callable[[AsyncDatabase], Awaitable[Any]]:
 
 
 @pytest.mark.db
-async def test_the_teams_page_lists_the_season_s_clubs_by_name_each_departure_marked(seeded_url: str):
+async def test_the_teams_page_lists_the_season_s_teams_by_name_each_departure_marked(seeded_url: str):
     async def body(database: AsyncDatabase) -> Any:
         return await get_teams(saison_id=SAISON, saisons_collection=database[Collection.SAISONS], teams_collection=database[Collection.TEAMS])
 
@@ -107,10 +107,10 @@ async def test_the_teams_page_lists_the_season_s_clubs_by_name_each_departure_ma
 
 
 @pytest.mark.db
-async def test_the_club_page_holds_its_own_row_matches_and_kader(seeded_url: str):
+async def test_the_team_page_holds_its_own_row_matches_and_kader(seeded_url: str):
     response = await on_a_league(seeded_url, page_of("Delta"))
 
     assert response.standing is not None
-    assert (response.team.name, response.standing.id, response.standing.platz) == ("Delta", CLUBS["Delta"], 2)
+    assert (response.team.name, response.standing.id, response.standing.platz) == ("Delta", TEAMS["Delta"], 2)
     assert [(match.spiel_nr, match.spieltag_position, match.count_spieltage_in_phase) for match in response.spiele] == [(2, 2, 1), (3, 2, 1)]
     assert [row.first_name for row in response.kader] == ["Nadja"]

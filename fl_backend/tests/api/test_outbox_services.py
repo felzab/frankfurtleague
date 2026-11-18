@@ -9,7 +9,7 @@ from bson import ObjectId
 
 from app.api.invitations.crud import owed_invitation_mails
 from app.api.invitations.services import confirmed_recipients
-from app.api.outbox.schemas import FLBanData, FLOutboxClub, FLSpielMailAppointment, FLSpielMovedData, FLSpielNoticeData
+from app.api.outbox.schemas import FLBanData, FLOutboxTeam, FLSpielMailAppointment, FLSpielMovedData, FLSpielNoticeData
 from app.api.outbox.services import (
     DELIVERY_DEADLINE,
     LEASE_DURATION,
@@ -43,7 +43,7 @@ OWN, OPPONENT = ObjectId("6890a1b2c3d4e5f607f40001"), ObjectId("6890a1b2c3d4e5f6
 SEATED = {"trainer": {"email": "theo@beispielschule.example.org", "einwilligung": {"confirmed_at": "2026-03-01"}}}
 
 
-def test_every_mail_to_a_club_s_seats_names_the_club_it_goes_to():
+def test_every_mail_to_a_team_s_seats_names_the_team_it_goes_to():
     """Unnamed, the hand-out cannot drop a mail whose seat changed hands before it went, and nothing else fails.
 
     The Austritt notice names the opponent it goes to, never the departed club its reference names.
@@ -70,8 +70,8 @@ def test_every_mail_to_a_club_s_seats_names_the_club_it_goes_to():
     ]
     (notice,) = austritt_notices_of(saison_id=SAISON_ID, team_id=OWN, spiele=[spiel], junctions=junctions)[junctions[OPPONENT]["_id"]]
 
-    assert [mail.club for mail in owed] == [FLOutboxClub(saison_id=SAISON_ID, team_id=OWN)] * 2
-    assert notice.club == FLOutboxClub(saison_id=SAISON_ID, team_id=OPPONENT)
+    assert [mail.team for mail in owed] == [FLOutboxTeam(saison_id=SAISON_ID, team_id=OWN)] * 2
+    assert notice.team == FLOutboxTeam(saison_id=SAISON_ID, team_id=OPPONENT)
 
 
 def run_for(instant: datetime) -> timedelta:

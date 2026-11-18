@@ -169,7 +169,7 @@ async def move(
         )
 
     asked = await saved(payload, dry_run=True)
-    await saved(payload.model_copy(update={"voided_results": asked.voided_results}), dry_run=False)
+    await saved(payload.model_copy(update={"voided_ergebnisse": asked.voided_ergebnisse}), dry_run=False)
 
     return asked
 
@@ -336,7 +336,7 @@ async def alphas_discard_beside_betas_agreement(database: AsyncDatabase, client:
 class TestADiscardedDeclineIsNotAskedAgain:
     """A club declines once per Ansetzung, so the decline the administrator discarded is its answer."""
 
-    async def test_the_declining_club_is_asked_nothing_until_the_spiel_moves(self, mongo_replica_set_url: str):
+    async def test_the_declining_team_is_asked_nothing_until_the_spiel_moves(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await sweep(database, client)
             await discard(database, BETA)
@@ -380,7 +380,7 @@ class TestADiscardedDeclineIsNotAskedAgain:
         ]
         assert moved.new_ansetzungen == []
 
-    async def test_a_move_onto_today_ends_the_discard_and_tells_its_club(self, mongo_replica_set_url: str):
+    async def test_a_move_onto_today_ends_the_discard_and_tells_its_team(self, mongo_replica_set_url: str):
         """Nobody is asked about a match on its own day, so the close step tells the discarded club of the move.
 
         Kept as the club's answer to the slot left, the discard would tell it nothing, and the slot it was told stands
@@ -402,7 +402,7 @@ class TestADiscardedDeclineIsNotAskedAgain:
         ]
         assert discarded["closed"] == {"reason": "ansetzung_changed", "discarded": True, "matched": False}
 
-    async def test_moved_away_and_back_it_is_asked_again_as_an_agreeing_club_is(self, mongo_replica_set_url: str):
+    async def test_moved_away_and_back_it_is_asked_again_as_an_agreeing_team_is(self, mongo_replica_set_url: str):
         """The first move ended the discard, so back on its slot the club is asked afresh, the move named in its request.
 
         One rule for every answer: a move ends it, and the party is asked about the slot the fixture holds. Kept through
@@ -472,7 +472,7 @@ class TestADiscardedDeclineIsNotAskedAgain:
             pytest.param("taken off", id="its club taken off"),
         ],
     )
-    async def test_a_change_after_an_asked_move_tells_the_discarded_club_once(self, mongo_replica_set_url: str, change: str):
+    async def test_a_change_after_an_asked_move_tells_the_discarded_team_once(self, mongo_replica_set_url: str, change: str):
         """Asked about the move, the club holds one question about the fixture, so the next change tells it once.
 
         Kept beside the request, the discard would owe a second notice of the same change, naming a slot the club was told
@@ -681,7 +681,7 @@ class TestAMovedSpielAsksAgain:
         alpha_request = next(request for request in second.requests if request.side == "team1")
         assert sorted(recipient.address for recipient in alpha_request.recipients) == sorted(address(ALPHA, seat) for seat in KONTAKT_ROLLEN)
 
-    async def test_a_club_never_asked_about_the_slot_left_is_asked_naming_none(self, mongo_replica_set_url: str):
+    async def test_a_team_never_asked_about_the_slot_left_is_asked_naming_none(self, mongo_replica_set_url: str):
         """A club first mailed after the move was never told the old slot, so its first request names no slot it left."""
 
         unconfirmed = {**{seat: kontaktperson_document(first_name) for seat, first_name in SEATS[ALPHA].items()}, "trainer_is_also": None}
@@ -833,7 +833,7 @@ class TestAMovePastTheWindowIsAskedAtOnce:
         assert sorted((request.side, request.moved_from) for request in moved.requests) == [("team1", left), ("team2", left)]
         assert [(einteilung.address, einteilung.moved_from) for einteilung in moved.einteilungen] == [(REFEREE_EMAIL, left)]
 
-    async def test_a_club_leaving_after_it_lifts_the_referees_einteilung(self, mongo_replica_set_url: str):
+    async def test_a_team_leaving_after_it_lifts_the_referees_einteilung(self, mongo_replica_set_url: str):
         """The referee keeps the new day free only while a row of theirs stands open to be told it no longer holds."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -902,7 +902,7 @@ class TestARefereeChangeClosesTheirRowAlone:
         assert (second.schiedsrichter_new_ansetzungen, second.requests, second.closed) == ([], [], 1)
 
 
-class TestAReplacedClubsRowsClose:
+class TestAReplacedTeamsRowsClose:
     """The club leaving takes its season row along, so a notice naming it off that row would hold every mailed row open for good."""
 
     async def test_the_opponent_and_the_referee_are_told_and_every_row_closes(self, mongo_replica_set_url: str):
@@ -941,7 +941,7 @@ class TestAReplacedClubsRowsClose:
 class TestASideReFieldedNamesThePairingEachPartyWasAskedAbout:
     """A knockout correction re-fields a side, the club taken off keeping its season row: no party was asked about the new pairing."""
 
-    async def test_the_club_taken_off_and_the_parties_still_on_it_are_told_of_the_slot_they_were_asked_about(self, mongo_replica_set_url: str):
+    async def test_the_team_taken_off_and_the_parties_still_on_it_are_told_of_the_slot_they_were_asked_about(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await sweep(database, client)
             # The bracket's own write, which re-fields a side and touches no season row.
@@ -1145,7 +1145,7 @@ class TestEachRowIsRemindedOnce:
         assert alpha["deadline"] == DEADLINE
 
 
-class TestAClubIsMailedAtItsConfirmedSeats:
+class TestATeamIsMailedAtItsConfirmedSeats:
     """An address nobody proved is mailed nothing, and one person holding two seats is mailed once."""
 
     async def test_a_person_on_two_seats_gets_one_mail_and_an_unconfirmed_seat_none(self, mongo_replica_set_url: str):
@@ -1163,7 +1163,7 @@ class TestAClubIsMailedAtItsConfirmedSeats:
         recipients = next(request.recipients for request in answer.requests if request.side == "team1")
         assert [(recipient.address, recipient.rollen) for recipient in recipients] == [(address(ALPHA, "trainer"), ["trainer"])]
 
-    async def test_a_club_holding_no_confirmed_seat_is_asked_once_it_holds_one(self, mongo_replica_set_url: str):
+    async def test_a_team_holding_no_confirmed_seat_is_asked_once_it_holds_one(self, mongo_replica_set_url: str):
         """Minted unasked, the row reads as never asked; stamped then, the club would never hear of the fixture."""
 
         unconfirmed = {**{seat: kontaktperson_document(first_name) for seat, first_name in SEATS[ALPHA].items()}, "trainer_is_also": None}
@@ -1227,7 +1227,7 @@ class TestTheReminderSkipsARowTheCloseWouldShut:
 class TestOneRowHoldsBackNoOther:
     """A fixture the pass cannot answer is passed over alone, every pass, and its neighbour is asked."""
 
-    async def test_a_spiel_fielding_a_club_without_a_season_row(self, mongo_replica_set_url: str):
+    async def test_a_spiel_fielding_a_team_without_a_season_row(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await sweep(database, client, passed_over=1)
             await sweep(database, client, passed_over=1)
@@ -1427,7 +1427,7 @@ PAST_THE_DUE_MARK = a_spiel(FRESH_SPIEL, 3, "2126-04-16", time="12:00:00", schie
 class TestTheLineupReminder:
     """Owed to a club holding no line-up, once: no line-up document exists to stamp, so the mail's keys are the record."""
 
-    async def test_the_club_without_a_line_up_is_reminded_once_inside_the_window_alone(self, mongo_replica_set_url: str):
+    async def test_the_team_without_a_line_up_is_reminded_once_inside_the_window_alone(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.AUFSTELLUNGEN].insert_one(documents.aufstellung_document(IN_THE_WINDOW, ALPHA, starters=[ObjectId()]))
             first = await handed_out(database, client, await a_pass(database, client, today=LINEUP_TODAY, now=LINEUP_NOW), now=LINEUP_NOW)
@@ -1444,7 +1444,7 @@ class TestTheLineupReminder:
         assert {reminder.due_at for reminder in first.aufstellungen} == {datetime(2126, 4, 15, 16, 0, tzinfo=UTC)}
         assert later.aufstellungen == []
 
-    async def test_a_club_whose_line_up_an_erasure_emptied_is_reminded(self, mongo_replica_set_url: str):
+    async def test_a_team_whose_line_up_an_erasure_emptied_is_reminded(self, mongo_replica_set_url: str):
         """Ahead of kick-off an erased pupil's entry goes, and the club picks anew: a line-up holding nobody stands as none."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1455,7 +1455,7 @@ class TestTheLineupReminder:
 
         assert {reminder.team for reminder in reminded.aufstellungen} == {"Alpha", "Beta"}
 
-    async def test_a_fixture_a_clubs_austritt_decided_reminds_neither_club(self, mongo_replica_set_url: str):
+    async def test_a_fixture_a_teams_austritt_decided_reminds_neither_team(self, mongo_replica_set_url: str):
         """Alpha leaves before the day, so the match is not played: Beta would be asked for a line-up nobody fields against."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1642,7 +1642,7 @@ async def asked_and_called_off(database: AsyncDatabase, client: AsyncMongoClient
 
 
 class TestACalledOffSpielTellsEveryPartyItAsked:
-    async def test_both_clubs_and_the_referee_are_told_whatever_each_answered(self, mongo_replica_set_url: str):
+    async def test_both_teams_and_the_referee_are_told_whatever_each_answered(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             first = await sweep(database, client)
             # One club agreed before the call-off, which tells it no less.

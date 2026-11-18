@@ -14,10 +14,10 @@ from app.api.teams.services import (
     build_team_pipeline,
     build_team_spiele_filter,
     compose_saison_team,
-    find_club_entry_refusal,
     find_entry_refusal,
     find_gruppe_move_refusal,
     find_shorthand_refusal,
+    find_team_entry_refusal,
     find_trikot_farbe_refusal,
 )
 from app.core.concurrency import concurrently
@@ -108,7 +108,7 @@ async def refuse_a_full_gruppe(
     refuse(find_entry_refusal(saison_status=saison_status, gruppe=gruppe, rules=rules, occupied=len(occupied_rows)))
 
 
-async def pull_a_club_to_enter(
+async def pull_a_team_to_enter(
     *,
     teams_collection: AsyncCollection,
     team_id: Any,
@@ -121,7 +121,7 @@ async def pull_a_club_to_enter(
     reached from two packages is one a package can enter past.
     """
 
-    club = await pull_one_from_db(
+    team = await pull_one_from_db(
         collection=teams_collection,
         db_filter={"_id": team_id},
         projection=["name", "shorthand", "inactive_since"],
@@ -136,19 +136,19 @@ async def pull_a_club_to_enter(
         session=session,
     )
 
-    return club
+    return team
 
 
-async def found_a_club(*, teams_collection: AsyncCollection, club: Mapping[str, Any], session: AsyncClientSession) -> Any:
+async def found_a_team(*, teams_collection: AsyncCollection, team: Mapping[str, Any], session: AsyncClientSession) -> Any:
     """Write a new club, its `shorthand` judged against every other, a retired one included; its id."""
 
-    taken = await is_held_elsewhere(collection=teams_collection, key="shorthand", value=club["shorthand"], own_id=None, session=session)
+    taken = await is_held_elsewhere(collection=teams_collection, key="shorthand", value=team["shorthand"], own_id=None, session=session)
     refuse(find_shorthand_refusal(taken=taken))
 
-    return (await insert_live(collection=teams_collection, document=dict(club), session=session)).inserted_id
+    return (await insert_live(collection=teams_collection, document=dict(team), session=session)).inserted_id
 
 
-async def enter_a_club(
+async def enter_a_team(
     *,
     teams_collection: AsyncCollection,
     saison_teams_collection: AsyncCollection,
@@ -166,12 +166,12 @@ async def enter_a_club(
 
     # The one read of the club, and it earns its place twice over: an id naming nothing 404s here rather than inserting
     # a row pointing at no club, and the season's own copy of the name and shorthand is seeded from it.
-    team_raw = await pull_a_club_to_enter(teams_collection=teams_collection, team_id=team_id, session=session)
+    team_raw = await pull_a_team_to_enter(teams_collection=teams_collection, team_id=team_id, session=session)
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
 
     # Before the count: the club's standing in the league cannot be repaired by picking another group, so nobody should
     # be handed a capacity figure to act on first.
-    refuse(find_club_entry_refusal(inactive_since=team_raw.get("inactive_since")))
+    refuse(find_team_entry_refusal(inactive_since=team_raw.get("inactive_since")))
 
     # A club a dialog offered and an acceptance entered since: by this code, ahead of the junction's unique index, which
     # answers only a race.
@@ -235,13 +235,13 @@ async def refuse_a_gruppe_move(
     )
 
 
-async def write_the_club(
+async def write_the_team(
     *,
     teams_collection: AsyncCollection,
     saison_teams_collection: AsyncCollection,
     saisons_collection: AsyncCollection,
     team_id: Any,
-    club: Mapping[str, Any],
+    team: Mapping[str, Any],
     session: AsyncClientSession,
 ) -> Mapping[str, Any]:
     """Write a club and rewrite the name and shorthand its unfinished seasons' rows carry; the stored club.
@@ -252,12 +252,12 @@ async def write_the_club(
     rewrites; a `past` season keeps the name it was played under.
     """
 
-    taken = await is_held_elsewhere(collection=teams_collection, key="shorthand", value=club["shorthand"], own_id=team_id, session=session)
+    taken = await is_held_elsewhere(collection=teams_collection, key="shorthand", value=team["shorthand"], own_id=team_id, session=session)
     refuse(find_shorthand_refusal(taken=taken))
     stored = await patch_one_in_db(
         collection=teams_collection,
         db_filter={"_id": team_id},
-        update={"$set": dict(club)},
+        update={"$set": dict(team)},
         expected_version=None,
         session=session,
         return_document=ReturnDocument.AFTER,
@@ -277,7 +277,7 @@ async def write_the_club(
     await patch_many_in_db(
         collection=saison_teams_collection,
         db_filter={"team_id": team_id, "saison_id": {"$in": open_saison_ids}},
-        update={"$set": {"name": club["name"], "shorthand": club["shorthand"]}},
+        update={"$set": {"name": team["name"], "shorthand": team["shorthand"]}},
         session=session,
     )
 

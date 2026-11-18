@@ -78,7 +78,7 @@ KONTAKTE: Mapping[str, Any] = {
 }
 
 
-def club_document(team_id: ObjectId, name: str, shorthand: str, *, inactive_since: str | None = None) -> dict[str, Any]:
+def seeded_team(team_id: ObjectId, name: str, shorthand: str, *, inactive_since: str | None = None) -> dict[str, Any]:
     return team_document(team_id, name, shorthand, schulform="gymnasium_g9", inactive_since=inactive_since)
 
 
@@ -124,9 +124,9 @@ async def on_a_league(url: str, body: Body, *, bewerbung: Any = OPEN_WINDOW, sai
         await database[Collection.SAISONS].insert_one(saison)
         await database[Collection.TEAMS].insert_many(
             [
-                club_document(EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND),
-                club_document(RETIRED_OID, RETIRED_NAME, RETIRED_SHORTHAND, inactive_since="2126-03-01"),
-                club_document(ENTERED_OID, ENTERED_NAME, ENTERED_SHORTHAND),
+                seeded_team(EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND),
+                seeded_team(RETIRED_OID, RETIRED_NAME, RETIRED_SHORTHAND, inactive_since="2126-03-01"),
+                seeded_team(ENTERED_OID, ENTERED_NAME, ENTERED_SHORTHAND),
             ]
         )
         await database[Collection.SAISON_TEAMS].insert_one(saison_team_document(SAISON_ID, ENTERED_OID, ENTERED_NAME, ENTERED_SHORTHAND))
@@ -165,7 +165,7 @@ async def view(database: AsyncDatabase, token: str) -> Any:
 class TestWhatASubmissionStores:
     """The document the record model reads back, which is the only shape the triage can then read."""
 
-    async def test_a_picked_club_is_stored_as_an_undecided_application(self, mongo_replica_set_url: str):
+    async def test_a_picked_team_is_stored_as_an_undecided_application(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Mapping[str, Any]:
             response = await submit(database)
             stored = await database[Collection.BEWERBUNGEN].find_one({"_id": response.created_id})
@@ -470,12 +470,12 @@ class TestTheRefusalsTheWritePathAnswers:
             pytest.param(str(UNKNOWN_OID), id="an id no club holds"),
         ],
     )
-    async def test_a_club_the_list_does_not_offer_refuses(self, mongo_replica_set_url: str, team_id: str):
+    async def test_a_team_the_list_does_not_offer_refuses(self, mongo_replica_set_url: str, team_id: str):
         """The same code for both, so a client sending an id it was never given learns nothing about which."""
 
         assert (await refused(mongo_replica_set_url, team_id=team_id)).error_code == Code.BEWERBUNG_PICKED_TEAM_UNUSABLE
 
-    async def test_a_club_already_playing_the_season_refuses(self, mongo_replica_set_url: str):
+    async def test_a_team_already_playing_the_season_refuses(self, mongo_replica_set_url: str):
         assert (await refused(mongo_replica_set_url, team_id=str(ENTERED_OID))).error_code == Code.BEWERBUNG_PICKED_TEAM_ALREADY_ENTERED
 
 
@@ -498,7 +498,7 @@ async def through_the_app(url: str, body: Mapping[str, Any]) -> Submitted:
         await database[Collection.SAISONS].insert_one(
             saison_document(SAISON_ID, "future", rules=rules_document(number_of_gruppen=2, teams_per_gruppe=2), bewerbung=dict(OPEN_WINDOW))
         )
-        await database[Collection.TEAMS].insert_one(club_document(EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND))
+        await database[Collection.TEAMS].insert_one(seeded_team(EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND))
 
         async with app_client(url, app=app_under_test(), now=NOW) as http:
             sent = dict(BASE_AUTH)

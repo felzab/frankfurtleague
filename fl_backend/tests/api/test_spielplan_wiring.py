@@ -121,7 +121,7 @@ class TestTheDrawnSeasonFieldsNobodyTwiceOnAMatchday:
     """Asked of the shipped judge, not of the pairing the draw happens to have produced."""
 
     @pytest.mark.parametrize("shape", SHAPES, ids=SHAPE_IDS)
-    def test_resubmitting_a_spiel_neither_refuses_nor_releases_a_club_from_another(self, shape: Shape):
+    def test_resubmitting_a_spiel_neither_refuses_nor_releases_a_team_from_another(self, shape: Shape):
         """A release is the same fault as the refusal seen from the other slot: the judge found this club already standing on the matchday."""
 
         season = season_of(shape)

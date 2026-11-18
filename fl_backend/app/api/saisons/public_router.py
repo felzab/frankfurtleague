@@ -50,7 +50,7 @@ from app.api.teams.schemas import (
     FLSaisonTeamEntryListAdapter,
     FLSaisonTeamsResponse,
     FLTabelleResponse,
-    FLTeamPageClub,
+    FLTeamPageTeam,
 )
 from app.api.teams.services import build_team_pipeline, counting_spiele_match
 from app.core.collections import Collection
@@ -162,18 +162,18 @@ _IN_A_PUBLIC_SAISON: tuple[Mapping[str, Any], ...] = (
 
 # A club a season's Teams page lists, as `build_retirement_stages` keeps it: one that has not left the league, or one
 # that left it after a season now `past`, which keeps its place there.
-_LISTED_CLUB: tuple[Mapping[str, Any], ...] = (
+_LISTED_TEAM: tuple[Mapping[str, Any], ...] = (
     {
         "$lookup": {
             "from": Collection.TEAMS,
             "localField": "team_id",
             "foreignField": "_id",
             "pipeline": [{"$project": {"_id": 0, "inactive_since": 1}}],
-            "as": "club",
+            "as": "team",
         }
     },
-    # `$elemMatch` rather than a `club.0.inactive_since` path, which a missing field "0" in the joined element matches as null.
-    {"$match": {"$or": [{"club": {"$elemMatch": {"inactive_since": None}}}, {"public_saison": {"$elemMatch": {"status": "past"}}}]}},
+    # `$elemMatch` rather than a `team.0.inactive_since` path, which a missing field "0" in the joined element matches as null.
+    {"$match": {"$or": [{"team": {"$elemMatch": {"inactive_since": None}}}, {"public_saison": {"$elemMatch": {"status": "past"}}}]}},
 )
 
 
@@ -196,7 +196,7 @@ async def _league_counts(
         # The clubs the seasons' Teams pages list, a club playing several seasons one school.
         aggregate_many_from_db(
             collection=saison_teams_collection,
-            pipeline=[*_IN_A_PUBLIC_SAISON, *_LISTED_CLUB, {"$group": {"_id": "$team_id"}}, {"$count": "schulen"}],
+            pipeline=[*_IN_A_PUBLIC_SAISON, *_LISTED_TEAM, {"$group": {"_id": "$team_id"}}, {"$count": "schulen"}],
         ),
     )
 
@@ -252,7 +252,7 @@ async def _landing_saison(
         if started
         else _no_rows(),
         pull_finale_by_saison(spiele_collection=spiele_collection, saison_ids=[saison_id]),
-        _clubs_of(teams_collection=teams_collection, saison_id=saison_id),
+        _teams_of(teams_collection=teams_collection, saison_id=saison_id),
     )
 
     start = saison_start(saison_raw["start_date"])
@@ -440,7 +440,7 @@ async def get_tabelle(
     return FLTabelleResponse(gruppen=tabelle, qualifiers_per_gruppe=saison.rules.qualifiers_per_gruppe)
 
 
-async def _clubs_of(*, teams_collection: ReadCollection, saison_id: str) -> list[FLSaisonTeamEntry]:
+async def _teams_of(*, teams_collection: ReadCollection, saison_id: str) -> list[FLSaisonTeamEntry]:
     """A season's clubs as the Teams page and the landing list them, a club that left the league in a `past` season alone."""
 
     teams_raw = await aggregate_many_from_db(
@@ -463,7 +463,7 @@ async def get_teams(saison_id: str, saisons_collection: SaisonsReadCollection, t
 
     _, teams = await concurrently(
         resolve_public_saison(saisons_collection=saisons_collection, saison_id=saison_id),
-        _clubs_of(teams_collection=teams_collection, saison_id=saison_id),
+        _teams_of(teams_collection=teams_collection, saison_id=saison_id),
     )
 
     return FLSaisonTeamsResponse(teams=teams)
@@ -484,7 +484,7 @@ async def get_team(
     """
 
     # Beside the resolve: each needs the path's id alone, and none is served before the resolve has passed.
-    saison, club_raw, spiele_raw, kader_raw = await concurrently(
+    saison, team_raw, spiele_raw, kader_raw = await concurrently(
         resolve_public_saison(saisons_collection=saisons_collection, saison_id=saison_id),
         # A club that left the league stays addressable by id, as `GET /teams/{team_id}` keeps it: a caller holding one
         # was given it by something.
@@ -508,7 +508,7 @@ async def get_team(
         ),
     )
 
-    if not club_raw:
+    if not team_raw:
         raise DocumentNotFoundError()
 
     # After the resolve, being the one read that needs the season's rules.
@@ -519,7 +519,7 @@ async def get_team(
     standing = next((row for rows in tabelle.root.values() for row in rows if row.id == team_id), None)
 
     return FLTeamPageResponse(
-        team=FLTeamPageClub.model_validate(club_raw[0]),
+        team=FLTeamPageTeam.model_validate(team_raw[0]),
         standing=standing,
         spiele=FLTeamPageSpielListAdapter.validate_python([{**spiel_raw, **matchday_of(spiel_raw)} for spiel_raw in spiele_raw]),
         kader=FLSpielerListAdapter.validate_python(kader_raw),

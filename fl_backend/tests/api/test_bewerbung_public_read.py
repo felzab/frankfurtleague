@@ -34,7 +34,7 @@ OPEN_OID = ObjectId("6890a1b2c3d4e5f607950001")
 RETIRED_OID = ObjectId("6890a1b2c3d4e5f607950002")
 
 # Neither alphabetical nor reverse-alphabetical by `_id`, so a sort key swapped for the id fails.
-CLUBS = (
+TEAMS = (
     ("Zetteltal", "ZEX", OPEN_OID),
     ("Adlerhorst", "ADX", ObjectId("6890a1b2c3d4e5f607950003")),
     ("Mittelbach", "MIX", ObjectId("6890a1b2c3d4e5f607950004")),
@@ -44,7 +44,7 @@ CLUBS = (
 
 # The season taking applications today, the one whose window has passed, and the one carrying none.
 # A club that has left, which the picker may not offer; its row still holds the season it left.
-RETIRED_CLUB = ("Verlassen", "VEX", RETIRED_OID)
+RETIRED_TEAM = ("Verlassen", "VEX", RETIRED_OID)
 AUSTRITT: Mapping[str, Any] = {"type": "rueckzug", "reason": "keine Mannschaft", "date": "2026-03-15"}
 
 OPEN_SAISON = "2026"
@@ -91,7 +91,7 @@ def website_host(name: str) -> str:
     return f"{name.lower()}.example.net"
 
 
-def _club(name: str, shorthand: str, team_id: ObjectId, *, inactive_since: str | None = None) -> dict[str, Any]:
+def _team(name: str, shorthand: str, team_id: ObjectId, *, inactive_since: str | None = None) -> dict[str, Any]:
     return team_document(
         team_id,
         name,
@@ -124,20 +124,20 @@ async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
             ]
         )
         await database[Collection.TEAMS].insert_many(
-            [_club(name, shorthand, team_id) for name, shorthand, team_id in CLUBS] + [_club(*RETIRED_CLUB, inactive_since="2025-08-01")]
+            [_team(name, shorthand, team_id) for name, shorthand, team_id in TEAMS] + [_team(*RETIRED_TEAM, inactive_since="2025-08-01")]
         )
         await database[Collection.SAISON_TEAMS].insert_many(
             [
-                _junction(OPEN_SAISON, *CLUBS[0], trikot_farbe="rot"),
-                _junction(OPEN_SAISON, *CLUBS[1], trikot_farbe="blau"),
+                _junction(OPEN_SAISON, *TEAMS[0], trikot_farbe="rot"),
+                _junction(OPEN_SAISON, *TEAMS[1], trikot_farbe="blau"),
                 # No colour assigned: `distinct` yields the null this row holds, and the answer must
                 # not carry it.
-                _junction(OPEN_SAISON, *CLUBS[2], trikot_farbe=None),
+                _junction(OPEN_SAISON, *TEAMS[2], trikot_farbe=None),
                 # A club that LEFT the season, still holding its colour: the assignment stands until
                 # an administrator clears it, which is the set the admin sees too.
-                _junction(OPEN_SAISON, *RETIRED_CLUB, trikot_farbe="gruen", austritt=dict(AUSTRITT)),
+                _junction(OPEN_SAISON, *RETIRED_TEAM, trikot_farbe="gruen", austritt=dict(AUSTRITT)),
                 # Another season's assignment, so an answer dropping the season term serves it too.
-                _junction(SHUT_SAISON, *CLUBS[0], trikot_farbe=OTHER_SEASON_FARBE),
+                _junction(SHUT_SAISON, *TEAMS[0], trikot_farbe=OTHER_SEASON_FARBE),
             ]
         )
 
@@ -177,7 +177,7 @@ pytestmark = pytest.mark.db
 class TestTheFormRead:
     """The one read of the form's page: a state it must show, and what a season not taking applications must not tell."""
 
-    async def test_a_running_window_serves_the_clubs_and_the_colours(self, seeded_url: str):
+    async def test_a_running_window_serves_the_teams_and_the_colours(self, seeded_url: str):
         body = (await answered(seeded_url, f"{PREFIX}/form/{OPEN_SAISON}")).json()
 
         assert body["window"]["state"] == "running"

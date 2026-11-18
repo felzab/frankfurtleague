@@ -92,7 +92,7 @@ JUNCTION_PROJECTION = {"name": 1, "austritt": 1}
 # reads as closed rather than as a season nobody knows. The invite authorises instead.
 
 
-async def _club_departed(
+async def _team_departed(
     *, saison_teams_collection: ReadCollection, registrierung_raw: Mapping[str, Any], session: AsyncClientSession | None = None
 ) -> bool:
     """Whether this registration's club has left the season: by an exit, on the record's presence, or by a replacement, which leaves it no row.
@@ -352,7 +352,7 @@ async def get_confirmation_view(
     team_raw = await teams_collection.find_one({"_id": raw["team_id"]}, projection={"name": 1, "full_name": 1})
     assert team_raw is not None
 
-    departed = await _club_departed(saison_teams_collection=saison_teams_collection, registrierung_raw=raw)
+    departed = await _team_departed(saison_teams_collection=saison_teams_collection, registrierung_raw=raw)
 
     return FLRegistrierungConfirmationViewResponse(
         state=state_of(registrierung_raw=raw, departed=departed, today=today),
@@ -396,7 +396,7 @@ async def post_confirmation(
         refuse(find_unknown_token_refusal(found=raw is not None))
         assert raw is not None
 
-        departed = await _club_departed(saison_teams_collection=saison_teams_collection, registrierung_raw=raw, session=session)
+        departed = await _team_departed(saison_teams_collection=saison_teams_collection, registrierung_raw=raw, session=session)
         refuse(find_expired_token_refusal(confirmation=raw.get("confirmation"), status=raw.get("status"), departed=departed, today=today))
         refuse(find_already_confirmed_refusal(einwilligung=raw.get("einwilligung")))
         refuse(find_age_refusal(birth_date=answer_data.birth_date, today=today))

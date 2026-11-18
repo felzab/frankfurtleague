@@ -70,10 +70,10 @@ DELETE_OID = ObjectId("6890a1b2c3d4e5f607960002")
 DECLINED_OID = ObjectId("6890a1b2c3d4e5f607960003")
 ACCEPTED_OID = ObjectId("6890a1b2c3d4e5f607960004")
 OTHER_SEASON_OID = ObjectId("6890a1b2c3d4e5f607960005")
-CLUB_OID = ObjectId("6890a1b2c3d4e5f607960011")
+TEAM_OID = ObjectId("6890a1b2c3d4e5f607960011")
 JUNCTION_OID = ObjectId("6890a1b2c3d4e5f607960021")
 
-CLUB_NAME = "Adler"
+TEAM_NAME = "Adler"
 SCHOOL_NAME = "Zorbanax"
 
 
@@ -127,7 +127,7 @@ def the_corpus() -> list[dict[str, Any]]:
         application(
             ACCEPTED_OID,
             status="accepted",
-            team_id=CLUB_OID,
+            team_id=TEAM_OID,
             schule=None,
             decision={"made_at": "2026-03-01", "reason": None},
         ),
@@ -145,7 +145,7 @@ def season(saison_id: str, status: str) -> dict[str, Any]:
 
 
 def junction_row() -> dict[str, Any]:
-    return saison_team_document(SAISON_ID, CLUB_OID, CLUB_NAME, "ADX", _id=JUNCTION_OID, gruppe="B", trikot_farbe="blau", kontakte=kontakte())
+    return saison_team_document(SAISON_ID, TEAM_OID, TEAM_NAME, "ADX", _id=JUNCTION_OID, gruppe="B", trikot_farbe="blau", kontakte=kontakte())
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -180,7 +180,7 @@ async def on_a_league(
         if next_status is not None:
             seasons.append(season(NEXT_SAISON_ID, next_status))
         await database[Collection.SAISONS].insert_many(seasons)
-        await database[Collection.TEAMS].insert_one(team_document(CLUB_OID, CLUB_NAME, "ADX", website_url=None, schulform="gymnasium_g9"))
+        await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, TEAM_NAME, "ADX", website_url=None, schulform="gymnasium_g9"))
         await database[Collection.SAISON_TEAMS].insert_one(junction_row())
         await database[Collection.BEWERBUNGEN].insert_many(the_corpus())
 
@@ -1019,7 +1019,7 @@ class TestAnActivationInsideAnEraseTransactionKeepsTheSeasonsRows:
 
         accepted = {"status": "accepted", "decision": {"made_at": "2026-03-01", "reason": None}}
         report = a_report(SAISON_ID)
-        declined = a_declined_confirmation(CLUB_OID, SAISON_ID)
+        declined = a_declined_confirmation(TEAM_OID, SAISON_ID)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             # A page and one more: a kept page answered as read drains for ever, which `DRAIN_BOUND_S` turns into a failure.
@@ -1093,7 +1093,7 @@ class TestAnActivationInsideAnEraseTransactionKeepsTheSeasonsRows:
 
 
 SECOND_OID = ObjectId("6890a1b2c3d4e5f607960007")
-SECOND_CLUB_OID = ObjectId("6890a1b2c3d4e5f607960012")
+SECOND_TEAM_OID = ObjectId("6890a1b2c3d4e5f607960012")
 SECOND_JUNCTION_OID = ObjectId("6890a1b2c3d4e5f607960022")
 
 
@@ -1133,7 +1133,7 @@ class TestOneRowHoldsBackNoOther:
 
     async def test_a_refused_contact_block(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SAISON_TEAMS].insert_one({**junction_row(), "_id": SECOND_JUNCTION_OID, "team_id": SECOND_CLUB_OID})
+            await database[Collection.SAISON_TEAMS].insert_one({**junction_row(), "_id": SECOND_JUNCTION_OID, "team_id": SECOND_TEAM_OID})
             await database[Collection.SAISON_TEAMS].update_one({"_id": JUNCTION_OID}, {"$unset": {"shorthand": ""}})
             await refuse_writes_breaking(database, Collection.SAISON_TEAMS, {"required": ["shorthand"]})
             answer = await sweep(database, client, now=MAIL_NOW)
@@ -1382,7 +1382,7 @@ def open_confirmation(team_id: ObjectId) -> dict[str, Any]:
         date="2026-04-18",
         time="14:00:00",
         team1={"team_id": team_id, "tore": None},
-        team2={"team_id": CLUB_OID, "tore": None},
+        team2={"team_id": TEAM_OID, "tore": None},
     )
 
     return documents.spielbestaetigung_document(
@@ -1430,7 +1430,7 @@ class TestTheSeasonRowSeatClock:
             },
         )
         confirmation = {
-            **open_confirmation(CLUB_OID),
+            **open_confirmation(TEAM_OID),
             "answer": documents.kontakt_answer_document("stellvertretung", reason="Wir sind auf Klassenfahrt"),
         }
         await database[Collection.SPIELBESTAETIGUNGEN].insert_one(confirmation)
@@ -1561,7 +1561,7 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, Counter[str]]:
             await database[Collection.BEWERBUNGEN].update_many(
-                {"_id": {"$in": [REMIND_OID, DELETE_OID]}}, {"$set": {"team_id": CLUB_OID, "schule": None}}
+                {"_id": {"$in": [REMIND_OID, DELETE_OID]}}, {"$set": {"team_id": TEAM_OID, "schule": None}}
             )
             await database[Collection.SAISON_TEAMS].insert_many(
                 [
@@ -1634,7 +1634,7 @@ class TestAPageAndOneMoreIsDrained:
         overflow = SWEEP_PAGE + 5
         accepted = {
             "status": "accepted",
-            "team_id": CLUB_OID,
+            "team_id": TEAM_OID,
             "schule": None,
             "decision": {"made_at": "2026-03-01", "reason": None},
         }
@@ -1665,7 +1665,7 @@ class TestAPageAndOneMoreIsDrained:
 
 
 # A club the season replaced: its season row went to the incoming club, so no block clearing names its rows.
-REPLACED_CLUB_OID = ObjectId("6890a1b2c3d4e5f6079600f1")
+REPLACED_TEAM_OID = ObjectId("6890a1b2c3d4e5f6079600f1")
 
 
 def a_declined_confirmation(team_id: ObjectId, saison_id: str) -> dict[str, Any]:
@@ -1679,7 +1679,7 @@ def a_declined_confirmation(team_id: ObjectId, saison_id: str) -> dict[str, Any]
         date=f"{saison_id}-04-18",
         time="14:00:00",
         team1={"team_id": team_id, "tore": None},
-        team2={"team_id": CLUB_OID, "tore": None},
+        team2={"team_id": TEAM_OID, "tore": None},
     )
     return documents.spielbestaetigung_document(
         spiel,
@@ -1698,7 +1698,7 @@ class TestTheReportStripStandsApart:
 
         refused = a_report(SAISON_ID)
         del refused["bericht"]["sides"]
-        declined = a_declined_confirmation(CLUB_OID, SAISON_ID)
+        declined = a_declined_confirmation(TEAM_OID, SAISON_ID)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPIELBERICHTE].insert_one(refused)
@@ -1730,9 +1730,9 @@ class TestTheSeasonsEndStripsItsConfirmations:
         """The club's own row, a replaced club's no clearing names, and the next season's row as the control."""
 
         rows = {
-            "own": a_declined_confirmation(CLUB_OID, SAISON_ID),
-            "replaced": a_declined_confirmation(REPLACED_CLUB_OID, SAISON_ID),
-            "next season": a_declined_confirmation(CLUB_OID, NEXT_SAISON_ID),
+            "own": a_declined_confirmation(TEAM_OID, SAISON_ID),
+            "replaced": a_declined_confirmation(REPLACED_TEAM_OID, SAISON_ID),
+            "next season": a_declined_confirmation(TEAM_OID, NEXT_SAISON_ID),
         }
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1758,7 +1758,7 @@ class TestTheSeasonsEndStripsItsConfirmations:
     async def test_a_season_with_no_block_left_to_clear_is_stripped_all_the_same(self, mongo_replica_set_url: str):
         """The club entered no contacts, as a replacement's incoming side holds none: no pass clears a block of the season."""
 
-        row = a_declined_confirmation(CLUB_OID, SAISON_ID)
+        row = a_declined_confirmation(TEAM_OID, SAISON_ID)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SAISON_TEAMS].update_one({"_id": JUNCTION_OID}, {"$set": {"kontakte": None, "confirmations": None}})
@@ -1776,7 +1776,7 @@ class TestTheSeasonsEndStripsItsConfirmations:
     ):
         """A replaced club's row the installed validator refuses, which no block clearing writes: the strip alone meets it."""
 
-        refused = {key: value for key, value in a_declined_confirmation(REPLACED_CLUB_OID, SAISON_ID).items() if key != "deadline"}
+        refused = {key: value for key, value in a_declined_confirmation(REPLACED_TEAM_OID, SAISON_ID).items() if key != "deadline"}
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPIELBESTAETIGUNGEN].insert_one(refused)
@@ -1799,7 +1799,7 @@ class TestTheSeasonsEndStripsItsConfirmations:
 
     async def test_an_administrators_settle_reason_goes_and_their_answer_gains_no_holder(self, mongo_replica_set_url: str):
         settled = {
-            **a_declined_confirmation(CLUB_OID, SAISON_ID),
+            **a_declined_confirmation(TEAM_OID, SAISON_ID),
             "answer": {"kind": "declined", "at": "2026-04-03", "by": {"kind": "admin"}, "vorschlag": None, "reason": "Platz gesperrt"},
         }
 
@@ -1817,7 +1817,7 @@ class TestTheSeasonsEndStripsItsConfirmations:
 
         def referee_row(saison_id: str) -> dict[str, Any]:
             return {
-                **a_declined_confirmation(CLUB_OID, saison_id),
+                **a_declined_confirmation(TEAM_OID, saison_id),
                 "party": {"kind": "schiedsrichter", "schiedsrichter_id": ObjectId()},
                 "answer": {
                     "kind": "agreed",

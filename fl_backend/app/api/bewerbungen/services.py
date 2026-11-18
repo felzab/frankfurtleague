@@ -75,7 +75,7 @@ def find_acceptance_subject_refusal(*, team_id: Any | None, schule: Mapping[str,
 
 # The school's field names in the club's. `team_name` becomes the club's `name`; the other three are
 # spelled alike on both sides, and `description` and `shorthand` are on neither.
-_CLUB_FIELDS_FROM_SCHULE = {
+_TEAM_FIELDS_FROM_SCHULE = {
     "team_name": "name",
     "full_name": "full_name",
     "schulform": "schulform",
@@ -96,10 +96,10 @@ def find_acceptance_code_refusal(*, new_school: bool, shorthand: str | None) -> 
     return None
 
 
-def compose_new_club(*, schule: Any, shorthand: str | None) -> dict[str, Any]:
+def compose_new_team(*, schule: Any, shorthand: str | None) -> dict[str, Any]:
     """The club document acceptance would create, from the school's block as stored and the code the administrator set.
 
-    Raw so `find_new_club_refusal` judges every field: a `str()` here makes a club named `'None'`
+    Raw so `find_new_team_refusal` judges every field: a `str()` here makes a club named `'None'`
     from a null with no undo, and a subscript 500s where the rule promises 409.
     """
 
@@ -113,21 +113,21 @@ def compose_new_club(*, schule: Any, shorthand: str | None) -> dict[str, Any]:
         "shorthand": shorthand,
         # A key the block has not got is left out rather than defaulted, so the guard names it
         # "Field required" rather than judging a null nobody submitted.
-        **{club_field: fields[schule_field] for schule_field, club_field in _CLUB_FIELDS_FROM_SCHULE.items() if schule_field in fields},
+        **{team_field: fields[schule_field] for schule_field, team_field in _TEAM_FIELDS_FROM_SCHULE.items() if schule_field in fields},
     }
 
 
-def parse_new_club(*, club_document: Mapping[str, Any]) -> dict[str, Any]:
+def parse_new_team(*, seeded_team: Mapping[str, Any]) -> dict[str, Any]:
     """The club document as stored, from one the guard has already passed.
 
     Parsed, not composed: `website_url`'s validator strips tab, return and newline, so the raw
     block leaves `teams` holding what `POST /teams` never stores for the same school.
     """
 
-    return FLPostTeamPayload.model_validate(club_document).model_dump(mode="json")
+    return FLPostTeamPayload.model_validate(seeded_team).model_dump(mode="json")
 
 
-def find_new_club_refusal(*, club_document: Mapping[str, Any]) -> WriteRefusal | None:
+def find_new_team_refusal(*, seeded_team: Mapping[str, Any]) -> WriteRefusal | None:
     """Why the school's details make no club, or `None`.
 
     Through the payload itself, never a copy: nothing else judges them, so a scheme-less `website_url` would reach
@@ -135,7 +135,7 @@ def find_new_club_refusal(*, club_document: Mapping[str, Any]) -> WriteRefusal |
     """
 
     try:
-        FLPostTeamPayload.model_validate(club_document)
+        FLPostTeamPayload.model_validate(seeded_team)
     # Narrow on purpose: anything else raised here is a fault in this code, and a 409 blaming the
     # school for one is a refusal nobody can act on.
     except ValidationError:
@@ -215,7 +215,7 @@ def find_submission_subject_refusal(*, team_id: Any | None, schule: Any | None) 
     return None
 
 
-def find_picked_club_refusal(*, team_raw: Mapping[str, Any] | None) -> WriteRefusal | None:
+def find_picked_team_refusal(*, team_raw: Mapping[str, Any] | None) -> WriteRefusal | None:
     """Why the club the applicant picked is not one to apply as, or `None`.
 
     One code for a club that does not exist and one that has left: the picker offers neither, so
@@ -822,14 +822,14 @@ def saison_schule(row: Mapping[str, Any]) -> str:
     return str(row.get("name") or "")
 
 
-def bewerbung_schule(*, bewerbung_raw: Mapping[str, Any], club_name: Any) -> str:
+def bewerbung_schule(*, bewerbung_raw: Mapping[str, Any], team_name: Any) -> str:
     """What the application's confirmation page fills `{schule}` with: the school as submitted, or the picked club's own name."""
 
     schule = bewerbung_raw.get("schule")
     if isinstance(schule, Mapping):
         return str(schule.get("team_name") or "")
 
-    return str(club_name or "")
+    return str(team_name or "")
 
 
 def build_own_bewerbung_filter(*identifiers: str) -> Mapping[str, Any]:
@@ -1417,14 +1417,14 @@ def undecided_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], saison_status:
     return bewerbung_raw.get("status") == "submitted" and season_has_ended(saison_status=saison_status)
 
 
-def schule_name(*, bewerbung_raw: Mapping[str, Any], club_names: Mapping[Any, str]) -> str:
+def schule_name(*, bewerbung_raw: Mapping[str, Any], team_names: Mapping[Any, str]) -> str:
     """The school's name as submitted, or the picked club's as the router resolved it; empty where neither resolves."""
 
     schule = bewerbung_raw.get("schule")
     if isinstance(schule, Mapping):
         return str(schule.get("team_name") or "")
 
-    return club_names.get(bewerbung_raw.get("team_id"), "")
+    return team_names.get(bewerbung_raw.get("team_id"), "")
 
 
 def bewerbung_link(seats: Sequence[str], *, replaced: bool) -> FLOutboxLink:
@@ -1656,7 +1656,7 @@ def is_duplicate(*, row: Mapping[str, Any], doubled: Container[Any]) -> bool:
 
 
 def bewerbung_list_row(
-    *, row: Mapping[str, Any], club_names: Mapping[Any, str], club_codes: Mapping[Any, str], doubled: Container[Any]
+    *, row: Mapping[str, Any], team_names: Mapping[Any, str], team_codes: Mapping[Any, str], doubled: Container[Any]
 ) -> dict[str, Any]:
     """One stored application as `FLBewerbungListRow` serves it."""
 
@@ -1665,9 +1665,9 @@ def bewerbung_list_row(
         "version": row["version"],
         "status": row["status"],
         "submitted_at": row["submitted_at"],
-        "name": schule_name(bewerbung_raw=row, club_names=club_names),
+        "name": schule_name(bewerbung_raw=row, team_names=team_names),
         "new_school": isinstance(row.get("schule"), Mapping),
-        "shorthand": club_codes.get(row.get("team_id")),
+        "shorthand": team_codes.get(row.get("team_id")),
         "wunschfarbe": row["trikot"]["wunschfarbe"],
         "stufengroesse": row["stufengroesse"],
         "expected_kader": row["kader"]["expected_size"],

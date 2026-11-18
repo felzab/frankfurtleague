@@ -173,7 +173,7 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
         assert [path for path in sorted(spiel_seen) if not loaded_by(JUDGED_SPIEL_FIELDS, path)] == []
         assert [path for path in sorted(junctions_seen) if not loaded_by(JUDGED_JUNCTION_FIELDS, path)] == []
 
-    def test_the_answer_reads_nothing_of_the_clubs_its_projection_leaves_out(self):
+    def test_the_answer_reads_nothing_of_the_teams_its_projection_leaves_out(self):
         """The fixture it reads whole, a proposal being judged as the stored fixture on a new date."""
 
         junctions_seen: set[str] = set()
@@ -342,7 +342,7 @@ class TestTheDayARowLapsed:
 
         assert lapsed_on(spielbestaetigung_raw=raw, reason=reason, spiel=state.spiel, austritte=austritte_of(state), now=now) == lapsed
 
-    def test_a_referee_is_due_by_the_slot_and_a_club_by_its_deadline(self):
+    def test_a_referee_is_due_by_the_slot_and_a_team_by_its_deadline(self):
         assert (due_by_of(row(**REFEREES)), due_by_of(row())) == (DATE, DEADLINE)
 
 
@@ -408,7 +408,7 @@ class TestAClosedRowReadsAsThePublicFixtureCountsIt:
         )
 
 
-class TestAClubAnswersUntilItsDeadline:
+class TestATeamAnswersUntilItsDeadline:
     def test_on_its_deadline_the_answer_is_taken_and_the_day_after_refused(self):
         on, after = (
             find_unanswerable_refusal(spielbestaetigung_raw=row(), ansetzung_state=ansetzung_state(), now=now)

@@ -254,19 +254,19 @@ class TestTheLinkIsSpentByTheStamp:
         assert await on_a_league(mongo_replica_set_url, body, registrierungen=[declined]) == Code.LINK_EXPIRED
 
     @pytest.mark.parametrize("route", ["austritt", "replacement"])
-    async def test_a_departed_clubs_link_reads_over_and_takes_no_answer(self, mongo_replica_set_url: str, route: str):
+    async def test_a_departed_teams_link_reads_over_and_takes_no_answer(self, mongo_replica_set_url: str, route: str):
         """Its club takes no one in, so the pupil's answer would stand on a registration nobody can ever admit.
 
         Either way out: a replacement hands the club's row to another club, so it leaves no record to read, only no row.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            club_row = {"saison_id": SAISON_ID, "team_id": TEAM_OID}
+            team_row = {"saison_id": SAISON_ID, "team_id": TEAM_OID}
             if route == "austritt":
                 austritt = {"type": "rueckzug", "reason": "Schulwechsel", "date": YESTERDAY}
-                await database[Collection.SAISON_TEAMS].update_one(club_row, {"$set": {"austritt": austritt}})
+                await database[Collection.SAISON_TEAMS].update_one(team_row, {"$set": {"austritt": austritt}})
             else:
-                await database[Collection.SAISON_TEAMS].delete_one(club_row)
+                await database[Collection.SAISON_TEAMS].delete_one(team_row)
             view = await read_view(database, RAW)
             return view.state, await refused_code(answer(database, client, RAW)), await stored(database)
 

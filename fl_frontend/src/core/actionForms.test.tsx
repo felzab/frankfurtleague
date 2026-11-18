@@ -187,7 +187,7 @@ describe("each form's posted names meet its lane's keys", () => {
       [
         "POST /teams/saisons/2027/entry",
         {
-          club: {
+          team: {
             kind: "new",
             team: {
               name: "Goethe",

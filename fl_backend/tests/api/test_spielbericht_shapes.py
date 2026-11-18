@@ -215,7 +215,7 @@ class TestACalledOffSpielTakesNoReport:
         assert kader_is_open(context(sonderereignis="ausgefallen"), now=NOW) is False
 
 
-class TestAFixtureAClubLeftTakesNoReportFromItsReferee:
+class TestAFixtureATeamLeftTakesNoReportFromItsReferee:
     """The pass told the referee they no longer referee it: still taken, their report would stand on a match the club left."""
 
     @pytest.mark.parametrize(
@@ -312,11 +312,11 @@ class TestTheAdoptedStateIsDerivedFromTwo:
         assert bericht_state_of(saved(), spiel(sonderereignis="abgebrochen")) == "proposed"
 
 
-class TestAReportAboutOtherClubsReadsItsOwnState:
+class TestAReportAboutOtherTeamsReadsItsOwnState:
     """A knockout correction fields another club on a side the report credits goals and entries to."""
 
     @pytest.mark.parametrize("side", ["team1", "team2"])
-    def test_a_side_fielding_another_club_reads_sides_changed_whatever_the_result(self, side: str):
+    def test_a_side_fielding_another_team_reads_sides_changed_whatever_the_result(self, side: str):
         """Adopted and matching, or holding no result: the proposal still names the clubs that left."""
 
         bericht = saved(adopted=True, sides={**SIDES, side: ObjectId()})

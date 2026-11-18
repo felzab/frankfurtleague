@@ -248,7 +248,7 @@ async def get_saison_admin(
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id})
     saison_status = str(saison_raw["status"])
 
-    rows, count_spieltage, clubs, finale_by_saison, activation, recorded_rows, berichte, planned = await concurrently(
+    rows, count_spieltage, teams, finale_by_saison, activation, recorded_rows, berichte, planned = await concurrently(
         # Whole, as the bracket's advance reads its season: a truncated list offers a club the replacement refuses as
         # entered.
         pull_whole_from_db(
@@ -331,7 +331,7 @@ async def get_saison_admin(
     return FLSaisonAdminResponse(
         saison=saison,
         teams=[FLSaisonAdminTeam.model_validate(row) for row in rows],
-        incoming_teams=[FLSaisonAdminIncomingTeam.model_validate(club) for club in clubs if club["_id"] not in entered],
+        incoming_teams=[FLSaisonAdminIncomingTeam.model_validate(team) for team in teams if team["_id"] not in entered],
         shapes=workable_shapes(saison.rules),
         spielplan=spielplan,
         refusals=FLSaisonActRefusals(

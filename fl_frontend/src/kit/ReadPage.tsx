@@ -60,7 +60,7 @@ export type ReadRecord = {
    */
   spiel?: { head: SpielHeadProps; sonderereignis: { title: Copy; text: Copy } | null };
   /**
-   * A club's head over the groups, `ClubHead`, which the club's page places as `folds` holds `ReadFolds`; and, where
+   * A club's head over the groups, `TeamProfileHead`, which the club's page places as `folds` holds `ReadFolds`; and, where
    * the club has left the season, its route and day over the reason as it was stored.
    */
   club?: { head: ReactElement; austritt: { title: Copy; text: RecordText } | null };

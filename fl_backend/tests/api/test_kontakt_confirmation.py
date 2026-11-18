@@ -594,7 +594,7 @@ class TestTheDeadline:
 
 
 class TestARowsPeopleLeavingTakeTheirLinks:
-    async def test_a_replaced_club_s_links_open_nothing_on_the_incoming_club_s_row(self, mongo_replica_set_url: str):
+    async def test_a_replaced_team_s_links_open_nothing_on_the_incoming_team_s_row(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             response = await save(database, THREE)
             await replace(database)

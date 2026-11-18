@@ -333,10 +333,10 @@ class TestTheOneRolePerKaderOnEveryWritePath:
         assert (await on_a_database(mongo_replica_set_url, body)).error_code == Code.KADER_ROLLE_TAKEN
 
 
-class TestReactivatingIntoASeasonTheClubHasLeft:
+class TestReactivatingIntoASeasonTheTeamHasLeft:
     """`kader_team_not_in_saison` on the third write path, a replacement's: it retires a club's squad and hands that club's row away."""
 
-    async def test_reviving_a_row_whose_club_left_the_season_is_refused(self, mongo_replica_set_url: str):
+    async def test_reviving_a_row_whose_team_left_the_season_is_refused(self, mongo_replica_set_url: str):
         """Kills the reactivate asking the cap alone: the row goes live naming a club the season holds no junction row for."""
 
         async def body(database: AsyncDatabase) -> Any:

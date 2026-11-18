@@ -233,7 +233,7 @@ class TestWhatTheServerComposes:
 
 
 class TestTheSubmissionNamesOneApplicant:
-    def test_a_submission_naming_neither_a_club_nor_a_school_is_refused(self):
+    def test_a_submission_naming_neither_a_team_nor_a_school_is_refused(self):
         """An application for nobody: the triage could neither enter a club nor create a school from it."""
 
         refusal = find_submission_subject_refusal(team_id=None, schule=None)

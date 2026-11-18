@@ -14,7 +14,7 @@ const box = cardSurface({ class: "grid gap-3 p-4" });
  * It is a module of its own, which only the club's page imports, so a read page with no club head ships none of
  * the description's client code.
  */
-export function ClubHead({
+export function TeamProfileHead({
   plaque,
   name,
   website,

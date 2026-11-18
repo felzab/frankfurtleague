@@ -279,10 +279,10 @@ def compose_public_aufstellungen(spiel_raw: Mapping[str, Any]) -> FLAufstellunge
     ones. A line-up holding no entry stands as none.
     """
 
-    by_club = {row["team_id"]: row for row in spiel_raw[PUBLIC_AUFSTELLUNGEN_AS]}
+    by_team = {row["team_id"]: row for row in spiel_raw[PUBLIC_AUFSTELLUNGEN_AS]}
 
     def side_of(side: FLSpielSide) -> dict[str, Any] | None:
-        row = by_club.get(team_id_of(spiel_raw, side))
+        row = by_team.get(team_id_of(spiel_raw, side))
         if row is None or not aufstellung_stands(row):
             return None
 

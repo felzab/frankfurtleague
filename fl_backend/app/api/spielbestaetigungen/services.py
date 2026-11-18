@@ -9,9 +9,9 @@ from app.api.bewerbungen.services import days_after
 from app.api.invitations.services import confirmed_recipients
 from app.api.outbox.schemas import (
     FLAustrittNoticeData,
-    FLOutboxClub,
     FLOutboxData,
     FLOutboxReference,
+    FLOutboxTeam,
     FLSpielEinteilungLiftedData,
     FLSpielMailAnsetzung,
     FLSpielMailAppointment,
@@ -901,7 +901,7 @@ def reason_to_close(
     """
 
     ansetzung = row["ansetzung"]
-    clubs = (ansetzung["team1_id"], ansetzung["team2_id"])
+    team_ids = (ansetzung["team1_id"], ansetzung["team2_id"])
     # First: a party taken off the fixture is told so, never that the match it no longer plays or officiates was called
     # off, decided or moved. A club taken off is the move's to tell, which words it as taken off.
     if not still_a_party(row=row, spiel=spiel):
@@ -915,7 +915,7 @@ def reason_to_close(
     if clock.german_day(now) < tag and spiel.get("sonderereignis") in SONDEREREIGNIS_CALLING_OFF_BEFORE_ITS_DAY:
         return "cancelled"
 
-    decided = decision_of(spiel=spiel, austritte=[austritte[team_id] for team_id in clubs if team_id in austritte], tag=tag)
+    decided = decision_of(spiel=spiel, austritte=[austritte[team_id] for team_id in team_ids if team_id in austritte], tag=tag)
     if decided is not None:
         return decided
 
@@ -1255,7 +1255,7 @@ def team_mails(*, spielbestaetigung_raw: Mapping[str, Any], kontakte: Any, data:
             to=recipient.email,
             data=data,
             reference=reference_of(spielbestaetigung_id=row_id, seat=recipient.rolle),
-            club=FLOutboxClub(saison_id=spielbestaetigung_raw["saison_id"], team_id=spielbestaetigung_raw["party"]["team_id"]),
+            team=FLOutboxTeam(saison_id=spielbestaetigung_raw["saison_id"], team_id=spielbestaetigung_raw["party"]["team_id"]),
         )
         for recipient in confirmed_recipients(kontakte=kontakte)
     ]
@@ -1309,7 +1309,7 @@ def austritt_notices_of(
                 to=recipient.email,
                 data=data,
                 reference=reference,
-                club=FLOutboxClub(saison_id=saison_id, team_id=opponent_id),
+                team=FLOutboxTeam(saison_id=saison_id, team_id=opponent_id),
             )
             for recipient in confirmed_recipients(kontakte=opponent.get("kontakte"))
         ]

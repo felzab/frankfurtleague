@@ -295,7 +295,7 @@ class TestWhatAMintStores:
         assert "team.invitation_created" in recorded, "the mint filed no log row at all, so the assertion below holds of nothing"
         assert token not in recorded
 
-    async def test_the_withdrawal_is_logged_under_the_club(self, mongo_replica_set_url: str):
+    async def test_the_withdrawal_is_logged_under_the_team(self, mongo_replica_set_url: str):
         """A row naming only a season says nothing of whose link went, and a search by the club misses it."""
 
         async def body(database: AsyncDatabase) -> Any:

@@ -12,9 +12,9 @@ from app.api.aufstellungen.services import aufstellung_marks, aufstellung_remind
 from app.api.invitations.services import confirmed_recipients
 from app.api.outbox.schemas import (
     FLAufstellungReminderData,
-    FLOutboxClub,
     FLOutboxData,
     FLOutboxReference,
+    FLOutboxTeam,
     FLSpielEinteilungData,
     FLSpielMailAppointment,
     FLSpielRequestData,
@@ -340,7 +340,7 @@ async def sweep_spielbestaetigungen(
         )
 
         mails: list[OwedMail] = []
-        told_clubs: set[Any] = set()
+        told_teams: set[Any] = set()
         told_referees: set[Any] = set()
         for row in owing:
             reason, party = reasons[row["_id"]], row["party"]
@@ -382,14 +382,14 @@ async def sweep_spielbestaetigungen(
                 continue
             told = team_mails(spielbestaetigung_raw=row, kontakte=junction.get("kontakte"), data=data, occasion=reason)
             if told:
-                told_clubs.add(junction["_id"])
+                told_teams.add(junction["_id"])
                 mails += told
 
         # Ahead of the writes: what each mail's mailbox was read off, so a seat emptied or an address moved beside this
         # step conflicts with it rather than leaving the replaced mailbox told.
-        if told_clubs:
+        if told_teams:
             await anchor_the_mailboxes_told(
-                saison_teams_collection=saison_teams_collection, saison_team_ids=sorted(told_clubs, key=str), session=session
+                saison_teams_collection=saison_teams_collection, saison_team_ids=sorted(told_teams, key=str), session=session
             )
         if told_referees:
             await anchor_the_referees_told(
@@ -733,25 +733,28 @@ async def sweep_spielbestaetigungen(
         )
         austritte = _austritte(junctions)
 
-        def clubs_owed(spiel: Mapping[str, Any]) -> list[Any]:
+        def teams_owed(spiel: Mapping[str, Any]) -> list[Any]:
             """The fixture's clubs holding no line-up for it that stands (`aufstellung_stands`), the fixture still theirs to play on its day."""
 
-            clubs = [spiel[side]["team_id"] for side in ("team1", "team2")]
-            if decision_of(spiel=spiel, austritte=[austritte[club] for club in clubs if club in austritte], tag=spiel["date"]) is not None:
+            team_ids = [spiel[side]["team_id"] for side in ("team1", "team2")]
+            if (
+                decision_of(spiel=spiel, austritte=[austritte[team_id] for team_id in team_ids if team_id in austritte], tag=spiel["date"])
+                is not None
+            ):
                 return []
 
             # Every club a fixture fields holds its season row: no write removes one, and a replacement moves the fixtures.
-            return [club for club in clubs if (spiel["_id"], club) not in stored]
+            return [team_id for team_id in team_ids if (spiel["_id"], team_id) not in stored]
 
-        owed = [(spiel, club) for spiel, clubs in batch.judged(due, clubs_owed) for club in clubs]
+        owed = [(spiel, team_id) for spiel, team_ids in batch.judged(due, teams_owed) for team_id in team_ids]
         reminded = {
             row["key"]
             for row in await outbox_collection.find(
                 {
                     "key": {
                         "$in": [
-                            aufstellung_reminder_key(spiel_id=spiel["_id"], team_id=club, seat=seat)
-                            for spiel, club in owed
+                            aufstellung_reminder_key(spiel_id=spiel["_id"], team_id=team_id, seat=seat)
+                            for spiel, team_id in owed
                             for seat in KONTAKT_ROLLEN
                         ]
                     }
@@ -763,17 +766,17 @@ async def sweep_spielbestaetigungen(
 
         mails: list[OwedMail] = []
         told: dict[Any, set[Any]] = {}
-        for spiel, club in owed:
+        for spiel, team_id in owed:
             # Any seat's key stored is the club reminded, whoever holds its seats now.
-            if any(aufstellung_reminder_key(spiel_id=spiel["_id"], team_id=club, seat=seat) in reminded for seat in KONTAKT_ROLLEN):
+            if any(aufstellung_reminder_key(spiel_id=spiel["_id"], team_id=team_id, seat=seat) in reminded for seat in KONTAKT_ROLLEN):
                 continue
             marks = aufstellung_marks(date=spiel["date"], time=spiel["time"], stored=False, now=germany_now)
             assert marks is not None
-            junction = junctions[club]
+            junction = junctions[team_id]
             data = FLAufstellungReminderData(
                 kind="aufstellung_reminder",
                 team=junction["name"],
-                team_id=club,
+                team_id=team_id,
                 saison_id=saison_id,
                 # As the fixture's request states it, its ground among the rest.
                 appointment=spiel_mail_ansetzung_of(view_ansetzung_of(spiel)),
@@ -781,13 +784,13 @@ async def sweep_spielbestaetigungen(
             )
             owed_here = [
                 OwedMail(
-                    key=aufstellung_reminder_key(spiel_id=spiel["_id"], team_id=club, seat=recipient.rolle),
+                    key=aufstellung_reminder_key(spiel_id=spiel["_id"], team_id=team_id, seat=recipient.rolle),
                     to=recipient.email,
                     data=data,
                     reference=FLOutboxReference(collection=Collection.SAISON_TEAMS, id=junction["_id"], seat=None),
                     # Given up at the due mark: sent later, it would ask for the line-up by a moment gone by.
                     valid_until=marks.due_at,
-                    club=FLOutboxClub(saison_id=saison_id, team_id=club),
+                    team=FLOutboxTeam(saison_id=saison_id, team_id=team_id),
                 )
                 for recipient in confirmed_recipients(kontakte=junction.get("kontakte"))
             ]

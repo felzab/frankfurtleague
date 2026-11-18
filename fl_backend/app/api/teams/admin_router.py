@@ -40,12 +40,12 @@ from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_saison_past_refusal, has_started
 from app.api.spielbestaetigungen.crud import owe_the_austritt_notices_in_session, pull_austritt_recipients
 from app.api.teams.crud import (
-    enter_a_club,
-    found_a_club,
-    pull_a_club_to_enter,
+    enter_a_team,
+    found_a_team,
+    pull_a_team_to_enter,
     refuse_a_gruppe_move,
     refuse_a_taken_colour,
-    write_the_club,
+    write_the_team,
 )
 from app.api.teams.panel import FLAustrittRecipients, FLTeamSaisonAdminResponse
 from app.api.teams.schemas import (
@@ -60,8 +60,8 @@ from app.api.teams.schemas import (
     FLPostTeamEntryResponse,
     FLReplaceSaisonTeamPayload,
     FLReplaceSaisonTeamResponse,
-    FLTeamEntryClub,
     FLTeamEntryOffer,
+    FLTeamEntryTeam,
     FLTeamMembership,
     FLTeamRecord,
     FLTeamsAdminFilterParams,
@@ -150,7 +150,7 @@ router = APIRouter(
 )
 
 
-async def _rewrite_the_outgoing_clubs_sides(
+async def _rewrite_the_outgoing_teams_sides(
     *,
     spiele: Sequence[Mapping[str, Any]],
     outgoing_team_id: Any,
@@ -299,7 +299,7 @@ async def get_teams_admin(
     """
 
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": filters.saison_id}, projection=["status", "rules"])
-    rows, clubs = await concurrently(
+    rows, teams = await concurrently(
         # Each whole, as the group's fill is judged over every row. The seat's stamp and never its person: this list names none.
         pull_whole_from_db(
             collection=saison_teams_collection,
@@ -329,9 +329,9 @@ async def get_teams_admin(
     entered = {row["team_id"] for row in rows}
 
     return FLTeamsAdminListResponse(
-        teams=teams_admin_rows(rows=rows, clubs=clubs, state=filters.state, gruppe=filters.gruppe),
+        teams=teams_admin_rows(rows=rows, teams=teams, state=filters.state, gruppe=filters.gruppe),
         entry=FLTeamEntryOffer(
-            clubs=[FLTeamEntryClub.model_validate(club) for club in clubs if club["_id"] not in entered and club.get("inactive_since") is None],
+            teams=[FLTeamEntryTeam.model_validate(team) for team in teams if team["_id"] not in entered and team.get("inactive_since") is None],
             gruppen=gruppe_offer(rules=FLSaisonRules.model_validate(saison_raw["rules"]), gruppen=[row["gruppe"] for row in rows]),
             closed=saison_raw["status"] != "future",
             taken=assigned_trikot_farben(stored=[row.get("trikot_farbe") for row in rows]),
@@ -474,13 +474,13 @@ async def post_team_entry(
     """
 
     async def found_and_enter(session: AsyncClientSession) -> Any:
-        club = entry_data.club
+        picked = entry_data.team
         team_id = (
-            club.team_id
-            if club.kind == "known"
-            else await found_a_club(teams_collection=teams_collection, club=club.team.model_dump(mode="json"), session=session)
+            picked.team_id
+            if picked.kind == "known"
+            else await found_a_team(teams_collection=teams_collection, team=picked.team.model_dump(mode="json"), session=session)
         )
-        name = await enter_a_club(
+        name = await enter_a_team(
             teams_collection=teams_collection,
             saison_teams_collection=saison_teams_collection,
             saisons_collection=saisons_collection,
@@ -517,7 +517,7 @@ async def delete_team(
     Refused while the club is entered in an `active` or `future` season.
     """
 
-    async def retire_the_club(session: AsyncClientSession) -> None:
+    async def retire_the_team(session: AsyncClientSession) -> None:
         """Judge the club's seasons, then stamp it. Everything judged is read in-session, so a retry re-judges it."""
 
         # Two small reads rather than a lookup: a club holds a handful of rows, the league a few seasons.
@@ -544,8 +544,8 @@ async def delete_team(
             await record_act(collection=teams_collection, action="team.retired", record_id=team_id, label=str(retired["name"]), session=session)
 
     # Soft, since the seasons it played still happened. The stamp inside the judgement's transaction: an entry writes
-    # nothing read here, so the club it anchors (`pull_a_club_to_enter`) is the one document the two conflict on.
-    await transact(db, retire_the_club)
+    # nothing read here, so the club it anchors (`pull_a_team_to_enter`) is the one document the two conflict on.
+    await transact(db, retire_the_team)
 
 
 @router.post(
@@ -560,14 +560,14 @@ async def reactivate_team(
 ) -> None:
     """Clear `inactive_since`, restoring a retired club to reads that hide retired ones."""
 
-    async def bring_the_club_back(session: AsyncClientSession) -> None:
+    async def bring_the_team_back(session: AsyncClientSession) -> None:
         revived = await set_inactive_since(collection=teams_collection, db_filter={"_id": team_id}, when=None, session=session)
         if revived is not None:
             await record_act(
                 collection=teams_collection, action="team.reactivated", record_id=team_id, label=str(revived["name"]), session=session
             )
 
-    await transact(db, bring_the_club_back)
+    await transact(db, bring_the_team_back)
 
 
 @router.patch(
@@ -592,7 +592,7 @@ async def patch_team_saison(
 
     row_filter = {"team_id": team_id, "saison_id": saison_id}
 
-    async def save_the_club_and_its_row(session: AsyncClientSession) -> FLPatchTeamSaisonResponse:
+    async def save_the_team_and_its_row(session: AsyncClientSession) -> FLPatchTeamSaisonResponse:
         """Judge both parts, then write both. Everything judged is read in-session, so a retry re-judges it."""
 
         team_raw = await pull_one_from_db(collection=teams_collection, db_filter={"_id": team_id}, projection=[VERSION_FIELD], session=session)
@@ -637,12 +637,12 @@ async def patch_team_saison(
                 session=session,
             )
 
-        stored_team = await write_the_club(
+        stored_team = await write_the_team(
             teams_collection=teams_collection,
             saison_teams_collection=saison_teams_collection,
             saisons_collection=saisons_collection,
             team_id=team_id,
-            club=team_data.model_dump(mode="json", exclude={"gruppe", "trikot_farbe", "version"}),
+            team=team_data.model_dump(mode="json", exclude={"gruppe", "trikot_farbe", "version"}),
             session=session,
         )
 
@@ -665,7 +665,7 @@ async def patch_team_saison(
 
     # One transaction, or a refusal of the row's part leaves the club's half saved under an editor reading it as failed.
     # `transact` is safe to retry, every write deriving from the payload and an in-session read.
-    return await transact(db, save_the_club_and_its_row)
+    return await transact(db, save_the_team_and_its_row)
 
 
 @router.put(
@@ -868,9 +868,9 @@ async def replace_saison_team(
         await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
 
         # The one read of the incoming club, and it earns its place three times over: an id naming
-        # nothing 404s here, the row's name is reseeded from it as `enter_a_club` seeds one at
+        # nothing 404s here, the row's name is reseeded from it as `enter_a_team` seeds one at
         # entry, and every rewritten fixture side takes the same two values.
-        incoming_raw = await pull_a_club_to_enter(teams_collection=teams_collection, team_id=replacement_data.incoming_team_id, session=session)
+        incoming_raw = await pull_a_team_to_enter(teams_collection=teams_collection, team_id=replacement_data.incoming_team_id, session=session)
 
         incoming_rows = await pull_whole_from_db(
             collection=saison_teams_collection,
@@ -898,7 +898,7 @@ async def replace_saison_team(
             session=session,
         )
 
-        # The row's identity, reseeded as `enter_a_club` seeds one at entry: every fixture of the season reads its
+        # The row's identity, reseeded as `enter_a_team` seeds one at entry: every fixture of the season reads its
         # side's name from here. No `tore`: a replacement runs only before the season's start, when the save refuses a
         # result.
         incoming_side = {
@@ -907,7 +907,7 @@ async def replace_saison_team(
             "shorthand": incoming_raw["shorthand"],
         }
 
-        rewritten = await _rewrite_the_outgoing_clubs_sides(
+        rewritten = await _rewrite_the_outgoing_teams_sides(
             spiele=spiele,
             outgoing_team_id=team_id,
             incoming_team_id=replacement_data.incoming_team_id,
@@ -1153,9 +1153,9 @@ async def delete_invitation(
             return_document=ReturnDocument.BEFORE,
         )
         # The club's own document: a season's junction row can be handed to another club, and the link stays revocable.
-        club = await pull_one_from_db(collection=teams_collection, db_filter={"_id": team_id}, projection=["name"], session=session)
+        team = await pull_one_from_db(collection=teams_collection, db_filter={"_id": team_id}, projection=["name"], session=session)
         await record_act(
-            collection=invitations_collection, action="team.invitation_withdrawn", record_id=team_id, label=str(club["name"]), session=session
+            collection=invitations_collection, action="team.invitation_withdrawn", record_id=team_id, label=str(team["name"]), session=session
         )
 
         return before

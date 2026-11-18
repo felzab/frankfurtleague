@@ -451,7 +451,7 @@ class FLOutboxLink(BaseModel):
     replaced: bool
 
 
-class FLOutboxClub(BaseModel):
+class FLOutboxTeam(BaseModel):
     """The club whose contact seats a mail goes to, by its season row: handed out only while a seat there holds its address.
 
     The seat must be confirmed, as the mail's recipients were chosen, and may be any of the club's: a person holding two
@@ -500,7 +500,7 @@ class FLOutboxRow(BaseModel):
     reference: FLOutboxReference | None
     link: FLOutboxLink | None
     # Null on every mail but one to a club's contact seats; defaulted, as a row owed before the field was written has none.
-    club: FLOutboxClub | None = Field(default=None)
+    team: FLOutboxTeam | None = Field(default=None)
     state: FLOutboxRowState
     recorded_at: datetime
     # The last moment a hand-out may send the mail; a row still open after it is given up.

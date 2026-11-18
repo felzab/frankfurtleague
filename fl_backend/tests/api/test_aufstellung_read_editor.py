@@ -27,7 +27,7 @@ HOME, AWAY, REPLACED = (ObjectId(f"6890a1b2c3d4e5f6074500{n:02d}") for n in (1, 
 LINA, OLE, MIA, TOM = (ObjectId(f"6890a1b2c3d4e5f6074500{n:02d}") for n in (11, 12, 13, 14))
 
 
-async def test_each_side_counts_the_line_up_of_the_club_it_fields_now(mongo_replica_set_url: str):
+async def test_each_side_counts_the_line_up_of_the_team_it_fields_now(mongo_replica_set_url: str):
     """The home club's three named, two starting; the away side's club has stored none, and the club it replaced has."""
 
     spiel = documents.spiel_document(

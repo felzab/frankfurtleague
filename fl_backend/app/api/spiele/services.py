@@ -42,7 +42,7 @@ from app.api.spiele.schemas import (
     FLSpielTeamField,
     FLSpielTeamFieldJoinedInternal,
     FLSpielTeamFieldPayload,
-    FLSpielVoidedResult,
+    FLSpielVoidedErgebnis,
     is_unplayed,
     records_an_absence,
 )
@@ -181,7 +181,7 @@ def _ansetzung_confirmed() -> Mapping[str, Any]:
     sides = [{"$ifNull": [f"${ANSETZUNG_QUELLEN[key]}", None]} for key in ("team1_id", "team2_id")]
     # The agreeing clubs are the two sides, never merely two rows: two answers of one club leave the
     # other's agreement missing.
-    both_clubs = {"$setEquals": [{"$map": {"input": "$$current_rows", "in": "$$this.party.team_id"}}, sides]}
+    both_teams = {"$setEquals": [{"$map": {"input": "$$current_rows", "in": "$$this.party.team_id"}}, sides]}
 
     return {
         "$let": {
@@ -190,7 +190,7 @@ def _ansetzung_confirmed() -> Mapping[str, Any]:
                 "$cond": [
                     {"$eq": [{"$size": "$$team_rows"}, 0]},
                     None,
-                    {"$let": {"vars": {"current_rows": current_rows}, "in": {"$and": [all_agreed, both_clubs]}}},
+                    {"$let": {"vars": {"current_rows": current_rows}, "in": {"$and": [all_agreed, both_teams]}}},
                 ]
             },
         }
@@ -776,15 +776,15 @@ def _resolve_sides(spiel_nr: int, walk: _BracketWalk) -> ResolvedSides:
         sides.append(occupant.model_copy(update={"tore": None}) if occupant is not None else None)
         an_occupant_changed = True
 
-    both_sides_one_club = sides[0] is not None and sides[1] is not None and sides[0].team_id == sides[1].team_id
+    both_sides_one_team = sides[0] is not None and sides[1] is not None and sides[0].team_id == sides[1].team_id
 
     # Reported even where nothing moves: a fixture already holding the club its source resolves to
     # stores the contradiction rather than producing it, and the write path cannot refuse that.
-    if both_sides_one_club and a_side_is_maintained:
+    if both_sides_one_team and a_side_is_maintained:
         walk.faults.append(FLBracketFaultSpiel(reason="same_team", spiel_id=spiel.id, spiel_nr=spiel_nr))
 
     # Recorded as not maintained: claiming a change would void this result and the whole subtree's.
-    if an_occupant_changed and both_sides_one_club:
+    if an_occupant_changed and both_sides_one_team:
         walk.memo[spiel_nr] = (spiel.team1, spiel.team2, False)
         return walk.memo[spiel_nr]
 
@@ -1800,16 +1800,16 @@ def find_advancement_occupancy_refusal(season: Sequence[FLSpielCommon], advancem
 
 
 # The deleted result's own fields, whichever report carries it: a released side's adds which side and whose.
-_VOIDED_FIELDS: Final = frozenset(FLSpielVoidedResult.model_fields)
+_VOIDED_FIELDS: Final = frozenset(FLSpielVoidedErgebnis.model_fields)
 
 
-def _voided_key(result: FLSpielVoidedResult) -> str:
+def _voided_key(result: FLSpielVoidedErgebnis) -> str:
     """One deleted result as a comparable identity: its fixture and each value it held."""
 
     return result.model_dump_json(include=set(_VOIDED_FIELDS))
 
 
-def voided_results_of(rewrites: Iterable[FLSpielVoidedResult]) -> list[FLSpielVoidedResult]:
+def voided_ergebnisse_of(rewrites: Iterable[FLSpielVoidedErgebnis]) -> list[FLSpielVoidedErgebnis]:
     """Every stored result `rewrites` delete, each once, in their fixtures' numbers' order; a slot filled from empty deletes none.
 
     One reading for the dry run's answer and the save's judgement, so the set a person confirms is the set the save
@@ -1817,7 +1817,7 @@ def voided_results_of(rewrites: Iterable[FLSpielVoidedResult]) -> list[FLSpielVo
     """
 
     voided = {
-        _voided_key(rewrite): FLSpielVoidedResult.model_validate(rewrite.model_dump(include=set(_VOIDED_FIELDS), context={"keep_oid": True}))
+        _voided_key(rewrite): FLSpielVoidedErgebnis.model_validate(rewrite.model_dump(include=set(_VOIDED_FIELDS), context={"keep_oid": True}))
         for rewrite in rewrites
         if rewrite.voided_ergebnis is not None or rewrite.voided_elfmeterschiessen is not None or rewrite.voided_sonderereignis is not None
     }
@@ -1825,7 +1825,9 @@ def voided_results_of(rewrites: Iterable[FLSpielVoidedResult]) -> list[FLSpielVo
     return sorted(voided.values(), key=lambda result: result.spiel_nr)
 
 
-def find_voided_results_refusal(*, confirmed: Iterable[FLSpielVoidedResult], voided: Iterable[FLSpielVoidedResult]) -> WriteRefusal | None:
+def find_voided_ergebnisse_refusal(
+    *, confirmed: Iterable[FLSpielVoidedErgebnis], voided: Iterable[FLSpielVoidedErgebnis]
+) -> WriteRefusal | None:
     """Refuse a save deleting later results other than those it confirms, by value.
 
     By value as well as by fixture, so a result changed since the question was asked is asked about again.
@@ -1948,7 +1950,7 @@ def build_party_name_stages(*, saison_id: str) -> list[Mapping[str, Any]]:
                 "localField": "party.team_id",
                 "foreignField": "team_id",
                 "pipeline": [{"$match": {"saison_id": saison_id}}, {"$project": {"_id": 0, "name": 1}}],
-                "as": "club",
+                "as": "team",
             }
         },
         {
@@ -1960,8 +1962,8 @@ def build_party_name_stages(*, saison_id: str) -> list[Mapping[str, Any]]:
                 "as": "referee",
             }
         },
-        {"$set": {PARTY_NAME_FIELD: {"$first": {"$concatArrays": ["$club.name", "$referee.name"]}}}},
-        {"$unset": ["club", "referee"]},
+        {"$set": {PARTY_NAME_FIELD: {"$first": {"$concatArrays": ["$team.name", "$referee.name"]}}}},
+        {"$unset": ["team", "referee"]},
     ]
 
 

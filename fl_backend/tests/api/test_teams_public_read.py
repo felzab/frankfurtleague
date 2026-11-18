@@ -161,7 +161,7 @@ def played_group(saison_id: str) -> list[dict[str, Any]]:
 
 
 @pytest.mark.db
-class TestTheBracketPlacesTheClubsTheTableRanks:
+class TestTheBracketPlacesTheTeamsTheTableRanks:
     """Through the save's own resolution, over a season holding a club that left the league."""
 
     @pytest.mark.parametrize(
@@ -272,7 +272,7 @@ class TestTheBaseTierReadsWithholdTheJunctionsContactRecords:
             assert "kontakte" not in row
             assert KONTAKT_PHONE not in repr(row)
 
-    async def test_the_season_s_club_list_serves_none_of_it(self, seeded_url: str):
+    async def test_the_season_s_team_list_serves_none_of_it(self, seeded_url: str):
         response = await on_a_league(seeded_url, read_saison_teams)
 
         assert response.teams

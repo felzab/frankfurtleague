@@ -44,7 +44,7 @@ PHANTOM = ObjectId("6890a1b2c3d4e5f607260006")
 ABSENT = ObjectId("6890a1b2c3d4e5f607260009")
 
 # The club's CURRENT identity, which is what a replacement seeds the row and the fixtures from.
-CLUB_NAMES = {
+TEAM_NAMES = {
     WITHDRAWN: ("Withdrawn", "WDX"),
     INCOMING: ("Incoming", "INX"),
     RIVAL: ("Rival", "RIX"),
@@ -154,8 +154,8 @@ KADER_ROWS = [
 ]
 
 
-def club(team_id: ObjectId, inactive_since: str | None = None) -> dict[str, Any]:
-    name, shorthand = CLUB_NAMES[team_id]
+def team(team_id: ObjectId, inactive_since: str | None = None) -> dict[str, Any]:
+    name, shorthand = TEAM_NAMES[team_id]
 
     return team_document(
         team_id,
@@ -249,7 +249,7 @@ async def on_a_seeded_season(
         await database[Collection.SAISON_TEAMS].insert_many(list(default_junctions() if junctions is None else junctions))
         # No document for PHANTOM, which is the whole point of that junction row.
         await database[Collection.TEAMS].insert_many(
-            [club(WITHDRAWN), club(INCOMING), club(RIVAL), club(ENTERED), club(RETIRED, inactive_since="2026-02-01")]
+            [team(WITHDRAWN), team(INCOMING), team(RIVAL), team(ENTERED), team(RETIRED, inactive_since="2026-02-01")]
         )
         await database[Collection.SAISON_SPIELER].insert_many(list(KADER_ROWS))
         await database[Collection.SPIELE].insert_many(list(SEASON_SPIELE if spiele is None else spiele))
@@ -338,7 +338,7 @@ async def _refused(database: AsyncDatabase, client: AsyncMongoClient, incoming: 
 class TestAllFourLayersMoveTogether:
     """A replacement touching three of the four is half done, and each half passes the other's assertions."""
 
-    async def test_the_row_names_the_incoming_club(self, mongo_replica_set_url: str):
+    async def test_the_row_names_the_incoming_team(self, mongo_replica_set_url: str):
         """Layer one. Kills a fan-out that rewrites the fixtures and leaves the junction row where it was."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -350,7 +350,7 @@ class TestAllFourLayersMoveTogether:
         assert arrived is not None
         assert departed is None, "the outgoing club still holds a row, so the season fields one club too many"
 
-    async def test_the_rows_identity_is_reseeded_from_the_incoming_club(self, mongo_replica_set_url: str):
+    async def test_the_rows_identity_is_reseeded_from_the_incoming_team(self, mongo_replica_set_url: str):
         """Layer two. Kills a rewrite of `team_id` alone, which leaves the season's row spelling the OUTGOING club's name."""
 
         row = await on_a_seeded_season(mongo_replica_set_url, _row_after)
@@ -358,7 +358,7 @@ class TestAllFourLayersMoveTogether:
         assert row is not None
         assert (row["name"], row["shorthand"]) == ("Incoming", "INX")
 
-    async def test_every_side_the_club_held_moves_and_is_counted(self, mongo_replica_set_url: str):
+    async def test_every_side_the_team_held_moves_and_is_counted(self, mongo_replica_set_url: str):
         """Layer three, on both slots and past the group phase. Kills a single-pass rewrite, and a count assumed rather than returned."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -428,7 +428,7 @@ class TestAllFourLayersMoveTogether:
         assert after[1]["team2"] == before[1]["team2"], "the opponent was rewritten"
 
 
-class TestTheOutgoingClubsKaderIsRetired:
+class TestTheOutgoingTeamsKaderIsRetired:
     """The fifth surface, the one that does not move: `kader_team_not_in_saison` refuses a squad row whose club has no junction row there."""
 
     async def test_the_live_rows_are_stamped_with_the_day_of_the_replacement(self, mongo_replica_set_url: str):
@@ -445,14 +445,14 @@ class TestTheOutgoingClubsKaderIsRetired:
 
         assert kader[3]["inactive_since"] == LEFT_EARLIER_ON
 
-    async def test_the_players_stay_with_the_club_they_registered_for(self, mongo_replica_set_url: str):
+    async def test_the_players_stay_with_the_team_they_registered_for(self, mongo_replica_set_url: str):
         """Kills repointing `team_id` at the incoming club: nobody transferred, and that club registers a squad of its own."""
 
         kader = await on_a_seeded_season(mongo_replica_set_url, _kader_after)
 
         assert {kader[index]["team_id"] for index in (1, 2, 3)} == {WITHDRAWN}
 
-    async def test_another_clubs_kader_in_the_same_season_is_untouched(self, mongo_replica_set_url: str):
+    async def test_another_teams_kader_in_the_same_season_is_untouched(self, mongo_replica_set_url: str):
         """Kills a filter missing `team_id`, which would empty every squad in the season."""
 
         kader = await on_a_seeded_season(mongo_replica_set_url, _kader_after)
@@ -503,7 +503,7 @@ class TestTheOutgoingClubsKaderIsRetired:
 
 
 class TestTheReplacementReachesNothingElse:
-    async def test_a_spiel_between_two_other_clubs_is_untouched(self, mongo_replica_set_url: str):
+    async def test_a_spiel_between_two_other_teams_is_untouched(self, mongo_replica_set_url: str):
         """Kills a fan-out filtered on the season alone, which passes every assertion about the sides that did move."""
 
         spiele = await on_a_seeded_season(mongo_replica_set_url, _spiele_after)
@@ -534,7 +534,7 @@ class TestAPhantomRowIsRepaired:
     No refusal here may therefore require the outgoing club to exist.
     """
 
-    async def test_a_row_whose_club_is_gone_is_replaced(self, mongo_replica_set_url: str):
+    async def test_a_row_whose_team_is_gone_is_replaced(self, mongo_replica_set_url: str):
         """Kills a guard reading the outgoing club for its name or its standing, which would 404 on exactly the row this repairs."""
 
         row = await on_a_seeded_season(mongo_replica_set_url, lambda database, client: _row_after(database, client, team_id=PHANTOM))
@@ -610,7 +610,7 @@ class TestTheSeasonGateOnTheRoute:
 
 
 class TestWhoMayArrive:
-    async def test_a_club_the_season_already_holds_is_refused(self, mongo_replica_set_url: str):
+    async def test_a_team_the_season_already_holds_is_refused(self, mongo_replica_set_url: str):
         """`saison_teams` holds one row a club, and the row handed over would be its second."""
 
         code, row, spiele = await on_a_seeded_season(mongo_replica_set_url, lambda database, client: _refused(database, client, incoming=RIVAL))
@@ -619,7 +619,7 @@ class TestWhoMayArrive:
         assert row is not None
         assert spiele[1]["team1"] == side(WITHDRAWN)
 
-    async def test_a_club_that_left_the_league_is_refused(self, mongo_replica_set_url: str):
+    async def test_a_team_that_left_the_league_is_refused(self, mongo_replica_set_url: str):
         """The entry gate's own code, because a replacement is one more way of bringing a club into a season."""
 
         code, _, _ = await on_a_seeded_season(mongo_replica_set_url, lambda database, client: _refused(database, client, incoming=RETIRED))

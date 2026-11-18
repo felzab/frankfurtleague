@@ -162,13 +162,13 @@ async def _junctions_of(
 ) -> list[Mapping[str, Any]]:
     """The season rows of every club the confirmation rows' Ansetzungen name, as `state_of` judges a row against them."""
 
-    clubs = {club for row in rows for club in (row["ansetzung"]["team1_id"], row["ansetzung"]["team2_id"])}
-    if not clubs:
+    team_ids = {team_id for row in rows for team_id in (row["ansetzung"]["team1_id"], row["ansetzung"]["team2_id"])}
+    if not team_ids:
         return []
 
     return await pull_whole_from_db(
         collection=saison_teams_collection,
-        db_filter={"saison_id": saison_id, "team_id": {"$in": list(clubs)}},
+        db_filter={"saison_id": saison_id, "team_id": {"$in": list(team_ids)}},
         what=f"season {saison_id}'s clubs the confirmations name",
         projection=JUDGED_JUNCTION_FIELDS,
     )
@@ -291,10 +291,10 @@ async def _aufstellungen_of(
         what=f"fixture {spiel.id}'s line-ups",
         projection=["team_id", "spieler.starts"],
     )
-    stored_by_club: dict[Any, Mapping[str, Any]] = {row["team_id"]: row for row in stored_raw}
+    stored_by_team: dict[Any, Mapping[str, Any]] = {row["team_id"]: row for row in stored_raw}
 
     def summary_of(side: FLSpielSide) -> FLAufstellungSummary | None:
-        saved = None if side not in fielded else stored_by_club.get(fielded[side])
+        saved = None if side not in fielded else stored_by_team.get(fielded[side])
         if saved is None:
             return None
         entries = saved["spieler"]
@@ -303,7 +303,7 @@ async def _aufstellungen_of(
     def marks_of(side: FLSpielSide) -> FLAufstellungMarks | None:
         if side not in fielded:
             return None
-        stored = aufstellung_stands(stored_by_club.get(fielded[side]))
+        stored = aufstellung_stands(stored_by_team.get(fielded[side]))
         return aufstellung_marks(date=spiel.date, time=spiel.time, stored=stored, now=now)
 
     return (

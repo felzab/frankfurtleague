@@ -121,7 +121,7 @@ async def after_renaming(url: str) -> dict[tuple[Any, str], Mapping[str, Any]]:
 
 
 @pytest.mark.db
-class TestAClubRenameReachesTheJunctionRowsOfItsOpenSeasons:
+class TestATeamRenameReachesTheJunctionRowsOfItsOpenSeasons:
     """The season's own copy of the identity: without this pass every table and fixture would read the club's old name."""
 
     async def test_the_open_seasons_row_is_rewritten(self, mongo_replica_set_url: str):
@@ -147,7 +147,7 @@ class TestAClubRenameReachesTheJunctionRowsOfItsOpenSeasons:
 
 @pytest.mark.db
 class TestAMidFlightFailureTakesTheWholeRenameBack:
-    async def test_the_club_keeps_no_rename_its_season_rows_could_not_take(self, mongo_replica_set_url: str):
+    async def test_the_team_keeps_no_rename_its_season_rows_could_not_take(self, mongo_replica_set_url: str):
         """The club write and the rows' are one transaction: the club document has landed when the rows' write is refused."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

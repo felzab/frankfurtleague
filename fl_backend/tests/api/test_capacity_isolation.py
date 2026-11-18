@@ -166,7 +166,7 @@ async def enter_the_group(database: AsyncDatabase, client: AsyncMongoClient, tea
     return await post_team_entry(
         saison_id=SAISON,
         entry_data=FLPostTeamEntryPayload.model_validate(
-            {"club": {"kind": "known", "team_id": oid(team_index)}, "gruppe": "A", "trikot_farbe": None}
+            {"team": {"kind": "known", "team_id": oid(team_index)}, "gruppe": "A", "trikot_farbe": None}
         ),
         teams_collection=database[Collection.TEAMS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],

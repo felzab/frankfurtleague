@@ -393,7 +393,7 @@ class FLSaisonTeamsResponse(BaseReadModel):
     teams: list[FLSaisonTeamEntry]
 
 
-class FLTeamPageClub(_TeamWritable, BaseReadModel):
+class FLTeamPageTeam(_TeamWritable, BaseReadModel):
     """The club as its page in one season shows it: the school, its group, and how it left the season if it did.
 
     The whole `austritt` record, reason and day: this page is the one that publishes them.
@@ -479,14 +479,14 @@ class FLPatchTeamSaisonResponse(BaseReadModel):
     version: int = Field(ge=0)
 
 
-class FLEntryKnownClub(BasePayload):
+class FLEntryKnownTeam(BasePayload):
     """A club the league holds, picked from the list's create dialog."""
 
     kind: Literal["known"]
     team_id: CustomObjectId
 
 
-class FLEntryNewClub(BasePayload):
+class FLEntryNewTeam(BasePayload):
     """A club the entry founds, in the transaction that enters it."""
 
     kind: Literal["new"]
@@ -496,7 +496,7 @@ class FLEntryNewClub(BasePayload):
 class FLPostTeamEntryPayload(BasePayload):
     """One club's entry into a season, the club known or new. One field rather than two nullable ones, so no body names both."""
 
-    club: Annotated[FLEntryKnownClub | FLEntryNewClub, Field(discriminator="kind")]
+    team: Annotated[FLEntryKnownTeam | FLEntryNewTeam, Field(discriminator="kind")]
     gruppe: FLGruppenNames
     trikot_farbe: FLTrikotFarbe | None
 
@@ -568,7 +568,7 @@ class FLTeamGruppeOffer(BaseReadModel):
     full: bool
 
 
-class FLTeamEntryClub(BaseReadModel):
+class FLTeamEntryTeam(BaseReadModel):
     """A club the entry's picker offers: one still in the league that holds no row of the season."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
@@ -579,7 +579,7 @@ class FLTeamEntryClub(BaseReadModel):
 class FLTeamEntryOffer(BaseReadModel):
     """What the list's create dialog offers, and why the entry would be refused now."""
 
-    clubs: list[FLTeamEntryClub]
+    teams: list[FLTeamEntryTeam]
     gruppen: list[FLTeamGruppeOffer]
     # Only a `future` season takes an entry; every other refusal is about the group or the club the dialog picks.
     closed: bool

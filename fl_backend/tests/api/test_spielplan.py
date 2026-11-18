@@ -126,7 +126,7 @@ class TestTheCircleMethodPairsAGroup:
         assert [len(pairs) for pairs in circle_rounds(teams)] == [group_matches_per_matchday(1, teams)] * group_matchdays(teams)
 
     @pytest.mark.parametrize("teams", range(2, 17))
-    def test_every_club_meets_every_other_exactly_once(self, teams: int):
+    def test_every_team_meets_every_other_exactly_once(self, teams: int):
         """A round robin by definition, and what makes the group table a fair one."""
 
         played = [frozenset(pair) for pairs in circle_rounds(teams) for pair in pairs]
@@ -332,7 +332,7 @@ class TestTheDrawIsTheSeasonTheRulesDescribe:
         ]
 
     @pytest.mark.parametrize("shape", SHAPES)
-    def test_no_club_stands_twice_on_one_matchday(self, shape: tuple[int, int, int]):
+    def test_no_team_stands_twice_on_one_matchday(self, shape: tuple[int, int, int]):
         """The rule `judge_spieltag_occupancy` enforces at the write path, held here by construction instead."""
 
         seen: set[tuple[ObjectId, ObjectId]] = set()
@@ -421,7 +421,7 @@ class TestTheEmittedDocumentsReadBack:
 
 class TestASpielIsEitherDrawnOrWired:
     @pytest.mark.parametrize("shape", SHAPES)
-    def test_a_group_spiel_names_both_clubs_and_no_source(self, shape: tuple[int, int, int]):
+    def test_a_group_spiel_names_both_teams_and_no_source(self, shape: tuple[int, int, int]):
         for spiel in draw(*shape).spiele:
             if spiel["saison_phase"] == "gruppenphase":
                 assert spiel["team1"] is not None and spiel["team2"] is not None
@@ -429,7 +429,7 @@ class TestASpielIsEitherDrawnOrWired:
                 assert spiel["team1"]["tore"] is None and spiel["team2"]["tore"] is None
 
     @pytest.mark.parametrize("shape", SHAPES)
-    def test_a_bracket_spiel_names_both_sources_and_no_club(self, shape: tuple[int, int, int]):
+    def test_a_bracket_spiel_names_both_sources_and_no_team(self, shape: tuple[int, int, int]):
         """Absence is MODELLED rather than impersonated: nobody has qualified yet, so neither side holds a club."""
 
         for spiel in draw(*shape).spiele:
@@ -512,7 +512,7 @@ class TestTheDrawFollowsTheEntryOrderAlone:
         assert signature(draw(groups, teams, qualifiers, entered=tuple(reversed(entered)))) == signature(draw(*shape))
 
     @pytest.mark.parametrize("shape", SHAPES)
-    def test_renaming_every_club_leaves_the_pairing_untouched(self, shape: tuple[int, int, int]):
+    def test_renaming_every_team_leaves_the_pairing_untouched(self, shape: tuple[int, int, int]):
         """Names and shorthands are editable, so a draw reading either would let a rename redraw a season already played."""
 
         groups, teams, qualifiers = shape

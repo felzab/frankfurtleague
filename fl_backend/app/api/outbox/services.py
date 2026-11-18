@@ -15,7 +15,6 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.outbox.schemas import (
-    FLOutboxClub,
     FLOutboxData,
     FLOutboxDeliveryState,
     FLOutboxKind,
@@ -23,6 +22,7 @@ from app.api.outbox.schemas import (
     FLOutboxReference,
     FLOutboxResultKind,
     FLOutboxRowState,
+    FLOutboxTeam,
 )
 from app.core.crud import patch_many_in_db, post_many_to_db
 from app.shared.folding import sign_in_identifier
@@ -97,7 +97,7 @@ class OwedMail:
     reference: FLOutboxReference | None = None
     link: FLOutboxLink | None = None
     valid_until: datetime | None = None
-    club: FLOutboxClub | None = None
+    team: FLOutboxTeam | None = None
 
 
 async def enqueue_mails(
@@ -177,7 +177,7 @@ def row_of(mail: OwedMail, *, now: datetime, secret: str | None, valid_until: da
         "reference": None if reference is None else {"collection": str(reference.collection), "id": reference.id, "seat": reference.seat},
         "link": None if mail.link is None else mail.link.model_dump(),
         # Field by field, so `team_id` is stored as an id rather than its hex string.
-        "club": None if mail.club is None else {"saison_id": mail.club.saison_id, "team_id": mail.club.team_id},
+        "team": None if mail.team is None else {"saison_id": mail.team.saison_id, "team_id": mail.team.team_id},
         "state": "open",
         "recorded_at": now,
         "deadline": deadline,
@@ -210,7 +210,7 @@ def final_update(state: FLOutboxRowState, *, now: datetime, message_id: str | No
 # pass or a replay deciding by the key owes nothing again, and nothing naming the mailbox it went to, what that mailbox
 # reported, or the record and seat a delivery is read by.
 TOMBSTONE_UPDATE: Final[Mapping[str, Any]] = {
-    "$set": {"to": None, "reference": None, "link": None, "club": None, "message_id": None, "delivery_reason": None, "delivery": None}
+    "$set": {"to": None, "reference": None, "link": None, "team": None, "message_id": None, "delivery_reason": None, "delivery": None}
 }
 
 

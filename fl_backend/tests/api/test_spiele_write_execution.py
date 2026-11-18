@@ -672,7 +672,7 @@ class TestTheEligibilityRefusalIsReachedThroughTheRoute:
             pytest.param(GAMMA_DEPARTED_FROM, Code.ELIGIBILITY_DISQUALIFIED, id="moved onto the exit"),
         ],
     )
-    async def test_a_spiel_re_dated_past_its_own_occupants_exit_is_judged_as_a_newly_fielded_club_is(
+    async def test_a_spiel_re_dated_past_its_own_occupants_exit_is_judged_as_a_newly_fielded_team_is(
         self, mongo_replica_set_url: str, date: str, error_code: str
     ):
         """The WIDENED case: both sides stay exactly as stored and only `date` moves, which is the save `stays` would otherwise skip."""
@@ -923,7 +923,7 @@ class TestASaveChangingNoFieldOnAStaleBracketDoesWhatItsDryRunSaid:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             unchanged = await payload_for(database, VIERTELFINALE)
             preview = await call_patch(database, client, VIERTELFINALE, unchanged, dry_run=True)
-            saved = await call_patch(database, client, VIERTELFINALE, unchanged, confirming=preview.voided_results)
+            saved = await call_patch(database, client, VIERTELFINALE, unchanged, confirming=preview.voided_ergebnisse)
             logged = database[Collection.ACTION_LOG].find({"record_id": VIERTELFINALE})
 
             return preview, saved, await spiele_now(database), [row["action"] async for row in logged]
@@ -931,7 +931,7 @@ class TestASaveChangingNoFieldOnAStaleBracketDoesWhatItsDryRunSaid:
         preview, saved, spiele, logged = await on_a_seeded_season(mongo_replica_set_url, body, spiele=stale)
 
         assert [advancement.spiel_nr for advancement in preview.advanced_to] == [HALBFINALE_NR]
-        assert saved.voided_results == preview.voided_results
+        assert saved.voided_ergebnisse == preview.voided_ergebnisse
         assert (spiele[HALBFINALE_NR]["team1"]["team_id"], spiele[HALBFINALE_NR]["ergebnis"]) == (BETA, None)
         assert (spiele[VIERTELFINALE_NR]["version"], saved.version, logged) == (quarter["version"], quarter["version"], [])
 
@@ -1255,7 +1255,7 @@ class TestAResultEnteredAfterTheQuestionIsNotDeletedUnasked:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spiel_data = await payload_for(database, GRUPPE_DECIDER, team1=side(ALPHA, 5), team2=side(BETA, 0))
-            asked = (await call_patch(database, client, GRUPPE_DECIDER, spiel_data, dry_run=True)).voided_results
+            asked = (await call_patch(database, client, GRUPPE_DECIDER, spiel_data, dry_run=True)).voided_ergebnisse
 
             # The semi-final's result entered by another administrator's own save, before the question is confirmed.
             home, away = (int(goals) for goals in entered.split(":"))
@@ -1546,7 +1546,7 @@ class TestAStaleSeedIsNotAdopted:
         assert after[VIERTELFINALE] == before[VIERTELFINALE], "a report corrected since the seed was adopted unread"
 
 
-class TestAReportAboutOtherClubsIsNotAdopted:
+class TestAReportAboutOtherTeamsIsNotAdopted:
     @pytest.mark.parametrize("changed_side", ["team1", "team2"])
     async def test_it_stays_unstamped_at_the_seeded_version_and_the_save_lands(self, mongo_replica_set_url: str, changed_side: str):
         """Written while another club held one side: stamped, its 3:1 would read as the clubs the save leaves."""

@@ -247,7 +247,7 @@ class TestNothingElseOnTheRowMoves:
         assert stored["trikot_farbe"] == TRIKOT_FARBE
         assert (stored["name"], stored["shorthand"]) == (TEAM_NAME, TEAM_SHORTHAND)
 
-    async def test_the_same_clubs_other_season_is_not_the_row_that_moves(self, mongo_replica_set_url: str):
+    async def test_the_same_teams_other_season_is_not_the_row_that_moves(self, mongo_replica_set_url: str):
         """`saison_id` is half the filter: without it the club's earliest row takes the write."""
 
         async def body(database: AsyncDatabase) -> Any:

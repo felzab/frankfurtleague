@@ -59,7 +59,7 @@ from app.api.spiele.services import (
     find_slot_claims,
     find_spiel_date_refusal,
     find_state_refusal,
-    find_voided_results_refusal,
+    find_voided_ergebnisse_refusal,
     find_wiring_refusal,
     judge_spieltag_occupancy,
     recipients_named,
@@ -68,7 +68,7 @@ from app.api.spiele.services import (
     slots_booked_against,
     spiel_label,
     stored_in_slice,
-    voided_results_of,
+    voided_ergebnisse_of,
 )
 from app.api.teams.schemas import FLTeamListAdapter
 from app.api.teams.services import (
@@ -856,7 +856,7 @@ async def preview_spiel_save(
     return FLPatchSpielDataResponse(
         advanced_to=advanced_to,
         released_sides=released_sides,
-        voided_results=voided_results_of([*advanced_to, *released_sides]),
+        voided_ergebnisse=voided_ergebnisse_of([*advanced_to, *released_sides]),
         version=judged.patched.version,
         recipients=recipients_named(told, names=names),
     )
@@ -899,7 +899,7 @@ async def _save_moving_nothing(
     """
 
     await _hold_the_read_version(spiel_id=spiel_id, stored=stored, payload=payload, collections=collections, session=session)
-    refuse(find_voided_results_refusal(confirmed=payload.voided_results, voided=[]))
+    refuse(find_voided_ergebnisse_refusal(confirmed=payload.voided_ergebnisse, voided=[]))
 
     if adopts_bericht is not None:
         stamped = await stamp_the_adoption(
@@ -913,7 +913,7 @@ async def _save_moving_nothing(
         if not stamped:
             raise APIError(HTTPStatus.CONFLICT, Code.VERSION_STALE)
 
-    return FLPatchSpielDataResponse(voided_results=[], version=stored.version, recipients=None)
+    return FLPatchSpielDataResponse(voided_ergebnisse=[], version=stored.version, recipients=None)
 
 
 async def _bracket_moves(judged: _JudgedSave, *, collections: SpielSaveCollections, session: AsyncClientSession) -> bool:
@@ -1016,8 +1016,8 @@ async def save_spiel_in_session(
 
     # Here, in the transaction deleting them and after both rewrites: a result another write entered or changed since the
     # dry run asked is refused rather than deleted unasked, and the whole save goes back with the refusal.
-    voided_results = voided_results_of([*advanced_to, *released_sides])
-    refuse(find_voided_results_refusal(confirmed=payload.voided_results, voided=voided_results))
+    voided_ergebnisse = voided_ergebnisse_of([*advanced_to, *released_sides])
+    refuse(find_voided_ergebnisse_refusal(confirmed=payload.voided_ergebnisse, voided=voided_ergebnisse))
 
     # A retirement, the erasure and a rival save at the same hour each judge fixtures and write none of this pass's,
     # so only a write to a row puts what this pass judged in their write sets.
@@ -1050,7 +1050,7 @@ async def save_spiel_in_session(
     return FLPatchSpielDataResponse(
         advanced_to=advanced_to,
         released_sides=released_sides,
-        voided_results=voided_results,
+        voided_ergebnisse=voided_ergebnisse,
         version=saved[VERSION_FIELD],
         recipients=None,
     )

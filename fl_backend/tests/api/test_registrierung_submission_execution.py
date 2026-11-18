@@ -84,7 +84,7 @@ RULES: Mapping[str, Any] = documents.rules_document(
 )
 
 
-def club_document(team_id: ObjectId, name: str) -> dict[str, Any]:
+def seeded_team(team_id: ObjectId, name: str) -> dict[str, Any]:
     # `full_name` passed rather than defaulted: the invite's read answers it (`TEAM_FULL_NAME`).
     return documents.team_document(team_id, name, name[:3].upper(), full_name=f"{name}-Gesamtschule", schulform="gesamtschule")
 
@@ -148,7 +148,7 @@ async def on_a_league(
 
     async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
         await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, saison_status, registrierung))
-        await database[Collection.TEAMS].insert_many([club_document(TEAM_OID, TEAM_NAME), club_document(OTHER_TEAM_OID, OTHER_TEAM_NAME)])
+        await database[Collection.TEAMS].insert_many([seeded_team(TEAM_OID, TEAM_NAME), seeded_team(OTHER_TEAM_OID, OTHER_TEAM_NAME)])
         await database[Collection.SAISON_TEAMS].insert_one(junction_document(SAISON_ID, TEAM_OID, TEAM_NAME))
         await database[Collection.INVITATIONS].insert_many(
             [

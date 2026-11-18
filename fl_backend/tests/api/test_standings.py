@@ -324,7 +324,7 @@ class TestDirekterVergleich:
             pytest.param(CALLED_OFF, ["Team 1", "Team 3", "Team 2", "Team 4", "Team 5"], id="all called off, so the meetings rank it"),
         ],
     )
-    def test_a_club_yet_to_play_its_first_match_holds_the_mini_table_back_and_one_with_nothing_left_does_not(
+    def test_a_team_yet_to_play_its_first_match_holds_the_mini_table_back_and_one_with_nothing_left_does_not(
         self, a_team: TeamFactory, played: MatchFactory, its_spiele: str | None, displayed: list[str]
     ):
         """Team 5 has played nothing and stands level with three clubs that drew each other, a draw worth nothing here.
@@ -365,7 +365,7 @@ class TestDirekterVergleich:
         assert [decided.by_platz[platz].name for platz in (1, 2, 3)] == ["Team 3", "Team 2", "Team 1"]
 
 
-class TestADepartedClubInTheBand:
+class TestADepartedTeamInTheBand:
     """A club that has left is ranked and displayed, and settles nothing for the clubs that can place.
 
     `build_tabelle` ranks it and `build_decided_standings` never sees it, so a comparison judged over
@@ -373,7 +373,7 @@ class TestADepartedClubInTheBand:
     """
 
     @pytest.mark.parametrize("rules", [RULES, DIREKTER_VERGLEICH], ids=["tordifferenz", "direkter_vergleich"])
-    def test_the_table_and_the_bracket_order_the_placeable_clubs_alike(self, a_team: TeamFactory, played: MatchFactory, rules: FLSaisonRules):
+    def test_the_table_and_the_bracket_order_the_placeable_teams_alike(self, a_team: TeamFactory, played: MatchFactory, rules: FLSaisonRules):
         """The property the two callers must share, asserted between them rather than inferred from either."""
 
         teams = [
@@ -392,7 +392,7 @@ class TestADepartedClubInTheBand:
         assert [decided.by_platz[platz].name for platz in sorted(decided.by_platz)] == displayed
 
     @pytest.mark.parametrize("rules", [RULES, DIREKTER_VERGLEICH], ids=["tordifferenz", "direkter_vergleich"])
-    def test_a_result_against_the_departed_club_separates_the_two_that_remain(
+    def test_a_result_against_the_departed_team_separates_the_two_that_remain(
         self, a_team: TeamFactory, played: MatchFactory, rules: FLSaisonRules
     ):
         """Teams 1 and 2 drew, so ONLY their results against the departed club tell them apart.
@@ -412,7 +412,7 @@ class TestADepartedClubInTheBand:
         assert order(teams, met, rules) == ["Team 1", "Team 3", "Team 2"]
         assert [decided.by_platz[platz].name for platz in (1, 2)] == ["Team 1", "Team 2"]
 
-    def test_a_departed_clubs_own_unplayed_spiel_still_holds_the_band_open(self, a_team: TeamFactory, played: MatchFactory):
+    def test_a_departed_teams_own_unplayed_spiel_still_holds_the_band_open(self, a_team: TeamFactory, played: MatchFactory):
         """Points are hypothesised and goal margins never, so an unbounded difference stays unbounded whoever holds it.
 
         The departed club's goal key decides whether its results enter the live clubs' mini-table,
@@ -425,13 +425,13 @@ class TestADepartedClubInTheBand:
             a_team(3, punkte=1, scored=4, conceded=4, austritt=EXITED),
             a_team(4, punkte=0, austritt=EXITED),
         ]
-        between_the_live_clubs = played(1, 1, 2, 2, 0)
+        between_the_live_teams = played(1, 1, 2, 2, 0)
 
-        assert standing(teams, [between_the_live_clubs, played(9, 3, 4)]).by_platz == {}
+        assert standing(teams, [between_the_live_teams, played(9, 3, 4)]).by_platz == {}
 
         # The control: the same group with that one fixture played decides both placings, so the case
         # above cannot be passing because a departed club is in the band at all.
-        settled = standing(teams, [between_the_live_clubs, played(9, 3, 4, 1, 0)])
+        settled = standing(teams, [between_the_live_teams, played(9, 3, 4, 1, 0)])
 
         assert [settled.by_platz[platz].name for platz in (1, 2)] == ["Team 1", "Team 2"]
 
@@ -458,14 +458,14 @@ class TestWhoMayHoldAPlatz:
         assert decided.by_platz[1].name == "Team 2"
 
 
-class TestTheTableAndTheSeedingNumberTheSameClubs:
+class TestTheTableAndTheSeedingNumberTheSameTeams:
     """The Tabelle numbers the clubs that have played, and every placing the seeding decides is the number it prints.
 
     The seeding also counts a club with no match that has one still to play, which the Tabelle lists last; no
     placing below such a club is decided, since it can still finish level with any of them on points.
     """
 
-    def test_a_club_that_has_played_no_match_holds_no_place(self, a_team: TeamFactory, played: MatchFactory):
+    def test_a_team_that_has_played_no_match_holds_no_place(self, a_team: TeamFactory, played: MatchFactory):
         """Before a group's first match every row reads null, while the seeding still counts each club that has a match to play."""
 
         teams = [a_team(seed, punkte=0, played=0) for seed in (1, 2, 3)]
@@ -492,7 +492,7 @@ class TestTheTableAndTheSeedingNumberTheSameClubs:
         assert seeded == {TEAM_ID.format(1): 1}
         assert seeded.items() <= numbered.items()
 
-    def test_a_finished_group_numbers_each_club_at_the_platz_it_is_seeded_from(self, a_team: TeamFactory):
+    def test_a_finished_group_numbers_each_team_at_the_platz_it_is_seeded_from(self, a_team: TeamFactory):
         """A departed club sits second on points, so a row index and a placing part company here."""
 
         teams = [a_team(1, punkte=9), a_team(2, punkte=6, austritt=EXITED), a_team(3, punkte=3)]
@@ -500,7 +500,7 @@ class TestTheTableAndTheSeedingNumberTheSameClubs:
 
         assert platz_by_team_id(teams, []) == {str(team.id): platz for platz, team in decided.by_platz.items()}
 
-    def test_clubs_the_chain_leaves_level_share_the_place_their_band_starts_at(self, a_team: TeamFactory, played: MatchFactory):
+    def test_teams_the_chain_leaves_level_share_the_place_their_band_starts_at(self, a_team: TeamFactory, played: MatchFactory):
         """Level on points and goals and drawn against each other: the bracket seeds neither, and the Tabelle prints both second."""
 
         level = {"punkte": 4, "scored": 5, "conceded": 5}
@@ -569,7 +569,7 @@ class TestACallOffIsAnEndingToo:
     No ending that awards something expresses either half.
     """
 
-    def test_a_club_with_nothing_counted_and_one_spiel_left_holds_no_placing(self, a_team: TeamFactory, played: MatchFactory):
+    def test_a_team_with_nothing_counted_and_one_spiel_left_holds_no_placing(self, a_team: TeamFactory, played: MatchFactory):
         """The minimal witness, and reachable under any points scheme.
 
         A call-off takes the club out of `_may_hold_a_platz`, and its own placing with it.
@@ -581,7 +581,7 @@ class TestACallOffIsAnEndingToo:
         assert decided.eligible == 1
         assert decided.by_platz == {}
 
-    def test_the_same_club_with_one_match_counted_does_hold_it(self, a_team: TeamFactory, played: MatchFactory):
+    def test_the_same_team_with_one_match_counted_does_hold_it(self, a_team: TeamFactory, played: MatchFactory):
         """One figure apart from the case above, so neither can pass for the wrong reason: a counted match cannot be called off."""
 
         teams = [a_team(1, punkte=4, played=2, austritt=EXITED), a_team(2, punkte=0, played=1)]
@@ -598,7 +598,7 @@ class TestACallOffIsAnEndingToo:
             pytest.param("2026-03-15", ["Team 1", "Team 3"], id="the control, a club leaving on that day"),
         ],
     )
-    def test_a_club_yet_to_play_its_first_match_holds_open_the_place_it_could_win(
+    def test_a_team_yet_to_play_its_first_match_holds_open_the_place_it_could_win(
         self, a_team: TeamFactory, played: MatchFactory, left_on: str | None, seeded: list[str]
     ):
         """Team 2 has played nothing and meets Team 3, three points ahead, in the group's last fixture.
@@ -671,7 +671,7 @@ class TestAGroupPastTheSpielLimit:
         assert standing([a_team(1, punkte=20, played=8), *chasers], spiele, draw_beats_a_win).by_platz == {}
         assert standing([a_team(1, punkte=21, played=8), *chasers], spiele, draw_beats_a_win).by_platz[1].name == "Team 1"
 
-    def test_a_departed_club_that_could_join_a_settled_band_costs_it_every_placing(self, a_team: TeamFactory, played: MatchFactory):
+    def test_a_departed_team_that_could_join_a_settled_band_costs_it_every_placing(self, a_team: TeamFactory, played: MatchFactory):
         """A club that can hold no placing of its own still holds a band open, so the separation is asked of every club in the group."""
 
         level = [
@@ -714,7 +714,7 @@ class TestAGroupPastTheSpielLimit:
         assert standing(teams, at_the_cap).by_platz[1].name == "Team 1"
         assert standing(teams, one_past_it).by_platz == {}
 
-    def test_a_club_with_nothing_counted_seeds_nothing_however_clear_of_it_the_rest_are(self, a_team: TeamFactory, played: MatchFactory):
+    def test_a_team_with_nothing_counted_seeds_nothing_however_clear_of_it_the_rest_are(self, a_team: TeamFactory, played: MatchFactory):
         """Every fixture it has left being called off takes it out of `_may_hold_a_platz`, so the number it stands at is not its to keep."""
 
         chasers = [a_team(seed, punkte=20, played=4) for seed in range(2, 7)]
@@ -741,7 +741,7 @@ POINTS_SCHEMES: tuple[FLSaisonRules, ...] = (
 SWEPT_SEEDS: tuple[int, ...] = (1, 2, 3)
 
 
-def every_three_club_group(a_team: TeamFactory, played: MatchFactory) -> Iterator[tuple[str, FLSaisonRules, list[FLTeam], list[FLSpiel]]]:
+def every_three_team_group(a_team: TeamFactory, played: MatchFactory) -> Iterator[tuple[str, FLSaisonRules, list[FLTeam], list[FLSpiel]]]:
     """One closed family: three clubs under three points schemes, every fixture state, every subset of them departed.
 
     Figures are derived from the fixtures rather than stated, so no case rests on a total its scheme
@@ -765,7 +765,7 @@ def every_three_club_group(a_team: TeamFactory, played: MatchFactory) -> Iterato
                 yield f"{rules.win_points}/{rules.draw_points}/{rules.loss_points}, fixtures {states}, departed {left}", rules, teams, spiele
 
 
-class TestEveryWayThreeClubsCanStand:
+class TestEveryWayThreeTeamsCanStand:
     """The sound layer may decline what the exact one certifies, and never the reverse.
 
     What this cannot catch is the two layers agreeing on something wrong, which is what the cases
@@ -778,7 +778,7 @@ class TestEveryWayThreeClubsCanStand:
         certified = {"played out": 0, "outstanding": 0}
         groups = 0
 
-        for case, rules, teams, spiele in every_three_club_group(a_team, played):
+        for case, rules, teams, spiele in every_three_team_group(a_team, played):
             groups += 1
             left_to_play = _still_to_play(spiele)
             placeable = frozenset(team.id for team in teams if _may_hold_a_platz(team, left_to_play.get(team.id, 0), _decided_on(spiele)))
@@ -961,7 +961,7 @@ class TestAnExitIsWeighedAgainstTheDayItsGroupWasDecided:
         assert (holder is not None and holder.id == teams[0].id) is seeded
 
     @pytest.mark.parametrize("rules", [RULES, DIREKTER_VERGLEICH], ids=["tordifferenz", "direkter_vergleich"])
-    def test_a_club_that_left_after_the_group_is_decided_counts_in_its_tiebreak(
+    def test_a_team_that_left_after_the_group_is_decided_counts_in_its_tiebreak(
         self, a_team: TeamFactory, played: MatchFactory, rules: FLSaisonRules
     ):
         """Level with two clubs and having met neither, so no meeting ranks the three: they share the place their band starts at.

@@ -230,7 +230,7 @@ def total_season_spiele(rules: FLSaisonRules) -> int:
     `schedule_for` would drift the moment a phase moved.
     """
 
-    return sum(entry.spieltage * entry.matches_per_spieltag for entry in schedule_for(rules))
+    return sum(entry.spieltage * entry.spiele_per_spieltag for entry in schedule_for(rules))
 
 
 def _forfeit_unentschieden_in_a_knockout(rules: FLSaisonRules) -> bool:

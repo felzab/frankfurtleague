@@ -5,7 +5,7 @@ from app.core.codes import Code
 
 
 class TestWhatCountsAsASwap:
-    def test_two_clubs_of_one_group_are_refused(self):
+    def test_two_teams_of_one_group_are_refused(self):
         """Exchanging within one group is no swap: let through, it trades the two clubs' fixtures and answers as if it had moved them."""
 
         refusal = find_gruppe_swap_refusal(

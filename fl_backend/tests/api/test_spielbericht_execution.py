@@ -545,7 +545,7 @@ class TestTheReads:
         assert [(spieler.spieler_id, spieler.nummer) for spieler in form.kader.team1] == [(LINA, "7")]
         assert [spieler.spieler_id for spieler in form.kader.team2] == [MIA]
 
-    async def test_the_form_reads_the_spiel_as_it_stands_and_marks_the_side_whose_club_moved(self, mongo_replica_set_url: str):
+    async def test_the_form_reads_the_spiel_as_it_stands_and_marks_the_side_whose_team_moved(self, mongo_replica_set_url: str):
         """Abandoned since the report, its away side re-fielded: the form's lead and its marks read the fixture as stored now.
 
         Corrected once, so the version the next save is judged on is the stored one and no create's 0.
@@ -914,7 +914,7 @@ async def quarter_final_report(database: AsyncDatabase) -> Mapping[str, Any]:
     )
 
 
-class TestAReportOutlivingItsSpieleClub:
+class TestAReportOutlivingItsSpieleTeam:
     """A correction upstream fields Biber where the report credits Adler's goal: adopted, the 1:0 would be Biber's."""
 
     async def test_it_reads_sides_changed_until_the_referee_sends_it_again(self, mongo_replica_set_url: str):
@@ -937,7 +937,7 @@ class TestAReportOutlivingItsSpieleClub:
         # The correction voided the quarter-final's result, so the report proposes again.
         assert sent_again == ["proposed"]
 
-    async def test_a_scorer_of_the_club_that_left_is_judged_against_the_kader_playing_now(self, mongo_replica_set_url: str):
+    async def test_a_scorer_of_the_team_that_left_is_judged_against_the_kader_playing_now(self, mongo_replica_set_url: str):
         """Lina scored for Adler: sent again unchanged, she would stand on the report as Biber's scorer."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

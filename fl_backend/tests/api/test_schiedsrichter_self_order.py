@@ -100,7 +100,7 @@ RESULT = {"ergebnis": "2:1", "team1_tore": 2, "team2_tore": 1}
         pytest.param(KICK_OFF, RESULT, True, id="a match played before an exit dated back over it"),
     ],
 )
-def test_a_past_fixture_is_refereed_and_owes_its_report_unless_a_club_left_by_its_day_and_it_was_never_played(
+def test_a_past_fixture_is_refereed_and_owes_its_report_unless_a_team_left_by_its_day_and_it_was_never_played(
     austritt: str | None, record: dict[str, Any], refereed: bool
 ):
     """Each kicked off with no report sent, in a running season: refereed, the report is owed; not, the list shows no booking."""

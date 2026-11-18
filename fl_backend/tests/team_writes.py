@@ -15,7 +15,7 @@ from app.core.collections import Collection
 from app.core.crud import pull_one_from_db
 from app.core.transactions import transaction_session
 
-CLUB_FIELDS = ("name", "shorthand", "description", "full_name", "schulform", "website_url", "address")
+TEAM_FIELDS = ("name", "shorthand", "description", "full_name", "schulform", "website_url", "address")
 
 
 async def save_the_team(
@@ -35,7 +35,7 @@ async def save_the_team(
     assert team is not None and row is not None, "the seed holds no club or no row to save"
 
     body = {
-        **{field: team[field] for field in CLUB_FIELDS},
+        **{field: team[field] for field in TEAM_FIELDS},
         "gruppe": row["gruppe"],
         "trikot_farbe": row.get("trikot_farbe"),
         "version": team.get("version", 0) + row.get("version", 0),

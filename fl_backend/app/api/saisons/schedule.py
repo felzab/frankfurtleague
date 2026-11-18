@@ -11,7 +11,7 @@ class PhaseSchedule:
 
     phase: FLSaisonPhase
     spieltage: int
-    matches_per_spieltag: int
+    spiele_per_spieltag: int
 
 
 def group_matchdays(teams_per_gruppe: int) -> int:
@@ -64,7 +64,7 @@ def schedule_for(rules: FLSaisonRules) -> tuple[PhaseSchedule, ...]:
         PhaseSchedule(
             phase="gruppenphase",
             spieltage=group_matchdays(rules.teams_per_gruppe),
-            matches_per_spieltag=group_matches_per_matchday(rules.number_of_gruppen, rules.teams_per_gruppe),
+            spiele_per_spieltag=group_matches_per_matchday(rules.number_of_gruppen, rules.teams_per_gruppe),
         )
     ]
 
@@ -72,7 +72,7 @@ def schedule_for(rules: FLSaisonRules) -> tuple[PhaseSchedule, ...]:
     for phase in knockout_phases_for(remaining):
         # The Finale's matchday also holds the match for third place, which every bracket plays (`draw_spielplan`).
         matches = remaining // 2 + (1 if phase == "finale" else 0)
-        schedule.append(PhaseSchedule(phase=phase, spieltage=1, matches_per_spieltag=matches))
+        schedule.append(PhaseSchedule(phase=phase, spieltage=1, spiele_per_spieltag=matches))
         remaining //= 2
 
     return tuple(schedule)
@@ -87,5 +87,5 @@ def expected_matches(rules: FLSaisonRules, phase: FLSaisonPhase) -> int:
 
     for entry in schedule_for(rules):
         if entry.phase == phase:
-            return entry.matches_per_spieltag
+            return entry.spiele_per_spieltag
     return 0

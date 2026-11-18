@@ -122,7 +122,7 @@ async def get_spieler_saison(
         pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules"]),
     )
     team_id = row_raw["team_id"]
-    held, club = await concurrently(
+    held, team = await concurrently(
         pull_whole_from_db(
             collection=saison_spieler_collection,
             db_filter=build_held_rollen_filter(saison_id=saison_id, team_id=team_id, excluding_spieler_id=spieler_id),
@@ -136,7 +136,7 @@ async def get_spieler_saison(
     return FLSpielerSaisonAdminResponse(
         version=composite_version(person_raw, row_raw),
         person=FLSpielerSaisonPerson.model_validate(person_raw),
-        kader=FLSpielerSaisonKader.model_validate({**row_raw, "team_name": (club or {}).get("name")}),
+        kader=FLSpielerSaisonKader.model_validate({**row_raw, "team_name": (team or {}).get("name")}),
         allowed_stufen=FLSaisonRules.model_validate(saison_raw["rules"]).allowed_stufen,
         taken_rollen=[row["rolle"] for row in held],
     )
