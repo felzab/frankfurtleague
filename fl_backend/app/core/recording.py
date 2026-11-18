@@ -23,8 +23,8 @@ from app.core.logging import trace_id_var
 # no address equals it.
 ERASED_ACTOR_MARKER = "ERASED"
 
-# The folded address of the administrator this request acts for, set by `bind_actor`, which every admin router depends
-# on. `None` everywhere else, so a route binding no administrator cannot record as one.
+# The folded address of the administrator this request acts for, bound on every admin route. `None` everywhere else, so
+# a route binding no administrator cannot record as one.
 actor_var: ContextVar[str | None] = ContextVar("actor", default=None)
 
 

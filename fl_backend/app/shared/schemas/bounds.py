@@ -170,9 +170,7 @@ ADDRESS_CHANGE_WAITING_PERIOD_DAYS: Final[FLAddressChangeWaitingPeriodDays] = 7
 ADDRESS_CHANGE_BOUNDS: Final = (FLAddressChangeValidHours, FLAddressChangeWaitingPeriodDays)
 
 # The largest squad a season's `max_kader_size` may set, and the first season's own: the edge's link pages are sized for a
-# squad this large behind one school's address (the edge's `/confirm/` location), so a larger cap would meet the edge's
-# 429 rather than the league's rule. Published as the field's `maximum`, which the season editor's generated check
-# words; the public routes' check holds the edge's bursts to it.
+# squad this large behind one school's address, so a larger cap would meet the edge's 429 rather than the league's rule.
 KADER_SIZE_MAX: Final = 50
 
 # How long an addition, or an administrator's own address change, waits. Each hands out lasting power, so every holder has

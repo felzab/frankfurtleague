@@ -51,9 +51,7 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     UniqueIndex(Collection.BAN_LIST, "uniq_ban_list_address", ("address",), "one entry per banned address"),
     # `$type` rather than the equality `{"revoked_at": None}`, which also matches a row missing
     # the key: MongoDB's manual names `$type` among the operators a `partialFilterExpression`
-    # supports and names no null form at all
-    # (https://www.mongodb.com/docs/manual/core/index-partial/, which moves without us; read
-    # 2026-09-21).
+    # supports and names no null form at all (https://www.mongodb.com/docs/manual/core/index-partial/).
     UniqueIndex(
         Collection.INVITATIONS,
         "uniq_invitation_live",
@@ -61,7 +59,7 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
         "one live invite per team per season",
         partial_filter={"revoked_at": {"$type": "null"}},
     ),
-    # `$type` for the reason above: a missing key indexes as null, so without the filter the second
+    # `$type`, as above: a missing key indexes as null, so without the filter the second
     # keyless submission would collide with the first.
     UniqueIndex(
         Collection.BEWERBUNGEN,
@@ -89,17 +87,16 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     ),
     # Partial, because the league keeps every season it ever played: unfiltered, the second `past`
     # row would be refused. Checked at each write rather than at the commit, so a rollover demotes
-    # before it promotes (`app/api/saisons/admin_router.py :: activate_saison`).
+    # before it promotes.
     UniqueIndex(Collection.SAISONS, "uniq_saison_active", ("status",), "at most one season is active", partial_filter={"status": "active"}),
-    # Also the READ path of every admin-tier request (`app/api/grants/guard.py :: verify_actor_is_admin`),
-    # and what refuses a second grant a hand-run `mongosh` file adds for an address already holding one.
+    # Also the READ path of every admin-tier request, and what refuses a second grant a hand-run
+    # `mongosh` file adds for an address already holding one.
     UniqueIndex(Collection.GRANTS, "uniq_grant_address", ("address",), "one grant per address"),
-    # Checked at each write rather than at the commit, so a handover demotes before it promotes
-    # (`app/api/grants/crud.py :: complete_the_handover_in_session`).
+    # Checked at each write rather than at the commit, so a handover demotes before it promotes.
     UniqueIndex(Collection.GRANTS, "uniq_grant_owner", ("admin_tier",), "at most one owner", partial_filter={"admin_tier": "owner"}),
     # What makes a pass run twice mint once, and a second decline need a new digest rather than a
-    # refusal. Both party ids are keys, the one a row lacks indexing as null. `$type` for
-    # `uniq_invitation_live`'s reason.
+    # refusal. Both party ids are keys, the one a row lacks indexing as null. `$type`, as a partial
+    # filter takes no equality on null.
     UniqueIndex(
         Collection.SPIELBESTAETIGUNGEN,
         "uniq_spielbestaetigung_open",
@@ -113,8 +110,7 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # line-ups joins on. The club and never the side: a side re-fielded by a knockout correction keeps no other club's.
     UniqueIndex(Collection.AUFSTELLUNGEN, "uniq_aufstellung_spiel_id_team_id", ("spiel_id", "team_id"), "one line-up per club per fixture"),
     # Two starts on one address meet here as a write conflict their transactions retry. The key's `$type` term keeps an
-    # ending's null address out; a keyed read carries it too (`app/api/address_change/services.py :: build_address_filter`),
-    # or the planner scans.
+    # ending's null address out; a keyed read carries it too, or the planner scans.
     UniqueIndex(
         Collection.ADDRESS_CHANGES,
         "uniq_address_change_address",
@@ -122,7 +118,7 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
         "one live change per address",
         partial_filter={"ended": {"$type": "null"}, "address": {"$type": "string"}},
     ),
-    # Also the READ path of every enqueue, which finds a replay's row by it (`app/api/outbox/services.py :: enqueue_mails`).
+    # Also the READ path of every enqueue, which finds a replay's row by it.
     UniqueIndex(Collection.OUTBOX, "uniq_outbox_key", ("key",), "one row per owed mail"),
 )
 
@@ -199,8 +195,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
     ),
     # `status` sits after the sort keys, the read being free to omit it: an index serves a sort
     # "only when the query includes equality conditions on all prefix keys that precede the sort
-    # keys." Mirrored from
-    # https://www.mongodb.com/docs/manual/tutorial/equality-sort-range-guideline/; read 2026-09-21.
+    # keys." (https://www.mongodb.com/docs/manual/tutorial/equality-sort-range-guideline/)
     SupportIndex(
         Collection.REGISTRIERUNGEN,
         "registrierungen_saison_id_team_id_queue",
@@ -209,9 +204,8 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
     ),
     # The confirmed rows alone, which the team's pending read takes first: on the queue index above it would fetch every
     # unconfirmed row standing newer, and anybody holding the team's link writes one with every press. "To use the
-    # partial index, a query must contain the filter expression" (https://www.mongodb.com/docs/manual/core/index-partial/,
-    # read 2026-11-11), so the read states this filter whole (`app/api/registrierungen/services.py ::
-    # build_confirmed_open_filter`).
+    # partial index, a query must contain the filter expression" (https://www.mongodb.com/docs/manual/core/index-partial/),
+    # so the read states this filter whole.
     SupportIndex(
         Collection.REGISTRIERUNGEN,
         "registrierungen_saison_id_team_id_confirmed_queue",
@@ -248,7 +242,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         "a season's reports, which the season overview and the season editor's count read, and a replace's or an undraw's removal filters on",
     ),
     # The reports are kept with no retention bound, and the pupil's erasure names no season the season-leading index could
-    # narrow by: one per clause of its `$or`, for the registration's pair's reason; each multikey.
+    # narrow by: one per clause of its `$or`, which uses indexes only when every clause has one; each multikey.
     *(
         SupportIndex(
             Collection.SPIELBERICHTE,
@@ -258,7 +252,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         )
         for entries in ("scorers", "cards")
     ),
-    # Multikey, for the reports' reason: the line-ups are kept as long.
+    # Multikey: the line-ups are kept with no retention bound, as the reports are.
     SupportIndex(
         Collection.AUFSTELLUNGEN,
         "aufstellungen_spieler_spieler_id",
@@ -281,7 +275,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         collation=GERMAN_COLLATION,
     ),
     # A person's records by the fold every address payload stores, one index per
-    # clause of each `$or`, for the registration's pair's reason.
+    # clause of each `$or`, which uses indexes only when every clause has one.
     *(
         SupportIndex(
             Collection.SAISON_TEAMS,
@@ -346,8 +340,8 @@ class TTLIndex:
     collection: str
     name: str
     # ONE field, and a date one: MongoDB's manual documents a compound index as ignoring
-    # `expireAfterSeconds` outright and a non-date value as never expiring, each in silence. Mirrored
-    # from https://www.mongodb.com/docs/manual/core/index-ttl/, which moves without us; read 2026-09-04.
+    # `expireAfterSeconds` outright and a non-date value as never expiring, each in silence
+    # (https://www.mongodb.com/docs/manual/core/index-ttl/).
     key: str
     seconds: int
     rule: str
@@ -396,7 +390,7 @@ class _PartialFilterOption(TypedDict, total=False):
 
 
 class _CollationOption(TypedDict, total=False):
-    """Typed for `_PartialFilterOption`'s reason."""
+    """Typed rather than a plain `dict`, which pyright unpacks against `create_index`'s `session` parameter and refuses."""
 
     collation: Mapping[str, Any]
 
@@ -404,7 +398,7 @@ class _CollationOption(TypedDict, total=False):
 async def _apply_unique_index(db: AsyncDatabase, index: UniqueIndex) -> None:
     # Omitted rather than passed as `None` where a rule reaches every row: an omitted key and
     # `partialFilterExpression=None` are different options under one name, and `create_index` refuses
-    # a name already held at different ones (`docs/ops/runbooks.md` §2).
+    # a name already held at different ones.
     partial_option: _PartialFilterOption = {"partialFilterExpression": index.partial_filter} if index.partial_filter is not None else {}
 
     try:
@@ -414,7 +408,7 @@ async def _apply_unique_index(db: AsyncDatabase, index: UniqueIndex) -> None:
 
 
 async def _apply_support_index(db: AsyncDatabase, support: SupportIndex) -> None:
-    # Omitted rather than passed as `None`, for `_apply_unique_index`'s reason.
+    # Omitted rather than passed as `None`: `create_index` refuses a name already held at different options.
     collation_option: _CollationOption = {"collation": support.collation} if support.collation is not None else {}
     partial_option: _PartialFilterOption = {"partialFilterExpression": support.partial_filter} if support.partial_filter is not None else {}
 
@@ -481,7 +475,7 @@ async def apply_constraints(db: AsyncDatabase) -> ConstraintSummary:
     """Apply every index to `db`.
 
     An index is only ever ADDED: narrowing a rule to a `partial_filter` means dropping the live index
-    by hand first (`docs/ops/runbooks.md` §2). Raises the `Exception` declared first.
+    by hand first. Raises the `Exception` declared first.
     """
     await _apply_concurrently(
         [

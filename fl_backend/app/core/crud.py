@@ -307,7 +307,7 @@ async def anchor_mailboxes_in_db(
     collection: AsyncCollection,
     ids: Sequence[str],
     at: datetime,
-    # Required, as `anchor_in_db`'s is.
+    # Required: committed on its own, an anchor conflicts with nobody.
     session: AsyncClientSession,
 ) -> None:
     """`anchor_in_db` over documents nothing else creates: a press makes its own, and each lapses by the `at` last written."""
