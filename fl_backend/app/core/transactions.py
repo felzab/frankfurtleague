@@ -124,7 +124,13 @@ async def transaction_session(client: AsyncMongoClient) -> AsyncGenerator[AsyncC
 
 
 async def transact[T](client: AsyncMongoClient, callback: Callable[[AsyncClientSession], Awaitable[T]]) -> T:
-    """`callback` in one transaction on a session of its own, run, committed and retried by the driver's `with_transaction`."""
+    """`callback` in one transaction on a session of its own, run, committed and retried by the driver's `with_transaction`.
+
+    The driver runs `callback` again from its start on a write conflict or a transient error, and commits again where a
+    commit went unanswered, until the request's deadline; a rolled-back attempt leaves nothing. So a callback reads all
+    it judges through `session`, and a retry judges afresh what a rival write left, while what every attempt must share,
+    such as the press's instant or a value it mints, is made outside the callback.
+    """
 
     async with transaction_session(client) as session:
         return await session.with_transaction(callback)
