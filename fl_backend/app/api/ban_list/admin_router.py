@@ -1,7 +1,6 @@
-from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.results import InsertOneResult
@@ -27,11 +26,11 @@ from app.core.dependencies import (
     BanListCollection,
     BanListReadCollection,
     DBClient,
+    GermanDay,
+    GermanyNow,
     GrantsCollection,
     OutboxCollection,
     SaisonsCollection,
-    get_german_date_str,
-    get_germany_now,
 )
 from app.core.recording import record_act
 from app.core.routing import by_id
@@ -96,8 +95,8 @@ async def post_ban_list_entry(
     address_changes_collection: AddressChangeReadCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    now: GermanyNow,
 ) -> FLPostBanListEntryResponse:
     """Ban an address: it cannot sign in, and no mail leaves for it but the ban's own notice, sent where `notify` is set.
 

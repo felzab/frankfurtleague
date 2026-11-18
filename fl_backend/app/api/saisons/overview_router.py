@@ -1,6 +1,4 @@
-from datetime import datetime
-
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
 from app.api.grants.guard import ADMIN_TIER
 from app.api.saisons.overview import SPIELE_AS, FLSaisonOverviewResponse, build_overview_pipeline, overview_of
@@ -10,12 +8,12 @@ from app.api.spiele.schemas import FLSpielJoinedInternalListAdapter
 from app.core import clock
 from app.core.crud import aggregate_many_from_db
 from app.core.dependencies import (
+    GermanyNow,
     SaisonsReadCollection,
     SchiedsrichterReadCollection,
     SpieleReadCollection,
     SpielorteReadCollection,
     TeamsReadCollection,
-    get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
 
@@ -33,7 +31,7 @@ async def get_saison_overview(
     teams_collection: TeamsReadCollection,
     spielorte_collection: SpielorteReadCollection,
     schiedsrichter_collection: SchiedsrichterReadCollection,
-    now: datetime = Depends(get_germany_now),
+    now: GermanyNow,
 ) -> FLSaisonOverviewResponse:
     """The administrator's Übersicht for one season: its open work on the cards `due`, `ergebnisse`, `dates` and `bewerbungen`.
 

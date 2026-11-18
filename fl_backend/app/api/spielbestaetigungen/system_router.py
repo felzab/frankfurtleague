@@ -1,10 +1,9 @@
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
-from datetime import datetime
 from typing import Any, Final, Literal
 
 from bson import ObjectId
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pymongo import ASCENDING, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -75,6 +74,8 @@ from app.core.crud import patch_one_in_db, post_many_to_db, pull_many_from_db, p
 from app.core.dependencies import (
     AufstellungenReadCollection,
     DBClient,
+    GermanDay,
+    GermanyNow,
     OutboxCollection,
     SaisonsCollection,
     SaisonsReadCollection,
@@ -82,8 +83,6 @@ from app.core.dependencies import (
     SchiedsrichterCollection,
     SpielbestaetigungenCollection,
     SpieleCollection,
-    get_german_date_str,
-    get_germany_now,
 )
 from app.core.security import SYSTEM_TIER
 from app.core.transactions import SWEEP_PAGE, Batch, refuse_a_stalled_page, run_isolated
@@ -273,8 +272,8 @@ async def sweep_spielbestaetigungen(
     outbox_collection: OutboxCollection,
     aufstellungen_collection: AufstellungenReadCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    now: GermanyNow,
 ) -> FLSpielbestaetigungSweepResponse:
     """Close, mint and remind one season's fixture confirmations as of today, owing each mail with its row, and answer what it did, counted.
 

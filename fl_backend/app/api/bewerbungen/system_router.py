@@ -1,8 +1,7 @@
 from collections.abc import Mapping
-from datetime import datetime
 from typing import Any, Final
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pymongo import ASCENDING, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
@@ -50,6 +49,8 @@ from app.core.crud import (
 from app.core.dependencies import (
     BewerbungenCollection,
     DBClient,
+    GermanDay,
+    GermanyNow,
     OutboxCollection,
     SaisonsCollection,
     SaisonsReadCollection,
@@ -57,8 +58,6 @@ from app.core.dependencies import (
     SpielberichteCollection,
     SpielbestaetigungenCollection,
     TeamsCollection,
-    get_german_date_str,
-    get_germany_now,
 )
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.security import SYSTEM_TIER
@@ -145,8 +144,8 @@ async def sweep_saison(
     spielberichte_collection: SpielberichteCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> FLBewerbungSweepResponse:
     """Run one season's retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.
 

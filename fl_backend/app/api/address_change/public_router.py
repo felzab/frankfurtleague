@@ -2,7 +2,7 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -58,6 +58,7 @@ from app.core.dependencies import (
     AddressChangeReadCollection,
     BewerbungenCollection,
     DBClient,
+    GermanyNow,
     GrantsCollection,
     GrantsReadCollection,
     MailboxAnchorsCollection,
@@ -67,7 +68,6 @@ from app.core.dependencies import (
     SchiedsrichterCollection,
     SpielerCollection,
     SpielerReadCollection,
-    get_germany_now,
 )
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.routing import SAFE
@@ -119,7 +119,7 @@ async def get_address_change_view(
     records: SubjectLookup,
     spieler_collection: SpielerReadCollection,
     grants_collection: GrantsReadCollection,
-    germany_now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> FLAddressChangeViewResponse:
     """What this token opens: the new mailbox's link, the link the address on file was mailed, or how either's change ended.
 
@@ -220,7 +220,7 @@ async def post_address_change_answer(
     mailbox_anchors_collection: MailboxAnchorsCollection,
     action_log_collection: ActionLogCollection,
     db: DBClient,
-    germany_now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> FLAddressChangeAnswerResponse:
     """Record whether the mailbox this link was sent to is the person's: `confirmed` confirms it, `declined` ends the change.
 
@@ -396,7 +396,7 @@ async def post_address_change_stop(
     grants_collection: GrantsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    germany_now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> FLAddressChangeStopResponse:
     """Stop the change the address on file was mailed about, its new address going, at any time until the change ends.
 

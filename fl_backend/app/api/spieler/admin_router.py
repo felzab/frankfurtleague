@@ -1,6 +1,6 @@
 from typing import Annotated, Final
 
-from fastapi import APIRouter, Body, Depends, status
+from fastapi import APIRouter, Body, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
@@ -42,6 +42,7 @@ from app.core.crud import (
 )
 from app.core.dependencies import (
     DBClient,
+    GermanDay,
     SaisonsCollection,
     SaisonSpielerCollection,
     SaisonSpielerReadCollection,
@@ -50,7 +51,6 @@ from app.core.dependencies import (
     SaisonTeamsReadCollection,
     SpielerCollection,
     SpielerReadCollection,
-    get_german_date_str,
 )
 from app.core.recording import record_act
 from app.core.routing import by_id
@@ -238,7 +238,7 @@ async def delete_saison_spieler(
     saison_id: str,
     saison_spieler_collection: SaisonSpielerCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> None:
     """
     Take a player out of a season's squad, the row staying, marked by `inactive_since`.

@@ -1,8 +1,7 @@
 from collections.abc import Mapping
-from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends, status
+from fastapi import APIRouter, Body, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
@@ -45,6 +44,8 @@ from app.core.crud import anchor_in_db, patch_one_in_db, pull_many_from_db, pull
 from app.core.dependencies import (
     AufstellungenCollection,
     DBClient,
+    GermanDay,
+    GermanyNow,
     OutboxCollection,
     SaisonsCollection,
     SaisonTeamsCollection,
@@ -55,8 +56,6 @@ from app.core.dependencies import (
     SpielorteCollection,
     SpieltageCollection,
     TeamsCollection,
-    get_german_date_str,
-    get_germany_now,
 )
 from app.core.exceptions import APIError, DocumentNotFoundError, WriteRefusal, as_judged_on_stored_state
 from app.core.recording import record_act
@@ -82,8 +81,8 @@ async def enter_spielbestaetigung(
     spiele_collection: SpieleCollection,
     saison_teams_collection: SaisonTeamsCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    now: GermanyNow,
 ) -> None:
     """Record that the party of an open confirmation agreed to its Ansetzung elsewhere than signed in, the reason saying how.
 
@@ -157,7 +156,7 @@ async def discard_spielbestaetigung(
     saison_teams_collection: SaisonTeamsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    now: datetime = Depends(get_germany_now),
+    now: GermanyNow,
 ) -> None:
     """Close a club's open decline proposing another date, which then stands as that club's one answer to this Ansetzung.
 
@@ -248,8 +247,8 @@ async def adopt_spielbestaetigung(
     spielberichte_collection: SpielberichteCollection,
     aufstellungen_collection: AufstellungenCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    now: GermanyNow,
 ) -> None:
     """Move a fixture to the date and hour a club's open decline proposes, through the fixture's own save and refused as it is.
 

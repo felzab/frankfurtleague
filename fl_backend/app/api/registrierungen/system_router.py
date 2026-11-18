@@ -1,6 +1,6 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.services import season_has_ended
@@ -16,9 +16,9 @@ from app.api.registrierungen.services import (
 from app.core.crud import delete_many_from_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
     DBClient,
+    GermanDay,
     RegistrierungenCollection,
     SaisonsCollection,
-    get_german_date_str,
 )
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.security import SYSTEM_TIER
@@ -38,7 +38,7 @@ async def sweep_registrierungen(
     registrierungen_collection: RegistrierungenCollection,
     saisons_collection: SaisonsCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLRegistrierungSweepResponse:
     """Erase one season's due registrations, as of today in Europe/Berlin.
 

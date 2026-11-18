@@ -1,8 +1,7 @@
 from collections.abc import Mapping
-from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends, Header
+from fastapi import APIRouter, Body, Header
 from pydantic import UUID4
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -48,6 +47,8 @@ from app.core.collections import Collection
 from app.core.crud import patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     DBClient,
+    GermanDay,
+    GermanyNow,
     InvitationsCollection,
     InvitationsReadCollection,
     MailboxAnchorsCollection,
@@ -61,8 +62,6 @@ from app.core.dependencies import (
     SaisonTeamsCollection,
     SaisonTeamsReadCollection,
     TeamsReadCollection,
-    get_german_date_str,
-    get_germany_now,
 )
 from app.core.readonly import ReadCollection
 from app.core.routing import SAFE
@@ -135,7 +134,7 @@ async def post_invitation_view(
     saison_teams_collection: SaisonTeamsReadCollection,
     saison_spieler_collection: SaisonSpielerReadCollection,
     teams_collection: TeamsReadCollection,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLInvitationViewResponse:
     """Answer what this registration link is for: the team, its school, the season, and what the form may offer.
 
@@ -199,12 +198,12 @@ async def post_registrierung(
     outbox_collection: OutboxCollection,
     mailbox_anchors_collection: MailboxAnchorsCollection,
     db: DBClient,
+    today: GermanDay,
+    germany_now: GermanyNow,
     # Version 4 alone: a guessable key lets a stranger store a registration under it first, and the
     # pupil's own press is then answered as that one.
     # Optional, so a page loaded before the form sent one still submits, unprotected.
     idempotency_key: Annotated[UUID4 | None, Header()] = None,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
 ) -> FLPostRegistrierungResponse:
     """Store one pupil's registration for the team and season the link belongs to, and owe its confirmation mail.
 
@@ -338,7 +337,7 @@ async def get_confirmation_view(
     registrierungen_collection: RegistrierungenReadCollection,
     teams_collection: TeamsReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLRegistrierungConfirmationViewResponse:
     """What the registration this confirmation link opens shows, and nothing of the pupil but the day they answered.
 
@@ -382,8 +381,8 @@ async def post_confirmation(
     registrierungen_collection: RegistrierungenCollection,
     saison_teams_collection: SaisonTeamsCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> FLRegistrierungConfirmationResponse:
     """Record a pupil's own answer for the registration their link opens, which stays pending until the team decides."""
 

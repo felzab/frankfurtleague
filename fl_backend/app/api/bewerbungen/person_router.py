@@ -1,7 +1,6 @@
-from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, status
+from fastapi import APIRouter, Body, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.account.crud import press_withdrawal
@@ -15,7 +14,7 @@ from app.api.identity.services import own_seats
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
 from app.core.crud import patch_past_the_version_in_db, refuse
-from app.core.dependencies import BewerbungenCollection, DBClient, get_germany_now
+from app.core.dependencies import BewerbungenCollection, DBClient, GermanyNow
 from app.core.journal import Journal
 from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transaction_session
@@ -42,7 +41,7 @@ async def patch_einwilligung(
     identifier: PersonIdentifier,
     bewerbungen_collection: BewerbungenCollection,
     db: DBClient,
-    germany_now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> None:
     """Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application; a grant is refused."""
 

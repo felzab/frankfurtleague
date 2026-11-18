@@ -1,10 +1,9 @@
 import secrets
 from collections import Counter
 from collections.abc import Mapping
-from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends, Query
+from fastapi import APIRouter, Body, Query
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -83,6 +82,8 @@ from app.core.dependencies import (
     BewerbungenCollection,
     BewerbungenReadCollection,
     DBClient,
+    GermanDay,
+    GermanyNow,
     OutboxCollection,
     OutboxReadCollection,
     SaisonsCollection,
@@ -91,8 +92,6 @@ from app.core.dependencies import (
     SaisonTeamsReadCollection,
     TeamsCollection,
     TeamsReadCollection,
-    get_german_date_str,
-    get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
@@ -210,7 +209,7 @@ async def get_bewerbung(
     saisons_collection: SaisonsReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
     outbox_collection: OutboxReadCollection,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLBewerbungSingleResponse:
     """One application, each seat's state judged today and `duplicate` taken over every open application of the season."""
 
@@ -276,8 +275,8 @@ async def accept_bewerbung(
     saisons_collection: SaisonsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> FLAcceptBewerbungResponse:
     """Accept an application once every contact person confirmed their seat, entering its club into the season and creating it for a new school.
 
@@ -464,8 +463,8 @@ async def decline_bewerbung(
     teams_collection: TeamsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> FLDeclineBewerbungResponse:
     """Decline an application with the reason given, mailed verbatim to each person the application mailed.
 
@@ -533,8 +532,8 @@ async def resend_einwilligung(
     teams_collection: TeamsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> FLBewerbungEinwilligungResendResponse:
     """Void one seat's link and mail its person a fresh one, that seat's deadline and reminder starting again from today.
 
@@ -644,8 +643,8 @@ async def post_kontakt_seat(
     teams_collection: TeamsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> FLBewerbungKontaktSeatResponse:
     """Write a person into one seat, whatever its state, and mail them a fresh link; an acceptance waits on their answer.
 

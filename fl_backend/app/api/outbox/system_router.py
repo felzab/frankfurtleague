@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from bson import ObjectId
-from fastapi import APIRouter, Body, Depends, status
+from fastapi import APIRouter, Body, status
 from pydantic import TypeAdapter, ValidationError
 from pymongo import ASCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -36,7 +36,7 @@ from app.api.outbox.services import (
 )
 from app.core.collections import Collection
 from app.core.crud import ANCHOR_FIELD, patch_many_in_db, patch_past_the_version_in_db, post_one_to_db, pull_many_from_db
-from app.core.dependencies import DB, BanListReadCollection, BewerbungenCollection, DBClient, OutboxCollection, get_germany_now
+from app.core.dependencies import DB, BanListReadCollection, BewerbungenCollection, DBClient, GermanyNow, OutboxCollection
 from app.core.logging import fl_logger
 from app.core.security import SYSTEM_TIER
 from app.core.transactions import transaction_session
@@ -114,7 +114,7 @@ async def post_handout(
     ban_list_collection: BanListReadCollection,
     db: DB,
     db_client: DBClient,
-    now: datetime = Depends(get_germany_now),
+    now: GermanyNow,
 ) -> FLOutboxHandoutResponse:
     """Claim a page of the mails owed now, the sign-in library's first, and hand each out with the link minted for it.
 
@@ -262,7 +262,7 @@ async def post_handout(
 async def post_result(
     result_data: Annotated[FLOutboxResultPayload, Body()],
     outbox_collection: OutboxCollection,
-    now: datetime = Depends(get_germany_now),
+    now: GermanyNow,
 ) -> FLOutboxResultResponse:
     """Settle the named mail by its send's outcome where the named claim still holds it, counting a mail it does not hold in `ignored`.
 
@@ -299,7 +299,7 @@ async def post_result(
 async def post_sign_in(
     sign_in_data: Annotated[FLOutboxSignInPayload, Body()],
     outbox_collection: OutboxCollection,
-    now: datetime = Depends(get_germany_now),
+    now: GermanyNow,
 ) -> None:
     """Owe one mail the sign-in library sends, such as a code, a passkey notice or the deletion link, to the address named.
 

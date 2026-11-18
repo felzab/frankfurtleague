@@ -1,8 +1,7 @@
-from datetime import datetime
 from http import HTTPStatus
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Response
+from fastapi import APIRouter, Body, Response
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.account.services import find_own_entry_refusal
@@ -32,6 +31,7 @@ from app.api.spiele.services import spiel_label
 from app.core.crud import find_stale_first_save_refusal, refuse
 from app.core.dependencies import (
     DBClient,
+    GermanyNow,
     SaisonsCollection,
     SaisonSpielerCollection,
     SaisonSpielerReadCollection,
@@ -43,7 +43,6 @@ from app.core.dependencies import (
     SpielerCollection,
     SpieleReadCollection,
     SpielerReadCollection,
-    get_germany_now,
 )
 from app.core.recording import ACT_BY_SCHIEDSRICHTER, record_act
 from app.core.routing import by_id
@@ -76,7 +75,7 @@ async def get_spielbericht_bericht(
     spielberichte_collection: SpielberichteReadCollection,
     records: SubjectLookup,
     session: SnapshotSession,
-    now: datetime = Depends(get_germany_now),
+    now: GermanyNow,
 ) -> FLSpielberichtSchiedsrichterResponse:
     """What the booked referee's report form reads: the fixture, both clubs' live squads, and the stored report or null.
 
@@ -134,7 +133,7 @@ async def put_spielbericht_bericht(
     spielberichte_collection: SpielberichteCollection,
     records: SubjectLookup,
     db: DBClient,
-    now: datetime = Depends(get_germany_now),
+    now: GermanyNow,
 ) -> FLSpielberichtSchiedsrichterResponse:
     """Write the whole report of one fixture as its booked referee, replacing what stood, and never the fixture's result.
 

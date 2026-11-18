@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends, status
@@ -54,13 +53,13 @@ from app.core.crud import (
 )
 from app.core.dependencies import (
     DBClient,
+    GermanDay,
+    GermanyNow,
     OutboxCollection,
     OutboxReadCollection,
     SchiedsrichterCollection,
     SchiedsrichterReadCollection,
     SpieleCollection,
-    get_german_date_str,
-    get_germany_now,
 )
 from app.core.recording import record_act
 from app.core.routing import by_id
@@ -101,7 +100,7 @@ async def get_schiedsrichter_by_id(
     schiedsrichter_id: CustomRouteObjectId,
     schiedsrichter_collection: SchiedsrichterReadCollection,
     outbox_collection: OutboxReadCollection,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLSchiedsrichterSingleResponse:
     """One referee, a retired one included, with whether their consent link has lapsed today and what became of their last confirmation mail.
 
@@ -131,8 +130,8 @@ async def post_schiedsrichter(
     schiedsrichter_collection: SchiedsrichterCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    now: GermanyNow,
 ) -> FLPostSchiedsrichterResponse:
     """Create a referee and owe them their confirmation link, answering the address and the deadline it goes to.
 
@@ -195,8 +194,8 @@ async def patch_schiedsrichter(
     schiedsrichter_collection: SchiedsrichterCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    now: GermanyNow,
 ) -> FLPatchSchiedsrichterResponse:
     """Update a referee on the `version` the editor was served, answering the version stored.
 
@@ -271,7 +270,7 @@ async def delete_schiedsrichter(
     schiedsrichter_collection: SchiedsrichterCollection,
     spiele_collection: SpieleCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> None:
     """Deactivate a referee, who stays on record because a played match names them by id.
 
@@ -326,8 +325,8 @@ async def reactivate_schiedsrichter(
     schiedsrichter_collection: SchiedsrichterCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    now: GermanyNow,
 ) -> FLSchiedsrichterReactivateResponse:
     """Bring a retired referee back into the picker and every default read.
 
@@ -394,8 +393,8 @@ async def invite_schiedsrichter(
     schiedsrichter_collection: SchiedsrichterCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    now: GermanyNow,
 ) -> FLSchiedsrichterMintResponse:
     """Owe this referee a fresh confirmation link, which the Postausgang mints and mails, and answer where it goes.
 

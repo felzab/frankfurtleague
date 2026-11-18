@@ -27,7 +27,7 @@ from app.core.crud import (
     refuse,
     set_inactive_since,
 )
-from app.core.dependencies import DBClient, SpieleCollection, SpielorteCollection, SpielorteReadCollection, get_german_date_str
+from app.core.dependencies import DBClient, GermanDay, SpieleCollection, SpielorteCollection, SpielorteReadCollection
 from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.transactions import transaction_session
@@ -160,7 +160,7 @@ async def delete_spielort(
     spielorte_collection: SpielorteCollection,
     spiele_collection: SpieleCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> None:
     """Retire a venue, which stays readable for every match played there.
 

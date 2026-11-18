@@ -1,7 +1,7 @@
 from collections.abc import Mapping
 from typing import Any, Final
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
 from app.api.aufstellungen.services import compose_public_aufstellungen, public_aufstellungen_lookup
 from app.api.saisons.crud import CURRENT_SAISON_FILTER, pull_finale_by_saison, pull_landing_windows
@@ -57,6 +57,7 @@ from app.core.collections import Collection
 from app.core.concurrency import concurrently
 from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
+    GermanDay,
     SaisonSpielerReadCollection,
     SaisonsReadCollection,
     SaisonTeamsReadCollection,
@@ -64,7 +65,6 @@ from app.core.dependencies import (
     SpieleReadCollection,
     SpieltageReadCollection,
     TeamsReadCollection,
-    get_german_date_str,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
@@ -299,7 +299,7 @@ async def get_landing(
     spiele_collection: SpieleReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
     teams_collection: TeamsReadCollection,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLLandingResponse:
     """The season the site is on, `before_start`, `running` or `decided`, null for a league that has none.
 

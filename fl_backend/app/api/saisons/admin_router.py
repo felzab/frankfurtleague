@@ -2,7 +2,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Annotated, Any, Literal, NamedTuple
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -107,6 +107,8 @@ from app.core.dependencies import (
     AufstellungenCollection,
     BanListCollection,
     DBClient,
+    GermanDay,
+    GermanyNow,
     InvitationsCollection,
     InvitationsReadCollection,
     OutboxCollection,
@@ -123,8 +125,6 @@ from app.core.dependencies import (
     SpieltageCollection,
     SpieltageReadCollection,
     TeamsReadCollection,
-    get_german_date_str,
-    get_germany_now,
 )
 from app.core.exceptions import WriteRefusal
 from app.core.logging import fl_logger
@@ -184,7 +184,7 @@ async def get_saisons_admin(
     saisons_collection: SaisonsReadCollection,
     spiele_collection: SpieleReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLSaisonsAdminListResponse:
     """Every season, the `future` ones included, each with its start, play and decision states and its counts.
 
@@ -235,7 +235,7 @@ async def get_saison_admin(
     teams_collection: TeamsReadCollection,
     spielberichte_collection: SpielberichteReadCollection,
     invitations_collection: InvitationsReadCollection,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLSaisonAdminResponse:
     """What the season editor shows in one read: its season, clubs, shapes and matchdays, its acts' states and its links.
 
@@ -423,7 +423,7 @@ async def patch_saison(
     spieltage_collection: SpieltageCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLPatchSaisonResponse:
     """Save a season's dates and rules on the `version` it was read at, answering the version stored.
 
@@ -773,7 +773,7 @@ async def swap_gruppen(
     saison_teams_collection: SaisonTeamsCollection,
     spiele_collection: SpieleCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLSwapGruppenResponse:
     """Exchange the groups of two clubs entered in this season, as one write.
 
@@ -885,7 +885,7 @@ async def post_spielplan(
     # An absent body is `replace: false`, so a first draw needs no confirmation and nothing replaces
     # a season by leaving the flag out.
     spielplan_data: Annotated[FLGenerateSpielplanPayload, Body(default_factory=FLGenerateSpielplanPayload)],
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLGenerateSpielplanResponse:
     """Draw the whole season at once, every matchday and every fixture undated, from the stated `shape` or the season's rules.
 
@@ -1346,8 +1346,8 @@ async def post_invitations_dispatch(
     saisons_collection: SaisonsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> FLInvitationDispatchResponse:
     """Give every admitted team of this season a fresh registration link, revoking any it held, mailed to its confirmed seats.
 

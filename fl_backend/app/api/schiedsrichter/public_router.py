@@ -1,7 +1,6 @@
-from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, status
+from fastapi import APIRouter, Body, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.einwilligung.services import find_self_media_refusal
@@ -30,10 +29,10 @@ from app.core.collections import Collection
 from app.core.crud import patch_past_the_version_in_db, refuse
 from app.core.dependencies import (
     DBClient,
+    GermanDay,
+    GermanyNow,
     SchiedsrichterCollection,
     SchiedsrichterReadCollection,
-    get_german_date_str,
-    get_germany_now,
 )
 from app.core.journal import Journal
 from app.core.routing import SAFE
@@ -61,7 +60,7 @@ router = APIRouter(
 async def get_confirmation_view(
     view_data: Annotated[FLTokenPayload, Body()],
     schiedsrichter_collection: SchiedsrichterReadCollection,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLSchiedsrichterConfirmationViewResponse:
     """What this token opens: the link's state and deadline, the age bounds and the day of the person's own answer.
 
@@ -101,8 +100,8 @@ async def post_confirmation(
     answer_data: Annotated[FLSchiedsrichterConfirmationPayload, Body()],
     schiedsrichter_collection: SchiedsrichterCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> FLSchiedsrichterConfirmationResponse:
     """Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.
 
@@ -171,7 +170,7 @@ async def post_decline(
     decline_data: Annotated[FLTokenPayload, Body()],
     schiedsrichter_collection: SchiedsrichterCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> None:
     """Record the referee's objection to the entry their link opens: its day, and nothing else of the person.
 

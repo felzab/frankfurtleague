@@ -1,6 +1,4 @@
-from datetime import datetime
-
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.address_change.crud import known_to_the_new_mailbox, others_naming
@@ -17,6 +15,7 @@ from app.core.dependencies import (
     BewerbungenCollection,
     BewerbungenReadCollection,
     DBClient,
+    GermanyNow,
     GrantsCollection,
     GrantsReadCollection,
     OutboxCollection,
@@ -33,7 +32,6 @@ from app.core.dependencies import (
     SpieleCollection,
     SpielerCollection,
     SpielerReadCollection,
-    get_germany_now,
 )
 from app.core.journal import Journal
 from app.core.recording import ACT_BY_PERSON, record_act
@@ -69,7 +67,7 @@ async def post_account_erasure(
     outbox_collection: OutboxCollection,
     address_changes_collection: AddressChangeCollection,
     db: DBClient,
-    germany_now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> None:
     """Erase every record the signed-in address holds, at once and as one write; the owner is refused until a handover.
 

@@ -1,8 +1,7 @@
 from collections.abc import Mapping, Sequence
-from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends, Header
+from fastapi import APIRouter, Body, Header
 from pydantic import UUID4
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -93,6 +92,8 @@ from app.core.dependencies import (
     BewerbungenCollection,
     BewerbungenReadCollection,
     DBClient,
+    GermanDay,
+    GermanyNow,
     MailboxAnchorsCollection,
     OutboxCollection,
     SaisonsCollection,
@@ -102,8 +103,6 @@ from app.core.dependencies import (
     SpielbestaetigungenCollection,
     TeamsCollection,
     TeamsReadCollection,
-    get_german_date_str,
-    get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import Journal
@@ -131,9 +130,7 @@ WINDOW_PROJECTION = ["bewerbung", "status"]
 
 
 @router.get("/form/{saison_id}", response_model=FLBewerbungFormResponse, summary="What one Saison's application form shows")
-async def get_form(
-    saison_id: str, saisons_collection: SaisonsReadCollection, today: str = Depends(get_german_date_str)
-) -> FLBewerbungFormResponse:
+async def get_form(saison_id: str, saisons_collection: SaisonsReadCollection, today: GermanDay) -> FLBewerbungFormResponse:
     """A season's application window, and while it runs the clubs a school may apply as and the colours taken.
 
     A closed or paused window and a season recording none are served too, and each club is served as its name alone.
@@ -202,8 +199,8 @@ async def post_bewerbung(
     # Version 4 alone: a guessable key lets a stranger store an application under it first, and the
     # visitor's own press is then answered as that one.
     idempotency_key: Annotated[UUID4, Header()],
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> FLCreatedResponse:
     """Store one school's application to play one season, and mail each contact person their confirmation link, one per person.
 
@@ -388,7 +385,7 @@ async def get_einwilligung_view(
     saison_teams_collection: SaisonTeamsReadCollection,
     saisons_collection: SaisonsReadCollection,
     teams_collection: TeamsReadCollection,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLBewerbungEinwilligungViewResponse:
     """What the confirmation page renders for the seat this token opens, and nothing of the person.
 
@@ -450,8 +447,8 @@ async def post_einwilligung(
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> FLBewerbungEinwilligungAnswerResponse | FLSaisonTeamEinwilligungAnswerResponse:
     """Record one person's consent or Widerspruch for the seat their link opens, and for a second seat they hold.
 

@@ -69,6 +69,9 @@ def get_actor_email() -> str:
     return address
 
 
+ActorEmail = Annotated[str, Depends(get_actor_email)]
+
+
 # The session a request acts for, as the frontend's guard read it. Believed because only the
 # frontend's server holds the admin key every route reading them takes, and only the private network
 # reaches this service; a base or system route never reads them.

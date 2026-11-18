@@ -1,7 +1,6 @@
-from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.address_change.crud import end_the_change_in_session
@@ -29,14 +28,14 @@ from app.core.dependencies import (
     AddressChangeCollection,
     BanListCollection,
     DBClient,
+    GermanyNow,
     GrantsCollection,
     GrantsReadCollection,
     OutboxCollection,
-    get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import by_id
-from app.core.security import get_actor_email
+from app.core.security import ActorEmail
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -79,8 +78,8 @@ async def post_grant(
     address_changes_collection: AddressChangeCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    operator: str = Depends(get_actor_email),
-    now: datetime = Depends(get_germany_now),
+    operator: ActorEmail,
+    now: GermanyNow,
 ) -> FLGrantWriteResponse:
     """Add an address as `administration`, holding once its wait has passed; only the owner adds one, and no request grants `owner`.
 
@@ -130,8 +129,8 @@ async def delete_grant(
     grants_collection: GrantsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    operator: str = Depends(get_actor_email),
-    now: datetime = Depends(get_germany_now),
+    operator: ActorEmail,
+    now: GermanyNow,
 ) -> FLGrantWriteResponse:
     """Remove a grant for good, its address losing access on its next request, or withdraw an addition still waiting.
 
@@ -174,8 +173,8 @@ async def post_handover(
     ban_list_collection: BanListCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    operator: str = Depends(get_actor_email),
-    now: datetime = Depends(get_germany_now),
+    operator: ActorEmail,
+    now: GermanyNow,
 ) -> FLGrantWriteResponse:
     """Start handing the owner role to an administrator in effect, completing once its wait has passed; the owner stays the owner until then.
 
@@ -219,8 +218,8 @@ async def delete_handover(
     grants_collection: GrantsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    operator: str = Depends(get_actor_email),
-    now: datetime = Depends(get_germany_now),
+    operator: ActorEmail,
+    now: GermanyNow,
 ) -> FLGrantWriteResponse:
     """Stop a waiting handover, the role staying with the owner; only the owner stops one, and every holder in effect is told."""
 

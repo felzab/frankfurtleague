@@ -116,6 +116,8 @@ from app.core.dependencies import (
     AufstellungenCollection,
     BewerbungenCollection,
     DBClient,
+    GermanDay,
+    GermanyNow,
     InvitationsCollection,
     InvitationsReadCollection,
     OutboxCollection,
@@ -132,8 +134,6 @@ from app.core.dependencies import (
     SpieleReadCollection,
     TeamsCollection,
     TeamsReadCollection,
-    get_german_date_str,
-    get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
@@ -357,8 +357,8 @@ async def get_team_saison_admin(
     spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
     schiedsrichter_collection: SchiedsrichterReadCollection,
     session: SnapshotSession,
-    today: str = Depends(get_german_date_str),
-    now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    now: GermanyNow,
 ) -> FLTeamSaisonAdminResponse:
     """What the team editor shows in one read: the club, its row of the season, and what each act of the page would meet.
 
@@ -512,7 +512,7 @@ async def delete_team(
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> None:
     """Retire a club from the league, its rows of the seasons it played left as they are.
 
@@ -686,8 +686,8 @@ async def put_austritt(
     spiele_collection: SpieleCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> None:
     """Record how a team left the season, once: an exit is never lifted and never replaced.
 
@@ -761,8 +761,8 @@ async def put_kontakt_seat(
     saisons_collection: SaisonsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> FLKontaktSeatResponse:
     """Write the person one seat holds on the row's `version`, a newly seated person owed a fresh link whose address `email` names.
 
@@ -831,7 +831,7 @@ async def replace_saison_team(
     bewerbungen_collection: BewerbungenCollection,
     aufstellungen_collection: AufstellungenCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLReplaceSaisonTeamResponse:
     """Hand this season's row, and every fixture on it, to another club, keeping the schedule.
 
@@ -989,8 +989,8 @@ async def invite_kontakt(
     saisons_collection: SaisonsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> FLKontaktInviteResponse:
     """Owe one contact seat a fresh confirmation link, and its pair where the Trainer holds both and has not confirmed it.
 
@@ -1073,7 +1073,7 @@ async def post_invitation(
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLInvitationMintResponse:
     """Mint the link a team's players register through, revoking whatever link that team held for this season.
 
@@ -1146,7 +1146,7 @@ async def delete_invitation(
     invitations_collection: InvitationsCollection,
     teams_collection: TeamsCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLInvitationWriteResponse:
     """Stamp this team's live registration link revoked, so it opens nothing from here on.
 
@@ -1192,8 +1192,8 @@ async def post_invitation_dispatch(
     saisons_collection: SaisonsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> FLInvitationMailResponse:
     """Owe this team's live registration link to every seat whose own person has confirmed it, one mail each, `mailed` counting them.
 

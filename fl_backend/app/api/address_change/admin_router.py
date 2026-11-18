@@ -2,7 +2,7 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
@@ -50,19 +50,19 @@ from app.core.dependencies import (
     AddressChangeCollection,
     AddressChangeReadCollection,
     DBClient,
+    GermanyNow,
     GrantsCollection,
     GrantsReadCollection,
     OutboxCollection,
     OutboxReadCollection,
     SnapshotSession,
     SpielerCollection,
-    get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.core.recording import record_act
 from app.core.routing import by_id
-from app.core.security import get_actor_email
+from app.core.security import ActorEmail
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -121,8 +121,8 @@ async def get_address_changes(
     outbox_collection: OutboxReadCollection,
     grants_collection: GrantsReadCollection,
     session: SnapshotSession,
-    operator: str = Depends(get_actor_email),
-    germany_now: datetime = Depends(get_germany_now),
+    operator: ActorEmail,
+    germany_now: GermanyNow,
 ) -> FLAddressChangeAdminListResponse:
     """Every running change this administrator may act on, newest first, with its two addresses and the step it waits on."""
 
@@ -163,8 +163,8 @@ async def post_address_change_admin(
     grants_collection: GrantsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    operator: str = Depends(get_actor_email),
-    germany_now: datetime = Depends(get_germany_now),
+    operator: ActorEmail,
+    germany_now: GermanyNow,
 ) -> FLAddressChangeIdResponse:
     """Start a change of the typed address for a person who says they cannot sign in.
 
@@ -256,8 +256,8 @@ async def invite_address_change(
     spieler_collection: SpielerCollection,
     grants_collection: GrantsCollection,
     db: DBClient,
-    operator: str = Depends(get_actor_email),
-    germany_now: datetime = Depends(get_germany_now),
+    operator: ActorEmail,
+    germany_now: GermanyNow,
 ) -> FLAddressChangeIdResponse:
     """Mail the new mailbox a fresh link for the change this id names, its deadline restarting now.
 
@@ -323,8 +323,8 @@ async def delete_address_change(
     grants_collection: GrantsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    operator: str = Depends(get_actor_email),
-    germany_now: datetime = Depends(get_germany_now),
+    operator: ActorEmail,
+    germany_now: GermanyNow,
 ) -> FLAddressChangeIdResponse:
     """Discard the change this id names, the address on file staying.
 

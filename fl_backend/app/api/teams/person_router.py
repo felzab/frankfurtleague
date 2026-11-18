@@ -2,7 +2,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Annotated, Any, Final, NamedTuple
 
-from fastapi import APIRouter, Body, Depends, status
+from fastapi import APIRouter, Body, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.account.crud import press_einwilligung
@@ -49,14 +49,14 @@ from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, patch_past_the_version_in_db, refuse
 from app.core.dependencies import (
     DBClient,
+    GermanDay,
+    GermanyNow,
     RegistrierungenReadCollection,
     SaisonTeamsCollection,
     SaisonTeamsReadCollection,
     SnapshotSession,
     SpieleReadCollection,
     TeamsReadCollection,
-    get_german_date_str,
-    get_germany_now,
 )
 from app.core.journal import Journal
 from app.core.readonly import ReadCollection
@@ -111,8 +111,8 @@ async def patch_einwilligung(
     saison_teams_collection: SaisonTeamsCollection,
     records: SubjectLookup,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> None:
     """Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.
 
@@ -323,7 +323,7 @@ async def get_team_overview(
     registrierungen_collection: RegistrierungenReadCollection,
     records: SubjectLookup,
     session: SnapshotSession,
-    now: datetime = Depends(get_germany_now),
+    now: GermanyNow,
 ) -> FLTeamOverviewResponse:
     """Everything a team's Übersicht shows in one read, for a person holding any contact seat on the team in this season.
 
@@ -436,7 +436,7 @@ async def get_team_spiele(
     spiele_collection: SpieleReadCollection,
     records: SubjectLookup,
     session: SnapshotSession,
-    now: datetime = Depends(get_germany_now),
+    now: GermanyNow,
 ) -> FLTeamSpieleResponse:
     """Every fixture of the team in this season in the order the draw numbered them, for a person holding any contact seat on it.
 

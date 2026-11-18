@@ -1,7 +1,6 @@
-from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, status
+from fastapi import APIRouter, Body, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.account.crud import press_einwilligung
@@ -28,11 +27,11 @@ from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, patch_past_the_version_in_db, refuse
 from app.core.dependencies import (
     DBClient,
+    GermanDay,
+    GermanyNow,
     SchiedsrichterCollection,
     SnapshotSession,
     SpieleReadCollection,
-    get_german_date_str,
-    get_germany_now,
 )
 from app.core.journal import Journal
 from app.core.routing import by_id
@@ -61,8 +60,8 @@ async def patch_einwilligung(
     schiedsrichter_collection: SchiedsrichterCollection,
     records: SubjectLookup,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> None:
     """Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.
 
@@ -124,7 +123,7 @@ async def get_self_spiele(
     spiele_collection: SpieleReadCollection,
     records: SubjectLookup,
     session: SnapshotSession,
-    now: datetime = Depends(get_germany_now),
+    now: GermanyNow,
 ) -> FLSchiedsrichterSpieleResponse:
     """Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, open work first.
 

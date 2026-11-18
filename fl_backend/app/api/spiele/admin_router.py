@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, Query
@@ -27,6 +26,7 @@ from app.core.dependencies import (
     AufstellungenCollection,
     AufstellungenReadCollection,
     DBClient,
+    GermanyNow,
     SaisonsCollection,
     SaisonSpielerReadCollection,
     SaisonsReadCollection,
@@ -45,7 +45,6 @@ from app.core.dependencies import (
     SpieltageCollection,
     SpieltageReadCollection,
     TeamsCollection,
-    get_germany_now,
 )
 from app.core.routing import SAFE_WHEN, by_id
 from app.core.transactions import transaction_session
@@ -108,7 +107,7 @@ async def get_spiel_admin(
     spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
     aufstellungen_collection: AufstellungenReadCollection,
-    now: datetime = Depends(get_germany_now),
+    now: GermanyNow,
 ) -> FLSpieleAdminSingleResponse:
     """
     The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.
@@ -160,11 +159,11 @@ async def patch_spiel(
     aufstellungen_collection: AufstellungenCollection,
     # Read on a `dry_run` alone, for whom the confirmation pass would mail of the save.
     spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
+    now: GermanyNow,
     adopts_bericht: Annotated[
         int | None,
         Query(ge=0, description="The `version` of the fixture's Spielbericht the editor was seeded from, to stamp it adopted"),
     ] = None,
-    now: datetime = Depends(get_germany_now),
     dry_run: Annotated[bool, Depends(previewing)] = False,
 ) -> FLPatchSpielDataResponse:
     """

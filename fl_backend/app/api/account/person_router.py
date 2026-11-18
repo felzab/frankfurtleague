@@ -2,7 +2,7 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.account.schemas import (
@@ -47,12 +47,12 @@ from app.core.dependencies import (
     AddressChangeCollection,
     AddressChangeReadCollection,
     DBClient,
+    GermanDay,
+    GermanyNow,
     GrantsCollection,
     OutboxCollection,
     SnapshotSession,
     SpielerReadCollection,
-    get_german_date_str,
-    get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
@@ -72,7 +72,7 @@ async def get_einwilligungen(
     identifier: PersonIdentifier,
     spieler_collection: SpielerReadCollection,
     session: SnapshotSession,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLAccountEinwilligungenResponse:
     """Every confirmed consent record the signed-in address holds, pending applications and registrations as withdraw-only.
 
@@ -136,7 +136,7 @@ async def _address_change_answer(
 async def get_address_change(
     identifier: PersonIdentifier,
     address_changes_collection: AddressChangeReadCollection,
-    germany_now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> FLAccountAddressChangeResponse:
     """The change pending on the signed-in address, null where none is.
 
@@ -159,7 +159,7 @@ async def post_address_change(
     grants_collection: GrantsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    germany_now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> FLAccountAddressChangeMintResponse:
     """Start a change of the address the person signs in on: the address on file is mailed a link, and its confirmation mails the new one.
 
@@ -220,7 +220,7 @@ async def delete_address_change(
     grants_collection: GrantsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    germany_now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> FLAccountAddressChangeResponse:
     """Stop the change pending on the signed-in address at any step, its new address going; a holder's change in its wait tells every holder."""
 

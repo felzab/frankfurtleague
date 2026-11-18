@@ -1,9 +1,8 @@
 from collections.abc import Mapping
-from datetime import datetime
 from typing import Annotated, Any
 
 from bson import ObjectId
-from fastapi import APIRouter, Body, Depends, status
+from fastapi import APIRouter, Body, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -60,6 +59,8 @@ from app.core.crud import (
 )
 from app.core.dependencies import (
     DBClient,
+    GermanDay,
+    GermanyNow,
     OutboxCollection,
     RegistrierungenCollection,
     RegistrierungenReadCollection,
@@ -71,8 +72,6 @@ from app.core.dependencies import (
     SnapshotSession,
     SpielerCollection,
     SpielerReadCollection,
-    get_german_date_str,
-    get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import Journal
@@ -399,8 +398,8 @@ async def decline(
     outbox_collection: OutboxCollection,
     records: SubjectLookup,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> FLRegistrierungDeclineResponse:
     """Decline one pending registration, confirmed or not, for a reason from a closed set or none.
 
@@ -500,7 +499,7 @@ async def patch_einwilligung(
     identifier: PersonIdentifier,
     registrierungen_collection: RegistrierungenCollection,
     db: DBClient,
-    germany_now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> None:
     """Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.
 

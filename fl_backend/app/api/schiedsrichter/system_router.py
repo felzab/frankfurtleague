@@ -1,14 +1,13 @@
-from datetime import datetime
 from typing import Final
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.schiedsrichter.crud import erase_referee_in_session
 from app.api.schiedsrichter.schemas import FLSchiedsrichterSweepResponse
 from app.api.schiedsrichter.services import build_erasure_due_filter
 from app.core.crud import pull_many_from_db
-from app.core.dependencies import DBClient, SchiedsrichterCollection, SpielbestaetigungenCollection, SpieleCollection, get_germany_now
+from app.core.dependencies import DBClient, GermanyNow, SchiedsrichterCollection, SpielbestaetigungenCollection, SpieleCollection
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.security import SYSTEM_TIER
 from app.core.transactions import Batch, drain
@@ -30,7 +29,7 @@ async def sweep_schiedsrichter(
     spiele_collection: SpieleCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     db: DBClient,
-    germany_now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> FLSchiedsrichterSweepResponse:
     """Erase every referee entry nobody confirmed, or whose person objected, once the midnight after its link's last day has passed.
 

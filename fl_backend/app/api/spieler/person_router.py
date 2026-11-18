@@ -1,8 +1,7 @@
 from collections.abc import Mapping, Sequence
-from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends, status
+from fastapi import APIRouter, Body, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -46,6 +45,8 @@ from app.core.crud import (
 )
 from app.core.dependencies import (
     DBClient,
+    GermanDay,
+    GermanyNow,
     SaisonsCollection,
     SaisonSpielerCollection,
     SaisonSpielerReadCollection,
@@ -53,8 +54,6 @@ from app.core.dependencies import (
     SnapshotSession,
     SpielerCollection,
     SpielerReadCollection,
-    get_german_date_str,
-    get_germany_now,
 )
 from app.core.journal import Journal
 from app.core.readonly import ReadCollection
@@ -278,7 +277,7 @@ async def delete_kader_row(
     saison_spieler_collection: SaisonSpielerCollection,
     records: SubjectLookup,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLKaderRow:
     """
     Take a player out of this team's squad for the season, as any contact seat of the team may, the row staying.
@@ -342,8 +341,8 @@ async def patch_einwilligung(
     identifier: PersonIdentifier,
     spieler_collection: SpielerCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> None:
     """
     Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.

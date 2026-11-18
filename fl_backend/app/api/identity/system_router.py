@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated, Any, Final
 
-from fastapi import APIRouter, Body, Depends, Query
+from fastapi import APIRouter, Body, Query
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -32,6 +32,7 @@ from app.core.dependencies import (
     BanListReadCollection,
     BewerbungenCollection,
     DBClient,
+    GermanyNow,
     GrantsCollection,
     GrantsReadCollection,
     OutboxCollection,
@@ -45,7 +46,6 @@ from app.core.dependencies import (
     SpielbestaetigungenCollection,
     SpieleCollection,
     SpielerCollection,
-    get_germany_now,
 )
 from app.core.logging import fl_logger
 from app.core.recording import ACT_BY_SYSTEM, record_act
@@ -73,7 +73,7 @@ async def get_subject(
     records: SubjectLookup,
     grants_collection: GrantsReadCollection,
     session: SnapshotSession,
-    germany_now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> FLSubjectResponse:
     """Answer which confirmed, live contact seats, pupil records and referee records one mailbox holds, with its grant.
 
@@ -106,7 +106,7 @@ async def get_sign_in(
     ban_list_collection: BanListReadCollection,
     grants_collection: GrantsReadCollection,
     session: SnapshotSession,
-    germany_now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> FLSignInResponse:
     """Answer what the sign-in gate decides on for one mailbox: two flags, its ban and its grant's tier, and never a record.
 
@@ -240,7 +240,7 @@ async def sweep_erasure(
     outbox_collection: OutboxCollection,
     address_changes_collection: AddressChangeCollection,
     db: DBClient,
-    germany_now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> FLErasureSweepResponse:
     """Delete a bounded share of the pupils whose last squad season is over by a whole season, and answer what went and how many remain.
 

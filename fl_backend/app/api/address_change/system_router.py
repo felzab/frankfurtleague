@@ -2,7 +2,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Annotated, Any, Final, Literal
 
-from fastapi import APIRouter, Body, Depends, Query
+from fastapi import APIRouter, Body, Query
 from pymongo import ASCENDING, AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -37,6 +37,7 @@ from app.core.dependencies import (
     AddressChangeReadCollection,
     BewerbungenCollection,
     DBClient,
+    GermanyNow,
     GrantsCollection,
     MailboxAnchorsCollection,
     OutboxCollection,
@@ -44,7 +45,6 @@ from app.core.dependencies import (
     SaisonTeamsCollection,
     SchiedsrichterCollection,
     SpielerCollection,
-    get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.logging import fl_logger
@@ -213,7 +213,7 @@ async def sweep_address_change(
     action_log_collection: ActionLogCollection,
     mailbox_anchors_collection: MailboxAnchorsCollection,
     db: DBClient,
-    germany_now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> FLAddressChangeSweepResponse:
     """End a share of the changes whose step lapsed, and make each due one take effect, or end it where its judgement now refuses it.
 

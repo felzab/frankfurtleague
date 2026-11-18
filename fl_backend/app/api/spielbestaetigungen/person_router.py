@@ -1,8 +1,7 @@
 from collections.abc import Iterable, Mapping
-from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
@@ -43,13 +42,13 @@ from app.core import clock
 from app.core.crud import anchor_in_db, patch_one_in_db, pull_many_from_db, refuse
 from app.core.dependencies import (
     DBClient,
+    GermanyNow,
     SaisonsCollection,
     SaisonTeamsCollection,
     SpielbestaetigungenCollection,
     SpieleCollection,
     SpieleReadCollection,
     SpieltageReadCollection,
-    get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.recording import ACT_BY_KONTAKT, ACT_BY_SCHIEDSRICHTER, record_act
@@ -96,7 +95,7 @@ async def post_schiedsrichter_answer(
     saisons_collection: SaisonsCollection,
     records: SubjectLookup,
     db: DBClient,
-    now: datetime = Depends(get_germany_now),
+    now: GermanyNow,
 ) -> FLSpielbestaetigungSchiedsrichterAnswerResponse:
     """Record the signed-in referee's first answer about a fixture they are booked on, until its kick-off: accept, or decline giving a reason.
 
@@ -212,7 +211,7 @@ async def post_team_answer(
     spieltage_collection: SpieltageReadCollection,
     records: SubjectLookup,
     db: DBClient,
-    now: datetime = Depends(get_germany_now),
+    now: GermanyNow,
 ) -> FLSpielbestaetigungAnswerResponse:
     """Record one club's answer about one Ansetzung, from whichever of its confirmed seats presses first, and the seat it came from.
 

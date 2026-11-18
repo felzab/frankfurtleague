@@ -1,7 +1,6 @@
-from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, status
+from fastapi import APIRouter, Body, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.address_change.crud import others_naming
@@ -27,6 +26,7 @@ from app.core.dependencies import (
     BewerbungenCollection,
     BewerbungenReadCollection,
     DBClient,
+    GermanyNow,
     GrantsCollection,
     GrantsReadCollection,
     OutboxCollection,
@@ -44,12 +44,11 @@ from app.core.dependencies import (
     SpielerCollection,
     SpieleReadCollection,
     SpielerReadCollection,
-    get_germany_now,
 )
 from app.core.journal import Journal
 from app.core.recording import record_act
 from app.core.routing import SAFE
-from app.core.security import get_actor_email
+from app.core.security import ActorEmail
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 
@@ -76,8 +75,8 @@ async def get_erasure_view(
     grants_collection: GrantsReadCollection,
     address_changes_collection: AddressChangeReadCollection,
     session: SnapshotSession,
-    operator: str = Depends(get_actor_email),
-    now: datetime = Depends(get_germany_now),
+    operator: ActorEmail,
+    now: GermanyNow,
 ) -> FLErasureViewResponse:
     """Count what `POST /identity/erasure` would remove or empty for this address, by kind, naming nothing and storing nothing.
 
@@ -156,8 +155,8 @@ async def post_erasure(
     outbox_collection: OutboxCollection,
     address_changes_collection: AddressChangeCollection,
     db: DBClient,
-    operator: str = Depends(get_actor_email),
-    germany_now: datetime = Depends(get_germany_now),
+    operator: ActorEmail,
+    germany_now: GermanyNow,
 ) -> None:
     """Erase every record an address holds, on a request that person made by mail, at once and as one write, as their own erasure does.
 

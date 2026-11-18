@@ -1,12 +1,10 @@
-from datetime import datetime
-
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.grants.crud import complete_the_handover_in_session, read_grants
 from app.api.grants.schemas import FLGrantHandoverPassResponse
 from app.api.grants.services import handover_due
-from app.core.dependencies import DBClient, GrantsCollection, OutboxCollection, get_germany_now
+from app.core.dependencies import DBClient, GermanyNow, GrantsCollection, OutboxCollection
 from app.core.security import SYSTEM_TIER
 from app.core.transactions import transaction_session
 
@@ -26,7 +24,7 @@ async def post_handover_pass(
     grants_collection: GrantsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    now: datetime = Depends(get_germany_now),
+    now: GermanyNow,
 ) -> FLGrantHandoverPassResponse:
     """Move the owner role to the row whose `owner_from` has passed, the old owner staying an administrator, and tell every holder.
 

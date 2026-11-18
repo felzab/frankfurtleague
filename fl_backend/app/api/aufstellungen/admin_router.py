@@ -1,8 +1,7 @@
-from datetime import datetime
 from http import HTTPStatus
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Response
+from fastapi import APIRouter, Body, Response
 
 from app.api.aufstellungen.schemas import FLAufstellungPayload, FLAufstellungResponse
 from app.api.aufstellungen.screen import AufstellungReads, read_aufstellung_screen, save_aufstellung_screen
@@ -11,13 +10,13 @@ from app.core.dependencies import (
     AufstellungenCollection,
     AufstellungenReadCollection,
     DBClient,
+    GermanyNow,
     SaisonsCollection,
     SaisonSpielerReadCollection,
     SnapshotSession,
     SpielerCollection,
     SpieleReadCollection,
     SpielerReadCollection,
-    get_germany_now,
 )
 from app.core.routing import by_id
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -39,7 +38,7 @@ async def get_aufstellung(
     spieler_collection: SpielerReadCollection,
     aufstellungen_collection: AufstellungenReadCollection,
     session: SnapshotSession,
-    now: datetime = Depends(get_germany_now),
+    now: GermanyNow,
 ) -> FLAufstellungResponse:
     """The line-up screen of one club for one fixture, as the club's own seat holders read it."""
 
@@ -75,7 +74,7 @@ async def put_aufstellung(
     spieler_collection: SpielerCollection,
     aufstellungen_collection: AufstellungenCollection,
     db: DBClient,
-    now: datetime = Depends(get_germany_now),
+    now: GermanyNow,
 ) -> FLAufstellungResponse:
     """Save the whole line-up of one club for one fixture at any time, the hour before kick-off included.
 
