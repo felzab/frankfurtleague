@@ -160,9 +160,7 @@ async def post_address_change(
     async def start_the_change(session: AsyncClientSession) -> None:
         # First: a press repeated inside the interval asks nothing of the records.
         live = await address_changes_collection.find_one(build_address_filter(identifier), {"valid_until": 1}, session=session)
-        restart = find_restart_refusal(live_valid_until=None if live is None else live["valid_until"], now=germany_now)
-        if restart is not None:
-            raise restart
+        refuse(find_restart_refusal(live_valid_until=None if live is None else live["valid_until"], now=germany_now))
         holdings = await read_the_holdings(identifier, records=records, grants_collection=grants_collection, session=session)
         refuse(find_nothing_refusal(empty=holdings.empty))
         # What the new address holds, another pupil or a grant, is never judged, so the start answers alike whatever it holds.
