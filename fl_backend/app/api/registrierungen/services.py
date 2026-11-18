@@ -201,7 +201,8 @@ def registrierung_was_left_unmailed(*, confirmation: Any) -> bool:
     return isinstance(confirmation, Mapping) and confirmation.get("sent_at") is None
 
 
-# The admin read's projection, an exclusion: an inclusion list would restate every field a registration holds.
+# No token hash leaves a team's read of its registration. An exclusion: an inclusion list would restate every field
+# a registration holds.
 WITHOUT_TOKEN_HASHES: Mapping[str, int] = {"confirmation.token_hashes": 0}
 
 

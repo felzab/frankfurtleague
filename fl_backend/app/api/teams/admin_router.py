@@ -869,9 +869,8 @@ async def replace_saison_team(
         # judgement conflicts and the retry judges the season it left.
         await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
 
-        # The one read of the incoming club, and it earns its place three times over: an id naming
-        # nothing 404s here, the row's name is reseeded from it as `enter_a_team` seeds one at
-        # entry, and every rewritten fixture side takes the same two values.
+        # The one read of the incoming club: an id naming nothing 404s here, and the row's name and
+        # shorthand are reseeded from it.
         incoming_raw = await pull_a_team_to_enter(teams_collection=teams_collection, team_id=replacement_data.incoming_team_id, session=session)
 
         incoming_rows = await pull_whole_from_db(

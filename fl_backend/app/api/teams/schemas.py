@@ -300,11 +300,7 @@ FLTeamListAdapter = TypeAdapter(list[FLTeam])
 
 
 class FLTeamRecord(_TeamWritable, BaseReadModel, Anchored):
-    """The club document as it is stored, and what the write endpoints echo.
-
-    The season-scoped fields would mean re-running the team pipeline, whose junction join is strict
-    -- and a club being created holds no row yet.
-    """
+    """The club document as it is stored."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     inactive_since: CustomOptionalDateString
@@ -429,8 +425,6 @@ class _TeamPayload(_TeamWritable, BasePayload):
     ]
 
 
-# Two names for one shape rather than an alias: the create and the edit are free to diverge, and an
-# alias would carry a change to either one into the other.
 class FLPostTeamPayload(_TeamPayload):
     pass
 

@@ -880,8 +880,8 @@ def find_austritt_refusal(*, start_date: str, started: bool) -> APIError | None:
     Judged on the act, whatever day the exit is dated: while the season has not started the group swap stays open, and an
     exit standing then would leave the swap fielding a departed club. The season save refuses moving the start past a
     stored exit (`saison_start_austritt_stored`), so an exit never stands on a season that reads as unstarted again.
-    `started` is `has_started`. `earliest` is the first day an exit may be recorded, on the
-    exit record as a whole rather than its date: no date the exit could carry passes sooner.
+    `started` is `has_started`. The refusal names the exit's `date`, and `earliest` is the first day an exit may be
+    recorded.
     """
 
     if started:
