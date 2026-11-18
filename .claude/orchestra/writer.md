@@ -79,6 +79,6 @@ into your scratch folder and commit it with `git commit -F <file>`: the shell to
   stack.
 - Never run `pnpm run format` or any formatter over a folder, which rewrites files other agents
   own. Format your own files by name, as `.claude/CLAUDE.md` section 6 says.
-- A programme's rulings are numbered in a register outside this public repository, so no ruling's
+- A programme's rulings are numbered in its records outside this public repository, so no ruling's
   number goes into a tracked file: code, comment, test name or document. A commit body cites one
   only where your brief gives its number.
