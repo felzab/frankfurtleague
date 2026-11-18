@@ -1,10 +1,10 @@
 import secrets
 from collections.abc import Mapping
 from datetime import UTC, datetime
-from typing import Annotated, Any
+from typing import Any
 
 from bson import ObjectId
-from fastapi import APIRouter, Body, status
+from fastapi import APIRouter, status
 from pydantic import TypeAdapter, ValidationError
 from pymongo import ASCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -108,7 +108,7 @@ def _link_update(link: Mapping[str, Any], token_hash: str) -> dict[str, Any]:
 
 
 # Server to server alone: the answer names addresses, live links and secrets.
-@router.post("/handout", response_model=FLOutboxHandoutResponse, summary="Claim the mails owed now and hand them out")
+@router.post("/handout", summary="Claim the mails owed now and hand them out")
 async def post_handout(
     outbox_collection: OutboxCollection,
     ban_list_collection: BanListReadCollection,
@@ -258,9 +258,9 @@ async def post_handout(
     )
 
 
-@router.post("/result", response_model=FLOutboxResultResponse, summary="Settle one mail a claim handed out")
+@router.post("/result", summary="Settle one mail a claim handed out")
 async def post_result(
-    result_data: Annotated[FLOutboxResultPayload, Body()],
+    result_data: FLOutboxResultPayload,
     outbox_collection: OutboxCollection,
     now: GermanyNow,
 ) -> FLOutboxResultResponse:
@@ -297,7 +297,7 @@ async def post_result(
 
 @router.post("/sign_in", status_code=status.HTTP_204_NO_CONTENT, summary="Owe one mail of the sign-in library")
 async def post_sign_in(
-    sign_in_data: Annotated[FLOutboxSignInPayload, Body()],
+    sign_in_data: FLOutboxSignInPayload,
     outbox_collection: OutboxCollection,
     now: GermanyNow,
 ) -> None:
@@ -341,9 +341,9 @@ async def _reopen_chases(
         )
 
 
-@router.post("/event", response_model=FLOutboxEventResponse, summary="Record one delivery event on its mail's row")
+@router.post("/event", summary="Record one delivery event on its mail's row")
 async def post_event(
-    event_data: Annotated[FLOutboxEventPayload, Body()],
+    event_data: FLOutboxEventPayload,
     outbox_collection: OutboxCollection,
     bewerbungen_collection: BewerbungenCollection,
     db_client: DBClient,

@@ -1,6 +1,6 @@
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends, status
+from fastapi import APIRouter, Depends, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
@@ -74,10 +74,10 @@ router = APIRouter(
 )
 
 
-@router.get("", response_model=FLSchiedsrichterListResponse, summary="List Schiedsrichter")
+@router.get("", summary="List Schiedsrichter")
 async def get_schiedsrichter(
     schiedsrichter_collection: SchiedsrichterReadCollection,
-    filters: FLSchiedsrichterFilterParams = Depends(),
+    filters: Annotated[FLSchiedsrichterFilterParams, Depends()],
 ) -> FLSchiedsrichterListResponse:
     """Every referee in name order, retired ones included where `include_inactive` asks, since a played match still names them."""
 
@@ -93,7 +93,6 @@ async def get_schiedsrichter(
 
 @router.get(
     by_id("schiedsrichter_id"),
-    response_model=FLSchiedsrichterSingleResponse,
     summary="One Schiedsrichter",
 )
 async def get_schiedsrichter_by_id(
@@ -121,12 +120,11 @@ async def get_schiedsrichter_by_id(
 
 @router.post(
     "",
-    response_model=FLPostSchiedsrichterResponse,
     status_code=201,
     summary="Create a Schiedsrichter",
 )
 async def post_schiedsrichter(
-    schiedsrichter_data: Annotated[FLPostSchiedsrichterPayload, Body()],
+    schiedsrichter_data: FLPostSchiedsrichterPayload,
     schiedsrichter_collection: SchiedsrichterCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
@@ -185,12 +183,11 @@ async def post_schiedsrichter(
 
 @router.patch(
     by_id("schiedsrichter_id"),
-    response_model=FLPatchSchiedsrichterResponse,
     summary="Update a Schiedsrichter",
 )
 async def patch_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
-    schiedsrichter_data: Annotated[FLPatchSchiedsrichterPayload, Body()],
+    schiedsrichter_data: FLPatchSchiedsrichterPayload,
     schiedsrichter_collection: SchiedsrichterCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
@@ -317,7 +314,6 @@ async def delete_schiedsrichter(
 
 @router.post(
     f"{by_id('schiedsrichter_id')}/reactivate",
-    response_model=FLSchiedsrichterReactivateResponse,
     summary="Bring a deactivated Schiedsrichter back",
 )
 async def reactivate_schiedsrichter(
@@ -385,7 +381,6 @@ async def reactivate_schiedsrichter(
 
 @router.post(
     f"{by_id('schiedsrichter_id')}/confirmation/invite",
-    response_model=FLSchiedsrichterMintResponse,
     summary="Send a Schiedsrichter a fresh confirmation link",
 )
 async def invite_schiedsrichter(

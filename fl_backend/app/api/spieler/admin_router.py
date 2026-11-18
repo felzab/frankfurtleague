@@ -1,6 +1,6 @@
-from typing import Annotated, Final
+from typing import Final
 
-from fastapi import APIRouter, Body, status
+from fastapi import APIRouter, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
@@ -69,7 +69,7 @@ ROW_SAVE_FIELDS: Final = ("nummer", "position", "stufe", "rolle")
 
 
 # Two static segments, matching `GET /saisons/list/admin`.
-@router.get("/list/admin", response_model=FLSpielerAdminListResponse, summary="One Saison's squad rows for its list")
+@router.get("/list/admin", summary="One Saison's squad rows for its list")
 async def get_spieler_admin(
     saison_id: str,
     saison_spieler_collection: SaisonSpielerReadCollection,
@@ -98,7 +98,6 @@ async def get_spieler_admin(
 
 @router.get(
     f"{by_id('spieler_id')}/saisons/{{saison_id}}/admin",
-    response_model=FLSpielerSaisonAdminResponse,
     summary="What the Spieler editor shows, in one read",
 )
 async def get_spieler_saison(
@@ -144,13 +143,12 @@ async def get_spieler_saison(
 
 @router.patch(
     f"{by_id('spieler_id')}/saisons/{{saison_id}}/admin",
-    response_model=FLPatchSpielerSaisonResponse,
     summary="Save the Spieler editor: the person and their squad row of the season, in one transaction",
 )
 async def patch_spieler_saison(
     spieler_id: CustomRouteObjectId,
     saison_id: str,
-    spieler_data: Annotated[FLPatchSpielerSaisonPayload, Body()],
+    spieler_data: FLPatchSpielerSaisonPayload,
     spieler_collection: SpielerCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     saisons_collection: SaisonsCollection,

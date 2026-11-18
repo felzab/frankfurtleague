@@ -242,7 +242,7 @@ class _Minted:
     mails: int
 
 
-@router.get("", response_model=FLSweepSaisonsResponse, summary="Every season the confirmation pass visits")
+@router.get("", summary="Every season the confirmation pass visits")
 async def get_sweep_saisons(saisons_collection: SaisonsReadCollection) -> FLSweepSaisonsResponse:
     """Every `active` season's id, oldest first: a confirmation serves no purpose once its season is over."""
 
@@ -259,7 +259,6 @@ async def get_sweep_saisons(saisons_collection: SaisonsReadCollection) -> FLSwee
 
 @router.post(
     "/{saison_id}",
-    response_model=FLSpielbestaetigungSweepResponse,
     summary="Run one season's fixture confirmation pass",
 )
 async def sweep_spielbestaetigungen(

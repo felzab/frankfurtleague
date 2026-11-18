@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated, Any, Final
 
-from fastapi import APIRouter, Body, Query
+from fastapi import APIRouter, Query
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -64,12 +64,11 @@ router = APIRouter(
 
 @router.post(
     "/subject",
-    response_model=FLSubjectResponse,
     summary="Say which league records one mailbox holds",
     openapi_extra=SAFE,
 )
 async def get_subject(
-    subject_data: Annotated[FLSubjectPayload, Body()],
+    subject_data: FLSubjectPayload,
     records: SubjectLookup,
     grants_collection: GrantsReadCollection,
     session: SnapshotSession,
@@ -96,12 +95,11 @@ async def get_subject(
 
 @router.post(
     "/sign_in",
-    response_model=FLSignInResponse,
     summary="Say whether one mailbox may be offered a sign-in",
     openapi_extra=SAFE,
 )
 async def get_sign_in(
-    sign_in_data: Annotated[FLSubjectPayload, Body()],
+    sign_in_data: FLSubjectPayload,
     records: SubjectLookup,
     ban_list_collection: BanListReadCollection,
     grants_collection: GrantsReadCollection,
@@ -127,12 +125,11 @@ async def get_sign_in(
 
 @router.post(
     "/references",
-    response_model=FLReferencesResponse,
     summary="Say which of these sign-in addresses no record references",
     openapi_extra=SAFE,
 )
 async def get_references(
-    references_data: Annotated[FLReferencesPayload, Body()],
+    references_data: FLReferencesPayload,
     records: SubjectLookup,
     grants_collection: GrantsReadCollection,
     address_changes_collection: AddressChangeReadCollection,
@@ -219,7 +216,6 @@ async def _erase_one(
 
 @router.post(
     "/erasure/sweep",
-    response_model=FLErasureSweepResponse,
     summary="Delete one share of the pupils the season-after rule makes due",
 )
 async def sweep_erasure(

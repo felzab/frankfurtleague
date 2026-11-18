@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, status
+from fastapi import APIRouter, Depends, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.results import InsertOneResult
@@ -43,10 +43,10 @@ router = APIRouter(
 )
 
 
-@router.get("", response_model=FLSpielorteListResponse, summary="List Spielorte")
+@router.get("", summary="List Spielorte")
 async def get_spielorte(
     spielorte_collection: SpielorteReadCollection,
-    filters: FLSpielorteFilterParams = Depends(),
+    filters: Annotated[FLSpielorteFilterParams, Depends()],
 ) -> FLSpielorteListResponse:
     """Every venue in name order, the retired ones too where `include_inactive` asks for them.
 
@@ -64,7 +64,7 @@ async def get_spielorte(
     return FLSpielorteListResponse(spielorte=spielorte)
 
 
-@router.get(by_id("spielort_id"), response_model=FLSpielorteSingleResponse, summary="One Spielort")
+@router.get(by_id("spielort_id"), summary="One Spielort")
 async def get_spielort(spielort_id: CustomRouteObjectId, spielorte_collection: SpielorteReadCollection) -> FLSpielorteSingleResponse:
     """One venue, a retired one included, with the `version` its save sends back."""
 
@@ -73,9 +73,9 @@ async def get_spielort(spielort_id: CustomRouteObjectId, spielorte_collection: S
     return FLSpielorteSingleResponse(spielort=FLSpielort(**spielort_raw))
 
 
-@router.post("", response_model=FLCreatedResponse, status_code=201, summary="Create a Spielort")
+@router.post("", status_code=201, summary="Create a Spielort")
 async def post_spielort(
-    spielort_data: Annotated[FLPostSpielortPayload, Body()],
+    spielort_data: FLPostSpielortPayload,
     spielorte_collection: SpielorteCollection,
     db: DBClient,
 ) -> FLCreatedResponse:
@@ -111,12 +111,11 @@ async def post_spielort(
 
 @router.patch(
     by_id("spielort_id"),
-    response_model=FLPatchSpielortResponse,
     summary="Update a Spielort",
 )
 async def patch_spielort(
     spielort_id: CustomRouteObjectId,
-    spielort_data: Annotated[FLPatchSpielortPayload, Body()],
+    spielort_data: FLPatchSpielortPayload,
     spielorte_collection: SpielorteCollection,
     db: DBClient,
 ) -> FLPatchSpielortResponse:

@@ -113,7 +113,6 @@ async def post_account_erasure(
 
 @router.get(
     "/erasure/view",
-    response_model=FLAccountErasureViewResponse,
     summary="Show what an erasure of the signed-in address would remove",
 )
 async def get_account_erasure_view(

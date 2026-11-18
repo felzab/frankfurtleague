@@ -16,7 +16,7 @@ router = APIRouter(
 )
 
 
-@router.get(by_id("spiel_id"), response_model=FLSpieleSingleResponse, summary="One Spiel")
+@router.get(by_id("spiel_id"), summary="One Spiel")
 async def get_spiel(
     spiel_id: CustomRouteObjectId,
     spiele_collection: SpieleReadCollection,

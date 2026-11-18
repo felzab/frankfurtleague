@@ -1,6 +1,4 @@
-from typing import Annotated
-
-from fastapi import APIRouter, Body, status
+from fastapi import APIRouter, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.account.crud import press_withdrawal
@@ -37,7 +35,7 @@ router = APIRouter(prefix="/bewerbungen", dependencies=PERSON_TIER)
 )
 async def patch_einwilligung(
     bewerbung_id: CustomRouteObjectId,
-    einwilligung_data: Annotated[FLSeatEinwilligungPayload, Body()],
+    einwilligung_data: FLSeatEinwilligungPayload,
     identifier: PersonIdentifier,
     bewerbungen_collection: BewerbungenCollection,
     db: DBClient,

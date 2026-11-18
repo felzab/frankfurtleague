@@ -30,7 +30,6 @@ router = APIRouter(prefix="/registrierungen/sweep", dependencies=SYSTEM_TIER)
 
 @router.post(
     "/{saison_id}",
-    response_model=FLRegistrierungSweepResponse,
     summary="Run one season's registration retention clocks",
 )
 async def sweep_registrierungen(

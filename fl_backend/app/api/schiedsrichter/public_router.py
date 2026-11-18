@@ -1,6 +1,4 @@
-from typing import Annotated
-
-from fastapi import APIRouter, Body, status
+from fastapi import APIRouter, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.einwilligung.services import find_self_media_refusal
@@ -53,12 +51,11 @@ router = APIRouter(
 
 @router.post(
     "/view",
-    response_model=FLSchiedsrichterConfirmationViewResponse,
     summary="What one Schiedsrichter confirmation link opens",
     openapi_extra=SAFE,
 )
 async def get_confirmation_view(
-    view_data: Annotated[FLTokenPayload, Body()],
+    view_data: FLTokenPayload,
     schiedsrichter_collection: SchiedsrichterReadCollection,
     today: GermanDay,
 ) -> FLSchiedsrichterConfirmationViewResponse:
@@ -93,11 +90,10 @@ async def get_confirmation_view(
 
 @router.post(
     "",
-    response_model=FLSchiedsrichterConfirmationResponse,
     summary="Confirm one Schiedsrichter's entry and consent",
 )
 async def post_confirmation(
-    answer_data: Annotated[FLSchiedsrichterConfirmationPayload, Body()],
+    answer_data: FLSchiedsrichterConfirmationPayload,
     schiedsrichter_collection: SchiedsrichterCollection,
     db: DBClient,
     today: GermanDay,
@@ -167,7 +163,7 @@ async def post_confirmation(
     summary="Decline one Schiedsrichter's entry",
 )
 async def post_decline(
-    decline_data: Annotated[FLTokenPayload, Body()],
+    decline_data: FLTokenPayload,
     schiedsrichter_collection: SchiedsrichterCollection,
     db: DBClient,
     today: GermanDay,

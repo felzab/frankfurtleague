@@ -1,7 +1,7 @@
 from collections.abc import Mapping, Sequence
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Body, status
+from fastapi import APIRouter, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -156,7 +156,7 @@ async def _the_row_as_written(
     return row
 
 
-@router.get(SQUAD_PATH, response_model=FLKaderResponse, summary="Read a team's squad as its seat holder")
+@router.get(SQUAD_PATH, summary="Read a team's squad as its seat holder")
 async def get_kader(
     team_id: CustomRouteObjectId,
     saison_id: str,
@@ -186,14 +186,13 @@ async def get_kader(
 
 @router.patch(
     ROW_PATH,
-    response_model=FLKaderRow,
     summary="Update a squad entry as its team's seat holder",
 )
 async def patch_kader_row(
     team_id: CustomRouteObjectId,
     saison_id: str,
     spieler_id: CustomRouteObjectId,
-    row_data: Annotated[FLPatchKaderRowPayload, Body()],
+    row_data: FLPatchKaderRowPayload,
     identifier: PersonIdentifier,
     saison_spieler_collection: SaisonSpielerCollection,
     saisons_collection: SaisonsCollection,
@@ -266,7 +265,6 @@ async def patch_kader_row(
 
 @router.delete(
     ROW_PATH,
-    response_model=FLKaderRow,
     summary="Take a Spieler out of the squad as its team's seat holder (retire)",
 )
 async def delete_kader_row(
@@ -337,7 +335,7 @@ def _own_pupil_row(rows: Sequence[Mapping[str, Any]]) -> Mapping[str, Any]:
     summary="Change a signed-in pupil's own publication and media consent",
 )
 async def patch_einwilligung(
-    einwilligung_data: Annotated[FLAccountEinwilligungPayload, Body()],
+    einwilligung_data: FLAccountEinwilligungPayload,
     identifier: PersonIdentifier,
     spieler_collection: SpielerCollection,
     db: DBClient,
@@ -388,7 +386,7 @@ async def patch_einwilligung(
 
 
 # Declared ahead of `/self/{saison_id}`, whose parameter would otherwise take the word (FastAPI's "Order matters").
-@spieler_router.get("/self/saisons", response_model=FLOwnSaisonsResponse, summary="The seasons a signed-in pupil holds a squad row in")
+@spieler_router.get("/self/saisons", summary="The seasons a signed-in pupil holds a squad row in")
 async def get_self_saisons(identifier: PersonIdentifier, spieler_collection: SpielerReadCollection) -> FLOwnSaisonsResponse:
     """
     Every season the signed-in pupil holds a squad row in, the newest first, each with its span.
@@ -403,7 +401,6 @@ async def get_self_saisons(identifier: PersonIdentifier, spieler_collection: Spi
 
 @spieler_router.get(
     "/self/{saison_id}",
-    response_model=FLSpielerSaisonSelfResponse,
     summary="A signed-in pupil's own season: their squad row and their team's fixtures",
 )
 async def get_self_saison(

@@ -1,6 +1,4 @@
-from typing import Annotated
-
-from fastapi import APIRouter, Body
+from fastapi import APIRouter
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.address_change.crud import end_the_change_in_session
@@ -46,7 +44,7 @@ router = APIRouter(
 )
 
 
-@router.get("", response_model=FLGrantsListResponse, summary="List who may enter the administration")
+@router.get("", summary="List who may enter the administration")
 async def get_grants(grants_collection: GrantsReadCollection) -> FLGrantsListResponse:
     """Every grant by address: its tier, when it holds, and when a handover to it completes.
 
@@ -70,9 +68,9 @@ async def get_grants(grants_collection: GrantsReadCollection) -> FLGrantsListRes
     )
 
 
-@router.post("", response_model=FLGrantWriteResponse, status_code=201, summary="Add an administrator")
+@router.post("", status_code=201, summary="Add an administrator")
 async def post_grant(
-    payload: Annotated[FLPostGrantPayload, Body()],
+    payload: FLPostGrantPayload,
     grants_collection: GrantsCollection,
     ban_list_collection: BanListCollection,
     address_changes_collection: AddressChangeCollection,
@@ -123,7 +121,7 @@ async def post_grant(
         return await session.with_transaction(judge_and_grant)
 
 
-@router.delete(by_id("grant_id"), response_model=FLGrantWriteResponse, summary="Remove an administrator, or withdraw a waiting addition")
+@router.delete(by_id("grant_id"), summary="Remove an administrator, or withdraw a waiting addition")
 async def delete_grant(
     grant_id: CustomRouteObjectId,
     grants_collection: GrantsCollection,
@@ -166,7 +164,7 @@ async def delete_grant(
     return FLGrantWriteResponse(grant_id=grant_id)
 
 
-@router.post(f"{by_id('grant_id')}/handover", response_model=FLGrantWriteResponse, summary="Hand the owner role over to an administrator")
+@router.post(f"{by_id('grant_id')}/handover", summary="Hand the owner role over to an administrator")
 async def post_handover(
     grant_id: CustomRouteObjectId,
     grants_collection: GrantsCollection,
@@ -212,7 +210,7 @@ async def post_handover(
     return FLGrantWriteResponse(grant_id=grant_id)
 
 
-@router.delete(f"{by_id('grant_id')}/handover", response_model=FLGrantWriteResponse, summary="Stop a waiting handover")
+@router.delete(f"{by_id('grant_id')}/handover", summary="Stop a waiting handover")
 async def delete_handover(
     grant_id: CustomRouteObjectId,
     grants_collection: GrantsCollection,

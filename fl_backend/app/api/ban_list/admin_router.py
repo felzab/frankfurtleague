@@ -1,6 +1,6 @@
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Body
+from fastapi import APIRouter
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.results import InsertOneResult
@@ -72,7 +72,7 @@ async def _pull_the_season_a_ban_counts_from(
     return str(running_saison_id)
 
 
-@router.get("", response_model=FLBanListResponse, summary="List the banned addresses")
+@router.get("", summary="List the banned addresses")
 async def get_ban_list_entries(ban_list_collection: BanListReadCollection) -> FLBanListResponse:
     """Every ban, newest first, with the address, why, on which day and the last season it covers."""
 
@@ -83,12 +83,11 @@ async def get_ban_list_entries(ban_list_collection: BanListReadCollection) -> FL
 
 @router.post(
     "",
-    response_model=FLPostBanListEntryResponse,
     status_code=201,
     summary="Ban an email address",
 )
 async def post_ban_list_entry(
-    ban_list_data: Annotated[FLPostBanListEntryPayload, Body()],
+    ban_list_data: FLPostBanListEntryPayload,
     ban_list_collection: BanListCollection,
     saisons_collection: SaisonsCollection,
     grants_collection: GrantsCollection,
@@ -155,7 +154,6 @@ async def post_ban_list_entry(
 
 @router.delete(
     by_id("ban_list_entry_id"),
-    response_model=FLBanListWriteResponse,
     summary="Lift a ban",
 )
 async def delete_ban_list_entry(

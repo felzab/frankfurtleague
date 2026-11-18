@@ -1,7 +1,7 @@
 import functools
 import logging
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import Annotated, Any
 
 import pymongo
 import pytest
@@ -89,7 +89,7 @@ class FilteredQuery(BaseModel):
 
 
 @VALIDATION_APP.get(FILTERED_PATH)
-async def read_the_query(filters: FilteredQuery = Depends()) -> dict[str, str]:
+async def read_the_query(filters: Annotated[FilteredQuery, Depends()]) -> dict[str, str]:
     """Names the type its `team_id` reached it as."""
 
     return {"team_id": type(filters.team_id).__name__}

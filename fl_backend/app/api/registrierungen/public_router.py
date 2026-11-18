@@ -1,7 +1,7 @@
 from collections.abc import Mapping
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Header
+from fastapi import APIRouter, Header
 from pydantic import UUID4
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -123,12 +123,11 @@ async def _open_invitation(*, invitations_collection: ReadCollection, token: str
 # A POST, so the link's token travels in the body and never in a path the edge would log.
 @router.post(
     "/invitation/view",
-    response_model=FLInvitationViewResponse,
     summary="What a registration link opens",
     openapi_extra=SAFE,
 )
 async def post_invitation_view(
-    view_data: Annotated[FLTokenPayload, Body()],
+    view_data: FLTokenPayload,
     invitations_collection: InvitationsReadCollection,
     saisons_collection: SaisonsReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
@@ -184,12 +183,11 @@ async def post_invitation_view(
 
 @router.post(
     "",
-    response_model=FLPostRegistrierungResponse,
     status_code=201,
     summary="Register through a team's link",
 )
 async def post_registrierung(
-    registrierung_data: Annotated[FLPostRegistrierungPayload, Body()],
+    registrierung_data: FLPostRegistrierungPayload,
     registrierungen_collection: RegistrierungenCollection,
     invitations_collection: InvitationsCollection,
     saisons_collection: SaisonsCollection,
@@ -328,12 +326,11 @@ async def post_registrierung(
 # the submission is.
 @router.post(
     "/confirmation/view",
-    response_model=FLRegistrierungConfirmationViewResponse,
     summary="What one registration confirmation link opens",
     openapi_extra=SAFE,
 )
 async def get_confirmation_view(
-    view_data: Annotated[FLTokenPayload, Body()],
+    view_data: FLTokenPayload,
     registrierungen_collection: RegistrierungenReadCollection,
     teams_collection: TeamsReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
@@ -373,11 +370,10 @@ async def get_confirmation_view(
 
 @router.post(
     "/confirmation",
-    response_model=FLRegistrierungConfirmationResponse,
     summary="Confirm one registration and record the pupil's consent",
 )
 async def post_confirmation(
-    answer_data: Annotated[FLRegistrierungConfirmationPayload, Body()],
+    answer_data: FLRegistrierungConfirmationPayload,
     registrierungen_collection: RegistrierungenCollection,
     saison_teams_collection: SaisonTeamsCollection,
     db: DBClient,

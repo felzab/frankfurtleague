@@ -17,7 +17,6 @@ router = APIRouter(
 
 @router.post(
     "",
-    response_model=FLGrantHandoverPassResponse,
     summary="Complete a handover whose wait has ended",
 )
 async def post_handover_pass(

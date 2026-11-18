@@ -1,7 +1,7 @@
 from collections.abc import Iterable, Mapping
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Body
+from fastapi import APIRouter
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
@@ -82,12 +82,11 @@ def _answering_seat(*, spielbestaetigung_raw: Mapping[str, Any] | None, seats: I
 
 @router.post(
     f"{by_id('spielbestaetigung_id')}/answer",
-    response_model=FLSpielbestaetigungSchiedsrichterAnswerResponse,
     summary="Accept or decline one of the signed-in referee's own fixture assignments",
 )
 async def post_schiedsrichter_answer(
     spielbestaetigung_id: CustomRouteObjectId,
-    answer_data: Annotated[FLSpielbestaetigungSchiedsrichterAnswerPayload, Body()],
+    answer_data: FLSpielbestaetigungSchiedsrichterAnswerPayload,
     identifier: PersonIdentifier,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spiele_collection: SpieleCollection,
@@ -198,12 +197,11 @@ async def post_schiedsrichter_answer(
 
 @router.post(
     f"{by_id('spielbestaetigung_id')}/answer/team",
-    response_model=FLSpielbestaetigungAnswerResponse,
     summary="Confirm a fixture's Ansetzung as the team's seat holder, or decline it proposing another date",
 )
 async def post_team_answer(
     spielbestaetigung_id: CustomRouteObjectId,
-    answer_data: Annotated[FLSpielbestaetigungTeamAnswerPayload, Body()],
+    answer_data: FLSpielbestaetigungTeamAnswerPayload,
     identifier: PersonIdentifier,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spiele_collection: SpieleReadCollection,

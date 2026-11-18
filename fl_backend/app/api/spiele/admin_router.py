@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Query
+from fastapi import APIRouter, Depends, Query
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.grants.guard import ADMIN_TIER
@@ -60,7 +60,6 @@ router = APIRouter(
 # A static path, which the `objectid` convertor keeps out of `{spiel_id}`'s reach whichever router loads first.
 @router.get(
     "/spielplan",
-    response_model=FLSpieleSpielplanAdminResponse,
     summary="One Saison's Spiele by matchday, for the admin Spiele list",
 )
 async def get_spiele_spielplan(
@@ -92,7 +91,6 @@ async def get_spiele_spielplan(
 # same prefix, so whichever router registered first would answer both.
 @router.get(
     f"{by_id('spiel_id')}/admin",
-    response_model=FLSpieleAdminSingleResponse,
     summary="One Spiel and all the match editor offers and shows beside it",
 )
 async def get_spiel_admin(
@@ -140,13 +138,12 @@ async def previewing(
 
 @router.patch(
     by_id("spiel_id"),
-    response_model=FLPatchSpielDataResponse,
     summary="Update a Spiel",
     openapi_extra=SAFE_WHEN,
 )
 async def patch_spiel(
     spiel_id: CustomRouteObjectId,
-    spiel_data: Annotated[FLPatchSpielDataPayload, Body()],
+    spiel_data: FLPatchSpielDataPayload,
     db: DBClient,
     spiele_collection: SpieleCollection,
     teams_collection: TeamsCollection,

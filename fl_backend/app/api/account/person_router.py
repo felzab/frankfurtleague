@@ -1,8 +1,8 @@
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Body
+from fastapi import APIRouter
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.account.schemas import (
@@ -67,7 +67,7 @@ router = APIRouter(
 )
 
 
-@router.get("/einwilligungen", response_model=FLAccountEinwilligungenResponse, summary="A signed-in person's own consent records")
+@router.get("/einwilligungen", summary="A signed-in person's own consent records")
 async def get_einwilligungen(
     identifier: PersonIdentifier,
     spieler_collection: SpielerReadCollection,
@@ -132,7 +132,7 @@ async def _address_change_answer(
     return FLAccountAddressChangeResponse(open=None if record is None else _pending_addresses(record, now=now))
 
 
-@router.get("/address_change", response_model=FLAccountAddressChangeResponse, summary="The address change pending on a signed-in person")
+@router.get("/address_change", summary="The address change pending on a signed-in person")
 async def get_address_change(
     identifier: PersonIdentifier,
     address_changes_collection: AddressChangeReadCollection,
@@ -148,12 +148,11 @@ async def get_address_change(
 
 @router.post(
     "/address_change",
-    response_model=FLAccountAddressChangeMintResponse,
     summary="Start a change of the signed-in person's address",
 )
 async def post_address_change(
     identifier: PersonIdentifier,
-    address_change_data: Annotated[FLAccountAddressChangePayload, Body()],
+    address_change_data: FLAccountAddressChangePayload,
     records: SubjectLookup,
     address_changes_collection: AddressChangeCollection,
     grants_collection: GrantsCollection,
@@ -211,7 +210,6 @@ async def post_address_change(
 
 @router.delete(
     "/address_change",
-    response_model=FLAccountAddressChangeResponse,
     summary="Stop the address change pending on the signed-in person",
 )
 async def delete_address_change(

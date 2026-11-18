@@ -1,7 +1,7 @@
 from collections.abc import Mapping
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Body, status
+from fastapi import APIRouter, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
@@ -76,7 +76,7 @@ router = APIRouter(
 )
 async def enter_spielbestaetigung(
     spielbestaetigung_id: CustomRouteObjectId,
-    enter_data: Annotated[FLSpielbestaetigungEnterPayload, Body()],
+    enter_data: FLSpielbestaetigungEnterPayload,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spiele_collection: SpieleCollection,
     saison_teams_collection: SaisonTeamsCollection,

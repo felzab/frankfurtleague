@@ -118,7 +118,7 @@ async def pull_the_season_after(
     return later_saison_status
 
 
-@router.get("", response_model=FLSweepSaisonsResponse, summary="Every season the sweep has to visit")
+@router.get("", summary="Every season the sweep has to visit")
 async def get_sweep_saisons(saisons_collection: SaisonsReadCollection) -> FLSweepSaisonsResponse:
     """Every season's id, oldest first, for the caller to sweep one at a time."""
 
@@ -131,7 +131,6 @@ async def get_sweep_saisons(saisons_collection: SaisonsReadCollection) -> FLSwee
 
 @router.post(
     "/{saison_id}",
-    response_model=FLBewerbungSweepResponse,
     summary="Run one season's retention clocks",
 )
 async def sweep_saison(

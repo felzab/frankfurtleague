@@ -1,8 +1,8 @@
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Body
+from fastapi import APIRouter
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
@@ -113,7 +113,6 @@ def _pending_addresses(
 
 @router.get(
     "",
-    response_model=FLAddressChangeAdminListResponse,
     summary="List the running address changes",
 )
 async def get_address_changes(
@@ -152,11 +151,10 @@ async def get_address_changes(
 
 @router.post(
     "",
-    response_model=FLAddressChangeIdResponse,
     summary="Start an address change for a person who says they cannot sign in",
 )
 async def post_address_change_admin(
-    address_change_data: Annotated[FLAddressChangeAdminPayload, Body()],
+    address_change_data: FLAddressChangeAdminPayload,
     address_changes_collection: AddressChangeCollection,
     records: SubjectLookup,
     spieler_collection: SpielerCollection,
@@ -245,7 +243,6 @@ async def post_address_change_admin(
 
 @router.post(
     f"{by_id('address_change_id')}/invite",
-    response_model=FLAddressChangeIdResponse,
     summary="Send a pending address a fresh link",
 )
 async def invite_address_change(
@@ -314,7 +311,6 @@ async def invite_address_change(
 
 @router.delete(
     by_id("address_change_id"),
-    response_model=FLAddressChangeIdResponse,
     summary="Discard a pending address change",
 )
 async def delete_address_change(

@@ -3,7 +3,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends, status
+from fastapi import APIRouter, Depends, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -284,14 +284,13 @@ async def _served_invitation(live: Mapping[str, Any], *, outbox_collection: Read
 # resource under one shape. No id route at this prefix ends in `/admin`, so none can shadow this one.
 @router.get(
     "/list/admin",
-    response_model=FLTeamsAdminListResponse,
     summary="One season's Teams list and what its create dialog offers",
 )
 async def get_teams_admin(
     teams_collection: TeamsReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
     saisons_collection: SaisonsReadCollection,
-    filters: FLTeamsAdminFilterParams = Depends(),
+    filters: Annotated[FLTeamsAdminFilterParams, Depends()],
 ) -> FLTeamsAdminListResponse:
     """One season's clubs, a `future` season's included, each with its seats and state, and what entering another offers.
 
@@ -342,7 +341,6 @@ async def get_teams_admin(
 
 @router.get(
     f"{by_id('team_id')}/saisons/{{saison_id}}/admin",
-    response_model=FLTeamSaisonAdminResponse,
     summary="One team in one season for the admin editor",
 )
 async def get_team_saison_admin(
@@ -457,13 +455,12 @@ async def get_team_saison_admin(
 
 @router.post(
     "/saisons/{saison_id}/entry",
-    response_model=FLPostTeamEntryResponse,
     status_code=201,
     summary="Enter a club into a season, one the league holds or a new one",
 )
 async def post_team_entry(
     saison_id: str,
-    entry_data: Annotated[FLPostTeamEntryPayload, Body()],
+    entry_data: FLPostTeamEntryPayload,
     teams_collection: TeamsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
@@ -574,13 +571,12 @@ async def reactivate_team(
 
 @router.patch(
     f"{by_id('team_id')}/saisons/{{saison_id}}/admin",
-    response_model=FLPatchTeamSaisonResponse,
     summary="Save the team editor: the club and its row of the season, in one transaction",
 )
 async def patch_team_saison(
     team_id: CustomRouteObjectId,
     saison_id: str,
-    team_data: Annotated[FLPatchTeamSaisonPayload, Body()],
+    team_data: FLPatchTeamSaisonPayload,
     teams_collection: TeamsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
@@ -680,7 +676,7 @@ async def patch_team_saison(
 async def put_austritt(
     team_id: CustomRouteObjectId,
     saison_id: str,
-    austritt_data: Annotated[FLAustrittPayload, Body()],
+    austritt_data: FLAustrittPayload,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     spiele_collection: SpieleCollection,
@@ -749,14 +745,13 @@ async def put_austritt(
 
 @router.put(
     f"{by_id('team_id')}/saisons/{{saison_id}}/kontakte/{{seat}}",
-    response_model=FLKontaktSeatResponse,
     summary="Write the person one contact seat holds",
 )
 async def put_kontakt_seat(
     team_id: CustomRouteObjectId,
     saison_id: str,
     seat: str,
-    seat_data: Annotated[FLKontaktSeatPayload, Body()],
+    seat_data: FLKontaktSeatPayload,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     outbox_collection: OutboxCollection,
@@ -816,13 +811,12 @@ async def put_kontakt_seat(
 
 @router.post(
     f"{by_id('team_id')}/saisons/{{saison_id}}/replace",
-    response_model=FLReplaceSaisonTeamResponse,
     summary="Replace a club in a season, keeping its schedule",
 )
 async def replace_saison_team(
     team_id: CustomRouteObjectId,
     saison_id: str,
-    replacement_data: Annotated[FLReplaceSaisonTeamPayload, Body()],
+    replacement_data: FLReplaceSaisonTeamPayload,
     teams_collection: TeamsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
@@ -978,7 +972,6 @@ async def replace_saison_team(
 
 @router.post(
     f"{by_id('team_id')}/saisons/{{saison_id}}/kontakte/{{seat}}/confirmation/invite",
-    response_model=FLKontaktInviteResponse,
     summary="Send one contact seat a fresh confirmation link",
 )
 async def invite_kontakt(
@@ -1062,7 +1055,6 @@ async def invite_kontakt(
 
 @router.post(
     f"{by_id('team_id')}/saisons/{{saison_id}}/invitation",
-    response_model=FLInvitationMintResponse,
     status_code=201,
     summary="Mint this team's registration link for a season",
 )
@@ -1137,7 +1129,6 @@ async def post_invitation(
 
 @router.delete(
     f"{by_id('team_id')}/saisons/{{saison_id}}/invitation",
-    response_model=FLInvitationWriteResponse,
     summary="Revoke this team's live registration link for a season",
 )
 async def delete_invitation(
@@ -1180,13 +1171,12 @@ async def delete_invitation(
 
 @router.post(
     f"{by_id('team_id')}/saisons/{{saison_id}}/invitation/dispatch",
-    response_model=FLInvitationMailResponse,
     summary="Mail this team's live registration link to its confirmed contact seats",
 )
 async def post_invitation_dispatch(
     team_id: CustomRouteObjectId,
     saison_id: str,
-    mail_data: Annotated[FLInvitationMailPayload, Body()],
+    mail_data: FLInvitationMailPayload,
     invitations_collection: InvitationsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,

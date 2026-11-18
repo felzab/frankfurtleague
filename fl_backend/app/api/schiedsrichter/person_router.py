@@ -1,6 +1,4 @@
-from typing import Annotated
-
-from fastapi import APIRouter, Body, status
+from fastapi import APIRouter, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.account.crud import press_einwilligung
@@ -55,7 +53,7 @@ router = APIRouter(
 )
 async def patch_einwilligung(
     schiedsrichter_id: CustomRouteObjectId,
-    einwilligung_data: Annotated[FLSchiedsrichterAccountEinwilligungPayload, Body()],
+    einwilligung_data: FLSchiedsrichterAccountEinwilligungPayload,
     identifier: PersonIdentifier,
     schiedsrichter_collection: SchiedsrichterCollection,
     records: SubjectLookup,
@@ -114,7 +112,6 @@ async def patch_einwilligung(
 
 @router.get(
     "/self/spiele/{saison_id}",
-    response_model=FLSchiedsrichterSpieleResponse,
     summary="A signed-in referee's fixtures of one season, one row a fixture",
 )
 async def get_self_spiele(
@@ -147,7 +144,7 @@ async def get_self_spiele(
     )
 
 
-@router.get("/self/saisons", response_model=FLOwnSaisonsResponse, summary="The seasons a signed-in referee has fixtures in")
+@router.get("/self/saisons", summary="The seasons a signed-in referee has fixtures in")
 async def get_self_saisons(
     identifier: PersonIdentifier,
     spiele_collection: SpieleReadCollection,

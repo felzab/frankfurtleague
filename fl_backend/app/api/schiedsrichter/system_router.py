@@ -23,7 +23,7 @@ router = APIRouter(
 SCHIEDSRICHTER_ERASED_PER_PAGE: Final = 10
 
 
-@router.post("", response_model=FLSchiedsrichterSweepResponse, summary="Erase the referee entries whose link lapsed unanswered or declined")
+@router.post("", summary="Erase the referee entries whose link lapsed unanswered or declined")
 async def sweep_schiedsrichter(
     schiedsrichter_collection: SchiedsrichterCollection,
     spiele_collection: SpieleCollection,

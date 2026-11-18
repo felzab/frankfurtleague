@@ -1,7 +1,7 @@
 from collections.abc import Mapping, Sequence
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Header
+from fastapi import APIRouter, Header
 from pydantic import UUID4
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -129,7 +129,7 @@ SUBMITTED = "submitted"
 WINDOW_PROJECTION = ["bewerbung", "status"]
 
 
-@router.get("/form/{saison_id}", response_model=FLBewerbungFormResponse, summary="What one Saison's application form shows")
+@router.get("/form/{saison_id}", summary="What one Saison's application form shows")
 async def get_form(saison_id: str, saisons_collection: SaisonsReadCollection, today: GermanDay) -> FLBewerbungFormResponse:
     """A season's application window, and while it runs the clubs a school may apply as and the colours taken.
 
@@ -183,12 +183,11 @@ async def _open_links_by_mailbox(
 
 @router.post(
     "",
-    response_model=FLCreatedResponse,
     status_code=201,
     summary="Submit a Bewerbung",
 )
 async def post_bewerbung(
-    bewerbung_data: Annotated[FLPostBewerbungPayload, Body()],
+    bewerbung_data: FLPostBewerbungPayload,
     bewerbungen_collection: BewerbungenCollection,
     saisons_collection: SaisonsCollection,
     teams_collection: TeamsCollection,
@@ -375,12 +374,11 @@ async def _saison_view(
 # A POST that reads, so the token travels in the body.
 @router.post(
     "/einwilligung/view",
-    response_model=FLBewerbungEinwilligungViewResponse,
     summary="What one confirmation link opens",
     openapi_extra=SAFE,
 )
 async def get_einwilligung_view(
-    view_data: Annotated[FLTokenPayload, Body()],
+    view_data: FLTokenPayload,
     bewerbungen_collection: BewerbungenReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
     saisons_collection: SaisonsReadCollection,

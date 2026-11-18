@@ -3,7 +3,7 @@ from collections import Counter
 from collections.abc import Mapping
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Query
+from fastapi import APIRouter, Query
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -154,7 +154,7 @@ async def _doubled_clubs(*, saison_id: str, bewerbungen_collection: ReadCollecti
 
 
 # Two static segments, matching `GET /saisons/list/admin`.
-@router.get("/list/admin", response_model=FLBewerbungenAdminListResponse, summary="One Saison's Bewerbungen for its list")
+@router.get("/list/admin", summary="One Saison's Bewerbungen for its list")
 async def get_bewerbungen_admin(
     bewerbungen_collection: BewerbungenReadCollection,
     teams_collection: TeamsReadCollection,
@@ -201,7 +201,7 @@ async def get_bewerbungen_admin(
     )
 
 
-@router.get(by_id("bewerbung_id"), response_model=FLBewerbungSingleResponse, summary="One Bewerbung for its review page")
+@router.get(by_id("bewerbung_id"), summary="One Bewerbung for its review page")
 async def get_bewerbung(
     bewerbung_id: CustomRouteObjectId,
     bewerbungen_collection: BewerbungenReadCollection,
@@ -263,12 +263,11 @@ def _key(bewerbung_id: Any, *parts: str) -> str:
 # done is undone: one request over a season's applications would outrun `REQUEST_DEADLINE_S`.
 @router.post(
     f"{by_id('bewerbung_id')}/accept",
-    response_model=FLAcceptBewerbungResponse,
     summary="Accept a Bewerbung and enter the school into the season",
 )
 async def accept_bewerbung(
     bewerbung_id: CustomRouteObjectId,
-    acceptance_data: Annotated[FLAcceptBewerbungPayload, Body()],
+    acceptance_data: FLAcceptBewerbungPayload,
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsCollection,
     saison_teams_collection: SaisonTeamsCollection,
@@ -453,12 +452,11 @@ async def accept_bewerbung(
 
 @router.post(
     f"{by_id('bewerbung_id')}/decline",
-    response_model=FLDeclineBewerbungResponse,
     summary="Decline a Bewerbung",
 )
 async def decline_bewerbung(
     bewerbung_id: CustomRouteObjectId,
-    decline_data: Annotated[FLDeclineBewerbungPayload, Body()],
+    decline_data: FLDeclineBewerbungPayload,
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsCollection,
     outbox_collection: OutboxCollection,
@@ -522,7 +520,6 @@ async def decline_bewerbung(
 
 @router.post(
     f"{by_id('bewerbung_id')}/einwilligung/{{seat}}/resend",
-    response_model=FLBewerbungEinwilligungResendResponse,
     summary="Re-send one seat's confirmation link",
 )
 async def resend_einwilligung(
@@ -632,13 +629,12 @@ async def resend_einwilligung(
 
 @router.post(
     f"{by_id('bewerbung_id')}/kontakte/{{seat}}",
-    response_model=FLBewerbungKontaktSeatResponse,
     summary="Write the person one contact seat holds and mail them a fresh link",
 )
 async def post_kontakt_seat(
     bewerbung_id: CustomRouteObjectId,
     seat: str,
-    seat_data: Annotated[FLBewerbungKontaktSeatPayload, Body()],
+    seat_data: FLBewerbungKontaktSeatPayload,
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsCollection,
     outbox_collection: OutboxCollection,

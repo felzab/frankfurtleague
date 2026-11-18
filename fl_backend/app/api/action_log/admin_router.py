@@ -1,6 +1,4 @@
-from typing import Annotated
-
-from fastapi import APIRouter, Body
+from fastapi import APIRouter
 from pymongo import DESCENDING
 
 from app.api.action_log.schemas import FLActionLogFilterPayload, FLActionLogListResponse
@@ -20,10 +18,8 @@ router = APIRouter(
 
 # A POST that reads: `by` is an address and `q` whatever was typed, and a query string stands on every `http.answered`
 # log line, where the log's scrubber reads no `%40`.
-@router.post("/view", response_model=FLActionLogListResponse, summary="List recorded acts", openapi_extra=SAFE)
-async def get_action_log(
-    action_log_collection: ActionLogReadCollection, filters: Annotated[FLActionLogFilterPayload, Body()]
-) -> FLActionLogListResponse:
+@router.post("/view", summary="List recorded acts", openapi_extra=SAFE)
+async def get_action_log(action_log_collection: ActionLogReadCollection, filters: FLActionLogFilterPayload) -> FLActionLogListResponse:
     """The newest 50 acts the filters keep, starting after `cursor` where one is given."""
 
     # Paged by a range over `_id` rather than by a skip: no row repeats or drops at a seam, and no index is needed past

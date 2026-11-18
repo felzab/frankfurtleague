@@ -79,7 +79,7 @@ router = APIRouter(
 )
 
 
-@router.get("/frame", response_model=FLSaisonFrameResponse, summary="The season pages' frame")
+@router.get("/frame", summary="The season pages' frame")
 async def get_frame(saisons_collection: SaisonsReadCollection) -> FLSaisonFrameResponse:
     """Every season the public may read, the newest first, and the one the site is on; that one is null for a league that has none."""
 
@@ -293,7 +293,7 @@ async def _landing_saison(
             )
 
 
-@router.get("/landing", response_model=FLLandingResponse, summary="The landing")
+@router.get("/landing", summary="The landing")
 async def get_landing(
     saisons_collection: SaisonsReadCollection,
     spiele_collection: SpieleReadCollection,
@@ -330,7 +330,7 @@ async def get_landing(
 
 # Declared after `/frame` and `/landing`, which it would otherwise answer as season ids: routes match in
 # declaration order, and the `objectid` convertor cannot help here, a season id being a four-character string.
-@router.get("/{saison_id}", response_model=FLSaisonsSingleResponse, summary="One Saison")
+@router.get("/{saison_id}", summary="One Saison")
 async def get_saison(saison_id: str, saisons_collection: SaisonsReadCollection) -> FLSaisonsSingleResponse:
     """One season the public may read, by its id.
 
@@ -372,7 +372,7 @@ async def _spielplan_of(
     return saison, build_spielplan(spieltage_raw, spiele_raw, saison.rules)
 
 
-@router.get("/{saison_id}/spielplan", response_model=FLSpielplanResponse, summary="One Saison's Spielplan")
+@router.get("/{saison_id}/spielplan", summary="One Saison's Spielplan")
 async def get_spielplan(
     saison_id: str,
     saisons_collection: SaisonsReadCollection,
@@ -395,7 +395,7 @@ async def get_spielplan(
     return FLSpielplanResponse(spieltage=spieltage, current_spieltag_id=current_spieltag_id(spieltage, saison_status=saison.status))
 
 
-@router.get("/{saison_id}/ko_runde", response_model=FLKoRundeResponse, summary="One Saison's K.-o.-Runde")
+@router.get("/{saison_id}/ko_runde", summary="One Saison's K.-o.-Runde")
 async def get_ko_runde(
     saison_id: str,
     saisons_collection: SaisonsReadCollection,
@@ -418,7 +418,7 @@ async def get_ko_runde(
     return FLKoRundeResponse(spieltage=spieltage)
 
 
-@router.get("/{saison_id}/tabelle", response_model=FLTabelleResponse, summary="One Saison's Tabelle")
+@router.get("/{saison_id}/tabelle", summary="One Saison's Tabelle")
 async def get_tabelle(
     saison_id: str,
     saisons_collection: SaisonsReadCollection,
@@ -454,7 +454,7 @@ async def _clubs_of(*, teams_collection: ReadCollection, saison_id: str) -> list
     )
 
 
-@router.get("/{saison_id}/teams", response_model=FLSaisonTeamsResponse, summary="One Saison's teams")
+@router.get("/{saison_id}/teams", summary="One Saison's teams")
 async def get_teams(saison_id: str, saisons_collection: SaisonsReadCollection, teams_collection: TeamsReadCollection) -> FLSaisonTeamsResponse:
     """The clubs of one season by name, each under the name and shorthand it plays that season under.
 
@@ -469,7 +469,7 @@ async def get_teams(saison_id: str, saisons_collection: SaisonsReadCollection, t
     return FLSaisonTeamsResponse(teams=teams)
 
 
-@router.get(f"/{{saison_id}}/teams{by_id('team_id')}", response_model=FLTeamPageResponse, summary="One team's page in one Saison")
+@router.get(f"/{{saison_id}}/teams{by_id('team_id')}", summary="One team's page in one Saison")
 async def get_team(
     saison_id: str,
     team_id: CustomRouteObjectId,
@@ -526,7 +526,7 @@ async def get_team(
     )
 
 
-@router.get(f"/{{saison_id}}/spiele{by_id('spiel_id')}", response_model=FLSpielPageResponse, summary="One Spiel's page")
+@router.get(f"/{{saison_id}}/spiele{by_id('spiel_id')}", summary="One Spiel's page")
 async def get_spiel(
     saison_id: str,
     spiel_id: CustomRouteObjectId,

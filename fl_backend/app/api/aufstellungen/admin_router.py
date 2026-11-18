@@ -1,7 +1,6 @@
 from http import HTTPStatus
-from typing import Annotated
 
-from fastapi import APIRouter, Body, Response
+from fastapi import APIRouter, Response
 
 from app.api.aufstellungen.schemas import FLAufstellungPayload, FLAufstellungResponse
 from app.api.aufstellungen.screen import AufstellungReads, read_aufstellung_screen, save_aufstellung_screen
@@ -29,7 +28,7 @@ router = APIRouter(
 AUFSTELLUNG_PATH = f"{by_id('spiel_id')}{by_id('team_id')}"
 
 
-@router.get(AUFSTELLUNG_PATH, response_model=FLAufstellungResponse, summary="One club's line-up for one fixture as an administrator reads it")
+@router.get(AUFSTELLUNG_PATH, summary="One club's line-up for one fixture as an administrator reads it")
 async def get_aufstellung(
     spiel_id: CustomRouteObjectId,
     team_id: CustomRouteObjectId,
@@ -59,14 +58,13 @@ async def get_aufstellung(
 
 @router.put(
     AUFSTELLUNG_PATH,
-    response_model=FLAufstellungResponse,
     summary="Save one club's line-up for one fixture as an administrator",
     responses={201: {"model": FLAufstellungResponse, "description": "The line-up did not stand before, and this save created it"}},
 )
 async def put_aufstellung(
     spiel_id: CustomRouteObjectId,
     team_id: CustomRouteObjectId,
-    aufstellung_data: Annotated[FLAufstellungPayload, Body()],
+    aufstellung_data: FLAufstellungPayload,
     response: Response,
     spiele_collection: SpieleReadCollection,
     saisons_collection: SaisonsCollection,

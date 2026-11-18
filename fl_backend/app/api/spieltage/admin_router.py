@@ -1,7 +1,7 @@
 from collections.abc import Mapping
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Body
+from fastapi import APIRouter
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -47,7 +47,6 @@ router = APIRouter(
 # public router owns that path at this same prefix, so whichever router registered first would answer both.
 @router.get(
     f"{by_id('spieltag_id')}/admin",
-    response_model=FLSpieltagAdminResponse,
     summary="One Spieltag for the admin editor",
 )
 async def get_spieltag_admin(
@@ -133,12 +132,11 @@ async def _refuse_an_out_of_order_start(
 
 @router.patch(
     by_id("spieltag_id"),
-    response_model=FLSpieltagWriteResponse,
     summary="Re-date a Spieltag",
 )
 async def patch_spieltag(
     spieltag_id: CustomRouteObjectId,
-    spieltag_data: Annotated[FLPatchSpieltagPayload, Body()],
+    spieltag_data: FLPatchSpieltagPayload,
     spieltage_collection: SpieltageCollection,
     saisons_collection: SaisonsCollection,
     spiele_collection: SpieleCollection,

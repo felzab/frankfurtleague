@@ -1,6 +1,4 @@
-from typing import Annotated
-
-from fastapi import APIRouter, Body, status
+from fastapi import APIRouter, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.address_change.crud import others_naming
@@ -60,12 +58,11 @@ router = APIRouter(
 
 @router.post(
     "/erasure/view",
-    response_model=FLErasureViewResponse,
     summary="Count what an erasure of an address would remove",
     openapi_extra=SAFE,
 )
 async def get_erasure_view(
-    view_data: Annotated[FLErasureAddressPayload, Body()],
+    view_data: FLErasureAddressPayload,
     saison_teams_collection: SaisonTeamsReadCollection,
     bewerbungen_collection: BewerbungenReadCollection,
     schiedsrichter_collection: SchiedsrichterReadCollection,
@@ -139,7 +136,7 @@ async def get_erasure_view(
     summary="Erase every record an address holds, on that person's request",
 )
 async def post_erasure(
-    erasure_data: Annotated[FLErasurePayload, Body()],
+    erasure_data: FLErasurePayload,
     spieler_collection: SpielerCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     saison_teams_collection: SaisonTeamsCollection,

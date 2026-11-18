@@ -1,7 +1,6 @@
 from http import HTTPStatus
-from typing import Annotated
 
-from fastapi import APIRouter, Body, Response
+from fastapi import APIRouter, Response
 
 from app.api.aufstellungen.schemas import FLAufstellungPayload, FLAufstellungResponse
 from app.api.aufstellungen.screen import AufstellungReads, SeatHolder, SeatSaver, read_aufstellung_screen, save_aufstellung_screen
@@ -33,7 +32,7 @@ router = APIRouter(
 SELF_PATH = f"{by_id('spiel_id')}{by_id('team_id')}/self"
 
 
-@router.get(SELF_PATH, response_model=FLAufstellungResponse, summary="One club's line-up for one fixture as its seat holder reads it")
+@router.get(SELF_PATH, summary="One club's line-up for one fixture as its seat holder reads it")
 async def get_aufstellung_self(
     spiel_id: CustomRouteObjectId,
     team_id: CustomRouteObjectId,
@@ -68,14 +67,13 @@ async def get_aufstellung_self(
 
 @router.put(
     SELF_PATH,
-    response_model=FLAufstellungResponse,
     summary="Save one club's line-up for one fixture as its seat holder",
     responses={201: {"model": FLAufstellungResponse, "description": "The line-up did not stand before, and this save created it"}},
 )
 async def put_aufstellung_self(
     spiel_id: CustomRouteObjectId,
     team_id: CustomRouteObjectId,
-    aufstellung_data: Annotated[FLAufstellungPayload, Body()],
+    aufstellung_data: FLAufstellungPayload,
     response: Response,
     identifier: PersonIdentifier,
     spiele_collection: SpieleReadCollection,

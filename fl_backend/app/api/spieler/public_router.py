@@ -14,7 +14,7 @@ router = APIRouter(
 )
 
 
-@router.get(by_id("spieler_id"), response_model=FLSpielerSingleResponse, summary="One Spieler")
+@router.get(by_id("spieler_id"), summary="One Spieler")
 async def get_spieler_by_id(spieler_id: CustomRouteObjectId, spieler_collection: SpielerReadCollection) -> FLSpielerSingleResponse:
     """One player's id, forename and surname initial, both names `null` where the pupil's consent does not publish them."""
 

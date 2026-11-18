@@ -36,7 +36,7 @@ FLRegistrierungenAdminFilters = Annotated[FLRegistrierungenAdminFilterParams, Qu
 
 
 # Two static segments, matching `GET /saisons/list/admin`.
-@router.get("/list/admin", response_model=FLRegistrierungenAdminListResponse, summary="One Saison's pending Registrierungen for its list")
+@router.get("/list/admin", summary="One Saison's pending Registrierungen for its list")
 async def get_registrierungen_admin(
     registrierungen_collection: RegistrierungenReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,

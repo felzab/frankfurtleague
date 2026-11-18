@@ -179,7 +179,7 @@ async def _rewrite_gruppenphase_sides(
 
 # Two segments, because `GET /saisons/{saison_id}` is declared first and would answer a single static
 # one: a season id is a plain four-character string, so the `objectid` convertor cannot separate them.
-@router.get("/list/admin", response_model=FLSaisonsAdminListResponse, summary="Every Saison for the admin surfaces")
+@router.get("/list/admin", summary="Every Saison for the admin surfaces")
 async def get_saisons_admin(
     saisons_collection: SaisonsReadCollection,
     spiele_collection: SpieleReadCollection,
@@ -225,7 +225,7 @@ async def get_saisons_admin(
 
 # Declared after `/list/admin`, which it would otherwise answer with `list` as a season id; a static suffix rather than
 # a second `GET /{saison_id}`, which the public router owns at this same prefix.
-@router.get("/{saison_id}/admin", response_model=FLSaisonAdminResponse, summary="One Saison for the admin editor")
+@router.get("/{saison_id}/admin", summary="One Saison for the admin editor")
 async def get_saison_admin(
     saison_id: str,
     saisons_collection: SaisonsReadCollection,
@@ -356,12 +356,11 @@ async def get_saison_admin(
 
 @router.post(
     "",
-    response_model=FLPostSaisonResponse,
     status_code=201,
     summary="Create a Saison",
 )
 async def post_saison(
-    saison_data: Annotated[FLPostSaisonPayload, Body()],
+    saison_data: FLPostSaisonPayload,
     saisons_collection: SaisonsCollection,
     db: DBClient,
 ) -> FLPostSaisonResponse:
@@ -411,12 +410,11 @@ async def post_saison(
 
 @router.patch(
     "/{saison_id}",
-    response_model=FLPatchSaisonResponse,
     summary="Update a Saison's dates and rules",
 )
 async def patch_saison(
     saison_id: str,
-    saison_data: Annotated[FLPatchSaisonPayload, Body()],
+    saison_data: FLPatchSaisonPayload,
     saisons_collection: SaisonsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     spiele_collection: SpieleCollection,
@@ -669,7 +667,6 @@ def _find_undraw_refusal_of(*, saison_status: str, recorded_spiele: int, bericht
 
 @router.post(
     "/{saison_id}/activate",
-    response_model=FLActivateSaisonResponse,
     summary="Make this the active Saison",
 )
 async def activate_saison(
@@ -763,12 +760,11 @@ async def activate_saison(
 
 @router.post(
     "/{saison_id}/gruppen/swap",
-    response_model=FLSwapGruppenResponse,
     summary="Exchange two teams' groups",
 )
 async def swap_gruppen(
     saison_id: str,
-    swap_data: Annotated[FLSwapGruppenPayload, Body()],
+    swap_data: FLSwapGruppenPayload,
     saisons_collection: SaisonsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     spiele_collection: SpieleCollection,
@@ -868,7 +864,6 @@ async def swap_gruppen(
 
 @router.post(
     "/{saison_id}/spielplan",
-    response_model=FLGenerateSpielplanResponse,
     status_code=201,
     summary="Draw this Saison's Spielplan",
 )
@@ -1080,7 +1075,6 @@ async def post_spielplan(
 
 @router.delete(
     "/{saison_id}/spielplan",
-    response_model=FLUndrawSpielplanResponse,
     summary="Undraw this Saison's Spielplan",
 )
 async def delete_spielplan(
@@ -1336,7 +1330,6 @@ async def _mail_one_team(
 
 @router.post(
     "/{saison_id}/invitations/dispatch",
-    response_model=FLInvitationDispatchResponse,
     summary="Mint every admitted team a link",
 )
 async def post_invitations_dispatch(

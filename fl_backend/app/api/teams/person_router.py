@@ -1,8 +1,8 @@
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Annotated, Any, Final, NamedTuple
+from typing import Any, Final, NamedTuple
 
-from fastapi import APIRouter, Body, status
+from fastapi import APIRouter, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.account.crud import press_einwilligung
@@ -106,7 +106,7 @@ def _seats_of(kontakte: Mapping[str, Any]) -> list[FLTeamSeat]:
 async def patch_einwilligung(
     team_id: CustomRouteObjectId,
     saison_id: str,
-    einwilligung_data: Annotated[FLSeatEinwilligungPayload, Body()],
+    einwilligung_data: FLSeatEinwilligungPayload,
     identifier: PersonIdentifier,
     saison_teams_collection: SaisonTeamsCollection,
     records: SubjectLookup,
@@ -310,7 +310,6 @@ async def _pull_team_spiele(
 # routers would be answered by whichever was mounted first.
 @router.get(
     "/{team_id:objectid}/saisons/{saison_id}/self/overview",
-    response_model=FLTeamOverviewResponse,
     summary="A team's Übersicht in one season",
 )
 async def get_team_overview(
@@ -425,7 +424,6 @@ async def get_team_overview(
 
 @router.get(
     "/{team_id:objectid}/saisons/{saison_id}/self/spiele",
-    response_model=FLTeamSpieleResponse,
     summary="A team's fixtures in one season, with what is open on each",
 )
 async def get_team_spiele(

@@ -1,8 +1,8 @@
 from collections.abc import Mapping
-from typing import Annotated, Any
+from typing import Any
 
 from bson import ObjectId
-from fastapi import APIRouter, Body, status
+from fastapi import APIRouter, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -91,7 +91,6 @@ router = APIRouter(prefix="/registrierungen", dependencies=PERSON_TIER)
 
 @router.get(
     "/kader/{team_id:objectid}/{saison_id}",
-    response_model=FLOpenRegistrierungenResponse,
     summary="A team's pending registrations for one season",
 )
 async def get_open_registrierungen(
@@ -227,12 +226,11 @@ async def _pull_the_teams_open_row(
 
 @router.post(
     f"{by_id('registrierung_id')}/admit",
-    response_model=FLRegistrierungAdmissionResponse,
     summary="Admit a registration into the team's squad",
 )
 async def admit(
     registrierung_id: CustomRouteObjectId,
-    admit_data: Annotated[FLRegistrierungAdmitPayload, Body()],
+    admit_data: FLRegistrierungAdmitPayload,
     identifier: PersonIdentifier,
     registrierungen_collection: RegistrierungenCollection,
     saison_spieler_collection: SaisonSpielerCollection,
@@ -386,12 +384,11 @@ async def admit(
 
 @router.post(
     f"{by_id('registrierung_id')}/decline",
-    response_model=FLRegistrierungDeclineResponse,
     summary="Decline a registration",
 )
 async def decline(
     registrierung_id: CustomRouteObjectId,
-    decline_data: Annotated[FLRegistrierungDeclinePayload, Body()],
+    decline_data: FLRegistrierungDeclinePayload,
     identifier: PersonIdentifier,
     registrierungen_collection: RegistrierungenCollection,
     saison_teams_collection: SaisonTeamsCollection,
@@ -495,7 +492,7 @@ spieler_router = APIRouter(prefix="/registrierungen/account", dependencies=PERSO
 )
 async def patch_einwilligung(
     registrierung_id: CustomRouteObjectId,
-    einwilligung_data: Annotated[FLAccountEinwilligungPayload, Body()],
+    einwilligung_data: FLAccountEinwilligungPayload,
     identifier: PersonIdentifier,
     registrierungen_collection: RegistrierungenCollection,
     db: DBClient,

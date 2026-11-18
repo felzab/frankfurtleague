@@ -1,7 +1,6 @@
 from http import HTTPStatus
-from typing import Annotated
 
-from fastapi import APIRouter, Body, Response
+from fastapi import APIRouter, Response
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.account.services import find_own_entry_refusal
@@ -62,7 +61,6 @@ BERICHT_PATH = f"{by_id('spiel_id')}/bericht"
 
 @router.get(
     BERICHT_PATH,
-    response_model=FLSpielberichtSchiedsrichterResponse,
     summary="One fixture's report as its referee reads it",
 )
 async def get_spielbericht_bericht(
@@ -115,7 +113,6 @@ async def get_spielbericht_bericht(
 
 @router.put(
     BERICHT_PATH,
-    response_model=FLSpielberichtSchiedsrichterResponse,
     summary="Write one fixture's report as its referee",
     responses={
         201: {"model": FLSpielberichtSchiedsrichterResponse, "description": "The report did not stand before, and this write created it"},
@@ -123,7 +120,7 @@ async def get_spielbericht_bericht(
 )
 async def put_spielbericht_bericht(
     spiel_id: CustomRouteObjectId,
-    bericht_data: Annotated[FLSpielberichtPayload, Body()],
+    bericht_data: FLSpielberichtPayload,
     response: Response,
     identifier: PersonIdentifier,
     spiele_collection: SpieleCollection,

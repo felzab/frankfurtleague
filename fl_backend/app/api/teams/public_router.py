@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends
 
 from app.api.saisons.visibility import resolve_public_saison
@@ -16,12 +18,12 @@ router = APIRouter(
 )
 
 
-@router.get(by_id("team_id"), response_model=FLTeamsSingleResponse, summary="One team")
+@router.get(by_id("team_id"), summary="One team")
 async def get_team(
     team_id: CustomRouteObjectId,
     teams_collection: TeamsReadCollection,
     saisons_collection: SaisonsReadCollection,
-    filters: FLTeamSingleFilterParams = Depends(),
+    filters: Annotated[FLTeamSingleFilterParams, Depends()],
 ) -> FLTeamsSingleResponse:
     """One team with its group and its figures in the season the query names, the season the site is on where it names none.
 

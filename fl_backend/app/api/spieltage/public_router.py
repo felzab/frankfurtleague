@@ -15,7 +15,7 @@ router = APIRouter(
 )
 
 
-@router.get(by_id("spieltag_id"), response_model=FLSpieltageSingleResponse, summary="One Spieltag")
+@router.get(by_id("spieltag_id"), summary="One Spieltag")
 async def get_spieltag(
     spieltag_id: CustomRouteObjectId,
     spieltage_collection: SpieltageReadCollection,

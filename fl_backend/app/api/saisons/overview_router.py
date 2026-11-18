@@ -23,7 +23,7 @@ router = APIRouter(
 )
 
 
-@router.get("/{saison_id}/overview", response_model=FLSaisonOverviewResponse, summary="One Saison's open work, card by card")
+@router.get("/{saison_id}/overview", summary="One Saison's open work, card by card")
 async def get_saison_overview(
     saison_id: str,
     saisons_collection: SaisonsReadCollection,
