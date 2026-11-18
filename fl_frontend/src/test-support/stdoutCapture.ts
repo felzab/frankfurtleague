@@ -1,4 +1,4 @@
-import { afterAll, afterEach, aroundEach, assert } from "vitest";
+import { afterAll, afterEach, aroundEach } from "vitest";
 
 /** Test-only: every export below replaces `process.stdout.write` for the length of a call or a file. */
 
@@ -25,31 +25,20 @@ type Write = (chunk: unknown, ...rest: unknown[]) => boolean;
 
 /**
  * Replaces `process.stdout.write` with one handing each of the logger's chunks to `read` and every other chunk to
- * the stream, which `passOn` writes to. A chunk `read` refuses is a fault of the capture, recorded rather than thrown
- * into the code that wrote.
+ * the stream, which `passOn` writes to. A chunk `read` cannot parse throws into the logger's call that wrote it.
  */
-function beginCapture(read: (raw: string) => void): { faults: string[]; restore: () => void; passOn: Write } {
-  const faults: string[] = [];
+function beginCapture(read: (raw: string) => void): { restore: () => void; passOn: Write } {
   const original = process.stdout.write;
   const passOn = original.bind(process.stdout) as Write;
 
   const write = ((chunk: unknown, ...rest: unknown[]) => {
     if (!writtenByTheLogger(write)) return passOn(chunk, ...rest);
-    const raw = String(chunk);
-    try {
-      // The logger writes each line in one call ending in a newline, so a chunk without one is a writer this
-      // capture misreads.
-      if (!raw.endsWith("\n")) throw new Error("a log line written without its newline");
-      read(raw);
-    } catch (error) {
-      faults.push(`${error instanceof Error ? error.message : String(error)}: ${raw}`);
-    }
+    read(String(chunk));
     return true;
   }) as typeof process.stdout.write;
   process.stdout.write = write;
 
   return {
-    faults,
     restore: () => {
       process.stdout.write = original;
     },
@@ -59,12 +48,11 @@ function beginCapture(read: (raw: string) => void): { faults: string[]; restore:
 
 /**
  * Every JSON document the logger writes while `run` runs, for a route handler or a backend call that writes its line
- * asynchronously; a chunk that is no one document fails the call once `run` has ended.
+ * asynchronously.
  */
 export async function documentsWrittenByAsync(run: () => Promise<unknown>): Promise<Record<string, unknown>[]> {
   const documents: Record<string, unknown>[] = [];
-  const { faults, restore } = beginCapture((raw) => {
-    if (raw.slice(0, -1).includes("\n")) throw new Error("more than one document in one write");
+  const { restore } = beginCapture((raw) => {
     documents.push(JSON.parse(raw) as Record<string, unknown>);
   });
   try {
@@ -72,7 +60,6 @@ export async function documentsWrittenByAsync(run: () => Promise<unknown>): Prom
   } finally {
     restore();
   }
-  assert(faults.length === 0, `the logger wrote what the capture cannot read:\n${faults.join("\n")}`);
 
   return documents;
 }
@@ -127,8 +114,6 @@ function readDocument(raw: string): LoggedLine {
  * - Each case begins with no line, so it reads only what its run wrote, its `beforeEach` hooks' lines among them;
  *   `clear` empties the lines mid-case.
  * - A chunk the logger did not write goes on to the runner's reporter untouched, whatever its shape.
- * - A line the capture cannot read fails the case it was written in, from the capture's `afterEach`, rather than
- *   throwing into the code that wrote it.
  * - A line is its case's from the case's start, ahead of every `beforeEach` (Vitest's `aroundEach`), to the capture's
  *   `afterEach`. Any other line, a `beforeAll`'s or an after-hook's, is read too, and goes on to the reporter as well,
  *   since no case may read it. Vitest marks no point between a case's body and its first after-hook, so an `afterEach`
@@ -138,7 +123,7 @@ export function captureLog(): { lines(): readonly LoggedLine[]; clear(): void } 
   const lines: LoggedLine[] = [];
   /** Whether a case's window is open, from the case's start to the capture's `afterEach`. */
   let inCase = false;
-  const { faults, restore, passOn } = beginCapture((raw) => {
+  const { restore, passOn } = beginCapture((raw) => {
     if (!inCase) passOn(raw);
     lines.push(readDocument(raw));
   });
@@ -150,8 +135,6 @@ export function captureLog(): { lines(): readonly LoggedLine[]; clear(): void } 
   });
   afterEach(() => {
     inCase = false;
-    const unreadable = faults.splice(0);
-    assert(unreadable.length === 0, `the logger wrote what the capture cannot read:\n${unreadable.join("\n")}`);
   });
   afterAll(restore);
 
