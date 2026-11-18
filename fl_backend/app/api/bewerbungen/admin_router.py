@@ -3,16 +3,14 @@ from collections import Counter
 from collections.abc import Mapping
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.schemas import (
     FLAcceptBewerbungPayload,
-    FLAcceptBewerbungResponse,
     FLBewerbung,
-    FLBewerbungEinwilligungResendResponse,
     FLBewerbungenAdminListResponse,
     FLBewerbungEntry,
     FLBewerbungEntryOffer,
@@ -22,7 +20,6 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungListRow,
     FLBewerbungSingleResponse,
     FLDeclineBewerbungPayload,
-    FLDeclineBewerbungResponse,
 )
 from app.api.bewerbungen.services import (
     BEWERBUNG_LIST_FIELDS,
@@ -262,6 +259,7 @@ def _key(bewerbung_id: Any, *parts: str) -> str:
 # done is undone: one request over a season's applications would outrun `REQUEST_DEADLINE_S`.
 @router.post(
     f"{by_id('bewerbung_id')}/accept",
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Accept a Bewerbung and enter the school into the season",
 )
 async def accept_bewerbung(
@@ -275,14 +273,14 @@ async def accept_bewerbung(
     db: DBClient,
     today: GermanDay,
     germany_now: GermanyNow,
-) -> FLAcceptBewerbungResponse:
+) -> None:
     """Accept an application once every contact person confirmed their seat, entering its club into the season and creating it for a new school.
 
     It cannot be undone, as an entered club leaves only by an `austritt`, and every person of the application is mailed
     the acceptance.
     """
 
-    async def accept_and_enter_the_school(session: AsyncClientSession) -> FLAcceptBewerbungResponse:
+    async def accept_and_enter_the_school(session: AsyncClientSession) -> None:
         """One transaction over every write: a club created without its junction row is a school in no season that nothing reports."""
 
         bewerbung_raw = await pull_one_from_db(collection=bewerbungen_collection, db_filter={"_id": bewerbung_id}, session=session)
@@ -428,21 +426,12 @@ async def accept_bewerbung(
             now=germany_now,
         )
 
-        return FLAcceptBewerbungResponse(
-            team_id=team_id,
-            created_team=schule is not None,
-            saison_id=saison_id,
-            gruppe=acceptance_data.gruppe,
-            trikot_farbe=acceptance_data.trikot_farbe,
-        )
-
-    accepted = await transact(db, accept_and_enter_the_school)
-
-    return accepted
+    await transact(db, accept_and_enter_the_school)
 
 
 @router.post(
     f"{by_id('bewerbung_id')}/decline",
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Decline a Bewerbung",
 )
 async def decline_bewerbung(
@@ -454,7 +443,7 @@ async def decline_bewerbung(
     db: DBClient,
     today: GermanDay,
     germany_now: GermanyNow,
-) -> FLDeclineBewerbungResponse:
+) -> None:
     """Decline an application with the reason given, mailed verbatim to each person the application mailed.
 
     What the school submitted stays as it was, the record the decision was taken against.
@@ -505,11 +494,10 @@ async def decline_bewerbung(
 
     await transact(db, decline_the_application)
 
-    return FLDeclineBewerbungResponse(id=bewerbung_id)
-
 
 @router.post(
     f"{by_id('bewerbung_id')}/kontakte/{{seat}}/confirmation/resend",
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Re-send one seat's confirmation link",
 )
 async def resend_kontakt_confirmation(
@@ -521,11 +509,10 @@ async def resend_kontakt_confirmation(
     db: DBClient,
     today: GermanDay,
     germany_now: GermanyNow,
-) -> FLBewerbungEinwilligungResendResponse:
+) -> None:
     """Void one seat's link and mail its person a fresh one, that seat's deadline and reminder starting again from today.
 
-    Where one person holds two seats both are replaced and one link answers both, and the answer names the address and
-    seats as the write found them.
+    Where one person holds two seats both are replaced and one link answers both.
     """
 
     db_filter = {"_id": bewerbung_id}
@@ -562,8 +549,8 @@ async def resend_kontakt_confirmation(
 
     # The judgement is in the filter, so a decision or an answer landing after the read leaves the row
     # untouched rather than overwritten.
-    async def mint_on(seats: tuple[FLKontaktSeat, ...]) -> Mapping[str, Any]:
-        async def mint(session: AsyncClientSession) -> Mapping[str, Any]:
+    async def mint_on(seats: tuple[FLKontaktSeat, ...]) -> None:
+        async def mint(session: AsyncClientSession) -> None:
             # In-session, as the seat write reads them: the filter holds the pressed seats alone, and the deletion day is every seat's.
             stored = await pull_one_from_db(
                 collection=bewerbungen_collection, db_filter=db_filter, projection=["kontakte", "confirmations"], session=session
@@ -595,12 +582,10 @@ async def resend_kontakt_confirmation(
                 now=germany_now,
             )
 
-            return matched
-
-        return await transact(db, mint)
+        await transact(db, mint)
 
     try:
-        matched = await mint_on(seats)
+        await mint_on(seats)
     except DocumentNotFoundError:
         # The judgement above was read outside the write's transaction, so a decision or an answer
         # landing between them leaves the filter matching nothing. Judged again rather than answered as
@@ -609,11 +594,7 @@ async def resend_kontakt_confirmation(
         seats = seats_judged_on(reread)
         # A re-read that passes is a row that moved back between the two, a decline and then a seat write:
         # one more write, whose own miss is the only one answering 404.
-        matched = await mint_on(seats)
-
-    return FLBewerbungEinwilligungResendResponse(
-        seat=pressed, email=str(matched["kontakte"][pressed]["email"]), seats=list(seats), confirmation_deadline=confirmation_deadline
-    )
+        await mint_on(seats)
 
 
 @router.post(

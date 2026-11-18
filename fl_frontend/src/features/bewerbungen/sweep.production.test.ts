@@ -19,16 +19,7 @@ const backend = serveBackend(({ method, path }) => {
     (id) => call === `POST /bewerbungen/saisons/${id}/sweep` || call === `POST /registrierungen/saisons/${id}/sweep`,
   );
   if (saisonId !== undefined && path.startsWith("/bewerbungen/")) {
-    return {
-      saison_id: saisonId,
-      reminded: 0,
-      erased: 0,
-      erased_declined: 0,
-      erased_accepted: 0,
-      erased_without_decision: 0,
-      kontakt_blocks_emptied: 0,
-      failed: 0,
-    };
+    return { failed: 0 };
   }
   if (saisonId !== undefined)
     return { saison_id: saisonId, reminded: 0, erased_unconfirmed: 0, erased_without_decision: 0, erased_declined: 0, failed: 0 };

@@ -3,19 +3,10 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { APIBadStatusError, APINetworkError } from "@/core/errors";
 import { networkFailure, refusal, serveBackend } from "@/test-support/backend";
 
-import type { FLAddressChangeSweepResponse } from "@/core/generated/client/types";
+import type { FLAddressChangeSweepResponse, FLBewerbungSweepResponse } from "@/core/generated/client/types";
 
 /** One season half's answer, the rows it passed over counted. */
-const bewerbungPass = (saisonId: string, failed = 0) => ({
-  saison_id: saisonId,
-  reminded: 0,
-  erased: 0,
-  erased_declined: 0,
-  erased_accepted: 0,
-  erased_without_decision: 0,
-  kontakt_blocks_emptied: 0,
-  failed,
-});
+const bewerbungPass = (failed = 0): FLBewerbungSweepResponse => ({ failed });
 const registrierungPass = (saisonId: string, failed = 0) => ({
   saison_id: saisonId,
   reminded: 0,
@@ -51,7 +42,7 @@ function seasons(
   answers = new Map<string, () => unknown>([
     [LISTING, () => ({ saison_ids: saisonIds })],
     ...saisonIds.flatMap((saisonId): [string, () => unknown][] => [
-      [`POST /bewerbungen/saisons/${saisonId}/sweep`, () => bewerbungPass(saisonId, passedOver[`/bewerbungen/saisons/${saisonId}/sweep`])],
+      [`POST /bewerbungen/saisons/${saisonId}/sweep`, () => bewerbungPass(passedOver[`/bewerbungen/saisons/${saisonId}/sweep`])],
       [
         `POST /registrierungen/saisons/${saisonId}/sweep`,
         () => registrierungPass(saisonId, passedOver[`/registrierungen/saisons/${saisonId}/sweep`]),

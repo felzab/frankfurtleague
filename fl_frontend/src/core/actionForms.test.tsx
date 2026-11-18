@@ -261,7 +261,7 @@ describe("each form's posted names meet its lane's keys", () => {
     const typed = { birth_date: "1985-09-12", whatsapp: "on", media: "on" };
     everyBoxTyped(names, typed);
     await arriveAs(null);
-    takes(["POST", "/bewerbungen/confirmation", {}]);
+    takes(["POST", "/bewerbungen/confirmation", new Response(null, { status: 204 })]);
 
     const answer = await answerKontakt(formOf([...names, "media", "act", "token"], { ...typed, act: "primary", token: "link-token" }));
 

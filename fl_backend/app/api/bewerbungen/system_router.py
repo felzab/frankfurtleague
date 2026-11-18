@@ -150,7 +150,8 @@ async def sweep_saison(
 ) -> FLBewerbungSweepResponse:
     """Run one season's retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.
 
-    A row that cannot be written is passed over, counted in `failed`, and met again by the next pass.
+    A row that cannot be written is passed over, counted in `failed`, and met again by the next pass; what each clock
+    erased is recorded in the action log.
     """
 
     # The read that answers the 404 carries the status: this season's own end is a clock too, and a
@@ -518,11 +519,11 @@ async def sweep_saison(
         await strip_the_seasons_reports(spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=session)
 
     # Every erasure before the reminder, which owes a mail only to an application still standing.
-    undecided, failed = 0, 0
+    failed = 0
     # Ahead of the fourteen-day clock and the reminder, which read the collection after it: a season that has ended
     # leaves nobody to chase, and a notice about an application this pass erased is a notice about nothing.
     if season_has_ended(saison_status=saison_status):
-        undecided, passed = await drain(
+        _, passed = await drain(
             db=db,
             page_of=erase_the_undecided,
             page=SWEEP_PAGE,
@@ -531,7 +532,7 @@ async def sweep_saison(
         )
         failed += len(passed)
 
-    declined, passed = await drain(
+    _, passed = await drain(
         db=db,
         page_of=erase_declined,
         page=SWEEP_PAGE,
@@ -540,10 +541,9 @@ async def sweep_saison(
     )
     failed += len(passed)
 
-    accepted, emptied, seats_emptied = 0, 0, 0
     # A gate alone, each erasing transaction judging the season again: an activation since this read keeps its rows.
     if season_has_ended(saison_status=later_saison_status):
-        accepted, passed = await drain(
+        _, passed = await drain(
             db=db,
             page_of=erase_accepted,
             page=SWEEP_PAGE,
@@ -552,7 +552,7 @@ async def sweep_saison(
         )
         failed += len(passed)
 
-        cleared, passed = await run_isolated(
+        _, passed = await run_isolated(
             db=db,
             batch=Batch(share=BLOCKS_CLEARED_PER_PASS),
             attempt=clear_the_blocks,
@@ -584,10 +584,9 @@ async def sweep_saison(
             clock="report strip",
         )
         failed += len(passed)
-        emptied = sum(cleared)
     # Never beside the blocks, which take the seats with them: the two shares are one budget.
     else:
-        lapsed, passed = await run_isolated(
+        _, passed = await run_isolated(
             db=db,
             batch=Batch(share=LAPSED_SEAT_ROWS_PER_PASS),
             attempt=clear_the_lapsed_seats,
@@ -597,11 +596,10 @@ async def sweep_saison(
             clock="lapsed seat",
         )
         failed += len(passed)
-        seats_emptied = sum(lapsed)
 
     # The fourteen-day clock after the season's end and before the reminder: an application erased leaves nobody to
     # chase, and a season that has ended took its undecided rows already.
-    erased_count, passed = await drain(
+    _, passed = await drain(
         db=db,
         page_of=erase_the_unconfirmed,
         page=SWEEP_PAGE,
@@ -610,7 +608,7 @@ async def sweep_saison(
     )
     failed += len(passed)
 
-    reminded, passed = await run_isolated(
+    _, passed = await run_isolated(
         db=db,
         batch=Batch(share=REMINDERS_PER_PASS),
         attempt=remind,
@@ -621,14 +619,4 @@ async def sweep_saison(
     )
     failed += len(passed)
 
-    return FLBewerbungSweepResponse(
-        saison_id=saison_id,
-        reminded=sum(reminded),
-        erased=erased_count,
-        erased_declined=declined,
-        erased_accepted=accepted,
-        erased_without_decision=undecided,
-        kontakt_blocks_emptied=emptied,
-        kontakt_seats_emptied=seats_emptied,
-        failed=failed,
-    )
+    return FLBewerbungSweepResponse(failed=failed)
