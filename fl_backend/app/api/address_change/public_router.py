@@ -1,8 +1,8 @@
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -51,7 +51,6 @@ from app.api.address_change.services import (
 )
 from app.api.identity.lookup import SubjectLookup
 from app.core.clock import german_day
-from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
     ActionLogCollection,
@@ -59,6 +58,7 @@ from app.core.dependencies import (
     AddressChangeReadCollection,
     BewerbungenCollection,
     DBClient,
+    GermanyNow,
     GrantsCollection,
     GrantsReadCollection,
     MailboxAnchorsCollection,
@@ -68,19 +68,18 @@ from app.core.dependencies import (
     SchiedsrichterCollection,
     SpielerCollection,
     SpielerReadCollection,
-    get_germany_now,
 )
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.routing import SAFE
-from app.core.security import verify_access_base
+from app.core.security import BASE_TIER
 from app.core.transactions import transaction_session
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 
 # The token is the whole credential, so these endpoints are base-tier.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/address_change/confirmation",
-    dependencies=[Depends(verify_access_base)],
+    prefix="/address_change/confirmation",
+    dependencies=BASE_TIER,
 )
 
 # What a link's view reads: the addresses for the judgement alone, and the new link's hashes, which say
@@ -110,17 +109,16 @@ _NOT_CONFIRMABLE = frozenset({"taken", "new_granted", "occupied"})
 # A POST that reads, so the token travels in a body and never in a second URL.
 @router.post(
     "/view",
-    response_model=FLAddressChangeViewResponse,
     summary="What one address link opens",
     openapi_extra=SAFE,
 )
 async def get_address_change_view(
-    view_data: Annotated[FLTokenPayload, Body()],
+    view_data: FLTokenPayload,
     address_changes_collection: AddressChangeReadCollection,
     records: SubjectLookup,
     spieler_collection: SpielerReadCollection,
     grants_collection: GrantsReadCollection,
-    germany_now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> FLAddressChangeViewResponse:
     """What this token opens: the new mailbox's link, the link the address on file was mailed, or how either's change ended.
 
@@ -202,13 +200,12 @@ async def get_address_change_view(
 
 @router.post(
     "",
-    response_model=FLAddressChangeAnswerResponse,
     summary="Confirm or decline a pending address",
     # `uniq_spieler_email` and `uniq_grant_address` are published by the duplicate-key trace and stay unreached: the
     # in-session reads of another pupil and of the new address's grant include every row either index holds.
 )
 async def post_address_change_answer(
-    answer_data: Annotated[FLAddressChangeAnswerPayload, Body()],
+    answer_data: FLAddressChangeAnswerPayload,
     address_changes_collection: AddressChangeCollection,
     records: SubjectLookup,
     spieler_collection: SpielerCollection,
@@ -221,7 +218,7 @@ async def post_address_change_answer(
     mailbox_anchors_collection: MailboxAnchorsCollection,
     action_log_collection: ActionLogCollection,
     db: DBClient,
-    germany_now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> FLAddressChangeAnswerResponse:
     """Record whether the mailbox this link was sent to is the person's: `confirmed` confirms it, `declined` ends the change.
 
@@ -388,16 +385,15 @@ async def _answer_for_the_address_on_file(
 
 @router.post(
     "/stop",
-    response_model=FLAddressChangeStopResponse,
     summary="Stop a pending address change",
 )
 async def post_address_change_stop(
-    stop_data: Annotated[FLTokenPayload, Body()],
+    stop_data: FLTokenPayload,
     address_changes_collection: AddressChangeCollection,
     grants_collection: GrantsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    germany_now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> FLAddressChangeStopResponse:
     """Stop the change the address on file was mailed about, its new address going, at any time until the change ends.
 

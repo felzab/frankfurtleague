@@ -1,8 +1,7 @@
 from collections.abc import Mapping, Sequence
-from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends, Header
+from fastapi import APIRouter, Header
 from pydantic import UUID4
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -78,7 +77,6 @@ from app.api.spielbestaetigungen.services import HeldSeats
 from app.api.teams.services import kontakt_row_of
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
     aggregate_many_from_db,
@@ -94,6 +92,8 @@ from app.core.dependencies import (
     BewerbungenCollection,
     BewerbungenReadCollection,
     DBClient,
+    GermanDay,
+    GermanyNow,
     MailboxAnchorsCollection,
     OutboxCollection,
     SaisonsCollection,
@@ -103,13 +103,11 @@ from app.core.dependencies import (
     SpielbestaetigungenCollection,
     TeamsCollection,
     TeamsReadCollection,
-    get_german_date_str,
-    get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import Journal
 from app.core.routing import SAFE
-from app.core.security import verify_access_base
+from app.core.security import BASE_TIER
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import BEWERBUNG_KONTAKT_MAX_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
@@ -120,7 +118,7 @@ from app.shared.tokens import hash_token
 # Base-tier at the prefix the admin and person routers share: a member of the public applies here, and nothing served
 # below carries a person's details. The confirmation link's two endpoints are base-tier too: its token is the whole
 # credential, as a sign-in code is.
-router = APIRouter(prefix=f"/api/v{API_VERSION}/bewerbungen", dependencies=[Depends(verify_access_base)])
+router = APIRouter(prefix="/bewerbungen", dependencies=BASE_TIER)
 
 
 # The state a submission arrives in, and the only one it may arrive in: the other two are the triage's.
@@ -131,10 +129,8 @@ SUBMITTED = "submitted"
 WINDOW_PROJECTION = ["bewerbung", "status"]
 
 
-@router.get("/form/{saison_id}", response_model=FLBewerbungFormResponse, summary="What one Saison's application form shows")
-async def get_form(
-    saison_id: str, saisons_collection: SaisonsReadCollection, today: str = Depends(get_german_date_str)
-) -> FLBewerbungFormResponse:
+@router.get("/form/{saison_id}", summary="What one Saison's application form shows")
+async def get_form(saison_id: str, saisons_collection: SaisonsReadCollection, today: GermanDay) -> FLBewerbungFormResponse:
     """A season's application window, and while it runs the clubs a school may apply as and the colours taken.
 
     A closed or paused window and a season recording none are served too, and each club is served as its name alone.
@@ -187,12 +183,11 @@ async def _open_links_by_mailbox(
 
 @router.post(
     "",
-    response_model=FLCreatedResponse,
     status_code=201,
     summary="Submit a Bewerbung",
 )
 async def post_bewerbung(
-    bewerbung_data: Annotated[FLPostBewerbungPayload, Body()],
+    bewerbung_data: FLPostBewerbungPayload,
     bewerbungen_collection: BewerbungenCollection,
     saisons_collection: SaisonsCollection,
     teams_collection: TeamsCollection,
@@ -203,8 +198,8 @@ async def post_bewerbung(
     # Version 4 alone: a guessable key lets a stranger store an application under it first, and the
     # visitor's own press is then answered as that one.
     idempotency_key: Annotated[UUID4, Header()],
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> FLCreatedResponse:
     """Store one school's application to play one season, and mail each contact person their confirmation link, one per person.
 
@@ -379,17 +374,16 @@ async def _saison_view(
 # A POST that reads, so the token travels in the body.
 @router.post(
     "/einwilligung/view",
-    response_model=FLBewerbungEinwilligungViewResponse,
     summary="What one confirmation link opens",
     openapi_extra=SAFE,
 )
 async def get_einwilligung_view(
-    view_data: Annotated[FLTokenPayload, Body()],
+    view_data: FLTokenPayload,
     bewerbungen_collection: BewerbungenReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
     saisons_collection: SaisonsReadCollection,
     teams_collection: TeamsReadCollection,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLBewerbungEinwilligungViewResponse:
     """What the confirmation page renders for the seat this token opens, and nothing of the person.
 
@@ -451,8 +445,8 @@ async def post_einwilligung(
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> FLBewerbungEinwilligungAnswerResponse | FLSaisonTeamEinwilligungAnswerResponse:
     """Record one person's consent or Widerspruch for the seat their link opens, and for a second seat they hold.
 

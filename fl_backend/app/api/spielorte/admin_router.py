@@ -1,11 +1,11 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, status
+from fastapi import APIRouter, Depends, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.results import InsertOneResult
 
-from app.api.grants.guard import verify_actor_is_admin
+from app.api.grants.guard import ADMIN_TIER
 from app.api.spielorte.schemas import (
     FLPatchSpielortPayload,
     FLPatchSpielortResponse,
@@ -17,7 +17,6 @@ from app.api.spielorte.schemas import (
     FLSpielortListAdapter,
 )
 from app.api.spielorte.services import build_unplayed_booking_filter, compose_maps_link, find_venue_name_refusal, find_venue_retire_refusal
-from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
     insert_live,
@@ -28,10 +27,9 @@ from app.core.crud import (
     refuse,
     set_inactive_since,
 )
-from app.core.dependencies import DBClient, SpieleCollection, SpielorteCollection, SpielorteReadCollection, get_german_date_str
+from app.core.dependencies import DBClient, GermanDay, SpieleCollection, SpielorteCollection, SpielorteReadCollection
 from app.core.recording import record_act
 from app.core.routing import by_id
-from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.responses import FLCreatedResponse
@@ -40,15 +38,15 @@ from app.shared.schemas.responses import FLCreatedResponse
 # withheld: `address` moves with it because no public page reads the parts, not to hide them -- `maps_link` publishes
 # the address whole.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/spielorte",
-    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
+    prefix="/spielorte",
+    dependencies=ADMIN_TIER,
 )
 
 
-@router.get("", response_model=FLSpielorteListResponse, summary="List Spielorte")
+@router.get("", summary="List Spielorte")
 async def get_spielorte(
     spielorte_collection: SpielorteReadCollection,
-    filters: FLSpielorteFilterParams = Depends(),
+    filters: Annotated[FLSpielorteFilterParams, Depends()],
 ) -> FLSpielorteListResponse:
     """Every venue in name order, the retired ones too where `include_inactive` asks for them.
 
@@ -66,7 +64,7 @@ async def get_spielorte(
     return FLSpielorteListResponse(spielorte=spielorte)
 
 
-@router.get(by_id("spielort_id"), response_model=FLSpielorteSingleResponse, summary="One Spielort")
+@router.get(by_id("spielort_id"), summary="One Spielort")
 async def get_spielort(spielort_id: CustomRouteObjectId, spielorte_collection: SpielorteReadCollection) -> FLSpielorteSingleResponse:
     """One venue, a retired one included, with the `version` its save sends back."""
 
@@ -75,9 +73,9 @@ async def get_spielort(spielort_id: CustomRouteObjectId, spielorte_collection: S
     return FLSpielorteSingleResponse(spielort=FLSpielort(**spielort_raw))
 
 
-@router.post("", response_model=FLCreatedResponse, status_code=201, summary="Create a Spielort")
+@router.post("", status_code=201, summary="Create a Spielort")
 async def post_spielort(
-    spielort_data: Annotated[FLPostSpielortPayload, Body()],
+    spielort_data: FLPostSpielortPayload,
     spielorte_collection: SpielorteCollection,
     db: DBClient,
 ) -> FLCreatedResponse:
@@ -113,12 +111,11 @@ async def post_spielort(
 
 @router.patch(
     by_id("spielort_id"),
-    response_model=FLPatchSpielortResponse,
     summary="Update a Spielort",
 )
 async def patch_spielort(
     spielort_id: CustomRouteObjectId,
-    spielort_data: Annotated[FLPatchSpielortPayload, Body()],
+    spielort_data: FLPatchSpielortPayload,
     spielorte_collection: SpielorteCollection,
     db: DBClient,
 ) -> FLPatchSpielortResponse:
@@ -162,7 +159,7 @@ async def delete_spielort(
     spielorte_collection: SpielorteCollection,
     spiele_collection: SpieleCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> None:
     """Retire a venue, which stays readable for every match played there.
 

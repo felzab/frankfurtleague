@@ -1,10 +1,10 @@
 import secrets
 from collections.abc import Mapping
 from datetime import UTC, datetime
-from typing import Annotated, Any
+from typing import Any
 
 from bson import ObjectId
-from fastapi import APIRouter, Body, Depends, status
+from fastapi import APIRouter, status
 from pydantic import TypeAdapter, ValidationError
 from pymongo import ASCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -35,19 +35,18 @@ from app.api.outbox.services import (
     row_of,
 )
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.crud import ANCHOR_FIELD, patch_many_in_db, patch_past_the_version_in_db, post_one_to_db, pull_many_from_db
-from app.core.dependencies import DB, BanListReadCollection, BewerbungenCollection, DBClient, OutboxCollection, get_germany_now
+from app.core.dependencies import DB, BanListReadCollection, BewerbungenCollection, DBClient, GermanyNow, OutboxCollection
 from app.core.logging import fl_logger
-from app.core.security import verify_access_system
+from app.core.security import SYSTEM_TIER
 from app.core.transactions import transaction_session
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import mint_token
 
 # System tier and the system actor: the drain, the sign-in library and the provider's callback hold no session.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/outbox",
-    dependencies=[Depends(verify_access_system)],
+    prefix="/outbox",
+    dependencies=SYSTEM_TIER,
 )
 
 
@@ -109,13 +108,13 @@ def _link_update(link: Mapping[str, Any], token_hash: str) -> dict[str, Any]:
 
 
 # Server to server alone: the answer names addresses, live links and secrets.
-@router.post("/handout", response_model=FLOutboxHandoutResponse, summary="Claim the mails owed now and hand them out")
+@router.post("/handout", summary="Claim the mails owed now and hand them out")
 async def post_handout(
     outbox_collection: OutboxCollection,
     ban_list_collection: BanListReadCollection,
     db: DB,
     db_client: DBClient,
-    now: datetime = Depends(get_germany_now),
+    now: GermanyNow,
 ) -> FLOutboxHandoutResponse:
     """Claim a page of the mails owed now, the sign-in library's first, and hand each out with the link minted for it.
 
@@ -259,11 +258,11 @@ async def post_handout(
     )
 
 
-@router.post("/result", response_model=FLOutboxResultResponse, summary="Settle one mail a claim handed out")
+@router.post("/result", summary="Settle one mail a claim handed out")
 async def post_result(
-    result_data: Annotated[FLOutboxResultPayload, Body()],
+    result_data: FLOutboxResultPayload,
     outbox_collection: OutboxCollection,
-    now: datetime = Depends(get_germany_now),
+    now: GermanyNow,
 ) -> FLOutboxResultResponse:
     """Settle the named mail by its send's outcome where the named claim still holds it, counting a mail it does not hold in `ignored`.
 
@@ -298,9 +297,9 @@ async def post_result(
 
 @router.post("/sign_in", status_code=status.HTTP_204_NO_CONTENT, summary="Owe one mail of the sign-in library")
 async def post_sign_in(
-    sign_in_data: Annotated[FLOutboxSignInPayload, Body()],
+    sign_in_data: FLOutboxSignInPayload,
     outbox_collection: OutboxCollection,
-    now: datetime = Depends(get_germany_now),
+    now: GermanyNow,
 ) -> None:
     """Owe one mail the sign-in library sends, such as a code, a passkey notice or the deletion link, to the address named.
 
@@ -342,9 +341,9 @@ async def _reopen_chases(
         )
 
 
-@router.post("/event", response_model=FLOutboxEventResponse, summary="Record one delivery event on its mail's row")
+@router.post("/event", summary="Record one delivery event on its mail's row")
 async def post_event(
-    event_data: Annotated[FLOutboxEventPayload, Body()],
+    event_data: FLOutboxEventPayload,
     outbox_collection: OutboxCollection,
     bewerbungen_collection: BewerbungenCollection,
     db_client: DBClient,

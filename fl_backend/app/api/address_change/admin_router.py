@@ -1,8 +1,8 @@
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
@@ -40,38 +40,37 @@ from app.api.address_change.services import (
     waits_on,
 )
 from app.api.grants.crud import read_grants
-from app.api.grants.guard import verify_actor_is_admin
+from app.api.grants.guard import ADMIN_TIER
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import address_change_viewable_denied, find_admin_address_refusal, find_own_address_refusal
 from app.api.outbox.schemas import FLOutboxStatus
 from app.api.spieler.crud import another_pupil_holds
-from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse
 from app.core.dependencies import (
     AddressChangeCollection,
     AddressChangeReadCollection,
     DBClient,
+    GermanyNow,
     GrantsCollection,
     GrantsReadCollection,
     OutboxCollection,
     OutboxReadCollection,
     SnapshotSession,
     SpielerCollection,
-    get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.core.recording import record_act
 from app.core.routing import by_id
-from app.core.security import bind_actor, get_actor_email, verify_access_admin
+from app.core.security import ActorEmail
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.literals import FLAddressChangeWay, FLAdminTier
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/address_change",
-    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
+    prefix="/address_change",
+    dependencies=ADMIN_TIER,
 )
 
 
@@ -114,7 +113,6 @@ def _pending_addresses(
 
 @router.get(
     "",
-    response_model=FLAddressChangeAdminListResponse,
     summary="List the running address changes",
 )
 async def get_address_changes(
@@ -122,8 +120,8 @@ async def get_address_changes(
     outbox_collection: OutboxReadCollection,
     grants_collection: GrantsReadCollection,
     session: SnapshotSession,
-    operator: str = Depends(get_actor_email),
-    germany_now: datetime = Depends(get_germany_now),
+    operator: ActorEmail,
+    germany_now: GermanyNow,
 ) -> FLAddressChangeAdminListResponse:
     """Every running change this administrator may act on, newest first, with its two addresses and the step it waits on."""
 
@@ -153,19 +151,18 @@ async def get_address_changes(
 
 @router.post(
     "",
-    response_model=FLAddressChangeIdResponse,
     summary="Start an address change for a person who says they cannot sign in",
 )
 async def post_address_change_admin(
-    address_change_data: Annotated[FLAddressChangeAdminPayload, Body()],
+    address_change_data: FLAddressChangeAdminPayload,
     address_changes_collection: AddressChangeCollection,
     records: SubjectLookup,
     spieler_collection: SpielerCollection,
     grants_collection: GrantsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    operator: str = Depends(get_actor_email),
-    germany_now: datetime = Depends(get_germany_now),
+    operator: ActorEmail,
+    germany_now: GermanyNow,
 ) -> FLAddressChangeIdResponse:
     """Start a change of the typed address for a person who says they cannot sign in.
 
@@ -246,7 +243,6 @@ async def post_address_change_admin(
 
 @router.post(
     f"{by_id('address_change_id')}/invite",
-    response_model=FLAddressChangeIdResponse,
     summary="Send a pending address a fresh link",
 )
 async def invite_address_change(
@@ -257,8 +253,8 @@ async def invite_address_change(
     spieler_collection: SpielerCollection,
     grants_collection: GrantsCollection,
     db: DBClient,
-    operator: str = Depends(get_actor_email),
-    germany_now: datetime = Depends(get_germany_now),
+    operator: ActorEmail,
+    germany_now: GermanyNow,
 ) -> FLAddressChangeIdResponse:
     """Mail the new mailbox a fresh link for the change this id names, its deadline restarting now.
 
@@ -315,7 +311,6 @@ async def invite_address_change(
 
 @router.delete(
     by_id("address_change_id"),
-    response_model=FLAddressChangeIdResponse,
     summary="Discard a pending address change",
 )
 async def delete_address_change(
@@ -324,8 +319,8 @@ async def delete_address_change(
     grants_collection: GrantsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    operator: str = Depends(get_actor_email),
-    germany_now: datetime = Depends(get_germany_now),
+    operator: ActorEmail,
+    germany_now: GermanyNow,
 ) -> FLAddressChangeIdResponse:
     """Discard the change this id names, the address on file staying.
 

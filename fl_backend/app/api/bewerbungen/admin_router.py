@@ -1,10 +1,9 @@
 import secrets
 from collections import Counter
 from collections.abc import Mapping
-from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends, Query
+from fastapi import APIRouter, Query
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -60,7 +59,7 @@ from app.api.bewerbungen.services import (
     seats_confirmed_of,
     with_delivery,
 )
-from app.api.grants.guard import verify_actor_is_admin
+from app.api.grants.guard import ADMIN_TIER
 from app.api.outbox.crud import states_of
 from app.api.outbox.schemas import FLBewerbungAbsageData, FLBewerbungZusageData, FLOutboxClub
 from app.api.outbox.services import OwedMail, enqueue_mails
@@ -69,7 +68,6 @@ from app.api.teams.crud import pull_a_club_to_enter, pull_team_names_and_codes, 
 from app.api.teams.services import find_club_entry_refusal, find_shorthand_refusal, offered_gruppen
 from app.core.collections import Collection
 from app.core.concurrency import concurrently
-from app.core.config import API_VERSION
 from app.core.crud import (
     aggregate_many_from_db,
     insert_live,
@@ -84,6 +82,8 @@ from app.core.dependencies import (
     BewerbungenCollection,
     BewerbungenReadCollection,
     DBClient,
+    GermanDay,
+    GermanyNow,
     OutboxCollection,
     OutboxReadCollection,
     SaisonsCollection,
@@ -92,14 +92,11 @@ from app.core.dependencies import (
     SaisonTeamsReadCollection,
     TeamsCollection,
     TeamsReadCollection,
-    get_german_date_str,
-    get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.core.recording import record_act
 from app.core.routing import by_id
-from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -109,8 +106,8 @@ from app.shared.schemas.literals import FLKontaktRolle
 # birth, and says which schools asked and were turned down. The public router shares this prefix at base tier and
 # serves no person's details.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/bewerbungen",
-    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
+    prefix="/bewerbungen",
+    dependencies=ADMIN_TIER,
 )
 
 
@@ -157,7 +154,7 @@ async def _doubled_clubs(*, saison_id: str, bewerbungen_collection: ReadCollecti
 
 
 # Two static segments, matching `GET /saisons/list/admin`.
-@router.get("/list/admin", response_model=FLBewerbungenAdminListResponse, summary="One Saison's Bewerbungen for its list")
+@router.get("/list/admin", summary="One Saison's Bewerbungen for its list")
 async def get_bewerbungen_admin(
     bewerbungen_collection: BewerbungenReadCollection,
     teams_collection: TeamsReadCollection,
@@ -204,7 +201,7 @@ async def get_bewerbungen_admin(
     )
 
 
-@router.get(by_id("bewerbung_id"), response_model=FLBewerbungSingleResponse, summary="One Bewerbung for its review page")
+@router.get(by_id("bewerbung_id"), summary="One Bewerbung for its review page")
 async def get_bewerbung(
     bewerbung_id: CustomRouteObjectId,
     bewerbungen_collection: BewerbungenReadCollection,
@@ -212,7 +209,7 @@ async def get_bewerbung(
     saisons_collection: SaisonsReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
     outbox_collection: OutboxReadCollection,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLBewerbungSingleResponse:
     """One application, each seat's state judged today and `duplicate` taken over every open application of the season."""
 
@@ -266,20 +263,19 @@ def _key(bewerbung_id: Any, *parts: str) -> str:
 # done is undone: one request over a season's applications would outrun `REQUEST_DEADLINE_S`.
 @router.post(
     f"{by_id('bewerbung_id')}/accept",
-    response_model=FLAcceptBewerbungResponse,
     summary="Accept a Bewerbung and enter the school into the season",
 )
 async def accept_bewerbung(
     bewerbung_id: CustomRouteObjectId,
-    acceptance_data: Annotated[FLAcceptBewerbungPayload, Body()],
+    acceptance_data: FLAcceptBewerbungPayload,
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> FLAcceptBewerbungResponse:
     """Accept an application once every contact person confirmed their seat, entering its club into the season and creating it for a new school.
 
@@ -456,18 +452,17 @@ async def accept_bewerbung(
 
 @router.post(
     f"{by_id('bewerbung_id')}/decline",
-    response_model=FLDeclineBewerbungResponse,
     summary="Decline a Bewerbung",
 )
 async def decline_bewerbung(
     bewerbung_id: CustomRouteObjectId,
-    decline_data: Annotated[FLDeclineBewerbungPayload, Body()],
+    decline_data: FLDeclineBewerbungPayload,
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> FLDeclineBewerbungResponse:
     """Decline an application with the reason given, mailed verbatim to each person the application mailed.
 
@@ -525,7 +520,6 @@ async def decline_bewerbung(
 
 @router.post(
     f"{by_id('bewerbung_id')}/einwilligung/{{seat}}/resend",
-    response_model=FLBewerbungEinwilligungResendResponse,
     summary="Re-send one seat's confirmation link",
 )
 async def resend_einwilligung(
@@ -535,8 +529,8 @@ async def resend_einwilligung(
     teams_collection: TeamsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> FLBewerbungEinwilligungResendResponse:
     """Void one seat's link and mail its person a fresh one, that seat's deadline and reminder starting again from today.
 
@@ -635,19 +629,18 @@ async def resend_einwilligung(
 
 @router.post(
     f"{by_id('bewerbung_id')}/kontakte/{{seat}}",
-    response_model=FLBewerbungKontaktSeatResponse,
     summary="Write the person one contact seat holds and mail them a fresh link",
 )
 async def post_kontakt_seat(
     bewerbung_id: CustomRouteObjectId,
     seat: str,
-    seat_data: Annotated[FLBewerbungKontaktSeatPayload, Body()],
+    seat_data: FLBewerbungKontaktSeatPayload,
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> FLBewerbungKontaktSeatResponse:
     """Write a person into one seat, whatever its state, and mail them a fresh link; an acceptance waits on their answer.
 

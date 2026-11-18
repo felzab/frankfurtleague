@@ -1,7 +1,4 @@
-from datetime import datetime
-from typing import Annotated
-
-from fastapi import APIRouter, Body, Depends, status
+from fastapi import APIRouter, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.account.crud import press_einwilligung
@@ -25,19 +22,18 @@ from app.api.schiedsrichter.services import (
 )
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, patch_past_the_version_in_db, refuse
 from app.core.dependencies import (
     DBClient,
+    GermanDay,
+    GermanyNow,
     SchiedsrichterCollection,
     SnapshotSession,
     SpieleReadCollection,
-    get_german_date_str,
-    get_germany_now,
 )
 from app.core.journal import Journal
 from app.core.routing import by_id
-from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
+from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_evidence import FLEinwilligungChoice
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -45,8 +41,8 @@ from app.shared.schemas.einwilligung import FLSchiedsrichterAccountEinwilligungP
 
 # A person's own router, apart from the admin one and the confirmation one.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/schiedsrichter",
-    dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
+    prefix="/schiedsrichter",
+    dependencies=PERSON_TIER,
 )
 
 
@@ -57,13 +53,13 @@ router = APIRouter(
 )
 async def patch_einwilligung(
     schiedsrichter_id: CustomRouteObjectId,
-    einwilligung_data: Annotated[FLSchiedsrichterAccountEinwilligungPayload, Body()],
+    einwilligung_data: FLSchiedsrichterAccountEinwilligungPayload,
     identifier: PersonIdentifier,
     schiedsrichter_collection: SchiedsrichterCollection,
     records: SubjectLookup,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> None:
     """Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.
 
@@ -116,7 +112,6 @@ async def patch_einwilligung(
 
 @router.get(
     "/self/spiele/{saison_id}",
-    response_model=FLSchiedsrichterSpieleResponse,
     summary="A signed-in referee's fixtures of one season, one row a fixture",
 )
 async def get_self_spiele(
@@ -125,7 +120,7 @@ async def get_self_spiele(
     spiele_collection: SpieleReadCollection,
     records: SubjectLookup,
     session: SnapshotSession,
-    now: datetime = Depends(get_germany_now),
+    now: GermanyNow,
 ) -> FLSchiedsrichterSpieleResponse:
     """Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, open work first.
 
@@ -149,7 +144,7 @@ async def get_self_spiele(
     )
 
 
-@router.get("/self/saisons", response_model=FLOwnSaisonsResponse, summary="The seasons a signed-in referee has fixtures in")
+@router.get("/self/saisons", summary="The seasons a signed-in referee has fixtures in")
 async def get_self_saisons(
     identifier: PersonIdentifier,
     spiele_collection: SpieleReadCollection,

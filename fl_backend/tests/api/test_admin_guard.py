@@ -237,8 +237,7 @@ def test_every_admin_tier_operation_judges_its_actor_after_the_key(path: str, me
 
     assert verify_actor_is_admin in calls, f"{method.upper()} {path} judges no actor against the grants"
     assert calls.index(verify_access_admin) < calls.index(verify_actor_is_admin), f"{method.upper()} {path} judges its actor before its key"
-    # The grants check passes a request naming nobody, so without the binder that one is served.
-    assert bind_actor in calls, f"{method.upper()} {path} refuses no request naming nobody"
+    assert bind_actor in calls, f"{method.upper()} {path} binds no administrator for its writes to name"
     assert calls.index(verify_access_admin) < calls.index(bind_actor), f"{method.upper()} {path} asks for its actor before its key"
 
 

@@ -1,12 +1,12 @@
 from collections.abc import Mapping
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.grants.guard import verify_actor_is_admin
+from app.api.grants.guard import ADMIN_TIER
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_saison_past_refusal
 from app.api.spieltage.schemas import (
@@ -23,7 +23,6 @@ from app.api.spieltage.services import (
     find_spieltag_span_refusal,
     with_expected_matches,
 )
-from app.core.config import API_VERSION
 from app.core.crud import anchor_in_db, patch_one_in_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     DBClient,
@@ -35,13 +34,12 @@ from app.core.dependencies import (
 )
 from app.core.recording import record_act
 from app.core.routing import by_id
-from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/spieltage",
-    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
+    prefix="/spieltage",
+    dependencies=ADMIN_TIER,
 )
 
 
@@ -49,7 +47,6 @@ router = APIRouter(
 # public router owns that path at this same prefix, so whichever router registered first would answer both.
 @router.get(
     f"{by_id('spieltag_id')}/admin",
-    response_model=FLSpieltagAdminResponse,
     summary="One Spieltag for the admin editor",
 )
 async def get_spieltag_admin(
@@ -135,12 +132,11 @@ async def _refuse_an_out_of_order_start(
 
 @router.patch(
     by_id("spieltag_id"),
-    response_model=FLSpieltagWriteResponse,
     summary="Re-date a Spieltag",
 )
 async def patch_spieltag(
     spieltag_id: CustomRouteObjectId,
-    spieltag_data: Annotated[FLPatchSpieltagPayload, Body()],
+    spieltag_data: FLPatchSpieltagPayload,
     spieltage_collection: SpieltageCollection,
     saisons_collection: SaisonsCollection,
     spiele_collection: SpieleCollection,

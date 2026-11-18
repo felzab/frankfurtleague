@@ -2,7 +2,7 @@ import functools
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from contextlib import asynccontextmanager
 from http import HTTPStatus
-from typing import Any, Final, NamedTuple
+from typing import Annotated, Any, Final, NamedTuple
 
 import pymongo
 from fastapi import Depends, FastAPI, Request
@@ -180,7 +180,7 @@ async def get_db_client(request: Request) -> AsyncMongoClient:
 
 async def get_database(
     request: Request,
-    config: BackendConfig = Depends(get_app_config),
+    config: Annotated[BackendConfig, Depends(get_app_config)],
 ) -> AsyncDatabase:
     # The application's settings, not `get_config()`: reading the environment would resolve every
     # collection dependency against its database rather than the one the application was built with.
@@ -189,7 +189,7 @@ async def get_database(
     return request.app.state.db_client[config.db_base_name]
 
 
-async def get_snapshot_session(client: AsyncMongoClient = Depends(get_db_client)) -> AsyncIterator[AsyncClientSession]:
+async def get_snapshot_session(client: Annotated[AsyncMongoClient, Depends(get_db_client)]) -> AsyncIterator[AsyncClientSession]:
     """A session whose reads all see one moment, for an operation writing nothing that reads several times.
 
     The session alone rather than the client it came from, so such an operation holds no handle to write through.
@@ -203,7 +203,7 @@ async def get_snapshot_session(client: AsyncMongoClient = Depends(get_db_client)
 def collection_dependency(collection: Collection) -> Callable[..., Awaitable[AsyncCollection]]:
     """The one dependency per collection, the same object on every call, so an override and FastAPI's per-request cache both key on it."""
 
-    async def get_collection(db: AsyncDatabase = Depends(get_database)) -> AsyncCollection:
+    async def get_collection(db: Annotated[AsyncDatabase, Depends(get_database)]) -> AsyncCollection:
         return db[collection]
 
     return get_collection

@@ -6,7 +6,6 @@ from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.registrierungen.admin_router import get_registrierungen_admin
-from app.api.registrierungen.schemas import FLRegistrierungenAdminFilterParams
 from app.core.collections import Collection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from tests.database import a_clean_database
@@ -102,7 +101,7 @@ async def read(database: AsyncDatabase, saison_id: str = SAISON_ID) -> Any:
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
-        filters=FLRegistrierungenAdminFilterParams(saison_id=saison_id),
+        saison_id=saison_id,
     )
 
 

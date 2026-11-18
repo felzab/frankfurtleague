@@ -1,23 +1,22 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
 from app.api.saisons.visibility import resolve_public_saison
 from app.api.spiele.schemas import FLSpieleSingleResponse, FLSpielJoined
 from app.api.spiele.services import build_spiele_pipeline
-from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db
 from app.core.dependencies import SaisonsReadCollection, SpieleReadCollection
 from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import by_id
-from app.core.security import verify_access_base
+from app.core.security import BASE_TIER
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/spiele",
-    dependencies=[Depends(verify_access_base)],
+    prefix="/spiele",
+    dependencies=BASE_TIER,
 )
 
 
-@router.get(by_id("spiel_id"), response_model=FLSpieleSingleResponse, summary="One Spiel")
+@router.get(by_id("spiel_id"), summary="One Spiel")
 async def get_spiel(
     spiel_id: CustomRouteObjectId,
     spiele_collection: SpieleReadCollection,

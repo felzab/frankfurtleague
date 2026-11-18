@@ -289,6 +289,7 @@ async def call_view(database: AsyncDatabase, client: AsyncMongoClient, email: st
             address_changes_collection=database[Collection.ADDRESS_CHANGES],
             session=session,
             operator=OPERATOR,
+            now=NOW,
         )
 
 

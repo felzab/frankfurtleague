@@ -1,13 +1,13 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 from app.core.crud import Anchored
 from app.shared.schemas.custom import CustomObjectId, FLUtcInstant
 from app.shared.schemas.kontakt import CustomEmail, CustomStoredAddress
 from app.shared.schemas.literals import FLAdminTier
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.responses import BaseAPIResponse, BasePayload
 
 # What a notice is about: an addition, a removal, a handover, or a holder's own address change.
 FLGrantChange = Literal["granted", "revoked", "handover", "address"]
@@ -50,9 +50,7 @@ class FLGrantsListResponse(BaseAPIResponse):
     grants: list[FLGrantRow]
 
 
-class FLPostGrantPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class FLPostGrantPayload(BasePayload):
     # No tier on the payload: a grant is made as `administration`, and `owner` is reached only by a handover.
     email: CustomEmail
 

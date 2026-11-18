@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated, Any, Final
 
-from fastapi import APIRouter, Body, Depends, Query
+from fastapi import APIRouter, Query
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -24,7 +24,6 @@ from app.api.identity.schemas import (
 from app.api.identity.services import completed_saison_id
 from app.core.codes import Code
 from app.core.concurrency import concurrently
-from app.core.config import API_VERSION
 from app.core.dependencies import (
     ActionLogCollection,
     AddressChangeCollection,
@@ -33,6 +32,7 @@ from app.core.dependencies import (
     BanListReadCollection,
     BewerbungenCollection,
     DBClient,
+    GermanyNow,
     GrantsCollection,
     GrantsReadCollection,
     OutboxCollection,
@@ -46,35 +46,33 @@ from app.core.dependencies import (
     SpielbestaetigungenCollection,
     SpieleCollection,
     SpielerCollection,
-    get_germany_now,
 )
 from app.core.logging import fl_logger
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.routing import SAFE
-from app.core.security import verify_access_system
+from app.core.security import SYSTEM_TIER
 from app.core.transactions import UNKNOWN_COMMIT_RESULT, diagnosis_of, transaction_session
 from app.shared.folding import sign_in_identifier
 
 # System tier: the key is held by the frontend process alone, which is exactly who may ask which
 # records a mailbox matches, and no session stands behind the caller.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/identity",
-    dependencies=[Depends(verify_access_system)],
+    prefix="/identity",
+    dependencies=SYSTEM_TIER,
 )
 
 
 @router.post(
     "/subject",
-    response_model=FLSubjectResponse,
     summary="Say which league records one mailbox holds",
     openapi_extra=SAFE,
 )
 async def get_subject(
-    subject_data: Annotated[FLSubjectPayload, Body()],
+    subject_data: FLSubjectPayload,
     records: SubjectLookup,
     grants_collection: GrantsReadCollection,
     session: SnapshotSession,
-    germany_now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> FLSubjectResponse:
     """Answer which confirmed, live contact seats, pupil records and referee records one mailbox holds, with its grant.
 
@@ -97,17 +95,16 @@ async def get_subject(
 
 @router.post(
     "/sign_in",
-    response_model=FLSignInResponse,
     summary="Say whether one mailbox may be offered a sign-in",
     openapi_extra=SAFE,
 )
 async def get_sign_in(
-    sign_in_data: Annotated[FLSubjectPayload, Body()],
+    sign_in_data: FLSubjectPayload,
     records: SubjectLookup,
     ban_list_collection: BanListReadCollection,
     grants_collection: GrantsReadCollection,
     session: SnapshotSession,
-    germany_now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> FLSignInResponse:
     """Answer what the sign-in gate decides on for one mailbox: two flags, its ban and its grant's tier, and never a record.
 
@@ -128,12 +125,11 @@ async def get_sign_in(
 
 @router.post(
     "/references",
-    response_model=FLReferencesResponse,
     summary="Say which of these sign-in addresses no record references",
     openapi_extra=SAFE,
 )
 async def get_references(
-    references_data: Annotated[FLReferencesPayload, Body()],
+    references_data: FLReferencesPayload,
     records: SubjectLookup,
     grants_collection: GrantsReadCollection,
     address_changes_collection: AddressChangeReadCollection,
@@ -220,7 +216,6 @@ async def _erase_one(
 
 @router.post(
     "/erasure/sweep",
-    response_model=FLErasureSweepResponse,
     summary="Delete one share of the pupils the season-after rule makes due",
 )
 async def sweep_erasure(
@@ -241,7 +236,7 @@ async def sweep_erasure(
     outbox_collection: OutboxCollection,
     address_changes_collection: AddressChangeCollection,
     db: DBClient,
-    germany_now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> FLErasureSweepResponse:
     """Delete a bounded share of the pupils whose last squad season is over by a whole season, and answer what went and how many remain.
 

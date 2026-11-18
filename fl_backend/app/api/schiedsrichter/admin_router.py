@@ -1,11 +1,10 @@
-from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends, status
+from fastapi import APIRouter, Depends, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.grants.guard import verify_actor_is_admin
+from app.api.grants.guard import ADMIN_TIER
 from app.api.outbox.crud import state_of
 from app.api.outbox.schemas import FLOutboxReference
 from app.api.schiedsrichter.crud import owe_the_confirmation
@@ -41,7 +40,6 @@ from app.api.schiedsrichter.services import (
     owes_reactivation_mint,
 )
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
     VERSION_FIELD,
@@ -55,35 +53,31 @@ from app.core.crud import (
 )
 from app.core.dependencies import (
     DBClient,
+    GermanDay,
+    GermanyNow,
     OutboxCollection,
     OutboxReadCollection,
     SchiedsrichterCollection,
     SchiedsrichterReadCollection,
     SpieleCollection,
-    get_german_date_str,
-    get_germany_now,
 )
 from app.core.recording import record_act
 from app.core.routing import by_id
-from app.core.security import (
-    bind_actor,
-    verify_access_admin,
-)
 from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomRouteObjectId
 
 # Admin-guarded, not base: a referee is a pupil, so their contact details and school are admin-tier, as is the fee,
 # which is money.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/schiedsrichter",
-    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
+    prefix="/schiedsrichter",
+    dependencies=ADMIN_TIER,
 )
 
 
-@router.get("", response_model=FLSchiedsrichterListResponse, summary="List Schiedsrichter")
+@router.get("", summary="List Schiedsrichter")
 async def get_schiedsrichter(
     schiedsrichter_collection: SchiedsrichterReadCollection,
-    filters: FLSchiedsrichterFilterParams = Depends(),
+    filters: Annotated[FLSchiedsrichterFilterParams, Depends()],
 ) -> FLSchiedsrichterListResponse:
     """Every referee in name order, retired ones included where `include_inactive` asks, since a played match still names them."""
 
@@ -99,14 +93,13 @@ async def get_schiedsrichter(
 
 @router.get(
     by_id("schiedsrichter_id"),
-    response_model=FLSchiedsrichterSingleResponse,
     summary="One Schiedsrichter",
 )
 async def get_schiedsrichter_by_id(
     schiedsrichter_id: CustomRouteObjectId,
     schiedsrichter_collection: SchiedsrichterReadCollection,
     outbox_collection: OutboxReadCollection,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLSchiedsrichterSingleResponse:
     """One referee, a retired one included, with whether their consent link has lapsed today and what became of their last confirmation mail.
 
@@ -127,17 +120,16 @@ async def get_schiedsrichter_by_id(
 
 @router.post(
     "",
-    response_model=FLPostSchiedsrichterResponse,
     status_code=201,
     summary="Create a Schiedsrichter",
 )
 async def post_schiedsrichter(
-    schiedsrichter_data: Annotated[FLPostSchiedsrichterPayload, Body()],
+    schiedsrichter_data: FLPostSchiedsrichterPayload,
     schiedsrichter_collection: SchiedsrichterCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    now: GermanyNow,
 ) -> FLPostSchiedsrichterResponse:
     """Create a referee and owe them their confirmation link, answering the address and the deadline it goes to.
 
@@ -191,17 +183,16 @@ async def post_schiedsrichter(
 
 @router.patch(
     by_id("schiedsrichter_id"),
-    response_model=FLPatchSchiedsrichterResponse,
     summary="Update a Schiedsrichter",
 )
 async def patch_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
-    schiedsrichter_data: Annotated[FLPatchSchiedsrichterPayload, Body()],
+    schiedsrichter_data: FLPatchSchiedsrichterPayload,
     schiedsrichter_collection: SchiedsrichterCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    now: GermanyNow,
 ) -> FLPatchSchiedsrichterResponse:
     """Update a referee on the `version` the editor was served, answering the version stored.
 
@@ -276,7 +267,7 @@ async def delete_schiedsrichter(
     schiedsrichter_collection: SchiedsrichterCollection,
     spiele_collection: SpieleCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> None:
     """Deactivate a referee, who stays on record because a played match names them by id.
 
@@ -323,7 +314,6 @@ async def delete_schiedsrichter(
 
 @router.post(
     f"{by_id('schiedsrichter_id')}/reactivate",
-    response_model=FLSchiedsrichterReactivateResponse,
     summary="Bring a deactivated Schiedsrichter back",
 )
 async def reactivate_schiedsrichter(
@@ -331,8 +321,8 @@ async def reactivate_schiedsrichter(
     schiedsrichter_collection: SchiedsrichterCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    now: GermanyNow,
 ) -> FLSchiedsrichterReactivateResponse:
     """Bring a retired referee back into the picker and every default read.
 
@@ -391,7 +381,6 @@ async def reactivate_schiedsrichter(
 
 @router.post(
     f"{by_id('schiedsrichter_id')}/confirmation/invite",
-    response_model=FLSchiedsrichterMintResponse,
     summary="Send a Schiedsrichter a fresh confirmation link",
 )
 async def invite_schiedsrichter(
@@ -399,8 +388,8 @@ async def invite_schiedsrichter(
     schiedsrichter_collection: SchiedsrichterCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    now: GermanyNow,
 ) -> FLSchiedsrichterMintResponse:
     """Owe this referee a fresh confirmation link, which the Postausgang mints and mails, and answer where it goes.
 

@@ -1,10 +1,10 @@
-from typing import Annotated, Final
+from typing import Final
 
-from fastapi import APIRouter, Body, Depends, status
+from fastapi import APIRouter, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.grants.guard import verify_actor_is_admin
+from app.api.grants.guard import ADMIN_TIER
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spieler.crud import (
     refuse_a_full_squad,
@@ -28,7 +28,6 @@ from app.api.spieler.services import (
 )
 from app.api.teams.crud import pull_saison_team_names
 from app.core.concurrency import concurrently
-from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
     VERSION_FIELD,
@@ -43,6 +42,7 @@ from app.core.crud import (
 )
 from app.core.dependencies import (
     DBClient,
+    GermanDay,
     SaisonsCollection,
     SaisonSpielerCollection,
     SaisonSpielerReadCollection,
@@ -51,17 +51,15 @@ from app.core.dependencies import (
     SaisonTeamsReadCollection,
     SpielerCollection,
     SpielerReadCollection,
-    get_german_date_str,
 )
 from app.core.recording import record_act
 from app.core.routing import by_id
-from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/spieler",
-    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
+    prefix="/spieler",
+    dependencies=ADMIN_TIER,
 )
 
 
@@ -71,7 +69,7 @@ ROW_SAVE_FIELDS: Final = ("nummer", "position", "stufe", "rolle")
 
 
 # Two static segments, matching `GET /saisons/list/admin`.
-@router.get("/list/admin", response_model=FLSpielerAdminListResponse, summary="One Saison's squad rows for its list")
+@router.get("/list/admin", summary="One Saison's squad rows for its list")
 async def get_spieler_admin(
     saison_id: str,
     saison_spieler_collection: SaisonSpielerReadCollection,
@@ -100,7 +98,6 @@ async def get_spieler_admin(
 
 @router.get(
     f"{by_id('spieler_id')}/saisons/{{saison_id}}/admin",
-    response_model=FLSpielerSaisonAdminResponse,
     summary="What the Spieler editor shows, in one read",
 )
 async def get_spieler_saison(
@@ -146,13 +143,12 @@ async def get_spieler_saison(
 
 @router.patch(
     f"{by_id('spieler_id')}/saisons/{{saison_id}}/admin",
-    response_model=FLPatchSpielerSaisonResponse,
     summary="Save the Spieler editor: the person and their squad row of the season, in one transaction",
 )
 async def patch_spieler_saison(
     spieler_id: CustomRouteObjectId,
     saison_id: str,
-    spieler_data: Annotated[FLPatchSpielerSaisonPayload, Body()],
+    spieler_data: FLPatchSpielerSaisonPayload,
     spieler_collection: SpielerCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     saisons_collection: SaisonsCollection,
@@ -240,7 +236,7 @@ async def delete_saison_spieler(
     saison_id: str,
     saison_spieler_collection: SaisonSpielerCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> None:
     """
     Take a player out of a season's squad, the row staying, marked by `inactive_since`.

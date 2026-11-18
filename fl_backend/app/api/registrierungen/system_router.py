@@ -1,6 +1,6 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.services import season_has_ended
@@ -13,25 +13,23 @@ from app.api.registrierungen.services import (
     decline_erasure_is_due,
     undecided_erasure_is_due,
 )
-from app.core.config import API_VERSION
 from app.core.crud import delete_many_from_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
     DBClient,
+    GermanDay,
     RegistrierungenCollection,
     SaisonsCollection,
-    get_german_date_str,
 )
 from app.core.recording import ACT_BY_SYSTEM, record_act
-from app.core.security import verify_access_system
+from app.core.security import SYSTEM_TIER
 from app.core.transactions import SWEEP_PAGE, Batch, drain, refuse_a_stalled_page
 
 # System tier, as the application sweep's own router is: this pass holds no session, so `bind_actor` would refuse it.
-router = APIRouter(prefix=f"/api/v{API_VERSION}/registrierungen/sweep", dependencies=[Depends(verify_access_system)])
+router = APIRouter(prefix="/registrierungen/sweep", dependencies=SYSTEM_TIER)
 
 
 @router.post(
     "/{saison_id}",
-    response_model=FLRegistrierungSweepResponse,
     summary="Run one season's registration retention clocks",
 )
 async def sweep_registrierungen(
@@ -39,7 +37,7 @@ async def sweep_registrierungen(
     registrierungen_collection: RegistrierungenCollection,
     saisons_collection: SaisonsCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLRegistrierungSweepResponse:
     """Erase one season's due registrations, as of today in Europe/Berlin.
 

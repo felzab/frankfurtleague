@@ -1,33 +1,29 @@
-from datetime import datetime
+from fastapi import APIRouter
 
-from fastapi import APIRouter, Depends
-
-from app.api.grants.guard import verify_actor_is_admin
+from app.api.grants.guard import ADMIN_TIER
 from app.api.saisons.overview import SPIELE_AS, FLSaisonOverviewResponse, build_overview_pipeline, overview_of
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.crud import bracket_faults_of
 from app.api.spiele.schemas import FLSpielJoinedInternalListAdapter
 from app.core import clock
-from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db
 from app.core.dependencies import (
+    GermanyNow,
     SaisonsReadCollection,
     SchiedsrichterReadCollection,
     SpieleReadCollection,
     SpielorteReadCollection,
     TeamsReadCollection,
-    get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
-from app.core.security import bind_actor, verify_access_admin
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/saisons",
-    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
+    prefix="/saisons",
+    dependencies=ADMIN_TIER,
 )
 
 
-@router.get("/{saison_id}/overview", response_model=FLSaisonOverviewResponse, summary="One Saison's open work, card by card")
+@router.get("/{saison_id}/overview", summary="One Saison's open work, card by card")
 async def get_saison_overview(
     saison_id: str,
     saisons_collection: SaisonsReadCollection,
@@ -35,7 +31,7 @@ async def get_saison_overview(
     teams_collection: TeamsReadCollection,
     spielorte_collection: SpielorteReadCollection,
     schiedsrichter_collection: SchiedsrichterReadCollection,
-    now: datetime = Depends(get_germany_now),
+    now: GermanyNow,
 ) -> FLSaisonOverviewResponse:
     """The administrator's Übersicht for one season: its open work on the cards `due`, `ergebnisse`, `dates` and `bewerbungen`.
 

@@ -1,8 +1,7 @@
 from collections.abc import Mapping
-from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends, Header
+from fastapi import APIRouter, Header
 from pydantic import UUID4
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -45,10 +44,11 @@ from app.api.spieler.crud import pull_squad_room
 from app.api.spieler.services import find_full_squad_refusal
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     DBClient,
+    GermanDay,
+    GermanyNow,
     InvitationsCollection,
     InvitationsReadCollection,
     MailboxAnchorsCollection,
@@ -62,12 +62,10 @@ from app.core.dependencies import (
     SaisonTeamsCollection,
     SaisonTeamsReadCollection,
     TeamsReadCollection,
-    get_german_date_str,
-    get_germany_now,
 )
 from app.core.readonly import ReadCollection
 from app.core.routing import SAFE
-from app.core.security import verify_access_base
+from app.core.security import BASE_TIER
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
@@ -78,7 +76,7 @@ from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.einwilligung import by_choice
 from app.shared.tokens import hash_token
 
-router = APIRouter(prefix=f"/api/v{API_VERSION}/registrierungen", dependencies=[Depends(verify_access_base)])
+router = APIRouter(prefix="/registrierungen", dependencies=BASE_TIER)
 
 
 # What a season read serves this tier: the two rules a form is bounded by, the window, whose `end`
@@ -125,18 +123,17 @@ async def _open_invitation(*, invitations_collection: ReadCollection, token: str
 # A POST, so the link's token travels in the body and never in a path the edge would log.
 @router.post(
     "/invitation/view",
-    response_model=FLInvitationViewResponse,
     summary="What a registration link opens",
     openapi_extra=SAFE,
 )
 async def post_invitation_view(
-    view_data: Annotated[FLTokenPayload, Body()],
+    view_data: FLTokenPayload,
     invitations_collection: InvitationsReadCollection,
     saisons_collection: SaisonsReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
     saison_spieler_collection: SaisonSpielerReadCollection,
     teams_collection: TeamsReadCollection,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLInvitationViewResponse:
     """Answer what this registration link is for: the team, its school, the season, and what the form may offer.
 
@@ -186,12 +183,11 @@ async def post_invitation_view(
 
 @router.post(
     "",
-    response_model=FLPostRegistrierungResponse,
     status_code=201,
     summary="Register through a team's link",
 )
 async def post_registrierung(
-    registrierung_data: Annotated[FLPostRegistrierungPayload, Body()],
+    registrierung_data: FLPostRegistrierungPayload,
     registrierungen_collection: RegistrierungenCollection,
     invitations_collection: InvitationsCollection,
     saisons_collection: SaisonsCollection,
@@ -200,12 +196,12 @@ async def post_registrierung(
     outbox_collection: OutboxCollection,
     mailbox_anchors_collection: MailboxAnchorsCollection,
     db: DBClient,
+    today: GermanDay,
+    germany_now: GermanyNow,
     # Version 4 alone: a guessable key lets a stranger store a registration under it first, and the
     # pupil's own press is then answered as that one.
     # Optional, so a page loaded before the form sent one still submits, unprotected.
     idempotency_key: Annotated[UUID4 | None, Header()] = None,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
 ) -> FLPostRegistrierungResponse:
     """Store one pupil's registration for the team and season the link belongs to, and owe its confirmation mail.
 
@@ -330,16 +326,15 @@ async def post_registrierung(
 # the submission is.
 @router.post(
     "/confirmation/view",
-    response_model=FLRegistrierungConfirmationViewResponse,
     summary="What one registration confirmation link opens",
     openapi_extra=SAFE,
 )
 async def get_confirmation_view(
-    view_data: Annotated[FLTokenPayload, Body()],
+    view_data: FLTokenPayload,
     registrierungen_collection: RegistrierungenReadCollection,
     teams_collection: TeamsReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLRegistrierungConfirmationViewResponse:
     """What the registration this confirmation link opens shows, and nothing of the pupil but the day they answered.
 
@@ -375,16 +370,15 @@ async def get_confirmation_view(
 
 @router.post(
     "/confirmation",
-    response_model=FLRegistrierungConfirmationResponse,
     summary="Confirm one registration and record the pupil's consent",
 )
 async def post_confirmation(
-    answer_data: Annotated[FLRegistrierungConfirmationPayload, Body()],
+    answer_data: FLRegistrierungConfirmationPayload,
     registrierungen_collection: RegistrierungenCollection,
     saison_teams_collection: SaisonTeamsCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> FLRegistrierungConfirmationResponse:
     """Record a pupil's own answer for the registration their link opens, which stays pending until the team decides."""
 

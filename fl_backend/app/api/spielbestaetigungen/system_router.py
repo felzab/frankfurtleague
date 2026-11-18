@@ -1,10 +1,9 @@
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
-from datetime import datetime
 from typing import Any, Final, Literal
 
 from bson import ObjectId
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pymongo import ASCENDING, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -71,11 +70,12 @@ from app.api.spielbestaetigungen.services import (
     was_discarded,
 )
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, post_many_to_db, pull_many_from_db, pull_one_from_db, pull_whole_from_db
 from app.core.dependencies import (
     AufstellungenReadCollection,
     DBClient,
+    GermanDay,
+    GermanyNow,
     OutboxCollection,
     SaisonsCollection,
     SaisonsReadCollection,
@@ -83,10 +83,8 @@ from app.core.dependencies import (
     SchiedsrichterCollection,
     SpielbestaetigungenCollection,
     SpieleCollection,
-    get_german_date_str,
-    get_germany_now,
 )
-from app.core.security import verify_access_system
+from app.core.security import SYSTEM_TIER
 from app.core.transactions import SWEEP_PAGE, Batch, refuse_a_stalled_page, run_isolated
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.literals import KONTAKT_ROLLEN
@@ -94,8 +92,8 @@ from app.shared.schemas.responses import FLSweepSaisonsResponse
 
 # System tier: the timer holds no session.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/spielbestaetigungen/sweep",
-    dependencies=[Depends(verify_access_system)],
+    prefix="/spielbestaetigungen/sweep",
+    dependencies=SYSTEM_TIER,
 )
 
 # Each close costs one command; the three shares below fit the request's deadline together, each step's mails owed in
@@ -244,7 +242,7 @@ class _Minted:
     mails: int
 
 
-@router.get("", response_model=FLSweepSaisonsResponse, summary="Every season the confirmation pass visits")
+@router.get("", summary="Every season the confirmation pass visits")
 async def get_sweep_saisons(saisons_collection: SaisonsReadCollection) -> FLSweepSaisonsResponse:
     """Every `active` season's id, oldest first: a confirmation serves no purpose once its season is over."""
 
@@ -261,7 +259,6 @@ async def get_sweep_saisons(saisons_collection: SaisonsReadCollection) -> FLSwee
 
 @router.post(
     "/{saison_id}",
-    response_model=FLSpielbestaetigungSweepResponse,
     summary="Run one season's fixture confirmation pass",
 )
 async def sweep_spielbestaetigungen(
@@ -274,8 +271,8 @@ async def sweep_spielbestaetigungen(
     outbox_collection: OutboxCollection,
     aufstellungen_collection: AufstellungenReadCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    now: GermanyNow,
 ) -> FLSpielbestaetigungSweepResponse:
     """Close, mint and remind one season's fixture confirmations as of today, owing each mail with its row, and answer what it did, counted.
 

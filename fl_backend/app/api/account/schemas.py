@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 from app.api.schiedsrichter.schemas import FLSchiedsrichterSelfPerson
 from app.api.spieler.schemas import FLSpielerSelfPerson
@@ -12,7 +12,7 @@ from app.shared.schemas.literals import (
     FLKontaktKenntnisnahmeScope,
     FLKontaktRolle,
 )
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.responses import BaseAPIResponse, BasePayload
 
 
 class FLAccountEinwilligung(BaseModel):
@@ -118,9 +118,7 @@ class FLAccountAddressChangeResponse(BaseAPIResponse):
     open: FLAccountAddressChangeOpen | None
 
 
-class FLAccountAddressChangePayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class FLAccountAddressChangePayload(BasePayload):
     email: CustomEmail
 
 

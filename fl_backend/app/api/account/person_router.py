@@ -1,8 +1,8 @@
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.account.schemas import (
@@ -42,38 +42,37 @@ from app.api.address_change.services import (
 from app.api.identity.crud import roles_from
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import is_own_schiedsrichter, is_own_spieler, may_grant_on_schiedsrichter
-from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, refuse
 from app.core.dependencies import (
     AddressChangeCollection,
     AddressChangeReadCollection,
     DBClient,
+    GermanDay,
+    GermanyNow,
     GrantsCollection,
     OutboxCollection,
     SnapshotSession,
     SpielerReadCollection,
-    get_german_date_str,
-    get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
-from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
+from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 
 # Its one write is the address change, which crosses every record the address holds.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/account",
-    dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
+    prefix="/account",
+    dependencies=PERSON_TIER,
 )
 
 
-@router.get("/einwilligungen", response_model=FLAccountEinwilligungenResponse, summary="A signed-in person's own consent records")
+@router.get("/einwilligungen", summary="A signed-in person's own consent records")
 async def get_einwilligungen(
     identifier: PersonIdentifier,
     spieler_collection: SpielerReadCollection,
     session: SnapshotSession,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLAccountEinwilligungenResponse:
     """Every confirmed consent record the signed-in address holds, pending applications and registrations as withdraw-only.
 
@@ -133,11 +132,11 @@ async def _address_change_answer(
     return FLAccountAddressChangeResponse(open=None if record is None else _pending_addresses(record, now=now))
 
 
-@router.get("/address_change", response_model=FLAccountAddressChangeResponse, summary="The address change pending on a signed-in person")
+@router.get("/address_change", summary="The address change pending on a signed-in person")
 async def get_address_change(
     identifier: PersonIdentifier,
     address_changes_collection: AddressChangeReadCollection,
-    germany_now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> FLAccountAddressChangeResponse:
     """The change pending on the signed-in address, null where none is.
 
@@ -149,18 +148,17 @@ async def get_address_change(
 
 @router.post(
     "/address_change",
-    response_model=FLAccountAddressChangeMintResponse,
     summary="Start a change of the signed-in person's address",
 )
 async def post_address_change(
     identifier: PersonIdentifier,
-    address_change_data: Annotated[FLAccountAddressChangePayload, Body()],
+    address_change_data: FLAccountAddressChangePayload,
     records: SubjectLookup,
     address_changes_collection: AddressChangeCollection,
     grants_collection: GrantsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    germany_now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> FLAccountAddressChangeMintResponse:
     """Start a change of the address the person signs in on: the address on file is mailed a link, and its confirmation mails the new one.
 
@@ -212,7 +210,6 @@ async def post_address_change(
 
 @router.delete(
     "/address_change",
-    response_model=FLAccountAddressChangeResponse,
     summary="Stop the address change pending on the signed-in person",
 )
 async def delete_address_change(
@@ -221,7 +218,7 @@ async def delete_address_change(
     grants_collection: GrantsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    germany_now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> FLAccountAddressChangeResponse:
     """Stop the change pending on the signed-in address at any step, its new address going; a holder's change in its wait tells every holder."""
 

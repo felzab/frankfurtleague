@@ -1,7 +1,4 @@
-from datetime import datetime
-from typing import Annotated
-
-from fastapi import APIRouter, Body, Depends, status
+from fastapi import APIRouter, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.account.crud import press_withdrawal
@@ -14,11 +11,10 @@ from app.api.account.services import (
 from app.api.identity.services import own_seats
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.crud import patch_past_the_version_in_db, refuse
-from app.core.dependencies import BewerbungenCollection, DBClient, get_germany_now
+from app.core.dependencies import BewerbungenCollection, DBClient, GermanyNow
 from app.core.journal import Journal
-from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
+from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_evidence import FLEinwilligungChoice
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -27,7 +23,7 @@ from app.shared.schemas.literals import KONTAKT_ROLLEN
 
 # A person's route in place of `bind_actor`: a seat holder signs in by code and holds no grant, so the administrator's
 # actor check would refuse every one of them.
-router = APIRouter(prefix=f"/api/v{API_VERSION}/bewerbungen", dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)])
+router = APIRouter(prefix="/bewerbungen", dependencies=PERSON_TIER)
 
 
 # `/account/einwilligung`, its own segment: the admin router serves this application under its own paths, and one path in
@@ -39,11 +35,11 @@ router = APIRouter(prefix=f"/api/v{API_VERSION}/bewerbungen", dependencies=[Depe
 )
 async def patch_einwilligung(
     bewerbung_id: CustomRouteObjectId,
-    einwilligung_data: Annotated[FLSeatEinwilligungPayload, Body()],
+    einwilligung_data: FLSeatEinwilligungPayload,
     identifier: PersonIdentifier,
     bewerbungen_collection: BewerbungenCollection,
     db: DBClient,
-    germany_now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> None:
     """Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application; a grant is refused."""
 

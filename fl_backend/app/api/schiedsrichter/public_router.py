@@ -1,7 +1,4 @@
-from datetime import datetime
-from typing import Annotated
-
-from fastapi import APIRouter, Body, Depends, status
+from fastapi import APIRouter, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.einwilligung.services import find_self_media_refusal
@@ -27,18 +24,17 @@ from app.api.schiedsrichter.services import (
 )
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.crud import patch_past_the_version_in_db, refuse
 from app.core.dependencies import (
     DBClient,
+    GermanDay,
+    GermanyNow,
     SchiedsrichterCollection,
     SchiedsrichterReadCollection,
-    get_german_date_str,
-    get_germany_now,
 )
 from app.core.journal import Journal
 from app.core.routing import SAFE
-from app.core.security import verify_access_base
+from app.core.security import BASE_TIER
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import BEWERBUNG_KONTAKT_MAX_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
@@ -48,21 +44,20 @@ from app.shared.tokens import hash_token
 # Beside the admin and person routers, each guarded whole: the token is the whole credential, so
 # these three endpoints alone are base-tier.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/schiedsrichter/confirmation",
-    dependencies=[Depends(verify_access_base)],
+    prefix="/schiedsrichter/confirmation",
+    dependencies=BASE_TIER,
 )
 
 
 @router.post(
     "/view",
-    response_model=FLSchiedsrichterConfirmationViewResponse,
     summary="What one Schiedsrichter confirmation link opens",
     openapi_extra=SAFE,
 )
 async def get_confirmation_view(
-    view_data: Annotated[FLTokenPayload, Body()],
+    view_data: FLTokenPayload,
     schiedsrichter_collection: SchiedsrichterReadCollection,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLSchiedsrichterConfirmationViewResponse:
     """What this token opens: the link's state and deadline, the age bounds and the day of the person's own answer.
 
@@ -95,15 +90,14 @@ async def get_confirmation_view(
 
 @router.post(
     "",
-    response_model=FLSchiedsrichterConfirmationResponse,
     summary="Confirm one Schiedsrichter's entry and consent",
 )
 async def post_confirmation(
-    answer_data: Annotated[FLSchiedsrichterConfirmationPayload, Body()],
+    answer_data: FLSchiedsrichterConfirmationPayload,
     schiedsrichter_collection: SchiedsrichterCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> FLSchiedsrichterConfirmationResponse:
     """Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.
 
@@ -169,10 +163,10 @@ async def post_confirmation(
     summary="Decline one Schiedsrichter's entry",
 )
 async def post_decline(
-    decline_data: Annotated[FLTokenPayload, Body()],
+    decline_data: FLTokenPayload,
     schiedsrichter_collection: SchiedsrichterCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> None:
     """Record the referee's objection to the entry their link opens: its day, and nothing else of the person.
 

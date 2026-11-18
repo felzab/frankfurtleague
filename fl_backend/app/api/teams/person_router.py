@@ -1,8 +1,8 @@
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Annotated, Any, Final, NamedTuple
+from typing import Any, Final, NamedTuple
 
-from fastapi import APIRouter, Body, Depends, status
+from fastapi import APIRouter, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.account.crud import press_einwilligung
@@ -46,22 +46,21 @@ from app.api.teams.schemas import FLTeamSeat
 from app.api.teams.services import build_team_spiele_filter
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, patch_past_the_version_in_db, refuse
 from app.core.dependencies import (
     DBClient,
+    GermanDay,
+    GermanyNow,
     RegistrierungenReadCollection,
     SaisonTeamsCollection,
     SaisonTeamsReadCollection,
     SnapshotSession,
     SpieleReadCollection,
     TeamsReadCollection,
-    get_german_date_str,
-    get_germany_now,
 )
 from app.core.journal import Journal
 from app.core.readonly import ReadCollection
-from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
+from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_evidence import FLEinwilligungChoice
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -69,8 +68,8 @@ from app.shared.schemas.einwilligung import FLSeatEinwilligungPayload, by_choice
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle, FLSpielSide
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/teams",
-    dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
+    prefix="/teams",
+    dependencies=PERSON_TIER,
 )
 
 
@@ -107,13 +106,13 @@ def _seats_of(kontakte: Mapping[str, Any]) -> list[FLTeamSeat]:
 async def patch_einwilligung(
     team_id: CustomRouteObjectId,
     saison_id: str,
-    einwilligung_data: Annotated[FLSeatEinwilligungPayload, Body()],
+    einwilligung_data: FLSeatEinwilligungPayload,
     identifier: PersonIdentifier,
     saison_teams_collection: SaisonTeamsCollection,
     records: SubjectLookup,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> None:
     """Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.
 
@@ -311,7 +310,6 @@ async def _pull_team_spiele(
 # routers would be answered by whichever was mounted first.
 @router.get(
     "/{team_id:objectid}/saisons/{saison_id}/self/overview",
-    response_model=FLTeamOverviewResponse,
     summary="A team's Übersicht in one season",
 )
 async def get_team_overview(
@@ -324,7 +322,7 @@ async def get_team_overview(
     registrierungen_collection: RegistrierungenReadCollection,
     records: SubjectLookup,
     session: SnapshotSession,
-    now: datetime = Depends(get_germany_now),
+    now: GermanyNow,
 ) -> FLTeamOverviewResponse:
     """Everything a team's Übersicht shows in one read, for a person holding any contact seat on the team in this season.
 
@@ -426,7 +424,6 @@ async def get_team_overview(
 
 @router.get(
     "/{team_id:objectid}/saisons/{saison_id}/self/spiele",
-    response_model=FLTeamSpieleResponse,
     summary="A team's fixtures in one season, with what is open on each",
 )
 async def get_team_spiele(
@@ -437,7 +434,7 @@ async def get_team_spiele(
     spiele_collection: SpieleReadCollection,
     records: SubjectLookup,
     session: SnapshotSession,
-    now: datetime = Depends(get_germany_now),
+    now: GermanyNow,
 ) -> FLTeamSpieleResponse:
     """Every fixture of the team in this season in the order the draw numbered them, for a person holding any contact seat on it.
 

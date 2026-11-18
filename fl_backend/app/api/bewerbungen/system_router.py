@@ -1,8 +1,7 @@
 from collections.abc import Mapping
-from datetime import datetime
 from typing import Any, Final
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pymongo import ASCENDING, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
@@ -39,7 +38,6 @@ from app.api.spielbestaetigungen.crud import strip_the_seasons_confirmations
 from app.api.spielbestaetigungen.services import HeldSeats
 from app.api.teams.crud import pull_team_names
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.crud import (
     anchor_in_db,
     delete_many_from_db,
@@ -51,6 +49,8 @@ from app.core.crud import (
 from app.core.dependencies import (
     BewerbungenCollection,
     DBClient,
+    GermanDay,
+    GermanyNow,
     OutboxCollection,
     SaisonsCollection,
     SaisonsReadCollection,
@@ -58,18 +58,16 @@ from app.core.dependencies import (
     SpielberichteCollection,
     SpielbestaetigungenCollection,
     TeamsCollection,
-    get_german_date_str,
-    get_germany_now,
 )
 from app.core.recording import ACT_BY_SYSTEM, record_act
-from app.core.security import verify_access_system
+from app.core.security import SYSTEM_TIER
 from app.core.transactions import SWEEP_PAGE, Batch, drain, refuse_a_stalled_page, run_isolated
 from app.shared.schemas.bounds import DECLINED_RETENTION_DAYS, LIST_LIMIT_DEFAULT
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle
 from app.shared.schemas.responses import FLSweepSaisonsResponse
 
 # System tier: the sweep holds no session, so `bind_actor` would refuse it.
-router = APIRouter(prefix=f"/api/v{API_VERSION}/bewerbungen/sweep", dependencies=[Depends(verify_access_system)])
+router = APIRouter(prefix="/bewerbungen/sweep", dependencies=SYSTEM_TIER)
 
 # Sized with the blocks' share below, each row one command beside the worst call's others, so a pass ends well inside
 # `REQUEST_DEADLINE_S`.
@@ -120,7 +118,7 @@ async def pull_the_season_after(
     return later_saison_status
 
 
-@router.get("", response_model=FLSweepSaisonsResponse, summary="Every season the sweep has to visit")
+@router.get("", summary="Every season the sweep has to visit")
 async def get_sweep_saisons(saisons_collection: SaisonsReadCollection) -> FLSweepSaisonsResponse:
     """Every season's id, oldest first, for the caller to sweep one at a time."""
 
@@ -133,7 +131,6 @@ async def get_sweep_saisons(saisons_collection: SaisonsReadCollection) -> FLSwee
 
 @router.post(
     "/{saison_id}",
-    response_model=FLBewerbungSweepResponse,
     summary="Run one season's retention clocks",
 )
 async def sweep_saison(
@@ -146,8 +143,8 @@ async def sweep_saison(
     spielberichte_collection: SpielberichteCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> FLBewerbungSweepResponse:
     """Run one season's retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.
 

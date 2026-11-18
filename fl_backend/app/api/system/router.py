@@ -1,19 +1,18 @@
 from http import HTTPStatus
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse
-from pymongo import AsyncMongoClient
 from pymongo.errors import PyMongoError
 
 from app.api.system.schemas import CheckIsLiveResponse, CheckIsReadyResponse
 from app.core.codes import Code
-from app.core.config import API_VERSION
-from app.core.db import RETRY_AFTER, get_db_client
+from app.core.db import RETRY_AFTER
+from app.core.dependencies import DBClient
 from app.core.exceptions import APIError
 
 # The one router without a blanket guard, because its probes must be reachable by the container
 # healthcheck and by a monitor outside -- so an endpoint added here is public unless it declares otherwise.
-router = APIRouter(prefix=f"/api/v{API_VERSION}/system")
+router = APIRouter(prefix="/system")
 
 
 @router.get("/is_live", response_model=CheckIsLiveResponse, summary="Liveness probe")
@@ -28,7 +27,7 @@ async def check_is_live() -> JSONResponse:
 
 
 @router.get("/is_ready", response_model=CheckIsReadyResponse, summary="Readiness probe")
-async def check_is_ready(client: AsyncMongoClient = Depends(get_db_client)) -> JSONResponse:
+async def check_is_ready(client: DBClient) -> JSONResponse:
     """
     Readiness: whether this process reaches its database, 503 where a ping does not return within the request's deadline.
 

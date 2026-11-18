@@ -1,22 +1,21 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
 from app.api.saisons.visibility import resolve_public_saison
 from app.api.spieltage.schemas import FLSpieltag, FLSpieltageSingleResponse
 from app.api.spieltage.services import with_expected_matches
-from app.core.config import API_VERSION
 from app.core.crud import pull_one_from_db
 from app.core.dependencies import SaisonsReadCollection, SpieltageReadCollection
 from app.core.routing import by_id
-from app.core.security import verify_access_base
+from app.core.security import BASE_TIER
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/spieltage",
-    dependencies=[Depends(verify_access_base)],
+    prefix="/spieltage",
+    dependencies=BASE_TIER,
 )
 
 
-@router.get(by_id("spieltag_id"), response_model=FLSpieltageSingleResponse, summary="One Spieltag")
+@router.get(by_id("spieltag_id"), summary="One Spieltag")
 async def get_spieltag(
     spieltag_id: CustomRouteObjectId,
     spieltage_collection: SpieltageReadCollection,

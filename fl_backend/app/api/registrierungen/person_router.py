@@ -1,9 +1,8 @@
 from collections.abc import Mapping
-from datetime import datetime
-from typing import Annotated, Any
+from typing import Any
 
 from bson import ObjectId
-from fastapi import APIRouter, Body, Depends, status
+from fastapi import APIRouter, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -50,7 +49,6 @@ from app.api.spieler.crud import pull_squad_room, refuse_a_full_squad
 from app.api.spieler.services import find_full_squad_refusal
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.crud import (
     delete_many_from_db,
     patch_many_in_db,
@@ -61,6 +59,8 @@ from app.core.crud import (
 )
 from app.core.dependencies import (
     DBClient,
+    GermanDay,
+    GermanyNow,
     OutboxCollection,
     RegistrierungenCollection,
     RegistrierungenReadCollection,
@@ -72,14 +72,12 @@ from app.core.dependencies import (
     SnapshotSession,
     SpielerCollection,
     SpielerReadCollection,
-    get_german_date_str,
-    get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import Journal
 from app.core.recording import ACT_BY_KONTAKT, record_act
 from app.core.routing import by_id
-from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
+from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_evidence import FLEinwilligungChoice
 from app.shared.folding import sign_in_identifier
@@ -88,12 +86,11 @@ from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload, by_cho
 
 # A person's route in place of `bind_actor`: a seat holder signs in by code and holds no grant, so the
 # administrator's actor check would refuse every one of them.
-router = APIRouter(prefix=f"/api/v{API_VERSION}/registrierungen", dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)])
+router = APIRouter(prefix="/registrierungen", dependencies=PERSON_TIER)
 
 
 @router.get(
     "/kader/{team_id:objectid}/{saison_id}",
-    response_model=FLOpenRegistrierungenResponse,
     summary="A team's pending registrations for one season",
 )
 async def get_open_registrierungen(
@@ -229,12 +226,11 @@ async def _pull_the_teams_open_row(
 
 @router.post(
     f"{by_id('registrierung_id')}/admit",
-    response_model=FLRegistrierungAdmissionResponse,
     summary="Admit a registration into the team's squad",
 )
 async def admit(
     registrierung_id: CustomRouteObjectId,
-    admit_data: Annotated[FLRegistrierungAdmitPayload, Body()],
+    admit_data: FLRegistrierungAdmitPayload,
     identifier: PersonIdentifier,
     registrierungen_collection: RegistrierungenCollection,
     saison_spieler_collection: SaisonSpielerCollection,
@@ -388,20 +384,19 @@ async def admit(
 
 @router.post(
     f"{by_id('registrierung_id')}/decline",
-    response_model=FLRegistrierungDeclineResponse,
     summary="Decline a registration",
 )
 async def decline(
     registrierung_id: CustomRouteObjectId,
-    decline_data: Annotated[FLRegistrierungDeclinePayload, Body()],
+    decline_data: FLRegistrierungDeclinePayload,
     identifier: PersonIdentifier,
     registrierungen_collection: RegistrierungenCollection,
     saison_teams_collection: SaisonTeamsCollection,
     outbox_collection: OutboxCollection,
     records: SubjectLookup,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> FLRegistrierungDeclineResponse:
     """Decline one pending registration, confirmed or not, for a reason from a closed set or none.
 
@@ -487,9 +482,7 @@ async def decline(
 
 
 # A prefix of its own: a pending registrant reaches their own row, and no team's.
-spieler_router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/registrierungen/account", dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)]
-)
+spieler_router = APIRouter(prefix="/registrierungen/account", dependencies=PERSON_TIER)
 
 
 @spieler_router.patch(
@@ -499,11 +492,11 @@ spieler_router = APIRouter(
 )
 async def patch_einwilligung(
     registrierung_id: CustomRouteObjectId,
-    einwilligung_data: Annotated[FLAccountEinwilligungPayload, Body()],
+    einwilligung_data: FLAccountEinwilligungPayload,
     identifier: PersonIdentifier,
     registrierungen_collection: RegistrierungenCollection,
     db: DBClient,
-    germany_now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> None:
     """Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.
 

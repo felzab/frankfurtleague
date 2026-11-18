@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated, Final, Literal, Self, get_args
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, computed_field, model_validator
+from pydantic import AwareDatetime, BaseModel, Field, StringConstraints, computed_field, model_validator
 
 from app.api.grants.schemas import FLGrantChange, FLGrantNoticeStage
 from app.api.registrierungen.schemas import FLRegistrierungDecisionReason
@@ -9,7 +9,7 @@ from app.core.collections import Collection
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomObjectId, CustomStrippedNonEmptyString, CustomTimeString
 from app.shared.schemas.kontakt import CustomEmail, CustomStoredAddress
 from app.shared.schemas.literals import FLAddressChangeWay, FLAdminTier, FLGruppenNames, FLKontaktRolle, FLKontaktRow, FLTrikotFarbe
-from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
+from app.shared.schemas.responses import BaseAPIResponse, BasePayload, BaseReadModel
 
 # Each kind of mail is one member of `FLOutboxData` below, carrying the facts its builder renders and never a
 # sentence: a date where the mail prints one, a seat where it names one. A kind joins with the write that owes it, its
@@ -545,10 +545,8 @@ class FLOutboxHandoutResponse(BaseAPIResponse):
 FLOutboxResultKind = Literal["sent", "retry", "abandon", "held"]
 
 
-class FLOutboxResultPayload(BaseModel):
+class FLOutboxResultPayload(BasePayload):
     """The outcome of one handed-out mail's send, reported as the send returns."""
-
-    model_config = ConfigDict(extra="forbid")
 
     lease: CustomStrippedNonEmptyString
     id: CustomObjectId
@@ -581,10 +579,8 @@ class FLOutboxResultResponse(BaseAPIResponse):
     ignored: int = Field(ge=0)
 
 
-class FLOutboxSignInPayload(BaseModel):
+class FLOutboxSignInPayload(BasePayload):
     """One mail of the sign-in library, owed to the address it names."""
-
-    model_config = ConfigDict(extra="forbid")
 
     to: CustomEmail
     data: FLOutboxSignInData
@@ -601,10 +597,8 @@ class FLOutboxSignInPayload(BaseModel):
         return self
 
 
-class FLOutboxEventPayload(BaseModel):
+class FLOutboxEventPayload(BasePayload):
     """One delivery event about a message the provider accepted, named by the row the message was sent from."""
-
-    model_config = ConfigDict(extra="forbid")
 
     # The row's own id, which the send carries as a tag and the provider echoes on every event, so an event arriving
     # before the send's report finds its row all the same.

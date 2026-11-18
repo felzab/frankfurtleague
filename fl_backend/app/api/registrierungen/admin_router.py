@@ -1,11 +1,8 @@
-from typing import Annotated
+from fastapi import APIRouter
 
-from fastapi import APIRouter, Depends, Query
-
-from app.api.grants.guard import verify_actor_is_admin
+from app.api.grants.guard import ADMIN_TIER
 from app.api.registrierungen.schemas import (
     FLRegistrierungAdminRow,
-    FLRegistrierungenAdminFilterParams,
     FLRegistrierungenAdminListResponse,
 )
 from app.api.registrierungen.services import (
@@ -17,10 +14,8 @@ from app.api.registrierungen.services import (
 )
 from app.api.teams.crud import pull_saison_team_names
 from app.core.concurrency import concurrently
-from app.core.config import API_VERSION
 from app.core.crud import pull_many_from_db, pull_one_from_db
 from app.core.dependencies import RegistrierungenReadCollection, SaisonsReadCollection, SaisonTeamsReadCollection
-from app.core.security import bind_actor, verify_access_admin
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 # Admin-guarded, not base, as the application's own list is: a registration holds a pupil's name,
@@ -29,21 +24,18 @@ from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 # The public router shares this prefix at base tier and reads no stored registration but the one a
 # link it was handed opens.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/registrierungen",
-    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
+    prefix="/registrierungen",
+    dependencies=ADMIN_TIER,
 )
 
 
-FLRegistrierungenAdminFilters = Annotated[FLRegistrierungenAdminFilterParams, Query()]
-
-
 # Two static segments, matching `GET /saisons/list/admin`.
-@router.get("/list/admin", response_model=FLRegistrierungenAdminListResponse, summary="One Saison's pending Registrierungen for its list")
+@router.get("/list/admin", summary="One Saison's pending Registrierungen for its list")
 async def get_registrierungen_admin(
     registrierungen_collection: RegistrierungenReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
+    saison_id: str,
     saisons_collection: SaisonsReadCollection,
-    filters: FLRegistrierungenAdminFilters,
 ) -> FLRegistrierungenAdminListResponse:
     """One season's pending registrations, newest first, each with its club and whether its pupil confirmed it.
 
@@ -51,17 +43,17 @@ async def get_registrierungen_admin(
     the read's cap cut the list.
     """
 
-    await pull_one_from_db(collection=saisons_collection, db_filter={"_id": filters.saison_id}, projection=["_id"])
+    await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
     read, team_names = await concurrently(
         pull_many_from_db(
             collection=registrierungen_collection,
-            db_filter={"saison_id": filters.saison_id, "status": SUBMITTED},
+            db_filter={"saison_id": saison_id, "status": SUBMITTED},
             limit=LIST_LIMIT_DEFAULT + 1,
             sort_by=build_registrierungen_sort(),
             # An inclusion: no address, birthdate or token crosses the wire for a list showing none.
             projection=list(REGISTRIERUNG_LIST_FIELDS),
         ),
-        pull_saison_team_names(saison_teams_collection=saison_teams_collection, saison_id=filters.saison_id),
+        pull_saison_team_names(saison_teams_collection=saison_teams_collection, saison_id=saison_id),
     )
 
     return FLRegistrierungenAdminListResponse(

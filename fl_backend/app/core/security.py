@@ -69,6 +69,9 @@ def get_actor_email() -> str:
     return address
 
 
+ActorEmail = Annotated[str, Depends(get_actor_email)]
+
+
 # The session a request acts for, as the frontend's guard read it. Believed because only the
 # frontend's server holds the admin key every route reading them takes, and only the private network
 # reaches this service; a base or system route never reads them.
@@ -193,3 +196,11 @@ def get_person_identifier(actor: Annotated[SessionActor, Depends(verify_person_a
 
 
 PersonIdentifier = Annotated[str, Depends(get_person_identifier)]
+
+
+# Each tier's guards as its routers declare them, in the order they run: the key before any actor. Tuples, so no
+# router can append to the guards another shares. The administrator's tier also reads the grants, so it is declared
+# beside them, which keeps the core free of any slice.
+BASE_TIER: Final = (Depends(verify_access_base),)
+SYSTEM_TIER: Final = (Depends(verify_access_system),)
+PERSON_TIER: Final = (Depends(verify_access_admin), Depends(get_person_identifier))

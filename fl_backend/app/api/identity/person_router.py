@@ -1,6 +1,4 @@
-from datetime import datetime
-
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.address_change.crud import known_to_the_new_mailbox, others_naming
@@ -8,7 +6,6 @@ from app.api.grants.crud import read_grants
 from app.api.identity.crud import EACH_PERSON_GROUP, erase_everything, resolve_subject
 from app.api.identity.schemas import FLAccountErasureViewResponse
 from app.api.identity.services import build_season_team_pipeline, compose_account_erasure_view, find_owner_erasure_refusal
-from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, refuse
 from app.core.dependencies import (
     ActionLogCollection,
@@ -18,6 +15,7 @@ from app.core.dependencies import (
     BewerbungenCollection,
     BewerbungenReadCollection,
     DBClient,
+    GermanyNow,
     GrantsCollection,
     GrantsReadCollection,
     OutboxCollection,
@@ -34,17 +32,16 @@ from app.core.dependencies import (
     SpieleCollection,
     SpielerCollection,
     SpielerReadCollection,
-    get_germany_now,
 )
 from app.core.journal import Journal
 from app.core.recording import ACT_BY_PERSON, record_act
-from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
+from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transaction_session
 
 # No Funktion asked: a person erases themselves holding none at all.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/identity/account",
-    dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
+    prefix="/identity/account",
+    dependencies=PERSON_TIER,
 )
 
 
@@ -70,7 +67,7 @@ async def post_account_erasure(
     outbox_collection: OutboxCollection,
     address_changes_collection: AddressChangeCollection,
     db: DBClient,
-    germany_now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> None:
     """Erase every record the signed-in address holds, at once and as one write; the owner is refused until a handover.
 
@@ -116,7 +113,6 @@ async def post_account_erasure(
 
 @router.get(
     "/erasure/view",
-    response_model=FLAccountErasureViewResponse,
     summary="Show what an erasure of the signed-in address would remove",
 )
 async def get_account_erasure_view(

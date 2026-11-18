@@ -1,21 +1,20 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
 from app.api.spieler.schemas import FLSpielerSingleResponse
 from app.api.spieler.services import public_person
-from app.core.config import API_VERSION
 from app.core.crud import pull_one_from_db
 from app.core.dependencies import SpielerReadCollection
 from app.core.routing import by_id
-from app.core.security import verify_access_base
+from app.core.security import BASE_TIER
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/spieler",
-    dependencies=[Depends(verify_access_base)],
+    prefix="/spieler",
+    dependencies=BASE_TIER,
 )
 
 
-@router.get(by_id("spieler_id"), response_model=FLSpielerSingleResponse, summary="One Spieler")
+@router.get(by_id("spieler_id"), summary="One Spieler")
 async def get_spieler_by_id(spieler_id: CustomRouteObjectId, spieler_collection: SpielerReadCollection) -> FLSpielerSingleResponse:
     """One player's id, forename and surname initial, both names `null` where the pupil's consent does not publish them."""
 

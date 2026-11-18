@@ -6,7 +6,6 @@ from pydantic import (
     AfterValidator,
     BaseModel,
     BeforeValidator,
-    ConfigDict,
     Field,
     RootModel,
     StringConstraints,
@@ -52,7 +51,7 @@ from app.shared.schemas.literals import (
     FLSchulform,
     FLTrikotFarbe,
 )
-from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
+from app.shared.schemas.responses import BaseAPIResponse, BasePayload, BaseReadModel
 
 # Read off the closed set rather than chosen beside it: a cap over the set size is one
 # `offered_gruppen` serves short while refusing nothing.
@@ -105,13 +104,11 @@ class FLAustritt(BaseModel):
     date: CustomDateString
 
 
-class FLAustrittPayload(FLAustritt):
+class FLAustrittPayload(FLAustritt, BasePayload):
     """The exit as an administrator writes it: the reason ceilinged as it arrives and stripped before its floor.
 
     On the write side alone, so a read model takes a stored blank or a longer reason as it stands.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     reason: Annotated[
         str,
@@ -266,9 +263,7 @@ class FLSaisonTeamConfirmationsView(BaseModel):
 # to enter at their confirmation, and no payload takes a consent record, which the server composes.
 # The ceilings are here and not on the read models above: refusing a stored value on read answers 500
 # for a whole list over one row, and locks out the write that would repair it.
-class _KontaktpersonWritablePayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class _KontaktpersonWritablePayload(BasePayload):
     # Tightened on the write side alone, in the type the public
     # application and a referee's name take too, so the editor and the form refuse a name alike.
     first_name: CustomKontaktName
@@ -426,9 +421,7 @@ class FLTeamMembership(BaseReadModel):
 
 # Private, so it publishes no OpenAPI component. The bounded address sits here rather than on that base,
 # which `FLTeam` and `FLTeamRecord` share.
-class _TeamPayload(_TeamWritable):
-    model_config = ConfigDict(extra="forbid")
-
+class _TeamPayload(_TeamWritable, BasePayload):
     address: FLAddressPayload
     # Stripped and ceilinged on the write side alone, so a stored value reads as it stands;
     # `name` reaches a league table row, where a space would show. The ceiling counts what arrives and
@@ -486,28 +479,22 @@ class FLPatchTeamSaisonResponse(BaseAPIResponse):
     version: int = Field(ge=0)
 
 
-class FLEntryKnownClub(BaseModel):
+class FLEntryKnownClub(BasePayload):
     """A club the league holds, picked from the list's create dialog."""
-
-    model_config = ConfigDict(extra="forbid")
 
     kind: Literal["known"]
     team_id: CustomObjectId
 
 
-class FLEntryNewClub(BaseModel):
+class FLEntryNewClub(BasePayload):
     """A club the entry founds, in the transaction that enters it."""
-
-    model_config = ConfigDict(extra="forbid")
 
     kind: Literal["new"]
     team: FLPostTeamPayload
 
 
-class FLPostTeamEntryPayload(BaseModel):
+class FLPostTeamEntryPayload(BasePayload):
     """One club's entry into a season, the club known or new. One field rather than two nullable ones, so no body names both."""
-
-    model_config = ConfigDict(extra="forbid")
 
     club: Annotated[FLEntryKnownClub | FLEntryNewClub, Field(discriminator="kind")]
     gruppe: FLGruppenNames
@@ -520,10 +507,8 @@ class FLPostTeamEntryResponse(BaseAPIResponse):
     team_id: CustomObjectId
 
 
-class FLReplaceSaisonTeamPayload(BaseModel):
+class FLReplaceSaisonTeamPayload(BasePayload):
     """Which club takes this season's row over. The path names the club going out."""
-
-    model_config = ConfigDict(extra="forbid")
 
     # The only field: the row keeps the group it stands in, and its copy of the identity is reseeded
     # from the incoming club, so a client-supplied name could only disagree with it.

@@ -1,6 +1,6 @@
 from typing import Annotated, Literal, Self
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
+from pydantic import AfterValidator, BaseModel, Field, model_validator
 
 from app.api.spieler.schemas import SQUAD_NUMMER_PATTERN, FLEinwilligung
 from app.shared.schemas.confirmation import CustomToken, FLConfirmation
@@ -25,7 +25,7 @@ from app.shared.schemas.literals import (
     FLSpielerPosition,
     FLSpielerStufe,
 )
-from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
+from app.shared.schemas.responses import BaseAPIResponse, BasePayload, BaseReadModel
 
 # --- The invite's read, the submission and the administrator's read of what it stored. Every
 # payload below is reached from a request body alone, so each forbids an undeclared key; the read
@@ -106,13 +106,11 @@ class FLInvitationViewResponse(BaseAPIResponse):
     nachnominierung: bool
 
 
-class FLPostRegistrierungPayload(BaseModel):
+class FLPostRegistrierungPayload(BasePayload):
     """One pupil registering through a team's link.
 
     The team, the season, the state, the deadline and the confirmation link come from the invite and the clock, never from this body.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     token: CustomToken
     first_name: CustomKontaktName
@@ -148,12 +146,6 @@ class FLRegistrierungAdminRow(BaseReadModel):
     unmailed: bool
 
 
-class FLRegistrierungenAdminFilterParams(BaseModel):
-    """Which season's pending registrations the list reads, whole up to the cap: its page narrows them."""
-
-    saison_id: str
-
-
 class FLRegistrierungenAdminListResponse(BaseAPIResponse):
     """One season's pending registrations, newest first."""
 
@@ -187,10 +179,8 @@ class FLRegistrierungConfirmationViewResponse(BaseAPIResponse):
     answered_at: CustomOptionalDateString
 
 
-class FLRegistrierungConfirmationPayload(BaseModel):
+class FLRegistrierungConfirmationPayload(BasePayload):
     """One pupil's own answer: their date of birth and the two consents."""
-
-    model_config = ConfigDict(extra="forbid")
 
     token: CustomToken
     # Unbounded: the age is a 422 with its own code, never a `payload_refused`, so the page marks its one
@@ -282,10 +272,8 @@ class FLOpenRegistrierungenResponse(BaseAPIResponse):
     complete: bool
 
 
-class FLRegistrierungAdmitPayload(BaseModel):
+class FLRegistrierungAdmitPayload(BasePayload):
     """The team's answer to the question the read asked: the person this registration is admitted into, or none."""
-
-    model_config = ConfigDict(extra="forbid")
 
     # Required with no default: a client that omitted it would be read as answering "a new person",
     # which is the one answer that can put a returning pupil into the league twice.
@@ -313,10 +301,8 @@ class FLRegistrierungAdmissionResponse(BaseAPIResponse):
 FLRegistrierungDecisionReason = Literal["other_person"]
 
 
-class FLRegistrierungDeclinePayload(BaseModel):
+class FLRegistrierungDeclinePayload(BasePayload):
     """Why the team declines, from a closed set or not at all."""
-
-    model_config = ConfigDict(extra="forbid")
 
     # Required with no default, so an omission is never read as declining without a reason: the
     # reason picks the sentence the pupil is mailed.

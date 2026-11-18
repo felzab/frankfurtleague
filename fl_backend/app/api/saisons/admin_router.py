@@ -2,7 +2,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Annotated, Any, Literal, NamedTuple
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -10,7 +10,7 @@ from pymongo.errors import PyMongoError
 from pymongo.results import InsertOneResult
 
 from app.api.aufstellungen.crud import remove_the_seasons_aufstellungen
-from app.api.grants.guard import verify_actor_is_admin
+from app.api.grants.guard import ADMIN_TIER
 from app.api.invitations.crud import owed_invitation_mails
 from app.api.invitations.schemas import (
     FLInvitation,
@@ -89,7 +89,6 @@ from app.api.teams.services import (
 )
 from app.core.codes import Code
 from app.core.concurrency import concurrently
-from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
     VERSION_FIELD,
@@ -108,6 +107,8 @@ from app.core.dependencies import (
     AufstellungenCollection,
     BanListCollection,
     DBClient,
+    GermanDay,
+    GermanyNow,
     InvitationsCollection,
     InvitationsReadCollection,
     OutboxCollection,
@@ -124,20 +125,17 @@ from app.core.dependencies import (
     SpieltageCollection,
     SpieltageReadCollection,
     TeamsReadCollection,
-    get_german_date_str,
-    get_germany_now,
 )
 from app.core.exceptions import WriteRefusal
 from app.core.logging import fl_logger
 from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_SYSTEM, record_act
-from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.schemas.literals import FLGruppenNames
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/saisons",
-    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
+    prefix="/saisons",
+    dependencies=ADMIN_TIER,
 )
 
 
@@ -181,12 +179,12 @@ async def _rewrite_gruppenphase_sides(
 
 # Two segments, because `GET /saisons/{saison_id}` is declared first and would answer a single static
 # one: a season id is a plain four-character string, so the `objectid` convertor cannot separate them.
-@router.get("/list/admin", response_model=FLSaisonsAdminListResponse, summary="Every Saison for the admin surfaces")
+@router.get("/list/admin", summary="Every Saison for the admin surfaces")
 async def get_saisons_admin(
     saisons_collection: SaisonsReadCollection,
     spiele_collection: SpieleReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLSaisonsAdminListResponse:
     """Every season, the `future` ones included, each with its start, play and decision states and its counts.
 
@@ -227,7 +225,7 @@ async def get_saisons_admin(
 
 # Declared after `/list/admin`, which it would otherwise answer with `list` as a season id; a static suffix rather than
 # a second `GET /{saison_id}`, which the public router owns at this same prefix.
-@router.get("/{saison_id}/admin", response_model=FLSaisonAdminResponse, summary="One Saison for the admin editor")
+@router.get("/{saison_id}/admin", summary="One Saison for the admin editor")
 async def get_saison_admin(
     saison_id: str,
     saisons_collection: SaisonsReadCollection,
@@ -237,7 +235,7 @@ async def get_saison_admin(
     teams_collection: TeamsReadCollection,
     spielberichte_collection: SpielberichteReadCollection,
     invitations_collection: InvitationsReadCollection,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLSaisonAdminResponse:
     """What the season editor shows in one read: its season, clubs, shapes and matchdays, its acts' states and its links.
 
@@ -358,12 +356,11 @@ async def get_saison_admin(
 
 @router.post(
     "",
-    response_model=FLPostSaisonResponse,
     status_code=201,
     summary="Create a Saison",
 )
 async def post_saison(
-    saison_data: Annotated[FLPostSaisonPayload, Body()],
+    saison_data: FLPostSaisonPayload,
     saisons_collection: SaisonsCollection,
     db: DBClient,
 ) -> FLPostSaisonResponse:
@@ -413,19 +410,18 @@ async def post_saison(
 
 @router.patch(
     "/{saison_id}",
-    response_model=FLPatchSaisonResponse,
     summary="Update a Saison's dates and rules",
 )
 async def patch_saison(
     saison_id: str,
-    saison_data: Annotated[FLPatchSaisonPayload, Body()],
+    saison_data: FLPatchSaisonPayload,
     saisons_collection: SaisonsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     spiele_collection: SpieleCollection,
     spieltage_collection: SpieltageCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLPatchSaisonResponse:
     """Save a season's dates and rules on the `version` it was read at, answering the version stored.
 
@@ -671,7 +667,6 @@ def _find_undraw_refusal_of(*, saison_status: str, recorded_spiele: int, bericht
 
 @router.post(
     "/{saison_id}/activate",
-    response_model=FLActivateSaisonResponse,
     summary="Make this the active Saison",
 )
 async def activate_saison(
@@ -765,17 +760,16 @@ async def activate_saison(
 
 @router.post(
     "/{saison_id}/gruppen/swap",
-    response_model=FLSwapGruppenResponse,
     summary="Exchange two teams' groups",
 )
 async def swap_gruppen(
     saison_id: str,
-    swap_data: Annotated[FLSwapGruppenPayload, Body()],
+    swap_data: FLSwapGruppenPayload,
     saisons_collection: SaisonsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     spiele_collection: SpieleCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLSwapGruppenResponse:
     """Exchange the groups of two clubs entered in this season, as one write.
 
@@ -870,7 +864,6 @@ async def swap_gruppen(
 
 @router.post(
     "/{saison_id}/spielplan",
-    response_model=FLGenerateSpielplanResponse,
     status_code=201,
     summary="Draw this Saison's Spielplan",
 )
@@ -887,7 +880,7 @@ async def post_spielplan(
     # An absent body is `replace: false`, so a first draw needs no confirmation and nothing replaces
     # a season by leaving the flag out.
     spielplan_data: Annotated[FLGenerateSpielplanPayload, Body(default_factory=FLGenerateSpielplanPayload)],
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLGenerateSpielplanResponse:
     """Draw the whole season at once, every matchday and every fixture undated, from the stated `shape` or the season's rules.
 
@@ -1082,7 +1075,6 @@ async def post_spielplan(
 
 @router.delete(
     "/{saison_id}/spielplan",
-    response_model=FLUndrawSpielplanResponse,
     summary="Undraw this Saison's Spielplan",
 )
 async def delete_spielplan(
@@ -1338,7 +1330,6 @@ async def _mail_one_team(
 
 @router.post(
     "/{saison_id}/invitations/dispatch",
-    response_model=FLInvitationDispatchResponse,
     summary="Mint every admitted team a link",
 )
 async def post_invitations_dispatch(
@@ -1348,8 +1339,8 @@ async def post_invitations_dispatch(
     saisons_collection: SaisonsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> FLInvitationDispatchResponse:
     """Give every admitted team of this season a fresh registration link, revoking any it held, mailed to its confirmed seats.
 

@@ -1,10 +1,9 @@
-from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Query
+from fastapi import APIRouter, Depends, Query
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.grants.guard import verify_actor_is_admin
+from app.api.grants.guard import ADMIN_TIER
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.crud import (
     SpielSaveCollections,
@@ -22,12 +21,12 @@ from app.api.spiele.services import (
 from app.api.spieltage.schemas import FLSpieleSpielplanAdminResponse
 from app.api.spieltage.services import build_admin_spielplan, current_spieltag_id
 from app.core.concurrency import concurrently
-from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
     AufstellungenCollection,
     AufstellungenReadCollection,
     DBClient,
+    GermanyNow,
     SaisonsCollection,
     SaisonSpielerReadCollection,
     SaisonsReadCollection,
@@ -46,24 +45,21 @@ from app.core.dependencies import (
     SpieltageCollection,
     SpieltageReadCollection,
     TeamsCollection,
-    get_germany_now,
 )
 from app.core.routing import SAFE_WHEN, by_id
-from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/spiele",
-    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
+    prefix="/spiele",
+    dependencies=ADMIN_TIER,
 )
 
 
 # A static path, which the `objectid` convertor keeps out of `{spiel_id}`'s reach whichever router loads first.
 @router.get(
     "/spielplan",
-    response_model=FLSpieleSpielplanAdminResponse,
     summary="One Saison's Spiele by matchday, for the admin Spiele list",
 )
 async def get_spiele_spielplan(
@@ -95,7 +91,6 @@ async def get_spiele_spielplan(
 # same prefix, so whichever router registered first would answer both.
 @router.get(
     f"{by_id('spiel_id')}/admin",
-    response_model=FLSpieleAdminSingleResponse,
     summary="One Spiel and all the match editor offers and shows beside it",
 )
 async def get_spiel_admin(
@@ -110,7 +105,7 @@ async def get_spiel_admin(
     spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
     aufstellungen_collection: AufstellungenReadCollection,
-    now: datetime = Depends(get_germany_now),
+    now: GermanyNow,
 ) -> FLSpieleAdminSingleResponse:
     """
     The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.
@@ -143,13 +138,12 @@ async def previewing(
 
 @router.patch(
     by_id("spiel_id"),
-    response_model=FLPatchSpielDataResponse,
     summary="Update a Spiel",
     openapi_extra=SAFE_WHEN,
 )
 async def patch_spiel(
     spiel_id: CustomRouteObjectId,
-    spiel_data: Annotated[FLPatchSpielDataPayload, Body()],
+    spiel_data: FLPatchSpielDataPayload,
     db: DBClient,
     spiele_collection: SpieleCollection,
     teams_collection: TeamsCollection,
@@ -162,11 +156,11 @@ async def patch_spiel(
     aufstellungen_collection: AufstellungenCollection,
     # Read on a `dry_run` alone, for whom the confirmation pass would mail of the save.
     spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
+    now: GermanyNow,
     adopts_bericht: Annotated[
         int | None,
         Query(ge=0, description="The `version` of the fixture's Spielbericht the editor was seeded from, to stamp it adopted"),
     ] = None,
-    now: datetime = Depends(get_germany_now),
     dry_run: Annotated[bool, Depends(previewing)] = False,
 ) -> FLPatchSpielDataResponse:
     """

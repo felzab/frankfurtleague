@@ -1,8 +1,7 @@
 from collections.abc import Iterable, Mapping
-from datetime import datetime
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
@@ -40,22 +39,21 @@ from app.api.spiele.crud import pull_booked_slots, pull_saison_membership, pull_
 from app.api.spiele.schemas import FLSpiel
 from app.api.spiele.services import find_claims_made, find_clash_refusal, find_eligibility_refusal, find_spiel_date_refusal
 from app.core import clock
-from app.core.config import API_VERSION
 from app.core.crud import anchor_in_db, patch_one_in_db, pull_many_from_db, refuse
 from app.core.dependencies import (
     DBClient,
+    GermanyNow,
     SaisonsCollection,
     SaisonTeamsCollection,
     SpielbestaetigungenCollection,
     SpieleCollection,
     SpieleReadCollection,
     SpieltageReadCollection,
-    get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.recording import ACT_BY_KONTAKT, ACT_BY_SCHIEDSRICHTER, record_act
 from app.core.routing import by_id
-from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
+from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -63,8 +61,8 @@ from app.shared.schemas.literals import FLKontaktRolle
 
 # A referee and a club's seat holder answer here, each answer recorded under the answering party's Funktion.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/spielbestaetigungen",
-    dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
+    prefix="/spielbestaetigungen",
+    dependencies=PERSON_TIER,
 )
 
 
@@ -84,12 +82,11 @@ def _answering_seat(*, spielbestaetigung_raw: Mapping[str, Any] | None, seats: I
 
 @router.post(
     f"{by_id('spielbestaetigung_id')}/answer",
-    response_model=FLSpielbestaetigungSchiedsrichterAnswerResponse,
     summary="Accept or decline one of the signed-in referee's own fixture assignments",
 )
 async def post_schiedsrichter_answer(
     spielbestaetigung_id: CustomRouteObjectId,
-    answer_data: Annotated[FLSpielbestaetigungSchiedsrichterAnswerPayload, Body()],
+    answer_data: FLSpielbestaetigungSchiedsrichterAnswerPayload,
     identifier: PersonIdentifier,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spiele_collection: SpieleCollection,
@@ -97,7 +94,7 @@ async def post_schiedsrichter_answer(
     saisons_collection: SaisonsCollection,
     records: SubjectLookup,
     db: DBClient,
-    now: datetime = Depends(get_germany_now),
+    now: GermanyNow,
 ) -> FLSpielbestaetigungSchiedsrichterAnswerResponse:
     """Record the signed-in referee's first answer about a fixture they are booked on, until its kick-off: accept, or decline giving a reason.
 
@@ -200,12 +197,11 @@ async def post_schiedsrichter_answer(
 
 @router.post(
     f"{by_id('spielbestaetigung_id')}/answer/team",
-    response_model=FLSpielbestaetigungAnswerResponse,
     summary="Confirm a fixture's Ansetzung as the team's seat holder, or decline it proposing another date",
 )
 async def post_team_answer(
     spielbestaetigung_id: CustomRouteObjectId,
-    answer_data: Annotated[FLSpielbestaetigungTeamAnswerPayload, Body()],
+    answer_data: FLSpielbestaetigungTeamAnswerPayload,
     identifier: PersonIdentifier,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spiele_collection: SpieleReadCollection,
@@ -213,7 +209,7 @@ async def post_team_answer(
     spieltage_collection: SpieltageReadCollection,
     records: SubjectLookup,
     db: DBClient,
-    now: datetime = Depends(get_germany_now),
+    now: GermanyNow,
 ) -> FLSpielbestaetigungAnswerResponse:
     """Record one club's answer about one Ansetzung, from whichever of its confirmed seats presses first, and the seat it came from.
 

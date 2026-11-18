@@ -1,7 +1,4 @@
-from datetime import datetime
-from typing import Annotated
-
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.address_change.crud import end_the_change_in_session
@@ -15,7 +12,7 @@ from app.api.grants.crud import (
     start_the_handover_in_session,
     stop_the_handover_in_session,
 )
-from app.api.grants.guard import verify_actor_is_admin
+from app.api.grants.guard import ADMIN_TIER
 from app.api.grants.schemas import FLGrantRow, FLGrantsListResponse, FLGrantWriteResponse, FLPostGrantPayload
 from app.api.grants.services import (
     find_barred_refusal,
@@ -24,31 +21,30 @@ from app.api.grants.services import (
     find_only_owner_refusal,
     find_owner_row_refusal,
 )
-from app.core.config import API_VERSION
 from app.core.crud import refuse
 from app.core.dependencies import (
     AddressChangeCollection,
     BanListCollection,
     DBClient,
+    GermanyNow,
     GrantsCollection,
     GrantsReadCollection,
     OutboxCollection,
-    get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import by_id
-from app.core.security import bind_actor, get_actor_email, verify_access_admin
+from app.core.security import ActorEmail
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/grants",
-    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
+    prefix="/grants",
+    dependencies=ADMIN_TIER,
 )
 
 
-@router.get("", response_model=FLGrantsListResponse, summary="List who may enter the administration")
+@router.get("", summary="List who may enter the administration")
 async def get_grants(grants_collection: GrantsReadCollection) -> FLGrantsListResponse:
     """Every grant by address: its tier, when it holds, and when a handover to it completes.
 
@@ -72,16 +68,16 @@ async def get_grants(grants_collection: GrantsReadCollection) -> FLGrantsListRes
     )
 
 
-@router.post("", response_model=FLGrantWriteResponse, status_code=201, summary="Add an administrator")
+@router.post("", status_code=201, summary="Add an administrator")
 async def post_grant(
-    payload: Annotated[FLPostGrantPayload, Body()],
+    payload: FLPostGrantPayload,
     grants_collection: GrantsCollection,
     ban_list_collection: BanListCollection,
     address_changes_collection: AddressChangeCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    operator: str = Depends(get_actor_email),
-    now: datetime = Depends(get_germany_now),
+    operator: ActorEmail,
+    now: GermanyNow,
 ) -> FLGrantWriteResponse:
     """Add an address as `administration`, holding once its wait has passed; only the owner adds one, and no request grants `owner`.
 
@@ -125,14 +121,14 @@ async def post_grant(
         return await session.with_transaction(judge_and_grant)
 
 
-@router.delete(by_id("grant_id"), response_model=FLGrantWriteResponse, summary="Remove an administrator, or withdraw a waiting addition")
+@router.delete(by_id("grant_id"), summary="Remove an administrator, or withdraw a waiting addition")
 async def delete_grant(
     grant_id: CustomRouteObjectId,
     grants_collection: GrantsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    operator: str = Depends(get_actor_email),
-    now: datetime = Depends(get_germany_now),
+    operator: ActorEmail,
+    now: GermanyNow,
 ) -> FLGrantWriteResponse:
     """Remove a grant for good, its address losing access on its next request, or withdraw an addition still waiting.
 
@@ -168,15 +164,15 @@ async def delete_grant(
     return FLGrantWriteResponse(grant_id=grant_id)
 
 
-@router.post(f"{by_id('grant_id')}/handover", response_model=FLGrantWriteResponse, summary="Hand the owner role over to an administrator")
+@router.post(f"{by_id('grant_id')}/handover", summary="Hand the owner role over to an administrator")
 async def post_handover(
     grant_id: CustomRouteObjectId,
     grants_collection: GrantsCollection,
     ban_list_collection: BanListCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    operator: str = Depends(get_actor_email),
-    now: datetime = Depends(get_germany_now),
+    operator: ActorEmail,
+    now: GermanyNow,
 ) -> FLGrantWriteResponse:
     """Start handing the owner role to an administrator in effect, completing once its wait has passed; the owner stays the owner until then.
 
@@ -214,14 +210,14 @@ async def post_handover(
     return FLGrantWriteResponse(grant_id=grant_id)
 
 
-@router.delete(f"{by_id('grant_id')}/handover", response_model=FLGrantWriteResponse, summary="Stop a waiting handover")
+@router.delete(f"{by_id('grant_id')}/handover", summary="Stop a waiting handover")
 async def delete_handover(
     grant_id: CustomRouteObjectId,
     grants_collection: GrantsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    operator: str = Depends(get_actor_email),
-    now: datetime = Depends(get_germany_now),
+    operator: ActorEmail,
+    now: GermanyNow,
 ) -> FLGrantWriteResponse:
     """Stop a waiting handover, the role staying with the owner; only the owner stops one, and every holder in effect is told."""
 

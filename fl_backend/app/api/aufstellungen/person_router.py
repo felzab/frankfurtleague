@@ -1,17 +1,15 @@
-from datetime import datetime
 from http import HTTPStatus
-from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Response
+from fastapi import APIRouter, Response
 
 from app.api.aufstellungen.schemas import FLAufstellungPayload, FLAufstellungResponse
 from app.api.aufstellungen.screen import AufstellungReads, SeatHolder, SeatSaver, read_aufstellung_screen, save_aufstellung_screen
 from app.api.identity.lookup import SubjectLookup
-from app.core.config import API_VERSION
 from app.core.dependencies import (
     AufstellungenCollection,
     AufstellungenReadCollection,
     DBClient,
+    GermanyNow,
     SaisonsCollection,
     SaisonSpielerReadCollection,
     SaisonTeamsCollection,
@@ -19,15 +17,14 @@ from app.core.dependencies import (
     SpielerCollection,
     SpieleReadCollection,
     SpielerReadCollection,
-    get_germany_now,
 )
 from app.core.routing import by_id
-from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
+from app.core.security import PERSON_TIER, PersonIdentifier
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/aufstellungen",
-    dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
+    prefix="/aufstellungen",
+    dependencies=PERSON_TIER,
 )
 
 # `/self`, its own segment: the admin router serves the same fixture and club under the bare path, and one path in
@@ -35,7 +32,7 @@ router = APIRouter(
 SELF_PATH = f"{by_id('spiel_id')}{by_id('team_id')}/self"
 
 
-@router.get(SELF_PATH, response_model=FLAufstellungResponse, summary="One club's line-up for one fixture as its seat holder reads it")
+@router.get(SELF_PATH, summary="One club's line-up for one fixture as its seat holder reads it")
 async def get_aufstellung_self(
     spiel_id: CustomRouteObjectId,
     team_id: CustomRouteObjectId,
@@ -46,7 +43,7 @@ async def get_aufstellung_self(
     aufstellungen_collection: AufstellungenReadCollection,
     records: SubjectLookup,
     session: SnapshotSession,
-    now: datetime = Depends(get_germany_now),
+    now: GermanyNow,
 ) -> FLAufstellungResponse:
     """The line-up screen of one club for one fixture, for a person holding any contact seat on that club in the fixture's season.
 
@@ -70,14 +67,13 @@ async def get_aufstellung_self(
 
 @router.put(
     SELF_PATH,
-    response_model=FLAufstellungResponse,
     summary="Save one club's line-up for one fixture as its seat holder",
     responses={201: {"model": FLAufstellungResponse, "description": "The line-up did not stand before, and this save created it"}},
 )
 async def put_aufstellung_self(
     spiel_id: CustomRouteObjectId,
     team_id: CustomRouteObjectId,
-    aufstellung_data: Annotated[FLAufstellungPayload, Body()],
+    aufstellung_data: FLAufstellungPayload,
     response: Response,
     identifier: PersonIdentifier,
     spiele_collection: SpieleReadCollection,
@@ -88,7 +84,7 @@ async def put_aufstellung_self(
     saison_teams_collection: SaisonTeamsCollection,
     records: SubjectLookup,
     db: DBClient,
-    now: datetime = Depends(get_germany_now),
+    now: GermanyNow,
 ) -> FLAufstellungResponse:
     """Save the whole line-up of one club for one fixture, as any contact seat of the club may until one hour before kick-off.
 

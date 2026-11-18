@@ -1,8 +1,6 @@
-from datetime import datetime
 from http import HTTPStatus
-from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Response
+from fastapi import APIRouter, Response
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.account.services import find_own_entry_refusal
@@ -29,10 +27,10 @@ from app.api.spielberichte.services import (
     newly_named,
 )
 from app.api.spiele.services import spiel_label
-from app.core.config import API_VERSION
 from app.core.crud import find_stale_first_save_refusal, refuse
 from app.core.dependencies import (
     DBClient,
+    GermanyNow,
     SaisonsCollection,
     SaisonSpielerCollection,
     SaisonSpielerReadCollection,
@@ -44,19 +42,18 @@ from app.core.dependencies import (
     SpielerCollection,
     SpieleReadCollection,
     SpielerReadCollection,
-    get_germany_now,
 )
 from app.core.recording import ACT_BY_SCHIEDSRICHTER, record_act
 from app.core.routing import by_id
-from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
+from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomRouteObjectId
 
 # The referee's own router: the person's identifier is bound at router level, and each handler judges their referee
 # records in its own session.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/spielberichte",
-    dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
+    prefix="/spielberichte",
+    dependencies=PERSON_TIER,
 )
 
 BERICHT_PATH = f"{by_id('spiel_id')}/bericht"
@@ -64,7 +61,6 @@ BERICHT_PATH = f"{by_id('spiel_id')}/bericht"
 
 @router.get(
     BERICHT_PATH,
-    response_model=FLSpielberichtSchiedsrichterResponse,
     summary="One fixture's report as its referee reads it",
 )
 async def get_spielbericht_bericht(
@@ -77,7 +73,7 @@ async def get_spielbericht_bericht(
     spielberichte_collection: SpielberichteReadCollection,
     records: SubjectLookup,
     session: SnapshotSession,
-    now: datetime = Depends(get_germany_now),
+    now: GermanyNow,
 ) -> FLSpielberichtSchiedsrichterResponse:
     """What the booked referee's report form reads: the fixture, both clubs' live squads, and the stored report or null.
 
@@ -117,7 +113,6 @@ async def get_spielbericht_bericht(
 
 @router.put(
     BERICHT_PATH,
-    response_model=FLSpielberichtSchiedsrichterResponse,
     summary="Write one fixture's report as its referee",
     responses={
         201: {"model": FLSpielberichtSchiedsrichterResponse, "description": "The report did not stand before, and this write created it"},
@@ -125,7 +120,7 @@ async def get_spielbericht_bericht(
 )
 async def put_spielbericht_bericht(
     spiel_id: CustomRouteObjectId,
-    bericht_data: Annotated[FLSpielberichtPayload, Body()],
+    bericht_data: FLSpielberichtPayload,
     response: Response,
     identifier: PersonIdentifier,
     spiele_collection: SpieleCollection,
@@ -135,7 +130,7 @@ async def put_spielbericht_bericht(
     spielberichte_collection: SpielberichteCollection,
     records: SubjectLookup,
     db: DBClient,
-    now: datetime = Depends(get_germany_now),
+    now: GermanyNow,
 ) -> FLSpielberichtSchiedsrichterResponse:
     """Write the whole report of one fixture as its booked referee, replacing what stood, and never the fixture's result.
 

@@ -2,7 +2,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Annotated, Any, Final, Literal
 
-from fastapi import APIRouter, Body, Depends, Query
+from fastapi import APIRouter, Query
 from pymongo import ASCENDING, AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -30,7 +30,6 @@ from app.api.address_change.schemas import (
 from app.api.address_change.services import LIVE_TERMS, build_due_terms, build_lapsed_terms, compose_end_update, is_expired
 from app.api.identity.lookup import RecordCollections, SubjectLookup
 from app.core.codes import Code
-from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, patch_many_in_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
     ActionLogCollection,
@@ -38,6 +37,7 @@ from app.core.dependencies import (
     AddressChangeReadCollection,
     BewerbungenCollection,
     DBClient,
+    GermanyNow,
     GrantsCollection,
     MailboxAnchorsCollection,
     OutboxCollection,
@@ -45,13 +45,12 @@ from app.core.dependencies import (
     SaisonTeamsCollection,
     SchiedsrichterCollection,
     SpielerCollection,
-    get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.logging import fl_logger
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.routing import SAFE
-from app.core.security import verify_access_system
+from app.core.security import SYSTEM_TIER
 from app.core.transactions import UNKNOWN_COMMIT_RESULT, diagnosis_of, transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
@@ -59,8 +58,8 @@ from app.shared.tokens import hash_token
 
 # System tier: the clock ends a lapsed change and makes a due one take effect, and no administrator pressed anything.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/address_change",
-    dependencies=[Depends(verify_access_system)],
+    prefix="/address_change",
+    dependencies=SYSTEM_TIER,
 )
 
 # A call's share, each due change a transaction of its own inside the request's deadline, `REQUEST_DEADLINE_S`; a dearer
@@ -197,7 +196,6 @@ async def _make_the_due_change_take_effect(
 
 @router.post(
     "/sweep",
-    response_model=FLAddressChangeSweepResponse,
     summary="End the lapsed address changes, and make the due ones take effect",
 )
 async def sweep_address_change(
@@ -214,7 +212,7 @@ async def sweep_address_change(
     action_log_collection: ActionLogCollection,
     mailbox_anchors_collection: MailboxAnchorsCollection,
     db: DBClient,
-    germany_now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> FLAddressChangeSweepResponse:
     """End a share of the changes whose step lapsed, and make each due one take effect, or end it where its judgement now refuses it.
 
@@ -324,7 +322,7 @@ async def sweep_address_change(
 
 
 # Server to server alone: the answer names addresses. No claim holds a row, as moving an account twice finds none left.
-@router.get("/sweep/moves", response_model=FLAddressChangeMovesResponse, summary="List the sign-in accounts the effects still owe to carry")
+@router.get("/sweep/moves", summary="List the sign-in accounts the effects still owe to carry")
 async def get_address_change_moves(address_changes_collection: AddressChangeReadCollection) -> FLAddressChangeMovesResponse:
     """The ended changes still owing to carry a sign-in account to their new address, oldest first and a page at a time.
 
@@ -346,11 +344,10 @@ async def get_address_change_moves(address_changes_collection: AddressChangeRead
 
 @router.post(
     "/sweep/moves/done",
-    response_model=FLAddressChangeMovesDoneResponse,
     summary="Take the carries done off their changes",
 )
 async def post_address_change_moves_done(
-    done_data: Annotated[FLAddressChangeMovesDonePayload, Body()],
+    done_data: FLAddressChangeMovesDonePayload,
     address_changes_collection: AddressChangeCollection,
 ) -> FLAddressChangeMovesDoneResponse:
     """Take the owed carry off each named change, counting the ones that owed one; an id owing none is left alone."""
@@ -368,12 +365,11 @@ async def post_address_change_moves_done(
 # the body and the address only in the answer.
 @router.post(
     "/address",
-    response_model=FLAddressChangeAddressResponse,
     summary="Say which address a live change would move to",
     openapi_extra=SAFE,
 )
 async def get_address_change_address(
-    address_data: Annotated[FLAddressChangeAddressPayload, Body()],
+    address_data: FLAddressChangeAddressPayload,
     address_changes_collection: AddressChangeReadCollection,
 ) -> FLAddressChangeAddressResponse:
     """The new address, folded, of the live change a new-mailbox link token or a change id names.

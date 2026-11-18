@@ -1,7 +1,6 @@
-from datetime import datetime
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.results import InsertOneResult
@@ -17,33 +16,31 @@ from app.api.ban_list.schemas import (
 )
 from app.api.ban_list.services import compose_barred_until_saison_id, find_admin_refusal, find_no_saison_refusal
 from app.api.grants.crud import pull_the_list_to_judge
-from app.api.grants.guard import verify_actor_is_admin
+from app.api.grants.guard import ADMIN_TIER
 from app.api.outbox.schemas import FLBanData
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.saisons.crud import pull_governing_saison_id
-from app.core.config import API_VERSION
 from app.core.crud import anchor_in_db, delete_many_from_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     AddressChangeReadCollection,
     BanListCollection,
     BanListReadCollection,
     DBClient,
+    GermanDay,
+    GermanyNow,
     GrantsCollection,
     OutboxCollection,
     SaisonsCollection,
-    get_german_date_str,
-    get_germany_now,
 )
 from app.core.recording import record_act
 from app.core.routing import by_id
-from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/ban_list",
-    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
+    prefix="/ban_list",
+    dependencies=ADMIN_TIER,
 )
 
 
@@ -75,7 +72,7 @@ async def _pull_the_season_a_ban_counts_from(
     return str(running_saison_id)
 
 
-@router.get("", response_model=FLBanListResponse, summary="List the banned addresses")
+@router.get("", summary="List the banned addresses")
 async def get_ban_list_entries(ban_list_collection: BanListReadCollection) -> FLBanListResponse:
     """Every ban, newest first, with the address, why, on which day and the last season it covers."""
 
@@ -86,20 +83,19 @@ async def get_ban_list_entries(ban_list_collection: BanListReadCollection) -> FL
 
 @router.post(
     "",
-    response_model=FLPostBanListEntryResponse,
     status_code=201,
     summary="Ban an email address",
 )
 async def post_ban_list_entry(
-    ban_list_data: Annotated[FLPostBanListEntryPayload, Body()],
+    ban_list_data: FLPostBanListEntryPayload,
     ban_list_collection: BanListCollection,
     saisons_collection: SaisonsCollection,
     grants_collection: GrantsCollection,
     address_changes_collection: AddressChangeReadCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    now: GermanyNow,
 ) -> FLPostBanListEntryResponse:
     """Ban an address: it cannot sign in, and no mail leaves for it but the ban's own notice, sent where `notify` is set.
 
@@ -158,7 +154,6 @@ async def post_ban_list_entry(
 
 @router.delete(
     by_id("ban_list_entry_id"),
-    response_model=FLBanListWriteResponse,
     summary="Lift a ban",
 )
 async def delete_ban_list_entry(

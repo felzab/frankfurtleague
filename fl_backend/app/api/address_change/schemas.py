@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from app.api.address_change.services import FLAddressChangeNewState, FLAddressChangePreviousState
 from app.api.outbox.schemas import FLOutboxStatus
@@ -14,7 +14,7 @@ from app.shared.schemas.custom import (
 )
 from app.shared.schemas.kontakt import CustomEmail, CustomStoredAddress
 from app.shared.schemas.literals import FLAddressChangeEndKind, FLAddressChangeWaitsOn, FLAddressChangeWay, FLAdminTier
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.responses import BaseAPIResponse, BasePayload
 
 type FLAddressChangeAnswer = Literal["confirmed", "declined"]
 
@@ -80,9 +80,7 @@ class FLAddressChangeMovesResponse(BaseAPIResponse):
     moves: list[FLAddressChangeOpenMove]
 
 
-class FLAddressChangeMovesDonePayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class FLAddressChangeMovesDonePayload(BasePayload):
     ids: list[CustomObjectId] = Field(min_length=1, max_length=LIST_LIMIT_DEFAULT)
 
 
@@ -91,10 +89,8 @@ class FLAddressChangeMovesDoneResponse(BaseAPIResponse):
     done: int = Field(ge=0)
 
 
-class FLAddressChangeAddressPayload(BaseModel):
+class FLAddressChangeAddressPayload(BasePayload):
     """Exactly one key: the new mailbox's link token, or the change a re-send names."""
-
-    model_config = ConfigDict(extra="forbid")
 
     token: CustomToken | None = None
     address_change_id: CustomObjectId | None = None
@@ -168,9 +164,7 @@ class FLAddressChangeViewResponse(BaseAPIResponse):
     view: Annotated[FLAddressChangeViewNew | FLAddressChangeViewPrevious | FLAddressChangeViewEnded, Field(discriminator="state")]
 
 
-class FLAddressChangeAnswerPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class FLAddressChangeAnswerPayload(BasePayload):
     token: CustomToken
     # Required rather than defaulted: a page that omitted it would have the model answer for the person whether a mailbox is theirs.
     answer: FLAddressChangeAnswer
@@ -213,10 +207,8 @@ class FLAddressChangeAdminListResponse(BaseAPIResponse):
     changes: list[FLAddressChangeAdminOpen]
 
 
-class FLAddressChangeAdminPayload(BaseModel):
+class FLAddressChangeAdminPayload(BasePayload):
     """The address a change starts on, and the address it goes to."""
-
-    model_config = ConfigDict(extra="forbid")
 
     address: CustomEmail
     email: CustomEmail

@@ -1,7 +1,7 @@
 import functools
 import logging
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import Annotated, Any
 
 import pymongo
 import pytest
@@ -89,7 +89,7 @@ class FilteredQuery(BaseModel):
 
 
 @VALIDATION_APP.get(FILTERED_PATH)
-async def read_the_query(filters: FilteredQuery = Depends()) -> dict[str, str]:
+async def read_the_query(filters: Annotated[FilteredQuery, Depends()]) -> dict[str, str]:
     """Names the type its `team_id` reached it as."""
 
     return {"team_id": type(filters.team_id).__name__}
@@ -120,6 +120,14 @@ class TestFailureBodies:
         assert (set(response.json()), response.json()["fields"]) == ({"error_code", "trace_id", "fields"}, [])
         # The exact set, so a message copied into any header, under any name, moves this.
         assert set(response.headers) == {"www-authenticate", "content-length", "content-type"}
+
+    def test_a_405_allows_every_method_the_path_serves_across_its_routers(self):
+        """One match's methods alone is Starlette's own answer, and RFC 9110's `Allow` must list them all."""
+
+        # Read on the base tier's router and saved on the administrator's.
+        response = client().put(f"/api/v{API_VERSION}/spiele/{QUERY_ID}")
+
+        assert (response.status_code, response.headers["allow"]) == (405, "GET, PATCH")
 
 
 def refused(body: object) -> dict[str, Any]:

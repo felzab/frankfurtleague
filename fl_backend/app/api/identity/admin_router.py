@@ -1,12 +1,9 @@
-from datetime import datetime
-from typing import Annotated
-
-from fastapi import APIRouter, Body, Depends, status
+from fastapi import APIRouter, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.address_change.crud import others_naming
 from app.api.grants.crud import read_grants
-from app.api.grants.guard import verify_actor_is_admin
+from app.api.grants.guard import ADMIN_TIER
 from app.api.identity.crud import EACH_PERSON_GROUP, erase_everything, resolve_subject
 from app.api.identity.schemas import FLErasureAddressPayload, FLErasurePayload, FLErasureViewResponse
 from app.api.identity.services import (
@@ -18,7 +15,6 @@ from app.api.identity.services import (
     find_own_address_refusal,
 )
 from app.api.teams.services import is_played
-from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, refuse
 from app.core.dependencies import (
     ActionLogCollection,
@@ -28,6 +24,7 @@ from app.core.dependencies import (
     BewerbungenCollection,
     BewerbungenReadCollection,
     DBClient,
+    GermanyNow,
     GrantsCollection,
     GrantsReadCollection,
     OutboxCollection,
@@ -45,29 +42,27 @@ from app.core.dependencies import (
     SpielerCollection,
     SpieleReadCollection,
     SpielerReadCollection,
-    get_germany_now,
 )
 from app.core.journal import Journal
 from app.core.recording import record_act
 from app.core.routing import SAFE
-from app.core.security import bind_actor, get_actor_email, verify_access_admin
+from app.core.security import ActorEmail
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/identity",
-    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
+    prefix="/identity",
+    dependencies=ADMIN_TIER,
 )
 
 
 @router.post(
     "/erasure/view",
-    response_model=FLErasureViewResponse,
     summary="Count what an erasure of an address would remove",
     openapi_extra=SAFE,
 )
 async def get_erasure_view(
-    view_data: Annotated[FLErasureAddressPayload, Body()],
+    view_data: FLErasureAddressPayload,
     saison_teams_collection: SaisonTeamsReadCollection,
     bewerbungen_collection: BewerbungenReadCollection,
     schiedsrichter_collection: SchiedsrichterReadCollection,
@@ -77,8 +72,8 @@ async def get_erasure_view(
     grants_collection: GrantsReadCollection,
     address_changes_collection: AddressChangeReadCollection,
     session: SnapshotSession,
-    operator: str = Depends(get_actor_email),
-    now: datetime = Depends(get_germany_now),
+    operator: ActorEmail,
+    now: GermanyNow,
 ) -> FLErasureViewResponse:
     """Count what `POST /identity/erasure` would remove or empty for this address, by kind, naming nothing and storing nothing.
 
@@ -141,7 +136,7 @@ async def get_erasure_view(
     summary="Erase every record an address holds, on that person's request",
 )
 async def post_erasure(
-    erasure_data: Annotated[FLErasurePayload, Body()],
+    erasure_data: FLErasurePayload,
     spieler_collection: SpielerCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     saison_teams_collection: SaisonTeamsCollection,
@@ -157,8 +152,8 @@ async def post_erasure(
     outbox_collection: OutboxCollection,
     address_changes_collection: AddressChangeCollection,
     db: DBClient,
-    operator: str = Depends(get_actor_email),
-    germany_now: datetime = Depends(get_germany_now),
+    operator: ActorEmail,
+    germany_now: GermanyNow,
 ) -> None:
     """Erase every record an address holds, on a request that person made by mail, at once and as one write, as their own erasure does.
 

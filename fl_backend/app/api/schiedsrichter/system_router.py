@@ -1,23 +1,21 @@
-from datetime import datetime
 from typing import Final
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.schiedsrichter.crud import erase_referee_in_session
 from app.api.schiedsrichter.schemas import FLSchiedsrichterSweepResponse
 from app.api.schiedsrichter.services import build_erasure_due_filter
-from app.core.config import API_VERSION
 from app.core.crud import pull_many_from_db
-from app.core.dependencies import DBClient, SchiedsrichterCollection, SpielbestaetigungenCollection, SpieleCollection, get_germany_now
+from app.core.dependencies import DBClient, GermanyNow, SchiedsrichterCollection, SpielbestaetigungenCollection, SpieleCollection
 from app.core.recording import ACT_BY_SYSTEM, record_act
-from app.core.security import verify_access_system
+from app.core.security import SYSTEM_TIER
 from app.core.transactions import Batch, drain
 
 # System tier: the clock erases, and no administrator pressed anything.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/schiedsrichter/sweep",
-    dependencies=[Depends(verify_access_system)],
+    prefix="/schiedsrichter/sweep",
+    dependencies=SYSTEM_TIER,
 )
 
 # One transaction's referees: each erasure costs fewer commands than a pupil's, and the pupils' pass of the same size
@@ -25,13 +23,13 @@ router = APIRouter(
 SCHIEDSRICHTER_ERASED_PER_PAGE: Final = 10
 
 
-@router.post("", response_model=FLSchiedsrichterSweepResponse, summary="Erase the referee entries whose link lapsed unanswered or declined")
+@router.post("", summary="Erase the referee entries whose link lapsed unanswered or declined")
 async def sweep_schiedsrichter(
     schiedsrichter_collection: SchiedsrichterCollection,
     spiele_collection: SpieleCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     db: DBClient,
-    germany_now: datetime = Depends(get_germany_now),
+    germany_now: GermanyNow,
 ) -> FLSchiedsrichterSweepResponse:
     """Erase every referee entry nobody confirmed, or whose person objected, once the midnight after its link's last day has passed.
 

@@ -21,6 +21,17 @@ class BaseAPIResponse(BaseReadModel):
     """Every response body's base."""
 
 
+class BasePayload(BaseModel):
+    """Every request body's base, and the base of each model one nests: a key the model does not declare is refused.
+
+    Beside the read base, never above it: a read model refusing an unknown key would refuse a stored document the
+    collection has grown. A payload deriving from a read shape names this base last, since Pydantic merges a model's
+    bases' configurations in order and the later wins.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class FLRefusedField(BaseModel):
     # The first member of every `loc` FastAPI reports: a set that moves with FastAPI, never with this file.
     in_: Literal["body", "query", "path", "header", "cookie"] = Field(alias="in")

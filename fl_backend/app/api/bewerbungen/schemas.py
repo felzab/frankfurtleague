@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated, Literal, Self
 
-from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
+from pydantic import AfterValidator, BaseModel, BeforeValidator, Field, StringConstraints, TypeAdapter, model_validator
 
 from app.api.outbox.schemas import FLOutboxStatus
 
@@ -47,7 +47,7 @@ from app.shared.schemas.literals import (
     FLSchulform,
     FLTrikotFarbe,
 )
-from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
+from app.shared.schemas.responses import BaseAPIResponse, BasePayload, BaseReadModel
 
 # `submitted` is the only state a submission arrives in; the other two are the triage's, written by an administrator's
 # decision alone.
@@ -194,10 +194,8 @@ class FLMailboxAnchorRecord(Anchored):
     anchored_at: datetime
 
 
-class FLAcceptBewerbungPayload(BaseModel):
+class FLAcceptBewerbungPayload(BasePayload):
     """Which group the school enters, and the kit colour the league assigns it; the season is the application's own."""
-
-    model_config = ConfigDict(extra="forbid")
 
     gruppe: FLGruppenNames
     # Assigned rather than read off `trikot.wunschfarbe`: a wish is not an assignment, and two
@@ -209,10 +207,8 @@ class FLAcceptBewerbungPayload(BaseModel):
     version: CustomVersion
 
 
-class FLDeclineBewerbungPayload(BaseModel):
+class FLDeclineBewerbungPayload(BasePayload):
     """Why the application was declined."""
-
-    model_config = ConfigDict(extra="forbid")
 
     # The ceiling counts what arrives and the floor what is left after the strip, so the published `maxLength` is what the
     # write accepts and spaces alone are no reason.
@@ -346,10 +342,8 @@ class FLBewerbungKontaktpersonPayload(_KontaktpersonWritablePayload):
     """One of the three people, as a member of the public submits them, without a birthdate."""
 
 
-class FLBewerbungKontaktePayload(BaseModel):
+class FLBewerbungKontaktePayload(BasePayload):
     """The three people an application is reached through, all three required."""
-
-    model_config = ConfigDict(extra="forbid")
 
     trainer: FLBewerbungKontaktpersonPayload
     ansprechperson: FLBewerbungKontaktpersonPayload
@@ -379,10 +373,8 @@ class FLBewerbungAddressPayload(FLAddressPayload):
     ]
 
 
-class FLBewerbungSchulePayload(FLBewerbungSchule):
+class FLBewerbungSchulePayload(FLBewerbungSchule, BasePayload):
     """The club a new school proposes, bounded and stripped for the write."""
-
-    model_config = ConfigDict(extra="forbid")
 
     # Stripped before the floor counts it: `team_name` reaches a league table row. The ceilings are
     # here and not on the read model, which the triage reads a stored one through.
@@ -423,17 +415,13 @@ class FLBewerbungSchulePayload(FLBewerbungSchule):
     ]
 
 
-class FLBewerbungTrikotPayload(FLBewerbungTrikot):
-    model_config = ConfigDict(extra="forbid")
-
+class FLBewerbungTrikotPayload(FLBewerbungTrikot, BasePayload):
     # No floor: a school that owns no kit writes nothing here, so the empty string is the honest
     # answer. A ceiling all the same -- an anonymous caller writes it, and it is stored.
     existing_set: str = Field(max_length=BEWERBUNG_TRIKOT_SET_MAX_LENGTH)
 
 
-class FLBewerbungKaderPayload(FLBewerbungKader):
-    model_config = ConfigDict(extra="forbid")
-
+class FLBewerbungKaderPayload(FLBewerbungKader, BasePayload):
     # `ge=1` because a squad of nobody enters no season; `good_spieler` counts a subset of it, so
     # zero is its floor.
 
@@ -455,13 +443,11 @@ class FLBewerbungKaderPayload(FLBewerbungKader):
         return self
 
 
-class FLPostBewerbungPayload(BaseModel):
+class FLPostBewerbungPayload(BasePayload):
     """One school's application, as the public form submits it.
 
     `status`, `submitted_at` and `decision` are the server's.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     # The width on what arrives and again after the strip, so the published bound is what the write accepts.
     saison_id: Annotated[
@@ -579,10 +565,8 @@ class FLBewerbungEinwilligungViewResponse(BaseAPIResponse):
     answered_at: CustomOptionalDateString
 
 
-class FLBewerbungEinwilligungGiven(BaseModel):
+class FLBewerbungEinwilligungGiven(BasePayload):
     """One person's consent for one seat: their own birthdate, their two choices and the wording they saw."""
-
-    model_config = ConfigDict(extra="forbid")
 
     answer: Literal["given"]
     token: CustomToken
@@ -600,10 +584,8 @@ class FLBewerbungEinwilligungGiven(BaseModel):
         return self
 
 
-class FLBewerbungEinwilligungDeclined(BaseModel):
+class FLBewerbungEinwilligungDeclined(BasePayload):
     """One person's Widerspruch for one seat, which empties their slot: it carries nothing of them."""
-
-    model_config = ConfigDict(extra="forbid")
 
     answer: Literal["declined"]
     token: CustomToken

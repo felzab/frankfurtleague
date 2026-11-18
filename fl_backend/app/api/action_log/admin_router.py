@@ -1,31 +1,25 @@
-from typing import Annotated
-
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter
 from pymongo import DESCENDING
 
 from app.api.action_log.schemas import FLActionLogFilterPayload, FLActionLogListResponse
 from app.api.action_log.services import build_action_log_query
-from app.api.grants.guard import verify_actor_is_admin
+from app.api.grants.guard import ADMIN_TIER
 from app.core.concurrency import concurrently
-from app.core.config import API_VERSION
 from app.core.crud import pull_many_from_db
 from app.core.dependencies import ActionLogReadCollection
 from app.core.routing import SAFE
-from app.core.security import bind_actor, verify_access_admin
 from app.shared.schemas.bounds import ACTION_LOG_PAGE_SIZE
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/action_log",
-    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
+    prefix="/action_log",
+    dependencies=ADMIN_TIER,
 )
 
 
 # A POST that reads: `by` is an address and `q` whatever was typed, and a query string stands on every `http.answered`
 # log line, where the log's scrubber reads no `%40`.
-@router.post("/view", response_model=FLActionLogListResponse, summary="List recorded acts", openapi_extra=SAFE)
-async def get_action_log(
-    action_log_collection: ActionLogReadCollection, filters: Annotated[FLActionLogFilterPayload, Body()]
-) -> FLActionLogListResponse:
+@router.post("/view", summary="List recorded acts", openapi_extra=SAFE)
+async def get_action_log(action_log_collection: ActionLogReadCollection, filters: FLActionLogFilterPayload) -> FLActionLogListResponse:
     """The newest 50 acts the filters keep, starting after `cursor` where one is given."""
 
     # Paged by a range over `_id` rather than by a skip: no row repeats or drops at a seam, and no index is needed past

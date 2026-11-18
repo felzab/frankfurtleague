@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Annotated, Any, Final, Literal
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter, model_validator
+from pydantic import BaseModel, BeforeValidator, Field, TypeAdapter, model_validator
 
 from app.api.teams.schemas import FLAustritt
 from app.core.crud import Anchored
@@ -31,7 +31,7 @@ from app.shared.schemas.literals import (
     FLSonderereignis,
     FLSpielSide,
 )
-from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
+from app.shared.schemas.responses import BaseAPIResponse, BasePayload, BaseReadModel
 
 # Each tuple below answers one question, whoever asks it. They are deliberately not one predicate: a
 # single boolean would make independent questions agree by accident, and a field telling five events
@@ -184,10 +184,8 @@ class _SpielortBooking(BaseModel):
     spielort_id: CustomObjectId
 
 
-class FLSpielortFieldPayload(_SpielortBooking):
+class FLSpielortFieldPayload(_SpielortBooking, BasePayload):
     """The venue as the save sends it: which ground, and what this fixture pays for it."""
-
-    model_config = ConfigDict(extra="forbid")
 
     # No default, and it stays on the payload where the name does not: this is the fixture's own rent
     # rather than a copy of the venue's current default.
@@ -252,10 +250,8 @@ class _SpielSchiedsrichterNamed(BaseModel):
     name: CustomNonEmptyString | None
 
 
-class FLSpielSchiedsrichterFieldPayload(_SpielSchiedsrichterBooking):
+class FLSpielSchiedsrichterFieldPayload(_SpielSchiedsrichterBooking, BasePayload):
     """The referee as the save sends it: who, and what this fixture pays them."""
-
-    model_config = ConfigDict(extra="forbid")
 
     payment: int = Field(ge=0)
 
@@ -331,12 +327,11 @@ class FLSpielElfmeterschiessen(BaseModel):
         return self
 
 
-class FLSpielElfmeterschiessenPayload(FLSpielElfmeterschiessen):
+class FLSpielElfmeterschiessenPayload(FLSpielElfmeterschiessen, BasePayload):
     """A shoot-out as a save sends it: a key beside the two counts is refused, never dropped."""
 
     # Its own model, since a model's configuration reaches none nested in it, and the stored one stays lenient for the
     # documents it reads.
-    model_config = ConfigDict(extra="forbid")
 
 
 # A fixture's two bookings: its venue and its referee.
@@ -501,10 +496,8 @@ FLSpielSlotHolderListAdapter = TypeAdapter(list[FLSpielSlotHolder])
 
 
 # The reports' base, stating the destroyed result once, and the precondition a save names the results it deletes by.
-class FLSpielVoidedResult(BaseModel):
+class FLSpielVoidedResult(BasePayload):
     """A later fixture's stored result that a save deletes: its ground score, its shoot-out and a no-show, each null where it held none."""
-
-    model_config = ConfigDict(extra="forbid")
 
     # Beside the number, as a bracket fault carries it: a message names a fixture by `spiel_nr`, and
     # a caller matching that number against a list it read before the save can match the wrong one.
@@ -517,9 +510,7 @@ class FLSpielVoidedResult(BaseModel):
     voided_sonderereignis: FLSonderereignis | None
 
 
-class FLPatchSpielDataPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class FLPatchSpielDataPayload(BasePayload):
     # No `spiel_id`: the path names the match, the body describes the change (RFC 5789).
 
     # `empty_strings_to_none` turns an unpicked select's "" into null, the ordinary fixture, so

@@ -1,12 +1,12 @@
 from datetime import date, datetime
 from typing import get_args
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 from app.core.recording import FLAction, FLActionType
 from app.shared.schemas.bounds import ACTION_LOG_DAY_MAX, ACTION_LOG_DAY_MIN, ACTION_LOG_SEARCH_MAX_LENGTH, KONTAKT_EMAIL_MAX_LENGTH
 from app.shared.schemas.custom import CustomObjectId, FLUtcInstant
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.responses import BaseAPIResponse, BasePayload
 
 
 class FLActionLogRecord(BaseModel):
@@ -23,10 +23,8 @@ class FLActionLogRecord(BaseModel):
     trace_id: str
 
 
-class FLActionLogFilterPayload(BaseModel):
+class FLActionLogFilterPayload(BasePayload):
     """What the action log's read narrows by."""
-
-    model_config = ConfigDict(extra="forbid")
 
     # The last row of the page before.
     cursor: CustomObjectId | None = None

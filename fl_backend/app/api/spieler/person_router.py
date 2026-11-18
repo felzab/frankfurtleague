@@ -1,8 +1,7 @@
 from collections.abc import Mapping, Sequence
-from datetime import datetime
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Body, Depends, status
+from fastapi import APIRouter, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -35,7 +34,6 @@ from app.api.spieler.services import (
 )
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
     aggregate_many_from_db,
@@ -47,6 +45,8 @@ from app.core.crud import (
 )
 from app.core.dependencies import (
     DBClient,
+    GermanDay,
+    GermanyNow,
     SaisonsCollection,
     SaisonSpielerCollection,
     SaisonSpielerReadCollection,
@@ -54,14 +54,12 @@ from app.core.dependencies import (
     SnapshotSession,
     SpielerCollection,
     SpielerReadCollection,
-    get_german_date_str,
-    get_germany_now,
 )
 from app.core.journal import Journal
 from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_KONTAKT, FLAction, record_act
 from app.core.routing import by_id
-from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
+from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_evidence import FLEinwilligungChoice
 from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
@@ -71,8 +69,8 @@ from app.shared.schemas.literals import FLSpielerStufe
 # The person lane's identifier in place of `bind_actor` and the grants check, which a seat holder holding
 # no grant would fail.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/spieler/kader",
-    dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
+    prefix="/spieler/kader",
+    dependencies=PERSON_TIER,
 )
 
 
@@ -158,7 +156,7 @@ async def _the_row_as_written(
     return row
 
 
-@router.get(SQUAD_PATH, response_model=FLKaderResponse, summary="Read a team's squad as its seat holder")
+@router.get(SQUAD_PATH, summary="Read a team's squad as its seat holder")
 async def get_kader(
     team_id: CustomRouteObjectId,
     saison_id: str,
@@ -188,14 +186,13 @@ async def get_kader(
 
 @router.patch(
     ROW_PATH,
-    response_model=FLKaderRow,
     summary="Update a squad entry as its team's seat holder",
 )
 async def patch_kader_row(
     team_id: CustomRouteObjectId,
     saison_id: str,
     spieler_id: CustomRouteObjectId,
-    row_data: Annotated[FLPatchKaderRowPayload, Body()],
+    row_data: FLPatchKaderRowPayload,
     identifier: PersonIdentifier,
     saison_spieler_collection: SaisonSpielerCollection,
     saisons_collection: SaisonsCollection,
@@ -268,7 +265,6 @@ async def patch_kader_row(
 
 @router.delete(
     ROW_PATH,
-    response_model=FLKaderRow,
     summary="Take a Spieler out of the squad as its team's seat holder (retire)",
 )
 async def delete_kader_row(
@@ -279,7 +275,7 @@ async def delete_kader_row(
     saison_spieler_collection: SaisonSpielerCollection,
     records: SubjectLookup,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
+    today: GermanDay,
 ) -> FLKaderRow:
     """
     Take a player out of this team's squad for the season, as any contact seat of the team may, the row staying.
@@ -318,8 +314,8 @@ async def delete_kader_row(
 
 # A router of its own for its prefix.
 spieler_router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/spieler",
-    dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
+    prefix="/spieler",
+    dependencies=PERSON_TIER,
 )
 
 
@@ -339,12 +335,12 @@ def _own_pupil_row(rows: Sequence[Mapping[str, Any]]) -> Mapping[str, Any]:
     summary="Change a signed-in pupil's own publication and media consent",
 )
 async def patch_einwilligung(
-    einwilligung_data: Annotated[FLAccountEinwilligungPayload, Body()],
+    einwilligung_data: FLAccountEinwilligungPayload,
     identifier: PersonIdentifier,
     spieler_collection: SpielerCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
-    germany_now: datetime = Depends(get_germany_now),
+    today: GermanDay,
+    germany_now: GermanyNow,
 ) -> None:
     """
     Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.
@@ -390,7 +386,7 @@ async def patch_einwilligung(
 
 
 # Declared ahead of `/self/{saison_id}`, whose parameter would otherwise take the word (FastAPI's "Order matters").
-@spieler_router.get("/self/saisons", response_model=FLOwnSaisonsResponse, summary="The seasons a signed-in pupil holds a squad row in")
+@spieler_router.get("/self/saisons", summary="The seasons a signed-in pupil holds a squad row in")
 async def get_self_saisons(identifier: PersonIdentifier, spieler_collection: SpielerReadCollection) -> FLOwnSaisonsResponse:
     """
     Every season the signed-in pupil holds a squad row in, the newest first, each with its span.
@@ -405,7 +401,6 @@ async def get_self_saisons(identifier: PersonIdentifier, spieler_collection: Spi
 
 @spieler_router.get(
     "/self/{saison_id}",
-    response_model=FLSpielerSaisonSelfResponse,
     summary="A signed-in pupil's own season: their squad row and their team's fixtures",
 )
 async def get_self_saison(
