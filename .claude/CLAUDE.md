@@ -46,8 +46,7 @@ else**, in the primary checkout — the repository's main working tree, never a 
 branch is the session's; an agent the session dispatches to write or to plant works on the branch
 the harness cuts for its worktree, and the coordinator lands what it commits. Cut it with
 `git checkout <base> && git pull --ff-only origin <base> && git checkout -b short-kebab-name`, the
-base being `follow-up` for a session of the follow-up programme, for as long as that branch exists,
-and `main` for every other change.
+base being the one the session's starter names, else `main`.
 
 This trigger, the exit-code rule under the gate and the signature ban bind every agent whatever its
 brief; a dispatched agent that writes or plants meets the trigger on its worktree's branch. A
@@ -130,10 +129,10 @@ job bounded by its own `timeout-minutes` and by no other time budget.
 - **What stays open is a GitHub issue, read and written with `gh issue`**: only a question the owner
   has not answered, a standing condition outside the repository, or a study the owner ordered. Its
   body carries the analysis, and it takes one kind label — `bug`, `enhancement`, `question`,
-  `documentation`, or `upstream` where it waits on someone else's release. An issue a redesign
-  session owns names it in its title, as „Redesign session N: …“; **an open issue whose title names
-  no redesign session is worked only when the owner names it.** `Closes #<n>` acts only in a pull
-  request into `main`; one resolved through a pull request into another branch is closed with
+  `documentation`, or `upstream` where it waits on someone else's release. **An open issue is worked
+  only when the owner names it, or when the plan of the running programme, which the owner approved,
+  assigns it to a session.** `Closes #<n>` acts only in a pull request into `main`; one resolved
+  through a pull request into another branch is closed with
   `gh issue close <n> --comment <that pull request's link>` once it has merged.
 
 ## 4. Stack and versions
