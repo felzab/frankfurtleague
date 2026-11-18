@@ -28,7 +28,6 @@ const OWN_SAISONS = { spieler: spielerGetSelfSaisons, schiedsrichter: schiedsric
  * A person whose Funktion the backend finds gone after the session's check is refused `role_not_held` here, for the
  * page to send on.
  */
-// `cache` memoizes per render pass. Never `"use cache"`, which keys on the arguments rather than the caller.
 export const readOwnSaisons = cache(async (kind: PersonKind): Promise<Saisons | null> => {
   const subject = await getSubjectSession();
   if (subject === null || !rolesOf(subject).roles.some((role) => role.kind === kind)) return null;

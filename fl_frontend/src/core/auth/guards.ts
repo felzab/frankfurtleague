@@ -106,8 +106,7 @@ export function requestActorOf(
   return { email, lane, authTime, factor };
 }
 
-// React's `cache` within a render and `oncePerRequest` within an action, never `"use cache"`, which
-// would hand one request's session to another: the backend still judges every call's actor.
+// React's `cache` within a render and `oncePerRequest` within an action, so one request reads its session once.
 const readAdminRequest = cache(
   oncePerRequest(async (): Promise<{ readonly session: JudgedSession; readonly actor: RequestActor } | { readonly refused: AdminRefusal }> => {
     const served = await readRequestSession();
