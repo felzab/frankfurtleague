@@ -193,8 +193,9 @@ message or a pull request body**, a handoff, a starter or any file outside the r
 and update every claim a change invalidates in the same commit, this file included. A session's
 plan, handoff and starter describe a session, so they may narrate it.
 
-An edit to this file binds no session already running, the one making it included, nor any agent that session dispatches,
-whose copy is the session's own: brief a changed rule to each agent in words.
+An edit to this file binds no session already running, the one making it included, nor any agent
+that session dispatches, whose copy is the session's own: brief a changed rule to each agent in
+words.
 
 ## 9. Commands and refusals
 
