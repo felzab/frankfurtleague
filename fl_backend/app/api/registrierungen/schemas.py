@@ -123,12 +123,6 @@ class FLPostRegistrierungPayload(BasePayload):
     stufe: FLSpielerStufe | None
 
 
-class FLPostRegistrierungResponse(BaseReadModel):
-    """The stored registration, the one a replayed key wrote first; its confirmation mail is owed in the same write."""
-
-    registrierung_id: CustomObjectId
-
-
 class FLRegistrierungAdminRow(BaseReadModel):
     """One pending registration as the Registrierungen list shows it: the pupil's name and nothing else of them."""
 
@@ -198,27 +192,9 @@ class FLRegistrierungConfirmationPayload(BasePayload):
         return self
 
 
-class FLRegistrierungConfirmationResponse(BaseReadModel):
-    """What the pupil just recorded, echoed so the answer panel states it rather than opening the link a second time."""
-
-    # One member: this page has no Widerspruch door. A pupil who does not want to be registered lets
-    # the link expire, and the sweep takes the row.
-    outcome: Literal["confirmed"]
-    birth_date: CustomDateString
-    scope: FLEinwilligungScope
-    media: bool
-
-
-# The backend decides and erases; nothing a pupil's record holds leaves the sweep's answer.
-
-
 class FLRegistrierungSweepResponse(BaseReadModel):
-    """One season's pass: the erasures made, each committed."""
+    """One season's pass: the rows it passed over, which the next pass meets again."""
 
-    saison_id: str
-    erased_unconfirmed: int
-    erased_without_decision: int
-    erased_declined: int
     # One sum over every clock rather than a count per clock: the line logging each row names its clock.
     failed: int
 
@@ -278,22 +254,6 @@ class FLRegistrierungAdmitPayload(BasePayload):
     spieler_id: CustomObjectId | None
 
 
-class FLRegistrierungAdmissionResponse(BaseReadModel):
-    """The squad entry the admission wrote, and the person it belongs to."""
-
-    # The admitted registration's id, deleted with it, so a caller can drop the row it pressed.
-    registrierung_id: CustomObjectId
-    spieler_id: CustomObjectId
-    team_id: CustomObjectId
-    saison_id: str
-    first_name: CustomNonEmptyString
-    last_name: CustomNonEmptyString
-    nummer: str | None
-    position: FLSpielerPosition | None
-    stufe: FLSpielerStufe | None
-    is_nachnominiert: bool
-
-
 # One member, and never free text: the reason reaches the pupil's mail, and a team's own words about
 # a pupil would be personal data the league then holds about them.
 FLRegistrierungDecisionReason = Literal["other_person"]
@@ -305,10 +265,3 @@ class FLRegistrierungDeclinePayload(BasePayload):
     # Required with no default, so an omission is never read as declining without a reason: the
     # reason picks the sentence the pupil is mailed.
     reason: FLRegistrierungDecisionReason | None
-
-
-class FLRegistrierungDeclineResponse(BaseReadModel):
-    """The declined registration, and the first name the seat holder is told the decision by."""
-
-    registrierung_id: CustomObjectId
-    first_name: CustomNonEmptyString

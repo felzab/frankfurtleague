@@ -3,7 +3,6 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterConfirmationPayload,
-    FLSchiedsrichterConfirmationResponse,
     FLSchiedsrichterConfirmationViewResponse,
 )
 from app.api.schiedsrichter.services import (
@@ -90,6 +89,7 @@ async def get_confirmation_view(
 
 @router.post(
     "",
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Confirm one Schiedsrichter's entry and consent",
 )
 async def post_confirmation(
@@ -98,7 +98,7 @@ async def post_confirmation(
     db: DBClient,
     today: GermanDay,
     germany_now: GermanyNow,
-) -> FLSchiedsrichterConfirmationResponse:
+) -> None:
     """Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.
 
     The caller drops the cached fixture list after a successful answer, or a withheld name goes on being served for as
@@ -107,7 +107,7 @@ async def post_confirmation(
 
     token_hash = hash_token(answer_data.token)
 
-    async def answer_for_the_person(session: AsyncClientSession) -> FLSchiedsrichterConfirmationResponse:
+    async def answer_for_the_person(session: AsyncClientSession) -> None:
         """One transaction for a single update, so a second press landing between the read and the write is refused by the stamp.
 
         Outside one, it would overwrite the answer already given.
@@ -144,15 +144,7 @@ async def post_confirmation(
             session=session,
         )
 
-        # The press's own answer rather than the stored row, which carries the whole referee: this answer is bounded to
-        # what the page renders.
-        return FLSchiedsrichterConfirmationResponse(
-            scope=answer_data.scope,
-            media=answer_data.media,
-            confirmed_at=today,
-        )
-
-    return await transact(db, answer_for_the_person)
+    await transact(db, answer_for_the_person)
 
 
 @router.post(

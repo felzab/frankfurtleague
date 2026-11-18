@@ -23,10 +23,8 @@ from app.api.registrierungen.crud import (
 from app.api.registrierungen.schemas import (
     FLOpenRegistrierung,
     FLOpenRegistrierungenResponse,
-    FLRegistrierungAdmissionResponse,
     FLRegistrierungAdmitPayload,
     FLRegistrierungDeclinePayload,
-    FLRegistrierungDeclineResponse,
 )
 from app.api.registrierungen.services import (
     SUBMITTED,
@@ -225,6 +223,7 @@ async def _pull_the_teams_open_row(
 
 @router.post(
     f"{by_id('registrierung_id')}/admit",
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Admit a registration into the team's squad",
 )
 async def admit(
@@ -238,14 +237,14 @@ async def admit(
     spieler_collection: SpielerCollection,
     records: SubjectLookup,
     db: DBClient,
-) -> FLRegistrierungAdmissionResponse:
+) -> None:
     """Admit one confirmed registration: the person holding its address, or a new one, joins the team's squad.
 
     `spieler_id` names that person where their name or birthdate differs and is null where nobody holds the address;
     the registration and every other pending one of its address this season are erased, and nobody is mailed.
     """
 
-    async def admit_the_pupil(session: AsyncClientSession) -> FLRegistrierungAdmissionResponse:
+    async def admit_the_pupil(session: AsyncClientSession) -> None:
         registrierung_raw = await _pull_the_teams_open_row(
             registrierungen_collection=registrierungen_collection,
             registrierung_id=registrierung_id,
@@ -361,25 +360,13 @@ async def admit(
             session=session,
         )
 
-        return FLRegistrierungAdmissionResponse(
-            registrierung_id=registrierung_id,
-            spieler_id=spieler_id,
-            team_id=team_id,
-            saison_id=saison_id,
-            first_name=registrierung_raw["first_name"],
-            last_name=registrierung_raw["last_name"],
-            nummer=kader_fields["nummer"],
-            position=kader_fields["position"],
-            stufe=kader_fields["stufe"],
-            is_nachnominiert=kader_fields["is_nachnominiert"],
-        )
-
     # The squad cap's own write moved the season.
-    return await transact(db, admit_the_pupil)
+    await transact(db, admit_the_pupil)
 
 
 @router.post(
     f"{by_id('registrierung_id')}/decline",
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Decline a registration",
 )
 async def decline(
@@ -393,14 +380,14 @@ async def decline(
     db: DBClient,
     today: GermanDay,
     germany_now: GermanyNow,
-) -> FLRegistrierungDeclineResponse:
+) -> None:
     """Decline one pending registration, confirmed or not, for a reason from a closed set or none.
 
     A pupil who confirmed their address is mailed the decision; an unconfirmed address may be a stranger's, and is
     mailed nothing.
     """
 
-    async def decline_for_the_team(session: AsyncClientSession) -> FLRegistrierungDeclineResponse:
+    async def decline_for_the_team(session: AsyncClientSession) -> None:
         registrierung_raw = await _pull_the_teams_open_row(
             registrierungen_collection=registrierungen_collection,
             registrierung_id=registrierung_id,
@@ -471,9 +458,7 @@ async def decline(
                 now=germany_now,
             )
 
-        return FLRegistrierungDeclineResponse(registrierung_id=registrierung_id, first_name=registrierung_raw["first_name"])
-
-    return await transact(db, decline_for_the_team)
+    await transact(db, decline_for_the_team)
 
 
 # A router of its own: a pending registrant reaches their own row, and no team's.

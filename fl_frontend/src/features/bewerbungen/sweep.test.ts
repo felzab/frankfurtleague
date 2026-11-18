@@ -3,18 +3,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { APIBadStatusError, APINetworkError } from "@/core/errors";
 import { networkFailure, refusal, serveBackend } from "@/test-support/backend";
 
-import type { FLAddressChangeSweepResponse, FLBewerbungSweepResponse } from "@/core/generated/client/types";
+import type { FLAddressChangeSweepResponse, FLBewerbungSweepResponse, FLRegistrierungSweepResponse } from "@/core/generated/client/types";
 
 /** One season half's answer, the rows it passed over counted. */
 const bewerbungPass = (failed = 0): FLBewerbungSweepResponse => ({ failed });
-const registrierungPass = (saisonId: string, failed = 0) => ({
-  saison_id: saisonId,
-  reminded: 0,
-  erased_unconfirmed: 0,
-  erased_without_decision: 0,
-  erased_declined: 0,
-  failed,
-});
+const registrierungPass = (failed = 0): FLRegistrierungSweepResponse => ({ failed });
 
 /** What the address changes' one call answers, its remainder `remaining`, naming no place, so the half's pass ends on it. */
 const adressen = (remaining = 0): FLAddressChangeSweepResponse => ({ removed: 0, effective: 0, discarded: 0, remaining, after: null });
@@ -43,10 +36,7 @@ function seasons(
     [LISTING, () => ({ saison_ids: saisonIds })],
     ...saisonIds.flatMap((saisonId): [string, () => unknown][] => [
       [`POST /bewerbungen/saisons/${saisonId}/sweep`, () => bewerbungPass(passedOver[`/bewerbungen/saisons/${saisonId}/sweep`])],
-      [
-        `POST /registrierungen/saisons/${saisonId}/sweep`,
-        () => registrierungPass(saisonId, passedOver[`/registrierungen/saisons/${saisonId}/sweep`]),
-      ],
+      [`POST /registrierungen/saisons/${saisonId}/sweep`, () => registrierungPass(passedOver[`/registrierungen/saisons/${saisonId}/sweep`])],
     ]),
     ["POST /address_change/sweep", () => addressChange],
     ["GET /address_change/sweep/moves", () => ({ moves: [] })],

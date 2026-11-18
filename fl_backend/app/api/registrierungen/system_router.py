@@ -43,6 +43,7 @@ async def sweep_registrierungen(
 
     A declined one goes once its wait after the decision has run out, an unconfirmed one past its deadline, and every one
     still undecided once the season is `past`; one whose erasure fails is counted in `failed` and met again next pass.
+    What each page erased is recorded in the action log.
     """
 
     # The read that answers the 404 carries the status: this season's own end is a clock, and a
@@ -142,7 +143,7 @@ async def sweep_registrierungen(
 
         return len(rows), await erase_page(ids, session)
 
-    declined, passed = await drain(
+    _, passed = await drain(
         db=db,
         page_of=erase_declined,
         page=SWEEP_PAGE,
@@ -151,11 +152,10 @@ async def sweep_registrierungen(
     )
     failed = len(passed)
 
-    undecided, unconfirmed = 0, 0
     # The season's end takes every row the deadline clock reads, whatever the pupil answered: no admission is taken for
     # a season that is over.
     if season_has_ended(saison_status=saison_status):
-        undecided, passed = await drain(
+        _, passed = await drain(
             db=db,
             page_of=erase_the_undecided,
             page=SWEEP_PAGE,
@@ -164,7 +164,7 @@ async def sweep_registrierungen(
         )
         failed += len(passed)
     else:
-        unconfirmed, passed = await drain(
+        _, passed = await drain(
             db=db,
             page_of=erase_the_unconfirmed,
             page=SWEEP_PAGE,
@@ -173,10 +173,4 @@ async def sweep_registrierungen(
         )
         failed += len(passed)
 
-    return FLRegistrierungSweepResponse(
-        saison_id=saison_id,
-        erased_unconfirmed=unconfirmed,
-        erased_without_decision=undecided,
-        erased_declined=declined,
-        failed=failed,
-    )
+    return FLRegistrierungSweepResponse(failed=failed)

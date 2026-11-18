@@ -18,11 +18,7 @@ const backend = serveBackend(({ method, path }) => {
   const saisonId = SAISONS.find(
     (id) => call === `POST /bewerbungen/saisons/${id}/sweep` || call === `POST /registrierungen/saisons/${id}/sweep`,
   );
-  if (saisonId !== undefined && path.startsWith("/bewerbungen/")) {
-    return { failed: 0 };
-  }
-  if (saisonId !== undefined)
-    return { saison_id: saisonId, reminded: 0, erased_unconfirmed: 0, erased_without_decision: 0, erased_declined: 0, failed: 0 };
+  if (saisonId !== undefined) return { failed: 0 };
   if (call === "POST /address_change/sweep") return { removed: 0, effective: 0, discarded: 0, remaining: 0, after: null };
   if (call === "GET /address_change/sweep/moves") return { moves: [] };
   if (call === "POST /schiedsrichter/sweep") return { erased: 0, failed: 0 };

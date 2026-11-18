@@ -2,7 +2,7 @@ from collections.abc import Mapping
 from http import HTTPStatus
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Header, status
 from pydantic import UUID4
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -13,9 +13,7 @@ from app.api.registrierungen.crud import judge_the_mailbox_in_session
 from app.api.registrierungen.schemas import (
     FLInvitationViewResponse,
     FLPostRegistrierungPayload,
-    FLPostRegistrierungResponse,
     FLRegistrierungConfirmationPayload,
-    FLRegistrierungConfirmationResponse,
     FLRegistrierungConfirmationViewResponse,
 )
 from app.api.registrierungen.services import (
@@ -75,6 +73,7 @@ from app.shared.schemas.bounds import (
 )
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.einwilligung import by_choice
+from app.shared.schemas.responses import FLCreatedResponse
 from app.shared.tokens import hash_token
 
 router = APIRouter(prefix="/registrierungen", dependencies=BASE_TIER)
@@ -203,7 +202,7 @@ async def post_registrierung(
     # pupil's own press is then answered as that one.
     # Optional, so a page loaded before the form sent one still submits, unprotected.
     idempotency_key: Annotated[UUID4 | None, Header()] = None,
-) -> FLPostRegistrierungResponse:
+) -> FLCreatedResponse:
     """Store one pupil's registration for the team and season the link belongs to, and owe its confirmation mail.
 
     A press repeating a stored `Idempotency-Key` answers the registration the first one stored, whatever its body says,
@@ -212,7 +211,7 @@ async def post_registrierung(
 
     key = None if idempotency_key is None else str(idempotency_key)
 
-    async def store_or_replay(session: AsyncClientSession) -> FLPostRegistrierungResponse:
+    async def store_or_replay(session: AsyncClientSession) -> FLCreatedResponse:
         # Before every judgement: a replay answers what the first request did, even where the invite
         # has been revoked or the window has closed since.
         # The id alone: the registration its first press stored, whose mail that press owed. A form whose details
@@ -220,7 +219,7 @@ async def post_registrierung(
         # a new registration, and one after a decline answers the declined row until the sweep erases it.
         stored = None if key is None else await registrierungen_collection.find_one(build_key_filter(key=key), ["_id"], session=session)
         if stored is not None:
-            return FLPostRegistrierungResponse(registrierung_id=stored["_id"])
+            return FLCreatedResponse(created_id=stored["_id"])
 
         invitation_raw = await _open_invitation(invitations_collection=invitations_collection, token=registrierung_data.token, session=session)
         saison_id = str(invitation_raw["saison_id"])
@@ -314,7 +313,7 @@ async def post_registrierung(
             now=germany_now,
         )
 
-        return FLPostRegistrierungResponse(registrierung_id=registrierung_id)
+        return FLCreatedResponse(created_id=registrierung_id)
 
     # The key lookup is the transaction's first read: a first press committed before this snapshot is
     # found, and one committed after it makes the anchor or the insert a write conflict `transact` retries.
@@ -369,6 +368,7 @@ async def get_confirmation_view(
 
 @router.post(
     "/confirmation",
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Confirm one registration and record the pupil's consent",
 )
 async def post_confirmation(
@@ -378,12 +378,12 @@ async def post_confirmation(
     db: DBClient,
     today: GermanDay,
     germany_now: GermanyNow,
-) -> FLRegistrierungConfirmationResponse:
+) -> None:
     """Record a pupil's own answer for the registration their link opens, which stays pending until the team decides."""
 
     token_hash = hash_token(answer_data.token)
 
-    async def answer_for_the_pupil(session: AsyncClientSession) -> FLRegistrierungConfirmationResponse:
+    async def answer_for_the_pupil(session: AsyncClientSession) -> None:
         # One transaction, so a second press landing between the read and the write is refused by the stamp rather than
         # overwriting the answer already given.
         raw = await registrierungen_collection.find_one(
@@ -414,13 +414,4 @@ async def post_confirmation(
             return_document=ReturnDocument.BEFORE,
         )
 
-        # The payload's own three rather than the updated document's: this answer is what the page
-        # states back, and re-reading the row would widen it to everything a registration holds.
-        return FLRegistrierungConfirmationResponse(
-            outcome="confirmed",
-            birth_date=answer_data.birth_date,
-            scope=answer_data.scope,
-            media=answer_data.media,
-        )
-
-    return await transact(db, answer_for_the_pupil)
+    await transact(db, answer_for_the_pupil)

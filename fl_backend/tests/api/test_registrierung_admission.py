@@ -284,6 +284,16 @@ async def kader_rows(database: AsyncDatabase, *, spieler_id: Any) -> list[Mappin
     return await database[Collection.SAISON_SPIELER].find({"spieler_id": spieler_id}).to_list(length=None)
 
 
+async def admitted_row(database: AsyncDatabase) -> Mapping[str, Any]:
+    """The one squad row of the person holding the registration's address, which the admission wrote or revived."""
+
+    person = await database[Collection.SPIELER].find_one({"email": FOLDED_EMAIL}, projection={"_id": 1})
+    assert person is not None
+    [row] = await kader_rows(database, spieler_id=person["_id"])
+
+    return row
+
+
 def a_stored_person(spieler_id: ObjectId, *, email: str | None = FOLDED_EMAIL, **fields: Any) -> dict[str, Any]:
     stored = {"birth_date": BIRTH_DATE, **fields}
     if email is not None:
@@ -307,14 +317,15 @@ class TestWhatAnAdmissionWrites:
     async def test_a_new_person_is_written_with_the_folded_address_and_the_registrations_record(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             registrierung_id = await seed(database, registrierung_document())
-            answer = await admit(database, client, registrierung_id)
+            await admit(database, client, registrierung_id)
+            stored = await persons(database)
 
-            return answer, await persons(database), await kader_rows(database, spieler_id=answer.spieler_id), await acts_of(database)
+            return registrierung_id, stored, await kader_rows(database, spieler_id=stored[0]["_id"]), await acts_of(database)
 
-        answer, stored, rows, acts = await on_a_league(mongo_replica_set_url, body)
+        registrierung_id, stored, rows, acts = await on_a_league(mongo_replica_set_url, body)
 
-        assert acts == [("registrierung.admitted", "kontakt", "Zorbanax", answer.registrierung_id)]
-        assert [person["_id"] for person in stored] == [answer.spieler_id]
+        assert acts == [("registrierung.admitted", "kontakt", "Zorbanax", registrierung_id)]
+        assert len(stored) == 1
         person = stored[0]
         assert (person["email"], person["first_name"], person["last_name"], person["birth_date"]) == (
             FOLDED_EMAIL,
@@ -389,12 +400,11 @@ class TestTheLateEntry:
     )
     async def test_the_marker_is_derived_at_the_admission(self, mongo_replica_set_url: str, window: Any, flagged: bool):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            answer = await admit(database, client, await seed(database, registrierung_document()))
-            rows = await kader_rows(database, spieler_id=answer.spieler_id)
+            await admit(database, client, await seed(database, registrierung_document()))
 
-            return answer.is_nachnominiert, rows[0]["is_nachnominiert"]
+            return (await admitted_row(database))["is_nachnominiert"]
 
-        assert await on_a_league(mongo_replica_set_url, body, registrierung=window) == (flagged, flagged)
+        assert await on_a_league(mongo_replica_set_url, body, registrierung=window) is flagged
 
     async def test_a_retired_nominee_keeps_the_mark_whatever_the_window_has_moved_to(self, mongo_replica_set_url: str):
         """The mark is never lifted within its season: derived afresh, a moved window would put a nominee back inside the cap."""
@@ -406,9 +416,9 @@ class TestTheLateEntry:
             await database[Collection.SAISON_SPIELER].insert_one(
                 documents.saison_spieler_document(stored_id, SAISON_ID, TEAM_OID, is_nachnominiert=True, inactive_since="2026-03-01")
             )
-            answer = await admit(database, client, await seed(database, registrierung_document()))
+            await admit(database, client, await seed(database, registrierung_document()))
 
-            return answer.is_nachnominiert
+            return (await admitted_row(database))["is_nachnominiert"]
 
         assert await on_a_league(mongo_replica_set_url, body, registrierung={"open": True, "end": SUBMITTED_AT}) is True
 
@@ -435,11 +445,13 @@ class TestTheKaderCap:
         """The cap holds no nominee: refused here, a pupil the league let register late could never be admitted."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return await admit(database, client, await seed(database, registrierung_document()))
+            await admit(database, client, await seed(database, registrierung_document()))
 
-        answer = await on_a_league(mongo_replica_set_url, body, kader_size=3, registrierung={"open": True, "end": "2026-03-29"})
+            return await admitted_row(database)
 
-        assert answer.is_nachnominiert is True
+        row = await on_a_league(mongo_replica_set_url, body, kader_size=3, registrierung={"open": True, "end": "2026-03-29"})
+
+        assert (row["inactive_since"], row["is_nachnominiert"]) == (None, True)
 
     async def test_the_registration_past_the_cap_is_refused_and_every_collection_stays(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -559,16 +571,16 @@ class TestThePersonAnAdmissionNames:
             before = await snapshot(database)
             code = await refused(admit(database, client, registrierung_id))
             untouched = await snapshot(database) == before
-            answer = await admit(database, client, registrierung_id, spieler_id=stored_id)
+            await admit(database, client, registrierung_id, spieler_id=stored_id)
 
-            return listed.registrierungen[0].person, code, untouched, answer, await persons(database)
+            return listed.registrierungen[0].person, code, untouched, await kader_rows(database, spieler_id=stored_id), await persons(database)
 
-        person, code, untouched, answer, stored = await on_a_league(mongo_replica_set_url, body)
+        person, code, untouched, rows, stored = await on_a_league(mongo_replica_set_url, body)
 
         assert person is not None and (person.spieler_id, person.deviates_from) == (stored_id, True)
         assert (code, untouched) == (Code.REGISTRIERUNG_PERSON_NOT_NAMED, True)
         # No second person: the yes overwrites the stored name and birthdate with the confirmed ones.
-        assert answer.spieler_id == stored_id
+        assert len(rows) == 1
         assert [(row["_id"], row["first_name"], row["birth_date"]) for row in stored] == [(stored_id, "Thessaly", BIRTH_DATE)]
 
     async def test_an_address_match_under_the_same_name_is_admitted_with_no_spieler_id(self, mongo_replica_set_url: str):
@@ -579,14 +591,14 @@ class TestThePersonAnAdmissionNames:
             await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, first_name="THESSALY"))
             registrierung_id = await seed(database, registrierung_document())
             listed = await read(database, client)
-            answer = await admit(database, client, registrierung_id)
+            await admit(database, client, registrierung_id)
 
-            return listed.registrierungen[0].person, answer.spieler_id, await persons(database)
+            return listed.registrierungen[0].person, await kader_rows(database, spieler_id=stored_id), await persons(database)
 
-        person, admitted, stored = await on_a_league(mongo_replica_set_url, body)
+        person, rows, stored = await on_a_league(mongo_replica_set_url, body)
 
         assert person is not None and person.deviates_from is False
-        assert admitted == stored_id
+        assert len(rows) == 1
         assert len(stored) == 1 and stored[0]["birth_date"] == BIRTH_DATE
 
     async def test_a_returning_persons_record_is_renewed_with_the_registrations_evidence(self, mongo_replica_set_url: str):
@@ -856,14 +868,12 @@ class TestOneAddressAdmittedTwiceAtOnce:
         the rival's person.
         """
 
-        answers: list[Any] = []
-
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             first = await seed(database, registrierung_document())
             second = await seed(database, registrierung_document(saison_id=NEXT_SAISON_ID, token="Zt5rYb8nK2wQ7xM4jL9cV6sD1fH3gP0aU5eI7oT2mXk"))
 
             async def the_rival_writes_the_person() -> None:
-                answers.append(await admit(database, client, second))
+                await admit(database, client, second)
 
             # Before the new person's insert, after the address was read and found nobody.
             spieler = InterleavedCollection(database[Collection.SPIELER], the_rival_writes_the_person, before="insert_one")
@@ -871,12 +881,14 @@ class TestOneAddressAdmittedTwiceAtOnce:
             # Serially the address resolves before any insert; landing inside, the first attempt reaches it.
             spieler.assert_landed_inside(serially=0)
 
-            return outcome, await persons(database), await kader_rows(database, spieler_id=answers[0].spieler_id)
+            stored = await persons(database)
+
+            return outcome, stored, await kader_rows(database, spieler_id=stored[0]["_id"])
 
         outcome, stored, rows = await on_a_league(mongo_replica_set_url, body)
 
         assert outcome == COMMITTED
-        assert [person["_id"] for person in stored] == [answers[0].spieler_id]
+        assert len(stored) == 1
         assert sorted(row["saison_id"] for row in rows) == [SAISON_ID, NEXT_SAISON_ID]
 
 

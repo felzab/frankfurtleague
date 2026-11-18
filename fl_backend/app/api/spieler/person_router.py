@@ -140,22 +140,6 @@ async def _allowed_stufen(*, saisons_collection: ReadCollection, saison_id: str,
     return FLSaisonRules.model_validate(saison_raw["rules"]).allowed_stufen
 
 
-async def _the_row_as_written(
-    *,
-    saison_spieler_collection: ReadCollection,
-    team_id: CustomObjectId,
-    saison_id: str,
-    spieler_id: CustomObjectId,
-    session: AsyncClientSession,
-) -> FLKaderRow:
-    """Read back inside the write's own transaction, so the shirt marker is the squad's after this write and before any other."""
-
-    kader = await _read_the_kader(saison_spieler_collection=saison_spieler_collection, team_id=team_id, saison_id=saison_id, session=session)
-    [row] = [row for row in kader if row.spieler_id == spieler_id]
-
-    return row
-
-
 @router.get(KADER_PATH, summary="Read a team's squad as its seat holder")
 async def get_kader(
     team_id: CustomObjectId,
@@ -177,8 +161,6 @@ async def get_kader(
     await refuse_without_a_seat(identifier, records, team_id=team_id, saison_id=saison_id, session=session)
 
     return FLKaderResponse(
-        team_id=team_id,
-        saison_id=saison_id,
         allowed_stufen=await _allowed_stufen(saisons_collection=saisons_collection, saison_id=saison_id, session=session),
         kader=await _read_the_kader(saison_spieler_collection=saison_spieler_collection, team_id=team_id, saison_id=saison_id, session=session),
     )
@@ -186,6 +168,7 @@ async def get_kader(
 
 @router.patch(
     ROW_PATH,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Update a squad entry as its team's seat holder",
 )
 async def patch_kader_row(
@@ -198,7 +181,7 @@ async def patch_kader_row(
     saisons_collection: SaisonsCollection,
     records: SubjectLookup,
     db: DBClient,
-) -> FLKaderRow:
+) -> None:
     """
     Replace a live squad row's `nummer`, `position`, `stufe` and `rolle`, as any contact seat of its team may.
 
@@ -207,7 +190,7 @@ async def patch_kader_row(
 
     row = _live_row(team_id=team_id, saison_id=saison_id, spieler_id=spieler_id)
 
-    async def edit_the_row(session: AsyncClientSession) -> FLKaderRow:
+    async def edit_the_row(session: AsyncClientSession) -> None:
         await refuse_without_a_seat(identifier, records, team_id=team_id, saison_id=saison_id, session=session)
 
         # The 404 before any rule: a rule judged on a row this team does not hold would tell the
@@ -234,7 +217,6 @@ async def patch_kader_row(
             session=session,
         )
 
-        # `BEFORE`: the answer is read back below with the whole squad, so the driver's image is discarded.
         await patch_one_in_db(
             collection=saison_spieler_collection,
             db_filter=row,
@@ -253,15 +235,12 @@ async def patch_kader_row(
             session=session,
         )
 
-        return await _the_row_as_written(
-            saison_spieler_collection=saison_spieler_collection, team_id=team_id, saison_id=saison_id, spieler_id=spieler_id, session=session
-        )
-
-    return await transact(db, edit_the_row)
+    await transact(db, edit_the_row)
 
 
 @router.delete(
     ROW_PATH,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Take a Spieler out of the squad as its team's seat holder (retire)",
 )
 async def delete_kader_row(
@@ -273,14 +252,14 @@ async def delete_kader_row(
     records: SubjectLookup,
     db: DBClient,
     today: GermanDay,
-) -> FLKaderRow:
+) -> None:
     """
     Take a player out of this team's squad for the season, as any contact seat of the team may, the row staying.
 
     The person stays in the league, and only an administrator brings the row back.
     """
 
-    async def take_the_row_out(session: AsyncClientSession) -> FLKaderRow:
+    async def take_the_row_out(session: AsyncClientSession) -> None:
         """Judge the seat, then stamp the row: the live-row filter is the write's own, so an ausgetragen row is a 404 here."""
 
         await refuse_without_a_seat(identifier, records, team_id=team_id, saison_id=saison_id, session=session)
@@ -301,11 +280,7 @@ async def delete_kader_row(
             session=session,
         )
 
-        return await _the_row_as_written(
-            saison_spieler_collection=saison_spieler_collection, team_id=team_id, saison_id=saison_id, spieler_id=spieler_id, session=session
-        )
-
-    return await transact(db, take_the_row_out)
+    await transact(db, take_the_row_out)
 
 
 spieler_router = APIRouter(

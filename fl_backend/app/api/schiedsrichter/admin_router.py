@@ -12,14 +12,12 @@ from app.api.schiedsrichter.schemas import (
     FLPatchSchiedsrichterPayload,
     FLPatchSchiedsrichterResponse,
     FLPostSchiedsrichterPayload,
-    FLPostSchiedsrichterResponse,
     FLSchiedsrichter,
     FLSchiedsrichterFilterParams,
     FLSchiedsrichterListAdapter,
     FLSchiedsrichterListResponse,
     FLSchiedsrichterMint,
     FLSchiedsrichterMintResponse,
-    FLSchiedsrichterReactivateResponse,
     FLSchiedsrichterSingleResponse,
 )
 from app.api.schiedsrichter.services import (
@@ -65,6 +63,7 @@ from app.core.recording import record_act
 from app.core.routing import by_id
 from app.core.transactions import transact
 from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.responses import FLCreatedResponse
 
 # Admin-guarded, not base: a referee is a pupil, so their contact details and school are admin-tier, as is the fee,
 # which is money.
@@ -131,8 +130,8 @@ async def post_schiedsrichter(
     db: DBClient,
     today: GermanDay,
     germany_now: GermanyNow,
-) -> FLPostSchiedsrichterResponse:
-    """Create a referee and owe them their confirmation link, answering the address and the deadline it goes to.
+) -> FLCreatedResponse:
+    """Create a referee and owe them their confirmation link.
 
     Entering a referee is the invitation, with no second press deciding whether they are asked, since a referee nobody
     asked is a name nobody consented to publish.
@@ -171,12 +170,7 @@ async def post_schiedsrichter(
     # owed that an administrator was then told had been refused.
     post_operation = await transact(db, judge_and_create)
 
-    return FLPostSchiedsrichterResponse(
-        created_id=post_operation.inserted_id,
-        # The payload's own address, which this transaction wrote: there is no earlier row for a
-        # rival save to have moved between the caller's read and the write.
-        confirmation=FLSchiedsrichterMint(deadline=confirmation_deadline_from(today=today), email=email),
-    )
+    return FLCreatedResponse(created_id=post_operation.inserted_id)
 
 
 @router.patch(
@@ -307,6 +301,7 @@ async def delete_schiedsrichter(
 
 @router.post(
     f"{by_id('schiedsrichter_id')}/reactivate",
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Bring a deactivated Schiedsrichter back",
 )
 async def reactivate_schiedsrichter(
@@ -316,13 +311,13 @@ async def reactivate_schiedsrichter(
     db: DBClient,
     today: GermanDay,
     germany_now: GermanyNow,
-) -> FLSchiedsrichterReactivateResponse:
+) -> None:
     """Bring a retired referee back into the picker and every default read.
 
-    One who has not answered is owed a fresh link, named in `confirmation`, since a retired referee's save mails nothing.
+    One who has not answered is owed a fresh link, since a retired referee's save mails nothing.
     """
 
-    async def reactivate_and_ask(session: AsyncClientSession) -> str | None:
+    async def reactivate_and_ask(session: AsyncClientSession) -> None:
         stored = await pull_one_from_db(
             collection=schiedsrichter_collection,
             db_filter={"_id": schiedsrichter_id},
@@ -331,7 +326,7 @@ async def reactivate_schiedsrichter(
         )
         # A second press finds the referee back: nothing moves, so nothing is recorded.
         if stored.get("inactive_since") is None:
-            return None
+            return
 
         email = stored["kontakt"]["email"] if owes_reactivation_mint(stored=stored) else None
 
@@ -359,14 +354,8 @@ async def reactivate_schiedsrichter(
                 session=session,
             )
 
-        return email
-
     # One transaction, so a row never comes back without the link it was owed.
-    minted_for = await transact(db, reactivate_and_ask)
-
-    return FLSchiedsrichterReactivateResponse(
-        confirmation=None if minted_for is None else FLSchiedsrichterMint(deadline=confirmation_deadline_from(today=today), email=minted_for),
-    )
+    await transact(db, reactivate_and_ask)
 
 
 @router.post(

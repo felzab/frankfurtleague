@@ -85,7 +85,7 @@ describe("each form's posted names meet its lane's keys", () => {
       default_payment: "25",
     };
     everyBoxTyped(names, typed);
-    takes(["POST", "/schiedsrichter", { created_id: ID, confirmation: { deadline: "2027-01-15", email: "erika@example.org" } }]);
+    takes(["POST", "/schiedsrichter", { created_id: ID }]);
 
     expect(await createSchiedsrichter(formOf(names, typed))).toStrictEqual({ ok: true, value: undefined });
     expect(requestsSent()).toStrictEqual([
@@ -230,7 +230,7 @@ describe("each form's posted names meet its lane's keys", () => {
     const typed = { birth_date: "1990-05-01", scope: "kader_public", media: "on" };
     everyBoxTyped(names, typed);
     await arriveAs(null);
-    takes(["POST", "/schiedsrichter/confirmation", { id: ID }]);
+    takes(["POST", "/schiedsrichter/confirmation", new Response(null, { status: 204 })]);
 
     const answer = await answerSchiedsrichter(formOf([...names, "media", "act", "token"], { ...typed, act: "primary", token: "link-token" }));
 

@@ -167,11 +167,11 @@ class TestWhatAConfirmationWrites:
 
     async def test_the_date_and_the_whole_record_land_together(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await answer(database, client, RAW)
+            await answer(database, client, RAW)
 
-            return response, await stored(database)
+            return await stored(database)
 
-        response, document = await on_a_league(mongo_replica_set_url, body)
+        document = await on_a_league(mongo_replica_set_url, body)
 
         assert document["birth_date"] == AT_THE_FLOOR
         assert document["einwilligung"] == {
@@ -186,12 +186,6 @@ class TestWhatAConfirmationWrites:
         }
         # NOT nulled on use: single use is the stamp's doing, so the reopened link can show its state.
         assert document["confirmation"]["token_hashes"] == [TOKEN_HASH]
-        assert (response.outcome, response.birth_date, response.scope, response.media) == (
-            "confirmed",
-            AT_THE_FLOOR,
-            "kader_public",
-            False,
-        )
 
 
 class TestTheLinkIsSpentByTheStamp:
