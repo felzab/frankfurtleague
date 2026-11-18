@@ -31,6 +31,7 @@ from app.api.outbox.services import enqueue_mails
 from app.api.saisons.crud import (
     count_spiele_by_saison,
     count_teams_by_saison,
+    listed_create_state,
     pull_create_state,
     pull_finale_by_saison,
     saisons_with_a_spiel_taken_place,
@@ -182,14 +183,14 @@ async def get_saisons_admin(
     saisons_raw = await pull_whole_from_db(collection=saisons_collection, db_filter={}, what="the seasons", sort_by=[("_id", 1)])
 
     saison_ids = [str(raw["_id"]) for raw in saisons_raw]
-    taken_place, finale_by_saison, teams_by_saison, spiele_by_saison, create_state = await concurrently(
+    taken_place, finale_by_saison, teams_by_saison, spiele_by_saison = await concurrently(
         saisons_with_a_spiel_taken_place(spiele_collection=spiele_collection, saison_ids=saison_ids, session=None),
         pull_finale_by_saison(spiele_collection=spiele_collection, saison_ids=saison_ids),
         count_teams_by_saison(saison_teams_collection=saison_teams_collection, saison_ids=saison_ids),
         count_spiele_by_saison(spiele_collection=spiele_collection, saison_ids=saison_ids),
-        pull_create_state(saisons_collection=saisons_collection),
     )
-    create_refusal = find_saison_create_refusal(future_stands=create_state.future_stands)
+    next_saison_id, future_stands = listed_create_state(saisons_raw)
+    create_refusal = find_saison_create_refusal(future_stands=future_stands)
     saisons = [
         {
             **with_schedule(raw),
@@ -205,7 +206,7 @@ async def get_saisons_admin(
     return FLSaisonsAdminListResponse.model_validate(
         {
             "saisons": saisons,
-            "next_saison_id": create_state.saison_id,
+            "next_saison_id": next_saison_id,
             "refusals": FLSaisonsAdminRefusals(create=None if create_refusal is None else create_refusal.error_code),
         }
     )
