@@ -50,12 +50,6 @@ class FLSpielort(_SpielortWritable, BaseReadModel):
 FLSpielortListAdapter = TypeAdapter(list[FLSpielort])
 
 
-class FLSpielorteFilterParams(BaseModel):
-    # A switch, not a value to match on: a caller wanting the retired venues wants them alongside
-    # the live ones.
-    include_inactive: bool = False
-
-
 class FLSpielorteListResponse(BaseReadModel):
     spielorte: list[FLSpielort]
 

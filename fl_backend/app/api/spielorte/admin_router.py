@@ -1,6 +1,4 @@
-from typing import Annotated
-
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.results import InsertOneResult
@@ -10,7 +8,6 @@ from app.api.spielorte.schemas import (
     FLPatchSpielortPayload,
     FLPostSpielortPayload,
     FLSpielort,
-    FLSpielorteFilterParams,
     FLSpielorteListResponse,
     FLSpielorteSingleResponse,
     FLSpielortListAdapter,
@@ -43,15 +40,12 @@ router = APIRouter(
 
 
 @router.get("", summary="List Spielorte")
-async def get_spielorte(
-    spielorte_collection: SpielorteReadCollection,
-    filters: Annotated[FLSpielorteFilterParams, Depends()],
-) -> FLSpielorteListResponse:
-    """Every venue in name order, the retired ones too where `include_inactive` asks for them."""
+async def get_spielorte(spielorte_collection: SpielorteReadCollection) -> FLSpielorteListResponse:
+    """Every venue in name order, the retired ones included, each with its `inactive_since`."""
 
     spielorte_raw = await pull_whole_from_db(
         collection=spielorte_collection,
-        db_filter={} if filters.include_inactive else {"inactive_since": None},
+        db_filter={},
         what="the venues",
         sort_by=[("name", 1)],
         collation=GERMAN_COLLATION,
