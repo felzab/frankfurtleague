@@ -179,7 +179,7 @@ async def bracket_faults_of(
     # record, so it sits beside the walk and covers group fixtures too.
     faults.extend(find_departed_occupants(spiele))
 
-    # Beside the walk for the same reason, and over whatever the read returned. Nothing ties a
+    # Beside the walk too, so it covers group fixtures, and over whatever the read returned. Nothing ties a
     # fixture's `saison_id` to its matchday's, so a scoped read cannot report a clash spanning two.
     faults.extend(find_double_entries(spiele))
 
@@ -930,14 +930,12 @@ async def save_spiel_in_session(
     now: datetime,
     # The act another route saves a fixture under, which records this one save; `None` for the save's own.
     act: FLAction | None = None,
-    # Required: every read here judges what the write stores, so a retry after a write conflict must re-read it all.
     session: AsyncClientSession,
 ) -> FLPatchSpielDataResponse:
     """Save one fixture wholesale inside the caller's transaction and resolve its season's bracket.
 
-    Safe to retry: every pass re-reads what it judges. With `adopts_bericht` the fixture's report is stamped adopted
-    where its document still stands at that version about the clubs the save leaves; a miss refuses nothing where the
-    fixture moved, and refuses a save moving nothing else.
+    With `adopts_bericht` the fixture's report is stamped adopted where its document still stands at that version about
+    the clubs the save leaves; a miss refuses nothing where the fixture moved, and refuses a save moving nothing else.
     """
 
     judged = await _judge_spiel_save(spiel_id=spiel_id, payload=payload, collections=collections, now=now, session=session)

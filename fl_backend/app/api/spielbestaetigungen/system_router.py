@@ -290,10 +290,7 @@ async def sweep_spielbestaetigungen(
         return FLSpielbestaetigungSweepResponse(saison_id=saison_id, closed=0, asked=0, reminded=0, mails=0, failed=0)
 
     async def close(session: AsyncClientSession, batch: Batch) -> _Closed:
-        """Judge every row holding its question against its fixture as it stands, then close a share, owing each notice.
-
-        Read in-session, so a retry re-judges.
-        """
+        """Judge every row holding its question against its fixture as it stands, then close a share, owing each notice."""
 
         rows = await batch.saw(
             pull_many_from_db(
@@ -421,10 +418,7 @@ async def sweep_spielbestaetigungen(
         return _Closed(closed=len(taken), mails=len(mails))
 
     async def mint(session: AsyncClientSession, batch: Batch) -> _Minted:
-        """Plan the window's fixtures, then write a share of rows, whole fixtures, soonest first, owing their mails.
-
-        Read in-session, so a retry re-judges.
-        """
+        """Plan the window's fixtures, then write a share of rows, whole fixtures, soonest first, owing their mails."""
 
         async def window() -> list[Mapping[str, Any]]:
             # The fixtures a row holds its party's question for, a discard's among them, read first inside the one read
@@ -635,10 +629,7 @@ async def sweep_spielbestaetigungen(
         )
 
     async def remind(session: AsyncClientSession, batch: Batch) -> list[int]:
-        """Owe a share of the day's reminders and stamp them, answering each row's mails, counted.
-
-        The pass's last transaction. Read in-session, so a retry re-judges.
-        """
+        """Owe a share of the day's reminders and stamp them, answering each row's mails, counted."""
 
         rows = await batch.saw(
             pull_many_from_db(
@@ -698,10 +689,7 @@ async def sweep_spielbestaetigungen(
         return [len(mails) for _, mails in taken]
 
     async def remind_aufstellungen(session: AsyncClientSession, batch: Batch) -> int:
-        """Owe each club its one line-up reminder for a fixture inside the window, answering the mails owed.
-
-        Read in-session, so a retry re-judges.
-        """
+        """Owe each club its one line-up reminder for a fixture inside the window, answering the mails owed."""
 
         spiele = await batch.saw(
             pull_named_spiele(

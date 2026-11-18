@@ -105,8 +105,6 @@ async def post_schiedsrichter_answer(
     today = clock.german_day(germany_now)
 
     async def answer(session: AsyncClientSession) -> FLSpielbestaetigungSchiedsrichterAnswerResponse:
-        """Judge, then write. Everything judged is read in-session, so a retry re-judges it."""
-
         subject = await roles_of(identifier, records, session=session)
         refuse(find_own_entry_refusal(held=bool(subject.schiedsrichter)))
 
@@ -224,8 +222,6 @@ async def post_team_answer(
     )
 
     async def answer(session: AsyncClientSession) -> FLSpielbestaetigungAnswerResponse:
-        """Judge, then write. Everything judged is read in-session, so a retry re-judges it."""
-
         subject = await roles_of(identifier, records, session=session)
         # `find_one` rather than `pull_one_from_db`, whose 404 would tell the caller which ids exist.
         row = await spielbestaetigungen_collection.find_one({"_id": spielbestaetigung_id}, projection=TEAM_ANSWER_FIELDS, session=session)
