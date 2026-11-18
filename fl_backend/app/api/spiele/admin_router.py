@@ -203,6 +203,5 @@ async def patch_spiel(
         )
 
     # `transact` rather than a bare `start_transaction`: two saves in one season can
-    # write-conflict on the same advanced fixture, and the callback is safe to retry, every pass
-    # re-reading what it judges.
+    # write-conflict on the same advanced fixture.
     return await transact(db, write_and_resolve_the_bracket)

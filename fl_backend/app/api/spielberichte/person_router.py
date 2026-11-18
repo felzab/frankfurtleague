@@ -141,8 +141,6 @@ async def put_spielbericht_bericht(
     payload = bericht_data.bericht
 
     async def write_the_report(session: AsyncClientSession) -> tuple[FLSpielberichtSchiedsrichterResponse, bool]:
-        """Judge, then write. Everything judged is read in-session, so a retry re-judges it."""
-
         subject = await roles_of(identifier, records, session=session)
         refuse(find_own_entry_refusal(held=bool(subject.schiedsrichter)))
         own = [record.schiedsrichter_id for record in subject.schiedsrichter]

@@ -930,14 +930,12 @@ async def save_spiel_in_session(
     now: datetime,
     # The act another route saves a fixture under, which records this one save; `None` for the save's own.
     act: FLAction | None = None,
-    # Required: every read here judges what the write stores, so a retry after a write conflict must re-read it all.
     session: AsyncClientSession,
 ) -> FLPatchSpielDataResponse:
     """Save one fixture wholesale inside the caller's transaction and resolve its season's bracket.
 
-    Safe to retry: every pass re-reads what it judges. With `adopts_bericht` the fixture's report is stamped adopted
-    where its document still stands at that version about the clubs the save leaves; a miss refuses nothing where the
-    fixture moved, and refuses a save moving nothing else.
+    With `adopts_bericht` the fixture's report is stamped adopted where its document still stands at that version about
+    the clubs the save leaves; a miss refuses nothing where the fixture moved, and refuses a save moving nothing else.
     """
 
     judged = await _judge_spiel_save(spiel_id=spiel_id, payload=payload, collections=collections, now=now, session=session)

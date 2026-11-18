@@ -266,8 +266,6 @@ async def save_aufstellung_screen(
     entries = payload.spieler
 
     async def write(session: AsyncClientSession) -> tuple[FLAufstellungResponse, bool]:
-        """Judge, then write. Everything judged is read in-session, so a retry re-judges it."""
-
         state = await _read_state(seat=seat, spiel_id=spiel_id, team_id=team_id, reads=reads, session=session)
         spiel = state.spiel
         _judge_the_fixture(state, locks=seat is not None, now=now)
