@@ -1415,8 +1415,8 @@ export interface FLEinwilligungEvidenceSet {
 /**
  * The scope this person's record is held on, the day they were seated, and what they answered.
  *
- * Kenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and a pupil's consent record holds
- * other values entirely.
+ * Kenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(f), the optional WhatsApp scope and the media
+ * answer alone being consents under Art. 6(1)(a), and a pupil's consent record holds other values entirely.
  */
 export interface FLKontaktKenntnisnahme {
   confirmed_at: string | null;

@@ -26,8 +26,7 @@ class Collection(StrEnum):
     SPIELER = "spieler"
     SPIELORTE = "spielorte"
     SCHIEDSRICHTER = "schiedsrichter"
-    #: A school's application to play a season. Stored as it arrived and never rewritten -- only the
-    #: triage moves `status`, `decision` and `team_id`.
+    #: A school's application to play a season.
     BEWERBUNGEN = "bewerbungen"
     #: One row per recorded act, naming who acted and what they did. The one collection nothing here
     #: references and nothing references back.

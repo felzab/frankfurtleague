@@ -77,7 +77,6 @@ class _SecretFields(BaseModel):
         return value
 
 
-# The file each secret field is read from: its alias where one is set, its own name otherwise.
 SECRET_FILES: Final = tuple(str(field.validation_alias or name) for name, field in _SecretFields.model_fields.items())
 
 

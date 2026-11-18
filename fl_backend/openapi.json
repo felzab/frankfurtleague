@@ -6331,7 +6331,7 @@
         "type": "object"
       },
       "FLKontaktKenntnisnahme": {
-        "description": "The scope this person's record is held on, the day they were seated, and what they answered.\n\nKenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and a pupil's consent record holds\nother values entirely.",
+        "description": "The scope this person's record is held on, the day they were seated, and what they answered.\n\nKenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(f), the optional WhatsApp scope and the media\nanswer alone being consents under Art. 6(1)(a), and a pupil's consent record holds other values entirely.",
         "properties": {
           "confirmed_at": {
             "anyOf": [
