@@ -24,7 +24,7 @@ from app.api.address_change.system_router import (
     post_address_change_moves_done,
     sweep_address_change,
 )
-from app.api.identity.lookup import MoveCollections
+from app.api.identity.lookup import get_move_collections
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.logging import JSONFormatter
@@ -136,7 +136,7 @@ async def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> 
 async def sweep(database: AsyncDatabase, client: AsyncMongoClient, *, after: Any = None, **replaced: Any) -> Any:
     return await sweep_address_change(
         params=FLAddressChangeSweepParams(after=after),
-        collections=MoveCollections(**wired(MoveCollections, database, **replaced)),
+        collections=get_move_collections(**wired(get_move_collections, database, **replaced)),
         db=client,
         germany_now=NOW,
     )

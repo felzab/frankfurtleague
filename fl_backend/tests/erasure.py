@@ -6,7 +6,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identity.admin_router import post_erasure
-from app.api.identity.lookup import ErasureCollections
+from app.api.identity.lookup import ErasureCollections, get_erasure_collections
 from app.api.identity.person_router import post_account_erasure
 from app.api.identity.schemas import FLErasurePayload
 from app.core.collections import Collection
@@ -17,9 +17,12 @@ from tests.handles import wired
 
 
 def erasure_collections(database: AsyncDatabase | Mapping[Collection, Any], **replaced: Any) -> ErasureCollections:
-    """The erasure's bundle as its routes' dependency builds it, over one database or a mapping of stand-ins, any handle replaced by name."""
+    """The erasure's bundle built by its routes' own dependency, over one database or a mapping of stand-ins, any handle replaced by name.
 
-    return ErasureCollections(**wired(ErasureCollections, database, **replaced))
+    Through the dependency rather than the class, so a handle it wires to the wrong collection fails every erasure here.
+    """
+
+    return get_erasure_collections(**wired(get_erasure_collections, database, **replaced))
 
 
 async def erased(
