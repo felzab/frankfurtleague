@@ -536,9 +536,11 @@ address but an administrator's and a grant act's grantee's.\
 **Is:** one minted registration link for one team's season, a row of `invitations` holding the
 link's hashes and a revocation date, null while it stands; it names nobody. It is not a
 `Bestätigung`: it authorises submitting one `Registrierung`, which the team's seats then decide. On
-screen it is the „Registrierungslink“.\
+screen it is the „Registrierungslink“. Sending it to the confirmed seats, one team's or every
+team's of a season, is `mail` in code and „senden“ on screen.\
 **In code:** `fl_backend/app/api/invitations/schemas.py :: FLInvitationRecord`, minted by
-`fl_backend/app/api/teams/admin_router.py :: post_invitation`.
+`fl_backend/app/api/teams/admin_router.py :: post_invitation` and mailed by its `post_invitation_mail`
+and `fl_backend/app/api/saisons/admin_router.py :: post_invitations_mail`.
 
 ### `aufnehmen` · `admit` — a team taking one registered pupil into its squad
 

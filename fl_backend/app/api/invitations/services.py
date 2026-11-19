@@ -133,14 +133,14 @@ def confirmed_recipients(*, kontakte: Any) -> list[InvitationRecipient]:
     return recipients
 
 
-class InvitationDispatchPlan(NamedTuple):
+class InvitationMailPlan(NamedTuple):
     """What one team's row says, before anything is minted."""
 
     recipient: list[InvitationRecipient]
     skipped: FLInvitationSkipReason | None
 
 
-def plan_invitation_dispatch(*, austritt: Any, kontakte: Any, invitation_raw: Mapping[str, Any] | None) -> InvitationDispatchPlan:
+def plan_invitation_mail(*, austritt: Any, kontakte: Any, invitation_raw: Mapping[str, Any] | None) -> InvitationMailPlan:
     """Who this team's link goes to, or why it is skipped.
 
     The season editor's rows and the press read this one plan, so a row never tells an administrator something the press
@@ -150,23 +150,23 @@ def plan_invitation_dispatch(*, austritt: Any, kontakte: Any, invitation_raw: Ma
     # The record's presence, never its `type` and never a flag beside it: a team is out of the
     # season by either route, and a skip naming the contact block would send somebody to repair it.
     if austritt is not None:
-        return InvitationDispatchPlan([], "austritt_entered")
+        return InvitationMailPlan([], "austritt_entered")
 
     # Its day and never the row's presence: a team holding a live link nobody was sent is a team this press exists to
     # reach, and skipping on the row would leave those links unsent for ever. Ahead of the seats: this press never
     # mails a sent link again, so a missing address over one, as the retention leaves a finished season, would send
     # somebody to repair what no press reads.
     if invitation_is_sent(invitation_raw):
-        return InvitationDispatchPlan([], "already_sent")
+        return InvitationMailPlan([], "already_sent")
 
     if not isinstance(kontakte, Mapping):
-        return InvitationDispatchPlan([], "no_kontakt_block")
+        return InvitationMailPlan([], "no_kontakt_block")
 
     recipients = confirmed_recipients(kontakte=kontakte)
     if not recipients:
-        return InvitationDispatchPlan([], "no_confirmed_kontaktperson")
+        return InvitationMailPlan([], "no_confirmed_kontaktperson")
 
-    return InvitationDispatchPlan(recipients, None)
+    return InvitationMailPlan(recipients, None)
 
 
 # Where a mailed invitation link lives. No address to judge: the row names none, its recipients standing on the season row, and the

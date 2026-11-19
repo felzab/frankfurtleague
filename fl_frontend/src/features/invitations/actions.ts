@@ -5,8 +5,8 @@ import { z } from "zod";
 import { action } from "@/core/action";
 import { frontend_config } from "@/core/config";
 import { COPY } from "@/core/copy";
-import { teamsDeleteInvitation, teamsPostInvitation, teamsPostInvitationDispatch } from "@/core/generated/client/sdk";
-import { TeamsPostInvitationDispatchBody, TeamsPostInvitationParams } from "@/core/generated/zod/inputs";
+import { teamsDeleteInvitation, teamsPostInvitation, teamsPostInvitationMail } from "@/core/generated/client/sdk";
+import { TeamsPostInvitationMailBody, TeamsPostInvitationParams } from "@/core/generated/zod/inputs";
 import { invitationLink } from "@/core/invitationEmail";
 
 const Key = z.object(TeamsPostInvitationParams.shape);
@@ -34,10 +34,10 @@ export const mintInvitation = action({
 export const mailInvitation = action({
   lane: "admin",
   name: "mailInvitation",
-  input: Key.extend(TeamsPostInvitationDispatchBody.shape),
+  input: Key.extend(TeamsPostInvitationMailBody.shape),
   ownWords: ["saison_past"],
   run: async ({ team_id, saison_id, invitation_id }) => {
-    const { mailed } = await teamsPostInvitationDispatch(team_id, saison_id, { invitation_id });
+    const { mailed } = await teamsPostInvitationMail(team_id, saison_id, { invitation_id });
     return mailed === 0
       ? { ok: false, reason: COPY.admin.saison.noConfirmedAddress }
       : { ok: true, value: undefined, note: COPY.shared.toast.linkSent };

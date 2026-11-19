@@ -28,7 +28,7 @@ from app.api.invitations.services import (
     confirmed_recipients,
     find_invitation_saison_past_refusal,
     owed_invitation_mails,
-    plan_invitation_dispatch,
+    plan_invitation_mail,
 )
 from app.api.kontakte.crud import clear_seats
 from app.api.kontakte.services import SEAT_FIELDS, build_accepted_application_pipeline, seated_people
@@ -378,7 +378,7 @@ async def get_team_saison_admin(
             invitation=FLInvitation.model_validate(live[0]) if live else None,
             running=saison_takes_registrierungen(saison_status=saison_raw["status"], registrierung=registrierung),
             paused=registrierung is not None and not registrierung["open"],
-            skipped=plan_invitation_dispatch(
+            skipped=plan_invitation_mail(
                 austritt=row_raw.get("austritt"),
                 kontakte=row_raw.get("kontakte"),
                 invitation_raw=live[0] if live else None,
@@ -1087,10 +1087,10 @@ async def delete_invitation(
 
 
 @router.post(
-    f"{by_id('team_id')}/saisons/{{saison_id}}/invitation/dispatch",
+    f"{by_id('team_id')}/saisons/{{saison_id}}/invitation/mail",
     summary="Mail this team's live registration link to its confirmed contact seats",
 )
-async def post_invitation_dispatch(
+async def post_invitation_mail(
     team_id: CustomObjectId,
     saison_id: str,
     mail_data: FLInvitationMailPayload,

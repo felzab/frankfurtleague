@@ -81,7 +81,7 @@ class FLInvitationMailResponse(BaseReadModel):
     mailed: int = Field(ge=0)
 
 
-class FLInvitationDispatchResponse(BaseReadModel):
+class FLInvitationsMailResponse(BaseReadModel):
     """How the season's press came out, counted in teams; a team it skipped is counted in neither."""
 
     mailed: int = Field(ge=0)
