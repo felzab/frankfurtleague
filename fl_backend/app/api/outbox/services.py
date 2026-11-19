@@ -193,20 +193,19 @@ def row_of(mail: OwedMail, *, now: datetime, secret: str | None, valid_until: da
         "lease": None,
         "leased_until": None,
         "attempts": 0,
-        "message_id": None,
         "delivery_reason": None,
         "delivery": None,
     }
 
 
-def final_update(state: FLOutboxRowState, *, now: datetime, message_id: str | None = None) -> Mapping[str, Any]:
+def final_update(state: FLOutboxRowState, *, now: datetime) -> Mapping[str, Any]:
     """A row's final state: the claim released, the data and any secret removed, deleted a retention from now.
 
     `$min`, so a sign-in row keeps its own lapse, which is sooner, and an ordinary row's retention dates from this state.
     """
 
     return {
-        "$set": {"state": state, "message_id": message_id, "lease": None, "leased_until": None},
+        "$set": {"state": state, "lease": None, "leased_until": None},
         "$unset": {"data": "", "secret": ""},
         "$min": {"erase_at": now.astimezone(UTC) + RETENTION},
     }
@@ -216,7 +215,7 @@ def final_update(state: FLOutboxRowState, *, now: datetime, message_id: str | No
 # pass or a replay deciding by the key owes nothing again, and nothing naming the mailbox it went to, what that mailbox
 # reported, or the record and seat a delivery is read by.
 TOMBSTONE_UPDATE: Final[Mapping[str, Any]] = {
-    "$set": {"to": None, "reference": None, "link": None, "team": None, "message_id": None, "delivery_reason": None, "delivery": None}
+    "$set": {"to": None, "reference": None, "link": None, "team": None, "delivery_reason": None, "delivery": None}
 }
 
 

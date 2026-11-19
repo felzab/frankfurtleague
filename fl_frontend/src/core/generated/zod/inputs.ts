@@ -946,8 +946,6 @@ export const outboxPostResultBodyDeliveryReasonOneMax = 128;
 export const outboxPostResultBodyDeliveryReasonOneRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 export const outboxPostResultBodyIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 
-export const outboxPostResultBodyMessageIdOneMax = 128;
-
 export const OutboxPostResultBody = zod
   .object({
     delivery_reason: zod.union([
@@ -956,7 +954,6 @@ export const OutboxPostResultBody = zod
     ]),
     id: zod.string().regex(outboxPostResultBodyIdRegExp),
     lease: zod.string().min(1),
-    message_id: zod.union([zod.string().min(1).max(outboxPostResultBodyMessageIdOneMax), zod.null()]),
     result: zod.enum(["sent", "retry", "abandon", "held"]),
   })
   .describe("The outcome of one handed-out mail's send, reported as the send returns.");

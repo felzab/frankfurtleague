@@ -75,12 +75,6 @@ interface OutboundMail {
 }
 
 /**
- * `null` where an accepted answer carried no id: the message went out, and no later delivery event
- * can be joined to it.
- */
-type MailAccepted = { id: string | null };
-
-/**
  * Raised where the deployment does not mail. Not a `MailSendError` and not among the shared errors: nothing
  * here reached a provider, so there is no status to carry and no retry decision to read off one.
  */
@@ -283,29 +277,28 @@ async function sendHandedOut(mail: FLOutboxHandout): Promise<Omit<FLOutboxResult
     // Given up rather than thrown: sealed under a key since replaced, the row would stop every drain until it lapses,
     // each claiming it first. The error's name alone, which quotes no value.
     logger.error("outbox.secret_unreadable", undefined, { kind: mail.data.kind, name: error instanceof Error ? error.name : undefined });
-    return { id: mail.id, result: "abandon", message_id: null, delivery_reason: null };
+    return { id: mail.id, result: "abandon", delivery_reason: null };
   }
   const message = mailFor(mail.data.kind, mail.data, { token: mail.token, secret, origin: frontend_config.AUTH_URL });
   if (message === undefined) {
     // Handed back rather than given up: the row waits until its deadline for a deployment that builds its kind.
     logger.error("outbox.kind_without_template", undefined, { kind: mail.data.kind });
-    return { id: mail.id, result: "retry", message_id: null, delivery_reason: null };
+    return { id: mail.id, result: "retry", delivery_reason: null };
   }
 
   try {
-    const { id } = await deliver({
+    await deliver({
       to: recipientOf(mail.to),
       ...renderMail(message),
       tags: { [OUTBOX_TAG]: mail.id },
       idempotencyKey: `outbox/${mail.id}/${String(mail.attempt)}`,
     });
-    return { id: mail.id, result: "sent", message_id: id, delivery_reason: null };
+    return { id: mail.id, result: "sent", delivery_reason: null };
   } catch (error) {
     // The row is the send's one record: the provider's own name for a refusal goes onto it, and no line.
     return {
       id: mail.id,
       result: resultOf(error),
-      message_id: null,
       delivery_reason: error instanceof MailSendError ? (error.providerErrorName ?? null) : null,
     };
   }
@@ -330,7 +323,7 @@ function resultOf(error: unknown): Exclude<FLOutboxResultPayloadResult, "sent"> 
  * provider's message**, which names the recipient -- `MailSendError` takes the stable `name` field
  * instead.
  */
-async function deliver({ to, subject, html, text, sender, tags, idempotencyKey }: OutboundMail): Promise<MailAccepted> {
+async function deliver({ to, subject, html, text, sender, tags, idempotencyKey }: OutboundMail): Promise<void> {
   const traceId = getRequestTraceId() ?? mintTraceId();
 
   // Both halves fail closed: the deployment says it is not the one that mails, and outside
@@ -373,7 +366,7 @@ async function deliver({ to, subject, html, text, sender, tags, idempotencyKey }
     tags: Object.entries(tags).map(([name, value]) => ({ name, value })),
   });
 
-  const attempt = async (): Promise<MailAccepted> => {
+  const attempt = async (): Promise<void> => {
     let res: Response;
     try {
       res = await fetch(MAIL_ENDPOINT, { method: "POST", headers, body, signal });
@@ -382,17 +375,10 @@ async function deliver({ to, subject, html, text, sender, tags, idempotencyKey }
     }
 
     if (res.ok) {
-      let id: string | null = null;
-      try {
-        const accepted: unknown = await res.json();
-        id = accepted && typeof accepted === "object" && "id" in accepted ? String(accepted.id) : null;
-      } catch (error) {
-        // A stalled body aborts here rather than inside `fetch`. An unreadable one still leaves a
-        // message that went: reporting the send as failed would take a decision back that stands.
-        if (error instanceof Error && error.name === "TimeoutError") throw failNetwork(error);
-      }
-
-      return { id };
+      // Nothing of an acceptance is read. Its body is released rather than left to the garbage collector, as undici's
+      // README asks of a body never consumed, and a release that fails still leaves a message that went.
+      await res.body?.cancel().catch(() => undefined);
+      return;
     }
 
     let providerErrorName: string | undefined;

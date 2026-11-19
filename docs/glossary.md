@@ -202,11 +202,11 @@ fields, nor the `Ansetzung`, when and where the fixture is set.\
 
 ### `Ansetzung` — the date, time, ground and two sides a fixture is set for
 
-**Is:** a fixture's `date`, `time`, ground and two sides, with `digest`, a SHA-256 over those
-five, as a `Spielbestätigung` answers about them; a change to any of the five is a new Ansetzung.
-It is neither the `Paarung` nor the `Spieltag`.\
+**Is:** a fixture's `date`, `time`, ground and two sides, as a `Spielbestätigung` answers about
+them; a change to any of the five is a new Ansetzung. It is neither the `Paarung` nor the
+`Spieltag`.\
 **In code:** `fl_backend/app/api/spielbestaetigungen/services.py :: ANSETZUNG_QUELLEN` and
-`:: ansetzung_digest_of`; stored on a row as
+`:: ansetzung_values_of`; stored on a row as
 `fl_backend/app/api/spielbestaetigungen/schemas.py :: FLSpielbestaetigungAnsetzung`.
 
 ### `Anpfiff` — kick-off

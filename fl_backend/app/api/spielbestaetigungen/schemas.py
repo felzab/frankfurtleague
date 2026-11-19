@@ -55,18 +55,13 @@ CustomSpielbestaetigungReason = Annotated[
 
 
 class FLSpielbestaetigungAnsetzung(BaseModel):
-    """The Ansetzung a row answers about: every input of `digest`, stored beside it.
-
-    A digest is opaque to an aggregation, so the public fixture's verdict compares these five values
-    rather than `digest`.
-    """
+    """The Ansetzung a row answers about, as the fixture held it at the mint: compared value by value with the fixture's."""
 
     date: CustomDateString
     time: CustomTimeString
     spielort_id: CustomObjectId | None
     team1_id: CustomObjectId
     team2_id: CustomObjectId
-    digest: str
 
 
 class FLSpielbestaetigungAppointment(BaseModel):

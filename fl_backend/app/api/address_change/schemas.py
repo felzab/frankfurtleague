@@ -39,7 +39,6 @@ class FLAddressChange(BaseModel):
     address: CustomStoredAddress | None
     email: CustomStoredAddress | None
     way: FLAddressChangeWay
-    sent_at: CustomDateString
     valid_until: datetime | None
     released_at: datetime | None
     confirmed_at: datetime | None

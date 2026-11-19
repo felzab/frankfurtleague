@@ -748,10 +748,9 @@ async def _move_the_registrierung_in_session(
         at=now,
         session=session,
     )
+    deadline = days_after(day=today, days=CONFIRMATION_DEADLINE_DAYS)
     if mailed:
-        update["$set"] |= {
-            "confirmation": compose_confirmation(today=today, deadline=days_after(day=today, days=CONFIRMATION_DEADLINE_DAYS), mailed=True)
-        }
+        update["$set"] |= {"confirmation": compose_confirmation(today=today, deadline=deadline, mailed=True)}
     else:
         update["$set"] |= {"confirmation.token_hashes": [], "confirmation.sent_at": None}
     await _patch_the_registrierung(registrierungen_collection, row, update, session=session)
@@ -775,6 +774,7 @@ async def _move_the_registrierung_in_session(
                     address=new_address,
                     team=str(junction["name"]),
                     saison_id=saison_id,
+                    deadline=deadline,
                 )
             ],
             now=now,

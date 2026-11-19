@@ -85,12 +85,23 @@ UNIQUE_INDEXES: Sequence[tuple[Collection, IndexModel]] = (
     # At most one owner. Checked at each write rather than at the commit, so a handover demotes before it promotes.
     (Collection.GRANTS, IndexModel(["admin_tier"], name="uniq_grant_owner", unique=True, partialFilterExpression={"admin_tier": "owner"})),
     # One open confirmation per party per Ansetzung: what makes a pass run twice mint once, and a second decline need a
-    # new digest rather than a refusal. Both party ids are keys, the one a row lacks indexing as null. `$type`, as a
-    # partial filter takes no equality on null.
+    # new Ansetzung rather than a refusal. Both party ids are keys, the one a row lacks indexing as null, and the
+    # Ansetzung is its five stored values, `ANSETZUNG_QUELLEN`'s keys. `$type`, as a partial filter takes no equality on
+    # null.
     (
         Collection.SPIELBESTAETIGUNGEN,
         IndexModel(
-            ["spiel_id", "party.kind", "party.team_id", "party.schiedsrichter_id", "ansetzung.digest"],
+            [
+                "spiel_id",
+                "party.kind",
+                "party.team_id",
+                "party.schiedsrichter_id",
+                "ansetzung.date",
+                "ansetzung.time",
+                "ansetzung.spielort_id",
+                "ansetzung.team1_id",
+                "ansetzung.team2_id",
+            ],
             name="uniq_spielbestaetigung_open",
             unique=True,
             partialFilterExpression={"answer": {"$type": "null"}, "closed": {"$type": "null"}},

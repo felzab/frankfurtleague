@@ -40,7 +40,7 @@ from app.api.spielbestaetigungen.schemas import (
 from app.api.spielbestaetigungen.services import (
     CLOSE_FIELDS,
     AnsetzungState,
-    ansetzung_digest_of,
+    ansetzung_values_of,
     answers_at_its_end,
     asked_with_its_move,
     austritte_of,
@@ -51,6 +51,7 @@ from app.api.spielbestaetigungen.services import (
     build_request_filter,
     build_unasked_filter,
     cancelled_notice_of,
+    compose_ansetzung,
     compose_asked_update,
     compose_closing_update,
     compose_reminder_update,
@@ -449,8 +450,8 @@ async def sweep_spielbestaetigungen(
     ) -> Callable[[Mapping[str, Any]], _MintPlan]:
         """What the mint writes for each of these fixtures, `read` their rows holding their party's question."""
 
-        held = {(row["spiel_id"], party_key(row["party"]), row["ansetzung"]["digest"]): row for row in read}
-        digests = {spiel["_id"]: ansetzung_digest_of(spiel) for spiel in spiele}
+        held = {(row["spiel_id"], party_key(row["party"]), ansetzung_values_of(row["ansetzung"])): row for row in read}
+        current = {spiel["_id"]: ansetzung_values_of(compose_ansetzung(spiel)) for spiel in spiele}
         by_id = {spiel["_id"]: spiel for spiel in spiele}
 
         # The clubs each row asked about too: a move's notice names the slot left by them, and its rows are judged
@@ -468,7 +469,7 @@ async def sweep_spielbestaetigungen(
         waiting: set[Any] = set()
         for row in sorted(read, key=lambda row: row["_id"]):
             spiel = by_id[row["spiel_id"]]
-            if row["ansetzung"]["digest"] == digests[spiel["_id"]]:
+            if ansetzung_values_of(row["ansetzung"]) == current[spiel["_id"]]:
                 continue
             if asked_with_its_move(row=row, spiel=spiel, austritte=austritte, now=germany_now):
                 moved.setdefault((spiel["_id"], party_key(row["party"])), []).append(row)
@@ -487,9 +488,8 @@ async def sweep_spielbestaetigungen(
             if spiel["_id"] in waiting or not request_is_due(spiel=spiel, austritte=austritte, now=germany_now, asked_before=asked_before):
                 return plan
 
-            digest = digests[spiel["_id"]]
             for party in parties_of(spiel):
-                existing = held.get((spiel["_id"], party_key(party), digest))
+                existing = held.get((spiel["_id"], party_key(party), current[spiel["_id"]]))
                 left = moved.get((spiel["_id"], party_key(party)), [])
                 plan.closed += len(left)
                 for row in left:
@@ -784,7 +784,7 @@ async def sweep_spielbestaetigungen(
                 team_id=team_id,
                 saison_id=saison_id,
                 # As the fixture's request states it, its ground among the rest.
-                appointment=spiel_mail_ansetzung_of(view_ansetzung_of(spiel)),
+                ansetzung=spiel_mail_ansetzung_of(view_ansetzung_of(spiel)),
                 due_at=marks.due_at,
             )
             owed_here = [

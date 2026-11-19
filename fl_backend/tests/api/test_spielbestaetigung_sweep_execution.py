@@ -18,8 +18,9 @@ from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungTeamAnswerPayload,
 )
 from app.api.spielbestaetigungen.services import (
-    ansetzung_digest_of,
+    ansetzung_values_of,
     build_holding_filter,
+    compose_ansetzung,
     compose_answer_update,
     compose_closing_update,
     compose_spielbestaetigung,
@@ -516,7 +517,7 @@ class TestARefereeHoldsOneQuestionAcrossAMoveAndBack:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            seen: list[tuple[list[str], str, list[bool]]] = []
+            seen: list[tuple[list[tuple[Any, ...]], tuple[Any, ...], list[bool]]] = []
             for time in (None, "19:00:00", "18:00:00"):
                 if time is not None:
                     await move(database, client, SPIEL, time=time)
@@ -526,8 +527,8 @@ class TestARefereeHoldsOneQuestionAcrossAMoveAndBack:
                 held = await rows(database, spiel_id=SPIEL, **{"party.kind": "schiedsrichter"}, **build_holding_filter())
                 seen.append(
                     (
-                        [row["ansetzung"]["digest"] for row in held],
-                        ansetzung_digest_of(spiel),
+                        [ansetzung_values_of(row["ansetzung"]) for row in held],
+                        ansetzung_values_of(compose_ansetzung(spiel)),
                         [einteilung.moved_from is not None for einteilung in passed.einteilungen],
                     )
                 )
@@ -536,7 +537,7 @@ class TestARefereeHoldsOneQuestionAcrossAMoveAndBack:
 
         seen = await on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)])
 
-        assert [held for held, _, _ in seen] == [[digest] for _, digest, _ in seen]
+        assert [held for held, _, _ in seen] == [[current] for _, current, _ in seen]
         # Asked first, then told of each move in the Einteilung asking the slot it moved to.
         assert [told for _, _, told in seen] == [[False], [True], [True]]
 
@@ -757,11 +758,11 @@ class TestAMovePastTheWindowIsAskedAtOnce:
 
         today = {"team1": "Alpha", "team2": "Beta", "date": TODAY, "time": "18:00:00", "spielort": "Sportpark"}
         assert (told.closed, told.requests, told.einteilungen) == (3, [], [])
-        assert sorted((notice.old.date, notice.moved_to, notice.stays, notice.asked_again) for notice in told.new_ansetzungen) == [
-            (NEXT_WEEK, today, True, False),
-            (NEXT_WEEK, today, True, False),
+        assert sorted((notice.old.date, notice.moved_to, notice.stays) for notice in told.new_ansetzungen) == [
+            (NEXT_WEEK, today, True),
+            (NEXT_WEEK, today, True),
         ]
-        assert [(notice.moved_to, notice.stays, notice.asked_again) for notice in told.schiedsrichter_new_ansetzungen] == [(today, True, False)]
+        assert [(notice.moved_to, notice.stays) for notice in told.schiedsrichter_new_ansetzungen] == [(today, True)]
 
     async def test_a_slot_left_with_no_hour_tells_every_party_still_on_it_of_the_move(self, mongo_replica_set_url: str):
         """Its notice names no new slot, so only `stays` tells a party still on the fixture from one the move took off it."""

@@ -1013,6 +1013,7 @@ class TestTheDecline:
                     address=address,
                     team="Zorbanax",
                     saison_id=SAISON_ID,
+                    deadline="2026-04-06",
                 )
                 await database[Collection.OUTBOX].insert_one(row_of(owed, now=MAIL_NOW, secret=None, valid_until=None))
             await decline(database, client, declined)

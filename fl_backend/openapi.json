@@ -2264,7 +2264,7 @@
       "FLAufstellungReminderData": {
         "description": "A club's one reminder that it has entered no line-up for a fixture: the pairing, the kick-off and the ground, and where it is entered.",
         "properties": {
-          "appointment": {
+          "ansetzung": {
             "$ref": "#/components/schemas/FLSpielMailAnsetzung"
           },
           "due_at": {
@@ -2296,7 +2296,7 @@
           "team",
           "team_id",
           "saison_id",
-          "appointment",
+          "ansetzung",
           "due_at"
         ],
         "title": "FLAufstellungReminderData",
@@ -6480,19 +6480,6 @@
             "title": "Lease",
             "type": "string"
           },
-          "message_id": {
-            "anyOf": [
-              {
-                "maxLength": 128,
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Message Id"
-          },
           "result": {
             "enum": [
               "sent",
@@ -6508,7 +6495,6 @@
           "lease",
           "id",
           "result",
-          "message_id",
           "delivery_reason"
         ],
         "title": "FLOutboxResultPayload",
@@ -8564,8 +8550,13 @@
         "type": "object"
       },
       "FLRegistrierungLinkData": {
-        "description": "A pupil's confirmation link; the window its mail states is a published bound, never carried here.",
+        "description": "A pupil's confirmation link, owed by the submission or a corrected address.",
         "properties": {
+          "deadline": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Deadline",
+            "type": "string"
+          },
           "kind": {
             "const": "registrierung_confirmation",
             "title": "Kind",
@@ -8583,7 +8574,8 @@
         "required": [
           "kind",
           "team",
-          "saison_id"
+          "saison_id",
+          "deadline"
         ],
         "title": "FLRegistrierungLinkData",
         "type": "object"
@@ -11196,10 +11188,6 @@
           "appointment": {
             "$ref": "#/components/schemas/FLSpielMailAppointment"
           },
-          "asked_again": {
-            "title": "Asked Again",
-            "type": "boolean"
-          },
           "kind": {
             "const": "spiel_moved",
             "title": "Kind",
@@ -11224,7 +11212,6 @@
             "type": "string"
           },
           "stays": {
-            "default": false,
             "title": "Stays",
             "type": "boolean"
           }
@@ -11234,8 +11221,7 @@
           "recipient",
           "appointment",
           "moved_to",
-          "stays",
-          "asked_again"
+          "stays"
         ],
         "title": "FLSpielMovedData",
         "type": "object"
@@ -11260,14 +11246,7 @@
             "type": "string"
           },
           "sonderereignis": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielNoticeEvent"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/FLSpielNoticeEvent"
           }
         },
         "required": [

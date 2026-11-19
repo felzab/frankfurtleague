@@ -161,7 +161,6 @@ async def reported(
             lease=lease,
             id=row_id,
             result=result,
-            message_id=f"msg-{row_id}" if result == "sent" else None,
             delivery_reason=delivery_reason,
         ),
         outbox_collection=database[Collection.OUTBOX],
@@ -249,7 +248,7 @@ class TestTheDrain:
         assert first.token is not None and second.token is not None
         assert record is not None and set(record["confirmation"]["token_hashes"]) == {hash_token(first.token), hash_token(second.token)}
         assert ((late.sent, late.ignored), (settled.sent, settled.ignored)) == ((0, 1), (1, 0))
-        assert (row["state"], row["message_id"]) == ("sent", f"msg-{row['_id']}")
+        assert row["state"] == "sent"
         assert logged == 0
 
     async def test_a_lease_runs_its_whole_length_across_a_clock_change(self, mongo_replica_set_url: str):

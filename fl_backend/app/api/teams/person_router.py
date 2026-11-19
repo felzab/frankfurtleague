@@ -24,9 +24,10 @@ from app.api.spielbestaetigungen.crud import JUDGED_JUNCTION_FIELDS
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment, FLSpielbestaetigungTeamState
 from app.api.spielbestaetigungen.services import (
     AnsetzungState,
-    ansetzung_digest_of,
+    ansetzung_values_of,
     austritte_of,
     build_closable_filter,
+    compose_ansetzung,
     joined_decision_of,
     lapsed_on,
     reason_of,
@@ -241,8 +242,8 @@ def _spielbestaetigung_of(
 ) -> _Spielbestaetigung | None:
     """The team's unclosed row about the fixture's Ansetzung as it stands, where it asks the team anything."""
 
-    digest = ansetzung_digest_of(spiel_raw)
-    rows = [row for row in spiel_raw[SPIELBESTAETIGUNG_ROWS_AS] if row["ansetzung"]["digest"] == digest]
+    current = ansetzung_values_of(compose_ansetzung(spiel_raw))
+    rows = [row for row in spiel_raw[SPIELBESTAETIGUNG_ROWS_AS] if ansetzung_values_of(row["ansetzung"]) == current]
     own = next((row for row in rows if row["party"]["team_id"] == team_id), None)
     if own is None:
         return None

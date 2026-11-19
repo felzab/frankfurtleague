@@ -10,7 +10,6 @@ from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from typing import Any, Final, Literal
 
-from app.core.clock import german_day
 from app.core.codes import Code
 from app.core.exceptions import APIError, link_invalid
 from app.shared.folding import sign_in_identifier
@@ -87,7 +86,6 @@ def compose_record(
         "way": way,
         "token_hashes": [],
         "stop": {"token_hashes": []},
-        "sent_at": german_day(now),
         "valid_until": valid_until_from(now),
         "released_at": None,
         "confirmed_at": None,
@@ -102,7 +100,7 @@ def compose_link_update(*, now: datetime, released: bool) -> dict[str, Any]:
     The link itself is minted as its mail is handed out, replacing the one before (`owe_the_link_in_session`).
     """
 
-    set_fields: dict[str, Any] = {"valid_until": valid_until_from(now), "sent_at": german_day(now)}
+    set_fields: dict[str, Any] = {"valid_until": valid_until_from(now)}
     if released:
         set_fields["released_at"] = now.astimezone(UTC)
 

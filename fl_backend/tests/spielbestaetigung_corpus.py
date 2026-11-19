@@ -197,10 +197,9 @@ class TeamNotice:
     team2_name: str
     old: FLSpielbestaetigungAppointment
     recipient: list[Recipient]
-    # A move's notice alone: the slot moved to, whether the party is still the fixture's, and the promise no notice makes.
+    # A move's notice alone: the slot moved to, and whether the party is still the fixture's.
     moved_to: Mapping[str, Any] | None = None
     stays: bool | None = None
-    asked_again: bool | None = None
     # A call-off's alone: the event it names.
     sonderereignis: str | None = None
 
@@ -215,7 +214,6 @@ class RefereeNotice:
     address: str
     moved_to: Mapping[str, Any] | None = None
     stays: bool | None = None
-    asked_again: bool | None = None
     sonderereignis: str | None = None
 
 
@@ -326,7 +324,7 @@ async def handed_out(
         old = FLSpielbestaetigungAppointment(date=appointment["date"], time=appointment["time"])
         names = {"team1_name": appointment["team1"], "team2_name": appointment["team2"]}
         if kind == "spiel_moved":
-            names |= {"moved_to": data["moved_to"], "stays": data["stays"], "asked_again": data["asked_again"]}
+            names |= {"moved_to": data["moved_to"], "stays": data["stays"]}
         if kind == "spiel_cancelled":
             names |= {"sonderereignis": data["sonderereignis"]}
         to_a_referee = kind == "spiel_einteilung_lifted" or data.get("recipient") == "schiedsrichter"

@@ -1053,7 +1053,7 @@ export interface FLSpielMailAnsetzung {
  * A club's one reminder that it has entered no line-up for a fixture: the pairing, the kick-off and the ground, and where it is entered.
  */
 export interface FLAufstellungReminderData {
-  appointment: FLSpielMailAnsetzung;
+  ansetzung: FLSpielMailAnsetzung;
   due_at: string;
   kind: "aufstellung_reminder";
   saison_id: string;
@@ -2810,7 +2810,6 @@ export const FLSpielMovedDataRecipient = {
  */
 export interface FLSpielMovedData {
   appointment: FLSpielMailAppointment;
-  asked_again: boolean;
   kind: "spiel_moved";
   moved_to: FLSpielMailAnsetzung | null;
   recipient: FLSpielMovedDataRecipient;
@@ -2840,7 +2839,7 @@ export interface FLSpielNoticeData {
   appointment: FLSpielMailAppointment;
   kind: "spiel_cancelled";
   recipient: FLSpielNoticeDataRecipient;
-  sonderereignis: FLSpielNoticeEvent | null;
+  sonderereignis: FLSpielNoticeEvent;
 }
 
 /**
@@ -2860,9 +2859,11 @@ export interface FLSpielVorschlagDiscardedData {
 }
 
 /**
- * A pupil's confirmation link; the window its mail states is a published bound, never carried here.
+ * A pupil's confirmation link, owed by the submission or a corrected address.
  */
 export interface FLRegistrierungLinkData {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  deadline: string;
   kind: "registrierung_confirmation";
   saison_id: string;
   team: string;
@@ -2948,7 +2949,6 @@ export interface FLOutboxResultPayload {
   id: string;
   /** @minLength 1 */
   lease: string;
-  message_id: string | null;
   result: FLOutboxResultPayloadResult;
 }
 

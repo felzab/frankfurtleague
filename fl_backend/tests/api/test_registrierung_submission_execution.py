@@ -277,7 +277,12 @@ class TestWhatASubmissionStores:
             )
         ]
         # Off the invite, never off the body: the mail addresses the pupil by them.
-        assert owed[0]["data"] == {"kind": "registrierung_confirmation", "team": TEAM_NAME, "saison_id": SAISON_ID}
+        assert owed[0]["data"] == {
+            "kind": "registrierung_confirmation",
+            "team": TEAM_NAME,
+            "saison_id": SAISON_ID,
+            "deadline": stored["confirmation"]["deadline"],
+        }
 
     async def test_the_link_the_hand_out_mints_opens_the_registration(self, mongo_replica_set_url: str):
         """The hash lands in the array the lookup reads, so the mailed link opens the row it was owed for."""

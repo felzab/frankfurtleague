@@ -103,9 +103,9 @@ _TEAM_AGREED = "team_agreed"
 
 
 def _confirmations_lookup() -> Mapping[str, Any]:
-    """Every unclosed row and every referee's answer, marked on the five stored snapshot values, never on `ansetzung.digest`.
+    """Every unclosed row and every referee's answer, marked on the five stored snapshot values against the fixture's own.
 
-    No aggregation recomputes the digest, so an answer stops counting at a move, not at the hourly close.
+    Compared here as the pass compares them, so an answer stops counting at a move, not at the hourly close.
     """
 
     current = {"$and": [{"$eq": [f"$ansetzung.{key}", f"$${key}"]} for key in ANSETZUNG_QUELLEN]}

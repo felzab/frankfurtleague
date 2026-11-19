@@ -1402,7 +1402,7 @@ class MadeUpLeague:
             read_back_document(
                 Collection.OUTBOX,
                 {
-                    **applied(receipt, final_update("sent", now=recorded + timedelta(minutes=1), message_id="made-up-message")),
+                    **applied(receipt, final_update("sent", now=recorded + timedelta(minutes=1))),
                     "attempts": 1,
                     "delivery": {"state": "undeliverable", "reason": "bounced", "at": recorded + timedelta(minutes=5)},
                 },

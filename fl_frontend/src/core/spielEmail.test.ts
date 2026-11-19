@@ -29,7 +29,7 @@ describe("the fixture request", () => {
 
 /* A party still on a moved fixture is told the move whether or not the fixture holds a new slot, and one taken off it is
    told the request no longer holds: told the other, a club waits at the slot it left, or a staying referee reads that
-   they no longer referee. A notice queued before `stays` was written keeps the mail it was queued for. */
+   they no longer referee. */
 describe("the notice of a move", () => {
   const left = { team1: "Ernst-Reuter-Schule", team2: "Goethe-Gymnasium", date: "2026-11-20", time: "14:30:00" };
   const next = { ...left, date: "2026-11-27", spielort: "Halle Nord" };
@@ -39,7 +39,7 @@ describe("the notice of a move", () => {
   it.each(recipients)("tells a staying %s of the move, promising nothing, where the fixture holds no new slot", (recipient) => {
     const mail = mailFor(
       "spiel_moved",
-      { kind: "spiel_moved", recipient, appointment: left, moved_to: null, stays: true, asked_again: false },
+      { kind: "spiel_moved", recipient, appointment: left, moved_to: null, stays: true },
       { token: null, secret: null, origin: ORIGIN },
     );
 
@@ -50,7 +50,7 @@ describe("the notice of a move", () => {
   it("tells a club taken off the fixture that its request no longer holds", () => {
     const mail = mailFor(
       "spiel_moved",
-      { kind: "spiel_moved", recipient: "team", appointment: left, moved_to: null, stays: false, asked_again: false },
+      { kind: "spiel_moved", recipient: "team", appointment: left, moved_to: null, stays: false },
       { token: null, secret: null, origin: ORIGIN },
     );
 
@@ -61,7 +61,7 @@ describe("the notice of a move", () => {
     const sameHour = { ...next, date: left.date };
     const mail = mailFor(
       "spiel_moved",
-      { kind: "spiel_moved", recipient: "team", appointment: left, moved_to: sameHour, stays: true, asked_again: false },
+      { kind: "spiel_moved", recipient: "team", appointment: left, moved_to: sameHour, stays: true },
       { token: null, secret: null, origin: ORIGIN },
     );
     const block = mail?.block;
@@ -70,10 +70,6 @@ describe("the notice of a move", () => {
     expect(facts).toContainEqual({ label: COPY.spielplan.fact.spielort, value: "Halle Nord" });
     expect(JSON.stringify(mail)).not.toMatch(/neue (Anfrage|Einteilung)/);
   });
-
-  const queued = [{ ...next, spielort: null }, null].flatMap((movedTo) =>
-    [true, false].map((askedAgain) => ({ movedTo, askedAgain, slot: movedTo === null ? "no new slot" : "a new slot" })),
-  );
 
   /* A replacement or a bracket correction changes the sides and keeps the slot: worded as moved, the reader looks for a
      new day that does not exist. */
@@ -95,11 +91,7 @@ describe("the notice of a move", () => {
         origin,
       ),
       mailFor("spiel_einteilung", { kind: "spiel_einteilung", ansetzung: replaced, moved_from: left }, origin),
-      mailFor(
-        "spiel_moved",
-        { kind: "spiel_moved", recipient: "team", appointment: left, moved_to: replaced, stays: true, asked_again: false },
-        origin,
-      ),
+      mailFor("spiel_moved", { kind: "spiel_moved", recipient: "team", appointment: left, moved_to: replaced, stays: true }, origin),
     ];
 
     for (const mail of mails) {
@@ -121,29 +113,11 @@ describe("the notice of a move", () => {
     const replaced = { ...left, team1: "Carl-Schurz-Schule", time: "16:00:00", spielort: "Halle Nord" };
     const mail = mailFor(
       "spiel_moved",
-      { kind: "spiel_moved", recipient: "team", appointment: left, moved_to: replaced, stays: true, asked_again: false },
+      { kind: "spiel_moved", recipient: "team", appointment: left, moved_to: replaced, stays: true },
       { token: null, secret: null, origin: ORIGIN },
     );
 
     expect(JSON.stringify(mail)).toContain(" verlegt");
-  });
-
-  // The hand-out serves such a row with `stays` at its default, false, and `asked_again` as it was written.
-  it.each(queued)("builds a notice queued before `stays` as it was queued: $slot, asked again $askedAgain", ({ movedTo, askedAgain }) => {
-    for (const [recipient, promise, unbooked] of [
-      ["team", "neue Anfrage", "gilt nicht mehr"],
-      ["schiedsrichter", "neue Einteilung", "nicht mehr."],
-    ] as const) {
-      const mail = mailFor(
-        "spiel_moved",
-        { kind: "spiel_moved", recipient, appointment: left, moved_to: movedTo, stays: false, asked_again: askedAgain },
-        { token: null, secret: null, origin: ORIGIN },
-      );
-      const text = JSON.stringify(mail);
-
-      expect(text.includes(promise)).toBe(askedAgain);
-      expect(text.includes(unbooked)).toBe(movedTo === null && !askedAgain);
-    }
   });
 });
 

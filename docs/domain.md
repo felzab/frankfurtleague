@@ -88,8 +88,8 @@ holds none on purpose:
 - the sweep closes a row a move overtook up to an hour later.
 
 What a reader may rely on is a comparison rather than a membership — the answer compares the row's
-`ansetzung.digest` against the fixture's at the press — and the one rule the collection holds alone, one open
-row per party per Ansetzung.
+stored `ansetzung` values against the fixture's at the press — and the one rule the collection holds alone,
+one open row per party per Ansetzung.
 
 **A boundary is what must be true together; what must not outlive a person is a different question**, and the
 log answers it by holding no person: an erasure reaches in once, in its own transaction, for an administrator's
