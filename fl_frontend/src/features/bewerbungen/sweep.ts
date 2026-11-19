@@ -29,7 +29,7 @@ export async function runBewerbungSweep() {
   // A listing that failed is the seasons' failure too, and the address changes still run.
   const saisons = await sweepAllSaisons().catch((error: unknown) => ({ passedOver: { bewerbung: 0, registrierung: 0 }, error }));
   // After the seasons and whatever they met, so a lapsed address is ended every hour.
-  const adressen = await sweepAddressChange();
+  const addressChange = await sweepAddressChange();
   // The other clock no season holds: an entry whose link lapsed unanswered or declined, erased.
   const schiedsrichter = await schiedsrichterSweepSchiedsrichter();
 
@@ -37,14 +37,14 @@ export async function runBewerbungSweep() {
     count: {
       bewerbung_failed: saisons.passedOver.bewerbung,
       registrierung_failed: saisons.passedOver.registrierung,
-      address_change_removed: adressen.removed,
-      address_change_effective: adressen.effective,
-      address_change_discarded: adressen.discarded,
-      address_change_failed: adressen.failed,
+      address_change_removed: addressChange.removed,
+      address_change_effective: addressChange.effective,
+      address_change_discarded: addressChange.discarded,
+      address_change_failed: addressChange.failed,
       schiedsrichter_erased: schiedsrichter.erased,
       schiedsrichter_failed: schiedsrichter.failed,
     },
-    open: saisons.passedOver.bewerbung + saisons.passedOver.registrierung + adressen.failed + schiedsrichter.failed,
+    open: saisons.passedOver.bewerbung + saisons.passedOver.registrierung + addressChange.failed + schiedsrichter.failed,
     error: saisons.error,
   };
 }

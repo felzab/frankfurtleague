@@ -105,7 +105,7 @@ async def get_einwilligungen(
     )
 
 
-def _pending_addresses(record: Mapping[str, Any], *, now: datetime) -> FLAccountAddressChangeOpen:
+def _open_change(record: Mapping[str, Any], *, now: datetime) -> FLAccountAddressChangeOpen:
     return FLAccountAddressChangeOpen(
         id=record["_id"],
         # The address the person typed here is theirs to see; one an administrator typed is shown recognisable alone.
@@ -131,7 +131,7 @@ async def get_address_change(
 
     record = await address_changes_collection.find_one(build_address_filter(identifier))
 
-    return FLAccountAddressChangeResponse(open=None if record is None else _pending_addresses(record, now=germany_now))
+    return FLAccountAddressChangeResponse(open=None if record is None else _open_change(record, now=germany_now))
 
 
 @router.post(

@@ -53,7 +53,7 @@ const standing = (): string[] => store.user.map(({ email }) => email);
 const asked = (): string[][] => backend.sent.map(({ body }) => (body as FLReferencesPayload).identifiers);
 
 /** `count` distinct addresses, as the store folds them. */
-const adressen = (count: number, prefix = "person"): string[] =>
+const addresses = (count: number, prefix = "person"): string[] =>
   Array.from({ length: count }, (_, at) => `${prefix}${String(at)}@schule.example.org`);
 
 /** Every address but those in `referenced` answered unreferenced, wherever it is asked. */
@@ -118,7 +118,7 @@ describe("the batches a pass asks in", () => {
   /* The read refuses a batch past its ceiling whole, every pass alike, so a pass sending one would
      delete nothing ever after behind one failure line an hour. */
   it("asks one more account than the ceiling in two batches, none past it, each address once", async () => {
-    const accounts = adressen(REFERENCES_ADDRESSES_MAX + 1);
+    const accounts = addresses(REFERENCES_ADDRESSES_MAX + 1);
     await seed(accounts);
 
     await runAccountSweep();
@@ -130,7 +130,7 @@ describe("the batches a pass asks in", () => {
 
 describe("a pass meeting a failure", () => {
   it("deletes nothing a failed batch asked about, still deletes from the next, and writes one failure line", async () => {
-    const accounts = adressen(REFERENCES_ADDRESSES_MAX + 2);
+    const accounts = addresses(REFERENCES_ADDRESSES_MAX + 2);
     await seed(accounts);
     references = (identifiers) => (identifiers.length === REFERENCES_ADDRESSES_MAX ? networkFailure() : identifiers);
 
@@ -209,7 +209,7 @@ describe("a pass meeting a failure", () => {
      deleted, as every deletion of an account does, and nothing else; the Postausgang's drain is the scheduler's, after
      every job. */
   it("names no address on any line, and owes no mail but each deleted account's notice", async () => {
-    const accounts = [...adressen(REFERENCES_ADDRESSES_MAX + 1, "batch"), "geloescht@schule.example.org", "fehler@schule.example.org"];
+    const accounts = [...addresses(REFERENCES_ADDRESSES_MAX + 1, "batch"), "geloescht@schule.example.org", "fehler@schule.example.org"];
     await seed(accounts);
     references = (identifiers) => (identifiers.length === REFERENCES_ADDRESSES_MAX ? networkFailure() : identifiers);
     failing = readFailingAt("fehler@schule.example.org");

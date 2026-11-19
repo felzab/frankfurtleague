@@ -11,7 +11,7 @@ const bewerbungPass = (failed = 0): FLBewerbungSweepResponse => ({ failed });
 const registrierungPass = (failed = 0): FLRegistrierungSweepResponse => ({ failed });
 
 /** What the address changes' one call answers, the changes it could not end counted. */
-const adressen = (failed = 0): FLAddressChangeSweepResponse => ({ removed: 0, effective: 0, discarded: 0, failed });
+const addressChangeAnswer = (failed = 0): FLAddressChangeSweepResponse => ({ removed: 0, effective: 0, discarded: 0, failed });
 
 /** The season listing, which the contract reads with a GET; every other call of the pass is a POST. */
 const LISTING = "GET /bewerbungen/sweep";
@@ -29,7 +29,7 @@ function seasons(
   saisonIds: string[],
   {
     passedOver = {},
-    addressChange = adressen(),
+    addressChange = addressChangeAnswer(),
     fails = [],
   }: { passedOver?: Record<string, number>; addressChange?: unknown; fails?: string[] } = {},
 ): void {
@@ -77,7 +77,7 @@ describe("one pass of the applications' job", () => {
         "/registrierungen/saisons/2627/sweep": 8,
         "/schiedsrichter/sweep": 1,
       },
-      addressChange: { ...adressen(2), removed: 5 },
+      addressChange: { ...addressChangeAnswer(2), removed: 5 },
     });
 
     expect(await runBewerbungSweep()).toStrictEqual({

@@ -92,7 +92,7 @@ async def _pull_the_change(
     return record
 
 
-def _pending_addresses(
+def _open_change(
     record: Mapping[str, Any], *, holder: FLAdminTier | None, delivery: FLOutboxStatus | None, now: datetime
 ) -> FLAddressChangeAdminOpen:
     return FLAddressChangeAdminOpen(
@@ -133,7 +133,7 @@ async def get_address_changes(
 
     return FLAddressChangeAdminListResponse(
         changes=[
-            _pending_addresses(
+            _open_change(
                 row,
                 holder=tiers.get(str(row["address"])),
                 delivery=await state_of_the_link(outbox_collection=outbox_collection, address_change_id=row["_id"], session=session),
