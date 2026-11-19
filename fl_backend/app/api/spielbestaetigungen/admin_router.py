@@ -266,9 +266,8 @@ async def adopt_spielbestaetigung(
         vorschlag = FLSpielbestaetigungAppointment.model_validate(row["answer"]["vorschlag"])
         refuse(as_judged_on_stored_state(find_vorschlag_past_refusal(vorschlag=vorschlag, today=today), twins=ADOPTION_TWINS))
 
-        # A discard of the same proposal writes this row, so the two conflict and the retry refuses the later one: a club
-        # is never told both that its date was taken and that the date stands.
-        await anchor_in_db(collection=spielbestaetigungen_collection, db_filter={"_id": spielbestaetigung_id}, session=session)
+        # A discard of the same proposal anchors the fixture this save writes, so the two conflict and the retry refuses
+        # the later one: a club is never told both that its date was taken and that the date stands.
         try:
             await save_spiel_in_session(
                 spiel_id=row["spiel_id"],

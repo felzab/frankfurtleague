@@ -563,13 +563,11 @@ class TestTheDiscard:
         assert (closed, told) == ({"reason": "discarded"}, len(KONTAKT_SEATS))
 
 
-async def adopt(
-    database: AsyncDatabase, client: AsyncMongoClient, row_id: ObjectId, *, spielbestaetigungen: Any = None, today: str = TODAY
-) -> None:
+async def adopt(database: AsyncDatabase, client: AsyncMongoClient, row_id: ObjectId, *, spiele: Any = None, today: str = TODAY) -> None:
     return await adopt_spielbestaetigung(
         spielbestaetigung_id=row_id,
-        spielbestaetigungen_collection=either(database, Collection.SPIELBESTAETIGUNGEN, spielbestaetigungen),
-        spiele_collection=database[Collection.SPIELE],
+        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        spiele_collection=either(database, Collection.SPIELE, spiele),
         teams_collection=database[Collection.TEAMS],
         saisons_collection=database[Collection.SAISONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
@@ -582,14 +580,6 @@ async def adopt(
         today=today,
         germany_now=MAIL_NOW,
     )
-
-
-class ConfirmationsRunningARivalBeforeTheAnchor(InterleavedCollection):
-    """The confirmations the adoption reads its row from, a rival run once after that read and before the row's anchor."""
-
-    async def update_many(self, *args: Any, **kwargs: Any) -> Any:
-        await self.run_the_rival()
-        return await self._collection.update_many(*args, **kwargs)
 
 
 class TestTheAdoption:
@@ -612,7 +602,10 @@ class TestTheAdoption:
         assert (closed, again) == (None, Code.ANSETZUNG_NOT_ACTIONABLE)
 
     async def test_a_discard_landing_inside_the_adoption_leaves_the_spiel_where_it_stands(self, mongo_replica_set_url: str):
-        """Both committing, the club would be told the date stands and every party asked about the date its proposal named."""
+        """Both committing, the club would be told the date stands and every party asked about the date its proposal named.
+
+        The discard anchors the fixture the adoption's save writes, so the two conflict and the retry finds the proposal spent.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await decline_as_team(database, client, holder(TEAM1, "trainer"), PROPOSAL, reason=REASON)
@@ -620,8 +613,9 @@ class TestTheAdoption:
             async def discard() -> None:
                 await discard_row(database, client, ROW1)
 
-            confirmations = ConfirmationsRunningARivalBeforeTheAnchor(database[Collection.SPIELBESTAETIGUNGEN], discard)
-            outcome = await outcome_of(adopt(database, client, ROW1, spielbestaetigungen=confirmations))
+            # After the adoption's reads and ahead of its save's write of the fixture.
+            fixtures = InterleavedCollection(database[Collection.SPIELE], discard, before="find_one_and_update")
+            outcome = await outcome_of(adopt(database, client, ROW1, spiele=fixtures))
             spiel = await database[Collection.SPIELE].find_one({"_id": SPIEL})
 
             assert spiel is not None
