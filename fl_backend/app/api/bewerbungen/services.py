@@ -351,9 +351,9 @@ def seat_named(value: Any) -> FLKontaktSeat | None:
 
 
 # The two null levels a seat has below its record, each read here alone. A whole block is null where the contact block's
-# clock cleared a season row; a slot where a Widerspruch emptied it; an entry where an erasure did. A projection leaves
-# out what it did not ask for, which reads as null too. On an application and a season row alike.
-def _slot_of(kontakte: Mapping[str, Any] | None, seat: str) -> Mapping[str, Any] | None:
+# clock cleared a season row; a seat's person where a Widerspruch emptied it; an entry where an erasure did. A projection
+# leaves out what it did not ask for, which reads as null too. On an application and a season row alike.
+def person_of(kontakte: Mapping[str, Any] | None, seat: str) -> Mapping[str, Any] | None:
     return None if kontakte is None else kontakte.get(seat)
 
 
@@ -378,13 +378,13 @@ def find_unknown_token_refusal(*, seat: FLKontaktSeat | None) -> APIError | None
     return link_invalid() if seat is None else None
 
 
-def seat_opens_nobody(*, slot: Mapping[str, Any] | None, state: FLBewerbungEinwilligungState) -> bool:
+def seat_opens_nobody(*, person: Mapping[str, Any] | None, state: FLBewerbungEinwilligungState) -> bool:
     """Whether an open link's seat holds nobody, emptied without a Widerspruch: the view answers it as a token no seat holds.
 
     Told apart, it would tell a guess that a person once sat there, and offer a press `bewerbung_seat_already_answered` refuses.
     """
 
-    return state in ("valid", "saison_past") and slot is None
+    return state in ("valid", "saison_past") and person is None
 
 
 def _is_decided(status: Any) -> bool:
@@ -420,20 +420,20 @@ def find_expired_token_refusal(*, over: bool) -> APIError | None:
 
 
 def _seat_is_confirmed(kontakte: Mapping[str, Any] | None, seat: str) -> bool:
-    slot = _slot_of(kontakte, seat)
+    person = person_of(kontakte, seat)
 
-    return is_confirmed(None if slot is None else slot.get("einwilligung"))
+    return is_confirmed(None if person is None else person.get("einwilligung"))
 
 
 def _confirmed_on(kontakte: Mapping[str, Any] | None, seat: str) -> Any:
-    slot = _slot_of(kontakte, seat)
-    einwilligung = None if slot is None else slot.get("einwilligung")
+    person = person_of(kontakte, seat)
+    einwilligung = None if person is None else person.get("einwilligung")
 
     return None if einwilligung is None else einwilligung.get("confirmed_at")
 
 
 def _kept_confirmation(confirmations: Mapping[str, Any] | None, seat: str) -> Any:
-    """The day an accepted application's seat was confirmed, which its acceptance kept beside the link as it emptied the slot."""
+    """The day an accepted application's seat was confirmed, which its acceptance kept beside the link as it emptied the seat."""
 
     entry = _entry_of(confirmations, seat)
 
@@ -441,7 +441,7 @@ def _kept_confirmation(confirmations: Mapping[str, Any] | None, seat: str) -> An
 
 
 def _was_confirmed(kontakte: Mapping[str, Any] | None, confirmations: Mapping[str, Any] | None, seat: str) -> bool:
-    """Whether the seat's person confirmed it: the slot's stamp, or on an accepted application the one kept beside its link."""
+    """Whether the seat's person confirmed it: the seat's stamp, or on an accepted application the one kept beside its link."""
 
     return _seat_is_confirmed(kontakte, seat) or _kept_confirmation(confirmations, seat) is not None
 
@@ -453,7 +453,7 @@ def _declined_on(confirmations: Mapping[str, Any] | None, seat: str) -> Any:
 
 
 def seat_is_answered(*, kontakte: Mapping[str, Any] | None, confirmations: Mapping[str, Any] | None, seat: str) -> bool:
-    """Whether this seat's person has spoken: a stamp on the slot, a decline beside it, or no bookkeeping.
+    """Whether this seat's person has spoken: a stamp on the seat, a decline beside it, or no bookkeeping.
 
     No bookkeeping is an emptied seat, or a season row's seat no link was minted for: nothing to answer.
     """
@@ -497,7 +497,7 @@ def state_of(*, bewerbung_raw: Mapping[str, Any], seat: str, today: str) -> FLBe
 
 
 # A contact seat an administrator typed into a team's season row is mailed its own link, resolved by the application's
-# two operations: the slots, the stamps and each seat's deadline are one shape.
+# two operations: the seats, the stamps and each seat's deadline are one shape.
 
 
 # An inclusion: the rest of the row is what a base-tier read must not hold. The club's season name is the page's `schule`.
@@ -581,7 +581,7 @@ def saison_link_pair(
 
 
 def pending_seats(*, kontakte: Mapping[str, Any] | None) -> list[FLKontaktSeat]:
-    """Every seat without a stamp, in declaration order. An emptied slot counts: the application cannot complete without it."""
+    """Every seat without a stamp, in declaration order. An emptied seat counts: the application cannot complete without it."""
 
     return [seat for seat in KONTAKT_SEATS if not _seat_is_confirmed(kontakte, seat)]
 
@@ -597,9 +597,9 @@ def find_unconfirmed_kontakte_refusal(*, kontakte: Mapping[str, Any] | None) -> 
 
 
 def seat_stands(*, kontakte: Mapping[str, Any] | None, confirmations: Mapping[str, Any] | None, seat: str) -> bool:
-    """Whether both halves of a seat are there for a dotted `$set` to reach: the slot, and the bookkeeping entry beside it."""
+    """Whether both halves of a seat are there for a dotted `$set` to reach: its person, and the bookkeeping entry beside it."""
 
-    return _slot_of(kontakte, seat) is not None and _entry_of(confirmations, seat) is not None
+    return person_of(kontakte, seat) is not None and _entry_of(confirmations, seat) is not None
 
 
 def paired_seat(*, kontakte: Mapping[str, Any] | None, confirmations: Mapping[str, Any] | None, seat: str) -> FLKontaktSeat | None:
@@ -607,7 +607,7 @@ def paired_seat(*, kontakte: Mapping[str, Any] | None, confirmations: Mapping[st
 
     other = claimed_pair_seat(kontakte=kontakte, seat=seat)
 
-    # An emptied seat is nobody's: a dotted `$set` under its null slot or its null entry is
+    # An emptied seat is nobody's: a dotted `$set` under its null person or its null entry is
     # `PathNotViable`, and the abort takes the answer for the seat that is this person's with it.
     return other if other is not None and seat_stands(kontakte=kontakte, confirmations=confirmations, seat=other) else None
 
@@ -644,7 +644,7 @@ def seat_view(
     if state == "expired":
         return FLBewerbungEinwilligungViewExpired(state=state)
 
-    # The decline beside the slot, or the stamp on it or kept beside it, whichever the state was read off.
+    # The decline beside the seat, or the stamp on it or kept beside it, whichever the state was read off.
     if state == "declined":
         answered_at = _declined_on(confirmations, seat)
     else:
@@ -679,8 +679,8 @@ def ansprechperson_mailbox(
     addresses: dict[str, str] = {}
 
     for seat in KONTAKT_SEATS:
-        slot = _slot_of(kontakte, seat)
-        email = "" if slot is None else str(slot.get("email") or "").strip()
+        person = person_of(kontakte, seat)
+        email = "" if person is None else str(person.get("email") or "").strip()
         if email:
             addresses[seat] = email
 
@@ -759,7 +759,7 @@ OPEN_LINK_FIELDS: Mapping[str, int] = {**_per_seat("kontakte", "email", "einwill
 
 
 def build_open_links_filter(*, saison_id: str, address: str) -> Mapping[str, Any]:
-    """The season's open applications holding a mailed, unconfirmed seat at this address's mailbox: a Widerspruch empties the slot and leaves.
+    """The season's open applications holding a mailed, unconfirmed seat at this address's mailbox: a Widerspruch empties the seat and leaves.
 
     Each seat's terms together, so a row a flood stored unmailed stays out of a read bounded by what was mailed.
     """
@@ -813,7 +813,7 @@ def objection_is_announced(*, kontakte: Mapping[str, Any] | None, confirmations:
 
 
 def compose_decline_update(*, seats: Sequence[str], today: str, announced: bool) -> Mapping[str, Any]:
-    """A decline empties the person's slot and records the day beside it, where the emptying cannot reach.
+    """A decline empties the person's seat and records the day beside it, where the emptying cannot reach.
 
     On an application or a season row alike. `announced` where the objection notice goes out: it names the deletion
     day, so it is the deletion notice too. Never on a season row, which carries no deletion notice.
@@ -910,14 +910,14 @@ def find_seat_contact_refusal(*, kontakte: Mapping[str, Any] | None, seats: Sequ
 
     # The seats this write reaches are left out: they are one person, and their blocks are equal
     # by the submission's own rule.
-    others = [slot for seat in KONTAKT_SEATS if seat not in seats and (slot := _slot_of(kontakte, seat)) is not None]
+    others = [held for seat in KONTAKT_SEATS if seat not in seats and (held := person_of(kontakte, seat)) is not None]
 
     # The fold `find_repeated_contact_refusal` compares by: a third spelling of "one mailbox" here would refuse where the
     # form accepted, or the reverse.
-    if sign_in_identifier(email) in {sign_in_identifier(str(slot.get("email") or "")) for slot in others}:
+    if sign_in_identifier(email) in {sign_in_identifier(str(other.get("email") or "")) for other in others}:
         return APIError(HTTPStatus.CONFLICT, Code.KONTAKT_EMAIL_TAKEN, fields=(("email",),))
 
-    if normalise_phone(phone) in {normalise_phone(str(slot.get("phone") or "")) for slot in others}:
+    if normalise_phone(phone) in {normalise_phone(str(other.get("phone") or "")) for other in others}:
         return APIError(HTTPStatus.CONFLICT, Code.KONTAKT_PHONE_TAKEN, fields=(("phone",),))
 
     return None
@@ -927,7 +927,7 @@ def find_seat_write_refusal(*, confirmations: Mapping[str, Any] | None, seats: S
     """Why no person may be written into these seats, or `None`: one of them was erased at its person's request.
 
     Every other state takes the write, a standing seat's person replaced, a seat a Widerspruch emptied filled. The
-    erasure clears the whole entry, which is all that parts it from the slot a Widerspruch empties, and a seat the
+    erasure clears the whole entry, which is all that parts it from the seat a Widerspruch empties, and a seat the
     league cannot reopen stays shut. Every seat, because a claimed pair is one person.
     """
 
@@ -941,7 +941,7 @@ def find_seat_write_refusal(*, confirmations: Mapping[str, Any] | None, seats: S
 def claimed_pair_seat(*, kontakte: Mapping[str, Any] | None, seat: str) -> FLKontaktSeat | None:
     """The other seat `trainer_is_also` claims for this person, standing or emptied.
 
-    `paired_seat` without its `seat_stands` half, which answers `None` for exactly the emptied slots
+    `paired_seat` without its `seat_stands` half, which answers `None` for exactly the emptied seats
     a seat write fills and would leave one of them holding the other's link.
     """
 
@@ -967,11 +967,11 @@ def compose_kontakt_seat_update(
     einwilligung = compose_einwilligung(today=today)
     # Null rather than left off, as the submission writes it: the key marks a date not yet entered,
     # and the confirmation fills it.
-    slot = {**person, "birth_date": None, "einwilligung": einwilligung}
+    seated = {**person, "birth_date": None, "einwilligung": einwilligung}
 
-    # The whole slot per seat, never a dotted path under it: a decline nulled the slot, and a dotted
+    # The whole person per seat, never a dotted path under it: a decline nulled the person, and a dotted
     # `$set` under a null is `PathNotViable`, which aborts the transaction.
-    return {"$set": {**{f"kontakte.{seat}": dict(slot) for seat in seats}, **_fresh_links(seats=seats, today=today), **announced}}
+    return {"$set": {**{f"kontakte.{seat}": dict(seated) for seat in seats}, **_fresh_links(seats=seats, today=today), **announced}}
 
 
 # Each retention clock below is a pure predicate over one document and `today`, so every boundary is pinned without a
@@ -1052,8 +1052,8 @@ def group_seats_by_mailbox(*, kontakte: Mapping[str, Any] | None, seats: Sequenc
     grouped: dict[str, tuple[str, list[FLKontaktSeat]]] = {}
 
     for seat in seats:
-        slot = _slot_of(kontakte, seat)
-        email = "" if slot is None else str(slot.get("email") or "").strip()
+        person = person_of(kontakte, seat)
+        email = "" if person is None else str(person.get("email") or "").strip()
         if not email:
             continue
         address, held = grouped.setdefault(email, (email, []))
@@ -1172,13 +1172,13 @@ def build_lapsed_seats_filter(*, saison_id: str, today: str) -> Mapping[str, Any
 def compose_lapsed_seats_update(*, kontakte: Mapping[str, Any] | None, seats: Sequence[str]) -> Mapping[str, Any]:
     """Null each seat and its link, the block's other members standing.
 
-    The slots only where the block stands: a `$set` under a null is `PathNotViable`, and a row whose people an earlier
+    The people only where the block stands: a `$set` under a null is `PathNotViable`, and a row whose people an earlier
     write cleared can still hold a link.
     """
 
-    slots = {} if kontakte is None else {f"kontakte.{seat}": None for seat in seats}
+    people = {} if kontakte is None else {f"kontakte.{seat}": None for seat in seats}
 
-    return {"$set": {**slots, **{f"confirmations.{seat}": None for seat in seats}}}
+    return {"$set": {**people, **{f"confirmations.{seat}": None for seat in seats}}}
 
 
 def schule_name(*, bewerbung_raw: Mapping[str, Any], team_names: Mapping[Any, str]) -> str:
@@ -1508,7 +1508,7 @@ def build_confirmed_seat_filter(*, saison_id: str) -> Mapping[str, Any]:
 
 
 def compose_acceptance_seats(*, kontakte: Mapping[str, Any], confirmations: Mapping[str, Any] | None) -> dict[str, Any]:
-    """The acceptance's `$set` on the application's seats: each slot emptied, and each seat's confirmation day kept.
+    """The acceptance's `$set` on the application's seats: each seat emptied, and each seat's confirmation day kept.
 
     The people are the season row's from then on, and a reopened link shows the kept day. `trainer_is_also` stays, naming
     nobody. Every seat is confirmed by then (`bewerbung_kontakte_unconfirmed`).

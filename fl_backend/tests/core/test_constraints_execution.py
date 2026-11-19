@@ -89,7 +89,7 @@ SEATED: Final = {"date": "2026-01-15"}
 
 
 def kontaktperson(first_name: str) -> dict[str, Any]:
-    """A function rather than a constant: the nested consent has to be fresh per slot too, which a `dict()` of a shared one is not."""
+    """A function rather than a constant: the nested consent has to be fresh per seat too, which a `dict()` of a shared one is not."""
     return kontaktperson_document(first_name, confirmed_at="2026-01-16", einwilligung=SEATED, phone="+49 69 90009123", birth_date="1980-05-04")
 
 
@@ -131,7 +131,7 @@ def valid_documents() -> dict[Collection, dict[str, Any]]:
             SAISON_ID,
             "submitted",
             schule=new_schule_document("Lessing"),
-            # Distinct per slot, so a block copied across with two slots swapped fails rather than compares equal.
+            # Distinct per seat, so a block copied across with two seats swapped fails rather than compares equal.
             kontakte={
                 "trainer": kontaktperson("Wraxlington"),
                 "ansprechperson": kontaktperson("Quillhilde"),

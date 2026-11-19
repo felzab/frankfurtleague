@@ -15,6 +15,7 @@ from app.api.address_change.crud import (
     others_naming,
 )
 from app.api.address_change.services import build_owed_carry_filter, masked_address
+from app.api.bewerbungen.services import person_of
 from app.api.grants.crud import read_grants
 from app.api.grants.erasure import erase_grants_in_session
 from app.api.identity.lookup import ErasureCollections, RecordCollections
@@ -49,7 +50,6 @@ from app.api.identity.services import (
     own_seats,
     referee_address,
     referenced_addresses,
-    seat_of,
     seat_saisons,
     seats_naming,
     statuses_of,
@@ -107,13 +107,13 @@ def _judged(identifier: str, seat_rows: Rows, referee_rows: Rows, pupil_rows: Ro
     # a caller-side check leaves the sign-in gate mailing, and a panel drawn for, a person nobody confirmed.
     return FLSubject(
         seats=[
-            # `model_validate` rather than the constructor: the slot is a plain string here, and the
+            # `model_validate` rather than the constructor: the seat is a plain string here, and the
             # wire's closed set is what refuses one no endpoint publishes.
             FLSubjectSeat.model_validate(
                 {
                     "saison_id": row["saison_id"],
                     "team_id": row["team_id"],
-                    "seat": slot,
+                    "seat": seat,
                     "team_name": row["name"],
                     "team_shorthand": row["shorthand"],
                     "saison_status": saisons[row["saison_id"]]["status"],
@@ -122,7 +122,7 @@ def _judged(identifier: str, seat_rows: Rows, referee_rows: Rows, pupil_rows: Ro
                 }
             )
             for row in live_seat_rows
-            for slot in own_seats(row, identifier)
+            for seat in own_seats(row, identifier)
         ],
         # One row at most, `uniq_spieler_email` holding one pupil per address, which the selection matches by equality.
         spieler=next((FLSubjectSpieler(spieler_id=row["_id"]) for row in pupil_rows if is_own_spieler(row)), None),
@@ -133,8 +133,8 @@ def _judged(identifier: str, seat_rows: Rows, referee_rows: Rows, pupil_rows: Ro
         # seat on a `past` season opens nothing, so it neither raises the flag nor holds it down.
         unconfirmed=awaits_confirmation(
             [
-                seat_is_confirmed(seat_of(row, slot))
-                for row, slot in seats_naming(live_seat_rows, identifier)
+                seat_is_confirmed(person_of(row.get("kontakte"), seat))
+                for row, seat in seats_naming(live_seat_rows, identifier)
                 if grants_a_panel(saisons[row["saison_id"]]["status"])
             ]
             + [is_confirmed(row.get("einwilligung")) for row in [*pupil_rows, *live_schiedsrichter]]
@@ -265,10 +265,11 @@ async def refuse_without_a_seat(
 # --- The erasure: every step that reaches a person's data, run in one transaction.
 
 
-def _seat_entry(collection: Collection, row: Mapping[str, Any], slot: str) -> str:
-    entry = f"{collection}/{row['_id']}/{slot}"
+def _seat_entry(collection: Collection, row: Mapping[str, Any], seat: str) -> str:
+    entry = f"{collection}/{row['_id']}/{seat}"
+    person = person_of(row.get("kontakte"), seat)
 
-    return f"{entry}/{row['kontakte'][slot]['einwilligung']['confirmed_at']}" if seat_is_confirmed(seat_of(row, slot)) else entry
+    return f"{entry}/{person['einwilligung']['confirmed_at']}" if seat_is_confirmed(person) else entry
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -307,15 +308,15 @@ class Subject:
         return [f"{collection}/{row['_id']}" for collection, rows in kinds for row in rows]
 
     def seats(self) -> list[str]:
-        """Each slot the address sits in as `collection/id/slot`, so a restore's replay reads this person's address.
+        """Each seat the address sits in as `collection/id/seat`, so a restore's replay reads this person's address.
 
-        A confirmed slot adds its `einwilligung.confirmed_at` as a fourth part: a seat passes to someone else, so a replay needs
+        A confirmed seat adds its `einwilligung.confirmed_at` as a fourth part: a seat passes to someone else, so a replay needs
         to tell whether the row a snapshot holds still seats this person. A day is neither an address nor a name.
         """
 
         kinds: tuple[tuple[Collection, Rows], ...] = ((Collection.SAISON_TEAMS, self.saison_teams), (Collection.BEWERBUNGEN, self.bewerbungen))
 
-        return [_seat_entry(collection, row, slot) for collection, rows in kinds for row, slot in seats_naming(rows, self.identifier)]
+        return [_seat_entry(collection, row, seat) for collection, rows in kinds for row, seat in seats_naming(rows, self.identifier)]
 
     def changes_naming_it(self) -> list[str]:
         """Each other address's change whose new address this is, as `collection/id/path`."""

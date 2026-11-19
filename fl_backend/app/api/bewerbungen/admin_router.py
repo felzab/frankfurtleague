@@ -625,7 +625,7 @@ async def post_kontakt_seat(
         )
         refuse(find_saison_past_refusal(saison_status=str(saison_raw["status"])))
 
-        # The pair is claimed rather than read off the slots, so it holds on the emptied seats too, and it is judged
+        # The pair is claimed rather than read off the seats, so it holds on the emptied seats too, and it is judged
         # with the pressed seat: `claimed_pair_seat` adds a mirror in any state at all.
         other = claimed_pair_seat(kontakte=kontakte, seat=pressed)
         seats = (pressed,) if other is None else (pressed, other)
@@ -644,7 +644,7 @@ async def post_kontakt_seat(
             db_filter=db_filter,
             update=compose_kontakt_seat_update(
                 seats=seats,
-                # The person as the slot stores them, so a sixth field added here reaches storage.
+                # The person as the seat stores them, so a sixth field added here reaches storage.
                 person=seat_data.model_dump(mode="json", exclude={"version"}),
                 today=today,
                 kontakte=kontakte,
@@ -725,7 +725,7 @@ async def withdraw_kontakt_einwilligung(
         projection={
             "team_id": 1,
             "schule": 1,
-            **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SEATS for field in ("email", "einwilligung")},
+            **{f"kontakte.{seat}.{field}": 1 for seat in KONTAKT_SEATS for field in ("email", "einwilligung")},
         },
         held_of=lambda row: held_by_the_seat(row, pressed),
         withheld={choice: WITHHELD_ON_A_SEAT[choice] for choice in withdrawal_data.choices},

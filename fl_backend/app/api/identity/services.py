@@ -10,7 +10,7 @@ from typing import Any, Literal
 
 from bson import ObjectId
 
-from app.api.bewerbungen.services import build_own_bewerbung_filter
+from app.api.bewerbungen.services import build_own_bewerbung_filter, person_of
 from app.api.grants.services import OWNER, admin_tier_of, holds_an_owners_power
 from app.api.identity.schemas import FLAccountErasureView, FLErasureViewResponse, FLSubject, FLSubjectSeat
 from app.api.kontakte.services import rows_seating
@@ -64,7 +64,7 @@ def build_seat_pipeline(*identifiers: str) -> list[Mapping[str, Any]]:
                 "name": 1,
                 "shorthand": 1,
                 "austritt": 1,
-                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SEATS for field in ("email", "einwilligung.confirmed_at")},
+                **{f"kontakte.{seat}.{field}": 1 for seat in KONTAKT_SEATS for field in ("email", "einwilligung.confirmed_at")},
             }
         },
         # Ordered in the read rather than by the reader: two clubs' seats held by one inbox are
@@ -114,8 +114,8 @@ def build_erasure_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "confirmations": 1,
                 # What the clearing judges a deletion notice's day by (`leaving_moves_the_deletion_day`).
                 "erasure_announced_at": 1,
-                **{f"kontakte.{slot}.einwilligung.confirmed_at": 1 for slot in KONTAKT_SEATS},
-                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SEATS for field in ERASURE_SEAT_FIELDS},
+                **{f"kontakte.{seat}.einwilligung.confirmed_at": 1 for seat in KONTAKT_SEATS},
+                **{f"kontakte.{seat}.{field}": 1 for seat in KONTAKT_SEATS for field in ERASURE_SEAT_FIELDS},
             }
         },
         {"$sort": {"saison_id": 1, "_id": 1}},
@@ -187,10 +187,10 @@ def _referee_entry(row: Mapping[str, Any]) -> dict[str, Any]:
     return {"name": row.get("name")}
 
 
-def _seat_entry(row: Mapping[str, Any], slot: str) -> dict[str, Any]:
-    person = (row.get("kontakte") or {}).get(slot) or {}
+def _seat_entry(row: Mapping[str, Any], seat: str) -> dict[str, Any]:
+    person = (row.get("kontakte") or {}).get(seat) or {}
 
-    return {"saison_id": row.get("saison_id"), "seat": slot, "first_name": person.get("first_name"), "last_name": person.get("last_name")}
+    return {"saison_id": row.get("saison_id"), "seat": seat, "first_name": person.get("first_name"), "last_name": person.get("last_name")}
 
 
 def _registrierung_entry(row: Mapping[str, Any], team_names: Mapping[tuple[Any, Any], Any]) -> dict[str, Any]:
@@ -226,8 +226,8 @@ def compose_account_erasure_view(
         {
             "spieler": None if pupil_row is None else _pupil_entry(pupil_row),
             "schiedsrichter": [_referee_entry(row) for row in referee_rows],
-            "seats": [{**_seat_entry(row, slot), "team_name": row.get("name")} for row, slot in seats_naming(saison_team_rows, identifier)],
-            "bewerbungen": [_seat_entry(row, slot) for row, slot in seats_naming(bewerbung_rows, identifier)],
+            "seats": [{**_seat_entry(row, seat), "team_name": row.get("name")} for row, seat in seats_naming(saison_team_rows, identifier)],
+            "bewerbungen": [_seat_entry(row, seat) for row, seat in seats_naming(bewerbung_rows, identifier)],
             "registrierungen": [_registrierung_entry(row, team_names) for row in registrierung_rows],
             "address_change": len(address_change_rows),
         }
@@ -275,7 +275,7 @@ def build_bewerbung_pipeline(*identifiers: str) -> list[Mapping[str, Any]]:
 
     return [
         {"$match": build_own_bewerbung_filter(*identifiers)},
-        {"$project": {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SEATS for field in ("email", "einwilligung.confirmed_at")}},
+        {"$project": {f"kontakte.{seat}.{field}": 1 for seat in KONTAKT_SEATS for field in ("email", "einwilligung.confirmed_at")}},
     ]
 
 
@@ -289,7 +289,7 @@ def build_registrierung_pipeline(*identifiers: str) -> list[Mapping[str, Any]]:
 
 
 def folded(stored: Any) -> str | None:
-    """One stored address on the fold both ends of a join share, or `None` where nothing is stored: an empty seat slot."""
+    """One stored address on the fold both ends of a join share, or `None` where nothing is stored: an empty seat."""
 
     return None if stored is None else sign_in_identifier(str(stored))
 
@@ -300,22 +300,16 @@ def folds_to(stored: Any, identifier: str) -> bool:
     return folded(stored) == identifier
 
 
-def seat_of(row: Mapping[str, Any], slot: str) -> Any:
-    """What one slot of a row's block stores; a cleared block stores no slot."""
+def seat_address(row: Mapping[str, Any], seat: str) -> Any:
+    """What one seat of a row's block stores as its address; a cleared block and an empty seat store none."""
 
-    return (row.get("kontakte") or {}).get(slot)
-
-
-def seat_address(row: Mapping[str, Any], slot: str) -> Any:
-    """What one slot of a row's block stores as its address; a cleared block and an empty slot store none."""
-
-    return (seat_of(row, slot) or {}).get("email")
+    return (person_of(row.get("kontakte"), seat) or {}).get("email")
 
 
 def seats_naming(rows: Sequence[Mapping[str, Any]], identifier: str) -> list[tuple[Mapping[str, Any], str]]:
-    """One pair per slot rather than per row: one address stands in two of a block's person slots wherever one person was entered twice."""
+    """One pair per seat rather than per row: one address stands in two of a block's seats wherever one person was entered twice."""
 
-    return [(row, slot) for row in rows for slot in KONTAKT_SEATS if folds_to(seat_address(row, slot), identifier)]
+    return [(row, seat) for row in rows for seat in KONTAKT_SEATS if folds_to(seat_address(row, seat), identifier)]
 
 
 # --- The own records: every record its own person confirmed, judged here alone for every reader. A
@@ -323,10 +317,10 @@ def seats_naming(rows: Sequence[Mapping[str, Any]], identifier: str) -> list[tup
 
 
 def own_seats(row: Mapping[str, Any], identifier: str) -> list[str]:
-    """The slots of one season row or application whose confirmed person is this address, in `KONTAKT_SEATS` order."""
+    """The seats of one season row or application whose confirmed person is this address, in `KONTAKT_SEATS` order."""
 
-    # Per slot: one address in two slots of one row may be confirmed in one and entered by an administrator in the other.
-    return [slot for found, slot in seats_naming([row], identifier) if seat_is_confirmed(seat_of(found, slot))]
+    # Per seat: one address in two seats of one row may be confirmed in one and entered by an administrator in the other.
+    return [seat for found, seat in seats_naming([row], identifier) if seat_is_confirmed(person_of(found.get("kontakte"), seat))]
 
 
 def is_own_spieler(row: Mapping[str, Any]) -> bool:
@@ -362,7 +356,7 @@ def own_entries(
 ) -> frozenset[tuple[EntryKind, Any]]:
     """Every own record of this address, by its kind and the id an account-page entry names it by.
 
-    A season row by its team and season: the seat PATCH answers per row, however many slots it holds.
+    A season row by its team and season: the seat PATCH answers per row, however many seats it holds.
     """
 
     return frozenset(
@@ -409,7 +403,7 @@ def grants_a_panel(saison_status: FLSaisonStatus) -> bool:
 
 
 def seats_on(seats: Iterable[FLSubjectSeat], *, team_id: ObjectId, saison_id: str) -> list[FLKontaktSeat]:
-    """The slots these seats hold on this team in this season, in `KONTAKT_SEATS` order: the one way to ask it."""
+    """The seats these entries name on this team in this season, in `KONTAKT_SEATS` order: the one way to ask it."""
 
     held = {entry.seat for entry in seats if entry.team_id == team_id and entry.saison_id == saison_id}
 
@@ -419,7 +413,7 @@ def seats_on(seats: Iterable[FLSubjectSeat], *, team_id: ObjectId, saison_id: st
 def holds_a_seat(seats: Iterable[FLSubjectSeat], *, team_id: ObjectId, saison_id: str) -> bool:
     """Whether any of these seats, already narrowed to a season granting a panel, sits on this team in this season.
 
-    Any slot alike: the Trainer's seat admits to everything an Ansprechperson's does.
+    Any seat alike: the Trainer's seat admits to everything an Ansprechperson's does.
     """
 
     return bool(seats_on(seats, team_id=team_id, saison_id=saison_id))
@@ -527,8 +521,8 @@ def referenced_addresses(
     """Every address, on the sign-in fold, that one of these records names."""
 
     stored = (
-        *(seat_address(row, slot) for row in seat_rows for slot in KONTAKT_SEATS),
-        *(seat_address(row, slot) for row in bewerbung_rows for slot in KONTAKT_SEATS),
+        *(seat_address(row, seat) for row in seat_rows for seat in KONTAKT_SEATS),
+        *(seat_address(row, seat) for row in bewerbung_rows for seat in KONTAKT_SEATS),
         # The row's own address and never a pending change's: that admits no sign-in until confirmed, and
         # the address it replaces stays here till then.
         *map(referee_address, referee_rows),

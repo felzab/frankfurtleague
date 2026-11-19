@@ -217,7 +217,7 @@ async def registration_withdrawal(http: AsyncClient, database: AsyncDatabase) ->
 
 Press = Callable[[AsyncClient, AsyncDatabase], Awaitable[Any]]
 
-# Every press writing a line, as the person makes it: its act, the record the line names and the slots saying whose block that is.
+# Every press writing a line, as the person makes it: its act, the record the line names and the seats saying whose block that is.
 PRESSES: dict[str, tuple[Press, str, Collection, ObjectId, list[str]]] = {
     "a pupil's withdrawal": (
         lambda http, _database: http.patch(
@@ -323,13 +323,13 @@ async def pressed_in_turn(url: str, caplog: pytest.LogCaptureFixture, presses: I
 
 
 async def test_each_press_writes_one_line_naming_its_record_and_no_address(mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-    """No address: the line outlives the erasure it may later have to sit beside. Its slots: a replay sets one person's block of three."""
+    """No address: the line outlives the erasure it may later have to sit beside. Its seats: a replay sets one person's block of three."""
 
     pressed = await pressed_in_turn(mongo_replica_set_url, caplog, PRESSES)
 
     assert {press: outcome.status < 300 for press, outcome in pressed.items()} == dict.fromkeys(PRESSES, True)
     assert {press: [(line["act"], line["records"], line["seats"]) for line in outcome.lines] for press, outcome in pressed.items()} == {
-        press: [(kind, [f"{collection}/{record_id}"], slots)] for press, (_act, kind, collection, record_id, slots) in PRESSES.items()
+        press: [(kind, [f"{collection}/{record_id}"], seats)] for press, (_act, kind, collection, record_id, seats) in PRESSES.items()
     }
     assert "@" not in str([outcome.lines for outcome in pressed.values()])
 

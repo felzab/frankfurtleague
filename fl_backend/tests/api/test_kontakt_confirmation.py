@@ -611,7 +611,7 @@ class TestARowsPeopleLeavingTakeTheirLinks:
         assert await on_a_league(mongo_replica_set_url, body) == Code.LINK_INVALID
 
     async def test_a_seat_emptied_beside_its_live_link_opens_nothing(self, mongo_replica_set_url: str):
-        """The state no route leaves and a hand edit can: the slot gone, its link live, no Widerspruch recorded."""
+        """The state no route leaves and a hand edit can: the seat gone, its link live, no Widerspruch recorded."""
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             response = await save(database, THREE)

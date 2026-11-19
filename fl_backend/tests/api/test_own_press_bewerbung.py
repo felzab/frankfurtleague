@@ -129,7 +129,7 @@ async def pressed_then_accepted(url: str, press: Press, *, ansprechperson_confir
 
 class TestTheAcceptanceLandsOverThePress:
     async def test_a_withdrawn_media_consent_stands_on_the_season_row(self, mongo_replica_set_url: str):
-        """The season row holds the one copy of the person, the acceptance emptying the application's slot."""
+        """The season row holds the one copy of the person, the acceptance emptying the application's seat."""
 
         bewerbung, row = await pressed_then_accepted(mongo_replica_set_url, withdraw_media, ansprechperson_confirmed_at="2026-02-10")
 

@@ -74,7 +74,7 @@ class FLTeamOverviewResponse(BaseReadModel):
     spielbestaetigungen: list[FLTeamPanelSpielbestaetigung]
     aufstellungen: list[FLTeamPanelAufstellung]
     registrierungen: list[FLTeamPanelRegistrierung]
-    # One per person, an empty slot answered with no name: three, or two where the Trainer holds a second seat.
+    # One per person, an empty seat answered with no name: three, or two where the Trainer holds a second seat.
     seats: list[FLTeamSeat]
 
 

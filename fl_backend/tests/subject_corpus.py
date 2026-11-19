@@ -59,8 +59,8 @@ def _person(email: str, *, confirmed_at: str | None = STAMP) -> dict[str, Any]:
     return kontaktperson_document("Anna", confirmed_at=confirmed_at, last_name="Müller", email=email, phone="+49 69 90009101")
 
 
-def _junction(row_id: ObjectId, saison_id: str, team_id: ObjectId, *, name: str, **slots: str | dict[str, Any]) -> dict[str, Any]:
-    """A `saison_teams` row seating whoever the caller names, an address as a confirmed seat, the slots it does not name left empty."""
+def _junction(row_id: ObjectId, saison_id: str, team_id: ObjectId, *, name: str, **seats: str | dict[str, Any]) -> dict[str, Any]:
+    """A `saison_teams` row seating whoever the caller names, an address as a confirmed seat, the seats it does not name left empty."""
 
     return saison_team_document(
         saison_id,
@@ -69,9 +69,9 @@ def _junction(row_id: ObjectId, saison_id: str, team_id: ObjectId, *, name: str,
         name[:3].upper(),
         _id=row_id,
         kontakte={
-            **{slot: None for slot in KONTAKT_SEATS},
-            **{slot: _person(seat) if isinstance(seat, str) else seat for slot, seat in slots.items()},
-            # A declaration about two slots rather than a slot of its own, so it names nobody and
+            **{seat: None for seat in KONTAKT_SEATS},
+            **{seat: _person(held) if isinstance(held, str) else held for seat, held in seats.items()},
+            # A declaration about two seats rather than a seat of its own, so it names nobody and
             # no case here turns on it (`app/api/teams/schemas.py :: KONTAKT_SEATS`).
             "trainer_is_also": None,
         },
@@ -87,7 +87,7 @@ async def the_subjects_corpus(database: AsyncDatabase) -> None:
     await database[Collection.SAISON_TEAMS].insert_many(
         [
             _junction(SEAT_ROW_A_OID, PAST_SAISON, TEAM_A_OID, name="Helmholtz", trainer=IDENTIFIER),
-            # One address in TWO person slots of one row, which is what a person entered twice is.
+            # One address in TWO seats of one row, which is what a person entered twice is.
             _junction(SEAT_ROW_B_OID, ACTIVE_SAISON, TEAM_B_OID, name="Lessing", trainer=IDENTIFIER, ansprechperson=IDENTIFIER),
             _junction(
                 UNCONFIRMED_ROW_OID, ACTIVE_SAISON, TEAM_C_OID, name="Krautzberg", ansprechperson=_person(UNCONFIRMED, confirmed_at=None)

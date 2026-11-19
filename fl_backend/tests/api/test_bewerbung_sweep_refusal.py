@@ -238,17 +238,17 @@ class TestALapsedSeasonRowSeat:
         assert lapsed_seats(kontakte=kontakte(), confirmations=block, today=TODAY) == (["trainer"] if lapsed else [])
 
     @pytest.mark.parametrize(
-        ("slot", "entry", "lapsed"),
+        ("person", "entry", "lapsed"),
         [
             pytest.param(kontaktperson_document("Trainer", confirmed_at=YESTERDAY), {"deadline": YESTERDAY}, False, id="confirmed"),
             pytest.param(None, None, False, id="erased, so no deadline"),
             pytest.param(None, {"deadline": YESTERDAY, "declined_at": YESTERDAY}, True, id="an objection's link on its day"),
         ],
     )
-    def test_only_a_seat_left_unconfirmed_lapses(self, slot: Any, entry: Any, lapsed: bool):
+    def test_only_a_seat_left_unconfirmed_lapses(self, person: Any, entry: Any, lapsed: bool):
         block = {**all_seats_until(TOMORROW), "trainer": entry}
 
-        assert lapsed_seats(kontakte=kontakte(trainer=slot), confirmations=block, today=TODAY) == (["trainer"] if lapsed else [])
+        assert lapsed_seats(kontakte=kontakte(trainer=person), confirmations=block, today=TODAY) == (["trainer"] if lapsed else [])
 
 
 class TestWhatTheNoticesNeed:

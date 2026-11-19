@@ -84,9 +84,9 @@ def _seat(email: str) -> dict[str, Any]:
     return kontaktperson_document("Anna", confirmed_at="2026-01-06", email=email, phone=SEAT_PHONE)
 
 
-def _junction(saison_id: str, team_id: ObjectId, name: str, **slots: dict[str, Any]) -> dict[str, Any]:
+def _junction(saison_id: str, team_id: ObjectId, name: str, **seats: dict[str, Any]) -> dict[str, Any]:
     return saison_team_document(
-        saison_id, team_id, name, name[:3].upper(), kontakte={**{slot: None for slot in KONTAKT_SEATS}, **slots, "trainer_is_also": None}
+        saison_id, team_id, name, name[:3].upper(), kontakte={**{seat: None for seat in KONTAKT_SEATS}, **seats, "trainer_is_also": None}
     )
 
 
@@ -317,7 +317,7 @@ class TestARetiredRow:
 
 
 class TestATrainerOnlySeat:
-    """Every operation open to the Trainer's seat exactly as to the Ansprechperson's: the case that goes red if a check narrows by slot."""
+    """Every operation open to the Trainer's seat exactly as to the Ansprechperson's: the case that goes red if a check narrows by seat."""
 
     async def test_it_reads_edits_all_four_fields_and_retires(self, mongo_replica_set_url: str):
         async def run(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[list[int], Any, Any]:

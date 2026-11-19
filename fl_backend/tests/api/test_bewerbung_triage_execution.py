@@ -104,12 +104,12 @@ def kontaktperson(first_name: str, *, phone: str) -> dict[str, Any]:
     return kontaktperson_document(first_name, confirmed_at="2126-01-16", einwilligung=SEATED, phone=phone, birth_date="2080-05-04")
 
 
-# Distinct per slot, so a block copied across with two slots swapped fails rather than compares equal.
+# Distinct per seat, so a block copied across with two seats swapped fails rather than compares equal.
 KONTAKTE: Mapping[str, Any] = {
     "trainer": kontaktperson("Wraxlington", phone="+49 69 90009111"),
     "ansprechperson": kontaktperson("Quillhilde", phone="+49 69 90009222"),
     "stellvertretung": kontaktperson("Bramblewick", phone="+49 69 90009333"),
-    # Null, never a seat name: the three slots hold three people, and the flag is a claim of its own.
+    # Null, never a seat name: the three seats hold three people, and the flag is a claim of its own.
     "trainer_is_also": None,
 }
 
@@ -139,7 +139,7 @@ def bewerbung_document(
     """
 
     fields = {
-        "kontakte": {slot: dict(person) if isinstance(person, dict) else person for slot, person in KONTAKTE.items()},
+        "kontakte": {seat: dict(person) if isinstance(person, dict) else person for seat, person in KONTAKTE.items()},
         "submitted_at": "2126-02-01",
         "trikot": {"existing_set": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
         **overrides,
@@ -419,13 +419,13 @@ def confirmed_kontakte(*, open_seat: str | None) -> dict[str, Any]:
     """The seeded people with every seat confirmed by its own person, or one of them left open."""
 
     block = dict(KONTAKTE)
-    for slot in ("trainer", "ansprechperson", "stellvertretung"):
-        stamped = slot != open_seat
-        block[slot] = kontaktperson_document(
-            KONTAKTE[slot]["first_name"],
+    for seat in ("trainer", "ansprechperson", "stellvertretung"):
+        stamped = seat != open_seat
+        block[seat] = kontaktperson_document(
+            KONTAKTE[seat]["first_name"],
             confirmed_at="2126-02-10" if stamped else None,
             einwilligung=SEATED,
-            phone=KONTAKTE[slot]["phone"],
+            phone=KONTAKTE[seat]["phone"],
             birth_date="2080-05-04" if stamped else None,
         )
 
@@ -501,7 +501,7 @@ class TestAcceptanceWaitsForEverySeat:
         seated, told = await on_a_league(mongo_replica_set_url, body)
 
         assert seated["trainer"]["email"] not in told
-        assert told == sorted({seated[slot]["email"] for slot in ("ansprechperson", "stellvertretung")})
+        assert told == sorted({seated[seat]["email"] for seat in ("ansprechperson", "stellvertretung")})
 
 
 async def seed_the_unusable_school(database: AsyncDatabase) -> Mapping[str, Any]:
@@ -1051,9 +1051,9 @@ async def correct(
 ) -> Any:
     """The seat's own person at another address, as the dialog filled from the page sends them."""
 
-    slot = (await stored_bewerbung(database, bewerbung_id))["kontakte"].get(seat) or RESEAT_PERSON
+    person = (await stored_bewerbung(database, bewerbung_id))["kontakte"].get(seat) or RESEAT_PERSON
 
-    return await write_seat(database, client, seat, {**{key: slot[key] for key in RESEAT_PERSON}, "email": email}, bewerbung_id=bewerbung_id)
+    return await write_seat(database, client, seat, {**{key: person[key] for key in RESEAT_PERSON}, "email": email}, bewerbung_id=bewerbung_id)
 
 
 async def seed_a_pair_whose_seats_diverge(database: AsyncDatabase, bewerbung_id: ObjectId, *, open_seat: str) -> None:
@@ -1364,7 +1364,7 @@ class TestAFinishedSeasonTakesNoFreshLink:
 
 RESEAT_BEWERBUNG = ObjectId("6890a1b2c3d4e5f60792000b")
 
-# Distinct from every seeded person, so a slot this write never reached cannot compare equal to one it did.
+# Distinct from every seeded person, so a seat this write never reached cannot compare equal to one it did.
 RESEAT_PERSON: Mapping[str, Any] = {
     "first_name": "Wilburga",
     "last_name": "Dringenhoff",
@@ -1405,7 +1405,7 @@ async def seed_an_application_a_seat_was_declined_on(database: AsyncDatabase, cl
 
     kontakte = confirmed_kontakte(open_seat="ansprechperson")
     if mirrored:
-        # The Trainer IS the Ansprechperson, so one answer emptied both slots and one reseat fills both.
+        # The Trainer IS the Ansprechperson, so one answer emptied both seats and one reseat fills both.
         kontakte["trainer"] = {**kontakte["ansprechperson"]}
         kontakte["trainer_is_also"] = "ansprechperson"
 
@@ -1428,7 +1428,7 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
     """The seat a Widerspruch emptied is the one an administrator may put somebody else in, against a real document."""
 
     async def test_it_writes_the_person_a_fresh_record_and_a_fresh_link_in_one_update(self, mongo_replica_set_url: str):
-        """The seeded slot is null, which is the only state this endpoint runs on and the one a dotted `$set` aborts against."""
+        """The seeded seat is null, which is the only state this endpoint runs on and the one a dotted `$set` aborts against."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_an_application_a_seat_was_declined_on(database, client)
@@ -1444,7 +1444,7 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
 
         emptied, stored, mails, linked = await on_a_league(mongo_replica_set_url, body)
 
-        assert emptied["kontakte"]["ansprechperson"] is None, "the Widerspruch left a slot this endpoint was never exercised against"
+        assert emptied["kontakte"]["ansprechperson"] is None, "the Widerspruch left a seat this endpoint was never exercised against"
         assert stored["kontakte"]["ansprechperson"] == {
             **RESEAT_PERSON,
             "birth_date": None,
@@ -1486,7 +1486,7 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
     async def test_one_person_holding_two_seats_is_seated_in_both_from_one_press(self, mongo_replica_set_url: str):
         """The pair comes off `trainer_is_also`, surviving the emptying that hides it from `paired_seat`.
 
-        `app/api/bewerbungen/services.py :: paired_seat` answers `None` on these two slots, leaving one seat holding the other's link.
+        `app/api/bewerbungen/services.py :: paired_seat` answers `None` on these two seats, leaving one seat holding the other's link.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

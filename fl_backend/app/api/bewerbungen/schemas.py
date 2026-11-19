@@ -55,7 +55,7 @@ class _FLBewerbungSeatState(BaseReadModel):
     # The day this seat's link stops working, counted from that mail, and the application goes with it if its person
     # never answers. Not the season's `Bewerbungsfrist`, which is the window the form is open in.
     deadline: CustomDateString
-    # Beside the slot rather than inside it: a decline empties the person's slot, and a marker in
+    # Beside the seat rather than inside it: a decline empties the person's seat, and a marker in
     # there would go with it.
     declined_at: CustomOptionalDateString
 
@@ -155,7 +155,7 @@ class FLBewerbungConfirmationRecord(_FLBewerbungSeatState):
     # clock reads it, and no page does.
     reminded_at: CustomOptionalDateString
     # The day this seat's person confirmed it, kept here by the acceptance, which moves the person to the season row and
-    # empties the slot: a reopened link still shows what they did and when. Null while the slot holds its own stamp.
+    # empties the seat: a reopened link still shows what they did and when. Null while the seat holds its own stamp.
     confirmed_on: CustomOptionalDateString
 
 
@@ -583,7 +583,7 @@ class FLBewerbungEinwilligungGiven(BasePayload):
 
 
 class FLBewerbungEinwilligungDeclined(BasePayload):
-    """One person's Widerspruch for one seat, which empties their slot: it carries nothing of them."""
+    """One person's Widerspruch for one seat, which empties their seat: it carries nothing of them."""
 
     answer: Literal["declined"]
     token: CustomToken

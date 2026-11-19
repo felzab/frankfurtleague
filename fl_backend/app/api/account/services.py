@@ -91,13 +91,13 @@ def compose_person_move(
 def compose_seat_move(
     *, seats: Mapping[str, Mapping[str, Any]], chosen: Mapping[FLEinwilligungChoice, Any], at: str, text_versions: TextVersions
 ) -> dict[str, dict[str, Any]] | None:
-    """The update moving every held seat's block of one row or application, `seats` keyed by slot; `None` where none moves."""
+    """The update moving every held seat's block of one row or application, `seats` keyed by seat; `None` where none moves."""
 
     set_fields: dict[str, Any] = {}
-    for slot, saved in seats.items():
+    for seat, saved in seats.items():
         set_fields.update(
             compose_choices(
-                path=f"kontakte.{slot}.einwilligung",
+                path=f"kontakte.{seat}.einwilligung",
                 saved=saved,
                 set_fields={choice: chosen[choice] for choice in CHOICES if choice in chosen and _moved(saved, choice, chosen[choice])},
                 at=at,
@@ -324,7 +324,7 @@ async def press_own_einwilligung(
 
 @dataclass(frozen=True, kw_only=True)
 class Held:
-    """The consent blocks one record holds of the person whose mail asked a withdrawal, keyed by path, and on a seat's record their slots."""
+    """The consent blocks one record holds of the person whose mail asked a withdrawal, keyed by path, and on a seat's record their seats."""
 
     blocks: Mapping[str, Mapping[str, Any]]
     seats: Sequence[str] = ()
@@ -345,9 +345,9 @@ def held_by_the_seat(row: Mapping[str, Any], seat: str) -> Held:
     """
 
     identifier = folded(seat_address(row, seat))
-    slots = [] if identifier is None else own_seats(row, identifier)
+    seats = [] if identifier is None else own_seats(row, identifier)
 
-    return Held(blocks={f"kontakte.{slot}.einwilligung": row["kontakte"][slot]["einwilligung"] for slot in slots}, seats=slots)
+    return Held(blocks={f"kontakte.{seat}.einwilligung": row["kontakte"][seat]["einwilligung"] for seat in seats}, seats=seats)
 
 
 async def withdraw_by_mail(
@@ -490,7 +490,7 @@ _SEAT_PERSON_FIELDS: Final = ("first_name", "last_name", "phone", "birth_date")
 
 
 def build_self_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """Every season row one of whose seats names the address, `own_seats` judging each slot.
+    """Every season row one of whose seats names the address, `own_seats` judging each seat.
 
     No `austritt` term: a withdrawal reaches a withdrawn team's seat too. Each row carries its season's status, so the page
     reads none apart.
@@ -506,7 +506,7 @@ def build_self_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "shorthand": 1,
                 # Read by the Funktionen the page judges a grant by, which come from these rows.
                 "austritt": 1,
-                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SEATS for field in ("email", "einwilligung", *_SEAT_PERSON_FIELDS)},
+                **{f"kontakte.{seat}.{field}": 1 for seat in KONTAKT_SEATS for field in ("email", "einwilligung", *_SEAT_PERSON_FIELDS)},
             }
         },
         # A past season's row after a running one's, the last key unique so no two rows tie.
@@ -547,10 +547,10 @@ def _seat_choices_held(held: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     return {**seat_choices_of_row(blocks), "evidence_state": evidence_state_of(blocks=blocks)}
 
 
-def _seat_persons(row: Mapping[str, Any], slots: Sequence[str]) -> list[dict[str, Any]]:
+def _seat_persons(row: Mapping[str, Any], seats: Sequence[str]) -> list[dict[str, Any]]:
     """What each held seat stores of its person, in the seats' order: one person may be typed two ways on two seats."""
 
-    return [{"seat": slot, **{field: row["kontakte"][slot].get(field) for field in _SEAT_PERSON_FIELDS}} for slot in slots]
+    return [{"seat": seat, **{field: row["kontakte"][seat].get(field) for field in _SEAT_PERSON_FIELDS}} for seat in seats]
 
 
 def compose_seats_self(
@@ -560,28 +560,28 @@ def compose_seats_self(
     seats_with_panel: Sequence[FLSubjectSeat],
     today: str,
 ) -> list[dict[str, Any]]:
-    """One entry per season row on which this address holds a confirmed seat, the seat PATCH moving a person's slots together."""
+    """One entry per season row on which this address holds a confirmed seat, the seat PATCH moving a person's seats together."""
 
-    seats = []
+    entries = []
     for row in rows:
-        slots = own_seats(row, identifier)
-        if not slots:
+        seats = own_seats(row, identifier)
+        if not seats:
             continue
-        held = [row["kontakte"][slot] for slot in slots]
-        seats.append(
+        held = [row["kontakte"][seat] for seat in seats]
+        entries.append(
             {
                 "team_id": row["team_id"],
                 "team_name": row["name"],
                 "saison_id": row["saison_id"],
-                "seats": slots,
-                "persons": _seat_persons(row, slots),
+                "seats": seats,
+                "persons": _seat_persons(row, seats),
                 **_seat_choices_held(held),
-                "media_offered": all(media_offered(birth_date=seat.get("birth_date"), today=today) for seat in held),
+                "media_offered": all(media_offered(birth_date=person.get("birth_date"), today=today) for person in held),
                 "givable": holds_a_seat(seats_with_panel, team_id=row["team_id"], saison_id=row["saison_id"]),
             }
         )
 
-    return seats
+    return entries
 
 
 def build_self_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
@@ -594,7 +594,7 @@ def build_self_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "saison_id": 1,
                 "team_id": 1,
                 "schule.team_name": 1,
-                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SEATS for field in ("email", "einwilligung", *_SEAT_PERSON_FIELDS)},
+                **{f"kontakte.{seat}.{field}": 1 for seat in KONTAKT_SEATS for field in ("email", "einwilligung", *_SEAT_PERSON_FIELDS)},
             }
         },
         {"$sort": {"saison_id": -1, "_id": 1}},
@@ -610,18 +610,18 @@ def compose_bewerbung_seats_self(
     team_names = {team_id: str(team.get("name") or "") for team_id, team in teams.items()}
     entries = []
     for row in rows:
-        slots = own_seats(row, identifier)
-        if not slots:
+        seats = own_seats(row, identifier)
+        if not seats:
             continue
-        held = [row["kontakte"][slot] for slot in slots]
+        held = [row["kontakte"][seat] for seat in seats]
         schule = schule_name(bewerbung_raw=row, team_names=team_names)
         entries.append(
             {
                 "bewerbung_id": row["_id"],
                 "schule": schule,
                 "saison_id": row["saison_id"],
-                "seats": slots,
-                "persons": _seat_persons(row, slots),
+                "seats": seats,
+                "persons": _seat_persons(row, seats),
                 **_seat_choices_held(held),
             }
         )

@@ -150,8 +150,8 @@ async def read_the_holdings(
         identifier=identifier,
         spieler=spieler,
         schiedsrichter=[row for row in referees if is_own_schiedsrichter(row, identifier)],
-        seats=[(row, tuple(slots)) for row in seat_rows if (slots := own_seats(row, identifier))],
-        bewerbung_seats=[(row, tuple(slots)) for row in bewerbung_rows if (slots := own_seats(row, identifier))],
+        seats=[(row, tuple(seats)) for row in seat_rows if (seats := own_seats(row, identifier))],
+        bewerbung_seats=[(row, tuple(seats)) for row in bewerbung_rows if (seats := own_seats(row, identifier))],
         registrierungen=registrierungen,
         grant=await live_grant_of(identifier, grants_collection=grants_collection, session=session),
     )
@@ -570,21 +570,21 @@ async def move_the_address_in_session(
             return_document=ReturnDocument.BEFORE,
         )
 
-    for row, slots in holdings.seats:
+    for row, seats in holdings.seats:
         await patch_one_in_db(
             collection=collections.saison_teams_collection,
             db_filter={"_id": row["_id"]},
-            update=_seat_move(slots, new_address),
+            update=_seat_move(seats, new_address),
             session=session,
             expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
 
-    for row, slots in holdings.bewerbung_seats:
+    for row, seats in holdings.bewerbung_seats:
         await patch_one_in_db(
             collection=collections.bewerbungen_collection,
             db_filter={"_id": row["_id"]},
-            update=_seat_move(slots, new_address),
+            update=_seat_move(seats, new_address),
             session=session,
             expected_version=None,
             return_document=ReturnDocument.BEFORE,
@@ -698,8 +698,8 @@ async def _carry_the_mail(outbox_collection: AsyncCollection, old: str, new: str
         await patch_many_in_db(collection=outbox_collection, db_filter={"_id": {"$in": sent}}, update=TOMBSTONE_UPDATE, session=session)
 
 
-def _seat_move(slots: Sequence[str], new_address: str) -> dict[str, Any]:
-    return {"$set": {f"kontakte.{slot}.email": new_address for slot in slots}}
+def _seat_move(seats: Sequence[str], new_address: str) -> dict[str, Any]:
+    return {"$set": {f"kontakte.{seat}.email": new_address for seat in seats}}
 
 
 async def _move_the_registrierung_in_session(

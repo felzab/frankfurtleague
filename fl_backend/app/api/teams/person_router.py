@@ -76,14 +76,14 @@ router = APIRouter(
 )
 
 
-def _as_seat(kontakte: Mapping[str, Any], slot: FLKontaktSeat, *, also: FLKontaktSeat | None) -> FLTeamSeat:
-    person = kontakte.get(slot)
+def _as_seat(kontakte: Mapping[str, Any], seat: FLKontaktSeat, *, also: FLKontaktSeat | None) -> FLTeamSeat:
+    person = kontakte.get(seat)
     if person is None:
-        return FLTeamSeat.model_validate({"seats": [slot], "name": None, "confirmed": False})
+        return FLTeamSeat.model_validate({"seats": [seat], "name": None, "confirmed": False})
 
     return FLTeamSeat.model_validate(
         {
-            "seats": [slot] if also is None else [slot, also],
+            "seats": [seat] if also is None else [seat, also],
             "name": " ".join(str(person.get(field) or "").strip() for field in ("first_name", "last_name")).strip() or None,
             "confirmed": seat_is_confirmed(person),
         }
@@ -98,7 +98,7 @@ def _seats_of(kontakte: Mapping[str, Any]) -> list[FLTeamSeat]:
 
     also: FLKontaktSeat | None = kontakte.get("trainer_is_also") if kontakte.get("trainer") is not None else None
 
-    return [_as_seat(kontakte, slot, also=also if slot == "trainer" else None) for slot in KONTAKT_SEATS if slot != also]
+    return [_as_seat(kontakte, seat, also=also if seat == "trainer" else None) for seat in KONTAKT_SEATS if seat != also]
 
 
 @router.patch(
@@ -131,14 +131,14 @@ async def patch_einwilligung(
     async def write(session: AsyncClientSession) -> None:
         row = await saison_teams_collection.find_one(
             {"saison_id": saison_id, "team_id": team_id},
-            {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SEATS for field in ("email", "birth_date", "einwilligung")},
+            {f"kontakte.{seat}.{field}": 1 for seat in KONTAKT_SEATS for field in ("email", "birth_date", "einwilligung")},
             session=session,
         )
-        slots = [] if row is None else own_seats(row, identifier)
-        refuse(find_own_entry_refusal(held=bool(slots)))
+        seats = [] if row is None else own_seats(row, identifier)
+        refuse(find_own_entry_refusal(held=bool(seats)))
         assert row is not None
-        seats = {slot: row["kontakte"][slot] for slot in slots}
-        chosen = changed_seat_choices(blocks=[seat["einwilligung"] for seat in seats.values()], pressed=pressed)
+        held = {seat: row["kontakte"][seat] for seat in seats}
+        chosen = changed_seat_choices(blocks=[person["einwilligung"] for person in held.values()], pressed=pressed)
 
         async def may_give() -> bool:
             # The panel narrowing a grant waits on: a `past` season's seat and a withdrawn team's grant none.
@@ -146,8 +146,8 @@ async def patch_einwilligung(
             return holds_a_seat(subject.seats, team_id=team_id, saison_id=saison_id)
 
         await press_einwilligung(
-            blocks=[seat["einwilligung"] for seat in seats.values()],
-            birth_dates=[seat.get("birth_date") for seat in seats.values()],
+            blocks=[person["einwilligung"] for person in held.values()],
+            birth_dates=[person.get("birth_date") for person in held.values()],
             chosen=chosen,
             evidence_state=einwilligung_data.evidence_state.model_dump(),
             text_versions=einwilligung_data.text_versions,
@@ -156,7 +156,7 @@ async def patch_einwilligung(
         )
 
         update = compose_seat_move(
-            seats={slot: seat["einwilligung"] for slot, seat in seats.items()},
+            seats={seat: person["einwilligung"] for seat, person in held.items()},
             chosen=chosen,
             at=at,
             text_versions=by_choice(einwilligung_data.text_versions),
@@ -167,9 +167,9 @@ async def patch_einwilligung(
             await patch_past_the_version_in_db(
                 collection=saison_teams_collection, db_filter={"_id": row["_id"]}, update=update, session=session
             )
-        choices = withdrawal_line(blocks=[seat["einwilligung"] for seat in seats.values()], chosen=chosen)
+        choices = withdrawal_line(blocks=[person["einwilligung"] for person in held.values()], chosen=chosen)
         if choices is not None:
-            journal.note("withdrawal", [f"{Collection.SAISON_TEAMS}/{row['_id']}"], choices=list(choices), seats=slots)
+            journal.note("withdrawal", [f"{Collection.SAISON_TEAMS}/{row['_id']}"], choices=list(choices), seats=seats)
 
     async with journal:
         await transact(db, write)
@@ -346,7 +346,7 @@ async def get_team_overview(
         db_filter={"saison_id": saison_id, "team_id": team_id},
         projection=[
             "shorthand",
-            *(f"kontakte.{slot}.{field}" for slot in KONTAKT_SEATS for field in ("first_name", "last_name", "einwilligung.confirmed_at")),
+            *(f"kontakte.{seat}.{field}" for seat in KONTAKT_SEATS for field in ("first_name", "last_name", "einwilligung.confirmed_at")),
         ],
         session=session,
     )

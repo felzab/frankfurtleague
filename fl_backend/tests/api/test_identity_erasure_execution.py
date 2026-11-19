@@ -401,8 +401,8 @@ class TestTheJournal:
             f"{Collection.REGISTRIERUNGEN}/{DECLINED_OID}",
             f"{Collection.GRANTS}/{THEIR_GRANT_OID}",
         }
-        # Each seat apart: its row holds other people, and a replay reading any other slot erases one of them. A confirmed
-        # one carries its day, or a snapshot seating somebody else in the slot reads as this person.
+        # Each seat apart: its row holds other people, and a replay reading any other seat erases one of them. A confirmed
+        # one carries its day, or a snapshot seating somebody else in the seat reads as this person.
         seats = {
             f"{Collection.SAISON_TEAMS}/{team_row_id}/ansprechperson/2126-03-21",
             f"{Collection.BEWERBUNGEN}/{BEWERBUNG_OID}/trainer/2126-03-21",

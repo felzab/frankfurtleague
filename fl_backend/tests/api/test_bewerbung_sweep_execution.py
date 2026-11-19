@@ -454,7 +454,7 @@ class TestTheFourteenDayClock:
 
         assert await on_a_league(mongo_replica_set_url, body) == (None, [])
 
-    async def test_an_emptied_ansprechperson_slot_is_erased_with_nobody_told(self, mongo_replica_set_url: str):
+    async def test_an_emptied_ansprechperson_seat_is_erased_with_nobody_told(self, mongo_replica_set_url: str):
         """No mailbox is left to tell, which is not a refused address: the application cannot complete and goes."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -679,7 +679,7 @@ class TestTheFourteenDayClocksTerms:
         assert await on_a_league(mongo_replica_set_url, body) is False
 
     async def test_an_accepted_application_whose_links_have_lapsed_stands(self, mongo_replica_set_url: str):
-        """The acceptance empties the slots and its links pass their day, so the status alone keeps it off this clock."""
+        """The acceptance empties the seats and its links pass their day, so the status alone keeps it off this clock."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             lapsed = {

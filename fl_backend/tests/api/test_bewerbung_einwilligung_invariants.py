@@ -16,19 +16,19 @@ def written(update: Mapping[str, Any]) -> Mapping[str, Any]:
     return update["$set"]
 
 
-class TestASlotAndItsBookkeepingMoveTogether:
-    """A null `kontakte` slot beside a live `confirmations` entry is a seat the confirmation would `$set` under a null parent.
+class TestASeatAndItsBookkeepingMoveTogether:
+    """A null `kontakte` seat beside a live `confirmations` entry is a seat the confirmation would `$set` under a null parent.
 
-    Nothing but a decline and an erasure empties a slot, so their composers are where that state would come from.
+    Nothing but a decline and an erasure empties a seat, so their composers are where that state would come from.
     """
 
-    @pytest.mark.parametrize("slots", [("trainer", "ansprechperson"), KONTAKT_SEATS])
-    def test_an_erasure_over_an_application_nulls_the_entry_beside_every_slot(self, slots: tuple[str, ...]):
-        update = written(build_clearing_update(slots, confirmations=True))
+    @pytest.mark.parametrize("seats", [("trainer", "ansprechperson"), KONTAKT_SEATS])
+    def test_an_erasure_over_an_application_nulls_the_entry_beside_every_seat(self, seats: tuple[str, ...]):
+        update = written(build_clearing_update(seats, confirmations=True))
 
-        for slot in slots:
-            assert update[f"kontakte.{slot}"] is None
-            assert update[f"confirmations.{slot}"] is None
+        for seat in seats:
+            assert update[f"kontakte.{seat}"] is None
+            assert update[f"confirmations.{seat}"] is None
 
 
 # Fixed rather than minted, so a case names the same hash every run; the raw values are never
