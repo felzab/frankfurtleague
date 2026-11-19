@@ -298,7 +298,7 @@ async def reactivate_saison_spieler(
             saison_spieler_collection=saison_spieler_collection,
             saisons_collection=saisons_collection,
             saison_id=saison_id,
-            rules=saison_raw["rules"],
+            rules=FLSaisonRules.model_validate(saison_raw["rules"]),
             team_id=stored_raw["team_id"],
             spieler_id=spieler_id,
             nominee=stored_raw["is_nachnominiert"],

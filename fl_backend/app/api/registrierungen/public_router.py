@@ -33,6 +33,7 @@ from app.api.registrierungen.services import (
     saison_takes_registrierungen,
     state_of,
 )
+from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import entry_is_a_nominee
 from app.api.spieler.crud import pull_kader_room
 from app.api.spieler.services import find_full_kader_refusal
@@ -77,10 +78,10 @@ from app.shared.tokens import hash_token
 router = APIRouter(prefix="/registrierungen", dependencies=BASE_TIER)
 
 
-# What a season read serves this tier: the two rules a form is bounded by, the window, whose `end`
-# reaches the holder as the Nachnominierung verdict alone, and the status the page words a closed link
-# with. No other field of a season reaches an invite's holder.
-SAISON_PROJECTION = ["registrierung", "rules.allowed_stufen", "rules.max_kader_size", "status"]
+# What a season read takes for this tier: the rules, whole so they validate as the season's model, of which the two a
+# form is bounded by reach the holder; the window, whose `end` reaches the holder as the Nachnominierung verdict alone;
+# and the status the page words a closed link with. No other field of a season reaches an invite's holder.
+SAISON_PROJECTION = ["registrierung", "rules", "status"]
 
 # What a season row serves this tier: the name the club plays the season under, and the Austritt that kills its link.
 JUNCTION_PROJECTION = {"name": 1, "austritt": 1}
@@ -144,7 +145,7 @@ async def post_invitation_view(
     team_id = invitation_raw["team_id"]
 
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=SAISON_PROJECTION)
-    rules = saison_raw.get("rules") or {}
+    rules = FLSaisonRules.model_validate(saison_raw["rules"])
 
     # The junction row's own copy of the name, as every season-scoped read serves it: a club renamed
     # after this season finished still reads here under the name it plays the season under.
@@ -170,7 +171,7 @@ async def post_invitation_view(
         saison_id=saison_id,
         saison_status=saison_raw["status"],
         running=saison_takes_registrierungen(saison_status=saison_raw["status"], registrierung=saison_raw.get("registrierung")),
-        allowed_stufen=list(rules.get("allowed_stufen") or []),
+        allowed_stufen=rules.allowed_stufen,
         # The same junction row the submission judges `registrierung_closed` on, so the page words
         # the state before anything is typed rather than after a whole form is filled in.
         team_entered=junction_raw is not None,
@@ -233,14 +234,14 @@ async def post_registrierung(
         saison_raw = await pull_one_from_db(
             collection=saisons_collection, db_filter={"_id": saison_id}, projection=SAISON_PROJECTION, session=session
         )
-        rules = saison_raw.get("rules") or {}
+        rules = FLSaisonRules.model_validate(saison_raw["rules"])
         refuse(
             find_closed_refusal(
                 saison_status=saison_raw["status"], registrierung=saison_raw.get("registrierung"), entered=junction_raw is not None
             )
         )
 
-        refuse(find_stufe_refusal(stufe=registrierung_data.stufe, allowed_stufen=list(rules.get("allowed_stufen") or [])))
+        refuse(find_stufe_refusal(stufe=registrierung_data.stufe, allowed_stufen=rules.allowed_stufen))
 
         room = await pull_kader_room(
             saison_spieler_collection=saison_spieler_collection,

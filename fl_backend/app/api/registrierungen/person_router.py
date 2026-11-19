@@ -43,6 +43,7 @@ from app.api.registrierungen.services import (
     person_deviates,
     registrierung_is_confirmed,
 )
+from app.api.saisons.schemas import FLSaisonRules
 from app.api.spieler.crud import pull_kader_room, refuse_a_full_kader
 from app.api.spieler.services import find_full_kader_refusal
 from app.core.collections import Collection
@@ -137,7 +138,7 @@ async def get_open_registrierungen(
         saison_spieler_collection=saison_spieler_collection,
         saison_id=saison_id,
         team_id=team_id,
-        rules=saison_raw["rules"],
+        rules=FLSaisonRules.model_validate(saison_raw["rules"]),
         excluding_spieler_id=None,
         session=session,
     )
@@ -257,8 +258,8 @@ async def admit(
         saison_raw = await pull_one_from_db(
             collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules", "registrierung"], session=session
         )
-        allowed_stufen = list((saison_raw.get("rules") or {}).get("allowed_stufen") or [])
-        refuse(find_stufe_refusal(stufe=registrierung_raw.get("stufe"), allowed_stufen=allowed_stufen))
+        rules = FLSaisonRules.model_validate(saison_raw["rules"])
+        refuse(find_stufe_refusal(stufe=registrierung_raw.get("stufe"), allowed_stufen=rules.allowed_stufen))
 
         address = sign_in_identifier(str(registrierung_raw["email"]))
         resolved = await persons_at(spieler_collection=spieler_collection, addresses=[address], session=session)
@@ -283,7 +284,7 @@ async def admit(
             saison_spieler_collection=saison_spieler_collection,
             saisons_collection=saisons_collection,
             saison_id=saison_id,
-            rules=saison_raw["rules"],
+            rules=rules,
             team_id=team_id,
             spieler_id=spieler_id,
             nominee=nominee,
