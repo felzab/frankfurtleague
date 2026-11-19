@@ -64,7 +64,7 @@ LIST_LIMIT_DEFAULT: Final = 1024
 
 # How long the action log keeps a row, counted from the write it recorded. Published in years, which the privacy notice
 # states in months; a plain year of seconds below, because the database counts no calendar months and seconds are the
-# unit `create_index(expireAfterSeconds=)` takes.
+# unit an index's `expireAfterSeconds` takes.
 type FLActionLogRetentionYears = Literal[1]
 ACTION_LOG_RETENTION_YEARS: Final[FLActionLogRetentionYears] = 1
 ACTION_LOG_ENTRY_RETENTION_SECONDS: Final = ACTION_LOG_RETENTION_YEARS * 365 * 24 * 60 * 60
