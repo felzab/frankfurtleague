@@ -26,8 +26,8 @@ you write one; the strings themselves live in the catalogue, `fl_frontend/src/co
 3. **A new pattern is added only where it serves many fields.**
 4. **Everything else stands on the status line or in a callout** as one short declarative catalogue
    sentence saying what is so, never why it is so or how to repair it.
-5. **The sign-in follows the same rules**: its code boxes show a pattern-form phrase, and every other
-   refusal stands on its status line.
+5. **The sign-in follows the same rules**: its code boxes show a pattern-form phrase, and every
+   other refusal stands on its status line.
 
 ## A string lives in the catalogue and nowhere else
 
@@ -45,8 +45,8 @@ you write one; the strings themselves live in the catalogue, `fl_frontend/src/co
   that and is never written.
 - **A parameterised entry is a typed function** taking data or another entry, never a sentence or a
   string to pass through. The plural of an empty state is the list's own entry, a date is a stored
-  `YYYY-MM-DD` day, and a year a range ends on is `{ year }`. A name that may be the catalogue's
-  or a record's is `Words`, and lint refuses an entry returning its argument as it came.
+  `YYYY-MM-DD` day, and a year a range ends on is `{ year }`. A name that may be the catalogue's or
+  a record's is `Words`, and lint refuses an entry returning its argument as it came.
 - **Every date, time, number, amount and score goes through `fl_frontend/src/core/format.ts`, and
   every season's name through `COPY.shared.saisonName`, or `COPY.shared.saisonNameBound` inside a
   phrase binding a word to it**, and the current time is read through
@@ -73,8 +73,8 @@ it, in as few words as say it.
 - **„du“, lower case, everywhere**, mails and the administration included, and never „ihr“, even for
   a shared mailbox.
 - **The league says „wir“ only where people act**; the system never speaks for itself („Nicht
-  gespeichert“, never „Wir konnten … nicht speichern“); „die Verwaltung“ appears only where a specific
-  administrator acts.
+  gespeichert“, never „Wir konnten … nicht speichern“); „die Verwaltung“ appears only where a
+  specific administrator acts.
 - **Neutral nouns first** („Kontaktperson“, „Team“); recast the sentence with „du“ so most person
   nouns disappear; the masculine only in a tight label.
 - **A message is short and plain.** Readers are not technical, and an unexpected failure is logged,
@@ -84,8 +84,8 @@ it, in as few words as say it.
 
 ## Each kind of string has a ceiling
 
-A message is written short enough for the narrowest place it appears: one longer than its field wraps
-and takes a second line, which moves what stands below it.
+A message is written short enough for the narrowest place it appears: one longer than its field
+wraps and takes a second line, which moves what stands below it.
 
 | Kind                    | Ceiling                                                   | Shape                                                                                         |
 | ----------------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
@@ -112,8 +112,8 @@ and takes a second line, which moves what stands below it.
 
 Help text is a field description, a box description, one ⓘ per section or a callout, and text the
 reader needs is never hidden behind an ⓘ. A Konto box is the one section carrying a sentence under
-its title, since Konto's boxes are one shape whatever each holds. Nothing else explains: no ⓘ on a page title or a side panel, no menu hints, no intros, no
-placeholders, no truncation banners.
+its title, since Konto's boxes are one shape whatever each holds. Nothing else explains: no ⓘ on a
+page title or a side panel, no menu hints, no intros, no placeholders, no truncation banners.
 
 ## A recurring job takes its fixed pattern
 
@@ -128,31 +128,31 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   sentence that fits its two lines on a phone, naming its field where it has one. A field phrase
   never stands on the status line, since it has no subject there. Every other refusal takes a
   `failure` line: `stale` for a stale page, a concurrent change or a choice the screen had closed
-  when it was read, `signInExpired` for an ended sign-in, `tooManyAttempts` for every limit on
-  tries whatever it counts, `unexpected` for an outage, a fault inside the system, a bot check that
-  did not run and anything else. A refusal the screen closes off before the press, a race between two
+  when it was read, `signInExpired` for an ended sign-in, `tooManyAttempts` for every limit on tries
+  whatever it counts, `unexpected` for an outage, a fault inside the system, a bot check that did
+  not run and anything else. A refusal the screen closes off before the press, a race between two
   writes and a precondition only the system knows are never explained, since the reader cannot act
   on the detail.
 - **A saved record** shows `saved` beside its save button, never as a toast.
-- **A toast** answers an act that leaves nothing on the page to change, and an act behind the passkey
-  touch whose question or dialog has closed before it answers: one of `toast`'s titles or the act's
-  note once done, in the warn tone where it partly happened, and the refusal's own sentence once
-  refused (`fl_frontend/src/kit/Toast.tsx :: toastAnswer`). A done act's toast leaves by itself,
-  while a refusal or a partial outcome stands until it is closed. No field stands beside a toast, so
-  an act whose dialog closes words every refusal as a sentence naming what was refused, never a
-  field's phrase or `template.checkFields`: its lane declares a sentence per box and cause (`boxless`
-  in `fl_frontend/src/core/action.ts`). A form left standing under its closed question says a done
-  act on its own line alone.
+- **A toast** answers an act that leaves nothing on the page to change, and an act behind the
+  passkey touch whose question or dialog has closed before it answers: one of `toast`'s titles or
+  the act's note once done, in the warn tone where it partly happened, and the refusal's own
+  sentence once refused (`fl_frontend/src/kit/Toast.tsx :: toastAnswer`). A done act's toast leaves
+  by itself, while a refusal or a partial outcome stands until it is closed. No field stands beside
+  a toast, so an act whose dialog closes words every refusal as a sentence naming what was refused,
+  never a field's phrase or `template.checkFields`: its lane declares a sentence per box and cause
+  (`boxless` in `fl_frontend/src/core/action.ts`). A form left standing under its closed question
+  says a done act on its own line alone.
 - **A busy button** keeps its label and shows a spinner named `loading`; no „Speichert …“.
-- **An empty list** says `empty.search`, `empty.filter`, `empty.none` or `empty.skipped` with its own
-  plural; `empty.filter` only where the list keeps a filter, `empty.skipped` only where a person left
-  every row out of a run. A list that is one record named by a masculine or neuter noun, a team's
-  „Kader“, says `empty.noneOne` with that noun, and a list of open work with nothing waiting, such as
-  an Übersicht card, says `empty.nothingOpen`, naming no plural.
-- **A confirmation** asks `question` with the verb, says one short sentence of consequence, carries that
-  verb on its button and `back` as the way back; never „Ja“. What the sentence rests on stands under it
-  as facts rows, never inside it: a move's old and new slot, the season a switch leaves and takes, the
-  counts an act removes, and whom the act mails.
+- **An empty list** says `empty.search`, `empty.filter`, `empty.none` or `empty.skipped` with its
+  own plural; `empty.filter` only where the list keeps a filter, `empty.skipped` only where a person
+  left every row out of a run. A list that is one record named by a masculine or neuter noun, a
+  team's „Kader“, says `empty.noneOne` with that noun, and a list of open work with nothing waiting,
+  such as an Übersicht card, says `empty.nothingOpen`, naming no plural.
+- **A confirmation** asks `question` with the verb, says one short sentence of consequence, carries
+  that verb on its button and `back` as the way back; never „Ja“. What the sentence rests on stands
+  under it as facts rows, never inside it: a move's old and new slot, the season a switch leaves and
+  takes, the counts an act removes, and whom the act mails.
 - **A status card** is a mark, a title and its way on, with no sentence: a not-found, an error, a
   state with nothing to show yet such as `end.noSaison`, and every end of a page a mail opens.
 - **A page a mail opens** ends in a status card: done, already done titled with what the person did
@@ -163,39 +163,40 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   anything else. The deletion's done page adds the privacy notice beneath it as a quieter link.
 - **A column a narrow box leaves out** holds no fact the row shows nowhere else: where the row
   itself opens no page or dialog holding it, the row's phone line carries it, after its column's
-  label where the value alone would not say what it is („Gültig bis Saison 2027“). An act's
-  question is no such place, since nobody opens a removal to read a date.
+  label where the value alone would not say what it is („Gültig bis Saison 2027“). An act's question
+  is no such place, since nobody opens a removal to read a date.
 - **A Vorschau line** says a fact about the record as it is stored, such as a match's pairing, its
   day and its result or „Noch kein Ergebnis“; never the unsaved changes, which the save bar counts.
 - **A lock is said once, in an editor's lock line**, muted under its title: the reasons alone, each
   once and short enough that the line never wraps on a 360-px phone, „Gesperrt seit Saisonbeginn und
   durch Spielplan.“ (`COPY.template.lockLine`). Each locked field shows the lock mark at its label,
-  so the line names no field. A closed record's reason stands in its place, and no box carries a lock
-  note: the warn hue is for what a change being made will cause.
+  so the line names no field. A closed record's reason stands in its place, and no box carries a
+  lock note: the warn hue is for what a change being made will cause.
 
 ## Dates and numbers go through the formatting module
 
 `fl_frontend/src/core/format.ts` holds each form beside the function writing it: a date in a list or
-a field message, a date in a sentence or a mail, a time, a moment, a range, a number, an amount and a
-score. A season's name is the catalogue's `COPY.shared.saisonName`, since its id is its year and
+a field message, a date in a sentence or a mail, a time, a moment, a range, a number, an amount and
+a score. A season's name is the catalogue's `COPY.shared.saisonName`, since its id is its year and
 needs no formatting. Inside a phrase binding a word to it, such as „Gültig bis Saison 2027“, it is
 `COPY.shared.saisonNameBound`, whose space is a no-break space, so a line never parts the word from
 its year; a mail's subject, a tab's title and words a person matches as typed keep the plain space.
-A moment in a list's form, „07.11.2026, 18:04“, is one fact the same way: `formatInstantShort`
-binds its date to its time. Two rules no function states:
+A moment in a list's form, „07.11.2026, 18:04“, is one fact the same way: `formatInstantShort` binds
+its date to its time. Two rules no function states:
 
 - **A range is the only place a dash appears**, and the locale writes it, dropping what both ends
   share.
 - **After a shoot-out** a score is each side's goals and shoot-out goals added, with
   `afterElfmeterschiessen` beside it.
 
-A date field shows „tt.mm.jjjj“ and a time field „––:––“ while empty; the field's locale writes both.
+A date field shows „tt.mm.jjjj“ and a time field „––:––“ while empty; the field's locale writes
+both.
 
 ## Punctuation is German and sparse
 
 - **German capitalisation**, no English title case.
-- **No full stop** after a heading, a label, a button, a tooltip or a one-phrase line; a full sentence
-  ends with one.
+- **No full stop** after a heading, a label, a button, a tooltip or a one-phrase line; a full
+  sentence ends with one.
 - **Quotation marks „…“.** The ellipsis character „…“ only for truncation; never three periods.
 - **No „!“. No semicolon** outside legal text.
 - **Banned**: „Bitte“; „erfolgreich“, „leider“, „wirklich“; a reassurance tail („wurde automatisch
@@ -211,14 +212,14 @@ A date field shows „tt.mm.jjjj“ and a time field „––:––“ while e
 - **Subject, preview, heading, paragraphs, facts, one button, one note**, nothing else. The heading
   repeats the subject and the hidden preview is the first sentence, so neither is written twice.
 - **The greeting is „Hallo,“** on every mail.
-- **A „not you?“ line only on a sign-in, security or first-contact mail**; the objection line only on
-  a first contact, in its one wording.
+- **A „not you?“ line only on a sign-in, security or first-contact mail**; the objection line only
+  on a first contact, in its one wording.
 - **Replies go to the contact address**, so no mail says that nobody reads them.
 
 ## Legal text keeps its own rules
 
-- **A consent's label is its whole sentence**, past a field label's 3 words, because the sentence
-  is what the person agrees to.
+- **A consent's label is its whole sentence**, past a field label's 3 words, because the sentence is
+  what the person agrees to.
 - **A consent wording stays as it was shown**, because a stored record cites its words by label: it
   lives outside the catalogue, in `fl_frontend/src/core/consentWordings.ts :: CONSENT_WORDINGS`,
   where new words are a new label beside it. The one exception is the paste the deploy of the

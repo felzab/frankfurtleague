@@ -2,8 +2,8 @@
 
 **Question.** Do the record of processing and the published privacy notice still say what the site
 does with a person's data once the change lands? Both are promises to the people the league holds
-data on, and a change that collects, shows, sends, keeps or deletes data another way makes them false
-with nothing failing.
+data on, and a change that collects, shows, sends, keeps or deletes data another way makes them
+false with nothing failing.
 
 **Read first.** `docs/datenschutz.md`, the record of processing and the deletion concept, and the
 notice it is published as, `fl_frontend/src/app/(classic)/datenschutz/page.tsx`. Then each change
@@ -35,6 +35,7 @@ statement the record leaves to a Datenschutzexperte goes to the owner as a quest
 **Silent.** Yes: the record and the notice are prose no check reads against the code, and the people
 they describe rely on them unseen.
 
-**Applies.** paths `fl_backend/app/**`, `fl_frontend/src/**`, `nginx/**`, `docker-compose.yml`, `docs/datenschutz.md` except `**/*.test.*`, `fl_frontend/src/test-support/**`.
+**Applies.** paths `fl_backend/app/**`, `fl_frontend/src/**`, `nginx/**`, `docker-compose.yml`,
+`docs/datenschutz.md` except `**/*.test.*`, `fl_frontend/src/test-support/**`.
 
 **Run by.** auditor.

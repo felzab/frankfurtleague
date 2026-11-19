@@ -10,8 +10,8 @@ rest up when a question needs them.
 3. **[`domain.md`](domain.md)**: how the league's data fits together, and what a write is refused.
 4. **The overview of the surface you will touch**: [frontend](frontend/overview.md),
    [backend](backend/overview.md) or [operations](ops/overview.md).
-5. **[`writing.md`](writing.md)**: how a document, a name, a comment, a commit and a pull request are
-   written.
+5. **[`writing.md`](writing.md)**: how a document, a name, a comment, a commit and a pull request
+   are written.
 
 ## Look up, do not read through
 
