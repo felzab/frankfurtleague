@@ -118,19 +118,6 @@ def build_closable_filter() -> dict[str, Any]:
 REASONS_INVALID: Final = frozenset({"ansetzung_changed", "schiedsrichter_switched"})
 
 
-# What a club's answer judges of its row: its fixture, party and Ansetzung, the deadline, and whether it is answered or
-# closed. An inclusion, so no reason or proposal is read that the judgement does not need.
-TEAM_ANSWER_FIELDS: Mapping[str, int] = {
-    "saison_id": 1,
-    "spiel_id": 1,
-    "party": 1,
-    "ansetzung": 1,
-    "deadline": 1,
-    "answer.kind": 1,
-    "closed": 1,
-}
-
-
 def decision_of(*, spiel: Mapping[str, Any], austritte: Iterable[str], tag: Any) -> FLSpielbestaetigungClosedReason | None:
     """Why a fixture takes no confirmation whatever its Ansetzung: decided, called off, or a club out by `tag`.
 

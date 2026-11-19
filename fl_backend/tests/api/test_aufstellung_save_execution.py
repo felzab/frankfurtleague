@@ -455,13 +455,12 @@ class TestAnErasedPupilsEntry:
             {"spieler_id": MIA, "starts": False},
         ]
 
-    @pytest.mark.parametrize("now", [pytest.param(LOCKED, id="locked-before-kick-off")])
-    async def test_one_erased_before_kick_off_leaves_the_line_up(self, mongo_replica_set_url: str, now: datetime):
-        """The match is still to come, locked or not: an entry kept would hold a place in the Startelf nobody could name."""
+    async def test_one_erased_once_the_line_up_locked_before_kick_off_leaves_it(self, mongo_replica_set_url: str):
+        """The match is still to come, though locked for the club: an entry kept would hold a place in the Startelf nobody could name."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seat_saves(database, client, _payload(LINA, OLE, starters=2))
-            await erase(database, client, LINA, now=now)
+            await erase(database, client, LINA, now=LOCKED)
             stored = await database[Collection.AUFSTELLUNGEN].find_one({"spiel_id": SPIEL, "team_id": HOME})
             assert stored is not None
 

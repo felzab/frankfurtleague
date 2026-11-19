@@ -23,7 +23,6 @@ from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungTeamAnswerPayload,
 )
 from app.api.spielbestaetigungen.services import (
-    TEAM_ANSWER_FIELDS,
     build_answerable_filter,
     compose_answer_update,
     compose_schiedsrichter_answer_update,
@@ -220,7 +219,7 @@ async def post_team_answer(
     async def answer(session: AsyncClientSession) -> None:
         subject = await roles_of(identifier, records, session=session)
         # `find_one` rather than `pull_one_from_db`, whose 404 would tell the caller which ids exist.
-        row = await spielbestaetigungen_collection.find_one({"_id": spielbestaetigung_id}, projection=TEAM_ANSWER_FIELDS, session=session)
+        row = await spielbestaetigungen_collection.find_one({"_id": spielbestaetigung_id}, session=session)
         seat = _answering_seat(spielbestaetigung_raw=row, seats=subject.seats)
         refuse(None if seat is not None else foreign_row_refusal())
         assert row is not None and seat is not None
