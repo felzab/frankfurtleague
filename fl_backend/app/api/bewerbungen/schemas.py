@@ -483,17 +483,12 @@ FLBewerbungEinwilligungState = Literal[FLBewerbungSeatState, "saison_past"]
 
 # Which record a link's seat sits on: an application, or a team's season row an administrator seated
 # the person on. The page picks its wording by it.
-FLEinwilligungQuelle = Literal["bewerbung", "saison"]
+FLEinwilligungRecordKind = Literal["bewerbung", "saison"]
 
 
-class FLBewerbungEinwilligungViewResponse(BaseReadModel):
-    """What the page renders for one seat, and nothing of the person."""
+class _FLBewerbungEinwilligungSeatView(BaseReadModel):
+    """The seat a link asks about, as a page that still offers a press names it, and nothing of the person."""
 
-    quelle: FLEinwilligungQuelle
-    state: FLBewerbungEinwilligungState
-    # A season row's state now, read as the mint reads it, so a closed row's page can name why it takes
-    # no consent; null on an application's link, which no season or withdrawal closes.
-    row: FLKontaktRow | None
     saison_id: str
     # The school's name as submitted, or the picked club's; on a season row, the name the club
     # carries in that season.
@@ -502,15 +497,55 @@ class FLBewerbungEinwilligungViewResponse(BaseReadModel):
     # The second seat this link's answer writes, and never `trainer_is_also` itself: null on every other seat, so no link
     # says whether two other seats are one person.
     also_seat: FLKontaktSeat | None
+
+
+class FLBewerbungEinwilligungViewValid(_FLBewerbungEinwilligungSeatView):
+    """A standing link: the question, until its day, judged by the age bounds of the seats it answers for."""
+
+    state: Literal["valid"]
+    record: FLEinwilligungRecordKind
     # The person's floor over the seats this link answers for, so the page bounds its date control
     # and fills its own sentences from what the answer will judge rather than from a constant.
     minimum_age: int
     # The ceiling beside it, `confirmation_age`'s other bound.
     maximum_age: int
-    # The day this seat's link stops working, which the page's text names; null on a seat holding none.
-    deadline: CustomOptionalDateString
-    # The day the person answered, which a reopened link says; null while they have not.
-    answered_at: CustomOptionalDateString
+    # The day this seat's link stops working, which the page's text names.
+    deadline: CustomDateString
+
+
+class FLBewerbungEinwilligungViewSaisonPast(_FLBewerbungEinwilligungSeatView):
+    """A season row's link once its season ended or its club left: it takes a Widerspruch and no consent."""
+
+    state: Literal["saison_past"]
+    record: Literal["saison"]
+    # The row's state, read as the mint reads it, so the page can name why it takes no consent.
+    row: FLKontaktRow
+
+
+class FLBewerbungEinwilligungViewAnswered(BaseReadModel):
+    """A link opened again after its person's consent or Widerspruch."""
+
+    state: Literal["confirmed", "declined"]
+    # The day the person answered, which the page says.
+    answered_at: CustomDateString
+
+
+class FLBewerbungEinwilligungViewExpired(BaseReadModel):
+    """A spent link, its deadline passed or its application decided, which opens nothing more."""
+
+    state: Literal["expired"]
+
+
+# One member per state, as the landing's season is: each state is served with exactly the fields its page reads, so an
+# answered link holding no day is a refused answer rather than a null the page must guess about, and no application's
+# link can be written as a closed row.
+FLBewerbungEinwilligungViewResponse = Annotated[
+    FLBewerbungEinwilligungViewValid
+    | FLBewerbungEinwilligungViewSaisonPast
+    | FLBewerbungEinwilligungViewAnswered
+    | FLBewerbungEinwilligungViewExpired,
+    Field(discriminator="state"),
+]
 
 
 class FLBewerbungEinwilligungGiven(BasePayload):

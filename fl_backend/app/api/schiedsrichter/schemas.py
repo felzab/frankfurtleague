@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Self
+from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, Field, TypeAdapter, model_validator
 
@@ -22,7 +22,7 @@ from app.shared.schemas.custom import (
 )
 from app.shared.schemas.einwilligung import FLSchiedsrichterTextVersions, cite_their_kind, refuse_a_stale_grant
 from app.shared.schemas.kontakt import CustomKontaktName, CustomStoredAddress, FLKontakt, FLKontaktPayload
-from app.shared.schemas.literals import FLConfirmationState, FLEinwilligungScope, FLSonderereignis
+from app.shared.schemas.literals import FLEinwilligungScope, FLSonderereignis
 from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 
@@ -146,21 +146,39 @@ class FLSchiedsrichterMintResponse(BaseReadModel):
     confirmation: FLSchiedsrichterMint
 
 
-class FLSchiedsrichterConfirmationViewResponse(BaseReadModel):
-    """What one confirmation link opens, and nothing that says who its person is.
+class FLSchiedsrichterConfirmationViewValid(BaseReadModel):
+    """A standing link: the question's day and the age bounds its answer is judged by."""
 
-    The link went to an address an administrator typed and nobody has confirmed, which behind a typo is a stranger's.
-    """
-
-    state: FLConfirmationState
+    state: Literal["valid"]
     minimum_age: int
     # Served, so the page bounds the birthdate by the limits the write judges, never a copy.
     maximum_age: int = Field(gt=0)
     deadline: CustomDateString
-    # The day of the person's own answer, so a reopened link says what they did and when; null on every state showing
-    # no answer. A leaked token learns from it nothing past the state it already shows: the person's own day, never who
-    # they are.
-    answered_at: CustomOptionalDateString
+
+
+class FLSchiedsrichterConfirmationViewConfirmed(BaseReadModel):
+    """A link opened again after its consent."""
+
+    state: Literal["confirmed"]
+    # The day of the person's own answer, so the page says when. A leaked token learns from it nothing past the state it
+    # already shows: the person's own day, never who they are.
+    answered_at: CustomDateString
+
+
+class FLSchiedsrichterConfirmationViewExpired(BaseReadModel):
+    """A lapsed link, which opens nothing more."""
+
+    state: Literal["expired"]
+
+
+# One member per state, as the landing's season is: each state is served with exactly the fields its page reads, so a
+# confirmed link holding no day is a refused answer rather than a null the page must guess about. Nothing that says who
+# the person is: the link went to an address an administrator typed and nobody has confirmed, which behind a typo is a
+# stranger's.
+FLSchiedsrichterConfirmationViewResponse = Annotated[
+    FLSchiedsrichterConfirmationViewValid | FLSchiedsrichterConfirmationViewConfirmed | FLSchiedsrichterConfirmationViewExpired,
+    Field(discriminator="state"),
+]
 
 
 class FLSchiedsrichterConfirmationPayload(BasePayload):

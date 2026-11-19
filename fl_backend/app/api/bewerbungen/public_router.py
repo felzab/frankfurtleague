@@ -8,7 +8,11 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungAnswerPayload,
+    FLBewerbungEinwilligungViewAnswered,
+    FLBewerbungEinwilligungViewExpired,
     FLBewerbungEinwilligungViewResponse,
+    FLBewerbungEinwilligungViewSaisonPast,
+    FLBewerbungEinwilligungViewValid,
     FLBewerbungFormResponse,
     FLBewerbungFormWindow,
     FLBewerbungSchuleOptionListAdapter,
@@ -56,10 +60,10 @@ from app.api.bewerbungen.services import (
     saison_schule,
     saison_state_of,
     schule_name,
-    seat_answered_at,
     seat_deadline_of,
     seat_holding,
     seat_opens_nobody,
+    seat_view,
     seats_past_the_bound,
     state_of,
 )
@@ -107,7 +111,6 @@ from app.shared.einwilligung import find_self_media_refusal
 from app.shared.idempotency import build_key_filter
 from app.shared.links import deadline_passed, find_age_refusal
 from app.shared.mailbox import OPEN_LINKS_PER_MAILBOX, mailbox_anchor_ids, mailbox_of
-from app.shared.schemas.bounds import BIRTH_DATE_MAX_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.einwilligung import by_choice
 from app.shared.schemas.responses import FLCreatedResponse
@@ -309,7 +312,12 @@ async def _saison_view(
     saison_teams_collection: SaisonTeamsReadCollection,
     saisons_collection: SaisonsReadCollection,
     today: str,
-) -> FLBewerbungEinwilligungViewResponse:
+) -> (
+    FLBewerbungEinwilligungViewValid
+    | FLBewerbungEinwilligungViewSaisonPast
+    | FLBewerbungEinwilligungViewAnswered
+    | FLBewerbungEinwilligungViewExpired
+):
     """The view of a link no application holds, read off the season row holding it, or the unknown-token refusal."""
 
     row = await saison_teams_collection.find_one(build_token_filter(token_hash=token_hash), projection=SAISON_EINWILLIGUNG_FIELDS)
@@ -320,7 +328,6 @@ async def _saison_view(
     slot = (row.get("kontakte") or {}).get(seat)
 
     also = saison_link_pair(kontakte=row.get("kontakte"), confirmations=row.get("confirmations"), seat=seat, token_hash=token_hash)
-    seats = (seat,) if also is None else (seat, also)
 
     # As the press reads it: no season is ever deleted, so a miss is a broken invariant rather than a 404.
     saison_raw = await saisons_collection.find_one({"_id": row["saison_id"]}, projection={"status": 1})
@@ -329,24 +336,34 @@ async def _saison_view(
     state = saison_state_of(row=row, seat=seat, today=today, saison_status=saison_raw.get("status"))
     refuse(find_unknown_token_refusal(seat=None if seat_opens_nobody(slot=slot, state=state) else seat))
 
-    return FLBewerbungEinwilligungViewResponse(
-        quelle="saison",
+    if state == "saison_past":
+        # Why the row takes no consent, read as the mint reads it, so the page can name it.
+        return FLBewerbungEinwilligungViewSaisonPast(
+            state=state,
+            record="saison",
+            row=kontakt_row_of(saison_status=saison_raw.get("status"), austritt=row.get("austritt")),
+            saison_id=str(row["saison_id"]),
+            schule=saison_schule(row),
+            seat=seat,
+            also_seat=also,
+        )
+
+    return seat_view(
         state=state,
-        row=kontakt_row_of(saison_status=saison_raw.get("status"), austritt=row.get("austritt")),
+        record="saison",
+        kontakte=row.get("kontakte"),
+        confirmations=row.get("confirmations"),
+        seat=seat,
+        also=also,
         saison_id=str(row["saison_id"]),
         schule=saison_schule(row),
-        seat=seat,
-        also_seat=also,
-        minimum_age=minimum_age_for(seats),
-        maximum_age=BIRTH_DATE_MAX_AGE_YEARS,
-        deadline=seat_deadline_of(confirmations=row.get("confirmations"), seat=seat),
-        answered_at=seat_answered_at(kontakte=row.get("kontakte"), confirmations=row.get("confirmations"), seat=seat),
     )
 
 
 # A POST that reads, so the token travels in the body.
 @router.post(
     "/confirmation/view",
+    response_model=FLBewerbungEinwilligungViewResponse,
     summary="What one confirmation link opens",
     openapi_extra=SAFE,
 )
@@ -357,7 +374,12 @@ async def get_confirmation_view(
     saisons_collection: SaisonsReadCollection,
     teams_collection: TeamsReadCollection,
     today: GermanDay,
-) -> FLBewerbungEinwilligungViewResponse:
+) -> (
+    FLBewerbungEinwilligungViewValid
+    | FLBewerbungEinwilligungViewSaisonPast
+    | FLBewerbungEinwilligungViewAnswered
+    | FLBewerbungEinwilligungViewExpired
+):
     """What the confirmation page renders for the seat this token opens, and nothing of the person.
 
     A confirmed, declined or expired link is served in that state; only a token no seat holds is refused.
@@ -382,26 +404,21 @@ async def get_confirmation_view(
 
     slot = (bewerbung_raw.get("kontakte") or {}).get(seat)
 
-    # The answer's own resolution, so the page names exactly the seats a press will write and states
-    # the floor that press will be judged by.
+    # The answer's own resolution, so the page names exactly the seats a press will write.
     also = paired_seat(kontakte=bewerbung_raw.get("kontakte"), confirmations=bewerbung_raw.get("confirmations"), seat=seat)
-    seats = (seat,) if also is None else (seat, also)
 
     state = state_of(bewerbung_raw=bewerbung_raw, seat=seat, today=today)
     refuse(find_unknown_token_refusal(seat=None if seat_opens_nobody(slot=slot, state=state) else seat))
 
-    return FLBewerbungEinwilligungViewResponse(
-        quelle="bewerbung",
+    return seat_view(
         state=state,
-        row=None,
+        record="bewerbung",
+        kontakte=bewerbung_raw.get("kontakte"),
+        confirmations=bewerbung_raw.get("confirmations"),
+        seat=seat,
+        also=also,
         saison_id=str(bewerbung_raw["saison_id"]),
         schule=await pull_schule_name(bewerbung_raw=bewerbung_raw, teams_collection=teams_collection),
-        seat=seat,
-        also_seat=also,
-        minimum_age=minimum_age_for(seats),
-        maximum_age=BIRTH_DATE_MAX_AGE_YEARS,
-        deadline=seat_deadline_of(confirmations=bewerbung_raw.get("confirmations"), seat=seat),
-        answered_at=seat_answered_at(kontakte=bewerbung_raw.get("kontakte"), confirmations=bewerbung_raw.get("confirmations"), seat=seat),
     )
 
 

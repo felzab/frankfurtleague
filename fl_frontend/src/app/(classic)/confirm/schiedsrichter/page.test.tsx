@@ -5,12 +5,12 @@ import { TO_ACCOUNT } from "@/kit/MailedPage";
 import { serveBackend } from "@/test-support/backend";
 import { doubleNextRequest } from "@/test-support/nextRequest";
 
-import type { FLSchiedsrichterConfirmationViewResponse } from "@/core/generated/client/types";
+import type { FLSchiedsrichterConfirmationViewConfirmed } from "@/core/generated/client/types";
 import type { MailedState } from "@/kit/MailedPage";
 import type { ReactElement } from "react";
 
 /** The view the backend serves for the link's token, which `stateFor` sets. */
-let view: FLSchiedsrichterConfirmationViewResponse | undefined;
+let view: FLSchiedsrichterConfirmationViewConfirmed | undefined;
 
 /** Whether a request's body names the link's token, which the page posts rather than spells in an address. */
 const carriesToken = (body: unknown) => typeof body === "object" && body !== null && "token" in body && body.token === "tok";
@@ -28,8 +28,8 @@ const { default: SchiedsrichterConfirmationPage } = await import("./page");
 const DAY = "2026-11-04";
 
 /** What the page shows for the view the backend serves, as the template is handed it. */
-async function stateFor(served: Partial<FLSchiedsrichterConfirmationViewResponse>): Promise<MailedState> {
-  view = { answered_at: null, deadline: "2026-11-18", maximum_age: 99, minimum_age: 16, state: "valid", ...served };
+async function stateFor(served: FLSchiedsrichterConfirmationViewConfirmed): Promise<MailedState> {
+  view = served;
   const page = SchiedsrichterConfirmationPage({
     params: Promise.resolve({}),
     searchParams: Promise.resolve({ token: "tok" }),

@@ -221,7 +221,7 @@ class TestTheLinkIsSpentByTheStamp:
         code, view, document = await on_a_league(mongo_replica_set_url, body)
 
         assert code == Code.CONFIRMATION_AGE
-        assert (view.state, view.deadline, view.answered_at) == ("valid", TOMORROW, None)
+        assert (view.state, view.deadline) == ("valid", TOMORROW)
         assert document == registrierung_document()
 
     async def test_a_link_past_its_deadline_is_refused_before_the_stamp_is_judged(self, mongo_replica_set_url: str):

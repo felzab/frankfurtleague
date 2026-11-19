@@ -5,12 +5,15 @@ import { TO_ACCOUNT } from "@/kit/MailedPage";
 import { serveBackend } from "@/test-support/backend";
 import { doubleNextRequest } from "@/test-support/nextRequest";
 
-import type { FLBewerbungEinwilligungViewResponse } from "@/core/generated/client/types";
+import type { FLBewerbungEinwilligungViewAnswered, FLBewerbungEinwilligungViewSaisonPast } from "@/core/generated/client/types";
 import type { MailedState } from "@/kit/MailedPage";
 import type { ReactElement } from "react";
 
+/** The views these cases serve: a link opened again, and a closed row's. */
+type View = FLBewerbungEinwilligungViewAnswered | FLBewerbungEinwilligungViewSaisonPast;
+
 /** The view the backend serves for the link's token, which `stateFor` sets. */
-let view: FLBewerbungEinwilligungViewResponse | undefined;
+let view: View | undefined;
 
 /** Whether a request's body names the link's token, which the page posts rather than spells in an address. */
 const carriesToken = (body: unknown) => typeof body === "object" && body !== null && "token" in body && body.token === "tok";
@@ -29,21 +32,8 @@ const { default: KontaktConfirmationPage } = await import("./page");
 const DAY = "2026-11-04";
 
 /** What the page shows for the view the backend serves, as the template is handed it. */
-async function stateFor(served: Partial<FLBewerbungEinwilligungViewResponse>): Promise<MailedState> {
-  view = {
-    quelle: "bewerbung",
-    state: "valid",
-    row: null,
-    saison_id: "2027",
-    schule: "Goethe-Gymnasium",
-    seat: "ansprechperson",
-    also_seat: null,
-    minimum_age: 18,
-    maximum_age: 99,
-    deadline: "2026-11-18",
-    answered_at: null,
-    ...served,
-  };
+async function stateFor(served: View): Promise<MailedState> {
+  view = served;
   const page = KontaktConfirmationPage({
     params: Promise.resolve({}),
     searchParams: Promise.resolve({ token: "tok" }),
@@ -79,7 +69,16 @@ describe("a contact's link, opened again", () => {
 // main act would post a confirmation the write refuses, leaving the person no way to object.
 describe("a closed row's link", () => {
   it("offers the objection alone", async () => {
-    expect(await stateFor({ quelle: "saison", state: "saison_past", row: "saison_past" })).toMatchObject({
+    const closed = {
+      state: "saison_past",
+      record: "saison",
+      row: "saison_past",
+      saison_id: "2027",
+      schule: "Goethe-Gymnasium",
+      seat: "ansprechperson",
+      also_seat: null,
+    } as const;
+    expect(await stateFor(closed)).toMatchObject({
       state: "question",
       action: objectKontakt,
       acts: { refusal: { verb: "oppose" } },

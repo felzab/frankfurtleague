@@ -331,7 +331,7 @@ class TestTheSaveMintsForEachPersonItNewlySeats:
         response, views = await on_a_league(mongo_replica_set_url, body)
 
         assert [mint.seats for mint in response.confirmations] == [["trainer"], ["ansprechperson"], ["stellvertretung"]]
-        assert [(view.quelle, view.seat, view.state, view.schule) for view in views] == [
+        assert [(view.record, view.seat, view.state, view.schule) for view in views] == [
             ("saison", "trainer", "valid", TEAM_NAME),
             ("saison", "ansprechperson", "valid", TEAM_NAME),
             ("saison", "stellvertretung", "valid", TEAM_NAME),
@@ -669,7 +669,7 @@ class TestAnApplicationsLinkIsAnsweredAsBefore:
 
         view, confirmed_at = await on_a_league(mongo_replica_set_url, body)
 
-        assert (view.quelle, view.schule, view.seat, view.row) == ("bewerbung", TEAM_NAME, "trainer", None)
+        assert (view.record, view.schule, view.seat) == ("bewerbung", TEAM_NAME, "trainer")
         # The press confirmed the application's seat.
         assert confirmed_at == TODAY
 
@@ -771,7 +771,7 @@ class TestALinkOutlivingItsSeason:
 
         open_view, view, code, before, after = await on_a_league(mongo_replica_set_url, body)
 
-        assert open_view.row == "open"
+        assert open_view.state == "valid"
         assert (view.state, view.row) == ("saison_past", row)
         assert code == Code.KONTAKT_SAISON_PAST
         assert after == before

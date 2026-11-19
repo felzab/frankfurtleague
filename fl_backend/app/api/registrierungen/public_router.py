@@ -13,7 +13,10 @@ from app.api.registrierungen.schemas import (
     FLInvitationViewResponse,
     FLPostRegistrierungPayload,
     FLRegistrierungConfirmationPayload,
+    FLRegistrierungConfirmationViewConfirmed,
+    FLRegistrierungConfirmationViewExpired,
     FLRegistrierungConfirmationViewResponse,
+    FLRegistrierungConfirmationViewValid,
 )
 from app.api.registrierungen.services import (
     CONFIRMATION_FIELDS,
@@ -317,6 +320,7 @@ async def post_registrierung(
 # the submission is.
 @router.post(
     "/confirmation/view",
+    response_model=FLRegistrierungConfirmationViewResponse,
     summary="What one registration confirmation link opens",
     openapi_extra=SAFE,
 )
@@ -326,7 +330,7 @@ async def get_confirmation_view(
     teams_collection: TeamsReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
     today: GermanDay,
-) -> FLRegistrierungConfirmationViewResponse:
+) -> FLRegistrierungConfirmationViewValid | FLRegistrierungConfirmationViewConfirmed | FLRegistrierungConfirmationViewExpired:
     """What the registration this confirmation link opens shows, and nothing of the pupil but the day they answered.
 
     A confirmed or expired link is served in that state, and a link whose club has left the season reads expired.
@@ -338,15 +342,22 @@ async def get_confirmation_view(
         collection=registrierungen_collection, db_filter=build_confirmation_filter(token_hash=token_hash), projection=CONFIRMATION_FIELDS
     )
 
+    departed = await _team_departed(saison_teams_collection=saison_teams_collection, registrierung_raw=raw)
+
+    state = state_of(registrierung_raw=raw, departed=departed, today=today)
+    if state == "confirmed":
+        # The stamp that makes the state, so the day is there.
+        return FLRegistrierungConfirmationViewConfirmed(state=state, answered_at=raw["einwilligung"]["confirmed_at"])
+    if state == "expired":
+        return FLRegistrierungConfirmationViewExpired(state=state)
+
     # `find_one` rather than `pull_one_from_db`: no team is ever deleted, so a miss is a broken
     # invariant rather than a 404 this view could answer, and never an empty slot in the consent text.
     team_raw = await teams_collection.find_one({"_id": raw["team_id"]}, projection={"name": 1, "full_name": 1})
     assert team_raw is not None
 
-    departed = await _team_departed(saison_teams_collection=saison_teams_collection, registrierung_raw=raw)
-
-    return FLRegistrierungConfirmationViewResponse(
-        state=state_of(registrierung_raw=raw, departed=departed, today=today),
+    return FLRegistrierungConfirmationViewValid(
+        state=state,
         team=str(team_raw["name"]),
         schule=str(team_raw["full_name"]),
         saison_id=str(raw["saison_id"]),
@@ -354,7 +365,6 @@ async def get_confirmation_view(
         maximum_age=BIRTH_DATE_MAX_AGE_YEARS,
         # The token filter matched inside the block, so it stands, and its record model requires the day.
         deadline=str(raw["confirmation"]["deadline"]),
-        answered_at=(raw.get("einwilligung") or {}).get("confirmed_at"),
     )
 
 

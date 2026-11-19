@@ -276,7 +276,7 @@ class TestTheDaysTheViewNames:
         trainer, ansprechperson = await on_a_league(mongo_replica_set_url, body, documents=[fresher])
 
         assert (trainer.deadline, ansprechperson.deadline) == ("2026-04-09", "2026-04-03")
-        assert (trainer.answered_at, trainer.maximum_age) == (None, BIRTH_DATE_MAX_AGE_YEARS)
+        assert trainer.maximum_age == BIRTH_DATE_MAX_AGE_YEARS
 
     @pytest.mark.parametrize("given", [pytest.param({}, id="a confirmation"), pytest.param({"answer": "declined"}, id="an objection")])
     async def test_a_reopened_link_names_the_day_it_was_answered(self, mongo_replica_set_url: str, given: Mapping[str, Any]):
