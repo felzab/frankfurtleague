@@ -442,13 +442,6 @@ def _ranked_bands(
 
     grouped: dict[FLGruppenNames, list[FLTeam]] = {name: [] for name in offered_gruppen(rules.number_of_gruppen)}
     for team in teams:
-        # `model_construct` is one way round `FLGruppenNames`, a row in a group the season stopped
-        # offering the other. Membership, not falsiness: `not team.gruppe` lets "X" through to a
-        # KeyError, and a dropped club would go missing from a standing unnoticed.
-        if team.gruppe not in grouped:
-            raise ValueError(
-                f"Team {team.id} stands in group {team.gruppe}, which a season of {rules.number_of_gruppen} group(s) does not offer"
-            )
         grouped[team.gruppe].append(team)
 
     # Every figure is final as a reading of now, which is what lets the whole chain apply.
