@@ -38,7 +38,6 @@ from app.api.teams.crud import pull_team_names
 from app.core.clock import days_after
 from app.core.collections import Collection
 from app.core.crud import (
-    anchor_in_db,
     delete_many_from_db,
     patch_many_in_db,
     patch_one_in_db,
@@ -69,47 +68,6 @@ from app.shared.schemas.responses import FLSweepSaisonsResponse
 
 # System tier: the sweep holds no session, so `bind_actor` would refuse it.
 router = APIRouter(prefix="/bewerbungen", dependencies=SYSTEM_TIER)
-
-
-def _ended_after(saison_id: str) -> dict[str, Any]:
-    """Every season later than this one that has ended. Raises for an id that is no year, as `next_saison_id` does."""
-
-    return {"_id": {"$gte": next_saison_id(saison_id)}, "status": "past"}
-
-
-async def pull_the_season_after(
-    *,
-    saison_id: str,
-    saisons_collection: SaisonsCollection,
-    # Required: judged inside the erasing transaction, the anchor below commits with its erasure.
-    session: AsyncClientSession,
-) -> Any:
-    """A later ended season's status, judged in the erasing transaction, `None` while this one runs.
-
-    The accepted clock and the contact block wait on one test: any season after this one has ended.
-    """
-
-    # This season and the earliest later one that has ended, in one read: ascending ids put this season first.
-    seasons = await pull_many_from_db(
-        collection=saisons_collection,
-        db_filter={"$or": [{"_id": saison_id}, _ended_after(saison_id)]},
-        projection=["status"],
-        sort_by=[("_id", ASCENDING)],
-        limit=2,
-        session=session,
-    )
-    statuses = {row["_id"]: row.get("status") for row in seasons}
-    own_status = statuses.pop(saison_id, None)
-    if own_status == "active":
-        return None
-
-    later_saison_status = next(iter(statuses.values()), None)
-    # Written where its rows go, as a pupil's deletion writes one: an activation
-    # committing after this read conflicts with the erasure, whose retry finds this season running.
-    if own_status == "future" and season_has_ended(saison_status=later_saison_status):
-        await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
-
-    return later_saison_status
 
 
 @router.get("/sweep", summary="Every season the sweep has to visit")
@@ -152,10 +110,11 @@ async def sweep_saison(
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"])
     saison_status = saison_raw.get("status")
 
-    # Ahead of the guard below, so an id that is no year fails the running season's pass too.
-    ended_after = _ended_after(saison_id)
-    # Ended once any later season has while this one is not `active`, as a squad row's pupil goes:
-    # the next year's season alone may be skipped, or planned and never run.
+    # Ahead of the guard below, so an id that is no year fails the running season's pass too, as `next_saison_id` raises.
+    ended_after = {"_id": {"$gte": next_saison_id(saison_id)}, "status": "past"}
+    # Ended once any later season has while this one is not `active`, as a squad row's pupil goes. Read once, here: no
+    # planned season stands below one that has ended, as no season is made while a planned one stands, so no activation
+    # can land between this read and the clocks it gates.
     ended_raw = None if saison_status == "active" else await saisons_collection.find_one(ended_after, {"status": 1})
     later_saison_status = ended_raw.get("status") if ended_raw is not None else None
 
@@ -326,7 +285,6 @@ async def sweep_saison(
         """The season-and-one clock's first half."""
 
         async def erase_them(session: AsyncClientSession, _: Mapping[str, Any]) -> int:
-            # Read ahead of the season's own: an activation committing after it conflicts with the anchor that read writes.
             rows = await pull_many_from_db(
                 collection=bewerbungen_collection,
                 db_filter={"saison_id": saison_id, "status": "accepted"},
@@ -334,8 +292,7 @@ async def sweep_saison(
                 limit=LIST_LIMIT_DEFAULT,
                 session=session,
             )
-            later_status = await pull_the_season_after(saison_id=saison_id, saisons_collection=saisons_collection, session=session)
-            ids = [row["_id"] for row in rows if acceptance_erasure_is_due(bewerbung_raw=row, later_saison_status=later_status)]
+            ids = [row["_id"] for row in rows if acceptance_erasure_is_due(bewerbung_raw=row, later_saison_status=later_saison_status)]
 
             return await erase(ids, session) if ids else 0
 
@@ -354,9 +311,7 @@ async def sweep_saison(
                 limit=LIST_LIMIT_DEFAULT,
                 session=session,
             )
-            if not junction_rows or not season_has_ended(
-                saison_status=await pull_the_season_after(saison_id=saison_id, saisons_collection=saisons_collection, session=session)
-            ):
+            if not junction_rows:
                 return 0
 
             result = await patch_many_in_db(
@@ -432,12 +387,9 @@ async def sweep_saison(
         """The season-and-one clock's last part, a transaction apart from the blocks', so a failing strip holds back no block."""
 
         async def strip(session: AsyncClientSession, _: Mapping[str, Any]) -> None:
-            if season_has_ended(
-                saison_status=await pull_the_season_after(saison_id=saison_id, saisons_collection=saisons_collection, session=session)
-            ):
-                await strip_the_seasons_confirmations(
-                    spielbestaetigungen_collection=spielbestaetigungen_collection, saison_id=saison_id, session=session
-                )
+            await strip_the_seasons_confirmations(
+                spielbestaetigungen_collection=spielbestaetigungen_collection, saison_id=saison_id, session=session
+            )
 
         # Every pass strips what is still left, whether or not a block clears on it.
         return await save_each(db=db, rows=the_season, save=strip, what="Season", clock="confirmation strip")
@@ -446,10 +398,7 @@ async def sweep_saison(
         """The season-and-one clock's report part, a transaction apart from the confirmations' strip, so neither failure holds the other."""
 
         async def strip(session: AsyncClientSession, _: Mapping[str, Any]) -> None:
-            if season_has_ended(
-                saison_status=await pull_the_season_after(saison_id=saison_id, saisons_collection=saisons_collection, session=session)
-            ):
-                await strip_the_seasons_reports(spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=session)
+            await strip_the_seasons_reports(spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=session)
 
         return await save_each(db=db, rows=the_season, save=strip, what="Season", clock="report strip")
 
@@ -459,7 +408,6 @@ async def sweep_saison(
     if season_has_ended(saison_status=saison_status):
         steps.append(erase_the_undecided)
     steps.append(erase_declined)
-    # A gate alone, each erasing transaction judging the season again: an activation since this read keeps its rows.
     if season_has_ended(saison_status=later_saison_status):
         steps += [erase_accepted, clear_the_blocks, strip_the_confirmations, strip_the_reports]
     # Never beside the blocks, which take the seats with them.

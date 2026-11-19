@@ -68,7 +68,7 @@ from app.api.schiedsrichter.crud import erase_referee_in_session
 from app.api.spieler.crud import erase_person_in_session
 from app.core.collections import Collection
 from app.core.concurrency import concurrently
-from app.core.crud import aggregate_many_from_db, anchor_in_db, delete_many_from_db, refuse
+from app.core.crud import aggregate_many_from_db, delete_many_from_db, refuse
 from app.core.readonly import ReadCollection
 from app.core.recording import ERASED_ACTOR_MARKER
 from app.shared.einwilligung import is_confirmed, seat_is_confirmed
@@ -760,11 +760,6 @@ async def erase_if_still_due(
     kept = kept_saison_ids(statuses)
     if kept is None:
         return None
-
-    # A planned season `kept` leaves out joins it once activated, which no lower id refuses: anchored, an activation
-    # committing after these statuses were read sends this pupil round. Normally none.
-    if skipped := sorted(saison_id for saison_id, status in statuses.items() if status == "future" and saison_id not in kept):
-        await anchor_in_db(collection=saisons_collection, db_filter={"_id": {"$in": skipped}}, session=session)
 
     pupils = await aggregate_many_from_db(
         collection=collections.spieler_collection, pipeline=[{"$match": {"_id": spieler_id}}, {"$project": {"email": 1}}], session=session

@@ -21,7 +21,6 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identity.crud import erasure_due_page, saison_statuses
-from app.api.saisons.admin_router import activate_saison
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.logging import JSONFormatter
@@ -34,7 +33,6 @@ from tests.documents import (
     kontaktperson_document,
     saison_team_document,
     schiedsrichter_document,
-    spiel_document,
 )
 from tests.erasure_sweep_corpus import (
     LEAGUE,
@@ -314,85 +312,6 @@ class TestEachPupilIsJudgedAgainInTheirOwnTransaction:
 
         assert (answer["spieler"], answer["registrierungen"], standing) == (1, 1, 0)
         assert registrations == [stranger]
-
-
-# --- A rival committing INSIDE a pupil's transaction, after its snapshot and before its first write.
-
-# Waited for the rival at most this long: it contends with nothing before the pupil's first write, so
-# only a rival that failed or hung waits it out, and the case then says so rather than passing.
-RIVAL_BOUND_S = 5.0
-
-
-class CommittedInsideThePupilsTransaction:
-    """The seasons, running `rival` to its commit after a pupil's transaction reads the statuses, its first read.
-
-    Bounded: a rival waiting on a write of the pupil's would never finish, so past `RIVAL_BOUND_S` it is cancelled, and
-    `committed` stays false for the case to fail on.
-    """
-
-    def __init__(self, collection: Any, rival: Callable[[], Awaitable[Any]]) -> None:
-        self._collection = collection
-        self._rival: Callable[[], Awaitable[Any]] | None = rival
-        self.committed = False
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._collection, name)
-
-    async def aggregate(self, *args: Any, **kwargs: Any) -> Any:
-        cursor = await self._collection.aggregate(*args, **kwargs)
-        if self._rival is not None and kwargs.get("session") is not None:
-            rival, self._rival = self._rival, None
-            try:
-                async with asyncio.timeout(RIVAL_BOUND_S):
-                    await rival()
-            except TimeoutError:
-                return cursor
-            self.committed = True
-
-        return cursor
-
-
-# Planned below the season just ended, which activation does not refuse, beside a running season whose fixtures are all played.
-PLANNED_BELOW = "2023"
-BELOW_THE_ENDED = {PLANNED_BELOW: "future", "2024": "active", "2025": "past"}
-
-
-class TestAnActivationInsideThePupilsTransactionKeepsThem:
-    async def test_the_pupil_stands(self, mongo_replica_set_url: str):
-        """Remove the planned season's anchor in `erase_if_still_due` and the pupil goes.
-
-        The pupil's only row is in the planned season, which activating it keeps; the transaction read it planned.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await seeded(
-                database,
-                {Collection.SPIELER: [pupil(numbered(1), address_of(1))], Collection.SAISON_SPIELER: [kader_row(numbered(1), PLANNED_BELOW)]},
-            )
-            # What makes the planned season activatable (`activate_target_undrawn`).
-            await database[Collection.SPIELE].insert_one(
-                spiel_document(spiel_id=numbered(900), saison_id=PLANNED_BELOW, spiel_nr=1, spieltag_id=numbered(901))
-            )
-
-            async def activate() -> Any:
-                return await activate_saison(
-                    saison_id=PLANNED_BELOW,
-                    saisons_collection=database[Collection.SAISONS],
-                    spiele_collection=database[Collection.SPIELE],
-                    spieltage_collection=database[Collection.SPIELTAGE],
-                    ban_list_collection=database[Collection.BAN_LIST],
-                    db=client,
-                )
-
-            seasons = CommittedInsideThePupilsTransaction(database[Collection.SAISONS], activate)
-            answer = await run(database, client, saisons_collection=seasons)
-
-            return seasons.committed, counts(answer), await database[Collection.SPIELER].count_documents({"_id": numbered(1)})
-
-        committed, answer, standing = await on_a_league(mongo_replica_set_url, body, saisons=BELOW_THE_ENDED)
-
-        assert committed, "the activation never committed inside the pupil's transaction, so this case proves nothing"
-        assert (answer["spieler"], answer["skipped"], standing) == (0, 1, 1)
 
 
 class TestOneRecordHoldsBackNobody:
