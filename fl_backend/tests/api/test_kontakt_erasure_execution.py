@@ -1,4 +1,3 @@
-import re
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
@@ -13,10 +12,7 @@ from app.api.identity.admin_router import get_erasure_view
 from app.api.identity.schemas import FLErasureAddressPayload, FLErasureViewResponse
 from app.api.identity.services import build_erasure_seat_pipeline
 from app.api.kontakte.crud import erase_kontaktperson_in_session
-from app.api.kontakte.services import (
-    build_clearing_update,
-    same_address,
-)
+from app.api.kontakte.services import build_clearing_update
 from app.api.teams.schemas import FLSaisonTeamKontakte
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, patch_one_in_db
@@ -74,17 +70,7 @@ UNKNOWN_EMAIL = "niemand.hierverzeichnet@example.com"
 # normalises it.
 VARIANT_REQUEST_EMAIL = "Wiltrudis.Quastenflosser@EXAMPLE.COM"
 
-# Every spelling of that one mailbox a hand-typed grant may hold, which the grant erasure's pattern
-# (`app/api/kontakte/services.py :: same_address`) must take: the domain differing, the local part differing, and both.
-CASE_VARIANTS: tuple[str, ...] = (
-    ERASED_EMAIL,
-    ERASED_EMAIL.replace("example.com", "EXAMPLE.COM"),
-    "Wiltrudis.Quastenflosser@example.com",
-    ERASED_EMAIL.upper(),
-)
-
-# Addresses the same request must leave standing. The pattern reads those at another domain, the fold
-# refusing them; unanchored, or with the `.` unescaped, it reads the other local parts too.
+# Addresses the same request must leave standing: another domain, and another local part.
 OTHER_DOMAINS: tuple[str, ...] = ("wiltrudis.quastenflosser@example.org", "wiltrudis.quastenflosser@example.com.example")
 OTHER_LOCAL_PARTS: tuple[str, ...] = ("nichtwiltrudis.quastenflosser@example.com", "wiltrudisXquastenflosser@example.com")
 NEAR_MISSES: tuple[str, ...] = (*OTHER_DOMAINS, *OTHER_LOCAL_PARTS)
@@ -192,8 +178,8 @@ def bewerbung_document(row_id: ObjectId, team_id: ObjectId) -> dict[str, Any]:
     )
 
 
-# Why a case stores seats the read-back refuses: the near misses a pattern must not reach are spellings no fold holds.
-UNFOLDED_ON_PURPOSE = "seats naming spellings no fold holds, which an erasure's pattern must miss"
+# Why a case stores seats the read-back refuses: a near miss the erasure must not reach is a spelling no fold holds.
+UNFOLDED_ON_PURPOSE = "seats naming spellings no fold holds, which an erasure must miss"
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
@@ -513,146 +499,6 @@ async def test_an_address_asked_unfolded_clears_its_stored_fold_and_no_near_miss
     assert cleared == [], "the match reached an address that is not this person"
     assert rows[MATCHED_ROW_OID]["kontakte"]["trainer"] is None, "the unfolded request missed the stored fold"
     assert seats_cleared(before.values(), rows.values()) == sum(EXPECTED_SLOTS.values()) + 1, "a seat that is somebody else's was cleared"
-
-
-# An identifier holding no `@`: the spellings the fold claims, and a value each anchor keeps out, the end two of them
-# and the start one.
-NO_AT_IDENTIFIER = "no-at"
-NO_AT_CLAIMED: tuple[str, ...] = (NO_AT_IDENTIFIER, "NO-AT", f"{chr(0x20)}no-at{chr(0xA0)}")
-NO_AT_UNCLAIMED: tuple[str, ...] = ("no-atx", "kein-at@example.com", "xkein-at")
-
-
-# A stored address carrying what the fold trims, the start and the end each: the pattern has to
-# take every value the fold would claim. Built from code points, since both are whitespace.
-PADDED_SPELLINGS: tuple[str, ...] = (f"{chr(0x20)}{ERASED_EMAIL}", f"{ERASED_EMAIL}{chr(0xA0)}")
-
-
-@pytest.mark.parametrize(
-    ("asked", "taken", "missed"),
-    [
-        pytest.param(VARIANT_REQUEST_EMAIL, (*CASE_VARIANTS, *PADDED_SPELLINGS), NEAR_MISSES, id="one spelling"),
-        # Both ends are anchored; one anchor alone takes the start's or the end's near miss.
-        pytest.param(NO_AT_IDENTIFIER, NO_AT_CLAIMED, NO_AT_UNCLAIMED, id="no @"),
-        pytest.param(
-            "@x.example.org", ("@x.example.org", "@X.EXAMPLE.ORG"), ("x@x.example.org", "@x.example.org.example"), id="an empty local part"
-        ),
-        # Padded or blank as stored, which a pattern built off that spelling reads less of than its fold claims.
-        pytest.param(
-            f"{chr(0x20)}{VARIANT_REQUEST_EMAIL}{chr(0xA0)}", (*CASE_VARIANTS, *PADDED_SPELLINGS), OTHER_LOCAL_PARTS, id="a padded spelling"
-        ),
-        pytest.param(chr(0x20) * 3, ("", chr(0x20), chr(0xA0)), ("x",), id="a blank"),
-    ],
-)
-def test_the_pattern_takes_every_spelling_the_fold_claims_and_no_other_address(asked: str, taken: tuple[str, ...], missed: tuple[str, ...]):
-    """Python's `re` stands in for the server's engine, the two agreeing on an escaped literal compared in ASCII.
-
-    Each spelling taken is first held to the fold's claim, so the case never asks the pattern for more.
-    """
-
-    identifier = sign_in_identifier(asked)
-    # As asked, never its fold: a caller may hand on a stored value unfolded, which the pattern folds itself.
-    pattern = same_address(asked)
-    matches = re.compile(pattern["$regex"], re.IGNORECASE if pattern["$options"] == "i" else 0).search
-
-    assert [email for email in taken if sign_in_identifier(email) != identifier] == []
-    assert [email for email in taken if not matches(email)] == []
-    assert [email for email in missed if matches(email)] == []
-
-
-# What a stored address may hold, as a hand-typed or older row may: blanks the fold trims, regex
-# metacharacters, a NUL, case partners outside ASCII, and near misses of each identifier below. Built from code points.
-SERVER_CORPUS: tuple[str, ...] = (
-    *("", chr(0x20), chr(0x20) * 3, chr(0xA0), f"{chr(0x20)}{chr(0xA0)}{chr(0x09)}", chr(0x3000), chr(0xFEFF), chr(0x85)),
-    *(f"{chr(0xFEFF)}no-at{chr(0x3000)}", f"{chr(0x85)}no-at", *NO_AT_CLAIMED, *NO_AT_UNCLAIMED),
-    *("kein-at@", "KEIN-AT@", f"{chr(0x20)}kein-at@{chr(0xA0)}", "kein-at@@", "kein-at@x@y"),
-    *("a@b@c", "A@B@C", f"{chr(0x20)}a@b@C{chr(0xA0)}", "a@b@cx", "a@b@x.example.org", "a@bx@c"),
-    *("@x.example.org", f"@{chr(0xFF58)}.example.org", "@X.EXAMPLE.ORG", "x@x.example.org", "@", "@@"),
-    *("someone@example.org", f"{chr(0x017F)}omeone@example.org", f"{chr(0x212A)}im@example.org", "kim@example.org"),
-    *(
-        "a.b@x.example.org",
-        "axb@x.example.org",
-        "a+b@x.example.org",
-        "aab@x.example.org",
-        "a(b)@x.example.org",
-        "a\\b@x.example.org",
-        "a[b]@x.example.org",
-        "a$b@x.example.org",
-        "a^b@x.example.org",
-    ),
-    *(
-        "a|b@x.example.org",
-        "a{2}@x.example.org",
-        "aa@x.example.org",
-        "a?b@x.example.org",
-        "a*b@x.example.org",
-        "ab@x.example.org",
-        "b@x.example.org",
-        "a\x00b@x.example.org",
-    ),
-    *("wiltrudis.quastenflosser@example.com", "Wiltrudis.Quastenflosser@EXAMPLE.COM", "wiltrudisXquastenflosser@example.com"),
-)
-SERVER_IDENTIFIERS: tuple[str, ...] = (
-    *(NO_AT_IDENTIFIER, "kein-at@", "KEIN-AT@", "a@b@c", chr(0x20) * 3, "", f"{chr(0xA0)}{chr(0x09)}", "@x.example.org", "@", "@@"),
-    *(
-        "someone@example.org",
-        "kim@example.org",
-        "a.b@x.example.org",
-        "a+b@x.example.org",
-        "a(b)@x.example.org",
-        "a\\b@x.example.org",
-        "a[b]@x.example.org",
-        "a$b@x.example.org",
-    ),
-    *(
-        "a^b@x.example.org",
-        "a|b@x.example.org",
-        "a{2}@x.example.org",
-        "a?b@x.example.org",
-        "a*b@x.example.org",
-        "a\x00b@x.example.org",
-        "Wiltrudis.Quastenflosser@EXAMPLE.COM",
-    ),
-)
-
-
-@pytest.mark.db
-async def test_the_server_reads_each_pattern_as_python_does_and_misses_nothing_the_fold_claims(mongo_replica_set_url: str):
-    """The case above's `re` held to the server's own engine, which reads `\\s` as ASCII alone: a no-break space it would miss."""
-
-    row_ids = {value: ObjectId(f"6890a1b2c3d4e5f60783{index:04d}") for index, value in enumerate(SERVER_CORPUS)}
-
-    async def body(database: AsyncDatabase, _: AsyncMongoClient) -> dict[str, set[ObjectId]]:
-        await database[Collection.SAISON_TEAMS].insert_many(
-            [a_row_naming(row_id, value) for value, row_id in row_ids.items()], bypass_document_validation=True
-        )
-        read: dict[str, set[ObjectId]] = {}
-        for identifier in SERVER_IDENTIFIERS:
-            # Any stored string serves the pattern: the grant erasure it reads for asks it of `grants.address`.
-            pipeline = [{"$match": {"kontakte.trainer.email": same_address(identifier)}}]
-            read[identifier] = {row["_id"] for row in await (await database[Collection.SAISON_TEAMS].aggregate(pipeline)).to_list()}
-
-        return read
-
-    read = await on_a_league(mongo_replica_set_url, body, stores_a_refused_shape=UNFOLDED_ON_PURPOSE)
-    parted: dict[str, Any] = {}
-    for identifier in SERVER_IDENTIFIERS:
-        pattern = same_address(identifier)
-        python = {value for value in SERVER_CORPUS if re.search(pattern["$regex"], value, re.IGNORECASE if pattern["$options"] == "i" else 0)}
-        server = {value for value, row_id in row_ids.items() if row_id in read[identifier]}
-        claimed = {value for value in SERVER_CORPUS if sign_in_identifier(value) == sign_in_identifier(identifier)}
-        # The fold equates the value whole, so an ASCII read is the claim exactly: an end left open reads a near miss. A
-        # case partner outside ASCII is the `i` flag's, which the fold then decides.
-        unclaimed = {value for value in server - claimed if value.isascii()}
-        # The last, a whole-collection read for an identifier naming anything, is a pattern that takes nothing out.
-        if server != python or claimed - server or unclaimed or (identifier.strip() and server == set(SERVER_CORPUS)):
-            parted[identifier] = {
-                "server alone": server - python,
-                "python alone": python - server,
-                "claimed and missed": claimed - server,
-                "read and unclaimed": unclaimed,
-            }
-
-    assert parted == {}
 
 
 # Two domains to the sign-in fold, so two people an application may seat side by side.

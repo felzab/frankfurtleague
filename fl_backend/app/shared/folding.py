@@ -102,19 +102,6 @@ def normalise_phone(value: str) -> str:
     return digits
 
 
-# Escaped one character at a time, which Python's `re` and the server's PCRE read alike.
-_TRIMMED_CLASS: Final = "[" + "".join(re.escape(character) for character in _TRIMMED) + "]"
-
-
-def trimmed_pattern(fragment: str) -> str:
-    """`fragment`, an escaped `$regex` fragment, anchored at both ends so that whatever `sign_in_identifier` trims may stand around it.
-
-    For a value the fold equates whole, with no part a pattern may leave open.
-    """
-
-    return f"^{_TRIMMED_CLASS}*{fragment}{_TRIMMED_CLASS}*$"
-
-
 def composed_name(value: Any) -> str:
     """NFC, each run of spaces one space, capitals kept: a decomposed umlaut is one name typed on another keyboard."""
 
