@@ -54,19 +54,7 @@ async def get_grants(grants_collection: GrantsReadCollection) -> FLGrantsListRes
 
     rows = await read_grants(grants_collection=grants_collection)
 
-    return FLGrantsListResponse(
-        grants=[
-            FLGrantRow(
-                id=row["_id"],
-                address=row["address"],
-                admin_tier=row["admin_tier"],
-                effective_from=row["effective_from"],
-                # Stored only while a handover to the row waits.
-                owner_from=row.get("owner_from"),
-            )
-            for row in rows
-        ]
-    )
+    return FLGrantsListResponse(grants=[FLGrantRow.model_validate(row) for row in rows])
 
 
 @router.post("", status_code=201, summary="Add an administrator")
