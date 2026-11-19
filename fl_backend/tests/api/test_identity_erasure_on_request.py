@@ -253,7 +253,7 @@ class TestAGrantHoldersAddress:
         """
 
         granted: list[int] = []
-        racing: list[PupilsReadMeetingARival] = []
+        racing: list[InterleavedCollection] = []
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPIELER].insert_one(spieler_document(PUPIL_OID, FIRST_NAME, LAST_NAME, email=IDENTIFIER))
@@ -266,8 +266,10 @@ class TestAGrantHoldersAddress:
                     granted.append(added.status_code)
 
                 async def pupils() -> AsyncCollection:
-                    # The app's own client: the request's session belongs to it.
-                    racing.append(PupilsReadMeetingARival(served.state.db_client[DATABASE_NAME][Collection.SPIELER], grant))
+                    # The app's own client: the request's session belongs to it. The rival commits at the pupils' read
+                    # ahead of the erasure's first write, inside the attempt.
+                    spieler = served.state.db_client[DATABASE_NAME][Collection.SPIELER]
+                    racing.append(InterleavedCollection(spieler, grant, before="aggregate"))
                     return cast(AsyncCollection, racing[-1])
 
                 served.dependency_overrides[collection_dependency(Collection.SPIELER)] = pupils
@@ -385,14 +387,6 @@ class TestTheReference:
 
         assert status == 204
         assert [(row["by"], row["label"], row["record_id"]) for row in rows] == [(OPERATOR, REASON, None)]
-
-
-class PupilsReadMeetingARival(InterleavedCollection):
-    """The pupils the erasure reads ahead of its first write, a rival write committing first: inside the attempt."""
-
-    async def aggregate(self, *args: Any, **kwargs: Any) -> Any:
-        await self.run_the_rival()
-        return await self._collection.aggregate(*args, **kwargs)
 
 
 # Where a grant's creation names its address: the grant, its notice and its act's label.

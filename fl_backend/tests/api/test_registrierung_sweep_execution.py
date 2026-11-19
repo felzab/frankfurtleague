@@ -23,6 +23,7 @@ from tests.documents import (
     saison_team_document,
     team_document,
 )
+from tests.passes import refuse_writes_breaking
 from tests.worker import worker_database
 
 # Module level, as the other execution suites mark theirs: every test below reaches a real mongod.
@@ -213,12 +214,6 @@ class TestTheSeasonsOwnEnd:
         # The other season's row and the two declined ones the decline clock leaves: the season's end takes no decided
         # row, and every removal here names this season.
         assert left == [OTHER_SEASON_OID, DECIDED_INSIDE_OID, DECIDED_UNDATED_OID]
-
-
-async def refuse_writes_breaking(database: AsyncDatabase, collection: Collection, schema: Mapping[str, Any]) -> None:
-    """How this suite forces one row's write to fail mid-pass: a `$jsonSchema` the planted row breaks and every other row keeps."""
-
-    await database.command("collMod", str(collection), validator={"$jsonSchema": dict(schema)}, validationLevel="strict")
 
 
 class TestOneRowHoldsBackNoOther:

@@ -49,6 +49,8 @@ from tests.erasure_sweep_corpus import (
     seeded,
     the_league,
 )
+from tests.isolation import InterleavedCollection, Rival
+from tests.passes import refuse_writes_breaking
 from tests.whole_database import where_held
 from tests.worker import worker_database
 
@@ -78,12 +80,6 @@ async def on_a_league(url: str, body: Body, *, saisons: Mapping[str, str] = LEAG
 NO_REPORT_WRITTEN: Final = {"required": ["a_field_no_report_holds"]}
 
 
-async def refuse_writes_breaking(database: AsyncDatabase, collection: Collection, schema: Mapping[str, Any]) -> None:
-    """How this suite forces one row's write to fail mid-pass: a `$jsonSchema` the planted row breaks and every other row keeps."""
-
-    await database.command("collMod", str(collection), validator={"$jsonSchema": dict(schema)}, validationLevel="strict")
-
-
 def counts(answer: Any) -> dict[str, Any]:
     return answer.model_dump()
 
@@ -103,24 +99,11 @@ async def population(database: AsyncDatabase) -> list[Any]:
     return [row["_id"] for row in page]
 
 
-class WrittenAfterThePopulationRead:
+def written_after_the_population_read(database: AsyncDatabase, rival: Rival) -> InterleavedCollection:
     """The pupils' collection, writing `rival` once the run's population read has answered and before any pupil's own transaction."""
 
-    def __init__(self, collection: Any, rival: Callable[[], Awaitable[Any]]) -> None:
-        self._collection = collection
-        self._rival: Callable[[], Awaitable[Any]] | None = rival
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._collection, name)
-
-    async def aggregate(self, *args: Any, **kwargs: Any) -> Any:
-        cursor = await self._collection.aggregate(*args, **kwargs)
-        # The population read is the one read outside a session; every pupil's own reads carry theirs.
-        if self._rival is not None and kwargs.get("session") is None:
-            rival, self._rival = self._rival, None
-            await rival()
-
-        return cursor
+    # The population read is the run's first `aggregate` of the pupils, and the rival runs once.
+    return InterleavedCollection(database[Collection.SPIELER], rival, after="aggregate")
 
 
 # --- The population: whom the read names, before any transaction re-judges them.
@@ -276,7 +259,7 @@ class TestEachPupilIsJudgedAgainInTheirOwnTransaction:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seeded(database, a_due_pupil(1))
-            pupils = WrittenAfterThePopulationRead(database[Collection.SPIELER], lambda: rival(database))
+            pupils = written_after_the_population_read(database, lambda: rival(database))
             answer = await run(database, client, spieler_collection=pupils)
 
             return counts(answer), await database[Collection.SPIELER].count_documents({"_id": numbered(1)})
@@ -300,7 +283,7 @@ class TestEachPupilIsJudgedAgainInTheirOwnTransaction:
             async def correct_it() -> None:
                 await database[Collection.SPIELER].update_one({"_id": numbered(1)}, {"$set": {"email": corrected}})
 
-            answer = await run(database, client, spieler_collection=WrittenAfterThePopulationRead(database[Collection.SPIELER], correct_it))
+            answer = await run(database, client, spieler_collection=written_after_the_population_read(database, correct_it))
 
             return (
                 counts(answer),

@@ -578,14 +578,6 @@ class TestTheChangeOfAPupilsAddress:
         assert (change["ended"], change["address"]) == (None, IDENTIFIER)
 
 
-class RegistrationsAdmittedInside(InterleavedCollection):
-    """`registrierungen` as the erasure reads it, an admission of the pending row committing at the first read."""
-
-    async def aggregate(self, *args: Any, **kwargs: Any) -> Any:
-        await self.run_the_rival()
-        return await self._collection.aggregate(*args, **kwargs)
-
-
 SEAT_HOLDER = "anna@example.com"
 
 
@@ -642,7 +634,8 @@ class TestAnAdmissionInsideTheErasure:
                     db=client,
                 )
 
-            registrations = RegistrationsAdmittedInside(database[Collection.REGISTRIERUNGEN], admission)
+            # `registrierungen` as the erasure reads it, the admission committing at its first read.
+            registrations = InterleavedCollection(database[Collection.REGISTRIERUNGEN], admission, before="aggregate")
             await erased_by_the_handler(database, client, registrierungen_collection=registrations)
 
             return (
