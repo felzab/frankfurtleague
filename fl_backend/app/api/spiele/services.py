@@ -1855,36 +1855,6 @@ def find_wiring_refusal(
     return None
 
 
-PARTY_NAME_FIELD: Final = "party_name"
-
-
-def build_party_name_stages(*, saison_id: str) -> list[Mapping[str, Any]]:
-    """Stages setting on each confirmation row the name its party's own record holds: a club's season row, a referee's."""
-
-    return [
-        {
-            "$lookup": {
-                "from": Collection.SAISON_TEAMS,
-                "localField": "party.team_id",
-                "foreignField": "team_id",
-                "pipeline": [{"$match": {"saison_id": saison_id}}, {"$project": {"_id": 0, "name": 1}}],
-                "as": "team",
-            }
-        },
-        {
-            "$lookup": {
-                "from": Collection.SCHIEDSRICHTER,
-                "localField": "party.schiedsrichter_id",
-                "foreignField": "_id",
-                "pipeline": [{"$project": {"_id": 0, "name": 1}}],
-                "as": "referee",
-            }
-        },
-        {"$set": {PARTY_NAME_FIELD: {"$first": {"$concatArrays": ["$team.name", "$referee.name"]}}}},
-        {"$unset": ["team", "referee"]},
-    ]
-
-
 def recipients_named(parties: Sequence[Mapping[str, Any]], *, names: Mapping[tuple[str, Any], str | None]) -> list[FLSpielRecipient]:
     """Each party an act mails by the name its own record holds, the one shape every page naming whom an act mails reads.
 

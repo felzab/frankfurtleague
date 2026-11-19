@@ -41,7 +41,7 @@ from app.api.spiele.schemas import (
     FLSpielJoinedInternal,
     FLSpielRecipient,
 )
-from app.api.spiele.services import PARTY_NAME_FIELD, build_party_name_stages, build_spiele_pipeline, recipients_named
+from app.api.spiele.services import build_spiele_pipeline, recipients_named
 from app.core import clock
 from app.core.collections import Collection
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
@@ -199,6 +199,36 @@ class FLOverviewCard(BaseModel):
 class FLSaisonOverviewResponse(BaseReadModel):
     # All four cards in `CARDS`' order, an empty one included, so the page keeps one shape every day.
     cards: list[FLOverviewCard]
+
+
+PARTY_NAME_FIELD: Final = "party_name"
+
+
+def build_party_name_stages(*, saison_id: str) -> list[Mapping[str, Any]]:
+    """Stages setting on each confirmation row the name its party's own record holds: a club's season row, a referee's."""
+
+    return [
+        {
+            "$lookup": {
+                "from": Collection.SAISON_TEAMS,
+                "localField": "party.team_id",
+                "foreignField": "team_id",
+                "pipeline": [{"$match": {"saison_id": saison_id}}, {"$project": {"_id": 0, "name": 1}}],
+                "as": "team",
+            }
+        },
+        {
+            "$lookup": {
+                "from": Collection.SCHIEDSRICHTER,
+                "localField": "party.schiedsrichter_id",
+                "foreignField": "_id",
+                "pipeline": [{"$project": {"_id": 0, "name": 1}}],
+                "as": "referee",
+            }
+        },
+        {"$set": {PARTY_NAME_FIELD: {"$first": {"$concatArrays": ["$team.name", "$referee.name"]}}}},
+        {"$unset": ["team", "referee"]},
+    ]
 
 
 def build_overview_pipeline(*, saison_id: str, today: str) -> list[Mapping[str, Any]]:

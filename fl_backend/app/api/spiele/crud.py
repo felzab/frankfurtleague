@@ -13,6 +13,7 @@ from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_saison_past_refusal, has_started
 from app.api.spielberichte.crud import stamp_the_adoption
 from app.api.spielberichte.services import sides_of
+from app.api.spielbestaetigungen.crud import pull_party_names
 from app.api.spielbestaetigungen.services import CLOSE_FIELDS, build_holding_filter, parties_mailed, parties_told_of_the_change
 from app.api.spiele.schemas import (
     SPIEL_PATCH_WRITTEN_FIELDS,
@@ -753,31 +754,6 @@ async def _judge_spiel_save(
     )
 
 
-async def pull_party_names(
-    *,
-    parties: Sequence[Mapping[str, Any]],
-    membership: Mapping[CustomObjectId, SaisonMembership],
-    schiedsrichter_collection: ReadCollection,
-    session: AsyncClientSession,
-) -> dict[tuple[str, Any], str]:
-    """The name each of `parties` holds on its own record: a club its season row's, already read as `membership`, a referee their own."""
-
-    referee_ids = {party["schiedsrichter_id"] for party in parties if party["kind"] == "schiedsrichter"}
-    referees = await pull_many_from_db(
-        collection=schiedsrichter_collection,
-        db_filter={"_id": {"$in": list(referee_ids)}},
-        projection={"name": 1},
-        # `_id` is unique, so `len(referee_ids)` rows is the whole answer and the cap can never cut it short.
-        limit=max(len(referee_ids), 1),
-        session=session,
-    )
-
-    return {
-        **{("team", team_id): member.name for team_id, member in membership.items()},
-        **{("schiedsrichter", row["_id"]): row["name"] for row in referees},
-    }
-
-
 async def preview_spiel_save(
     *,
     spiel_id: CustomObjectId,
@@ -827,7 +803,10 @@ async def preview_spiel_save(
     )
     told = parties_mailed(told, kontakte={row["team_id"]: row.get("kontakte") for row in seats})
     names = await pull_party_names(
-        parties=told, membership=judged.membership, schiedsrichter_collection=collections.schiedsrichter, session=session
+        parties=told,
+        club_names={team_id: member.name for team_id, member in judged.membership.items()},
+        schiedsrichter_collection=collections.schiedsrichter,
+        session=session,
     )
     advanced_to, released_sides = await preview_bracket_after_patch(
         teams_collection=collections.teams,
