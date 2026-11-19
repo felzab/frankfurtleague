@@ -391,7 +391,7 @@ export interface FLAccountSchiedsrichterEinwilligung {
 /**
  * One team season on which the address holds a confirmed contact seat: its WhatsApp and media choices, and what each held seat stores.
  *
- * Per season row and not per slot: one person holding two of a row's slots answers one choice for both.
+ * Per season row and not per seat: one person holding two of a row's seats answers one choice for both.
  */
 export interface FLAccountSeatEinwilligung {
   evidence_state: FLEinwilligungState;
@@ -1383,7 +1383,7 @@ export const FLTrainerAlso = {
 } as const;
 
 /**
- * The three seats as the team editor reads them, nullable per slot as stored.
+ * The three seats as the team editor reads them, nullable per seat as stored.
  */
 export interface FLSaisonTeamKontakteAdmin {
   ansprechperson: FLKontaktpersonAdmin | null;
@@ -1501,7 +1501,7 @@ export interface FLBewerbungAddressPayload {
 }
 
 /**
- * One person's Widerspruch for one seat, which empties their slot: it carries nothing of them.
+ * One person's Widerspruch for one seat, which empties their seat: it carries nothing of them.
  */
 export interface FLBewerbungEinwilligungDeclined {
   answer: "declined";

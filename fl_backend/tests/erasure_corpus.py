@@ -233,7 +233,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             kontakte=kontakte_document(
                 ansprechperson=their_seat(),
                 stellvertretung=kontaktperson_document("Quillhilde", confirmed_at="2126-03-21"),
-                # A day of its own: the journal's seat entry is read from the person's slot, never the row's first confirmed one.
+                # A day of its own: the journal's seat entry is read from the person's seat, never the row's first confirmed one.
                 trainer=kontaktperson_document("Bramblewick", confirmed_at="2126-03-19"),
             ),
         )

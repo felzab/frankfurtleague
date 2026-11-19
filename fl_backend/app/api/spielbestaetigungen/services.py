@@ -1053,8 +1053,8 @@ def moved_notice_of(
     )
 
 
-def spiel_mail_slot_of(spiel: Mapping[str, Any]) -> FLSpielMailAnsetzung | None:
-    """The slot a fixture holds now, its ground among the rest, as a move's notice names it; `None` lacking a day, hour or side."""
+def spiel_mail_ansetzung_from_spiel(spiel: Mapping[str, Any]) -> FLSpielMailAnsetzung | None:
+    """The Ansetzung a fixture holds now, its ground among the rest, as a move's notice names it; `None` lacking a day, hour or side."""
 
     date, time, team1, team2 = spiel.get("date"), spiel.get("time"), spiel.get("team1"), spiel.get("team2")
     if date is None or time is None or team1 is None or team2 is None:

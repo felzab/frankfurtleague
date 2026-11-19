@@ -55,6 +55,7 @@ from app.api.bewerbungen.services import (
     outbox_key,
     owed_at_submission,
     paired_seat,
+    person_of,
     pull_schule_name,
     saison_link_pair,
     saison_schule,
@@ -325,7 +326,7 @@ async def _saison_view(
     refuse(find_unknown_token_refusal(seat=seat))
     assert row is not None and seat is not None
 
-    slot = (row.get("kontakte") or {}).get(seat)
+    person = person_of(row.get("kontakte"), seat)
 
     also = saison_link_pair(kontakte=row.get("kontakte"), confirmations=row.get("confirmations"), seat=seat, token_hash=token_hash)
 
@@ -334,7 +335,7 @@ async def _saison_view(
     assert saison_raw is not None
 
     state = saison_state_of(row=row, seat=seat, today=today, saison_status=saison_raw.get("status"))
-    refuse(find_unknown_token_refusal(seat=None if seat_opens_nobody(slot=slot, state=state) else seat))
+    refuse(find_unknown_token_refusal(seat=None if seat_opens_nobody(person=person, state=state) else seat))
 
     if state == "saison_past":
         # Why the row takes no consent, read as the mint reads it, so the page can name it.
@@ -402,13 +403,13 @@ async def get_confirmation_view(
     refuse(find_unknown_token_refusal(seat=seat))
     assert seat is not None
 
-    slot = (bewerbung_raw.get("kontakte") or {}).get(seat)
+    person = person_of(bewerbung_raw.get("kontakte"), seat)
 
     # The answer's own resolution, so the page names exactly the seats a press will write.
     also = paired_seat(kontakte=bewerbung_raw.get("kontakte"), confirmations=bewerbung_raw.get("confirmations"), seat=seat)
 
     state = state_of(bewerbung_raw=bewerbung_raw, seat=seat, today=today)
-    refuse(find_unknown_token_refusal(seat=None if seat_opens_nobody(slot=slot, state=state) else seat))
+    refuse(find_unknown_token_refusal(seat=None if seat_opens_nobody(person=person, state=state) else seat))
 
     return seat_view(
         state=state,
@@ -441,7 +442,7 @@ async def post_confirmation(
 ) -> None:
     """Record one person's consent or Widerspruch for the seat their link opens, and for a second seat they hold.
 
-    A Widerspruch empties the slot and writes the Protokoll's row, and on an application it tells the Ansprechperson who
+    A Widerspruch empties the seat and writes the Protokoll's row, and on an application it tells the Ansprechperson who
     still stands, in a notice that is the deletion notice too.
     """
 

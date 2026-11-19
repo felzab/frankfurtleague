@@ -26,7 +26,7 @@ from app.api.spielbestaetigungen.services import (
     moved_notice_of,
     proposal_payload,
     reason_of,
-    spiel_mail_slot_of,
+    spiel_mail_ansetzung_from_spiel,
     state_of,
     view_ansetzung_of,
 )
@@ -481,9 +481,9 @@ class TestADiscardAndAnAdoptionActOnAnOpenProposalAlone:
 def test_a_move_s_notice_names_the_ground_the_fixture_moved_to():
     """Unnamed, a ground changed at the same hour reads „Bisher“ and „Neu“ alike, and the parties go to the old ground."""
 
-    slot = spiel_mail_slot_of(spiel())
+    ansetzung = spiel_mail_ansetzung_from_spiel(spiel())
 
-    assert slot is not None and slot.spielort == "Halle Ost"
+    assert ansetzung is not None and ansetzung.spielort == "Halle Ost"
 
 
 def test_a_move_off_its_ground_tells_the_parties_of_no_ground():
@@ -491,7 +491,9 @@ def test_a_move_off_its_ground_tells_the_parties_of_no_ground():
 
     appointment = FLSpielMailAppointment(team1="Adler", team2="Biber", date=DATE, time="18:30:00")
 
-    notice = moved_notice_of(party_kind="team", appointment=appointment, moved_to=spiel_mail_slot_of(spiel(spielort=None)), stays=True)
+    notice = moved_notice_of(
+        party_kind="team", appointment=appointment, moved_to=spiel_mail_ansetzung_from_spiel(spiel(spielort=None)), stays=True
+    )
 
     assert notice.moved_to is not None and notice.moved_to.spielort is None
 

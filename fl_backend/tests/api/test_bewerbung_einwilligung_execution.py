@@ -332,9 +332,9 @@ class TestTheLinkIsSpentByTheStamp:
 
 
 class TestADecline:
-    """The person's slot is emptied in ONE transaction, as an erasure does: a person who refuses is not held."""
+    """The person's seat is emptied in ONE transaction, as an erasure does: a person who refuses is not held."""
 
-    async def test_the_slot_is_emptied_the_day_recorded_beside_it_and_the_seat_still_outstanding(self, mongo_replica_set_url: str):
+    async def test_the_seat_is_emptied_the_day_recorded_beside_it_and_still_outstanding(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await answer(database, client, RAW["stellvertretung"], answer="declined", now=MAIL_NOW)
 
@@ -358,9 +358,9 @@ class TestADecline:
 
 
 class TestAPairedDecline:
-    """One person in two seats, one refusal: a decline reaching one slot would leave the other holding the person who refused."""
+    """One person in two seats, one refusal: a decline reaching one seat would leave the other holding the person who refused."""
 
-    async def test_both_slots_are_emptied_and_both_days_recorded(self, mongo_replica_set_url: str):
+    async def test_both_seats_are_emptied_and_both_days_recorded(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await answer(database, client, RAW["ansprechperson"], answer="declined")
 

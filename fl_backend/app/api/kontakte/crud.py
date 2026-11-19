@@ -8,7 +8,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.bewerbungen.services import deletion_was_announced, leaving_moves_the_deletion_day
 from app.api.kontakte.services import (
     build_clearing_update,
-    departing_slots,
+    departing_seats,
 )
 from app.api.spielbestaetigungen.services import (
     HeldSeats,
@@ -25,19 +25,19 @@ async def clear_seats(
     identifiers: Set[str],
     session: AsyncClientSession,
 ) -> None:
-    """Null these people's slots, one patch per row holding any and never one over many: which slots a row gives up is that row's own."""
+    """Null these people's seats, one patch per row holding any and never one over many: which seats a row gives up is that row's own."""
 
     for row in rows:
-        slots = departing_slots(row, identifiers)
-        if not slots:
+        seats = departing_seats(row, identifiers)
+        if not seats:
             continue
 
         update = build_clearing_update(
-            slots,
+            seats,
             confirmations=isinstance(row.get("confirmations"), Mapping),
             # The seat a notice named may be the one going: the application then falls on a later day nobody was told.
             takes_the_notice_back=deletion_was_announced(bewerbung_raw=row)
-            and leaving_moves_the_deletion_day(kontakte=row.get("kontakte"), confirmations=row.get("confirmations"), seats=slots),
+            and leaving_moves_the_deletion_day(kontakte=row.get("kontakte"), confirmations=row.get("confirmations"), seats=seats),
         )
         await patch_one_in_db(
             collection=collection,
@@ -96,10 +96,10 @@ async def erase_kontaktperson_in_session(
     await clear_seats(bewerbungen_collection, bewerbung_rows, {identifier}, session)
 
     # Off the rows read in this transaction, as `clear_seats` judged them, once for the whole erasure.
-    held = [(row, slots) for row in saison_team_rows if (slots := departing_slots(row, {identifier}))]
+    held = [(row, seats) for row in saison_team_rows if (seats := departing_seats(row, {identifier}))]
     # The seats they hold now: a reason typed from a seat they have left goes with its season's end.
     await remove_the_seats_reasons(
         spielbestaetigungen_collection=spielbestaetigungen_collection,
-        held=[HeldSeats(saison_id=row["saison_id"], team_id=row["team_id"], seats=slots) for row, slots in held],
+        held=[HeldSeats(saison_id=row["saison_id"], team_id=row["team_id"], seats=seats) for row, seats in held],
         session=session,
     )

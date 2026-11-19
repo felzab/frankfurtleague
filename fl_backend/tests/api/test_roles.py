@@ -98,7 +98,7 @@ def _junction(
     *,
     also: str | None = None,
     austritt: dict[str, Any] | None = None,
-    **slots: dict[str, Any],
+    **seats: dict[str, Any],
 ) -> dict[str, Any]:
     return saison_team_document(
         saison_id,
@@ -107,7 +107,7 @@ def _junction(
         name[:3].upper(),
         _id=row_id,
         austritt=austritt,
-        kontakte={**{slot: None for slot in KONTAKT_SEATS}, **slots, "trainer_is_also": also},
+        kontakte={**{seat: None for seat in KONTAKT_SEATS}, **seats, "trainer_is_also": also},
     )
 
 
@@ -165,7 +165,7 @@ async def _seed(database: AsyncDatabase) -> None:
             ),
             _junction(ROW_FUTURE_A_OID, FUTURE_SAISON, TEAM_A_OID, ROW_NAME_A, trainer=_seat(TIMES), ansprechperson=_seat(ANSPRECHPERSON)),
             # The Trainer also holds the Ansprechperson seat, confirmed in the first and entered by an
-            # administrator into the second: the stamp is the SLOT's, so the second grants nothing.
+            # administrator into the second: the stamp is the SEAT's, so the second grants nothing.
             _junction(
                 ROW_ACTIVE_C_OID,
                 ACTIVE_SAISON,
@@ -267,7 +267,7 @@ class TestTheConfirmationNarrowing:
         assert answer.seats == []
         assert answer.unconfirmed is True
 
-    async def test_one_address_in_two_slots_is_answered_only_the_slot_it_confirmed(self, seeded_league: str):
+    async def test_one_address_in_two_seats_is_answered_only_the_seat_it_confirmed(self, seeded_league: str):
         """Kills a confirmation judged per row: `trainer_is_also` seats this person twice, and only the Trainer seat is stamped."""
 
         assert [seat.seat for seat in (await answered(seeded_league, ALSO)).seats] == ["trainer"]

@@ -81,7 +81,7 @@ SEATED = {
 BESIDE = {**SEATED, "first_name": "Ottilie", "last_name": "Andere", "email": "ottilie.andere@example.com", "phone": "+49 69 90009404"}
 
 
-async def team_row(database: AsyncDatabase) -> Mapping[str, Any]:
+async def junction_row(database: AsyncDatabase) -> Mapping[str, Any]:
     return await the_row(database, Collection.SAISON_TEAMS, {"team_id": TEAM_OID, "saison_id": SAISON_ID}, "the seeded row is gone")
 
 
@@ -98,27 +98,27 @@ def junction_values(row: Mapping[str, Any], **changed: Any) -> dict[str, Any]:
 
 
 async def the_block_it_was_served(database: AsyncDatabase, client: AsyncMongoClient) -> Rival:
-    version = (await team_row(database))["version"]
+    version = (await junction_row(database))["version"]
 
     return lambda database, client: contacts_saved(database, client, kontakte_document(trainer=SEATED), version)
 
 
 async def another_seat_filled(database: AsyncDatabase, client: AsyncMongoClient) -> Rival:
-    version = (await team_row(database))["version"]
+    version = (await junction_row(database))["version"]
 
     return lambda database, client: contacts_saved(database, client, kontakte_document(trainer=SEATED, ansprechperson=BESIDE), version)
 
 
 async def the_row_as_it_stands(database: AsyncDatabase, client: AsyncMongoClient) -> Rival:
     # Sent once ahead, so the row already holds what the same save writes.
-    await junction_patched(database, client, junction_values(await team_row(database)))
-    values = junction_values(await team_row(database))
+    await junction_patched(database, client, junction_values(await junction_row(database)))
+    values = junction_values(await junction_row(database))
 
     return lambda database, client: junction_patched(database, client, values)
 
 
 async def another_kit_colour(database: AsyncDatabase, client: AsyncMongoClient) -> Rival:
-    values = junction_values(await team_row(database), trikot_farbe="gruen")
+    values = junction_values(await junction_row(database), trikot_farbe="gruen")
 
     return lambda database, client: junction_patched(database, client, values)
 
@@ -145,7 +145,7 @@ class TestAWriteKeepingTheirSeatInsideTheErasureLeavesNothing:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             # Saved twice, the first minting the person's link, so the stored block is what a later send of it composes.
             await contacts_saved(database, client, kontakte_document(trainer=SEATED), 0)
-            await contacts_saved(database, client, kontakte_document(trainer=SEATED), (await team_row(database))["version"])
+            await contacts_saved(database, client, kontakte_document(trainer=SEATED), (await junction_row(database))["version"])
             keeping = await prepare(database, client)
             written: list[str] = []
 
@@ -155,7 +155,7 @@ class TestAWriteKeepingTheirSeatInsideTheErasureLeavesNothing:
             grants = GrantsReadThenRival(database[Collection.GRANTS], keep_the_seat)
             outcome = await outcome_of(erased(database, client, TYPED, germany_now=NOW, grants_collection=grants))
 
-            return outcome, written, (await team_row(database))["kontakte"]["trainer"], await where_folded_to(database, IDENTIFIER)
+            return outcome, written, (await junction_row(database))["kontakte"]["trainer"], await where_folded_to(database, IDENTIFIER)
 
         outcome, written, trainer, held = await on_a_league(mongo_replica_set_url, body)
 

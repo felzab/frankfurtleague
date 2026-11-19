@@ -145,7 +145,7 @@ def what_is_left(collections: Mapping[str, list[Any]]) -> Any:
 
 
 @pytest.mark.db
-class TestTheRegistryRunsWhole:
+class TestTheErasureRunsWhole:
     """The person's whole data on one pass, with no precondition about their state."""
 
     async def test_the_persons_own_route_leaves_the_same_database(self, mongo_replica_set_url: str):

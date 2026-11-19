@@ -543,7 +543,7 @@ export const BewerbungenPostBewerbungBody = zod
 /**
  * Record one person's consent or Widerspruch for the seat their link opens, and for a second seat they hold.
  *
- * A Widerspruch empties the slot and writes the Protokoll's row, and on an application it tells the Ansprechperson who
+ * A Widerspruch empties the seat and writes the Protokoll's row, and on an application it tells the Ansprechperson who
  * still stands, in a notice that is the deletion notice too.
  * @summary Confirm or decline one seat of a Bewerbung or of a team's season row
  */
@@ -576,7 +576,7 @@ export const BewerbungenPostConfirmationBody = zod.union([
       answer: zod.literal("declined").meta({ title: "Answer" }),
       token: zod.string().min(1).max(bewerbungenPostConfirmationBodyTwoTokenMax).regex(bewerbungenPostConfirmationBodyTwoTokenRegExp),
     })
-    .describe("One person's Widerspruch for one seat, which empties their slot: it carries nothing of them."),
+    .describe("One person's Widerspruch for one seat, which empties their seat: it carries nothing of them."),
 ]);
 
 /**

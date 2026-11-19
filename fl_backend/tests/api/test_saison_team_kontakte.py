@@ -332,7 +332,7 @@ class TestTheDateRidesWithThePerson:
         # The floor under the claim below: a date standing beside a stamp would prove a confirmation
         # survived rather than the identity match that carries the date.
         assert composed["trainer"]["einwilligung"]["confirmed_at"] is None, "the seed is confirmed, so this case proves nothing"
-        assert [composed[slot]["birth_date"] for slot in ("trainer", "ansprechperson", "stellvertretung")] == [BIRTH_DATE] * 3
+        assert [composed[seat]["birth_date"] for seat in ("trainer", "ansprechperson", "stellvertretung")] == [BIRTH_DATE] * 3
 
     def test_a_seat_handed_to_another_address_holds_no_date(self):
         handed = {**RESAVED_AS_RENDERED, "trainer": person("Ida", email="another.ida@example.com")}

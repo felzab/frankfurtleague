@@ -208,7 +208,7 @@ async def _seed(database: AsyncDatabase) -> None:
     await database[Collection.SAISONS].insert_many([saison_document(PAST_SAISON, "past"), saison_document(ACTIVE_SAISON, "active")])
     await database[Collection.SAISON_TEAMS].insert_many(
         [
-            # One person in two slots of one past row: one entry, both seats named.
+            # One person in two seats of one past row: one entry, both seats named.
             saison_team_document(
                 PAST_SAISON,
                 TEAM_A_OID,
@@ -622,9 +622,12 @@ class TestTheSeatsMediaChoice:
 
         assert withdrawn.status_code == 204, withdrawn.text
         assert (granted.status_code, granted.json()["error_code"]) == (403, Code.GIVING_NOT_ALLOWED)
-        for slot in ("trainer", "ansprechperson"):
-            seat = after[(TEAM_A_OID, PAST_SAISON)][slot]["einwilligung"]
-            assert (seat["media"], seat[EVIDENCE]) == (False, {"scope": SEAT_RECEIPT["scope"], "media": SEAT_WITHDRAWAL["media"]})
+        for seat in ("trainer", "ansprechperson"):
+            einwilligung = after[(TEAM_A_OID, PAST_SAISON)][seat]["einwilligung"]
+            assert (einwilligung["media"], einwilligung[EVIDENCE]) == (
+                False,
+                {"scope": SEAT_RECEIPT["scope"], "media": SEAT_WITHDRAWAL["media"]},
+            )
 
     @pytest.mark.parametrize(("email", "team_id"), [(IDENTIFIER, TEAM_A_OID), (NOBODY, TEAM_B_OID)], ids=["unconfirmed-seat", "no-seat"])
     async def test_a_row_holding_no_confirmed_seat_of_the_address_is_refused_and_unwritten(
@@ -681,15 +684,15 @@ class TestTheSeatsMediaChoice:
 
 
 async def _whatsapp_on_every_held_seat(database: AsyncDatabase) -> None:
-    """The asker's seats as their confirmations left them with WhatsApp granted: both past slots and the active one."""
+    """The asker's seats as their confirmations left them with WhatsApp granted: both past seats and the active one."""
 
-    for (team_id, saison_id), slots in {
+    for (team_id, saison_id), seats in {
         (TEAM_A_OID, PAST_SAISON): ("trainer", "ansprechperson"),
         (TEAM_B_OID, ACTIVE_SAISON): ("stellvertretung",),
     }.items():
         await database[Collection.SAISON_TEAMS].update_one(
             {"team_id": team_id, "saison_id": saison_id},
-            {"$set": {f"kontakte.{slot}.einwilligung.scope": "kontakt_data_whatsapp" for slot in slots}},
+            {"$set": {f"kontakte.{seat}.einwilligung.scope": "kontakt_data_whatsapp" for seat in seats}},
         )
 
 
@@ -697,7 +700,7 @@ async def _whatsapp_on_every_held_seat(database: AsyncDatabase) -> None:
 class TestTheSeatsWhatsAppChoice:
     """The seat control moves the WhatsApp scope beside the media consent, each with its own evidence."""
 
-    async def test_a_past_seasons_withdrawal_lands_on_every_held_slot_naming_the_grant_it_ended(self, mongo_replica_set_url: str):
+    async def test_a_past_seasons_withdrawal_lands_on_every_held_seat_naming_the_grant_it_ended(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await _whatsapp_on_every_held_seat(database)
             body = _seat_body(media=True, state=_seated_state(2, scope="kontakt_data_whatsapp"))
@@ -707,9 +710,9 @@ class TestTheSeatsWhatsAppChoice:
         response, after = await served(mongo_replica_set_url, steps)
 
         assert response.status_code == 204, response.text
-        for slot in ("trainer", "ansprechperson"):
-            seat = after[(TEAM_A_OID, PAST_SAISON)][slot]["einwilligung"]
-            assert (seat["scope"], seat["media"], seat[EVIDENCE]) == (
+        for seat in ("trainer", "ansprechperson"):
+            einwilligung = after[(TEAM_A_OID, PAST_SAISON)][seat]["einwilligung"]
+            assert (einwilligung["scope"], einwilligung["media"], einwilligung[EVIDENCE]) == (
                 "kontakt_data",
                 True,
                 {"scope": SEAT_WITHDRAWAL["scope"], "media": SEAT_RECEIPT["media"]},
@@ -869,8 +872,8 @@ class TestAPendingApplicationsSeats:
         response, before, after = await served(mongo_replica_set_url, steps)
 
         assert response.status_code == 204, response.text
-        for slot in ("trainer", "ansprechperson"):
-            einwilligung = after[PENDING_OID][slot]["einwilligung"]
+        for seat in ("trainer", "ansprechperson"):
+            einwilligung = after[PENDING_OID][seat]["einwilligung"]
             assert (einwilligung["media"], einwilligung[EVIDENCE]) == (
                 False,
                 {"scope": SEAT_RECEIPT["scope"], "media": SEAT_WITHDRAWAL["media"]},
@@ -884,7 +887,7 @@ class TestAPendingApplicationsSeats:
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await _applications(database)
             await database[Collection.BEWERBUNGEN].update_one(
-                {"_id": PENDING_OID}, {"$set": {f"kontakte.{slot}.einwilligung.media": False for slot in ("trainer", "ansprechperson")}}
+                {"_id": PENDING_OID}, {"$set": {f"kontakte.{seat}.einwilligung.media": False for seat in ("trainer", "ansprechperson")}}
             )
             before = await _application_docs(database), await database[Collection.ACTION_LOG].count_documents({})
             response = await http.patch(
@@ -921,7 +924,7 @@ class TestAPendingApplicationsSeats:
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await _applications(database)
             await database[Collection.BEWERBUNGEN].update_one(
-                {"_id": PENDING_OID}, {"$set": {f"kontakte.{slot}.einwilligung.media": False for slot in ("trainer", "ansprechperson")}}
+                {"_id": PENDING_OID}, {"$set": {f"kontakte.{seat}.einwilligung.media": False for seat in ("trainer", "ansprechperson")}}
             )
             before = await _application_docs(database)
             body = {**_withdrawal(state=_seated_state(2, media=False)), "scope": scope, "media": media}
@@ -938,7 +941,7 @@ class TestAPendingApplicationsSeats:
             await _applications(database)
             await database[Collection.BEWERBUNGEN].update_one(
                 {"_id": PENDING_OID},
-                {"$set": {f"kontakte.{slot}.einwilligung.scope": "kontakt_data_whatsapp" for slot in ("trainer", "ansprechperson")}},
+                {"$set": {f"kontakte.{seat}.einwilligung.scope": "kontakt_data_whatsapp" for seat in ("trainer", "ansprechperson")}},
             )
             response = await http.patch(
                 _application_path(PENDING_OID),
@@ -950,8 +953,8 @@ class TestAPendingApplicationsSeats:
         response, after = await served(mongo_replica_set_url, steps)
 
         assert response.status_code == 204, response.text
-        for slot in ("trainer", "ansprechperson"):
-            einwilligung = after[PENDING_OID][slot]["einwilligung"]
+        for seat in ("trainer", "ansprechperson"):
+            einwilligung = after[PENDING_OID][seat]["einwilligung"]
             assert (einwilligung["scope"], einwilligung["media"], einwilligung[EVIDENCE]) == (
                 "kontakt_data",
                 True,
@@ -1181,13 +1184,13 @@ class TestSeatsAnsweredApart:
         assert body["scope"] == "kontakt_data_whatsapp", "the page did not show the row's WhatsApp as on, so this case proves nothing"
         assert response.status_code == 204, response.text
         row = after[(TEAM_A_OID, PAST_SAISON)]
-        assert [(row[slot]["einwilligung"]["scope"], row[slot]["einwilligung"]["media"]) for slot in ("trainer", "ansprechperson")] == [
+        assert [(row[seat]["einwilligung"]["scope"], row[seat]["einwilligung"]["media"]) for seat in ("trainer", "ansprechperson")] == [
             ("kontakt_data_whatsapp", False),
             ("kontakt_data", False),
         ]
         assert all(
-            row[slot]["einwilligung"][EVIDENCE] == {"scope": SEAT_RECEIPT["scope"], "media": SEAT_WITHDRAWAL["media"]}
-            for slot in ("trainer", "ansprechperson")
+            row[seat]["einwilligung"][EVIDENCE] == {"scope": SEAT_RECEIPT["scope"], "media": SEAT_WITHDRAWAL["media"]}
+            for seat in ("trainer", "ansprechperson")
         )
 
     async def test_a_running_seasons_media_withdrawal_grants_no_whatsapp(self, mongo_replica_set_url: str):
@@ -1202,7 +1205,7 @@ class TestSeatsAnsweredApart:
         assert body["scope"] == "kontakt_data_whatsapp", "the page did not show the row's WhatsApp as on, so this case proves nothing"
         assert response.status_code == 204, response.text
         row = after[(TEAM_B_OID, ACTIVE_SAISON)]
-        assert [(row[slot]["einwilligung"]["scope"], row[slot]["einwilligung"]["media"]) for slot in ("stellvertretung", "ansprechperson")] == [
+        assert [(row[seat]["einwilligung"]["scope"], row[seat]["einwilligung"]["media"]) for seat in ("stellvertretung", "ansprechperson")] == [
             ("kontakt_data_whatsapp", False),
             ("kontakt_data", False),
         ]
@@ -1218,7 +1221,7 @@ class TestSeatsAnsweredApart:
 
         assert response.status_code == 204, response.text
         row = after[(TEAM_A_OID, PAST_SAISON)]
-        assert [(row[slot]["einwilligung"]["scope"], row[slot]["einwilligung"]["media"]) for slot in ("trainer", "ansprechperson")] == [
+        assert [(row[seat]["einwilligung"]["scope"], row[seat]["einwilligung"]["media"]) for seat in ("trainer", "ansprechperson")] == [
             ("kontakt_data", True),
             ("kontakt_data", True),
         ]
@@ -1252,7 +1255,7 @@ async def test_a_pending_applications_media_withdrawal_leaves_each_seats_whatsap
     assert entry["scope"] == "kontakt_data_whatsapp", "the page did not show the application's WhatsApp as on, so this case proves nothing"
     assert response.status_code == 204, response.text
     seats = after[PENDING_OID]
-    assert [(seats[slot]["einwilligung"]["scope"], seats[slot]["einwilligung"]["media"]) for slot in ("trainer", "ansprechperson")] == [
+    assert [(seats[seat]["einwilligung"]["scope"], seats[seat]["einwilligung"]["media"]) for seat in ("trainer", "ansprechperson")] == [
         ("kontakt_data_whatsapp", False),
         ("kontakt_data", False),
     ]

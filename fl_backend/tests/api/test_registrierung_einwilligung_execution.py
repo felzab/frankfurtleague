@@ -256,12 +256,12 @@ class TestTheLinkIsSpentByTheStamp:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            team_row = {"saison_id": SAISON_ID, "team_id": TEAM_OID}
+            junction_row = {"saison_id": SAISON_ID, "team_id": TEAM_OID}
             if route == "austritt":
                 austritt = {"type": "rueckzug", "reason": "Schulwechsel", "date": YESTERDAY}
-                await database[Collection.SAISON_TEAMS].update_one(team_row, {"$set": {"austritt": austritt}})
+                await database[Collection.SAISON_TEAMS].update_one(junction_row, {"$set": {"austritt": austritt}})
             else:
-                await database[Collection.SAISON_TEAMS].delete_one(team_row)
+                await database[Collection.SAISON_TEAMS].delete_one(junction_row)
             view = await read_view(database, RAW)
             return view.state, await refused_code(answer(database, client, RAW)), await stored(database)
 

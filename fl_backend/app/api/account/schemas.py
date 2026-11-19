@@ -58,7 +58,7 @@ class FLAccountSeatPerson(BaseModel):
 class FLAccountSeatEinwilligung(BaseModel):
     """One team season on which the address holds a confirmed contact seat: its WhatsApp and media choices, and what each held seat stores.
 
-    Per season row and not per slot: one person holding two of a row's slots answers one choice for both.
+    Per season row and not per seat: one person holding two of a row's seats answers one choice for both.
     """
 
     team_id: CustomObjectId
@@ -69,10 +69,10 @@ class FLAccountSeatEinwilligung(BaseModel):
     seats: list[FLKontaktSeat] = Field(min_length=1)
     # One per held seat, in `seats`' order: two seats may store one person typed two ways.
     persons: list[FLAccountSeatPerson] = Field(min_length=1)
-    # Each on where any held slot's is, so a withdrawal stays offered.
+    # Each on where any held seat's is, so a withdrawal stays offered.
     scope: FLKontaktKenntnisnahmeScope
     media: bool
-    # Over every held slot.
+    # Over every held seat.
     evidence_state: FLEinwilligungState
     media_offered: bool
     givable: bool

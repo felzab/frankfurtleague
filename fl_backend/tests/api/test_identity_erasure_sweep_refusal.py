@@ -61,6 +61,6 @@ class TestTheDueJudgement:
         assert open_addresses([{"status": "declined", "email": ADDRESS}]) == frozenset()
 
     def test_a_pupil_holding_no_address_is_never_due(self):
-        """The registry erases by address, and nothing else may erase by a name."""
+        """The erasure goes by address, and nothing else may erase by a name."""
 
         assert not due_for_erasure([], email=None)

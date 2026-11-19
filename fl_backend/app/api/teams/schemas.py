@@ -130,7 +130,7 @@ class FLSaisonTeamKontakte(BaseModel):
     finished season keeps those who confirmed their seat.
     """
 
-    # Nullable per slot: a person's erasure empties the slots naming them and must not reach the
+    # Nullable per seat: a person's erasure empties the seats naming them and must not reach the
     # two people beside them.
     trainer: FLKontaktperson | None
     ansprechperson: FLKontaktperson | None
@@ -167,12 +167,12 @@ class FLSaisonTeamConfirmation(BaseModel):
     # Stored rather than derived from `sent_at` and the bound: raising the bound would otherwise
     # move the deadline of every link already in somebody's inbox.
     deadline: CustomDateString
-    # Beside the slot rather than inside it: a Widerspruch empties the slot, and a marker in there would go with it.
+    # Beside the seat rather than inside it: a Widerspruch empties the seat, and a marker in there would go with it.
     declined_at: CustomOptionalDateString
 
 
 class FLSaisonTeamConfirmations(BaseModel):
-    """The three seats' links, outside `kontakte` and mirroring its slots; nullable per seat, as the slot beside each is."""
+    """The three seats' links, outside `kontakte` and mirroring its seats; nullable per seat, as the person beside each is."""
 
     trainer: FLSaisonTeamConfirmation | None
     ansprechperson: FLSaisonTeamConfirmation | None
@@ -393,7 +393,7 @@ class FLKontaktpersonAdmin(BaseReadModel):
 
 
 class FLSaisonTeamKontakteAdmin(BaseReadModel):
-    """The three seats as the team editor reads them, nullable per slot as stored."""
+    """The three seats as the team editor reads them, nullable per seat as stored."""
 
     trainer: FLKontaktpersonAdmin | None
     ansprechperson: FLKontaktpersonAdmin | None
@@ -590,7 +590,7 @@ class FLTeamSeat(BaseModel):
 
     # The seats the entry's person holds: the Trainer's first, and the seat `trainer_is_also` names beside it.
     seats: list[FLKontaktSeat]
-    # Null for an empty slot, which is answered rather than omitted: a missing line reads as a team
+    # Null for an empty seat, which is answered rather than omitted: a missing line reads as a team
     # with two seats rather than one with a seat unfilled.
     name: str | None
     # Composed from the stamp and never the stamp itself, so no date about another person crosses.

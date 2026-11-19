@@ -1226,8 +1226,8 @@ act, and where its person stood by id, with no address or name:
 - **`records`**, as `collection/id`. On an erasure's line, each record one address alone holds. On a
   withdrawal's or a Widerspruch's, the record the act landed on, which on a seat's row or an
   application holds other people too.
-- **`seats`**: a withdrawal's or a Widerspruch's slots by name. An erasure's are
-  `collection/id/slot`, its row holding other people, and a confirmed slot's carries that slot's
+- **`seats`**: a withdrawal's or a Widerspruch's seats by name. An erasure's are
+  `collection/id/seat`, its row holding other people, and a confirmed seat's carries that seat's
   `einwilligung.confirmed_at` as a fourth part.
 - **`rows`**: an erasure's every other field that named the address, as `collection/id/path`, so a
   row naming two people says which of them this is.
@@ -1254,7 +1254,7 @@ name an act that never landed, and running it again wrongs nobody, the person ha
 **Each withdrawal and Widerspruch is set again by a file run with `mongosh --file`**, from the
 fields of its line, the person's evidence having gone with the lost window:
 
-- **A withdrawal** is set again on its record; a seat's in the `einwilligung` of each slot its
+- **A withdrawal** is set again on its record; a seat's in the `einwilligung` of each seat its
   `seats` name, and no other.
 - **A seat's Widerspruch** empties its seats again.
 - **A referee's** erases the entry again: its file sets the record's `erase_at` to the run's
@@ -1270,10 +1270,10 @@ address, the erasure reaches every other record it names. Read it in the restore
 order, never elsewhere on the row, since a seat's row and another person's change hold other people:
 
 - a `records` entry: the address on that record, as §5's list of roles names it;
-- a `seats` entry, `collection/id/slot`: `kontakte.<slot>.email` on that row. A seat passes from one
-  person to another, so the slot may hold someone else:
-  - An entry with a fourth part, the slot's confirmation day, whose day the restored slot's
-    `einwilligung.confirmed_at` differs from: read past it, the slot holding someone else. An empty
+- a `seats` entry, `collection/id/seat`: `kontakte.<seat>.email` on that row. A seat passes from one
+  person to another, so the seat may hold someone else:
+  - An entry with a fourth part, the seat's confirmation day, whose day the restored seat's
+    `einwilligung.confirmed_at` differs from: read past it, the seat holding someone else. An empty
     stamp is no such difference: the person may have confirmed after the snapshot, so read that
     entry as an unconfirmed one.
   - An entry without one, or read as such: all of a line's entries must give one address, and an

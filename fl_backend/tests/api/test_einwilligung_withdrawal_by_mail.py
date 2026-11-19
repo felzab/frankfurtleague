@@ -211,14 +211,14 @@ async def test_a_seats_entry_withdraws_on_every_seat_of_its_person_and_on_no_oth
     [line] = journal_records(caplog)
 
     assert response.status_code == 204
-    for slot in ("trainer", "ansprechperson"):
-        held, was = after["kontakte"][slot]["einwilligung"], before["kontakte"][slot]["einwilligung"]
+    for seat in ("trainer", "ansprechperson"):
+        held, was = after["kontakte"][seat]["einwilligung"], before["kontakte"][seat]["einwilligung"]
         assert (held["media"], held["evidence"]["media"]) == (
             False,
             {"at": utc_stamp(NOW), "via": "mail", "given_before": was["evidence"]["media"]},
-        ), slot
+        ), seat
         # Not named, so the WhatsApp consent stands.
-        assert (held["scope"], held["evidence"]["scope"]) == (was["scope"], was["evidence"]["scope"]), slot
+        assert (held["scope"], held["evidence"]["scope"]) == (was["scope"], was["evidence"]["scope"]), seat
     assert after["kontakte"]["stellvertretung"] == before["kontakte"]["stellvertretung"]
     assert after.get("version") == before.get("version")
     assert (acts, labels) == ([(action, ADMIN_AUTH.email, None, act_record)], [label])

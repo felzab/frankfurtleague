@@ -67,7 +67,7 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 def _junction(team_id: ObjectId, name: str, seat: str, *, saison_id: str = SAISON_ID) -> dict[str, Any]:
     ansprech = documents.kontaktperson_document("Anna", confirmed_at="2026-01-06", email=seat, phone="+49 69 90009199")
-    kontakte = {**{slot: None for slot in KONTAKT_SEATS}, "ansprechperson": ansprech, "trainer_is_also": None}
+    kontakte = {**{seat: None for seat in KONTAKT_SEATS}, "ansprechperson": ansprech, "trainer_is_also": None}
     return documents.saison_team_document(saison_id, team_id, name, name[:3].upper(), kontakte=kontakte)
 
 
@@ -415,7 +415,7 @@ class LineUpsRunningARivalAtTheirRead(InterleavedCollection):
 
 
 async def erase(database: AsyncDatabase, client: AsyncMongoClient, *pupils: ObjectId, now: datetime) -> None:
-    """Each pupil erased through the registry, by the address their record holds, at `now`."""
+    """Each pupil erased through the person erasure, by the address their record holds, at `now`."""
 
     for pupil in pupils:
         person = await database[Collection.SPIELER].find_one({"_id": pupil}, {"email": 1})

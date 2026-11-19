@@ -836,7 +836,7 @@
         "type": "object"
       },
       "FLAccountSeatEinwilligung": {
-        "description": "One team season on which the address holds a confirmed contact seat: its WhatsApp and media choices, and what each held seat stores.\n\nPer season row and not per slot: one person holding two of a row's slots answers one choice for both.",
+        "description": "One team season on which the address holds a confirmed contact seat: its WhatsApp and media choices, and what each held seat stores.\n\nPer season row and not per seat: one person holding two of a row's seats answers one choice for both.",
         "properties": {
           "evidence_state": {
             "$ref": "#/components/schemas/FLEinwilligungState"
@@ -3165,7 +3165,7 @@
       },
       "FLBewerbungEinwilligungDeclined": {
         "additionalProperties": false,
-        "description": "One person's Widerspruch for one seat, which empties their slot: it carries nothing of them.",
+        "description": "One person's Widerspruch for one seat, which empties their seat: it carries nothing of them.",
         "properties": {
           "answer": {
             "const": "declined",
@@ -9497,7 +9497,7 @@
         "type": "object"
       },
       "FLSaisonTeamKontakteAdmin": {
-        "description": "The three seats as the team editor reads them, nullable per slot as stored.",
+        "description": "The three seats as the team editor reads them, nullable per seat as stored.",
         "properties": {
           "ansprechperson": {
             "anyOf": [
@@ -17255,7 +17255,7 @@
     },
     "/api/bewerbungen/confirmation": {
       "post": {
-        "description": "Record one person's consent or Widerspruch for the seat their link opens, and for a second seat they hold.\n\nA Widerspruch empties the slot and writes the Protokoll's row, and on an application it tells the Ansprechperson who\nstill stands, in a notice that is the deletion notice too.",
+        "description": "Record one person's consent or Widerspruch for the seat their link opens, and for a second seat they hold.\n\nA Widerspruch empties the seat and writes the Protokoll's row, and on an application it tells the Ansprechperson who\nstill stands, in a notice that is the deletion notice too.",
         "operationId": "bewerbungen_post_confirmation",
         "requestBody": {
           "content": {

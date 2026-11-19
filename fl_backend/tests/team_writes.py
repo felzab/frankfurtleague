@@ -85,7 +85,7 @@ async def write_the_block(
     A seed or a rival write beside what a case is about; a case about what a seat's write does drives `put_kontakt_seat`.
     """
 
-    proposed = {slot: seat_sent(seat, today=today) if isinstance(seat, Mapping) else seat for slot, seat in block.items()}
+    proposed = {seat: seat_sent(person, today=today) if isinstance(person, Mapping) else person for seat, person in block.items()}
     rows = database[Collection.SAISON_TEAMS] if saison_teams_collection is None else saison_teams_collection
     nonce = secrets.token_hex(8)
 

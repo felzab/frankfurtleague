@@ -56,7 +56,7 @@ BYSTANDER_PHONE = "+49 69 90009202"
 BYSTANDER_FORMER_PHONE = "+49 69 90009902"
 BYSTANDER_LAST_NAME = "Pfeffernuss"
 
-# The third slot, and the whole of the row that must not be reached at all.
+# The third seat, and the whole of the row that must not be reached at all.
 UNREACHED_EMAIL = "baldur.krautzberger@example.com"
 UNREACHED_PHONE = "+49 69 90009303"
 UNREACHED_FORMER_PHONE = "+49 69 90009903"
@@ -91,17 +91,17 @@ PEOPLE: dict[str, tuple[str, str, str]] = {
     UNREACHED_LAST_NAME: (UNREACHED_EMAIL, UNREACHED_PHONE, UNREACHED_FORMER_PHONE),
 }
 
-# Who stands in each slot of each seeded row, in `KONTAKT_SEATS` order, plus which seat the form said
+# Who stands in each seat of each seeded row, in `KONTAKT_SEATS` order, plus which seat the form said
 # the Trainer also holds. Every case the erasure has to answer is one row here.
 SEEDED_ROLES: dict[ObjectId, tuple[tuple[str, str, str], str | None]] = {
-    # One slot naming the erased person, and two people beside them who asked for nothing.
+    # One seat naming the erased person, and two people beside them who asked for nothing.
     ROW_A_EARLIER_OID: ((ERASED_LAST_NAME, BYSTANDER_LAST_NAME, UNREACHED_LAST_NAME), None),
-    # The same person a season later, and in TWO slots: `trainer_is_also` stores one
+    # The same person a season later, and in TWO seats: `trainer_is_also` stores one
     # person twice, so clearing the first alone would leave this block naming them.
     ROW_A_LATER_OID: ((ERASED_LAST_NAME, ERASED_LAST_NAME, BYSTANDER_LAST_NAME), "ansprechperson"),
     # Nobody the erasure may reach.
     ROW_B_OID: ((UNREACHED_LAST_NAME, BYSTANDER_LAST_NAME, UNREACHED_LAST_NAME), None),
-    # The second store this branch adds, with the person in a different slot than on the junction.
+    # The second store this branch adds, with the person in a different seat than on the junction.
     BEWERBUNG_OID: ((BYSTANDER_LAST_NAME, ERASED_LAST_NAME, UNREACHED_LAST_NAME), None),
     OTHER_BEWERBUNG_OID: ((UNREACHED_LAST_NAME, BYSTANDER_LAST_NAME, UNREACHED_LAST_NAME), None),
 }
@@ -132,7 +132,7 @@ def blocks(*, live: bool) -> dict[ObjectId, dict[str, Any]]:
 
     return {
         row_id: {
-            **{slot: person(last_name, phones[last_name]) for slot, last_name in zip(KONTAKT_SEATS, roles, strict=True)},
+            **{seat: person(last_name, phones[last_name]) for seat, last_name in zip(KONTAKT_SEATS, roles, strict=True)},
             "trainer_is_also": also,
         }
         for row_id, (roles, also) in SEEDED_ROLES.items()
@@ -145,7 +145,7 @@ LIVE_BLOCKS = blocks(live=True)
 SAISON_TEAM_OIDS = (ROW_A_EARLIER_OID, ROW_A_LATER_OID, ROW_B_OID)
 BEWERBUNG_OIDS = (BEWERBUNG_OID, OTHER_BEWERBUNG_OID)
 
-# Which rows the erasure must reach, and which of their slots hold the person. Stated here so a failure
+# Which rows the erasure must reach, and which of their seats hold the person. Stated here so a failure
 # names the expectation rather than a set computed beside the code under test.
 ERASED_SEATS: dict[ObjectId, tuple[str, ...]] = {
     ROW_A_EARLIER_OID: ("trainer",),
@@ -164,7 +164,7 @@ def saison_team_document(row_id: ObjectId, saison_id: str, team_id: ObjectId) ->
 # The three live links every seeded application carries, so an erasure has bookkeeping to reach.
 # Minted as the shared application builder mints them, from this prefix on the submission's day.
 LINK_PREFIX = "link"
-CONFIRMATIONS = minted_confirmations(hashes={slot: hash_token(f"{LINK_PREFIX}-{slot}") for slot in KONTAKT_SEATS}, today="2026-01-05")
+CONFIRMATIONS = minted_confirmations(hashes={seat: hash_token(f"{LINK_PREFIX}-{seat}") for seat in KONTAKT_SEATS}, today="2026-01-05")
 
 
 def bewerbung_document(row_id: ObjectId, team_id: ObjectId) -> dict[str, Any]:
@@ -300,9 +300,9 @@ async def stored_rows(database: AsyncDatabase) -> dict[Any, Mapping[str, Any]]:
 
 
 def a_block_holding(trainer: Mapping[str, Any]) -> dict[str, Any]:
-    """One person in the Trainer slot, the other two empty, all four keys present."""
+    """One person in the Trainer seat, the other two empty, all four keys present."""
 
-    return {**{slot: None for slot in KONTAKT_SEATS}, "trainer": dict(trainer), "trainer_is_also": None}
+    return {**{seat: None for seat in KONTAKT_SEATS}, "trainer": dict(trainer), "trainer_is_also": None}
 
 
 def a_junction_row(row_id: ObjectId, saison_id: str, block: Mapping[str, Any]) -> dict[str, Any]:
@@ -354,10 +354,10 @@ async def after_erasure(url: str, email: str = ERASED_EMAIL) -> Snapshot:
     return await on_a_league(url, body)
 
 
-class TestTheSlotsAreReadOffTheModel:
+class TestTheSeatsAreReadOffTheModel:
     """The spelling the write turns on, apart from a database."""
 
-    def test_every_slot_the_model_declares_is_covered(self):
+    def test_every_seat_the_model_declares_is_covered(self):
         """A role added to the block alone is cleared by nothing, and one added out of order is listed out of it."""
 
         declared = tuple(name for name in FLSaisonTeamKontakte.model_fields if name != "trainer_is_also")

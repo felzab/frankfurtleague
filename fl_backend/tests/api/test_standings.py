@@ -534,7 +534,7 @@ class TestWhenAPlacingIsFinal:
 
         assert standing(teams, [played(1, 1, 2, 2, 0), unentered]).by_platz == {}
 
-    def test_a_group_past_the_spiel_limit_seeds_nothing_yet_and_still_counts_its_clubs(self, a_team: TeamFactory, played: MatchFactory):
+    def test_a_group_past_the_spiel_limit_seeds_nothing_yet_and_still_counts_its_teams(self, a_team: TeamFactory, played: MatchFactory):
         """Even a lead no remaining fixture can close waits until no more than `CERTAINTY_SPIEL_LIMIT` fixtures stay open.
 
         The bracket still reads how many clubs can place and whether the group is played out, so both stay counted.

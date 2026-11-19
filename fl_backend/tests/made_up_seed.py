@@ -319,7 +319,7 @@ class Mail:
     label: str = ""
 
 
-# A seat's state: the pair of its slot and its entry, built from the mail the seat was sent.
+# A seat's state: the pair of its person and its entry, built from the mail the seat was sent.
 type SeatState = Callable[[Mail], tuple[dict[str, Any] | None, dict[str, Any] | None]]
 
 
@@ -759,7 +759,7 @@ class MadeUpLeague:
         return applied({"kontakte": {"trainer": person}}, answer)["kontakte"]["trainer"]
 
     def seat_link(self, mail: Mail, *, reminded_on: int | None = None, declined_on: int | None = None) -> dict[str, Any]:
-        """A seat's bookkeeping beside its slot: an application's link takes one reminder, a season row's none."""
+        """A seat's bookkeeping beside its person: an application's link takes one reminder, a season row's none."""
 
         sent_at = self.day(mail.sent_on)
         entry = compose_bewerbung_confirmation(today=sent_at) if mail.reminded else compose_kontakt_confirmation(today=sent_at)
@@ -780,13 +780,13 @@ class MadeUpLeague:
         )
 
     def objected_seat(self, declined_on: int) -> SeatState:
-        """A Widerspruch empties the slot and keeps its day beside it."""
+        """A Widerspruch empties the seat and keeps its day beside it."""
 
         return lambda mail: (None, self.seat_link(mail, declined_on=declined_on))
 
     @staticmethod
     def erased_seat() -> SeatState:
-        """An erasure takes the slot and the entry with it, and a seat nobody was ever seated in holds neither."""
+        """An erasure takes the person and the entry with it, and a seat nobody was ever seated in holds neither."""
 
         return lambda mail: (None, None)
 

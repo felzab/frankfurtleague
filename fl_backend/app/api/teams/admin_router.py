@@ -1178,7 +1178,7 @@ async def withdraw_kontakt_einwilligung(
         kind=Collection.SAISON_TEAMS,
         collection=saison_teams_collection,
         db_filter={"team_id": team_id, "saison_id": saison_id},
-        projection={"name": 1, **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SEATS for field in ("email", "einwilligung")}},
+        projection={"name": 1, **{f"kontakte.{seat}.{field}": 1 for seat in KONTAKT_SEATS for field in ("email", "einwilligung")}},
         held_of=lambda row: held_by_the_seat(row, pressed),
         withheld={choice: WITHHELD_ON_A_SEAT[choice] for choice in withdrawal_data.choices},
         act=record,

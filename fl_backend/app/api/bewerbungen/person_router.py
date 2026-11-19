@@ -52,24 +52,24 @@ async def patch_einwilligung(
         # Pending alone: an accepted application's seats are its season row's, and a declined one is decided.
         bewerbung = await bewerbungen_collection.find_one(
             {"_id": bewerbung_id, "status": "submitted"},
-            {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SEATS for field in ("email", "einwilligung")},
+            {f"kontakte.{seat}.{field}": 1 for seat in KONTAKT_SEATS for field in ("email", "einwilligung")},
             session=session,
         )
-        slots = [] if bewerbung is None else own_seats(bewerbung, identifier)
-        refuse(find_own_entry_refusal(held=bool(slots)))
+        seats = [] if bewerbung is None else own_seats(bewerbung, identifier)
+        refuse(find_own_entry_refusal(held=bool(seats)))
         assert bewerbung is not None
-        seats = {slot: bewerbung["kontakte"][slot] for slot in slots}
-        chosen = changed_seat_choices(blocks=[seat["einwilligung"] for seat in seats.values()], pressed=pressed)
+        held = {seat: bewerbung["kontakte"][seat] for seat in seats}
+        chosen = changed_seat_choices(blocks=[person["einwilligung"] for person in held.values()], pressed=pressed)
 
         # Withdraw-only: nothing on an application grants a panel to answer a grant against.
         await press_withdrawal(
-            blocks=[seat["einwilligung"] for seat in seats.values()],
+            blocks=[person["einwilligung"] for person in held.values()],
             chosen=chosen,
             evidence_state=einwilligung_data.evidence_state.model_dump(),
         )
 
         update = compose_seat_move(
-            seats={slot: seat["einwilligung"] for slot, seat in seats.items()},
+            seats={seat: person["einwilligung"] for seat, person in held.items()},
             chosen=chosen,
             at=at,
             text_versions=by_choice(einwilligung_data.text_versions),
@@ -79,8 +79,8 @@ async def patch_einwilligung(
             await patch_past_the_version_in_db(
                 collection=bewerbungen_collection, db_filter={"_id": bewerbung["_id"]}, update=update, session=session
             )
-        if moved := withdrawal_line(blocks=[seat["einwilligung"] for seat in seats.values()], chosen=chosen):
-            journal.note("withdrawal", [f"{Collection.BEWERBUNGEN}/{bewerbung['_id']}"], choices=list(moved), seats=slots)
+        if moved := withdrawal_line(blocks=[person["einwilligung"] for person in held.values()], chosen=chosen):
+            journal.note("withdrawal", [f"{Collection.BEWERBUNGEN}/{bewerbung['_id']}"], choices=list(moved), seats=seats)
 
     async with journal:
         await transact(db, write)

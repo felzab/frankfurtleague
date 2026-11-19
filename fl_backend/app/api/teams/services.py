@@ -7,6 +7,7 @@ from app.api.bewerbungen.services import (
     claimed_pair_seat,
     compose_einwilligung,
     confirmation_deadline_from,
+    person_of,
     row_takes_confirmations,
     seat_is_answered,
 )
@@ -268,29 +269,29 @@ def _identity_of(seat: Mapping[str, Any]) -> tuple[str, ...]:
     )
 
 
-def _seat_held_by(stored_slot: Mapping[str, Any] | None, *, seat: Mapping[str, Any]) -> Mapping[str, Any] | None:
+def _seat_held_by(stored_person: Mapping[str, Any] | None, *, person: Mapping[str, Any]) -> Mapping[str, Any] | None:
     """The stored seat where it holds the same person as the one being written, else `None`."""
 
-    if stored_slot is None:
+    if stored_person is None:
         return None
 
     # A difference the fold keeps is a handover even where it is a corrected typo: nothing here can
     # tell the two apart, and only this direction refuses a record saying one person answered for
     # another.
-    if _identity_of(stored_slot) != _identity_of(seat):
+    if _identity_of(stored_person) != _identity_of(person):
         return None
 
-    return stored_slot
+    return stored_person
 
 
-def _confirmation_held_by(stored_slot: Mapping[str, Any] | None, *, seat: Mapping[str, Any]) -> Mapping[str, Any] | None:
-    """The stored record, whole, where this slot holds the same person, else `None`.
+def _confirmation_held_by(stored_person: Mapping[str, Any] | None, *, person: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    """The stored record, whole, where this seat holds the same person, else `None`.
 
     The scope, media answer, label and their evidence are the person's, and the payload spells none
     of them: a record recomposed from it erases them.
     """
 
-    held = _seat_held_by(stored_slot, seat=seat)
+    held = _seat_held_by(stored_person, person=person)
     if held is None:
         return None
 
@@ -300,12 +301,12 @@ def _confirmation_held_by(stored_slot: Mapping[str, Any] | None, *, seat: Mappin
     return dict(einwilligung) if seat_is_confirmed(held) else as_unconfirmed(einwilligung)
 
 
-def _birth_date_held_by(stored_slot: Mapping[str, Any] | None, *, seat: Mapping[str, Any]) -> str | None:
+def _birth_date_held_by(stored_person: Mapping[str, Any] | None, *, person: Mapping[str, Any]) -> str | None:
     """The date this person already sits behind in this seat, or `None`."""
 
     # The identity alone and never the confirmation beside it: a seat can hold a date under no stamp,
     # and nulling one here would destroy it as a side effect of an edit to the telephone number.
-    held = _seat_held_by(stored_slot, seat=seat)
+    held = _seat_held_by(stored_person, person=person)
     if held is None:
         return None
 
@@ -324,17 +325,17 @@ def compose_kontakte_origin(*, kontakte: Mapping[str, Any], stored: Mapping[str,
     stored_block = stored or {}
     composed = dict(kontakte)
 
-    for slot in KONTAKT_SEATS:
-        seat = kontakte.get(slot)
-        if seat is None:
+    for seat in KONTAKT_SEATS:
+        person = kontakte.get(seat)
+        if person is None:
             continue
 
-        stored_slot = stored_block.get(slot)
-        kept = _confirmation_held_by(stored_slot, seat=seat)
-        composed[slot] = {
-            **seat,
-            "birth_date": _birth_date_held_by(stored_slot, seat=seat),
-            "einwilligung": seat["einwilligung"] if kept is None else kept,
+        stored_person = stored_block.get(seat)
+        kept = _confirmation_held_by(stored_person, person=person)
+        composed[seat] = {
+            **person,
+            "birth_date": _birth_date_held_by(stored_person, person=person),
+            "einwilligung": person["einwilligung"] if kept is None else kept,
         }
 
     return composed
@@ -359,9 +360,9 @@ def compose_seat_block(
     seats = (seat,) if other is None else (seat, other)
     person = {field: value for field, value in sent.items() if field != "trainer_is_also"}
     # The record of a person newly seated; `compose_kontakte_origin` keeps the stored one of a person this write leaves.
-    slot = {**person, "einwilligung": compose_einwilligung(today=today)}
+    seated = {**person, "einwilligung": compose_einwilligung(today=today)}
 
-    return {**block, **dict.fromkeys(seats, slot), "trainer_is_also": claim}, seats
+    return {**block, **dict.fromkeys(seats, seated), "trainer_is_also": claim}, seats
 
 
 def find_kontakt_taken_refusal(*, kontakte: Mapping[str, Any], seats: Sequence[FLKontaktSeat]) -> APIError | None:
@@ -372,7 +373,7 @@ def find_kontakt_taken_refusal(*, kontakte: Mapping[str, Any], seats: Sequence[F
     """
 
     person = kontakte[seats[0]]
-    others = [held for slot in KONTAKT_SEATS if slot not in seats and (held := kontakte.get(slot)) is not None]
+    others = [held for seat in KONTAKT_SEATS if seat not in seats and (held := kontakte.get(seat)) is not None]
 
     if sign_in_identifier(person["email"]) in {sign_in_identifier(str(held.get("email") or "")) for held in others}:
         return APIError(HTTPStatus.CONFLICT, Code.KONTAKT_EMAIL_TAKEN, fields=(("email",),))
@@ -403,11 +404,11 @@ def people_of(kontakte: Mapping[str, Any] | None) -> list[tuple[FLKontaktSeat, .
     also = block.get("trainer_is_also")
     people: list[tuple[FLKontaktSeat, ...]] = []
 
-    for slot in KONTAKT_SEATS:
-        if slot == also:
+    for seat in KONTAKT_SEATS:
+        if seat == also:
             continue
 
-        held: tuple[FLKontaktSeat, ...] = (slot, also) if slot == "trainer" and also in KONTAKT_SEATS else (slot,)
+        held: tuple[FLKontaktSeat, ...] = (seat, also) if seat == "trainer" and also in KONTAKT_SEATS else (seat,)
         filled: tuple[FLKontaktSeat, ...] = tuple(seat for seat in held if block.get(seat) is not None)
         if filled:
             people.append(filled)
@@ -426,7 +427,7 @@ def links_owed(*, kontakte: Mapping[str, Any], stored: Mapping[str, Any] | None)
     owed: list[tuple[FLKontaktSeat, ...]] = []
 
     for person in people_of(kontakte):
-        if all(_seat_held_by(stored_block.get(seat), seat=kontakte[seat]) is not None for seat in person):
+        if all(_seat_held_by(stored_block.get(seat), person=kontakte[seat]) is not None for seat in person):
             continue
 
         # A seat of the pair this person has already confirmed keeps its stamp and its link.
@@ -447,7 +448,7 @@ def compose_confirmations_with(*, stored_confirmations: Mapping[str, Any] | None
 
     stored_links = stored_confirmations or {}
 
-    return {slot: minted[slot] if slot in minted else stored_links.get(slot) for slot in KONTAKT_SEATS}
+    return {seat: minted[seat] if seat in minted else stored_links.get(seat) for seat in KONTAKT_SEATS}
 
 
 def kontakt_reference(saison_team_id: Any, seats: Sequence[FLKontaktSeat]) -> FLOutboxReference:
@@ -535,9 +536,9 @@ def find_kontakt_seat_refusal(*, kontakte: Mapping[str, Any] | None, seat: str) 
     A fresh link on a confirmed seat would replace a spent one with a credential nothing can answer.
     """
 
-    slot = (kontakte or {}).get(seat)
+    person = person_of(kontakte, seat)
 
-    if slot is None or seat_is_confirmed(slot):
+    if person is None or seat_is_confirmed(person):
         return APIError(HTTPStatus.CONFLICT, Code.KONTAKT_SEAT_WITHOUT_CONFIRMATION)
 
     return None
