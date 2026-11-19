@@ -272,7 +272,7 @@ class _InsertFailsForOneTeam:
 
 
 def as_collection(stub: _InsertFailsForOneTeam) -> AsyncCollection:
-    """`tests/core/test_crud.py :: as_collection`'s shape: the fake stands where a driver handle is declared."""
+    """The stub, typed as the driver handle it stands in for where one is declared."""
 
     return cast(AsyncCollection, stub)
 

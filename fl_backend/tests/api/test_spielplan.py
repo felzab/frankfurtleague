@@ -36,7 +36,7 @@ SAISON_ID = "2026"
 Seeding = tuple[tuple[FLGruppenNames, int], ...]
 Score = tuple[tuple[int, ...], tuple[int, ...]]
 
-# `(number_of_groups, teams_per_group, qualifiers_per_group)`. Every `BRACKET_SEEDING` row the rules admit is drawn by
+# `(number_of_gruppen, teams_per_gruppe, qualifiers_per_gruppe)`. Every `BRACKET_SEEDING` row the rules admit is drawn by
 # one of these; one group of sixteen qualifiers is a group past the rules' ceiling, held by its row to the construction alone.
 SHAPES: tuple[tuple[int, int, int], ...] = (
     (1, 7, 4),
@@ -148,7 +148,7 @@ def ceiling(field: str) -> int:
 
 
 def legal_combinations() -> set[tuple[int, int]]:
-    """Every `(number_of_groups, qualifiers_per_group)` a create passes the write path with.
+    """Every `(number_of_gruppen, qualifiers_per_gruppe)` a create passes the write path with.
 
     `qualifiers_per_gruppe` states no `le` of its own; the excess rule caps it at `teams_per_gruppe`,
     so that field's ceiling is as wide as a qualifier count can be.
@@ -422,7 +422,7 @@ class TestASpielIsEitherDrawnOrWired:
 
     @pytest.mark.parametrize("shape", SHAPES)
     def test_a_bracket_spiel_names_both_sources_and_no_team(self, shape: tuple[int, int, int]):
-        """Absence is MODELLED rather than impersonated: nobody has qualified yet, so neither side holds a club."""
+        """Absence is modelled rather than impersonated: nobody has qualified yet, so neither side holds a club."""
 
         for spiel in draw(*shape).spiele:
             if spiel["saison_phase"] != "gruppenphase":
@@ -623,7 +623,7 @@ SCHIEDSRICHTER = "68f0a1b2c3d4e5f607600002"
 # the same way, so whichever comes first stands for all of them.
 BRACKET_PHASE: FLSaisonPhase = next(phase for phase in PHASE_ORDER if phase != DRAWN_HOLDING_ITS_SIDES)
 
-# A GROUP fixture exactly as the draw wrote it: both sides seated, no wiring, every field a record
+# A group fixture exactly as the draw wrote it: both sides seated, no wiring, every field a record
 # could land in empty. No `note` key at all, which is the shape
 # `app/api/saisons/spielplan.py :: _spiel` leaves.
 UNTOUCHED_SPIEL: Mapping[str, Any] = {
@@ -640,7 +640,7 @@ UNTOUCHED_SPIEL: Mapping[str, Any] = {
     "schiedsrichter": None,
 }
 
-# The OTHER shape the same draw writes, and the one an admin seeds by hand: a knockout slot wired to
+# The other shape the same draw writes, and the one an admin seeds by hand: a knockout slot wired to
 # a placing and holding nobody.
 UNTOUCHED_BRACKET: Mapping[str, Any] = {
     **UNTOUCHED_SPIEL,
@@ -654,21 +654,20 @@ UNTOUCHED_BRACKET: Mapping[str, Any] = {
 
 @dataclass(frozen=True)
 class RecordedEdit:
-    """One projected field, and what somebody entering something in THAT field looks like."""
+    """One projected field, and what somebody entering something in that field looks like."""
 
     # Carried into the assertion, so a narrowed predicate names the fact it stopped seeing.
     why: str
     gruppe: Mapping[str, Any]
-    # Declared for the fields the draw leaves inverted between the two shapes, and only those;
-    # `INVERTED_BY_THE_DRAW` below holds the two sets to each other.
+    # Declared for the fields the draw leaves inverted between the two shapes, and only those.
     ko: Mapping[str, Any] | None = None
 
 
-# One entry per `app/api/saisons/services.py :: RECORDED_FACT_FIELDS` path. Keyed by the whole path
+# One entry per `RECORDED_FACT_FIELDS` path. Keyed by the whole path
 # and never its head: a leaf added under `team1` then owes an entry of its own rather than folding
 # into one already here and passing unweighed.
 RECORDED_EDITS: Mapping[str, RecordedEdit] = {
-    # NO record of its own -- it is the DISCRIMINATOR, so its edit is the flip under a pair of sides
+    # No record of its own -- it is the discriminator, so its edit is the flip under a pair of sides
     # nobody touched. Read the wrong one and every drawn season is misjudged in one direction.
     "saison_phase": RecordedEdit(
         why="the phase, which records nothing itself and decides which shape the sides are read against",
@@ -685,7 +684,7 @@ RECORDED_EDITS: Mapping[str, RecordedEdit] = {
         gruppe={"team2": None},
         ko={"team2": {"team_id": BIEBER, "tore": None}},
     ),
-    # Its side left SEATED and unwired, so nothing but the goal count can be what answers.
+    # Its side left seated and unwired, so nothing but the goal count can be what answers.
     "team1.tore": RecordedEdit(why="a goal count standing without a result", gruppe={"team1": {"team_id": ADLER, "tore": 0}}),
     "team2.tore": RecordedEdit(why="the same count on the other side", gruppe={"team2": {"team_id": BIEBER, "tore": 0}}),
     "team1_quelle": RecordedEdit(
@@ -699,7 +698,7 @@ RECORDED_EDITS: Mapping[str, RecordedEdit] = {
         ko={"team2_quelle": None},
     ),
     "ergebnis": RecordedEdit(why="a result", gruppe={"ergebnis": "2:1"}),
-    # The value awarding NOTHING on purpose: `has_taken_place` reads it as untouched, so reaching for
+    # The value awarding nothing on purpose: `has_taken_place` reads it as untouched, so reaching for
     # that narrower question instead of this window is the mistake this entry is here to fail.
     "sonderereignis": RecordedEdit(why="a cancellation, which awards nothing and is still a record", gruppe={"sonderereignis": "ausgefallen"}),
     "spielort.spielort_id": RecordedEdit(why="a booked venue", gruppe={"spielort": {"spielort_id": SPIELORT}}),
