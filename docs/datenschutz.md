@@ -96,7 +96,7 @@ stand in [section 11](#11-open-and-owed-a-decision). Other documents link sectio
   administrator's entry of a withdrawal the person asked for by mail
   (`fl_backend/app/api/account/services.py :: withdraw_by_mail`) marks its evidence `via` `mail` in
   a label's place, since the person read none of the league's words. No page of the administration
-  calls it yet; until one does, a withdrawal by mail is answered as
+  calls it, so a withdrawal by mail is answered as
   [`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)
   says. One paste, run with the deploy that first serves the current wordings, re-points every label
   stored before it to its consent's current wording. A record stamped before that deploy therefore
@@ -353,6 +353,11 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     naming no name or address: reopened, it shows that day alone
     (`fl_backend/app/api/bewerbungen/services.py :: compose_acceptance_seats`, `:: seat_view`),
     until the application goes once a later season has ended (section 6);
+  - the link of each seat they objected from, with the day of their Widerspruch, naming no name or
+    address: reopened, it shows that day alone
+    (`fl_backend/app/api/bewerbungen/services.py :: compose_decline_update`, `:: seat_view`), until
+    the seat is filled again or its application goes, and on a season row until its contact seats
+    are cleared (section 6);
   - free text typed about others and keyed on no address. Only a name search could find it, and a
     name search would take a namesake's text with it. It covers:
     - a fixture's note;
