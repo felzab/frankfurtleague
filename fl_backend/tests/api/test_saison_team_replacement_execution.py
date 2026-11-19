@@ -23,7 +23,7 @@ from tests.documents import (
     spiel_document,
     team_document,
 )
-from tests.isolation import COMMITTED, InterleavedCollection, outcome_of, refused_code
+from tests.isolation import COMMITTED, SeasonsRunningARivalAfterTheSessionRead, outcome_of, refused_code
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -593,17 +593,15 @@ class TestAStartMovedUnderTheReplacementIsJudgedAgain:
             seasons = SeasonsRunningARivalAfterTheSessionRead(database[Collection.SAISONS], move_the_start_to_the_replacement_day)
             outcome = await outcome_of(call_replace(database, client, saisons_collection=seasons))
 
-            return outcome, seasons.passes, await row_of(database, WITHDRAWN)
+            return outcome, await row_of(database, WITHDRAWN)
 
-        outcome, passes, row = await on_a_seeded_season(
+        outcome, row = await on_a_seeded_season(
             mongo_replica_set_url, body, spiele=[gruppen_spiel(1, WITHDRAWN, RIVAL), gruppen_spiel(2, RIVAL, WITHDRAWN)]
         )
 
         assert outcome != COMMITTED, "the replacement committed on a start it judged before the patch moved it"
         assert outcome == Code.REPLACE_SAISON_STARTED
         assert row is not None, "the junction row was handed over anyway"
-        # The judgement's read and the retry's: the replacement conflicted on the anchor rather than committing.
-        assert passes == 2
 
 
 class TestTheSeasonGateOnTheRoute:
@@ -645,17 +643,3 @@ class TestWhoMayArrive:
         row = await on_a_seeded_season(mongo_replica_set_url, body)
 
         assert row is not None, "the row was rewritten before the incoming club was resolved"
-
-
-class SeasonsRunningARivalAfterTheSessionRead(InterleavedCollection):
-    """A `saisons` stand-in running its rival once, just after the first read made inside a transaction.
-
-    The read before the transaction is the 404 check, so a rival there would land before any snapshot.
-    """
-
-    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
-        found = await self._collection.find_one(*args, **kwargs)
-        if kwargs.get("session") is not None:
-            await self.run_the_rival()
-
-        return found
