@@ -120,7 +120,6 @@ class Code(StrEnum):
     # its matchdays in one order and dating them in another. `end` is left free: it is the escape a
     # postponement takes.
     SPIELTAG_START_OUT_OF_ORDER = auto()
-    SAISON_SPAN_BELOW_SPIELPLAN_AS_STORED = auto()
     # The start every start lock reads, fixed once a fixture of the season has taken place: moved after play, it would
     # reopen the rules, the swap and the replacement on a season somebody already played.
     SAISON_START_TAKEN_PLACE = auto()
@@ -215,9 +214,6 @@ class Code(StrEnum):
     RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT = auto()
     RULES_SHAPE_AFTER_SPIELPLAN = auto()
     RULES_SPIELE_OVER_ONE_READ = auto()
-    # The draw's twin of a code it shares with a season write: the draw judges the stored rules beneath
-    # its shape, so a refusal reading a stored value is a conflict with state, a 409.
-    RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT_AS_STORED = auto()
     SCHIEDSRICHTER_RETIRED = auto()
     SCHIEDSRICHTER_NO_ADDRESS = auto()
     SCHIEDSRICHTER_ADDRESS_ONLY_PER_CHANGE = auto()

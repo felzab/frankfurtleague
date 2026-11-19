@@ -386,34 +386,21 @@ class FLPostSaisonResponse(BaseReadModel):
     created_id: str
 
 
-class FLSpielplanShape(BasePayload):
-    """The three rules a season's fixture list is a function of, as this draw is to run from.
-
-    All three or none: the draw is one function of the whole shape, and a payload naming half
-    of it would take the rest off a season about to stop matching it.
-    """
+class FLSpielplanShape(BaseReadModel):
+    """The three rules a season's fixture list is a function of, as one combination the season's other rules admit."""
 
     number_of_gruppen: NumberOfGroups
     teams_per_gruppe: TeamsPerGroup
     qualifiers_per_gruppe: QualifiersPerGroup
 
 
-# An unknown key is refused here above all: a misspelled `shape` would validate as absent, so a
-# confirmed replace would destroy fixtures off the season's old rules, under a success answering for a
-# shape that never moved.
 class FLGenerateSpielplanPayload(BasePayload):
-    """Whether this draw may replace what the season already holds, and the shape it runs from.
+    """Whether this draw may replace what the season already holds; the draw runs on the season's stored rules.
 
-    An absent body is a first draw off the season's own rules: nothing is destroyed and no
-    number moves by omission.
+    An absent body is a first draw: nothing is destroyed by omission.
     """
 
     replace: bool = Field(default=False)
-
-    # Absent keeps the season's stored three, which is what drawing off its own rules is. The rest of
-    # `FLSaisonRules` stays `PATCH`'s alone: those rules shaped no fixture, and carrying them here
-    # would give every one of them a second writer.
-    shape: FLSpielplanShape | None = Field(default=None)
 
 
 class FLSaisonActRefusals(BaseReadModel):
@@ -443,7 +430,7 @@ class FLSaisonDrawn(BaseReadModel):
 class FLSaisonAdminResponse(BaseReadModel):
     """What the season editor shows, in one read: its season, clubs, shapes and matchdays, its acts' states and its registration links.
 
-    `shapes` is every shape the season's other rules admit, judged as the draw judges a shape it is given;
+    `shapes` is every shape the season's other rules admit, which its rules form offers;
     `spielplan` is the Spielplan the season holds, `null` while it holds no matchday and no fixture; `invitations`
     holds one row per club, in `teams`' order.
     """

@@ -56,7 +56,6 @@ from app.api.saisons.schemas import (
 )
 from app.api.saisons.services import (
     RECORDED_FACT_FIELDS,
-    as_the_draw_answers,
     decided_podium,
     find_activation_refusal,
     find_berichte_refusal,
@@ -117,7 +116,7 @@ from app.core.dependencies import (
     SpieltageReadCollection,
     TeamsReadCollection,
 )
-from app.core.exceptions import APIError
+from app.core.exceptions import APIError, as_judged_on_stored_state
 from app.core.logging import fl_logger
 from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_SYSTEM, record_act
@@ -845,10 +844,10 @@ async def post_spielplan(
     spielplan_data: Annotated[FLGenerateSpielplanPayload, Body(default_factory=FLGenerateSpielplanPayload)],
     today: GermanDay,
 ) -> None:
-    """Draw the whole season at once, every matchday and every fixture undated, from the stated `shape` or the season's rules.
+    """Draw the whole season at once, every matchday and every fixture undated, from the season's rules.
 
-    A stated `shape` is stored in the rules, and `replace` first deletes what a planned season holds, its fixtures'
-    confirmations, reports and line-ups with it; nothing writes the removed rows back.
+    `replace` first deletes what a planned season holds, its fixtures' confirmations, reports and line-ups with it;
+    nothing writes the removed rows back.
     """
 
     # A read first, so an unknown season is a 404 rather than a refusal about what it does not hold.
@@ -856,12 +855,7 @@ async def post_spielplan(
 
     async def draw_the_whole_season(session: AsyncClientSession) -> None:
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
-        stored_rules = FLSaisonRules.model_validate(saison_raw["rules"])
-
-        # One object judged, drawn and stored, so every refusal below weighs the numbers this draw
-        # runs from. `model_copy` skips validation and safely: `FLSpielplanShape` declares the three
-        # under `FLSaisonRules`' own types.
-        rules = stored_rules if spielplan_data.shape is None else stored_rules.model_copy(update=spielplan_data.shape.model_dump())
+        rules = FLSaisonRules.model_validate(saison_raw["rules"])
 
         # Whole: a truncated entry list draws a season short of teams and weighs a group occupancy no group holds.
         entered_rows = await pull_whole_from_db(
@@ -895,8 +889,8 @@ async def post_spielplan(
             )
         )
         if spielplan_data.replace:
-            # Ahead of any rule on the proposed shape, so the administrator reads the reports first. A report written since
-            # this snapshot anchors the season, which the replace anchors below, so the two conflict and the retry counts it.
+            # Ahead of the rules, so the administrator reads the reports first. A report written since this snapshot
+            # anchors the season, which the replace anchors below, so the two conflict and the retry counts it.
             refuse(
                 find_berichte_refusal(
                     berichte=await count_submitted_berichte(
@@ -905,31 +899,15 @@ async def post_spielplan(
                 )
             )
 
-        # `stored=None` is the create's reading, and the one this wants: every rule judging the
-        # numbers alone fires on the payload's own, and every rule judging a standing fixture is
-        # skipped, each of those weighing a draw about to cease to exist.
+        # `stored=None` is the create's reading, and the one this wants: every rule judging the numbers alone fires on
+        # the stored rules, which a save judged only against the rules it replaced, and every rule judging a standing
+        # fixture is skipped, each of those weighing a draw about to cease to exist. On the status line alone, with no
+        # twin: the draw's body has no rules box for a field to name. The span is not judged again: every create and
+        # every save judge it whole against the rules they store.
         refuse(
-            as_the_draw_answers(
-                find_rules_refusal(
-                    stored=None,
-                    proposed=rules,
-                    occupancy_by_gruppe=occupancy,
-                    highest_wired_platz=0,
-                ),
-            )
-        )
-
-        # After the rules, as `post_saison` is: a bracket with no shape implies no matchday count
-        # worth measuring. Empty spans -- the draw dates nothing, and a replace has every stored
-        # matchday still to delete below.
-        refuse(
-            as_the_draw_answers(
-                find_saison_span_refusal(
-                    start_date=str(saison_raw["start_date"]),
-                    end_date=str(saison_raw["end_date"]),
-                    rules=rules,
-                    spieltag_spans=[],
-                ),
+            as_judged_on_stored_state(
+                find_rules_refusal(stored=None, proposed=rules, occupancy_by_gruppe=occupancy, highest_wired_platz=0),
+                twins={},
             )
         )
 
@@ -968,18 +946,11 @@ async def post_spielplan(
         await post_many_to_db(collection=spieltage_collection, documents=drawn.spieltage, session=session)
         await post_many_to_db(collection=spiele_collection, documents=drawn.spiele, session=session)
 
-        # Dotted keys, and only where the payload states a shape: a whole `rules` object would write
-        # the six rules the draw is no function of, and drop any sub-key `FLSaisonRules` ignores --
-        # the merged copy lost it at validation.
-        shape = spielplan_data.shape
-        shape_written = {} if shape is None else {f"rules.{rule}": value for rule, value in shape.model_dump().items()}
-
         watermark = FLSaisonSpielplan(generated_at=today)
-        # One `$set` inside the transaction: the shape and the draw it produced are one fact.
         await patch_one_in_db(
             collection=saisons_collection,
             db_filter={"_id": saison_id},
-            update={"$set": {**shape_written, "spielplan": watermark.model_dump(mode="json")}},
+            update={"$set": {"spielplan": watermark.model_dump(mode="json")}},
             session=session,
             # Nothing here reads the result, and `AFTER` would re-read the whole season inside the
             # transaction to build one.
