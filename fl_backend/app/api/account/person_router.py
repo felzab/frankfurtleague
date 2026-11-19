@@ -12,8 +12,11 @@ from app.api.account.schemas import (
     FLAccountEinwilligungenResponse,
 )
 from app.api.account.services import (
-    account_arms,
-    build_account_pipeline,
+    build_account_pupil_pipeline,
+    build_account_referee_pipeline,
+    build_self_bewerbung_pipeline,
+    build_self_registrierung_pipeline,
+    build_self_seat_pipeline,
     compose_bewerbung_seats_self,
     compose_registrierungen_self,
     compose_schiedsrichter_account,
@@ -41,6 +44,7 @@ from app.api.address_change.services import (
 from app.api.identity.crud import roles_from
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import is_own_schiedsrichter, is_own_spieler, may_grant_on_schiedsrichter
+from app.core.concurrency import concurrently
 from app.core.crud import aggregate_many_from_db, refuse
 from app.core.dependencies import (
     AddressChangeCollection,
@@ -50,8 +54,6 @@ from app.core.dependencies import (
     GermanyNow,
     GrantsCollection,
     OutboxCollection,
-    SnapshotSession,
-    SpielerReadCollection,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.security import PERSON_TIER, PersonIdentifier
@@ -68,8 +70,7 @@ router = APIRouter(
 @router.get("/einwilligungen", summary="A signed-in person's own consent records")
 async def get_einwilligungen(
     identifier: PersonIdentifier,
-    spieler_collection: SpielerReadCollection,
-    session: SnapshotSession,
+    records: SubjectLookup,
     today: GermanDay,
 ) -> FLAccountEinwilligungenResponse:
     """Every confirmed consent record the signed-in address holds, pending applications and registrations as withdraw-only.
@@ -78,15 +79,20 @@ async def get_einwilligungen(
     withdrawal stays open wherever a consent stands.
     """
 
-    # One aggregation, every kind of own record unioned and each joined to what it names, so the page costs one round trip;
-    # in a snapshot, so its arms and their joins are read as of one moment.
-    rows = await aggregate_many_from_db(collection=spieler_collection, pipeline=build_account_pipeline(identifier), session=session)
+    # One read per kind of own record, each joined to what it names and sent at once, so the page waits one round trip.
+    # No snapshot: each press is judged against the `evidence_state` its entry served, so an entry read a moment apart
+    # from the others refuses a stale press rather than writing it.
+    pupils, referees, seat_rows, bewerbung_rows, registrierung_rows = await concurrently(
+        aggregate_many_from_db(collection=records.spieler_collection, pipeline=build_account_pupil_pipeline(identifier)),
+        aggregate_many_from_db(collection=records.schiedsrichter_collection, pipeline=build_account_referee_pipeline(identifier)),
+        aggregate_many_from_db(collection=records.saison_teams_collection, pipeline=build_self_seat_pipeline(identifier)),
+        aggregate_many_from_db(collection=records.bewerbungen_collection, pipeline=build_self_bewerbung_pipeline(identifier)),
+        aggregate_many_from_db(collection=records.registrierungen_collection, pipeline=build_self_registrierung_pipeline(identifier)),
+    )
 
-    arms = account_arms(rows)
-    pupils, referees, seat_rows = arms["spieler"], arms["schiedsrichter"], arms["seats"]
     # From the rows read above, which the subject's own selections choose: a second read would answer the same.
     subject = roles_from(identifier, seat_rows=seat_rows, referee_rows=referees, pupil_rows=pupils)
-    teams = {team["_id"]: team for row in rows for team in row.get("teams", [])}
+    teams = {team["_id"]: team for row in (*bewerbung_rows, *registrierung_rows) for team in row["teams"]}
 
     pupil = next((row for row in pupils if is_own_spieler(row)), None)
 
@@ -99,8 +105,8 @@ async def get_einwilligungen(
                 if is_own_schiedsrichter(row, identifier)
             ],
             "seats": compose_seats_self(seat_rows, identifier, seats_with_panel=subject.seats, today=today),
-            "bewerbungen": compose_bewerbung_seats_self(arms["bewerbungen"], identifier, teams=teams),
-            "registrierungen": compose_registrierungen_self(arms["registrierungen"], identifier, teams=teams),
+            "bewerbungen": compose_bewerbung_seats_self(bewerbung_rows, identifier, teams=teams),
+            "registrierungen": compose_registrierungen_self(registrierung_rows, identifier, teams=teams),
         }
     )
 
