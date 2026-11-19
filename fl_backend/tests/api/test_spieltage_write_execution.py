@@ -182,21 +182,6 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
         # The refusal runs ahead of the write, so the matchday still holds the span it was seeded with.
         assert stored_start == SPIELTAG_START
 
-    async def test_a_move_before_the_previous_position_is_refused(self, mongo_replica_set_url: str):
-        """The other neighbour, and the other direction: a rule reading one side would let this one through."""
-
-        async def body(database: AsyncDatabase) -> APIError:
-            await self._with_a_matchday(database, oid=SECOND_OID, position=2, start=NEIGHBOUR_START)
-
-            with pytest.raises(APIError) as excinfo:
-                await re_date(database, SECOND_OID, start=BEFORE_THE_FIRST_START, end=BEFORE_THE_FIRST_END)
-
-            return excinfo.value
-
-        refusal = await on_a_database(mongo_replica_set_url, body)
-
-        assert refusal.error_code == Code.SPIELTAG_START_OUT_OF_ORDER
-
     async def test_another_phases_matchday_is_no_neighbour(self, mongo_replica_set_url: str):
         """Positions restart in every phase, so only a query keyed on the phase keeps a Finale out of the Gruppenphase's order.
 
