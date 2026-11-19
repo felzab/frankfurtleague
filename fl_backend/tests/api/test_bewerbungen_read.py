@@ -135,6 +135,26 @@ class TestTheReviewPagesRead:
             == {ObjectId(BEWERBUNG_ID.format(index)): index in (PICKED, ALSO_PICKED) for index in (PICKED, ALSO_PICKED, NEW_SCHOOL, DECLINED)}
         )
 
+    async def test_a_confirmed_seat_serves_neither_its_birthdate_nor_its_evidence(self, mongo_replica_set_url: str):
+        """The age check asks the birthdate once and the evidence answers a dispute: no page of the administration shows either."""
+
+        async def read(database: Any) -> Any:
+            return (await view_one(database, ObjectId(BEWERBUNG_ID.format(NEW_SCHOOL)))).model_dump(mode="json")
+
+        trainer = (await on_the_view_corpus(mongo_replica_set_url, read))["bewerbung"]["kontakte"]["trainer"]
+
+        assert trainer == {
+            "first_name": KONTAKTPERSON["first_name"],
+            "last_name": KONTAKTPERSON["last_name"],
+            "email": KONTAKTPERSON["email"],
+            "phone": KONTAKTPERSON["phone"],
+            "einwilligung": {
+                "scope": KONTAKTPERSON["einwilligung"]["scope"],
+                "confirmed_at": KONTAKTPERSON["einwilligung"]["confirmed_at"],
+                "media": KONTAKTPERSON["einwilligung"]["media"],
+            },
+        }
+
 
 class TestTheSeasonsListRead:
     """The list page's one read: what its rows and its dialogs need, off one request, and no person's details."""

@@ -2,7 +2,7 @@ from collections.abc import Mapping, Sequence, Set
 from dataclasses import dataclass
 from datetime import datetime
 from http import HTTPStatus
-from typing import Any, NamedTuple
+from typing import Any, Final, NamedTuple
 
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -13,6 +13,7 @@ from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_saison_past_refusal, has_started
 from app.api.spielberichte.crud import stamp_the_adoption
 from app.api.spielberichte.services import sides_of
+from app.api.spielbestaetigungen.crud import pull_party_names
 from app.api.spielbestaetigungen.services import CLOSE_FIELDS, build_holding_filter, parties_mailed, parties_told_of_the_change
 from app.api.spiele.schemas import (
     SPIEL_PATCH_WRITTEN_FIELDS,
@@ -259,6 +260,17 @@ async def pull_booked_slots(
     return [slot for claim in claims for slot in slots_booked_against(claim, holders, spiel_id=spiel_id)]
 
 
+# What `membership_of` reads off a `saison_teams` row.
+MEMBERSHIP_FIELDS: Final = ["team_id", "austritt", "name"]
+
+
+def membership_of(row: Mapping[str, Any]) -> SaisonMembership:
+    """One `saison_teams` row as the eligibility rule judges its club, by the name it plays this season under."""
+
+    # The `.get` is for the null record: a present `austritt` always carries a `date`.
+    return SaisonMembership(name=row["name"], departed_from=(row["austritt"] or {}).get("date"))
+
+
 async def pull_saison_membership(
     saison_teams_collection: ReadCollection,
     saison_id: str,
@@ -274,18 +286,11 @@ async def pull_saison_membership(
         collection=saison_teams_collection,
         db_filter={"saison_id": saison_id},
         what=f"season {saison_id}'s clubs",
-        projection={"team_id": 1, "austritt": 1, "name": 1},
+        projection=MEMBERSHIP_FIELDS,
         session=session,
     )
 
-    return {
-        row["team_id"]: SaisonMembership(
-            name=row["name"],
-            # The `.get` is for the null record: a present `austritt` always carries a `date`.
-            departed_from=(row["austritt"] or {}).get("date"),
-        )
-        for row in rows
-    }
+    return {row["team_id"]: membership_of(row) for row in rows}
 
 
 class SpieltagSpan(NamedTuple):
@@ -327,11 +332,11 @@ async def pull_booked_venue(
     if spielort_id is None:
         return None
 
-    row = await spielorte_collection.find_one({"_id": spielort_id}, {"name": 1, "maps_query": 1, "inactive_since": 1}, session=session)
+    row = await spielorte_collection.find_one({"_id": spielort_id}, {"inactive_since": 1}, session=session)
     if row is None:
         return None
 
-    return BookedVenue(name=row["name"], maps_query=row["maps_query"], inactive_since=row["inactive_since"])
+    return BookedVenue(inactive_since=row["inactive_since"])
 
 
 async def pull_booked_referee(
@@ -527,8 +532,6 @@ def report_release(release: SpieltagRelease) -> FLSpielReleasedSide:
     return FLSpielReleasedSide(
         spiel_id=release.spiel_id,
         spiel_nr=release.spiel_nr,
-        side=release.side,
-        team_name=release.team_name,
         voided_ergebnis=release.voided_ergebnis,
         voided_elfmeterschiessen=release.voided_elfmeterschiessen,
         voided_sonderereignis=release.voided_sonderereignis,
@@ -707,7 +710,7 @@ async def _judge_spiel_save(
     # fact about its neighbours.
     refuse(find_result_removal_refusal(spiel_id, payload, season))
 
-    verdict = judge_spieltag_occupancy(spiel_id, payload, season, membership)
+    verdict = judge_spieltag_occupancy(spiel_id, payload, season)
     refuse(verdict.refusal)
 
     # The session is what makes a matchday widened by a concurrent write visible.
@@ -718,7 +721,6 @@ async def _judge_spiel_save(
     # Read whatever the payload names, unchanged reference included: the booking rule judges the row each reference
     # names, and judges the reference alone where it is new or reopened.
     resolved = ResolvedReferences(
-        teams=membership,
         spielort=await pull_booked_venue(
             spielorte_collection=collections.spielorte,
             spielort_id=payload.spielort.spielort_id if payload.spielort is not None else None,
@@ -750,31 +752,6 @@ async def _judge_spiel_save(
         anchored_referee=find_referee_to_anchor(stored, payload, rules),
         membership=membership,
     )
-
-
-async def pull_party_names(
-    *,
-    parties: Sequence[Mapping[str, Any]],
-    membership: Mapping[CustomObjectId, SaisonMembership],
-    schiedsrichter_collection: ReadCollection,
-    session: AsyncClientSession,
-) -> dict[tuple[str, Any], str]:
-    """The name each of `parties` holds on its own record: a club its season row's, already read as `membership`, a referee their own."""
-
-    referee_ids = {party["schiedsrichter_id"] for party in parties if party["kind"] == "schiedsrichter"}
-    referees = await pull_many_from_db(
-        collection=schiedsrichter_collection,
-        db_filter={"_id": {"$in": list(referee_ids)}},
-        projection={"name": 1},
-        # `_id` is unique, so `len(referee_ids)` rows is the whole answer and the cap can never cut it short.
-        limit=max(len(referee_ids), 1),
-        session=session,
-    )
-
-    return {
-        **{("team", team_id): member.name for team_id, member in membership.items()},
-        **{("schiedsrichter", row["_id"]): row["name"] for row in referees},
-    }
 
 
 async def preview_spiel_save(
@@ -826,7 +803,10 @@ async def preview_spiel_save(
     )
     told = parties_mailed(told, kontakte={row["team_id"]: row.get("kontakte") for row in seats})
     names = await pull_party_names(
-        parties=told, membership=judged.membership, schiedsrichter_collection=collections.schiedsrichter, session=session
+        parties=told,
+        club_names={team_id: member.name for team_id, member in judged.membership.items()},
+        schiedsrichter_collection=collections.schiedsrichter,
+        session=session,
     )
     advanced_to, released_sides = await preview_bracket_after_patch(
         teams_collection=collections.teams,

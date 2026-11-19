@@ -91,8 +91,8 @@ describe("what befell a match", () => {
 describe("who referees a match", () => {
   // The harm: a played match whose referee was erased, or one who withheld their name, reading as no referee booked.
   it("reads a served booking without a name as „anonym“ and no booking as a dash", () => {
-    expect(refereeOf({ schiedsrichter: { name: "Ada K.", name_is_public: true } })).toStrictEqual({ record: "Ada K." });
-    expect(refereeOf({ schiedsrichter: { name: null, name_is_public: false } })).toBe(COPY.shared.anonymous);
+    expect(refereeOf({ schiedsrichter: { name: "Ada K." } })).toStrictEqual({ record: "Ada K." });
+    expect(refereeOf({ schiedsrichter: { name: null } })).toBe(COPY.shared.anonymous);
     expect(refereeOf({ schiedsrichter: null })).toBe(COPY.shared.noValue);
   });
 });

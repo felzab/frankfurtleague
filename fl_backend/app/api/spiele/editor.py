@@ -13,11 +13,9 @@ from pydantic import Field
 from app.api.aufstellungen.schemas import FLAufstellungMarks, FLAufstellungSummary
 from app.api.aufstellungen.services import aufstellung_marks, aufstellung_stands
 from app.api.saisons.services import has_started
-from app.api.spielberichte.crud import pull_bericht_context, pull_named
 from app.api.spielberichte.schemas import (
     FLSpielberichtBericht,
     FLSpielberichtScorer,
-    FLSpielberichtSpieler,
     FLSpielberichtState,
     FLSpielberichtVorschlag,
 )
@@ -25,7 +23,7 @@ from app.api.spielberichte.services import SIDES, bericht_state_of
 from app.api.spielbestaetigungen.crud import JUDGED_JUNCTION_FIELDS, pull_admin_rows
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAnswer, FLSpielbestaetigungAppointment, FLSpielbestaetigungState
 from app.api.spielbestaetigungen.services import AnsetzungState, austritte_of, due_by_of, lapsed_on, reason_of, state_of
-from app.api.spiele.crud import pull_saison_membership
+from app.api.spiele.crud import MEMBERSHIP_FIELDS, membership_of
 from app.api.spiele.schemas import (
     FLPatchSpielDataPayload,
     FLSpiel,
@@ -35,7 +33,6 @@ from app.api.spiele.schemas import (
     FLSpielTeamFieldPayload,
 )
 from app.api.spiele.services import (
-    SaisonMembership,
     build_spiele_pipeline,
     find_eligibility_refusal,
     judge_spieltag_occupancy,
@@ -90,6 +87,14 @@ class FLSpielEditorTeam(BaseReadModel):
     fieldable: bool
 
 
+class FLSpielEditorSpieler(BaseReadModel):
+    """A pupil a goal names, by the names their record holds, both null where no record holds the pupil."""
+
+    spieler_id: CustomObjectId
+    first_name: str | None
+    last_name: str | None
+
+
 class FLSpielEditorBericht(BaseReadModel):
     """The fixture's report as the editor's Spielbericht section shows it: its goals and the result they propose.
 
@@ -101,7 +106,7 @@ class FLSpielEditorBericht(BaseReadModel):
     version: int
     ergebnis_vorschlag: FLSpielberichtVorschlag
     scorers: list[FLSpielberichtScorer]
-    named: list[FLSpielberichtSpieler]
+    named: list[FLSpielEditorSpieler]
 
 
 class FLSpielEditorAufstellungen(BaseReadModel):
@@ -216,70 +221,81 @@ async def _teams_of(
 ) -> list[FLSpielEditorTeam]:
     """Every club holding a row for the fixture's season, in the German order of their names, each judged by the write's own rules."""
 
-    # Whole, as the save reads its season.
-    season_raw, membership, ordered = await concurrently(
+    # Whole, as the save reads its season and its clubs.
+    season_raw, rows = await concurrently(
         pull_whole_from_db(collection=spiele_collection, db_filter={"saison_id": spiel.saison_id}, what=f"season {spiel.saison_id}'s fixtures"),
-        pull_saison_membership(saison_teams_collection=saison_teams_collection, saison_id=spiel.saison_id),
-        pull_many_from_db(
+        pull_whole_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": spiel.saison_id},
-            limit=LIST_LIMIT_DEFAULT,
+            what=f"season {spiel.saison_id}'s clubs",
             sort_by=[("name", 1)],
-            projection=["team_id", "shorthand"],
+            projection=[*MEMBERSHIP_FIELDS, "shorthand"],
             collation=GERMAN_COLLATION,
         ),
     )
     season = FLSpielListAdapter.validate_python(season_raw)
     stored = stored_in_slice(spiel.id, season)
+    membership = {row["team_id"]: membership_of(row) for row in rows}
 
-    def judged(row: Mapping[str, Any], member: SaisonMembership) -> FLSpielEditorTeam:
+    def judged(row: Mapping[str, Any]) -> FLSpielEditorTeam:
         team_id = row["team_id"]
         payload = _fielding(stored, team_id)
-        verdict = judge_spieltag_occupancy(spiel.id, payload, season, membership)
+        verdict = judge_spieltag_occupancy(spiel.id, payload, season)
         return FLSpielEditorTeam(
             id=team_id,
-            name=member.name,
+            name=membership[team_id].name,
             shorthand=row["shorthand"],
             on_spieltag=verdict.refusal is not None or len(verdict.releases) > 0,
             fieldable=verdict.refusal is None and find_eligibility_refusal(spiel.id, payload, season, membership) is None,
         )
 
-    return [judged(row, membership[row["team_id"]]) for row in ordered if row["team_id"] in membership]
+    return [judged(row) for row in rows]
 
 
 async def _spielbericht_of(
     *,
-    spiel_id: CustomObjectId,
-    spiele_collection: ReadCollection,
-    saisons_collection: ReadCollection,
-    saison_spieler_collection: ReadCollection,
+    spiel_raw: Mapping[str, Any],
     spieler_collection: ReadCollection,
     spielberichte_collection: ReadCollection,
 ) -> FLSpielEditorBericht | None:
-    """The report as the administrator's panel composes it, its goals alone: the cards and the remarks are not the editor's."""
+    """The report as the administrator's panel composes it, its goals alone: the cards and the remarks are not the editor's.
 
-    document = await spielberichte_collection.find_one({"spiel_id": spiel_id}, {"bericht": 1, VERSION_FIELD: 1})
+    Judged against the editor's own read of the fixture, which holds every stored field the report's state reads.
+    """
+
+    document = await spielberichte_collection.find_one({"spiel_id": spiel_raw["_id"]}, {"bericht": 1, VERSION_FIELD: 1})
     if document is None:
         return None
 
-    block = document["bericht"]
-    bericht = FLSpielberichtBericht.model_validate(block)
-    context = await pull_bericht_context(
-        spiele_collection=spiele_collection,
-        saisons_collection=saisons_collection,
-        saison_spieler_collection=saison_spieler_collection,
-        spiel_id=spiel_id,
-        session=None,
+    bericht = FLSpielberichtBericht.model_validate(document["bericht"])
+    scorers = sorted({tor.spieler_id for tor in bericht.scorers if tor.spieler_id is not None})
+    # The scorers alone, off their own records: the page names nobody else the report names.
+    people = (
+        []
+        if not scorers
+        else await pull_whole_from_db(
+            collection=spieler_collection,
+            db_filter={"_id": {"$in": scorers}},
+            what="the pupils a report's goals name",
+            projection=["first_name", "last_name"],
+        )
     )
-    scorers = {tor.spieler_id for tor in bericht.scorers if tor.spieler_id is not None}
-    named = await pull_named(spieler_collection=spieler_collection, context=context, kader_open=False, bericht=block, session=None)
+    found = {person["_id"]: person for person in people}
 
     return FLSpielEditorBericht(
-        state=bericht_state_of(bericht, context.spiel),
+        state=bericht_state_of(bericht, spiel_raw),
         version=document[VERSION_FIELD],
         ergebnis_vorschlag=bericht.ergebnis_vorschlag,
         scorers=bericht.scorers,
-        named=[spieler for spieler in named if spieler.spieler_id in scorers],
+        # A pupil erased since keeps the goal and names nobody, as the report's own read serves them.
+        named=[
+            FLSpielEditorSpieler(
+                spieler_id=spieler_id,
+                first_name=found.get(spieler_id, {}).get("first_name"),
+                last_name=found.get(spieler_id, {}).get("last_name"),
+            )
+            for spieler_id in scorers
+        ],
     )
 
 
@@ -326,7 +342,6 @@ async def read_spiel_editor(
     saisons_collection: ReadCollection,
     spielorte_collection: ReadCollection,
     schiedsrichter_collection: ReadCollection,
-    saison_spieler_collection: ReadCollection,
     spieler_collection: ReadCollection,
     spielberichte_collection: ReadCollection,
     spielbestaetigungen_collection: ReadCollection,
@@ -369,14 +384,7 @@ async def read_spiel_editor(
         _none()
         if spiel.saison_phase == "gruppenphase"
         else _teams_of(spiel=spiel, spiele_collection=spiele_collection, saison_teams_collection=saison_teams_collection),
-        _spielbericht_of(
-            spiel_id=spiel_id,
-            spiele_collection=spiele_collection,
-            saisons_collection=saisons_collection,
-            saison_spieler_collection=saison_spieler_collection,
-            spieler_collection=spieler_collection,
-            spielberichte_collection=spielberichte_collection,
-        ),
+        _spielbericht_of(spiel_raw=spiele_raw[0], spieler_collection=spieler_collection, spielberichte_collection=spielberichte_collection),
         # The administrator's read of confirmation rows, so no seat's address reaches the editor.
         pull_admin_rows(
             spielbestaetigungen_collection=spielbestaetigungen_collection,

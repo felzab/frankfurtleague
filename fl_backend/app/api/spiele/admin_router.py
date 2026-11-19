@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Query
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.grants.guard import ADMIN_TIER
@@ -27,7 +27,6 @@ from app.core.dependencies import (
     DBClient,
     GermanyNow,
     SaisonsCollection,
-    SaisonSpielerReadCollection,
     SaisonsReadCollection,
     SaisonTeamsCollection,
     SaisonTeamsReadCollection,
@@ -95,7 +94,6 @@ async def get_spiel_admin(
     saisons_collection: SaisonsReadCollection,
     spielorte_collection: SpielorteReadCollection,
     schiedsrichter_collection: SchiedsrichterReadCollection,
-    saison_spieler_collection: SaisonSpielerReadCollection,
     spieler_collection: SpielerReadCollection,
     spielberichte_collection: SpielberichteReadCollection,
     spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
@@ -116,7 +114,6 @@ async def get_spiel_admin(
         saisons_collection=saisons_collection,
         spielorte_collection=spielorte_collection,
         schiedsrichter_collection=schiedsrichter_collection,
-        saison_spieler_collection=saison_spieler_collection,
         spieler_collection=spieler_collection,
         spielberichte_collection=spielberichte_collection,
         spielbestaetigungen_collection=spielbestaetigungen_collection,
@@ -124,12 +121,6 @@ async def get_spiel_admin(
         aufstellungen_collection=aufstellungen_collection,
         now=germany_now,
     )
-
-
-async def previewing(
-    dry_run: Annotated[bool, Query(description="Report what this payload would move and destroy, and write nothing")] = False,
-) -> bool:
-    return dry_run
 
 
 @router.patch(
@@ -157,7 +148,7 @@ async def patch_spiel(
         int | None,
         Query(ge=0, description="The `version` of the fixture's Spielbericht the editor was seeded from, to stamp it adopted"),
     ] = None,
-    dry_run: Annotated[bool, Depends(previewing)] = False,
+    dry_run: Annotated[bool, Query(description="Report what this payload would move and destroy, and write nothing")] = False,
 ) -> FLPatchSpielDataResponse:
     """
     Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.

@@ -936,7 +936,7 @@ def find_gruppen_not_run(spiele: Iterable[FLSpielCommon], *, number_of_gruppen: 
 class SaisonMembership:
     """One club's `saison_teams` row: the name this season is played under, and the day the club left it.
 
-    The season's name rather than the club's, for the release a save reports.
+    The season's name rather than the club's, for the clubs the match editor offers and the parties a dry run names.
     """
 
     name: str
@@ -948,8 +948,6 @@ class SaisonMembership:
 class BookedVenue:
     """The `spielorte` row a fixture's venue reference names, as it stands now."""
 
-    name: str
-    maps_query: str
     inactive_since: str | None
 
 
@@ -964,13 +962,11 @@ class BookedReferee:
 
 @dataclass(frozen=True)
 class ResolvedReferences:
-    """Every row this payload's references name, read in the router to keep this module synchronous.
+    """The venue and the referee this payload's references name, read by the caller to keep this module synchronous.
 
-    What the booking and eligibility rules judge: whether a club holds a row this season, and whether a venue or a
-    referee stands, live and confirmed.
+    What the booking rule judges: whether each stands, live and confirmed.
     """
 
-    teams: Mapping[CustomObjectId, SaisonMembership]
     #: `None` where the payload names none, and where the id names no row at all.
     spielort: BookedVenue | None = None
     schiedsrichter: BookedReferee | None = None
@@ -1305,10 +1301,7 @@ def find_booking_refusal(
         if chosen is None:
             continue
 
-        if row is None:
-            return APIError(HTTPStatus.CONFLICT, Code.BOOKING_UNKNOWN_RESOURCE, fields=(path,))
-
-        if row.inactive_since is not None:
+        if row is None or row.inactive_since is not None:
             return APIError(HTTPStatus.CONFLICT, Code.BOOKING_UNKNOWN_RESOURCE, fields=(path,))
 
     # After both arms above, so a retired referee meets the retirement first.
@@ -1431,23 +1424,20 @@ def find_clash_refusal(*, date: str | None, time: str | None, booked: Sequence[B
     if date is None or time is None:
         return None
 
-    clash = _first_clash(date=date, time=time, booked=booked)
-    if clash is None:
+    slot = _first_clash(date=date, time=time, booked=booked)
+    if slot is None:
         return None
-
-    slot, gap = clash
 
     return APIError(HTTPStatus.CONFLICT, Code.SPIEL_DOUBLE_BOOKED, fields=(RESOURCE_PATHS[slot.resource],))
 
 
-def _first_clash(*, date: str, time: str, booked: Sequence[BookedSlot]) -> tuple[BookedSlot, int] | None:
-    """The earliest slot in `booked` less than the buffer away, and how far, for the refusal and the report alike."""
+def _first_clash(*, date: str, time: str, booked: Sequence[BookedSlot]) -> BookedSlot | None:
+    """The earliest slot in `booked` less than the buffer away, for the refusal and the report alike."""
 
     start = _minutes_of(date, time)
     for slot in sorted(booked, key=lambda entry: (entry.date, entry.time, entry.saison_id, entry.spiel_nr)):
-        gap = abs(_minutes_of(slot.date, slot.time) - start)
-        if gap < CLASH_BUFFER_MINUTES:
-            return slot, gap
+        if abs(_minutes_of(slot.date, slot.time) - start) < CLASH_BUFFER_MINUTES:
+            return slot
 
     return None
 
@@ -1606,11 +1596,10 @@ def find_double_bookings(spiele: Sequence[FLSpielJoinedAdmin], holders: Sequence
 
     for spiel in sorted(spiele, key=lambda entry: (entry.saison_id, entry.spiel_nr)):
         for claim in find_slot_claims(spiel):
-            clash = _first_clash(date=claim.date, time=claim.time, booked=slots_booked_against(claim, holders, spiel_id=spiel.id))
-            if clash is None:
+            slot = _first_clash(date=claim.date, time=claim.time, booked=slots_booked_against(claim, holders, spiel_id=spiel.id))
+            if slot is None:
                 continue
 
-            slot, _ = clash
             held = spiel.spielort if claim.resource == "Spielort" else spiel.schiedsrichter
 
             faults.append(
@@ -1643,7 +1632,6 @@ class SpieltagRelease:
     spiel_id: CustomObjectId
     spiel_nr: int
     side: FLSpielSide
-    team_name: str
     other_side_present: bool
     voided_ergebnis: str | None
     voided_elfmeterschiessen: FLSpielElfmeterschiessen | None
@@ -1663,9 +1651,8 @@ def judge_spieltag_occupancy(
     spiel_id: CustomObjectId,
     payload: FLPatchSpielDataPayload,
     season: Sequence[FLSpiel],
-    teams: Mapping[CustomObjectId, SaisonMembership],
 ) -> SpieltagVerdict:
-    """Where this payload's teams already stand on the same Spieltag; `teams` names a released side as its season row does."""
+    """Where this payload's teams already stand on the same Spieltag."""
 
     stored = stored_in_slice(spiel_id, season)
 
@@ -1702,8 +1689,6 @@ def judge_spieltag_occupancy(
                     spiel_id=other.id,
                     spiel_nr=other.spiel_nr,
                     side=label,
-                    # The released club is the one this payload fields, so it holds a row this season.
-                    team_name=teams[occupant.team_id].name,
                     # The write path strips the other side's goals -- scored against the team being
                     # removed -- so it has to know whether a side is there to strip.
                     other_side_present=(other.team2 if label == "team1" else other.team1) is not None,
@@ -1868,36 +1853,6 @@ def find_wiring_refusal(
             return _wiring_refusal()
 
     return None
-
-
-PARTY_NAME_FIELD: Final = "party_name"
-
-
-def build_party_name_stages(*, saison_id: str) -> list[Mapping[str, Any]]:
-    """Stages setting on each confirmation row the name its party's own record holds: a club's season row, a referee's."""
-
-    return [
-        {
-            "$lookup": {
-                "from": Collection.SAISON_TEAMS,
-                "localField": "party.team_id",
-                "foreignField": "team_id",
-                "pipeline": [{"$match": {"saison_id": saison_id}}, {"$project": {"_id": 0, "name": 1}}],
-                "as": "team",
-            }
-        },
-        {
-            "$lookup": {
-                "from": Collection.SCHIEDSRICHTER,
-                "localField": "party.schiedsrichter_id",
-                "foreignField": "_id",
-                "pipeline": [{"$project": {"_id": 0, "name": 1}}],
-                "as": "referee",
-            }
-        },
-        {"$set": {PARTY_NAME_FIELD: {"$first": {"$concatArrays": ["$team.name", "$referee.name"]}}}},
-        {"$unset": ["team", "referee"]},
-    ]
 
 
 def recipients_named(parties: Sequence[Mapping[str, Any]], *, names: Mapping[tuple[str, Any], str | None]) -> list[FLSpielRecipient]:

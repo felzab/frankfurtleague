@@ -302,11 +302,11 @@ class FLSpielSchiedsrichterFieldRecord(_SpielSchiedsrichterBooking):
 class FLSpielSchiedsrichterFieldPublic(_SpielSchiedsrichterNamed, BaseReadModel):
     """The referee as the public reads serve it: a forename and a surname initial where they consented, else no name.
 
-    Neither the payment nor the referee's id is served.
+    Neither the payment, the referee's id nor the consent deciding the name is served: the name is the answer.
     """
 
     # Withheld unless the join says otherwise, so a join answering nothing costs a name rather than publishing one.
-    name_is_public: bool = False
+    name_is_public: bool = Field(default=False, exclude=True)
 
     @model_validator(mode="after")
     def _publish_the_name_by_consent(self) -> FLSpielSchiedsrichterFieldPublic:
@@ -737,10 +737,6 @@ class FLSpielAdvancement(FLSpielVoidedErgebnis):
 # The save's and the preview's own record of a release; the answer serves only its `spiel_nr`.
 class FLSpielReleasedSide(FLSpielVoidedErgebnis):
     """One side another fixture gave up so a team can play this Spieltag, and the result that destroyed."""
-
-    # English, like `type` on a quelle: it names a document field.
-    side: FLSpielSide
-    team_name: str = Field(min_length=1)
 
 
 # One party a fixture's Ansetzung asks to confirm it: a side, or the booked referee. Beside the fixture, since the

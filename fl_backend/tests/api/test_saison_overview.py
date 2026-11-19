@@ -16,8 +16,16 @@ from bson import ObjectId
 from httpx2 import Response
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.saisons.overview import _gaps
-from app.api.spiele.schemas import FLSpielJoinedInternal
+from app.api.saisons.overview import _gaps, fault_line
+from app.api.spiele.schemas import (
+    FLBracketFault,
+    FLBracketFaultClash,
+    FLBracketFaultGruppe,
+    FLBracketFaultOccupant,
+    FLBracketFaultQuelle,
+    FLBracketFaultSpiel,
+    FLSpielJoinedInternal,
+)
 from app.core.collections import Collection
 from tests import documents
 from tests.app_client import app_client, app_under_test
@@ -284,6 +292,21 @@ class TestEachKindLandsOnItsCard:
         )
         assert (riedberg["bewerbung_id"], riedberg["seats_confirmed"], riedberg["seats"]) == (str(NEW_SCHOOL), 2, 3)
 
+    async def test_a_fault_row_serves_only_what_its_line_words(self, seeded_url: str):
+        """The club standing twice on the clash's matchday, by its season name: the fixture is the row's own, so nothing else is served."""
+
+        rows = {
+            (row["kind"], row["spiel"]["spiel_nr"]): row
+            for card in (await answered(seeded_url, PATH)).json()["cards"]
+            for row in card["rows"]
+            if "spiel" in row
+        }
+
+        assert [rows[("bracket_fault", nr)]["fault"] for nr in (CLASH_FIRST, CLASH_SECOND)] == [
+            {"reason": "fielded_twice", "team_name": "Lessing"},
+            {"reason": "fielded_twice", "team_name": "Lessing"},
+        ]
+
 
 def joined(**fields: Any) -> FLSpielJoinedInternal:
     """One fixture of the season as the read joins it, its two clubs named, every gap but those `fields` open closed."""
@@ -314,3 +337,56 @@ class TestWhatASpielStillLacks:
         open_side = joined(saison_phase="halbfinale", team2=None)
 
         assert (_gaps(sourced, today=TODAY), _gaps(open_side, today=TODAY)) == ([], ["team_missing"])
+
+
+# Where a fault stands, which the line never words.
+AT = {"spiel_id": ObjectId(OID.format(0x600)), "spiel_nr": 1}
+
+
+@pytest.mark.parametrize(
+    ("fault", "line"),
+    [
+        pytest.param(
+            FLBracketFaultGruppe(reason="tie_unresolved", gruppe="A", platz=2, **AT),
+            {"reason": "tie_unresolved", "gruppe": "A", "platz": 2},
+            id="a tie",
+        ),
+        pytest.param(FLBracketFaultGruppe(reason="gruppe_not_run", gruppe="B", platz=1, **AT), {"reason": "wiring"}, id="a group not run"),
+        pytest.param(FLBracketFaultQuelle(reason="reference_cycle", quelle_spiel_nr=3, **AT), {"reason": "wiring"}, id="a cycle"),
+        pytest.param(FLBracketFaultSpiel(reason="same_team", **AT), {"reason": "wiring"}, id="one club on both sides"),
+        pytest.param(
+            FLBracketFaultOccupant(
+                reason="departed_occupant",
+                side="team1",
+                team_id=HOME,
+                team_name="Lessing",
+                austritt_type="rueckzug",
+                exited_since="2026-03-01",
+                spiel_date=TODAY,
+                **AT,
+            ),
+            {"reason": "departed_occupant", "team_name": "Lessing", "austritt_type": "rueckzug", "exited_since": "2026-03-01"},
+            id="a departed club",
+        ),
+        pytest.param(
+            FLBracketFaultClash(
+                reason="double_booked",
+                saison_id=SAISON,
+                booking="schiedsrichter",
+                name="Anna Körner",
+                other_spiel_id=ObjectId(OID.format(0x601)),
+                other_saison_id=SAISON,
+                other_spiel_nr=2,
+                other_date=TODAY,
+                other_time="15:00:00",
+                **AT,
+            ),
+            {"reason": "double_booked", "booking": "schiedsrichter"},
+            id="a double booking",
+        ),
+    ],
+)
+def test_a_fault_is_served_as_its_line_words_it(fault: FLBracketFault, line: dict[str, Any]):
+    """A reason the line words on its own keeps its values; every wiring shape folds into the one line no screen repairs."""
+
+    assert fault_line(fault).model_dump(mode="json") == line

@@ -15,7 +15,7 @@ import { seatActKinds } from "./seatActKinds";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
-import type { FLKontaktperson, FLKontaktSeat } from "@/core/generated/client/types";
+import type { FLKontaktpersonAdmin, FLKontaktSeat } from "@/core/generated/client/types";
 import type { SeatRules } from "@/features/teams/fieldRules";
 import type { SideAct } from "@/kit/SideActs";
 import type { ReactNode } from "react";
@@ -44,7 +44,7 @@ export function SeatActs<Key>({
   /** Every seat the row's person holds. */
   seats: readonly FLKontaktSeat[];
   /** `null` on an emptied seat. */
-  person: Pick<FLKontaktperson, "first_name" | "last_name" | "email" | "phone"> | null;
+  person: Pick<FLKontaktpersonAdmin, "first_name" | "last_name" | "email" | "phone"> | null;
   rules: SeatRules;
   write: (form: FormData) => Promise<ActionAnswer>;
   /** What the dialog posts beside its boxes: the seat and the version the page read. */

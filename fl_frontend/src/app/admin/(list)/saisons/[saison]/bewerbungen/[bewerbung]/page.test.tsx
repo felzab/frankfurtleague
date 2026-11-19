@@ -9,7 +9,7 @@ import { serveBackend } from "@/test-support/backend";
 import { renderUnderNext, underNext } from "@/test-support/nextContexts";
 import { signedInRequest } from "@/test-support/session";
 
-import type { FLBewerbung, FLBewerbungConfirmation, FLKontaktperson } from "@/core/generated/client/types";
+import type { FLBewerbung, FLBewerbungConfirmation, FLKontaktpersonAdmin } from "@/core/generated/client/types";
 import type { ReadRecord } from "@/kit/ReadPage";
 import type { SeatRow } from "@/kit/SeatRows";
 
@@ -31,7 +31,7 @@ const person = {
   email: "a@example.net",
   phone: "069 1",
   einwilligung: { confirmed_at: null },
-} as FLKontaktperson;
+} as FLKontaktpersonAdmin;
 
 const open: FLBewerbungConfirmation = {
   sent_at: "2026-11-01",

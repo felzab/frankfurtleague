@@ -12,6 +12,7 @@ from app.api.teams.services import offered_gruppen
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
+from app.shared.saison import season_has_ended
 from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase
 
 
@@ -175,13 +176,13 @@ def find_saison_start_austritt_refusal(*, stored_start_date: str, proposed_start
 
 
 def find_saison_past_refusal(*, saison_status: str) -> APIError | None:
-    """`saison_past` for a write a finished season's record no longer takes: a fixture's save, a matchday's re-dating, a club's season row.
+    """`saison_past` for a write a finished season's record no longer takes: a fixture, a matchday's dates, a club's row, a report.
 
     Pure. A caller's read of `status` stays current through its write set: `activate_saison` anchors the fixtures of every
     season it closes, and the club move anchors the season document the rollover writes.
     """
 
-    if saison_status != "past":
+    if not season_has_ended(saison_status=saison_status):
         return None
 
     return APIError(HTTPStatus.CONFLICT, Code.SAISON_PAST)

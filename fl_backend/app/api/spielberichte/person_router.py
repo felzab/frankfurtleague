@@ -4,6 +4,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.account.services import find_own_entry_refusal
 from app.api.identity.crud import roles_of
 from app.api.identity.lookup import SubjectLookup
+from app.api.saisons.services import find_saison_past_refusal
 from app.api.spielberichte.crud import (
     anchor_the_pupils_named,
     anchor_the_season_reported_in,
@@ -18,8 +19,6 @@ from app.api.spielberichte.schemas import (
 from app.api.spielberichte.services import (
     compose_view,
     find_not_refereed_refusal,
-    find_saison_ended_refusal,
-    is_concluded,
     judge_bericht,
     kader_is_open,
     newly_named,
@@ -46,6 +45,7 @@ from app.core.recording import ACT_BY_SCHIEDSRICHTER, record_act
 from app.core.routing import by_id
 from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transact
+from app.shared.saison import season_has_ended
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.responses import FLVersionResponse
 
@@ -95,7 +95,7 @@ async def get_spielbericht_bericht(
     )
 
     # After the season, the referee's page is a view of the report: no squad to pick from, no write.
-    completed = is_concluded(context)
+    completed = season_has_ended(saison_status=context.saison_status)
     kader_open = kader_is_open(context, now=germany_now)
     document = await spielberichte_collection.find_one({"spiel_id": spiel_id}, session=session)
     named = await pull_named(
@@ -152,7 +152,7 @@ async def put_spielbericht_bericht(
         saved = await spielberichte_collection.find_one({"spiel_id": spiel_id}, session=session)
         new = newly_named(payload, None if saved is None else saved["bericht"], context.spiel)
         refuse(find_not_refereed_refusal(spiel_raw=context.spiel, schiedsrichter_ids=own))
-        refuse(find_saison_ended_refusal(context))
+        refuse(find_saison_past_refusal(saison_status=context.saison_status))
         refuse(find_stale_first_save_refusal(saved, version=bericht_data.version))
         judge_bericht(context=context, payload=payload, new=new, now=germany_now)
 

@@ -126,9 +126,8 @@ class TestTheDrawnSeasonFieldsNobodyTwiceOnAMatchday:
 
         season = season_of(shape)
 
-        # No season rows: a release names its club off them, so one owed here raises rather than passing unseen.
         verdicts = [
-            (raw["spiel_nr"], judge_spieltag_occupancy(raw["_id"], FLPatchSpielDataPayload.model_validate(spiel_patch_body(raw)), season, {}))
+            (raw["spiel_nr"], judge_spieltag_occupancy(raw["_id"], FLPatchSpielDataPayload.model_validate(spiel_patch_body(raw)), season))
             for raw in drawn(shape).spiele
         ]
 

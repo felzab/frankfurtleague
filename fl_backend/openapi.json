@@ -2862,7 +2862,7 @@
             "$ref": "#/components/schemas/FLBewerbungKader"
           },
           "kontakte": {
-            "$ref": "#/components/schemas/FLSaisonTeamKontakte"
+            "$ref": "#/components/schemas/FLSaisonTeamKontakteAdmin"
           },
           "saison_id": {
             "title": "Saison Id",
@@ -4248,439 +4248,6 @@
         ],
         "type": "string"
       },
-      "FLBracketFault": {
-        "discriminator": {
-          "mapping": {
-            "departed_occupant": "#/components/schemas/FLBracketFaultOccupant",
-            "double_booked": "#/components/schemas/FLBracketFaultClash",
-            "feeder_not_played_first": "#/components/schemas/FLBracketFaultQuelle",
-            "fielded_twice": "#/components/schemas/FLBracketFaultSpieltag",
-            "gruppe_not_run": "#/components/schemas/FLBracketFaultGruppe",
-            "gruppe_too_small": "#/components/schemas/FLBracketFaultGruppe",
-            "gruppenphase_feeder": "#/components/schemas/FLBracketFaultQuelle",
-            "gruppenphase_spiel_wired": "#/components/schemas/FLBracketFaultSlot",
-            "reference_cycle": "#/components/schemas/FLBracketFaultQuelle",
-            "retired_booking": "#/components/schemas/FLBracketFaultBooking",
-            "same_team": "#/components/schemas/FLBracketFaultSpiel",
-            "seed_past_the_opening_round": "#/components/schemas/FLBracketFaultGruppe",
-            "source_feeds_another_spiel": "#/components/schemas/FLBracketFaultSlot",
-            "spiel_missing": "#/components/schemas/FLBracketFaultQuelle",
-            "tie_unresolved": "#/components/schemas/FLBracketFaultGruppe"
-          },
-          "propertyName": "reason"
-        },
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/FLBracketFaultGruppe"
-          },
-          {
-            "$ref": "#/components/schemas/FLBracketFaultQuelle"
-          },
-          {
-            "$ref": "#/components/schemas/FLBracketFaultSpiel"
-          },
-          {
-            "$ref": "#/components/schemas/FLBracketFaultSlot"
-          },
-          {
-            "$ref": "#/components/schemas/FLBracketFaultOccupant"
-          },
-          {
-            "$ref": "#/components/schemas/FLBracketFaultSpieltag"
-          },
-          {
-            "$ref": "#/components/schemas/FLBracketFaultBooking"
-          },
-          {
-            "$ref": "#/components/schemas/FLBracketFaultClash"
-          }
-        ]
-      },
-      "FLBracketFaultBooking": {
-        "description": "A fixture still to be played booked onto a retired venue or referee.\n\nNothing is taken off: only a person chooses between reactivating the row and booking another.",
-        "properties": {
-          "booking": {
-            "$ref": "#/components/schemas/FLBookingResource"
-          },
-          "booking_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Booking Id",
-            "type": "string"
-          },
-          "inactive_since": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Inactive Since",
-            "type": "string"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "reason": {
-            "const": "retired_booking",
-            "title": "Reason",
-            "type": "string"
-          },
-          "spiel_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spiel Id",
-            "type": "string"
-          },
-          "spiel_nr": {
-            "exclusiveMinimum": 0.0,
-            "title": "Spiel Nr",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "spiel_id",
-          "spiel_nr",
-          "reason",
-          "booking",
-          "booking_id",
-          "name",
-          "inactive_since"
-        ],
-        "title": "FLBracketFaultBooking",
-        "type": "object"
-      },
-      "FLBracketFaultClash": {
-        "description": "A venue or referee claimed less than four hours from another fixture's claim, one entry per claim.\n\nIt names the fixture a save's clash refusal names.",
-        "properties": {
-          "booking": {
-            "$ref": "#/components/schemas/FLBookingResource"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "other_date": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Other Date",
-            "type": "string"
-          },
-          "other_saison_id": {
-            "title": "Other Saison Id",
-            "type": "string"
-          },
-          "other_spiel_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Other Spiel Id",
-            "type": "string"
-          },
-          "other_spiel_nr": {
-            "exclusiveMinimum": 0.0,
-            "title": "Other Spiel Nr",
-            "type": "integer"
-          },
-          "other_time": {
-            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
-            "title": "Other Time",
-            "type": "string"
-          },
-          "reason": {
-            "const": "double_booked",
-            "title": "Reason",
-            "type": "string"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "spiel_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spiel Id",
-            "type": "string"
-          },
-          "spiel_nr": {
-            "exclusiveMinimum": 0.0,
-            "title": "Spiel Nr",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "spiel_id",
-          "spiel_nr",
-          "reason",
-          "saison_id",
-          "booking",
-          "name",
-          "other_spiel_id",
-          "other_saison_id",
-          "other_spiel_nr",
-          "other_date",
-          "other_time"
-        ],
-        "title": "FLBracketFaultClash",
-        "type": "object"
-      },
-      "FLBracketFaultGruppe": {
-        "description": "One bracket slot whose `gruppe` reference names a placing no standing will hand it.\n\n`tie_unresolved` alone empties the slot: every other reason names wiring the season cannot hold,\nand a slot is never emptied over one.",
-        "properties": {
-          "gruppe": {
-            "$ref": "#/components/schemas/FLGruppenNames"
-          },
-          "platz": {
-            "exclusiveMinimum": 0.0,
-            "title": "Platz",
-            "type": "integer"
-          },
-          "reason": {
-            "enum": [
-              "gruppe_too_small",
-              "gruppe_not_run",
-              "seed_past_the_opening_round",
-              "tie_unresolved"
-            ],
-            "title": "Reason",
-            "type": "string"
-          },
-          "spiel_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spiel Id",
-            "type": "string"
-          },
-          "spiel_nr": {
-            "exclusiveMinimum": 0.0,
-            "title": "Spiel Nr",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "spiel_id",
-          "spiel_nr",
-          "reason",
-          "gruppe",
-          "platz"
-        ],
-        "title": "FLBracketFaultGruppe",
-        "type": "object"
-      },
-      "FLBracketFaultOccupant": {
-        "description": "One fixture fielding a team on or after the day it left the season, or undated, with no recorded absence excusing it.\n\nNothing is emptied.",
-        "properties": {
-          "austritt_type": {
-            "$ref": "#/components/schemas/FLAustrittType"
-          },
-          "exited_since": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Exited Since",
-            "type": "string"
-          },
-          "reason": {
-            "const": "departed_occupant",
-            "title": "Reason",
-            "type": "string"
-          },
-          "side": {
-            "$ref": "#/components/schemas/FLSpielSide"
-          },
-          "spiel_date": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Spiel Date"
-          },
-          "spiel_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spiel Id",
-            "type": "string"
-          },
-          "spiel_nr": {
-            "exclusiveMinimum": 0.0,
-            "title": "Spiel Nr",
-            "type": "integer"
-          },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
-            "type": "string"
-          },
-          "team_name": {
-            "minLength": 1,
-            "title": "Team Name",
-            "type": "string"
-          }
-        },
-        "required": [
-          "spiel_id",
-          "spiel_nr",
-          "reason",
-          "side",
-          "team_id",
-          "team_name",
-          "austritt_type",
-          "exited_since",
-          "spiel_date"
-        ],
-        "title": "FLBracketFaultOccupant",
-        "type": "object"
-      },
-      "FLBracketFaultQuelle": {
-        "description": "One bracket slot whose `spiel` reference names a match that cannot feed it.\n\nEach leaves the slot as it stands, and a cycle is reported on every fixture it reaches.",
-        "properties": {
-          "quelle_spiel_nr": {
-            "exclusiveMinimum": 0.0,
-            "title": "Quelle Spiel Nr",
-            "type": "integer"
-          },
-          "reason": {
-            "enum": [
-              "spiel_missing",
-              "reference_cycle",
-              "gruppenphase_feeder",
-              "feeder_not_played_first"
-            ],
-            "title": "Reason",
-            "type": "string"
-          },
-          "spiel_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spiel Id",
-            "type": "string"
-          },
-          "spiel_nr": {
-            "exclusiveMinimum": 0.0,
-            "title": "Spiel Nr",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "spiel_id",
-          "spiel_nr",
-          "reason",
-          "quelle_spiel_nr"
-        ],
-        "title": "FLBracketFaultQuelle",
-        "type": "object"
-      },
-      "FLBracketFaultSlot": {
-        "description": "One slot carrying a reference it must not carry, whatever that reference names.",
-        "properties": {
-          "quelle": {
-            "$ref": "#/components/schemas/FLSpielQuelle"
-          },
-          "reason": {
-            "enum": [
-              "gruppenphase_spiel_wired",
-              "source_feeds_another_spiel"
-            ],
-            "title": "Reason",
-            "type": "string"
-          },
-          "side": {
-            "$ref": "#/components/schemas/FLSpielSide"
-          },
-          "spiel_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spiel Id",
-            "type": "string"
-          },
-          "spiel_nr": {
-            "exclusiveMinimum": 0.0,
-            "title": "Spiel Nr",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "spiel_id",
-          "spiel_nr",
-          "reason",
-          "side",
-          "quelle"
-        ],
-        "title": "FLBracketFaultSlot",
-        "type": "object"
-      },
-      "FLBracketFaultSpiel": {
-        "description": "One fixture whose two references resolve to the same club; the fixture keeps its stored sides.",
-        "properties": {
-          "reason": {
-            "const": "same_team",
-            "title": "Reason",
-            "type": "string"
-          },
-          "spiel_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spiel Id",
-            "type": "string"
-          },
-          "spiel_nr": {
-            "exclusiveMinimum": 0.0,
-            "title": "Spiel Nr",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "spiel_id",
-          "spiel_nr",
-          "reason"
-        ],
-        "title": "FLBracketFaultSpiel",
-        "type": "object"
-      },
-      "FLBracketFaultSpieltag": {
-        "description": "A club standing more than once on one Spieltag, one entry per appearance.",
-        "properties": {
-          "reason": {
-            "const": "fielded_twice",
-            "title": "Reason",
-            "type": "string"
-          },
-          "side": {
-            "$ref": "#/components/schemas/FLSpielSide"
-          },
-          "spiel_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spiel Id",
-            "type": "string"
-          },
-          "spiel_nr": {
-            "exclusiveMinimum": 0.0,
-            "title": "Spiel Nr",
-            "type": "integer"
-          },
-          "spieltag_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spieltag Id",
-            "type": "string"
-          },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
-            "type": "string"
-          },
-          "team_name": {
-            "minLength": 1,
-            "title": "Team Name",
-            "type": "string"
-          }
-        },
-        "required": [
-          "spiel_id",
-          "spiel_nr",
-          "reason",
-          "spieltag_id",
-          "side",
-          "team_id",
-          "team_name"
-        ],
-        "title": "FLBracketFaultSpieltag",
-        "type": "object"
-      },
       "FLByAdmin": {
         "description": "An administrator's act, naming nobody: the record keeps how a thing was settled, not who typed it.",
         "properties": {
@@ -5831,47 +5398,6 @@
         "const": 254,
         "type": "integer"
       },
-      "FLKontaktKenntnisnahme": {
-        "description": "The scope this person's record is held on, the day they were seated, and what they answered.\n\nKenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(f), the optional WhatsApp scope and the media\nanswer alone being consents under Art. 6(1)(a), and a pupil's consent record holds other values entirely.",
-        "properties": {
-          "confirmed_at": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Confirmed At"
-          },
-          "date": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Date",
-            "type": "string"
-          },
-          "evidence": {
-            "$ref": "#/components/schemas/FLEinwilligungEvidenceSet"
-          },
-          "media": {
-            "title": "Media",
-            "type": "boolean"
-          },
-          "scope": {
-            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeScope"
-          }
-        },
-        "required": [
-          "scope",
-          "date",
-          "confirmed_at",
-          "media",
-          "evidence"
-        ],
-        "title": "FLKontaktKenntnisnahme",
-        "type": "object"
-      },
       "FLKontaktKenntnisnahmeAdmin": {
         "description": "What a seat's person answered, as the team editor reads it: the day they confirmed and their two choices, never the evidence.",
         "properties": {
@@ -6075,54 +5601,6 @@
           "email"
         ],
         "title": "FLKontaktSeatResponse",
-        "type": "object"
-      },
-      "FLKontaktperson": {
-        "description": "One person the league reaches this team through, for one season.",
-        "properties": {
-          "birth_date": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Birth Date"
-          },
-          "einwilligung": {
-            "$ref": "#/components/schemas/FLKontaktKenntnisnahme"
-          },
-          "email": {
-            "title": "Email",
-            "type": "string"
-          },
-          "first_name": {
-            "minLength": 1,
-            "title": "First Name",
-            "type": "string"
-          },
-          "last_name": {
-            "minLength": 1,
-            "title": "Last Name",
-            "type": "string"
-          },
-          "phone": {
-            "title": "Phone",
-            "type": "string"
-          }
-        },
-        "required": [
-          "first_name",
-          "last_name",
-          "email",
-          "phone",
-          "birth_date",
-          "einwilligung"
-        ],
-        "title": "FLKontaktperson",
         "type": "object"
       },
       "FLKontaktpersonAdmin": {
@@ -7236,7 +6714,7 @@
         "description": "One derived fault of the season's bracket or bookings, on the fixture it names.",
         "properties": {
           "fault": {
-            "$ref": "#/components/schemas/FLBracketFault"
+            "$ref": "#/components/schemas/FLOverviewFault"
           },
           "kind": {
             "const": "bracket_fault",
@@ -7284,6 +6762,154 @@
           "bewerbungen"
         ],
         "type": "string"
+      },
+      "FLOverviewFault": {
+        "discriminator": {
+          "mapping": {
+            "departed_occupant": "#/components/schemas/FLOverviewFaultDeparted",
+            "double_booked": "#/components/schemas/FLOverviewFaultBooking",
+            "fielded_twice": "#/components/schemas/FLOverviewFaultFieldedTwice",
+            "gruppe_too_small": "#/components/schemas/FLOverviewFaultPlatz",
+            "retired_booking": "#/components/schemas/FLOverviewFaultBooking",
+            "tie_unresolved": "#/components/schemas/FLOverviewFaultPlatz",
+            "wiring": "#/components/schemas/FLOverviewFaultWiring"
+          },
+          "propertyName": "reason"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/FLOverviewFaultPlatz"
+          },
+          {
+            "$ref": "#/components/schemas/FLOverviewFaultWiring"
+          },
+          {
+            "$ref": "#/components/schemas/FLOverviewFaultDeparted"
+          },
+          {
+            "$ref": "#/components/schemas/FLOverviewFaultFieldedTwice"
+          },
+          {
+            "$ref": "#/components/schemas/FLOverviewFaultBooking"
+          }
+        ]
+      },
+      "FLOverviewFaultBooking": {
+        "description": "A venue or a referee the fixture books that has retired, or that another fixture holds at the same hour.",
+        "properties": {
+          "booking": {
+            "$ref": "#/components/schemas/FLBookingResource"
+          },
+          "reason": {
+            "enum": [
+              "retired_booking",
+              "double_booked"
+            ],
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "booking"
+        ],
+        "title": "FLOverviewFaultBooking",
+        "type": "object"
+      },
+      "FLOverviewFaultDeparted": {
+        "description": "A club fielded on or after the day it left the season, by its name, the way it left and that day.",
+        "properties": {
+          "austritt_type": {
+            "$ref": "#/components/schemas/FLAustrittType"
+          },
+          "exited_since": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Exited Since",
+            "type": "string"
+          },
+          "reason": {
+            "const": "departed_occupant",
+            "title": "Reason",
+            "type": "string"
+          },
+          "team_name": {
+            "minLength": 1,
+            "title": "Team Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "team_name",
+          "austritt_type",
+          "exited_since"
+        ],
+        "title": "FLOverviewFaultDeparted",
+        "type": "object"
+      },
+      "FLOverviewFaultFieldedTwice": {
+        "description": "A club standing on another fixture of the same Spieltag too, by its name.",
+        "properties": {
+          "reason": {
+            "const": "fielded_twice",
+            "title": "Reason",
+            "type": "string"
+          },
+          "team_name": {
+            "minLength": 1,
+            "title": "Team Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "team_name"
+        ],
+        "title": "FLOverviewFaultFieldedTwice",
+        "type": "object"
+      },
+      "FLOverviewFaultPlatz": {
+        "description": "A placing a slot waits on that its group cannot hand it: the group holds too few clubs, or no rule breaks a tie.",
+        "properties": {
+          "gruppe": {
+            "$ref": "#/components/schemas/FLGruppenNames"
+          },
+          "platz": {
+            "exclusiveMinimum": 0.0,
+            "title": "Platz",
+            "type": "integer"
+          },
+          "reason": {
+            "enum": [
+              "gruppe_too_small",
+              "tie_unresolved"
+            ],
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "gruppe",
+          "platz"
+        ],
+        "title": "FLOverviewFaultPlatz",
+        "type": "object"
+      },
+      "FLOverviewFaultWiring": {
+        "description": "Wiring of the bracket the season cannot hold, whatever its shape.",
+        "properties": {
+          "reason": {
+            "const": "wiring",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "FLOverviewFaultWiring",
+        "type": "object"
       },
       "FLOverviewGapKind": {
         "enum": [
@@ -9088,7 +8714,7 @@
         "type": "object"
       },
       "FLSaisonAdmin": {
-        "description": "The same season for the admin surfaces, with whether it has started and whether a fixture of it has taken place.",
+        "description": "The season as its editor reads it, with whether it has started, whether a fixture of it has taken place and whether it is decided.",
         "properties": {
           "begun": {
             "title": "Begun",
@@ -9160,8 +8786,8 @@
           "status",
           "version",
           "begun",
-          "taken_place",
-          "decided"
+          "decided",
+          "taken_place"
         ],
         "title": "FLSaisonAdmin",
         "type": "object"
@@ -9192,7 +8818,7 @@
         "type": "object"
       },
       "FLSaisonAdminListed": {
-        "description": "One season as the admin list shows it: the editor's season and how many clubs and matches it holds.",
+        "description": "One season as the admin list shows it: whether it has started and is decided, and how many clubs and matches it holds.",
         "properties": {
           "begun": {
             "title": "Begun",
@@ -9254,10 +8880,6 @@
           "status": {
             "$ref": "#/components/schemas/FLSaisonStatus"
           },
-          "taken_place": {
-            "title": "Taken Place",
-            "type": "boolean"
-          },
           "version": {
             "default": 0,
             "title": "Version",
@@ -9274,7 +8896,6 @@
           "status",
           "version",
           "begun",
-          "taken_place",
           "decided",
           "count_teams",
           "count_spiele"
@@ -9815,59 +9436,6 @@
           "austritt_type"
         ],
         "title": "FLSaisonTeamEntry",
-        "type": "object"
-      },
-      "FLSaisonTeamKontakte": {
-        "description": "The three people a team is reached through, for one season.\n\nOn the junction rather than the club: a school's staff turns over between seasons, and a\nfinished season keeps those who confirmed their seat.",
-        "properties": {
-          "ansprechperson": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLKontaktperson"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "stellvertretung": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLKontaktperson"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "trainer": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLKontaktperson"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "trainer_is_also": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLTrainerAlso"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "trainer",
-          "ansprechperson",
-          "stellvertretung",
-          "trainer_is_also"
-        ],
-        "title": "FLSaisonTeamKontakte",
         "type": "object"
       },
       "FLSaisonTeamKontakteAdmin": {
@@ -10826,7 +10394,7 @@
           },
           "named": {
             "items": {
-              "$ref": "#/components/schemas/FLSpielberichtSpieler"
+              "$ref": "#/components/schemas/FLSpielEditorSpieler"
             },
             "title": "Named",
             "type": "array"
@@ -10899,6 +10467,45 @@
           "inactive_since"
         ],
         "title": "FLSpielEditorSchiedsrichter",
+        "type": "object"
+      },
+      "FLSpielEditorSpieler": {
+        "description": "A pupil a goal names, by the names their record holds, both null where no record holds the pupil.",
+        "properties": {
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
+          },
+          "spieler_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spieler Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "spieler_id",
+          "first_name",
+          "last_name"
+        ],
+        "title": "FLSpielEditorSpieler",
         "type": "object"
       },
       "FLSpielEditorSpielort": {
@@ -11975,7 +11582,7 @@
         "type": "object"
       },
       "FLSpielSchiedsrichterFieldPublic": {
-        "description": "The referee as the public reads serve it: a forename and a surname initial where they consented, else no name.\n\nNeither the payment nor the referee's id is served.",
+        "description": "The referee as the public reads serve it: a forename and a surname initial where they consented, else no name.\n\nNeither the payment, the referee's id nor the consent deciding the name is served: the name is the answer.",
         "properties": {
           "name": {
             "anyOf": [
@@ -11988,16 +11595,10 @@
               }
             ],
             "title": "Name"
-          },
-          "name_is_public": {
-            "default": false,
-            "title": "Name Is Public",
-            "type": "boolean"
           }
         },
         "required": [
-          "name",
-          "name_is_public"
+          "name"
         ],
         "title": "FLSpielSchiedsrichterFieldPublic",
         "type": "object"

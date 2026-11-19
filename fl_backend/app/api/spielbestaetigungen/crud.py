@@ -273,6 +273,38 @@ async def owe_the_austritt_notices_in_session(
 AUSTRITT_RECIPIENT_SPIEL_FIELDS: Final = [*AUSTRITT_SPIEL_FIELDS, "spielort.spielort_id", "schiedsrichter.schiedsrichter_id"]
 
 
+async def pull_party_names(
+    *,
+    parties: Sequence[Mapping[str, Any]],
+    club_names: Mapping[Any, str | None],
+    schiedsrichter_collection: ReadCollection,
+    session: AsyncClientSession,
+) -> dict[tuple[str, Any], str | None]:
+    """The name each of `parties` holds on its own record: a club its season row's, read by the caller, a referee their own.
+
+    The one lookup a dry run's and an exit's recipients are named by, so `recipients_named` reads one map of one shape.
+    """
+
+    referee_ids = list({party["schiedsrichter_id"] for party in parties if party["kind"] == "schiedsrichter"})
+    referees = (
+        await pull_many_from_db(
+            collection=schiedsrichter_collection,
+            db_filter={"_id": {"$in": referee_ids}},
+            projection={"name": 1},
+            # `_id` is unique, so `len(referee_ids)` rows is the whole answer.
+            limit=len(referee_ids),
+            session=session,
+        )
+        if referee_ids
+        else []
+    )
+
+    return {
+        **{("team", team_id): name for team_id, name in club_names.items()},
+        **{("schiedsrichter", row["_id"]): row["name"] for row in referees},
+    }
+
+
 async def pull_austritt_recipients(
     *,
     spiele_collection: ReadCollection,
@@ -313,23 +345,12 @@ async def pull_austritt_recipients(
     )
     reached = austritt_recipients_of(team_id=team_id, spiele=spiele, junctions=junctions, rows=rows, now=now)
 
-    referee_ids = list({party["schiedsrichter_id"] for _, party in reached if party["kind"] == "schiedsrichter"})
-    referees = (
-        await pull_many_from_db(
-            collection=schiedsrichter_collection,
-            db_filter={"_id": {"$in": referee_ids}},
-            projection={"name": 1},
-            # `_id` is unique, so `len(referee_ids)` rows is the whole answer.
-            limit=len(referee_ids),
-            session=session,
-        )
-        if referee_ids
-        else []
+    names = await pull_party_names(
+        parties=[party for _, party in reached],
+        club_names={junction_team_id: row.get("name") for junction_team_id, row in junctions.items()},
+        schiedsrichter_collection=schiedsrichter_collection,
+        session=session,
     )
-    names = {
-        **{("team", junction_team_id): row.get("name") for junction_team_id, row in junctions.items()},
-        **{("schiedsrichter", row["_id"]): row["name"] for row in referees},
-    }
 
     by_day: dict[str | None, list[Mapping[str, Any]]] = {}
     for day, party in reached:

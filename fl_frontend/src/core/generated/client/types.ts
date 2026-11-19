@@ -1344,59 +1344,24 @@ export interface FLBewerbungKader {
   good_spieler: number;
 }
 
-export type FLSeatScopeTextVersion = "2026-11-whatsapp-1";
-
-export type FLSchiedsrichterScopeTextVersion = "2026-11-name-spielplan-1";
-
-export type FLEinwilligungTextVersion =
-  FLSeatScopeTextVersion | FLSpielerScopeTextVersion | FLSchiedsrichterScopeTextVersion | FLCitedMediaTextVersion;
-
 /**
- * When a person set one consent choice, and under which wording.
+ * What a seat's person answered, as the team editor reads it: the day they confirmed and their two choices, never the evidence.
  */
-export interface FLEinwilligungReceipt {
-  at: string;
-  text_version: FLEinwilligungTextVersion;
-}
-
-/**
- * The evidence one consent choice keeps: the act that set its value, and on a withdrawal the grant it ended.
- */
-export interface FLEinwilligungEvidence {
-  at: string;
-  given_before: FLEinwilligungReceipt | null;
-  text_version: FLEinwilligungTextVersion;
-}
-
-/**
- * Each choice's evidence, null until its person sets it: a record no person has answered carries none.
- */
-export interface FLEinwilligungEvidenceSet {
-  media: FLEinwilligungEvidence | null;
-  scope: FLEinwilligungEvidence | null;
-}
-
-/**
- * The scope this person's record is held on, the day they were seated, and what they answered.
- *
- * Kenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(f), the optional WhatsApp scope and the media
- * answer alone being consents under Art. 6(1)(a), and a pupil's consent record holds other values entirely.
- */
-export interface FLKontaktKenntnisnahme {
+export interface FLKontaktKenntnisnahmeAdmin {
   confirmed_at: string | null;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  date: string;
-  evidence: FLEinwilligungEvidenceSet;
   media: boolean;
   scope: FLKontaktKenntnisnahmeScope;
 }
 
 /**
- * One person the league reaches this team through, for one season.
+ * One seat's person as the team editor reads them.
+ *
+ * No birthdate: it is asked once for the age check, and no page of the administration shows it. Declared apart from
+ * the stored seat rather than derived from it, since what a page reads and what the league keeps change for different
+ * reasons.
  */
-export interface FLKontaktperson {
-  birth_date: string | null;
-  einwilligung: FLKontaktKenntnisnahme;
+export interface FLKontaktpersonAdmin {
+  einwilligung: FLKontaktKenntnisnahmeAdmin;
   email: string;
   /** @minLength 1 */
   first_name: string;
@@ -1413,15 +1378,12 @@ export const FLTrainerAlso = {
 } as const;
 
 /**
- * The three people a team is reached through, for one season.
- *
- * On the junction rather than the club: a school's staff turns over between seasons, and a
- * finished season keeps those who confirmed their seat.
+ * The three seats as the team editor reads them, nullable per slot as stored.
  */
-export interface FLSaisonTeamKontakte {
-  ansprechperson: FLKontaktperson | null;
-  stellvertretung: FLKontaktperson | null;
-  trainer: FLKontaktperson | null;
+export interface FLSaisonTeamKontakteAdmin {
+  ansprechperson: FLKontaktpersonAdmin | null;
+  stellvertretung: FLKontaktpersonAdmin | null;
+  trainer: FLKontaktpersonAdmin | null;
   trainer_is_also: FLTrainerAlso | null;
 }
 
@@ -1476,7 +1438,7 @@ export interface FLBewerbung {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
   kader: FLBewerbungKader;
-  kontakte: FLSaisonTeamKontakte;
+  kontakte: FLSaisonTeamKontakteAdmin;
   saison_id: string;
   schule: FLBewerbungSchule | null;
   status: FLBewerbungStatus;
@@ -1545,6 +1507,8 @@ export interface FLBewerbungEinwilligungDeclined {
    */
   token: string;
 }
+
+export type FLSeatScopeTextVersion = "2026-11-whatsapp-1";
 
 /**
  * A contact seat's two wordings: the WhatsApp switch and the media switch.
@@ -1939,259 +1903,6 @@ export const FLBookingResource = {
   schiedsrichter: "schiedsrichter",
 } as const;
 
-export type FLBracketFaultGruppeReason = (typeof FLBracketFaultGruppeReason)[keyof typeof FLBracketFaultGruppeReason];
-
-export const FLBracketFaultGruppeReason = {
-  gruppe_not_run: "gruppe_not_run",
-  gruppe_too_small: "gruppe_too_small",
-  seed_past_the_opening_round: "seed_past_the_opening_round",
-  tie_unresolved: "tie_unresolved",
-} as const;
-
-/**
- * One bracket slot whose `gruppe` reference names a placing no standing will hand it.
- *
- * `tie_unresolved` alone empties the slot: every other reason names wiring the season cannot hold,
- * and a slot is never emptied over one.
- */
-export interface FLBracketFaultGruppe {
-  gruppe: FLGruppenNames;
-  /** @exclusiveMinimum 0 */
-  platz: number;
-  reason: FLBracketFaultGruppeReason;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-  /** @exclusiveMinimum 0 */
-  spiel_nr: number;
-}
-
-export type FLBracketFaultQuelleReason = (typeof FLBracketFaultQuelleReason)[keyof typeof FLBracketFaultQuelleReason];
-
-export const FLBracketFaultQuelleReason = {
-  feeder_not_played_first: "feeder_not_played_first",
-  gruppenphase_feeder: "gruppenphase_feeder",
-  reference_cycle: "reference_cycle",
-  spiel_missing: "spiel_missing",
-} as const;
-
-/**
- * One bracket slot whose `spiel` reference names a match that cannot feed it.
- *
- * Each leaves the slot as it stands, and a cycle is reported on every fixture it reaches.
- */
-export interface FLBracketFaultQuelle {
-  /** @exclusiveMinimum 0 */
-  quelle_spiel_nr: number;
-  reason: FLBracketFaultQuelleReason;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-  /** @exclusiveMinimum 0 */
-  spiel_nr: number;
-}
-
-export type FLBracketFaultSpielReason = (typeof FLBracketFaultSpielReason)[keyof typeof FLBracketFaultSpielReason];
-
-export const FLBracketFaultSpielReason = {
-  same_team: "same_team",
-} as const;
-
-/**
- * One fixture whose two references resolve to the same club; the fixture keeps its stored sides.
- */
-export interface FLBracketFaultSpiel {
-  reason: FLBracketFaultSpielReason;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-  /** @exclusiveMinimum 0 */
-  spiel_nr: number;
-}
-
-export type FLSpielQuelleGruppeType = (typeof FLSpielQuelleGruppeType)[keyof typeof FLSpielQuelleGruppeType];
-
-export const FLSpielQuelleGruppeType = {
-  gruppe: "gruppe",
-} as const;
-
-/**
- * A slot fed by the group phase: the team finishing `platz` in `gruppe`.
- */
-export interface FLSpielQuelleGruppe {
-  gruppe: FLGruppenNames;
-  /** @exclusiveMinimum 0 */
-  platz: number;
-  type: FLSpielQuelleGruppeType;
-}
-
-export type FLSpielQuelleSpielAusgang = (typeof FLSpielQuelleSpielAusgang)[keyof typeof FLSpielQuelleSpielAusgang];
-
-export const FLSpielQuelleSpielAusgang = {
-  sieger: "sieger",
-  verlierer: "verlierer",
-} as const;
-
-export type FLSpielQuelleSpielType = (typeof FLSpielQuelleSpielType)[keyof typeof FLSpielQuelleSpielType];
-
-export const FLSpielQuelleSpielType = {
-  spiel: "spiel",
-} as const;
-
-/**
- * A slot fed by an earlier fixture: the side that came out of match `spiel_nr` as `ausgang`.
- */
-export interface FLSpielQuelleSpiel {
-  ausgang: FLSpielQuelleSpielAusgang;
-  /** @exclusiveMinimum 0 */
-  spiel_nr: number;
-  type: FLSpielQuelleSpielType;
-}
-
-export type FLSpielQuelle = FLSpielQuelleGruppe | FLSpielQuelleSpiel;
-
-export type FLBracketFaultSlotReason = (typeof FLBracketFaultSlotReason)[keyof typeof FLBracketFaultSlotReason];
-
-export const FLBracketFaultSlotReason = {
-  gruppenphase_spiel_wired: "gruppenphase_spiel_wired",
-  source_feeds_another_spiel: "source_feeds_another_spiel",
-} as const;
-
-export type FLSpielSide = (typeof FLSpielSide)[keyof typeof FLSpielSide];
-
-export const FLSpielSide = {
-  team1: "team1",
-  team2: "team2",
-} as const;
-
-/**
- * One slot carrying a reference it must not carry, whatever that reference names.
- */
-export interface FLBracketFaultSlot {
-  quelle: FLSpielQuelle;
-  reason: FLBracketFaultSlotReason;
-  side: FLSpielSide;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-  /** @exclusiveMinimum 0 */
-  spiel_nr: number;
-}
-
-export type FLBracketFaultOccupantReason = (typeof FLBracketFaultOccupantReason)[keyof typeof FLBracketFaultOccupantReason];
-
-export const FLBracketFaultOccupantReason = {
-  departed_occupant: "departed_occupant",
-} as const;
-
-/**
- * One fixture fielding a team on or after the day it left the season, or undated, with no recorded absence excusing it.
- *
- * Nothing is emptied.
- */
-export interface FLBracketFaultOccupant {
-  austritt_type: FLAustrittType;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  exited_since: string;
-  reason: FLBracketFaultOccupantReason;
-  side: FLSpielSide;
-  spiel_date: string | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-  /** @exclusiveMinimum 0 */
-  spiel_nr: number;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-  /** @minLength 1 */
-  team_name: string;
-}
-
-export type FLBracketFaultSpieltagReason = (typeof FLBracketFaultSpieltagReason)[keyof typeof FLBracketFaultSpieltagReason];
-
-export const FLBracketFaultSpieltagReason = {
-  fielded_twice: "fielded_twice",
-} as const;
-
-/**
- * A club standing more than once on one Spieltag, one entry per appearance.
- */
-export interface FLBracketFaultSpieltag {
-  reason: FLBracketFaultSpieltagReason;
-  side: FLSpielSide;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-  /** @exclusiveMinimum 0 */
-  spiel_nr: number;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spieltag_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-  /** @minLength 1 */
-  team_name: string;
-}
-
-export type FLBracketFaultBookingReason = (typeof FLBracketFaultBookingReason)[keyof typeof FLBracketFaultBookingReason];
-
-export const FLBracketFaultBookingReason = {
-  retired_booking: "retired_booking",
-} as const;
-
-/**
- * A fixture still to be played booked onto a retired venue or referee.
- *
- * Nothing is taken off: only a person chooses between reactivating the row and booking another.
- */
-export interface FLBracketFaultBooking {
-  booking: FLBookingResource;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  booking_id: string;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  inactive_since: string;
-  name: string;
-  reason: FLBracketFaultBookingReason;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-  /** @exclusiveMinimum 0 */
-  spiel_nr: number;
-}
-
-export type FLBracketFaultClashReason = (typeof FLBracketFaultClashReason)[keyof typeof FLBracketFaultClashReason];
-
-export const FLBracketFaultClashReason = {
-  double_booked: "double_booked",
-} as const;
-
-/**
- * A venue or referee claimed less than four hours from another fixture's claim, one entry per claim.
- *
- * It names the fixture a save's clash refusal names.
- */
-export interface FLBracketFaultClash {
-  booking: FLBookingResource;
-  name: string | null;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  other_date: string;
-  other_saison_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  other_spiel_id: string;
-  /** @exclusiveMinimum 0 */
-  other_spiel_nr: number;
-  /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$ */
-  other_time: string;
-  reason: FLBracketFaultClashReason;
-  saison_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-  /** @exclusiveMinimum 0 */
-  spiel_nr: number;
-}
-
-export type FLBracketFault =
-  | FLBracketFaultGruppe
-  | FLBracketFaultQuelle
-  | FLBracketFaultSpiel
-  | FLBracketFaultSlot
-  | FLBracketFaultOccupant
-  | FLBracketFaultSpieltag
-  | FLBracketFaultBooking
-  | FLBracketFaultClash;
-
 export type FLByAdminKind = (typeof FLByAdminKind)[keyof typeof FLByAdminKind];
 
 export const FLByAdminKind = {
@@ -2256,6 +1967,36 @@ export interface FLDeletionNoticeData {
 }
 
 export type FLDeliveryDeadlineDays = 2;
+
+export type FLSchiedsrichterScopeTextVersion = "2026-11-name-spielplan-1";
+
+export type FLEinwilligungTextVersion =
+  FLSeatScopeTextVersion | FLSpielerScopeTextVersion | FLSchiedsrichterScopeTextVersion | FLCitedMediaTextVersion;
+
+/**
+ * When a person set one consent choice, and under which wording.
+ */
+export interface FLEinwilligungReceipt {
+  at: string;
+  text_version: FLEinwilligungTextVersion;
+}
+
+/**
+ * The evidence one consent choice keeps: the act that set its value, and on a withdrawal the grant it ended.
+ */
+export interface FLEinwilligungEvidence {
+  at: string;
+  given_before: FLEinwilligungReceipt | null;
+  text_version: FLEinwilligungTextVersion;
+}
+
+/**
+ * Each choice's evidence, null until its person sets it: a record no person has answered carries none.
+ */
+export interface FLEinwilligungEvidenceSet {
+  media: FLEinwilligungEvidence | null;
+  scope: FLEinwilligungEvidence | null;
+}
 
 /**
  * What this person agreed may be published about them.
@@ -2616,11 +2357,10 @@ export interface FLSpielElfmeterschiessen {
 /**
  * The referee as the public reads serve it: a forename and a surname initial where they consented, else no name.
  *
- * Neither the payment nor the referee's id is served.
+ * Neither the payment, the referee's id nor the consent deciding the name is served: the name is the answer.
  */
 export interface FLSpielSchiedsrichterFieldPublic {
   name: string | null;
-  name_is_public: boolean;
 }
 
 /**
@@ -2648,6 +2388,47 @@ export interface FLSpielTeamFieldJoined {
   team_id: string;
   tore: number | null;
 }
+
+export type FLSpielQuelleGruppeType = (typeof FLSpielQuelleGruppeType)[keyof typeof FLSpielQuelleGruppeType];
+
+export const FLSpielQuelleGruppeType = {
+  gruppe: "gruppe",
+} as const;
+
+/**
+ * A slot fed by the group phase: the team finishing `platz` in `gruppe`.
+ */
+export interface FLSpielQuelleGruppe {
+  gruppe: FLGruppenNames;
+  /** @exclusiveMinimum 0 */
+  platz: number;
+  type: FLSpielQuelleGruppeType;
+}
+
+export type FLSpielQuelleSpielAusgang = (typeof FLSpielQuelleSpielAusgang)[keyof typeof FLSpielQuelleSpielAusgang];
+
+export const FLSpielQuelleSpielAusgang = {
+  sieger: "sieger",
+  verlierer: "verlierer",
+} as const;
+
+export type FLSpielQuelleSpielType = (typeof FLSpielQuelleSpielType)[keyof typeof FLSpielQuelleSpielType];
+
+export const FLSpielQuelleSpielType = {
+  spiel: "spiel",
+} as const;
+
+/**
+ * A slot fed by an earlier fixture: the side that came out of match `spiel_nr` as `ausgang`.
+ */
+export interface FLSpielQuelleSpiel {
+  ausgang: FLSpielQuelleSpielAusgang;
+  /** @exclusiveMinimum 0 */
+  spiel_nr: number;
+  type: FLSpielQuelleSpielType;
+}
+
+export type FLSpielQuelle = FLSpielQuelleGruppe | FLSpielQuelleSpiel;
 
 /**
  * One fixture as the public reads serve it, each side with its club's standing in the season.
@@ -2715,15 +2496,6 @@ export interface FLKoRundeResponse {
 export type FLKontaktEmailMaxLength = 254;
 
 /**
- * What a seat's person answered, as the team editor reads it: the day they confirmed and their two choices, never the evidence.
- */
-export interface FLKontaktKenntnisnahmeAdmin {
-  confirmed_at: string | null;
-  media: boolean;
-  scope: FLKontaktKenntnisnahmeScope;
-}
-
-/**
  * One person an administrator seated on a team's season row, asked to confirm.
  */
 export interface FLKontaktLinkData {
@@ -2773,23 +2545,6 @@ export interface FLKontaktSeatPayload {
  */
 export interface FLKontaktSeatResponse {
   email: string | null;
-}
-
-/**
- * One seat's person as the team editor reads them.
- *
- * No birthdate: it is asked once for the age check, and no page of the administration shows it. Declared apart from
- * the stored seat rather than derived from it, since what a page reads and what the league keeps change for different
- * reasons.
- */
-export interface FLKontaktpersonAdmin {
-  einwilligung: FLKontaktKenntnisnahmeAdmin;
-  email: string;
-  /** @minLength 1 */
-  first_name: string;
-  /** @minLength 1 */
-  last_name: string;
-  phone: string;
 }
 
 /**
@@ -3254,6 +3009,87 @@ export const FLOverviewBracketFaultRowKind = {
   bracket_fault: "bracket_fault",
 } as const;
 
+export type FLOverviewFaultPlatzReason = (typeof FLOverviewFaultPlatzReason)[keyof typeof FLOverviewFaultPlatzReason];
+
+export const FLOverviewFaultPlatzReason = {
+  gruppe_too_small: "gruppe_too_small",
+  tie_unresolved: "tie_unresolved",
+} as const;
+
+/**
+ * A placing a slot waits on that its group cannot hand it: the group holds too few clubs, or no rule breaks a tie.
+ */
+export interface FLOverviewFaultPlatz {
+  gruppe: FLGruppenNames;
+  /** @exclusiveMinimum 0 */
+  platz: number;
+  reason: FLOverviewFaultPlatzReason;
+}
+
+export type FLOverviewFaultWiringReason = (typeof FLOverviewFaultWiringReason)[keyof typeof FLOverviewFaultWiringReason];
+
+export const FLOverviewFaultWiringReason = {
+  wiring: "wiring",
+} as const;
+
+/**
+ * Wiring of the bracket the season cannot hold, whatever its shape.
+ */
+export interface FLOverviewFaultWiring {
+  reason: FLOverviewFaultWiringReason;
+}
+
+export type FLOverviewFaultDepartedReason = (typeof FLOverviewFaultDepartedReason)[keyof typeof FLOverviewFaultDepartedReason];
+
+export const FLOverviewFaultDepartedReason = {
+  departed_occupant: "departed_occupant",
+} as const;
+
+/**
+ * A club fielded on or after the day it left the season, by its name, the way it left and that day.
+ */
+export interface FLOverviewFaultDeparted {
+  austritt_type: FLAustrittType;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  exited_since: string;
+  reason: FLOverviewFaultDepartedReason;
+  /** @minLength 1 */
+  team_name: string;
+}
+
+export type FLOverviewFaultFieldedTwiceReason = (typeof FLOverviewFaultFieldedTwiceReason)[keyof typeof FLOverviewFaultFieldedTwiceReason];
+
+export const FLOverviewFaultFieldedTwiceReason = {
+  fielded_twice: "fielded_twice",
+} as const;
+
+/**
+ * A club standing on another fixture of the same Spieltag too, by its name.
+ */
+export interface FLOverviewFaultFieldedTwice {
+  reason: FLOverviewFaultFieldedTwiceReason;
+  /** @minLength 1 */
+  team_name: string;
+}
+
+export type FLOverviewFaultBookingReason = (typeof FLOverviewFaultBookingReason)[keyof typeof FLOverviewFaultBookingReason];
+
+export const FLOverviewFaultBookingReason = {
+  double_booked: "double_booked",
+  retired_booking: "retired_booking",
+} as const;
+
+/**
+ * A venue or a referee the fixture books that has retired, or that another fixture holds at the same hour.
+ */
+export interface FLOverviewFaultBooking {
+  booking: FLBookingResource;
+  reason: FLOverviewFaultBookingReason;
+}
+
+export type FLOverviewFault =
+  FLOverviewFaultPlatz | FLOverviewFaultWiring | FLOverviewFaultDeparted | FLOverviewFaultFieldedTwice | FLOverviewFaultBooking;
+
 /**
  * The referee as the admin reads serve them: the whole name and the payment.
  */
@@ -3317,7 +3153,7 @@ export interface FLSpielJoinedAdmin {
  * One derived fault of the season's bracket or bookings, on the fixture it names.
  */
 export interface FLOverviewBracketFaultRow {
-  fault: FLBracketFault;
+  fault: FLOverviewFault;
   kind: FLOverviewBracketFaultRowKind;
   spiel: FLSpielJoinedAdmin;
 }
@@ -4036,7 +3872,7 @@ export interface FLSaisonBewerbung {
 }
 
 /**
- * The same season for the admin surfaces, with whether it has started and whether a fixture of it has taken place.
+ * The season as its editor reads it, with whether it has started, whether a fixture of it has taken place and whether it is decided.
  */
 export interface FLSaisonAdmin {
   begun: boolean;
@@ -4069,7 +3905,7 @@ export interface FLSaisonAdminIncomingTeam {
 }
 
 /**
- * One season as the admin list shows it: the editor's season and how many clubs and matches it holds.
+ * One season as the admin list shows it: whether it has started and is decided, and how many clubs and matches it holds.
  */
 export interface FLSaisonAdminListed {
   begun: boolean;
@@ -4091,7 +3927,6 @@ export interface FLSaisonAdminListed {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   start_date: string;
   status: FLSaisonStatus;
-  taken_place: boolean;
   version: number;
 }
 
@@ -4195,16 +4030,6 @@ export interface FLSaisonTeamConfirmationsView {
   ansprechperson: FLSaisonTeamConfirmationView | null;
   stellvertretung: FLSaisonTeamConfirmationView | null;
   trainer: FLSaisonTeamConfirmationView | null;
-}
-
-/**
- * The three seats as the team editor reads them, nullable per slot as stored.
- */
-export interface FLSaisonTeamKontakteAdmin {
-  ansprechperson: FLKontaktpersonAdmin | null;
-  stellvertretung: FLKontaktpersonAdmin | null;
-  trainer: FLKontaktpersonAdmin | null;
-  trainer_is_also: FLTrainerAlso | null;
 }
 
 /**
@@ -4490,15 +4315,21 @@ export interface FLSpielberichtVorschlag {
 }
 
 /**
- * A pupil a report may name or names, with the names their record holds, both null where no record holds the pupil.
+ * A pupil a goal names, by the names their record holds, both null where no record holds the pupil.
  */
-export interface FLSpielberichtSpieler {
+export interface FLSpielEditorSpieler {
   first_name: string | null;
   last_name: string | null;
-  nummer: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieler_id: string;
 }
+
+export type FLSpielSide = (typeof FLSpielSide)[keyof typeof FLSpielSide];
+
+export const FLSpielSide = {
+  team1: "team1",
+  team2: "team2",
+} as const;
 
 /**
  * One goal. A null `spieler_id` names nobody: a scorer the referee did not name, or a pupil erased since, read alike.
@@ -4529,7 +4360,7 @@ export const FLSpielberichtState = {
  */
 export interface FLSpielEditorBericht {
   ergebnis_vorschlag: FLSpielberichtVorschlag;
-  named: FLSpielberichtSpieler[];
+  named: FLSpielEditorSpieler[];
   scorers: FLSpielberichtScorer[];
   state: FLSpielberichtState;
   version: number;
@@ -4742,6 +4573,17 @@ export interface FLSpielberichtBerichtPayload {
   remarks: string | null;
   /** @maxItems 60 */
   scorers: FLSpielberichtScorerPayload[];
+}
+
+/**
+ * A pupil a report may name or names, with the names their record holds, both null where no record holds the pupil.
+ */
+export interface FLSpielberichtSpieler {
+  first_name: string | null;
+  last_name: string | null;
+  nummer: string | null;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spieler_id: string;
 }
 
 /**

@@ -216,21 +216,6 @@ def find_cancelled_refusal(*, sonderereignis: str | None) -> APIError | None:
     return APIError(HTTPStatus.CONFLICT, Code.BERICHT_CANCELLED)
 
 
-def is_concluded(context: BerichtContext) -> bool:
-    """Whether the fixture's season has ended, after which its referee reads the report and writes it no more."""
-
-    return season_has_ended(saison_status=context.saison_status)
-
-
-def find_saison_ended_refusal(context: BerichtContext) -> APIError | None:
-    """`saison_past`: the referee writes while the fixture's season runs."""
-
-    if not is_concluded(context):
-        return None
-
-    return APIError(HTTPStatus.CONFLICT, Code.SAISON_PAST)
-
-
 def find_elfmeter_in_gruppe_refusal(*, spiel_raw: Mapping[str, Any], payload: FLSpielberichtBerichtPayload) -> APIError | None:
     """`bericht_elfmeter_in_the_gruppe`: a group fixture keeps no shoot-out, so a proposal holding one could never read adopted."""
 
@@ -251,7 +236,7 @@ def takes_a_bericht(spiel_raw: Mapping[str, Any], *, now: datetime) -> bool:
 def kader_is_open(context: BerichtContext, *, now: datetime) -> bool:
     """Whether the referee's form serves both squads to pick from: while the fixture takes a report and its season runs."""
 
-    return takes_a_bericht(context.spiel, now=now) and not is_concluded(context)
+    return takes_a_bericht(context.spiel, now=now) and not season_has_ended(saison_status=context.saison_status)
 
 
 def find_not_in_kader_refusal(*, context: BerichtContext, new: Mapping[FLSpielSide, set[ObjectId]]) -> APIError | None:

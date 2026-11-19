@@ -193,10 +193,11 @@ class TestTheJoinedSideShapes:
 
 
 # The block a published and a withheld referee name are served as. A withheld name reads `name` null, which the
-# frontend words as „anonym“; a published name keeps its surname's initial alone.
+# frontend words as „anonym“; a published name keeps its surname's initial alone. The consent itself is not served:
+# the name it decides is the answer.
 REFEREE_STATES = [
-    pytest.param({"name_is_public": True}, {"name": PUBLIC_SCHIEDSRICHTER_NAME, "name_is_public": True}, id="published"),
-    pytest.param({"name_is_public": False}, {"name": None, "name_is_public": False}, id="withheld"),
+    pytest.param({"name_is_public": True}, {"name": PUBLIC_SCHIEDSRICHTER_NAME}, id="published"),
+    pytest.param({"name_is_public": False}, {"name": None}, id="withheld"),
 ]
 
 # The two base-tier reads listing a season's fixtures, each with the fields its answer holds beside the matchdays.
