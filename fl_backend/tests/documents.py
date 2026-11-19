@@ -129,7 +129,7 @@ def rules_document(**overrides: Any) -> dict[str, Any]:
 
 
 def saison_document(saison_id: str, status: str, **fields: Any) -> dict[str, Any]:
-    """The first half of the id's year, which covers the schedule the default rules imply; no `schedule`, which is derived on read."""
+    """The first half of the id's year, which covers the matchdays the default rules imply."""
 
     return read_back_document(
         Collection.SAISONS,

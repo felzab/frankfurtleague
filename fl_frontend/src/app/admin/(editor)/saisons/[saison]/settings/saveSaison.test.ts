@@ -25,7 +25,6 @@ const STORED: FLSaisonAdmin = {
   },
   bewerbung: { open: true, start: "2027-01-10", end: "2027-02-07" },
   registrierung: { end: "2027-03-05", open: false },
-  schedule: [],
   status: "future",
   begun: false,
   taken_place: false,

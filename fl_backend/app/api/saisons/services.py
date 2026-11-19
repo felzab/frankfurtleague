@@ -14,17 +14,6 @@ from app.core.collections import Collection
 from app.core.exceptions import APIError
 from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus
 
-
-def with_schedule(saison_raw: Mapping[str, Any]) -> dict[str, Any]:
-    """Attach a season's derived `schedule` before validation.
-
-    Injected into the raw document, not computed on the model: `schedule_for` imports
-    `FLSaisonRules`, so a computed field there would close an import cycle.
-    """
-
-    return {**saison_raw, "schedule": [entry.__dict__ for entry in schedule_for(FLSaisonRules.model_validate(saison_raw["rules"]))]}
-
-
 # A season still being drawn up is the base tier's to know nothing about, its very existence included.
 WITHHELD_FROM_BASE_TIER: FLSaisonStatus = "future"
 

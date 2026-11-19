@@ -70,7 +70,6 @@ from app.api.saisons.services import (
     find_undraw_refusal,
     has_started,
     holds_a_recorded_fact,
-    with_schedule,
     workable_shapes,
 )
 from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
@@ -191,7 +190,7 @@ async def get_saisons_admin(
     create_refusal = find_saison_create_refusal(future_stands=future_stands)
     saisons = [
         {
-            **with_schedule(raw),
+            **raw,
             "begun": has_started(start_date=str(raw["start_date"]), today=today),
             "taken_place": raw["_id"] in taken_place,
             "decided": decided_podium(finale_by_saison.get(str(raw["_id"]), [])) is not None,
@@ -291,7 +290,7 @@ async def get_saison_admin(
     entered = {row["team_id"] for row in rows}
     saison = FLSaisonAdmin.model_validate(
         {
-            **with_schedule(saison_raw),
+            **saison_raw,
             "begun": has_started(start_date=str(saison_raw["start_date"]), today=today),
             "taken_place": any(has_taken_place(spiel) for spiel in recorded_rows),
             "decided": decided_podium(finale_by_saison.get(saison_id, [])) is not None,
