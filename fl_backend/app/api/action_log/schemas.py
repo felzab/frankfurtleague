@@ -62,5 +62,8 @@ class FLActionLogListResponse(BaseReadModel):
     action_log: list[FLActionLogEntry]
     # Where the next page starts, null on the last.
     cursor: CustomObjectId | None
+
+
+class FLActionLogByOptionsResponse(BaseReadModel):
     # Every value `by` holds across the whole log, the who filter's options.
     by_options: list[str]

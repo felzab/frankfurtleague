@@ -10,9 +10,7 @@ import type { FLActionLogListResponse } from "@/core/generated/client/types";
 // The log's read alone is answered, with an empty last page, so the real guard, query, generated call and dispatch
 // run, and any other request fails the case.
 const backend = serveBackend(({ method, path }) =>
-  method === "POST" && path === "/action_log/view"
-    ? ({ action_log: [], by_options: [], cursor: null } satisfies FLActionLogListResponse)
-    : undefined,
+  method === "POST" && path === "/action_log/view" ? ({ action_log: [], cursor: null } satisfies FLActionLogListResponse) : undefined,
 );
 // An administrator's session, made by passkey, which the act's guard admits.
 signedInRequest();
