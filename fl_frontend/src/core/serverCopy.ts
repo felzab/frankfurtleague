@@ -58,7 +58,7 @@ const APPLICATION_DEADLINE = {
 };
 const applicationDeadline = (until: CalendarDay) => `${APPLICATION_DEADLINE.before}${formatDateLong(until)}${APPLICATION_DEADLINE.after}`;
 // The same in a pupil's registration, which goes alone.
-const REGISTRATION_DEADLINE = { before: "Bestätigst du nicht bis zum ", after: ", löschen wir deine Registrierung." };
+const REGISTRATION_DEADLINE = { before: "Bestätigst du nicht bis\u00A0zum\u00A0", after: ", löschen wir deine Registrierung." };
 const OBJECTION_RIGHT = {
   before:
     "Du kannst der Verarbeitung deiner Angaben jederzeit widersprechen, aus Gründen, die sich aus deiner besonderen Situation ergeben (Art.\u00A021 DSGVO). Eine formlose E-Mail an\u00A0",
@@ -97,9 +97,6 @@ type RetentionBounds = {
 
 /** A period of whole years as the notice states it, in months: the Protokoll's year reads „12 Monate“. */
 const monthsOf = (years: number) => formatNumber(12 * years);
-
-/** An hour the notice spells out as a word, typed by its figure, so a bound that moves fails the type check here. */
-const HOURS_IN_WORDS = { 1: "eine Stunde" } as const;
 
 /**
  * The catalogue's entries only the server reads, so no client bundle carries them: `COPY` is one object, and a
@@ -958,9 +955,9 @@ export const SERVER_COPY = catalogue({
         requests:
           "Jede Anfrage an die Website läuft zuerst über Cloudflare, Inc.; Cloudflare sieht dabei deine IP-Adresse, die aufgerufene Adresse, die Angaben deines Browsers und jedes Formular, das du abschickst. Bei jedem Aufruf speichert unser Server deine IP-Adresse, den Zeitpunkt, die aufgerufene Seite, den Statuscode und die Kennung deines Browsers.",
         // The passkey cookie's 5 minutes are Better Auth's own, which the library sets and exports no name for. The mailed
-        // link's hour is typed as its one figure, which the sentence spells out as a word.
+        // link's hour is typed as its one figure, the singular „Stunde“ being the sentence's.
         browser: (mailedLinkHours: 1) =>
-          `In deinem Browser legt die Website nur ab, was ihr Betrieb braucht: ein Sitzungs-Cookie, sobald du dich anmeldest, ein Cookie für die Anmeldung mit einem Passkey, das 5\u00A0Minuten gilt, ein Cookie, das einen Link aus einer E-Mail ${HOURS_IN_WORDS[mailedLinkHours]} lang hält, bis du ihn benutzt, und im lokalen Speicher die Darstellung, hell oder dunkel, die du wählst. Auf der Anmeldeseite, im Bewerbungsformular und im Registrierungsformular prüft Cloudflare Turnstile, ob ein Mensch das Formular abschickt, und fragt dafür Merkmale deines Browsers und deiner Verbindung ab; Cloudflare nutzt sie auch in eigener Verantwortung, um seine Erkennung automatisierter Zugriffe zu verbessern. Beides ist nach\u00A0§\u00A025 Abs.\u00A02 Nr.\u00A02 TDDDG ohne Einwilligung zulässig.`,
+          `In deinem Browser legt die Website nur ab, was ihr Betrieb braucht: ein Sitzungs-Cookie, sobald du dich anmeldest, ein Cookie für die Anmeldung mit einem Passkey, das 5\u00A0Minuten gilt, ein Cookie, das einen Link aus einer E-Mail ${boundBy(formatNumber(mailedLinkHours), "Stunde")} lang hält, bis du ihn benutzt, und im lokalen Speicher die Darstellung, hell oder dunkel, die du wählst. Auf der Anmeldeseite, im Bewerbungsformular und im Registrierungsformular prüft Cloudflare Turnstile, ob ein Mensch das Formular abschickt, und fragt dafür Merkmale deines Browsers und deiner Verbindung ab; Cloudflare nutzt sie auch in eigener Verantwortung, um seine Erkennung automatisierter Zugriffe zu verbessern. Beides ist nach\u00A0§\u00A025 Abs.\u00A02 Nr.\u00A02 TDDDG ohne Einwilligung zulässig.`,
       },
       bewerbung: {
         heading: "Bewerbung einer Schule",
@@ -1035,8 +1032,8 @@ export const SERVER_COPY = catalogue({
       /**
        * The retention table: each store's name, what it holds and how long. A bound the code holds is a parameter; a
        * period a host script or a provider holds is written out. A declined item's days are `declinedDays`; where one
-       * figure stands for an unconfirmed and a declined item, the confirmation link's days stand for both, which the
-       * backend holds equal at import.
+       * figure stands for an unconfirmed and a declined item, the confirmation link's days stand for both, the
+       * backend's one `CONFIRMATION_DEADLINE_DAYS`.
        */
       retention: {
         heading: "Speicherdauer",
@@ -1146,7 +1143,7 @@ export const SERVER_COPY = catalogue({
       erasure: {
         heading: "Löschung",
         text: (deliveryDays: number, anchorHours: 1) =>
-          `Löschen wir Daten, auf deinen Wunsch oder nach ihrer Frist, verschwinden sie sofort aus der Datenbank und nach etwa\u00A08\u00A0Tagen aus den Sicherungskopien; spielen wir eine ältere Sicherung ein, löschen wir sie erneut. Es bleiben die Kopien bei Resend und, von deinen E-Mails an uns, bei Google bis zu ihren Fristen und im Postfach des Mitglieds des Vorstands, an das wir sie weiterleiten, bis wir sie dort auf deine Anfrage löschen, die Protokolle des Servers mit der Nummer eines Eintrags und, bei Kontaktpersonen, dem Tag der Bestätigung bis zu ihrer Frist, eine Sperre deiner Adresse bis zu ihrem Ende, die E-Mail mit dem Link zur Löschung, bis er abläuft, unsere Nachricht über die Löschung höchstens ${boundBy(formatNumber(deliveryDays), "Tage")}, deine Adresse pseudonymisiert ${boundBy(formatNumber(anchorHours), "Stunde")} lang, Mitteilungen zum Zugang zur Verwaltung, die andere schon erhalten haben, und freie Texte, die nicht unter deiner Adresse stehen. Löschen wir ein bestätigtes Konto, schreiben wir dir das, ebenso, wenn wir eine Bewerbung löschen, die nicht zustande kam und in der du deinen Eintrag bestätigt hast, außer an eine gesperrte Adresse; eine Absage nennt die Löschung schon selbst.`,
+          `Löschen wir Daten, auf deinen Wunsch oder nach ihrer Frist, verschwinden sie sofort aus der Datenbank und nach etwa\u00A08\u00A0Tagen aus den Sicherungskopien; spielen wir eine ältere Sicherung ein, löschen wir sie erneut. Es bleiben die Kopien bei Resend und, von deinen E-Mails an uns, bei Google bis zu ihren Fristen und im Postfach des Mitglieds des Vorstands, an das wir sie weiterleiten, bis wir sie dort auf deine Anfrage löschen, die Protokolle des Servers mit der Nummer eines Eintrags und, bei Kontaktpersonen, dem Tag der Bestätigung bis zu ihrer Frist, bei einer angenommenen Bewerbung der Link aus deiner E-Mail und der Tag deiner Bestätigung, ohne Namen und Adresse, bis zum Ende der Saison danach, eine Sperre deiner Adresse bis zu ihrem Ende, die E-Mail mit dem Link zur Löschung, bis er abläuft, unsere Nachricht über die Löschung höchstens ${boundBy(formatNumber(deliveryDays), "Tage")}, deine Adresse pseudonymisiert ${boundBy(formatNumber(anchorHours), "Stunde")} lang, Mitteilungen zum Zugang zur Verwaltung, die andere schon erhalten haben, und freie Texte, die nicht unter deiner Adresse stehen. Löschen wir ein bestätigtes Konto, schreiben wir dir das, ebenso, wenn wir eine Bewerbung löschen, die nicht zustande kam und in der du deinen Eintrag bestätigt hast, außer an eine gesperrte Adresse; eine Absage nennt die Löschung schon selbst.`,
         log: (logYears: number) =>
           `Was die Verwaltung an den Daten der Liga ändert, halten wir ${boundBy(monthsOf(logYears), "Monate")} im Protokoll der Liga fest, ebenso, was Kontaktpersonen und Schiedsrichter für andere ändern, und die Löschung von Einträgen. Ein Eintrag sagt, wer es war, was geschah und wann, ohne alten oder neuen Inhalt. Beim Zugang zur Verwaltung steht darin die Adresse der genannten Person, auch wenn der Zugang nie galt. Die Verwaltung steht darin mit ihrer Adresse, alle anderen ohne Namen und Adresse. Zu einer Löschung stehen dort, wer sie veranlasst hat, und ein Verweis auf die Anfrage. Löschen wir deine Daten, ersetzt ein fester Vermerk deine Adresse.`,
       },

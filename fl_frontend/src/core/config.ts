@@ -16,9 +16,6 @@ const INTERNAL_API_KEY = z
   .length(64)
   .regex(/^[\x21-\x7e]+$/, "printable ASCII only, with no space");
 
-// In the order the backend declares them, which names the later file of two holding one key.
-const INTERNAL_KEYS = ["INTERNAL_API_KEY_BASE", "INTERNAL_API_KEY_SYSTEM", "INTERNAL_API_KEY_ADMIN"] as const;
-
 // Where Compose mounts a file secret, which is where a container finds it with nothing set.
 const DEFAULT_SECRETS_DIR = "/run/secrets";
 
@@ -239,14 +236,6 @@ const schemaBeside = (authUrl: string | undefined) =>
     })
     // A rule reading two variables at once, which a per-variable schema cannot express.
     .superRefine((values, ctx) => {
-      // Each internal key against those above it, refused at the later one as the backend refuses it: two tiers holding
-      // one key are one tier, every holder of the lower key reaching the other's routes.
-      INTERNAL_KEYS.forEach((name, at) => {
-        if (INTERNAL_KEYS.slice(0, at).some((above) => values[above] === values[name])) {
-          ctx.addIssue({ code: "custom", path: [name], message: `${name} holds another internal key's value` });
-        }
-      });
-
       if (values.APP_ENV !== "production") return;
 
       for (const name of PRODUCTION_ONLY_REQUIRED) {

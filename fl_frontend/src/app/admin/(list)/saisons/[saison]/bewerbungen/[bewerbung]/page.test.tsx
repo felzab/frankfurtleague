@@ -75,8 +75,8 @@ function readOf({ duplicate }: { duplicate: boolean }) {
   };
 }
 
-async function seatRows(): Promise<readonly SeatRow[]> {
-  state.read = readOf({ duplicate: false });
+async function seatRows(read: unknown = readOf({ duplicate: false })): Promise<readonly SeatRow[]> {
+  state.read = read;
 
   const page = BewerbungPage(PARAMS) as { props: { record: Promise<ReadRecord> } };
   const { groups } = await page.props.record;
@@ -121,6 +121,17 @@ describe("an accepted application", () => {
 
     expect(groups.map(({ kind }) => kind)).toStrictEqual(["facts"]);
     expect(acts).toHaveLength(1);
+  });
+});
+
+describe("an undecided application of a finished season", () => {
+  /* The backend refuses its seats' writes and fresh links, so an act offered here would fail only once pressed. */
+  it("offers no seat its edit or its link", async () => {
+    const read = readOf({ duplicate: false });
+
+    const rows = await seatRows({ ...read, saison: { ...read.saison, status: "past" } });
+
+    expect(rows.map(({ acts }) => acts)).toStrictEqual([undefined, undefined, undefined]);
   });
 });
 

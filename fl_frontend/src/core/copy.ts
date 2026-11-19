@@ -214,8 +214,6 @@ const VALID_UNTIL = "Gültig bis";
 const ENTERED_ON = "Eingetragen am";
 // The day a grant took effect, a column's head, a fact's label and a row's line alike.
 const SINCE = "Seit";
-// The day an application or a registration came in, a column's head, a fact's label and a row's line alike.
-const RECEIVED = "Eingegangen";
 // A move's new slot, a fact's label, a column's head and a row's line alike.
 const AFTER = "Neu";
 // A person's own deletion: the action log's word for it, and the done page's.
@@ -905,6 +903,8 @@ export const COPY = catalogue({
       mediaFrom: (age: number) => `Erst ${boundBy("ab", formatNumber(age), "Jahren")}`,
       /** A seat's or a registration's team season: „Birkenschule, Saison 2027“. */
       teamSeason,
+      /** A seat entry's fact where its seats store the person typed two ways, by the seats holding this one: „Telefon als Ansprechperson“. */
+      seatFact: (label: Copy, seats: readonly FLKontaktSeat[]) => `${label} ${boundBy("als", seatsText(seats))}`,
       /**
        * The labels the deletion's list names an address's records by, each the person's part in the record: one row per
        * label, holding the records it names.
@@ -1388,9 +1388,7 @@ export const COPY = catalogue({
     bewerbung: {
       search: "Bewerbungen suchen",
       /** The day an application came in: a fact of the list, a card and the review page, and of a registration. */
-      received: RECEIVED,
-      /** A registration's row line on a phone, whose box leaves the „Eingegangen“ column out: „Eingegangen am 12.11.2026“. */
-      receivedOn: (day: CalendarDay) => `${RECEIVED} ${boundBy("am", formatDate(day))}`,
+      received: "Eingegangen",
       /** A row's chip and the status filter's option, by where the application stands. */
       incomplete: "Unvollständig",
       complete: "Vollständig",

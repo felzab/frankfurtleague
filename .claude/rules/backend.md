@@ -22,6 +22,7 @@ Each fails silently. The ratified decisions for this surface are in `docs/decisi
   owner the migration file that writes it into every stored document of its collection. A default
   spared a migration hides a missing key the runtime then misreads, and the read-back passes a
   document lacking a defaulted key. A collection holding no document still takes its file, which
-  counts, finds none and ends. A field that already carries a default for older documents keeps it
-  until a count on production finds no document lacking the key; the default then goes, with a file
-  that counts again, finds none and ends.
+  counts, finds none and ends. A field that already carries a default for older documents loses it
+  the same way: its file counts the documents lacking the key, writes the default's value into each,
+  and counts again to 0. Where no value for it can be written, the file counts them and stops before
+  its first write unless it finds none.

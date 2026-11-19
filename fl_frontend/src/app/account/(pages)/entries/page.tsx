@@ -11,7 +11,7 @@ import { pageMetadata } from "@/shared/utils/metadata";
 import { EntriesBoxes } from "./EntriesBoxes";
 
 import type { Copy } from "@/core/copy";
-import type { FLAccountEinwilligungenResponse, FLAccountSeatPerson } from "@/core/generated/client/types";
+import type { FLAccountEinwilligungenResponse, FLAccountSeatPerson, FLKontaktSeat } from "@/core/generated/client/types";
 import type { Fact } from "@/kit/Facts";
 import type { Metadata, ResolvingMetadata } from "next";
 import type { Entry } from "./EntriesBoxes";
@@ -29,23 +29,28 @@ const fact = (label: Copy, value: string | null): Fact => ({
 });
 
 /** A birthdate as a list writes a day. */
-const birthday = (date: string | null): Fact => fact(COPY.shared.facts.birthday, date === null ? null : formatDate(dayOf(date)));
+const birthday = (date: string | null, label: Copy = COPY.shared.facts.birthday): Fact =>
+  fact(label, date === null ? null : formatDate(dayOf(date)));
 
 /**
  * A seat entry's facts in the referee box's order: name, birthday, the team or school, telephone. Seats storing the
  * person alike list them once; a second spelling on another seat follows with its own name, birthday and telephone.
  */
 function seatFacts(persons: readonly FLAccountSeatPerson[], affiliation: Fact): Fact[] {
-  const distinct = [
-    ...new Map(
-      persons.map((person) => [JSON.stringify([person.first_name, person.last_name, person.birth_date, person.phone]), person]),
-    ).values(),
-  ];
-  return distinct.flatMap((person, index) => [
-    fact(COPY.shared.name, `${person.first_name} ${person.last_name}`),
-    birthday(person.birth_date),
+  const spellings = new Map<string, { person: FLAccountSeatPerson; seats: FLKontaktSeat[] }>();
+  for (const person of persons) {
+    const key = JSON.stringify([person.first_name, person.last_name, person.birth_date, person.phone]);
+    const spelling = spellings.get(key) ?? { person, seats: [] };
+    spelling.seats.push(person.seat);
+    spellings.set(key, spelling);
+  }
+  // Two spellings would read as two „Name“ rows nobody can tell apart, so each names the seats storing it.
+  const labelOf = (label: Copy, seats: readonly FLKontaktSeat[]) => (spellings.size === 1 ? label : WORDS.seatFact(label, seats));
+  return [...spellings.values()].flatMap(({ person, seats }, index) => [
+    fact(labelOf(COPY.shared.name, seats), `${person.first_name} ${person.last_name}`),
+    birthday(person.birth_date, labelOf(COPY.shared.facts.birthday, seats)),
     ...(index === 0 ? [affiliation] : []),
-    fact(COPY.shared.facts.phone, person.phone),
+    fact(labelOf(COPY.shared.facts.phone, seats), person.phone),
   ]);
 }
 

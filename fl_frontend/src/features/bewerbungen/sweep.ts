@@ -31,7 +31,7 @@ export async function runBewerbungSweep() {
   const saisons = await sweepAllSaisons().catch((error: unknown) => ({ passedOver: { bewerbung: 0, registrierung: 0, saison: 0 }, error }));
   // After the seasons and whatever they met, so a lapsed address is ended every hour.
   const addressChange = await sweepAddressChange();
-  // The other clock no season holds: an entry whose link lapsed unanswered or declined, erased.
+  // The other clock no season holds: an entry whose link lapsed unanswered, erased.
   const schiedsrichter = await schiedsrichterSweepSchiedsrichter();
 
   return {

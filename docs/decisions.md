@@ -41,8 +41,6 @@ commit that makes the change.
   swap's one lock, and an exit before it would let a swap field a departed club._
 - **table** — Score or sort on `sonderereignis`. _A forfeit carries an event and an awarded result,
   and that result counts._
-- **table** — Move the league table's default scope off `gruppenphase`. _A caller forgetting the
-  scope would count knockout results as league results._
 
 ## The frontend
 
