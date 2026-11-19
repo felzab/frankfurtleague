@@ -144,12 +144,6 @@ def compose_end_update(*, kind: FLAddressChangeEndKind, now: datetime) -> dict[s
     }
 
 
-def build_live_filter(address_change_id: Any, terms: Mapping[str, Any] | None = None) -> dict[str, Any]:
-    """One live change by its id, matching `terms`. The filter is the judgement: an ended or unknown one is the miss."""
-
-    return {"_id": address_change_id, **LIVE_TERMS, **(terms or {})}
-
-
 def build_address_filter(address: str) -> dict[str, Any]:
     """The live change of one folded address, which `uniq_address_change_address` answers by equality.
 
@@ -171,10 +165,8 @@ def build_incoming_filter(*, email: str, holders: list[str]) -> dict[str, Any]:
     return {**build_addresses_filter(holders), "email": email}
 
 
-def build_resendable_terms() -> dict[str, Any]:
-    """A change waiting on the new mailbox: the person's own awaiting its address on file, or one confirmed, has no link to re-send."""
-
-    return {"$nor": [{"way": "account", "released_at": None}], "confirmed_at": None}
+# A change waiting on the new mailbox: the person's own awaiting its address on file, or one confirmed, has no link to re-send.
+RESENDABLE_TERMS: Final[Mapping[str, Any]] = {"$nor": [{"way": "account", "released_at": None}], "confirmed_at": None}
 
 
 def asks_the_address_on_file(record: Mapping[str, Any]) -> bool:
