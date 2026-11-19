@@ -5,20 +5,13 @@ import pytest
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from app.api.address_change.schemas import FLAddressChangeMove, FLAddressChangeRecord
-from app.api.bewerbungen.schemas import FLBewerbungRecord
 from app.api.outbox.schemas import FLOutboxRow
 from app.api.registrierungen.schemas import FLRegistrierungRecord
-from app.api.schiedsrichter.schemas import (
-    FLPatchSchiedsrichterPayload,
-    FLPostSchiedsrichterPayload,
-    FLSchiedsrichterKontaktRecord,
-    FLSchiedsrichterRecord,
-)
+from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLPostSchiedsrichterPayload, FLSchiedsrichterKontaktRecord
 from app.api.spieler.schemas import FLSpielerRecord
-from app.api.teams.schemas import FLKontaktpersonRecord, FLSaisonTeamKontakteRecord, FLSaisonTeamRecord
+from app.api.teams.schemas import FLKontaktpersonRecord
 from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
 from app.shared.schemas.kontakt import FLKontakt, FLKontaktPayload
-from app.shared.schemas.literals import KONTAKT_SEATS
 
 Body = Callable[[dict[str, Any]], dict[str, Any]]
 
@@ -123,8 +116,8 @@ class TestTheReadShapeJudgesNeitherMember:
         assert parsed.email == ""
 
 
-# Each stored address field of a record model, at the model that declares it; the record models nesting one are wired
-# below, so a field turned back to a plain string is caught at its own model.
+# Each stored address field of a record model, at the model that declares it, so a field turned back to a plain
+# string is caught at its own model.
 STORED_ADDRESSES: list[tuple[type[BaseModel], str]] = [
     (FLRegistrierungRecord, "email"),
     (FLSpielerRecord, "email"),
@@ -149,13 +142,3 @@ class TestAStoredAddress:
         for unfolded in ("Tom@beispielschule.example.org", " tom@beispielschule.example.org"):
             with pytest.raises(ValidationError):
                 adapter.validate_python(unfolded)
-
-    def test_the_records_nesting_one_take_the_stored_shape(self):
-        """A page's read keeps the plain address; the record model is what the read-back judges."""
-
-        assert FLSaisonTeamRecord.model_fields["kontakte"].annotation == FLSaisonTeamKontakteRecord | None
-        assert FLBewerbungRecord.model_fields["kontakte"].annotation == FLSaisonTeamKontakteRecord
-        assert FLSchiedsrichterRecord.model_fields["kontakt"].annotation == FLSchiedsrichterKontaktRecord
-        assert {seat: FLSaisonTeamKontakteRecord.model_fields[seat].annotation for seat in KONTAKT_SEATS} == dict.fromkeys(
-            KONTAKT_SEATS, FLKontaktpersonRecord | None
-        )

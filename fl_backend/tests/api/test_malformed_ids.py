@@ -69,3 +69,16 @@ def test_every_objectid_path_parameter_reaches_its_handler_as_an_object_id():
                 reached.append((route.path_format, name, type(TypeAdapter(annotation).validate_python(HEX_ID))))
 
     assert reached and [(path, name) for path, name, handed in reached if handed is not ObjectId] == []
+
+
+def test_every_object_id_path_parameter_is_matched_by_the_objectid_convertor():
+    """The other direction: an id the path matches as any string reaches validation, which answers a malformed one 422."""
+
+    typed = [
+        (route.path_format, name, route.param_convertors.get(name))
+        for route in api_routes(application())
+        for name, field in _path_fields(route.dependant).items()
+        if field.field_info.annotation is ObjectId
+    ]
+
+    assert typed and [(path, name) for path, name, convertor in typed if not isinstance(convertor, ObjectIdConvertor)] == []

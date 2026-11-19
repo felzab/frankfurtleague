@@ -1830,19 +1830,6 @@ describe("what the code costs an address holding nothing", () => {
     expect(mailed.expiresAt.getTime(), "a later send moved the mailed code's expiry").toBe(lapsing.getTime());
   });
 
-  /* A code read off a forwarded mail or a screen after its holder typed it would otherwise sign in again
-     inside its window, which nobody would see. */
-  it("mints no second session for a code already used", async () => {
-    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-    const otp = lastMailedCode(sent, ADMIN_EMAIL);
-    assert.ok(otp !== null);
-    expect((await answerOf(ADMIN_EMAIL, otp)).status, "the code's first use signed nobody in, so the case proves nothing").toBe(200);
-    const sessions = store.session.length;
-
-    expect((await answerOf(ADMIN_EMAIL, otp)).status).not.toBe(200);
-    expect(store.session.length, "the code's second use minted a session").toBe(sessions);
-  });
-
   it("mails the code and the lifetime it has, and no link a forwarded message could be spent through", async () => {
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
 

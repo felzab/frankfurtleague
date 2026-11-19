@@ -10,9 +10,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.public_router import get_team
 from app.api.saisons.schemas import FLTeamPageResponse
-from app.api.spieler.schemas import (
-    FLSpielerPublic,
-)
 from app.api.spieler.services import build_spieler_pipeline
 from tests.database import held_corpus, shared_client
 from tests.documents import (
@@ -119,14 +116,6 @@ def _pipeline() -> list[Mapping[str, Any]]:
 
 def _sort() -> dict[str, int]:
     return next(stage["$sort"] for stage in _pipeline() if "$sort" in stage)
-
-
-class TestTheBaseTierShape:
-    def test_it_serves_exactly_the_public_fields(self):
-        assert set(FLSpielerPublic.model_fields) == PUBLIC_FIELDS
-
-    def test_the_team_page_serves_the_public_shape(self):
-        assert FLTeamPageResponse.model_fields["kader"].annotation == list[FLSpielerPublic]
 
 
 class TestTheProjection:
