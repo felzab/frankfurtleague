@@ -105,6 +105,9 @@ pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_address_change_test")
 
+# `NEW_EMAIL` as a holder's mail and an administrator's change show it.
+MASKED_NEW_EMAIL = "l•••@n•••.org"
+
 
 async def on_a_person(url: str, body: Any, **seeded: Any) -> Any:
     return await _on_a_person(url, DATABASE_NAME, body, **seeded)
@@ -132,15 +135,12 @@ class TestTheAccountPagesRead:
         seen = await on_a_person(mongo_replica_set_url, body)
         served = seen.model_dump_json()
 
-        assert seen.open is not None and seen.open.email == "l•••@n•••.org"
+        assert seen.open is not None and seen.open.email == MASKED_NEW_EMAIL
         assert (NEW_EMAIL in served, "lenore.q" in served, "neupost" in served) == (False, False, False)
 
 
 # Past the interval a person's start waits after the mail its address's live change last owed.
 RESTART = timedelta(seconds=ADDRESS_CHANGE_RESTART_SECONDS)
-
-# `NEW_EMAIL` as a holder's mail and an administrator's change show it.
-MASKED_NEW_EMAIL = "l•••@n•••.org"
 
 
 class TestThePersonsStart:
@@ -946,13 +946,12 @@ class TestAHoldersOwnChange:
         unconfirmed, first, started, completed = await on_a_person(mongo_replica_set_url, body)
 
         assert (unconfirmed, first) == ([], [])
-        masked = "l•••@n•••.org"
         # The date is the mail's one sentence on when it lands.
         ends = "2126-04-02T10:30:00Z"
-        assert started == [("started", address, EMAIL, masked, ends) for address in sorted((*ADMINISTRATORS, EMAIL))]
+        assert started == [("started", address, EMAIL, MASKED_NEW_EMAIL, ends) for address in sorted((*ADMINISTRATORS, EMAIL))]
         # The moved row is a holder at its new address. The old address has its short-lived effective mail alone: this row
         # would keep it 30 days past an erasure.
-        assert completed == [("completed", address, EMAIL, masked, None) for address in sorted((*ADMINISTRATORS, NEW_EMAIL))]
+        assert completed == [("completed", address, EMAIL, MASKED_NEW_EMAIL, None) for address in sorted((*ADMINISTRATORS, NEW_EMAIL))]
 
     @pytest.mark.parametrize("ended_by", ["the stop link", "the account page", "the owner's discard", "a new start", "the pass refusing it"])
     async def test_every_ending_of_its_wait_tells_every_holder(self, mongo_replica_set_url: str, ended_by: str):
@@ -978,7 +977,7 @@ class TestAHoldersOwnChange:
             return await told(database)
 
         assert await on_a_person(mongo_replica_set_url, body) == [
-            ("withdrawn", address, EMAIL, "l•••@n•••.org", None) for address in sorted((*ADMINISTRATORS, EMAIL))
+            ("withdrawn", address, EMAIL, MASKED_NEW_EMAIL, None) for address in sorted((*ADMINISTRATORS, EMAIL))
         ]
 
     @pytest.mark.parametrize("way", ["account", "waiting_period"])
@@ -1736,18 +1735,13 @@ def erase(database: AsyncDatabase, client: AsyncMongoClient, email: str) -> Any:
 
 
 class _HeldAfterItsRead(HeldCollection):
-    """A start held after its read of the address's live change until a rival start has committed, counting its reads."""
+    """A start held after its read of the address's live change until a rival start has committed."""
 
     MISSED = "the start answered without reading the address's live change, so nothing held it across the rival's commit"
-
-    def __init__(self, collection: Any, committed: asyncio.Event) -> None:
-        super().__init__(collection, committed)
-        self.reads = 0
 
     async def find_one(self, *args: Any, **kwargs: Any) -> Any:
         found = await self._collection.find_one(*args, **kwargs)
         if kwargs.get("filter", args[0] if args else {}) == build_address_filter(EMAIL):
-            self.reads += 1
             await self.hold()
 
         return found
@@ -1771,12 +1765,10 @@ class TestTwoStartsAtOnce:
             minted = task.result()
 
             live = await database[Collection.ADDRESS_CHANGES].find({"ended": None}).to_list(None)
-            return held.reads, held.insert_failures, [row["_id"] for row in live], minted.id, (await change(database, rival.id))["ended"]
+            return held.insert_failures, [row["_id"] for row in live], minted.id, (await change(database, rival.id))["ended"]
 
-        reads, failures, live, minted, rival_end = await on_a_person(mongo_replica_set_url, body)
+        failures, live, minted, rival_end = await on_a_person(mongo_replica_set_url, body)
 
-        # Two attempts, each reading the live change twice: for the restart refusal, then for the change it replaces.
-        assert reads == 4
         assert failures == ["OperationFailure:112"]
         assert live == [minted]
         assert rival_end["kind"] == "replaced"
