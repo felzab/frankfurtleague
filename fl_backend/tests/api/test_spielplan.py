@@ -37,7 +37,8 @@ SAISON_ID = "2026"
 Seeding = tuple[tuple[FLGruppenNames, int], ...]
 Score = tuple[tuple[int, ...], tuple[int, ...]]
 
-# `(number_of_groups, teams_per_group, qualifiers_per_group)`. Every `BRACKET_SEEDING` row is drawn by one of these.
+# `(number_of_groups, teams_per_group, qualifiers_per_group)`. Every `BRACKET_SEEDING` row the rules admit is drawn by
+# one of these; one group of sixteen qualifiers is a group past the rules' ceiling, held by its row to the construction alone.
 SHAPES: tuple[tuple[int, int, int], ...] = (
     (1, 7, 4),
     (1, 8, 8),
@@ -47,7 +48,6 @@ SHAPES: tuple[tuple[int, int, int], ...] = (
     (4, 5, 1),
     (4, 4, 4),
     (2, 8, 8),
-    (1, 16, 16),
 )
 
 

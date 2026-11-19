@@ -46,10 +46,10 @@ QualifiersPerGroup = Annotated[int, Field(gt=0)]
 # The season's capacity: a team enters only a group the season offers -- a prefix of the closed set
 # -- and only while it has room.
 NumberOfGroups = Annotated[int, Field(gt=0, le=MAX_NUMBER_OF_GROUPS)]
-# The floor stops a group phase generating no fixture at all; the ceiling bounds one group, where
-# what a whole season may play is `rules_spiele_over_one_read`, weighing every group and the bracket at once.
+# The floor stops a group phase generating no fixture at all. The ceiling keeps the widest season the two bounds admit,
+# every group full and the bracket at its cap, inside one page of a season-scoped read.
 MIN_TEAMS_PER_GROUP: Final = 2
-MAX_TEAMS_PER_GROUP: Final = 16
+MAX_TEAMS_PER_GROUP: Final = 8
 TeamsPerGroup = Annotated[int, Field(ge=MIN_TEAMS_PER_GROUP, le=MAX_TEAMS_PER_GROUP)]
 
 

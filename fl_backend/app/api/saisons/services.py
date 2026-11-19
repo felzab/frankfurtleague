@@ -12,7 +12,6 @@ from app.api.teams.services import offered_gruppen
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus
 
 
@@ -212,16 +211,6 @@ FROZEN_RULES_FIELDS: tuple[str, ...] = ("win_points", "draw_points", "loss_point
 SHAPE_RULES_FIELDS: tuple[str, ...] = ("number_of_gruppen", "teams_per_gruppe", "qualifiers_per_gruppe")
 
 
-def total_season_spiele(rules: FLSaisonRules) -> int:
-    """Every match these rules imply, the bracket's rounds and its match for third place included.
-
-    One fold, so every reader weighs one number against the one read's page: a second reading of
-    `schedule_for` would drift the moment a phase moved.
-    """
-
-    return sum(entry.spieltage * entry.spiele_per_spieltag for entry in schedule_for(rules))
-
-
 def _forfeit_unentschieden_in_a_knockout(rules: FLSaisonRules) -> bool:
     """Whether these rules compose a knockout no-show as a level result.
 
@@ -314,15 +303,6 @@ def find_rules_refusal(
     # alone lets the dates-only edit through, `rules` being required on the patch.
     if not knockout_phases_for(qualifiers) and qualifiers != stored_qualifiers:
         return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.RULES_BRACKET_IMPOSSIBLE)
-
-    # After the bracket rule, which is narrower and answers first: a product with no bracket plays
-    # no knockout round, so a count taken over one measures a season the admin has not asked for.
-    spiele = total_season_spiele(proposed)
-    stored_spiele = None if stored is None else total_season_spiele(stored)
-    # The excess, as the two rules above judge theirs: `rules` is required on the patch, so a dates-only edit
-    # resubmits a stored count unchanged and any step that shrinks one repairs the season.
-    if spiele > LIST_LIMIT_DEFAULT and (stored_spiele is None or spiele > stored_spiele):
-        return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.RULES_SPIELE_OVER_ONE_READ)
 
     # No shoot-out can break it: a composed forfeit discards one, so a level award leaves
     # `_outcome_of` advancing nobody. Only the step that pairs the two

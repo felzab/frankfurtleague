@@ -1220,8 +1220,6 @@ export const COPY = catalogue({
       stufen: "Stufen",
       /** Each school level by its short name, as a squad row and the season's choice of them print it. */
       stufe: { E1: "E1", E2: "E2", Q1: "Q1", Q2: "Q2", Q3: "Q3", Q4: "Q4" } satisfies Record<FLSpielerStufe, string>,
-      /** The fixture list these counts would draw is longer than one read lists, which every season page reads it in. */
-      tooManySpiele: "Aus diesen Zahlen entstehen zu viele Spiele.",
       /** The registration link paused: the window stands, and a link opens nothing until the box is cleared. */
       registrierungPaused: "Registrierung pausiert",
       /** A running season storing no registration window: a link opens nothing until the season's editor stores one. */
