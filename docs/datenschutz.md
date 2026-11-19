@@ -371,10 +371,10 @@ bound's conditions follow the table.
 
 | Store                                        | Bound                                  | Enforced by                                                                                                                                                |
 | -------------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| An application not every seat confirmed      | An unconfirmed seat's 14 days          | `fl_backend/app/shared/schemas/bounds.py :: CONFIRMATION_DEADLINE_DAYS`, `fl_backend/app/api/bewerbungen/services.py :: deletion_is_due`                   |
-| An application undecided at its season's end | Its season's end                       | `fl_backend/app/api/bewerbungen/services.py :: undecided_erasure_is_due`                                                                                   |
-| A declined application                       | 14 days after the decision             | `:: decline_erasure_is_due`                                                                                                                                |
-| An accepted application                      | The end of a later season              | `:: acceptance_erasure_is_due`                                                                                                                             |
+| An application not every seat confirmed      | An unconfirmed seat's 14 days          | `fl_backend/app/shared/schemas/bounds.py :: CONFIRMATION_DEADLINE_DAYS`, `fl_backend/app/api/bewerbungen/services.py :: build_deletion_filter`             |
+| An application undecided at its season's end | Its season's end                       | `fl_backend/app/api/bewerbungen/system_router.py :: erase_the_undecided`                                                                                   |
+| A declined application                       | 14 days after the decision             | `fl_backend/app/api/bewerbungen/system_router.py :: erase_declined`                                                                                        |
+| An accepted application                      | The end of a later season              | `fl_backend/app/api/bewerbungen/system_router.py :: erase_accepted`                                                                                        |
 | A season row's contact seats                 | The end of the season after theirs     | `fl_backend/app/api/saisons/system_router.py :: sweep_saison_retention`                                                                                    |
 | A season row's unconfirmed seat              | Its own 14 days                        | `fl_backend/app/api/bewerbungen/services.py :: lapsed_seats`, `fl_backend/app/api/saisons/system_router.py :: sweep_saison_retention`                      |
 | Fixture answers and match reports            | The league's record                    | `fl_backend/app/api/saisons/system_router.py :: strip_the_confirmations`, `:: strip_the_reports`                                                           |
@@ -454,7 +454,7 @@ bound's conditions follow the table.
   server's own setting, which no file in this repository holds. The notice publishes nine days
   (`fl_frontend/src/core/serverCopy.ts`).
 - **A seat an erasure emptied holds no day**, so it takes nobody else: its application goes once no
-  seat's link runs (`fl_backend/app/api/bewerbungen/services.py :: deletion_is_due`).
+  seat's link runs (`fl_backend/app/api/bewerbungen/services.py :: build_deletion_filter`).
 - **Only a person who confirmed hears of an application's deletion**
   (`fl_backend/app/api/bewerbungen/services.py :: owed_deletion_notices`). A seat never confirmed
   may be a stranger's, and an Ansprechperson a Widerspruch's notice told hears nothing twice. A
