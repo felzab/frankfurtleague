@@ -251,7 +251,7 @@ class TestTheOverview:
         status, served = await read(mongo_replica_set_url, "overview")
 
         assert status == 200
-        assert (served["name"], served["full_name"], served["held_seats"]) == ("Zorbanax", "Zorbanax-Schule", ["trainer"])
+        assert (served["shorthand"], served["full_name"]) == ("ZOX", "Zorbanax-Schule")
         # The date agreed, the discarded decline, the row about a slot left and the call-off ask nothing; the others by
         # their day.
         assert [

@@ -13,7 +13,7 @@ from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment, 
 from app.api.spiele.schemas import FLSpielRecipient
 from app.api.teams.schemas import FLTeamGruppeOffer, FLTeamMembership, FLTeamRecord, FLTeamSaisonFacts, FLTeamSeat
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
-from app.shared.schemas.literals import FLKontaktSeat, FLSpielerPosition, FLSpielerStufe, FLSpielSide, FLTrikotFarbe
+from app.shared.schemas.literals import FLSpielerPosition, FLSpielerStufe, FLSpielSide, FLTrikotFarbe
 from app.shared.schemas.responses import BaseReadModel
 
 
@@ -45,17 +45,15 @@ class FLTeamPanelAufstellung(BaseModel):
 
     spiel_id: CustomObjectId
     ansetzung: FLSpielbestaetigungViewAnsetzung
-    side: FLSpielSide
     marks: FLAufstellungMarks
 
 
 class FLTeamPanelRegistrierung(BaseModel):
-    """One pending registration as the Übersicht names it: who waits, since when, as what, and whether the team may admit them yet."""
+    """One pending registration as the Übersicht names it: who waits, as what, and whether the team may admit them yet."""
 
     registrierung_id: CustomObjectId
     first_name: CustomNonEmptyString
     last_name: CustomNonEmptyString
-    submitted_at: CustomDateString
     # The registration's own answers, null where the pupil left one open.
     position: FLSpielerPosition | None
     stufe: FLSpielerStufe | None
@@ -64,22 +62,15 @@ class FLTeamPanelRegistrierung(BaseModel):
 
 
 class FLTeamOverviewResponse(BaseReadModel):
-    """A team's Übersicht in one read: who the team is, the work open for it, and its three seats.
+    """A team's Übersicht in one read: the team's head, the work open for it, and its three seats.
 
     The three lists are open work alone and carry no totals: the dates awaiting the team's answer or the league's
     decision, the coming fixtures the team has entered no line-up for, and the registrations awaiting its decision.
     """
 
-    team_id: CustomObjectId
-    saison_id: str
-    # The season row's own name and code, and the club's full name, which the page's head and the frame's account row show.
-    name: CustomNonEmptyString
+    # The season row's own code and the club's full name, which the page's head shows.
     shorthand: CustomNonEmptyString
     full_name: CustomNonEmptyString
-    trikot_farbe: FLTrikotFarbe | None
-    # The seats the signed-in person holds on this team, in `KONTAKT_SEATS` order: never empty, the read refusing
-    # anybody holding none.
-    held_seats: list[FLKontaktSeat]
     spielbestaetigungen: list[FLTeamPanelSpielbestaetigung]
     aufstellungen: list[FLTeamPanelAufstellung]
     registrierungen: list[FLTeamPanelRegistrierung]

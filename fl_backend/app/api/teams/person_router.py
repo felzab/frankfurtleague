@@ -16,7 +16,7 @@ from app.api.aufstellungen.schemas import FLAufstellungMarks
 from app.api.aufstellungen.services import aufstellung_marks, aufstellung_stands
 from app.api.identity.crud import roles_of
 from app.api.identity.lookup import SubjectLookup
-from app.api.identity.services import find_role_refusal, holds_a_seat, own_seats, seat_is_confirmed, seats_on
+from app.api.identity.services import find_role_refusal, holds_a_seat, own_seats, seat_is_confirmed
 from app.api.registrierungen.crud import pull_open_registrierungen
 from app.api.registrierungen.services import registrierung_is_confirmed
 from app.api.saisons.services import SPIELTAG_POSITION_LOOKUP, matchday_of
@@ -337,9 +337,7 @@ async def get_team_overview(
     row = await saison_teams_collection.find_one(
         {"saison_id": saison_id, "team_id": team_id},
         [
-            "name",
             "shorthand",
-            "trikot_farbe",
             *(f"kontakte.{slot}.{field}" for slot in KONTAKT_SEATS for field in ("first_name", "last_name", "einwilligung.confirmed_at")),
         ],
         session=session,
@@ -386,20 +384,13 @@ async def get_team_overview(
         marks = _marks_of(spiel, germany_now)
         # Open work alone: one the team can still enter, on a fixture still to be played.
         if marks is not None and not marks.stored and marks.phase != "locked":
-            aufstellungen.append(
-                FLTeamPanelAufstellung(spiel_id=spiel["_id"], ansetzung=view_ansetzung_of(spiel), side=_side_of(spiel, team_id), marks=marks)
-            )
+            aufstellungen.append(FLTeamPanelAufstellung(spiel_id=spiel["_id"], ansetzung=view_ansetzung_of(spiel), marks=marks))
 
     kontakte = row.get("kontakte") or {}
 
     return FLTeamOverviewResponse(
-        team_id=team_id,
-        saison_id=saison_id,
-        name=row["name"],
         shorthand=row["shorthand"],
         full_name=team["full_name"],
-        trikot_farbe=row.get("trikot_farbe"),
-        held_seats=seats_on(subject.seats, team_id=team_id, saison_id=saison_id),
         spielbestaetigungen=spielbestaetigungen,
         aufstellungen=aufstellungen,
         registrierungen=[
@@ -408,7 +399,6 @@ async def get_team_overview(
                     "registrierung_id": registrierung["_id"],
                     "first_name": registrierung["first_name"],
                     "last_name": registrierung["last_name"],
-                    "submitted_at": registrierung["submitted_at"],
                     "position": registrierung.get("position"),
                     "stufe": registrierung.get("stufe"),
                     "admissible": registrierung_is_confirmed(einwilligung=registrierung.get("einwilligung")),

@@ -66,13 +66,8 @@ async function rowsOf(
   held: Partial<Pick<FLTeamOverviewResponse, "spielbestaetigungen" | "aufstellungen" | "registrierungen">>,
 ): Promise<ReadonlyArray<CardActRowProps & { id: string }>> {
   stored.read = {
-    team_id: TEAM,
-    saison_id: "2027",
-    name: "Ahorn",
     shorthand: "AHO",
     full_name: "Ahorn-Gymnasium",
-    trikot_farbe: null,
-    held_seats: ["ansprechperson"],
     spielbestaetigungen: [],
     aufstellungen: [],
     registrierungen: [],
@@ -167,7 +162,6 @@ describe("a line-up's row", () => {
     const aufstellung = (phase: FLAufstellungPhase): FLTeamPanelAufstellung => ({
       spiel_id: "0000000000000000000000a1",
       ansetzung: { date: "2026-11-14", time: "16:00:00", spielort: null, team1_name: "Ahorn", team2_name: "Eiche" },
-      side: "team1",
       marks: { due_at: "2026-11-13T15:00:00Z", phase, stored: false },
     });
     const rows = await rowsOf("aufstellungen", { aufstellungen: [aufstellung("open"), aufstellung("overdue"), aufstellung("locked")] });
