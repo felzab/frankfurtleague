@@ -69,7 +69,6 @@ TEAM_FULL_NAME = "Zorbanax-Gesamtschule"
 OTHER_TEAM_NAME = "Quillhilde"
 
 PUPIL_EMAIL = "thessaly@beispielschule.example.org"
-BANNED_EMAIL = "wraxlington@beispielschule.example.org"
 
 OPEN_WINDOW: Mapping[str, Any] = {"open": True, "end": "2126-04-30"}
 # Its `end` the day before `TODAY`, so an entry today is a nominee's.

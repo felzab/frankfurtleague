@@ -54,9 +54,8 @@ def test_rejects_a_phone_number_carrying_a_control_character(kontakt, phone):
         FLKontaktPayload.model_validate(kontakt(phone=phone))
 
 
-@pytest.mark.parametrize("phone", ["+49 69 90009123"])
-def test_accepts_the_phone_formats_in_use(kontakt, phone):
-    assert FLKontaktPayload.model_validate(kontakt(phone=phone)).phone == phone
+def test_accepts_an_international_phone_number_with_spaces(kontakt):
+    assert FLKontaktPayload.model_validate(kontakt(phone="+49 69 90009123")).phone == "+49 69 90009123"
 
 
 def test_coerces_an_empty_telephone_to_none(kontakt):

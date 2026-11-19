@@ -287,9 +287,8 @@ class TestASeatNotHeld:
 class TestAnotherTeamsPupil:
     """Team A's seat holder naming team B's pupil under team A's path: the row filter carries the team, so nothing matches."""
 
-    @pytest.mark.parametrize(("method", "body"), [("DELETE", None)], ids=["DELETE"])
-    async def test_a_write_answers_not_found_and_writes_nothing(self, mongo_replica_set_url: str, method: str, body: Mapping[str, Any] | None):
-        answer, untouched = await refused_and_untouched(mongo_replica_set_url, method, row_url(B_PUPIL), ANSPRECH, body)
+    async def test_a_delete_answers_not_found_and_writes_nothing(self, mongo_replica_set_url: str):
+        answer, untouched = await refused_and_untouched(mongo_replica_set_url, "DELETE", row_url(B_PUPIL), ANSPRECH)
 
         assert answer == (404, Code.DOCUMENT_NOT_FOUND)
         assert untouched
@@ -404,11 +403,10 @@ class TestAStufeTheSeasonDoesNotOffer:
         assert answer == (409, Code.KADER_STUFE_NOT_ALLOWED)
         assert untouched
 
-    @pytest.mark.parametrize("stufe", ["Q4"], ids=["the stored one"])
-    async def test_the_stufe_the_row_already_holds_passes(self, mongo_replica_set_url: str, stufe: str):
+    async def test_the_stufe_the_row_already_holds_passes(self, mongo_replica_set_url: str):
         """A season narrowed after the row was written leaves the row editable, its own Stufe included."""
 
-        answer, _ = await refused_and_untouched(mongo_replica_set_url, "PATCH", row_url(OLD_STUFE), ANSPRECH, {**PAYLOAD, "stufe": stufe})
+        answer, _ = await refused_and_untouched(mongo_replica_set_url, "PATCH", row_url(OLD_STUFE), ANSPRECH, {**PAYLOAD, "stufe": "Q4"})
 
         assert answer == (204, None)
 

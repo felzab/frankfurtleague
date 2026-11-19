@@ -368,8 +368,7 @@ class TestTheReSend:
         assert row[CONFIRMATION_FIELD] is None
 
     # No null: every referee record holds an address, which the record model and the read-back hold it to.
-    @pytest.mark.parametrize("email", ["no-address"])
-    async def test_a_referee_holding_no_address_a_link_can_go_to_is_refused(self, mongo_replica_set_url: str, email: str):
+    async def test_a_referee_holding_no_address_a_link_can_go_to_is_refused(self, mongo_replica_set_url: str):
         """A mint here records a message nobody composed and starts the deletion clock on a person nobody asked."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -378,7 +377,7 @@ class TestTheReSend:
 
             return refused.value, await stored(database)
 
-        refused, row = await on_a_league(mongo_replica_set_url, body, referees=[referee_document(email=email)])
+        refused, row = await on_a_league(mongo_replica_set_url, body, referees=[referee_document(email="no-address")])
 
         assert (refused.error_code, refused.status_code) == (Code.SCHIEDSRICHTER_NO_ADDRESS, 409)
         assert row[CONFIRMATION_FIELD] is None

@@ -70,8 +70,7 @@ THEO = "theo@example.com"
 OTTO = "otto@example.com"
 NORA = "nora@example.com"
 
-# As a visitor may type it, and the fold every record stores it under.
-TYPED_EMAIL = "Thessaly.Okonkwo@beispielschule.example.org"
+# The fold every record stores an address under.
 FOLDED_EMAIL = "thessaly.okonkwo@beispielschule.example.org"
 BIRTH_DATE = "2009-05-04"
 # The label of the media wording a press withdrawing it is given under.
