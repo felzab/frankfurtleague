@@ -203,7 +203,7 @@ def declined(token: str) -> dict[str, str]:
 
 
 async def registration_withdrawal(http: AsyncClient, database: AsyncDatabase) -> Any:
-    """Its confirmation stamped evidence, so the page serves that evidence's stand."""
+    """Its confirmation stamped evidence, so the page serves that evidence's state."""
 
     stored = await database[Collection.REGISTRIERUNGEN].find_one({"_id": REGISTRATION_OID})
     assert stored is not None

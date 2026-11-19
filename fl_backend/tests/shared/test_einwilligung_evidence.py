@@ -283,8 +283,8 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
 class TestTheStateAPressEchoes:
     """`evidence_state_of`, the one derivation the account read serves and a consent PATCH compares with."""
 
-    def test_a_grant_and_its_withdrawal_in_one_second_answer_two_stands(self):
-        """The evidence is stamped to the second, so an instant leaves a page served between the two acts its stand, and it re-grants."""
+    def test_a_grant_and_its_withdrawal_in_one_second_answer_two_states(self):
+        """The evidence is stamped to the second, so an instant leaves a page served between the two acts its state, and it re-grants."""
 
         receipt = {"at": WITHDRAWN_AT, "text_version": ACCOUNT_LABEL}
         granted = {**CONFIRMED, "media": True, "evidence": {**CONFIRMED["evidence"], "media": receipt}}
@@ -296,7 +296,7 @@ class TestTheStateAPressEchoes:
         """A contact seat's `scope`, digested from its own value and its own evidence, as `media` is.
 
         The withdrawal in the grant's second differs by the value alone, the renewal later by the evidence alone, so a
-        page served before either is refused. The media choice, alike in all three, keeps one stand: the press judges
+        page served before either is refused. The media choice, alike in all three, keeps one state: the press judges
         each choice by its own.
         """
 
@@ -306,13 +306,13 @@ class TestTheStateAPressEchoes:
         withdrawn = {**granted, "scope": "kontakt_data"}
         renewed = {**granted, "evidence": {"scope": {"at": LATER, "text_version": ACCOUNT_LABEL}, "media": media}}
 
-        stands = [evidence_state_of(blocks=[block]) for block in (granted, withdrawn, renewed)]
+        states = [evidence_state_of(blocks=[block]) for block in (granted, withdrawn, renewed)]
 
-        assert len({state["scope"] for state in stands}) == 3
-        assert len({state["media"] for state in stands}) == 1
+        assert len({state["scope"] for state in states}) == 3
+        assert len({state["media"] for state in states}) == 1
 
     def test_an_act_on_any_one_of_several_blocks_moves_the_state(self):
-        """One press moves every held seat, so a stale page holding one seat's old stand is refused on all of them."""
+        """One press moves every held seat, so a stale page holding one seat's old state is refused on all of them."""
 
         moved = {
             **MEDIA_WITHDRAWN,

@@ -415,7 +415,7 @@ class LineUpsRunningARivalAtTheirRead(InterleavedCollection):
 
 
 async def erase(database: AsyncDatabase, client: AsyncMongoClient, *pupils: ObjectId, now: datetime) -> None:
-    """Each pupil erased through the registry, by the address their record holds, at `now`."""
+    """Each pupil erased through the person erasure, by the address their record holds, at `now`."""
 
     for pupil in pupils:
         person = await database[Collection.SPIELER].find_one({"_id": pupil}, {"email": 1})

@@ -1,7 +1,7 @@
 """
 API · the erasure's grants step: an erased person's grants, the notices naming them, and the records they made
 
-Against a replica set, the step run in a transaction of its own as the registry runs it. Seeded through
+Against a replica set, the step run in a transaction of its own as the erasure runs it. Seeded through
 the composers each route writes with, so a field a route stores in another shape is one these cases miss.
 """
 
@@ -130,7 +130,7 @@ async def erase(database: AsyncDatabase, client: AsyncMongoClient, *, identifier
 
 
 async def erase_the_mails(database: AsyncDatabase, client: AsyncMongoClient) -> list[str]:
-    """The step that takes the notices about her, which runs after this one in the registry."""
+    """The step that takes the notices about her, which runs after this one in the erasure."""
 
     async def step(session: AsyncClientSession) -> list[str]:
         return await erase_the_mails_in_session(outbox_collection=database[Collection.OUTBOX], identifier=ERIKA, session=session)
