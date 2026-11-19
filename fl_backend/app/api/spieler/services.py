@@ -273,13 +273,13 @@ def find_kader_stufe_refusal(*, stufe: str | None, stored_stufe: str | None, all
     return APIError(HTTPStatus.CONFLICT, Code.KADER_STUFE_NOT_ALLOWED)
 
 
-def build_self_pupil_filter(identifier: str) -> Mapping[str, Any]:
-    """The one pupil row this address holds.
+def build_self_pupil_filter(*identifiers: str) -> Mapping[str, Any]:
+    """The pupil row each of these addresses holds, one at most an address, as `spieler.email` stores the folded form.
 
-    The `$type` term is the unique index's partial filter, which an equality alone does not imply.
+    The `$type` term is the unique index's partial filter, which a match on the address alone does not imply.
     """
 
-    return {"email": {"$eq": identifier, "$type": "string"}}
+    return {"email": {"$in": sorted(set(identifiers)), "$type": "string"}}
 
 
 # The order the account read ranks an address's pupil rows in.

@@ -23,7 +23,6 @@ from app.api.identity.services import (
     EntryKind,
     awaits_confirmation,
     build_bewerbung_pipeline,
-    build_bewerbung_references_pipeline,
     build_erasure_due_page_pipeline,
     build_erasure_grant_pipeline,
     build_erasure_pupil_pipeline,
@@ -32,13 +31,9 @@ from app.api.identity.services import (
     build_erasure_seat_pipeline,
     build_open_registrierungen_pipeline,
     build_pupil_pipeline,
-    build_pupil_references_pipeline,
     build_referee_pipeline,
-    build_referee_references_pipeline,
     build_registrierung_pipeline,
-    build_registrierung_references_pipeline,
     build_seat_pipeline,
-    build_seat_references_pipeline,
     erasure_due,
     find_no_owner_refusal,
     find_role_refusal,
@@ -671,11 +666,12 @@ async def unreferenced_of(
 
     # No ban read beside these: a ban keeps no account, a barred address's going once no record holds it.
     (seat_rows, bewerbung_rows, referee_rows, pupil_rows, registrierung_rows, grant_rows, carry_rows) = await concurrently(
-        aggregate_many_from_db(collection=records.saison_teams_collection, pipeline=build_seat_references_pipeline(folded)),
-        aggregate_many_from_db(collection=records.bewerbungen_collection, pipeline=build_bewerbung_references_pipeline(folded)),
-        aggregate_many_from_db(collection=records.schiedsrichter_collection, pipeline=build_referee_references_pipeline(folded)),
-        aggregate_many_from_db(collection=records.spieler_collection, pipeline=build_pupil_references_pipeline(folded)),
-        aggregate_many_from_db(collection=records.registrierungen_collection, pipeline=build_registrierung_references_pipeline(folded)),
+        # The sign-in gate's selections, asked for the batch: an address the gate admits is one the sweep keeps.
+        aggregate_many_from_db(collection=records.saison_teams_collection, pipeline=build_seat_pipeline(*folded)),
+        aggregate_many_from_db(collection=records.bewerbungen_collection, pipeline=build_bewerbung_pipeline(*folded)),
+        aggregate_many_from_db(collection=records.schiedsrichter_collection, pipeline=build_referee_pipeline(*folded)),
+        aggregate_many_from_db(collection=records.spieler_collection, pipeline=build_pupil_pipeline(*folded)),
+        aggregate_many_from_db(collection=records.registrierungen_collection, pipeline=build_registrierung_pipeline(*folded)),
         # Every row as stored, never `read_admin_tier_of`: a waiting grant's account stands too.
         read_grants(grants_collection=grants_collection),
         aggregate_many_from_db(

@@ -25,8 +25,9 @@ from app.shared.einwilligung import is_confirmed, seat_is_confirmed
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.literals import KONTAKT_SEATS, FLAddressChangeViewableDenied, FLKontaktSeat, FLSaisonStatus
 
-# --- The selections, each shared with its record's own person-tier reads rather than spelled again.
-# Unnarrowed by retirement or withdrawal: `_judged` narrows the Funktionen.
+# --- The selections, each shared with its record's own person-tier reads rather than spelled again, and the gate's
+# shared with the references sweep, which asks them for a batch of addresses. Unnarrowed by retirement or withdrawal:
+# `_judged` narrows the Funktionen.
 
 
 def seat_saisons(rows: Iterable[Mapping[str, Any]]) -> dict[str, Mapping[str, Any]]:
@@ -46,11 +47,14 @@ def seat_saisons(rows: Iterable[Mapping[str, Any]]) -> dict[str, Mapping[str, An
     return saisons
 
 
-def build_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """Every junction row whose block names the address, a withdrawn team's included, its season's status beside it."""
+def build_seat_pipeline(*identifiers: str) -> list[Mapping[str, Any]]:
+    """Every junction row whose block names one of these addresses, a past season's and a withdrawn team's included.
+
+    Its season's status rides beside it.
+    """
 
     return [
-        {"$match": rows_seating(identifier)},
+        {"$match": rows_seating(*identifiers)},
         # `name` and `shorthand` ride along free, this read opening the row anyway, and they are the row's own rather
         # than the club's.
         {
@@ -71,11 +75,15 @@ def build_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     ]
 
 
-def build_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """The stored address rides along so `folds_to` can judge it, and the stamp so the confirmation can; nothing else of the person does."""
+def build_referee_pipeline(*identifiers: str) -> list[Mapping[str, Any]]:
+    """Retired rows too, as a retired referee's account signs in to take back a consent.
+
+    The stored address rides along so `folds_to` can judge it, and the stamp so the confirmation can; nothing else of
+    the person does.
+    """
 
     return [
-        {"$match": build_self_referee_filter(identifier)},
+        {"$match": build_self_referee_filter(*identifiers)},
         {"$project": {"kontakt.email": 1, "einwilligung.confirmed_at": 1, "inactive_since": 1}},
         {"$sort": {"_id": 1}},
     ]
@@ -252,32 +260,32 @@ def compose_erasure_view(
     )
 
 
-def build_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """Equality and no pattern: `spieler.email` stores the folded form."""
+def build_pupil_pipeline(*identifiers: str) -> list[Mapping[str, Any]]:
+    """The address rides along so the references sweep can tell a batch's pupils apart, and the stamp so the confirmation can."""
 
     return [
-        {"$match": build_self_pupil_filter(identifier)},
-        {"$project": {"einwilligung.confirmed_at": 1}},
+        {"$match": build_self_pupil_filter(*identifiers)},
+        {"$project": {"email": 1, "einwilligung.confirmed_at": 1}},
         {"$sort": {"_id": 1}},
     ]
 
 
-def build_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """Every pending application one of whose seats names the address; read for the sign-in alone, no panel standing on one."""
+def build_bewerbung_pipeline(*identifiers: str) -> list[Mapping[str, Any]]:
+    """Every pending application one of whose seats names one of these addresses; no panel stands on one."""
 
     return [
-        {"$match": build_own_bewerbung_filter(identifier)},
+        {"$match": build_own_bewerbung_filter(*identifiers)},
         {"$project": {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SEATS for field in ("email", "einwilligung.confirmed_at")}},
     ]
 
 
-def build_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """Every pending registration of the address; read for the sign-in alone, no panel standing on one.
+def build_registrierung_pipeline(*identifiers: str) -> list[Mapping[str, Any]]:
+    """Every pending registration of these addresses; no panel stands on one.
 
     The whole consent record rides along: whether its pupil confirmed it is part of the judgement.
     """
 
-    return [{"$match": build_own_registrierung_filter(identifier)}, {"$project": {"status": 1, "email": 1, "einwilligung": 1}}]
+    return [{"$match": build_own_registrierung_filter(*identifiers)}, {"$project": {"status": 1, "email": 1, "einwilligung": 1}}]
 
 
 def folded(stored: Any) -> str | None:
@@ -506,48 +514,7 @@ def address_change_viewable_denied(identifier: str, *, actor: str, grants: Seque
     return None
 
 
-# --- The references: wider than the own records and than the sign-in gate alike.
-# Each selection is the one its record's own reads take
-# for one address, asked for a batch.
-
-# The address alone, never the confirmation: an unconfirmed seat on the running season is one the
-# gate admits, to be told its confirmation is outstanding.
-SEAT_ADDRESS_FIELDS: Mapping[str, int] = {f"kontakte.{slot}.email": 1 for slot in KONTAKT_SEATS}
-
-
-def build_seat_references_pipeline(identifiers: Iterable[str]) -> list[Mapping[str, Any]]:
-    """Every season row whose block names one of these addresses, a past season's and a withdrawn team's alike."""
-
-    return [{"$match": rows_seating(*identifiers)}, {"$project": SEAT_ADDRESS_FIELDS}]
-
-
-def build_bewerbung_references_pipeline(identifiers: Iterable[str]) -> list[Mapping[str, Any]]:
-    return [{"$match": build_own_bewerbung_filter(*identifiers)}, {"$project": SEAT_ADDRESS_FIELDS}]
-
-
-def build_referee_references_pipeline(identifiers: Iterable[str]) -> list[Mapping[str, Any]]:
-    """Retired rows too: a retired referee's account signs in to take back a consent."""
-
-    return [
-        {"$match": build_self_referee_filter(*identifiers)},
-        {"$project": {"kontakt.email": 1}},
-    ]
-
-
-def build_pupil_references_pipeline(identifiers: Iterable[str]) -> list[Mapping[str, Any]]:
-    """`build_self_pupil_filter`'s equality over a batch, its `$type` term the unique index's partial filter, which `$in` does not imply."""
-
-    return [
-        {"$match": {"email": {"$in": sorted(set(identifiers)), "$type": "string"}}},
-        {"$project": {"email": 1}},
-    ]
-
-
-def build_registrierung_references_pipeline(identifiers: Iterable[str]) -> list[Mapping[str, Any]]:
-    return [
-        {"$match": build_own_registrierung_filter(*identifiers)},
-        {"$project": {"status": 1, "email": 1, "einwilligung": 1}},
-    ]
+# --- The references: the sign-in gate's selections asked for a batch, with every grant and owed carry beside them.
 
 
 def referenced_addresses(
