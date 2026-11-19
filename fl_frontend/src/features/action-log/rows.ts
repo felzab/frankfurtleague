@@ -1,6 +1,7 @@
 import { COPY } from "@/core/copy";
 import { ERASED_ACTOR_MARKER } from "@/core/erasedActor";
 import { formatInstantShort } from "@/core/format";
+import { FLActorRole } from "@/core/generated/client/types";
 import { ownKeyOf } from "@/core/ownKeyOf";
 import { SERVER_COPY } from "@/core/serverCopy";
 
@@ -27,7 +28,7 @@ function aboutOf({ action, label, count }: FLActionLogEntry): Words | null {
 
 /** A contact person is named by role and team, and never by name. A fixture's answer may stand with no team. */
 function whoOf({ by, team }: FLActionLogEntry): Words {
-  if (by !== "kontakt") return actorWords(by);
+  if (by !== FLActorRole.kontakt) return actorWords(by);
   return team === null ? WORDS.actor.contactNoTeam : WORDS.actor.contact({ record: team });
 }
 
