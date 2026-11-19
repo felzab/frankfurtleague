@@ -231,10 +231,19 @@ class TestTheStartMovesNoLaterPastAStoredExit:
 class TestTheStartIsFixedOnceASpielHasTakenPlace:
     """`saison_start_taken_place` through the endpoint, over the in-session read of every fixture of the season."""
 
-    async def test_a_moved_start_on_a_played_season_is_refused(self, mongo_replica_set_url: str):
-        """One fixture holding a result fixes the start, and the refusal writes nothing."""
+    @pytest.mark.parametrize(
+        "taken_place",
+        [
+            pytest.param({"ergebnis": "1:0"}, id="a result"),
+            # A save keeps one side's goals while the other's are blank, and stores no result until both are in: read by
+            # `saisons_with_a_spiel_taken_place` through `TAKEN_PLACE_FIELDS`, whose projection drops what it leaves out.
+            pytest.param({"team1": {"team_id": TEAM_OID, "tore": 1}}, id="one side's goals"),
+        ],
+    )
+    async def test_a_moved_start_on_a_played_season_is_refused(self, mongo_replica_set_url: str, taken_place: dict[str, Any]):
+        """One fixture that has taken place fixes the start, and the refusal writes nothing."""
 
-        played = [*drawn_spiele()[1:], spiel_document(spiel_nr=1, date=FIRST_SPIEL_DAY, ergebnis="1:0")]
+        played = [*drawn_spiele()[1:], spiel_document(spiel_nr=1, date=FIRST_SPIEL_DAY, **taken_place)]
 
         async def body(database: AsyncDatabase) -> tuple[str, Mapping[str, Any]]:
             await date_the_matchday(database, A_WEEK_LATER)
