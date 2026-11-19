@@ -1090,7 +1090,6 @@ def moved_notice_of(
         appointment=appointment,
         moved_to=moved_to,
         stays=stays,
-        asked_again=False,
     )
 
 

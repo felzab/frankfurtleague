@@ -8,7 +8,7 @@ import pytest
 from bson import ObjectId
 
 from app.api.invitations.services import confirmed_recipients, owed_invitation_mails
-from app.api.outbox.schemas import FLBanData, FLOutboxTeam, FLSpielMailAppointment, FLSpielMovedData, FLSpielNoticeData
+from app.api.outbox.schemas import FLBanData, FLOutboxTeam, FLSpielMailAppointment, FLSpielNoticeData
 from app.api.outbox.services import (
     DELIVERY_DEADLINE,
     LEASE_DURATION,
@@ -166,22 +166,6 @@ def test_a_move_off_its_ground_tells_the_parties_of_no_ground():
     notice = moved_notice_of(party_kind="team", appointment=APPOINTMENT, moved_to=spiel_mail_slot_of(spiel), stays=True)
 
     assert notice.moved_to is not None and notice.moved_to.spielort is None
-
-
-def test_a_move_s_notice_queued_before_it_named_the_ground_and_the_party_still_reads():
-    """A row the release before queued holds neither key: refused, the hand-out would pass it over and nobody would be told."""
-
-    stored = {
-        "kind": "spiel_moved",
-        "recipient": "team",
-        "appointment": APPOINTMENT.model_dump(),
-        "moved_to": APPOINTMENT.model_dump(),
-        "asked_again": True,
-    }
-
-    queued = FLSpielMovedData.model_validate(stored)
-
-    assert (queued.moved_to is not None and queued.moved_to.spielort, queued.stays, queued.asked_again) == (None, False, True)
 
 
 REFEREE = ObjectId("6890a1b2c3d4e5f607f400c1")

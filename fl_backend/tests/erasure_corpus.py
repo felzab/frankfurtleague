@@ -355,6 +355,7 @@ def a_mail(kind: str, *, to: str) -> dict[str, Any]:
         "secret": None,
         "reference": None,
         "link": None,
+        "team": None,
         "state": "sent",
         # Ahead of the erasure, whose own rows carry its `now` and stand on no line.
         "recorded_at": NOW - timedelta(days=1),
@@ -364,6 +365,7 @@ def a_mail(kind: str, *, to: str) -> dict[str, Any]:
         "lease": None,
         "leased_until": None,
         "attempts": 1,
+        "delivery_reason": None,
         "delivery": None,
     }
 

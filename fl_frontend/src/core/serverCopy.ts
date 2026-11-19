@@ -364,21 +364,13 @@ export const SERVER_COPY = catalogue({
       next: COPY.admin.facts.after,
       /** The moment a move left, where the move also changed the sides: the pairing that slot held, then the moment. */
       previousPairing: (spiel: Words, moment: string) => `${textOf(spiel)}, ${moment}`,
-      /**
-       * The promise of a move's notice stored with `asked_again`, by the reader: a club is asked, a referee booked. The
-       * pass writes the flag false, so only a notice queued with it true says this.
-       */
-      askedLater: {
-        team: "Zum neuen Termin bekommst du eine neue Anfrage.",
-        schiedsrichter: "Zum neuen Termin bekommst du eine neue Einteilung.",
-      },
       /** A club taken off a fixture it was asked about, around the moment it was asked about. */
       voidSubject: (day: CalendarDay) => `Nicht mehr angefragt: Spiel am ${formatDateLong(day)}`,
       void: { before: (spiel: Words) => `Die Anfrage ${boundBy("zu", textOf(spiel))} am\u00A0`, after: " gilt nicht mehr." },
 
       /**
        * A match that will not be played, by its event in the word the match page names it by, around its moment: a
-       * no-show names the side that stayed away. `none` words a mail naming no event.
+       * no-show names the side that stayed away.
        */
       cancelled: {
         ausgefallen: {
@@ -395,11 +387,6 @@ export const SERVER_COPY = catalogue({
           subject: (day: CalendarDay) => `${COPY.spielplan.sonderereignis.nichtantretenChip}: Spiel am ${formatDateLong(day)}`,
           before: (team: Words) => `${textOf(team)} tritt zum Spiel am\u00A0`,
           after: " nicht an.",
-        },
-        none: {
-          subject: (day: CalendarDay) => `Spiel am ${formatDateLong(day)} fällt aus`,
-          before: (spiel: Words) => `${textOf(spiel)} am\u00A0`,
-          after: " fällt aus.",
         },
       },
 

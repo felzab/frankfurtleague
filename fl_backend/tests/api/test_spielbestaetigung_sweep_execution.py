@@ -758,11 +758,11 @@ class TestAMovePastTheWindowIsAskedAtOnce:
 
         today = {"team1": "Alpha", "team2": "Beta", "date": TODAY, "time": "18:00:00", "spielort": "Sportpark"}
         assert (told.closed, told.requests, told.einteilungen) == (3, [], [])
-        assert sorted((notice.old.date, notice.moved_to, notice.stays, notice.asked_again) for notice in told.new_ansetzungen) == [
-            (NEXT_WEEK, today, True, False),
-            (NEXT_WEEK, today, True, False),
+        assert sorted((notice.old.date, notice.moved_to, notice.stays) for notice in told.new_ansetzungen) == [
+            (NEXT_WEEK, today, True),
+            (NEXT_WEEK, today, True),
         ]
-        assert [(notice.moved_to, notice.stays, notice.asked_again) for notice in told.schiedsrichter_new_ansetzungen] == [(today, True, False)]
+        assert [(notice.moved_to, notice.stays) for notice in told.schiedsrichter_new_ansetzungen] == [(today, True)]
 
     async def test_a_slot_left_with_no_hour_tells_every_party_still_on_it_of_the_move(self, mongo_replica_set_url: str):
         """Its notice names no new slot, so only `stays` tells a party still on the fixture from one the move took off it."""

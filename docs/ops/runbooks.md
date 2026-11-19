@@ -145,8 +145,9 @@ files, which any later start of nginx, a reboot included, loads and fails on: pu
 configuration nginx takes and deploy it.
 
 **`--no-rollback` is for a build the one before it must never run after**, such as one whose
-migration has already changed the data. It pins the new build before starting it, so a failure
-leaves the stack as it stands and no later run goes back past it.
+migration has already changed the data, a required field added to a stored shape among them. It
+pins the new build before starting it, so a failure leaves the stack as it stands and no later run
+goes back past it.
 
 **A first run finds no pin and goes back to nothing**, so a failed first run leaves the site down
 until a run ends 0. Write down the tag it pins once it does: no build published before that one
@@ -187,23 +188,12 @@ and `healthy`, and nginx `running` with nothing after it. A service still `start
 a minute later. The fourth command pins the build, so every later Compose command, and a later
 deploy that fails, reach it.
 
-**Before going back to a build whose move notice has no `stays`, count the notices it would
-misword.** A build is such a one where `FLSpielMovedData` in its
-`fl_backend/app/api/outbox/schemas.py` declares no `stays` field. An unsent `spiel_moved` row
-holding `data.moved_to` null and `data.stays` true tells a party still on a fixture that the
-fixture lost its slot. Such a build reads no `stays`, so it sends that row as the notice that the
-party is off the match: a club reads that its request no longer holds, a referee that they no longer
-referee it.
-
-- **The count** is a read-only query on the `outbox` collection of the application database, run
-  with `mongosh --file`: rows whose `kind` is `spiel_moved`, whose `state` is `open`, and whose
-  `data.moved_to` is null and `data.stays` true.
-- **Where it counts any**, go back only once a count reads 0, as the Postausgang sends them, or roll
-  forward instead.
-
 **No build published before the first run on this server can serve again, so roll forward
 instead.** Each asks for secret files this compose file does not mount. None can read a match report
 entry naming nobody, which an erasure leaves.
+
+**No build before one deployed with `--no-rollback` serves again either**: the data has moved past
+what it reads.
 
 ## 2. Before deploying a change to a stored shape or an index
 
