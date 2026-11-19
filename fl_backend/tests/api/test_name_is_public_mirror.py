@@ -38,8 +38,8 @@ INITIAL = "M."
 # a scope no enum holds is a state it has to answer rather than one it may assume away.
 UNKNOWN_SCOPE = "kader"
 
-# A key the document does not carry, which is what `$type` answering "missing" is: the two keys were
-# added to `_EINWILLIGUNG` out of `required`, so a stored record really can be short of either.
+# A key the document does not carry, which is what `$type` answering "missing" is. `FLEinwilligung`
+# requires both keys, so no save stores a record short of either; a hand edit or a migration can.
 ABSENT: Final = "<no such key>"
 
 

@@ -482,6 +482,7 @@ class TestWhatAnObjectionOwesTheAnsprechperson:
                 ),
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
                 teams_collection=database[Collection.TEAMS],
+                saisons_collection=database[Collection.SAISONS],
                 outbox_collection=database[Collection.OUTBOX],
                 db=client,
                 today=TODAY,
@@ -513,6 +514,7 @@ class TestWhatAnObjectionOwesTheAnsprechperson:
                 ),
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
                 teams_collection=database[Collection.TEAMS],
+                saisons_collection=database[Collection.SAISONS],
                 outbox_collection=database[Collection.OUTBOX],
                 db=client,
                 today=TODAY,
@@ -602,7 +604,7 @@ class TestAResend:
             "sent_at": TODAY,
             "deadline": "2026-04-15",
             "reminded_at": None,
-            "confirmed_at": None,
+            "confirmed_on": None,
             "declined_at": None,
         }
         # The other seats' links still open.

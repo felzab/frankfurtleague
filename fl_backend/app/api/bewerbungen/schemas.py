@@ -156,7 +156,7 @@ class FLBewerbungConfirmationRecord(_FLBewerbungSeatState):
     reminded_at: CustomOptionalDateString
     # The day this seat's person confirmed it, kept here by the acceptance, which moves the person to the season row and
     # empties the slot: a reopened link still shows what they did and when. Null while the slot holds its own stamp.
-    confirmed_at: CustomOptionalDateString
+    confirmed_on: CustomOptionalDateString
 
 
 class FLBewerbungConfirmationsRecord(FLBewerbungConfirmations):
