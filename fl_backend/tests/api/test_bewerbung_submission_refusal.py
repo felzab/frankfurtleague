@@ -24,7 +24,7 @@ from app.api.teams.schemas import FLKontaktperson
 from app.core.codes import Code
 from app.shared.folding import normalise_phone
 from app.shared.mailbox import mailbox_anchor_ids
-from app.shared.schemas.bounds import TEAM_WEBSITE_URL_MAX_LENGTH
+from app.shared.schemas.custom import TEAM_WEBSITE_URL_MAX_LENGTH
 from tests.documents import ADDRESS, kontaktperson_document
 
 # Fixed rather than generated, so a failure names the same club every run. Its own hex range, as

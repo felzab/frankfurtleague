@@ -38,7 +38,6 @@ from app.shared.mailbox import OPEN_LINKS_PER_MAILBOX, mailbox_of, mailbox_patte
 from app.shared.saison import season_has_ended
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
-    BEWERBUNG_REMINDER_DAYS,
     BIRTH_DATE_MAX_AGE_YEARS,
     CONFIRMATION_DEADLINE_DAYS,
     SAISON_ID_LENGTH,
@@ -994,6 +993,11 @@ def next_saison_id(saison_id: str) -> str:
         raise ValueError(f"the retention sweep needs a season id of {SAISON_ID_LENGTH} ASCII digits, and this season's is not one")
 
     return f"{int(saison_id) + 1:0{SAISON_ID_LENGTH}d}"
+
+
+# The age at which one seat's link is due its single reminder, counted from the mint and set more
+# than a week inside `CONFIRMATION_DEADLINE_DAYS`, so a person reminded still has time to answer.
+BEWERBUNG_REMINDER_DAYS: Final = 3
 
 
 def seat_reminder_is_due(

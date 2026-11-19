@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Annotated, Literal, Self
+from typing import Annotated, Final, Literal, Self
 
 from pydantic import BaseModel, Field, TypeAdapter, model_validator
 
@@ -8,7 +8,7 @@ from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungSchiedsrichte
 from app.api.spiele.schemas import FLSpielortFieldPublic
 from app.api.spieler.schemas import FLEinwilligung
 from app.core.crud import Anchored
-from app.shared.schemas.bounds import SCHIEDSRICHTER_SCHULE_MAX_LENGTH
+from app.shared.schemas.bounds import TEAM_FULL_NAME_MAX_LENGTH
 from app.shared.schemas.confirmation import CustomToken, FLConfirmation
 from app.shared.schemas.custom import (
     CustomDateString,
@@ -32,6 +32,10 @@ class _SchiedsrichterWritable(BaseModel):
     schule: CustomOptionalString
     # No default: the patch writes wholesale.
     default_payment: int = Field(ge=0)
+
+
+# The school a referee teaches at, named as a school's full name is.
+SCHIEDSRICHTER_SCHULE_MAX_LENGTH: Final = TEAM_FULL_NAME_MAX_LENGTH
 
 
 # No `id` on any payload: the path names the referee, the body describes the change (RFC 5789).

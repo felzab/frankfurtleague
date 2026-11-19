@@ -4,7 +4,7 @@ from typing import Annotated, Final
 from pydantic import AfterValidator, BaseModel, Field, StringConstraints
 
 from app.core.exceptions import rule_refusal
-from app.shared.schemas.bounds import BAN_REASON_MAX_LENGTH, SAISON_ID_LENGTH
+from app.shared.schemas.bounds import SAISON_ID_LENGTH
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomNonEmptyString, CustomObjectId
 from app.shared.schemas.kontakt import CustomEmail, CustomStoredAddress
 from app.shared.schemas.responses import BasePayload, BaseReadModel
@@ -48,6 +48,10 @@ class FLBanListRecord(FLBanListRow):
     """
 
     address: CustomStoredAddress
+
+
+# Why an address was barred, in an administrator's own words: a sentence rather than a page, read on a card.
+BAN_REASON_MAX_LENGTH: Final = 500
 
 
 class FLPostBanListEntryPayload(BasePayload):

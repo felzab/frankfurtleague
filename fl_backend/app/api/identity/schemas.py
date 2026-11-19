@@ -1,9 +1,9 @@
-from typing import Annotated, Any
+from typing import Annotated, Any, Final
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, Field, StringConstraints
 
 from app.shared.folding import refuse_a_domain_beyond_ascii, trimmed
-from app.shared.schemas.bounds import ERASURE_REASON_MAX_LENGTH, KONTAKT_EMAIL_MAX_LENGTH, REFERENCES_ADDRESSES_MAX
+from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomObjectId, FLUtcInstant
 from app.shared.schemas.kontakt import CustomEmail
 
@@ -168,6 +168,11 @@ class FLAccountErasureViewResponse(FLAccountErasureView, BaseReadModel):
     admin_tier: FLAdminTier | None
 
 
+# The most addresses one references call judges, each costing about a millisecond, so one call stays far inside the
+# request deadline on a slow server.
+REFERENCES_ADDRESSES_MAX: Final = 250
+
+
 class FLReferencesPayload(BasePayload):
     """The sign-in addresses a pass of the account sweep asks about."""
 
@@ -210,6 +215,11 @@ class FLErasureAddressPayload(BasePayload):
 
     # In the body, since an address in a URL reaches the edge's access line.
     email: ErasureAddress
+
+
+# The request an administrator's erasure answers, its log row's label: a mail's date and subject fit,
+# and the log keeps it twelve months, so a letter does not.
+ERASURE_REASON_MAX_LENGTH: Final = 200
 
 
 class FLErasurePayload(FLErasureAddressPayload):

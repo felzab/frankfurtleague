@@ -1,11 +1,10 @@
-from typing import Annotated, Literal
+from typing import Annotated, Final, Literal
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, Field, StringConstraints, ValidationInfo, field_validator
 
 from app.api.spiele.schemas import FLSpielbestaetigungParty, FLSpielortFieldPublic
 from app.core.crud import Anchored
 from app.core.exceptions import rule_refusal
-from app.shared.schemas.bounds import SPIELBESTAETIGUNG_REASON_MAX_LENGTH
 from app.shared.schemas.custom import (
     PARAGRAPH_PATTERN,
     CustomDateString,
@@ -37,6 +36,12 @@ FLSpielbestaetigungClosedReason = Literal[
 # What a row reads as, the first state matching winning (`state_of`).
 # `vorschlag`: the other club's decline proposes another date; `cancelled`: the fixture was called off, whatever was answered.
 FLSpielbestaetigungState = Literal["valid", "vorschlag", "agreed", "declined", "expired", "invalid", "cancelled"]
+
+
+# A sentence read on a card, as a ban's reason is, neither mailed as a decline's reason is nor kept on a
+# log row as an erasure's reference is.
+SPIELBESTAETIGUNG_REASON_MAX_LENGTH: Final = 500
+
 
 # A paragraph, its line breaks kept, since it is written in a text area and every place showing it keeps them. The
 # ceiling and the pattern judge what arrives and the floor what the strip leaves, so spaces alone are no reason and the

@@ -1,7 +1,7 @@
 import re
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Final
 from urllib.parse import urlsplit
 
 from bson import ObjectId
@@ -20,7 +20,7 @@ from pydantic_core import CoreSchema, core_schema
 
 from app.core.codes import Rule
 from app.core.exceptions import rule_refusal
-from app.shared.schemas.bounds import TEAM_SHORTHAND_LENGTH, TEAM_WEBSITE_URL_MAX_LENGTH
+from app.shared.schemas.bounds import TEAM_SHORTHAND_LENGTH
 
 DATE_REGEX = r"^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
 
@@ -299,6 +299,12 @@ CustomExternalUrl = Annotated[str, AfterValidator(validate_external_url)]
 # coerced to it first -- `validate_external_url` would reject `""`, and an empty `href` is a live
 # link to the current page rather than no link at all.
 CustomOptionalExternalUrl = Annotated[CustomExternalUrl | None, BeforeValidator(parse_empty_string_to_none)]
+
+
+# `validate_external_url` reads the scheme and the host and leaves the path and query unchecked, so this bounds them.
+# Far under what browsers accept: this is a front page.
+TEAM_WEBSITE_URL_MAX_LENGTH: Final = 300
+
 
 # A school's homepage as a payload writes it, for a club and an application alike: the acceptance parses a stored
 # school through the club's payload, so the two keep one rule. Composed from `str` rather than wrapping

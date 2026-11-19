@@ -3,7 +3,6 @@
 A bound only one field states stays at that field, and a derived one is never re-spelled as a literal.
 """
 
-from datetime import date
 from typing import Final, Literal
 
 # The address ceilings, stated by the payload address alone so a stored value over one still reads.
@@ -26,13 +25,6 @@ KONTAKT_EMAIL_MAX_LENGTH: Final[FLKontaktEmailMaxLength] = 254
 
 TEAM_DESCRIPTION_MAX_LENGTH: Final = 4096
 
-# A fixture's admin note, bounded on the payload alone.
-SPIEL_NOTE_MAX_LENGTH: Final = 4096
-
-# Why an application was declined, bounded where an `austritt`'s `reason` is not: this one is composed
-# into an outbound email as well as stored. Named so the frontend mirror refuses at the same length.
-BEWERBUNG_DECISION_REASON_MAX_LENGTH: Final = 1000
-
 type FLBewerbungKontaktMinAgeYears = Literal[16]
 BEWERBUNG_KONTAKT_MIN_AGE_YEARS: Final[FLBewerbungKontaktMinAgeYears] = 16
 
@@ -51,18 +43,6 @@ SIGNATORY_MIN_AGE_YEARS: Final[FLSignatoryMinAgeYears] = 18
 # the privacy notice, the mails and the link pages state it.
 type FLConfirmationDeadlineDays = Literal[14]
 CONFIRMATION_DEADLINE_DAYS: Final[FLConfirmationDeadlineDays] = 14
-# The age at which one seat's link is due its single reminder, counted from the mint and set more
-# than a week inside `CONFIRMATION_DEADLINE_DAYS`, so a person reminded still has time to answer.
-BEWERBUNG_REMINDER_DAYS: Final = 3
-
-# The raw confirmation token as it arrives on every public consent endpoint, a referee's included:
-# one mint spells them all. Wide over the 43 characters `secrets.token_urlsafe(32)` mints, and a
-# ceiling all the same: an anonymous caller posts it.
-BEWERBUNG_TOKEN_MAX_LENGTH: Final = 128
-
-# What kit the school already owns, in its own words, bounded because an anonymous caller writes it and it is
-# stored. Lower than a decline's reason, because a colour, a count and a size need nothing like a page.
-BEWERBUNG_TRIKOT_SET_MAX_LENGTH: Final = 500
 
 # A club's short name, on the public application and the admin payloads alike: both tiers refuse at
 # one ceiling. `name` reaches the junction row, every fixture side and the league table.
@@ -70,32 +50,6 @@ TEAM_NAME_MAX_LENGTH: Final = 60
 # The school's official name, which stands on its own page rather than in a table cell, so it takes
 # the place suffix a short name drops -- "… Kooperative Gesamtschule der Stadt Frankfurt am Main".
 TEAM_FULL_NAME_MAX_LENGTH: Final = 120
-
-# A ground's name, which every fixture at it shows and `maps_query` composes: a school's full name's width.
-SPIELORT_NAME_MAX_LENGTH: Final = 120
-# The school a referee teaches at, named as a school's full name is.
-SCHIEDSRICHTER_SCHULE_MAX_LENGTH: Final = 120
-
-# A school's homepage. `validate_external_url` reads the scheme and the host and leaves the path and
-# query unchecked, so this bounds them. Far under what browsers accept: this is a front page.
-TEAM_WEBSITE_URL_MAX_LENGTH: Final = 300
-
-# The opponent a school would like on the first Spieltag, typed freely rather than picked. It takes
-# `TEAM_FULL_NAME_MAX_LENGTH`'s width: nothing holds an applicant to a league short name.
-BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH: Final = 120
-
-# A person's name, or one part of one. `PERSON_NAME_PATTERN` bounds the alphabet and not the length.
-# Generous against a hyphenated double name and a multi-part surname both.
-KONTAKT_NAME_MAX_LENGTH: Final = 80
-
-# The school's estimate of its squad, and the strong players inside it. A ceiling that is a squad
-# size, not `int32`: past this the number is a typo. Not the season's `max_kader_size`, which an
-# application is held true against nothing of.
-BEWERBUNG_KADER_SIZE_MAX: Final = 200
-
-# How many pupils one Abi-Jahrgang holds, the ones who never play included. A ceiling that is a
-# cohort rather than `int32`: no German school graduates a thousand pupils in one year.
-BEWERBUNG_STUFENGROESSE_MAX: Final = 999
 
 # Published as a schema of its own: the generated module holding the pattern is server-only, so the frontend's control
 # caps a code at a constant of its own, which is checked against this alias.
@@ -110,10 +64,6 @@ SAISON_ID_LENGTH: Final[FLSaisonIdLength] = 4
 # The most rows one list read takes: no request names a page size, so a list is cut here and a whole read refuses a set past it.
 LIST_LIMIT_DEFAULT: Final = 1024
 
-# The most addresses one references call judges, each costing about a millisecond, so one call stays far inside the
-# request deadline on a slow server.
-REFERENCES_ADDRESSES_MAX: Final = 250
-
 # How long the action log keeps a row, counted from the write it recorded. Published in years, which the privacy notice
 # states in months; a plain year of seconds below, because the database counts no calendar months and seconds are the
 # unit `create_index(expireAfterSeconds=)` takes.
@@ -126,25 +76,9 @@ ACTION_LOG_ENTRY_RETENTION_SECONDS: Final = ACTION_LOG_RETENTION_YEARS * 365 * 2
 type FLActionLogPageSize = Literal[50]
 ACTION_LOG_PAGE_SIZE: Final[FLActionLogPageSize] = 50
 
-# The days the Protokoll's filters may name: wider than any row's, and each with a next midnight and a UTC instant that
-# `date` and BSON can hold, so a day past them is refused rather than overflowing into a 500.
-ACTION_LOG_DAY_MIN: Final = date(2000, 1, 1)
-ACTION_LOG_DAY_MAX: Final = date(2999, 12, 31)
-
-# The longest word a row stores, an erasure's reference: a longer search matches nothing.
-ACTION_LOG_SEARCH_MAX_LENGTH: Final = 200
-
-# Why an address was barred, in an administrator's own words. A reason is a sentence rather than a
-# page, and the row is read on a card. Named so the frontend mirror refuses at the same length.
-BAN_REASON_MAX_LENGTH: Final = 500
-
 # Why a team is out of a season, in an administrator's words on the team's public page: a sentence, as a
 # ban's reason is.
 AUSTRITT_REASON_MAX_LENGTH: Final = 500
-
-# The request an administrator's erasure answers, its log row's label: a mail's date and subject fit,
-# and the log keeps it twelve months, so a letter does not.
-ERASURE_REASON_MAX_LENGTH: Final = 200
 
 # How many full seasons a ban outlives the one it was entered under. The season it is entered in
 # does not count, so the fifth one after it is the last the ban covers.
@@ -204,16 +138,6 @@ SPIEL_CONFIRMATION_DEADLINE_DAYS: Final = 7
 SPIEL_REQUEST_LEAD_TIME_DAYS: Final = 14
 # The one reminder falls this many days before a team row's deadline.
 SPIEL_REMINDER_DAYS: Final = 3
-
-# A sentence read on a card, as a ban's reason is, neither mailed as a decline's reason is nor kept on a
-# log row as an erasure's reference is.
-SPIELBESTAETIGUNG_REASON_MAX_LENGTH: Final = 500
-
-# A report's remarks on one match, whoever writes them, bounded on the payload alone, which keeps the report far under
-# BSON's document ceiling.
-SPIELBERICHT_REMARKS_MAX_LENGTH: Final = 2000
-# The most scorers, and the most cards, one report lists, which keeps the report far under BSON's ceiling too.
-SPIELBERICHT_ENTRIES_MAX: Final = 60
 
 # A line-up's three marks, each counted back from its fixture's kick-off, here and nowhere else: from the first a team
 # holding none is owed its one reminder, from the second a missing line-up reads overdue, and from the third the team's

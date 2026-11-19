@@ -1,9 +1,9 @@
-from typing import Annotated
+from typing import Annotated, Final
 
 from pydantic import AfterValidator, BaseModel, Field, StringConstraints
 
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
-from app.shared.schemas.bounds import SPIELORT_NAME_MAX_LENGTH
+from app.shared.schemas.bounds import TEAM_FULL_NAME_MAX_LENGTH
 from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString, CustomVersion
 from app.shared.schemas.responses import BasePayload, BaseReadModel
 
@@ -16,6 +16,10 @@ class _SpielortWritable(BaseModel):
     # No default: the patch writes the payload back wholesale, so one would overwrite a real rent
     # with 0.
     default_mietpreis: int = Field(ge=0)
+
+
+# A ground's name, which every fixture at it shows and `maps_query` composes, takes a school's full name's width.
+SPIELORT_NAME_MAX_LENGTH: Final = TEAM_FULL_NAME_MAX_LENGTH
 
 
 # No `id` on any payload: the path names the venue, the body describes the change (RFC 5789). The
