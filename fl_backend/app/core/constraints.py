@@ -36,7 +36,7 @@ UNIQUE_INDEXES: Sequence[tuple[Collection, IndexModel]] = (
         Collection.SPIELTAGE,
         IndexModel(["saison_id", "saison_phase", "position"], name="uniq_saison_id_saison_phase_position", unique=True),
     ),
-    # One entry per banned address. It is also the READ path: the sign-in and the Postausgang's hand-out each ask by
+    # One entry per banned address. It is also the read path: the sign-in and the Postausgang's hand-out each ask by
     # this key, so dropping the index costs a collection scan per read as well as the rule.
     (Collection.BAN_LIST, IndexModel(["address"], name="uniq_ban_list_address", unique=True)),
     # One live invite per team per season. `$type` rather than the equality `{"revoked_at": None}`, which also matches a
@@ -59,7 +59,7 @@ UNIQUE_INDEXES: Sequence[tuple[Collection, IndexModel]] = (
             partialFilterExpression={"idempotency_key": {"$type": "string"}},
         ),
     ),
-    # One registration per submission key, filtered as the application's is.
+    # One registration per submission key, filtered on `$type` so that keyless registrations are not one null key.
     (
         Collection.REGISTRIERUNGEN,
         IndexModel(
@@ -79,7 +79,7 @@ UNIQUE_INDEXES: Sequence[tuple[Collection, IndexModel]] = (
     # second `past` row would be refused. Checked at each write rather than at the commit, so a rollover demotes before
     # it promotes.
     (Collection.SAISONS, IndexModel(["status"], name="uniq_saison_active", unique=True, partialFilterExpression={"status": "active"})),
-    # One grant per address. Also the READ path of every admin-tier request, and what refuses a second grant a hand-run
+    # One grant per address. Also the read path of every admin-tier request, and what refuses a second grant a hand-run
     # `mongosh` file adds for an address already holding one.
     (Collection.GRANTS, IndexModel(["address"], name="uniq_grant_address", unique=True)),
     # At most one owner. Checked at each write rather than at the commit, so a handover demotes before it promotes.
@@ -125,7 +125,7 @@ UNIQUE_INDEXES: Sequence[tuple[Collection, IndexModel]] = (
             partialFilterExpression={"ended": {"$type": "null"}, "address": {"$type": "string"}},
         ),
     ),
-    # One row per owed mail. Also the READ path of every enqueue, which finds a replay's row by it.
+    # One row per owed mail. Also the read path of every enqueue, which finds a replay's row by it.
     (Collection.OUTBOX, IndexModel(["key"], name="uniq_outbox_key", unique=True)),
 )
 
@@ -236,7 +236,7 @@ SUPPORT_INDEXES: Sequence[tuple[Collection, IndexModel]] = (
         (Collection.SAISON_TEAMS, IndexModel([(f"kontakte.{seat}.email", ASCENDING)], name=f"saison_teams_kontakte_{seat}_email"))
         for seat in KONTAKT_SEATS
     ),
-    # A person's applications, which every sign-in attempt and account page read, one per clause as above.
+    # A person's applications, which every sign-in attempt and account page read: one index per clause of the `$or`.
     *(
         (Collection.BEWERBUNGEN, IndexModel([(f"kontakte.{seat}.email", ASCENDING)], name=f"bewerbungen_kontakte_{seat}_email"))
         for seat in KONTAKT_SEATS
@@ -271,7 +271,7 @@ SUPPORT_INDEXES: Sequence[tuple[Collection, IndexModel]] = (
 
 # One collection's retention, applied by the database rather than by a sweep in this codebase. Dropping one costs
 # retention, not speed and not correctness: every row stays, and nothing anywhere reports that it did. Each is keyed on
-# ONE field, and a date one: MongoDB's manual documents a compound index as ignoring `expireAfterSeconds` outright and
+# one field, and a date one: MongoDB's manual documents a compound index as ignoring `expireAfterSeconds` outright and
 # a non-date value as never expiring, each in silence (https://www.mongodb.com/docs/manual/core/index-ttl/).
 TTL_INDEXES: Sequence[tuple[Collection, IndexModel]] = (
     # A log row is kept for twelve months after the act it recorded.

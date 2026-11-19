@@ -424,7 +424,7 @@ class TestACancelledRequestStillAbortsItsTransaction:
 
 class TestTheRouteRunsInTheServersTask:
     async def test_no_layer_moves_it_into_a_task_of_its_own(self):
-        """`app/core/middlewares.py :: TraceContextMiddleware`'s reason: a task group around the app cancels it at every await.
+        """Why the middlewares are pure ASGI: a task group around the app cancels the route again at every await.
 
         The shield holds the helper's abort there, so only this case fails for pymongo's own cleanup awaits.
         """
