@@ -5,9 +5,10 @@ import { runInBackground } from "./core/requestScope";
 import { HOUR_MS } from "./core/timeUnits";
 import { mintTraceId } from "./core/trace";
 
-// A refused configuration's exit, apart from a fault's 1, as the backend's `BOOT_REFUSED`: `docker compose ps`
-// shows it on the restarting container, `Restarting (3)`, which tells a host's bad file from a crash before anyone
-// opens the log.
+// A refused configuration's exit, apart from a fault's 1: `docker compose ps` shows it on the restarting container,
+// `Restarting (3)`, which tells a host's bad file from a crash before anyone opens the log. The backend's
+// `BOOT_REFUSED` is the same 3, but uvicorn exits 3 for any start that fails, so there it says only that the boot
+// never served.
 const REFUSED = 3;
 
 export async function registerOnNode() {

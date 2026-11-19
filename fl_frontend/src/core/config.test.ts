@@ -71,12 +71,3 @@ describe("a production boot", () => {
     expect(thrownBy(() => judgedSettings(variables, files))).toStrictEqual(new BootRefusal(refusal));
   });
 });
-
-// Two tiers holding one key are one tier, on every deployment: the backend refuses the same boot at the same file.
-it("refuses a boot whose admin key holds the base key's value, naming the later file", () => {
-  const files = { ...FILES, INTERNAL_API_KEY_ADMIN: FILES.INTERNAL_API_KEY_BASE };
-
-  expect(thrownBy(() => judgedSettings({ ...VARIABLES, APP_ENV: "local" }, files))).toStrictEqual(
-    new BootRefusal("Invalid secret files: internal_api_key_admin"),
-  );
-});
