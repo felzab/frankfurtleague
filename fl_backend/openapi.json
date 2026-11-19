@@ -17636,7 +17636,7 @@
     },
     "/api/bewerbungen/{bewerbung_id}/kontakte/{seat}": {
       "post": {
-        "description": "Write a person into one seat, whatever its state, and mail them a fresh link; an acceptance waits on their answer.\n\nWhere one person holds two seats both are written, the last holder's link opens nothing afterwards, and the seat's\ndeadline starts again from today.",
+        "description": "Write a person into one seat, whatever its state, and mail them a fresh link; an acceptance waits on their answer.\n\nWhere one person holds two seats both are written, the last holder's link opens nothing afterwards, and the seat's\ndeadline starts again from today. A finished season's application takes no write, as it takes no fresh link.",
         "operationId": "bewerbungen_post_kontakt_seat",
         "parameters": [
           {

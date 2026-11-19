@@ -272,7 +272,7 @@ def compose_confirmation(*, today: str) -> dict[str, Any]:
         "sent_at": today,
         "deadline": confirmation_deadline_from(today=today),
         "reminded_at": None,
-        "confirmed_at": None,
+        "confirmed_on": None,
         "declined_at": None,
     }
 
@@ -303,7 +303,7 @@ KONTAKT_CHOICE_FIELDS: Final = ("einwilligung.scope", "einwilligung.media", "ein
 # rest of the document is what a base-tier read must not hold.
 # Every hash, which `seat_holding` compares.
 EINWILLIGUNG_VIEW_FIELDS: Mapping[str, int] = {
-    **_per_seat("confirmations", "token_hashes", "declined_at", "deadline", "confirmed_at"),
+    **_per_seat("confirmations", "token_hashes", "declined_at", "deadline", "confirmed_on"),
     **_per_seat("kontakte", "einwilligung.confirmed_at"),
     # A declaration naming a seat, holding nobody's details: `paired_seat` reads it, and the view
     # serves only the pair it resolves for this link's own seat.
@@ -438,7 +438,7 @@ def _kept_confirmation(confirmations: Mapping[str, Any] | None, seat: str) -> An
 
     entry = _entry_of(confirmations, seat)
 
-    return None if entry is None else entry.get("confirmed_at")
+    return None if entry is None else entry.get("confirmed_on")
 
 
 def _was_confirmed(kontakte: Mapping[str, Any] | None, confirmations: Mapping[str, Any] | None, seat: str) -> bool:
@@ -1487,7 +1487,7 @@ def build_entry_offer_pipeline(*, saison_id: str) -> list[Mapping[str, Any]]:
 # shows none.
 BEWERBUNG_LIST_FIELDS: Mapping[str, int] = {
     **_per_seat("kontakte", "einwilligung.confirmed_at"),
-    **_per_seat("confirmations", "sent_at", "confirmed_at"),
+    **_per_seat("confirmations", "sent_at", "confirmed_on"),
     "version": 1,
     "saison_id": 1,
     "status": 1,
@@ -1585,7 +1585,7 @@ def compose_acceptance_seats(*, kontakte: Mapping[str, Any], confirmations: Mapp
         **{f"kontakte.{seat}": None for seat in KONTAKT_SEATS},
         # A seat holding no entry takes no stamp: a dotted path cannot traverse a null.
         **{
-            f"confirmations.{seat}.confirmed_at": _confirmed_on(kontakte, seat)
+            f"confirmations.{seat}.confirmed_on": _confirmed_on(kontakte, seat)
             for seat in KONTAKT_SEATS
             if _entry_of(confirmations, seat) is not None
         },

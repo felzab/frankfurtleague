@@ -358,18 +358,16 @@ async def post_many_to_db(
     *,
     collection: AsyncCollection,
     documents: Sequence[Mapping[str, Any]],
-    session: AsyncClientSession | None,
+    # Required: `insert_many` is ordered and not atomic, so a refused document leaves every one before it written, and
+    # only the caller's transaction, aborting, takes them back.
+    session: AsyncClientSession,
 ) -> InsertManyResult:
     """The driver's result, unwrapped: `inserted_ids` is in input order, so a caller can pair an id back to what it sent."""
 
     try:
         return await collection.insert_many(documents=[_created(collection, document) for document in documents], session=session)
     except BulkWriteError as failure:
-        # `insert_many` is ordered and not atomic: a refused document leaves every one before it written, which a
-        # 409 would deny. Inside a transaction its abort takes them back.
-        landed = int((failure.details or {}).get("nInserted", 0))
-        stands = landed > 0 and not (session is not None and session.in_transaction)
-        if not stands and (refusal := _duplicate_key_of(failure)) is not None:
+        if (refusal := _duplicate_key_of(failure)) is not None:
             raise refusal from failure
         raise
 
@@ -385,10 +383,10 @@ DUPLICATE_KEY_ERROR = 11000
 
 
 def _duplicate_key_of(failure: BulkWriteError) -> DuplicateKeyError | None:
-    """So a batch answers 409 `duplicate_key` as one insert does, asked only where nothing the batch wrote stands.
+    """So a batch answers 409 `duplicate_key` as one insert does.
 
-    A refusal says nothing was written. A write-concern error beside the refusals keeps the batch's own
-    failure, which says more.
+    A refusal says nothing was written, which the transaction every batch runs in makes true. A write-concern error
+    beside the refusals keeps the batch's own failure, which says more.
     """
 
     report = failure.details or {}

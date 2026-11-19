@@ -1,9 +1,9 @@
 """
-API · a referee's own consent record, read and changed by its own person on the account page
+API · the account page's read, and the press its person makes on each record it serves
 
-The pupil's twin is `tests/api/test_spieler_self.py`, which also pins that the two PATCHes take one
-payload shape; this file holds what differs on a referee row: a record the confirmation has not
-yet written.
+Four kinds of record beside the pupil's, whose press its own suite holds: a referee row, the seats one person holds
+on a season row, their seats on a pending application, and a pending registration. Each press is judged against the
+page that sent it, so a grant is taken only where the read offered one and a press from an older page is refused.
 """
 
 from collections.abc import Awaitable, Callable, Mapping
@@ -767,9 +767,9 @@ class TestTheSeatsWhatsAppChoice:
         assert seat[EVIDENCE]["scope"] == SEAT_WITHDRAWAL["scope"]
 
 
-# The unanswered application reads first in the season, which `app/api/account/services.py :: BEWERBUNG_ORDER` sorts
-# by id: a read stopping at an application holding none of the person's confirmed seats, rather than passing it,
-# then drops the pending one.
+# The unanswered application reads first in the season, the account read sorting a season's applications by id: a
+# read stopping at an application holding none of the person's confirmed seats, rather than passing it, then drops the
+# pending one.
 UNANSWERED_OID = ObjectId("6890a1b2c3d4e5f607850050")
 PENDING_OID = ObjectId("6890a1b2c3d4e5f607850051")
 DECIDED_OID = ObjectId("6890a1b2c3d4e5f607850052")

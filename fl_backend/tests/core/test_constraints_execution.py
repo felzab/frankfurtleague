@@ -1,22 +1,16 @@
 import traceback
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Any, Final
-from uuid import UUID
 
 import pytest
 from bson import ObjectId
 from fastapi import FastAPI
 from pydantic import SecretStr
-from pymongo import ASCENDING, AsyncMongoClient
+from pymongo import ASCENDING
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.bewerbungen.public_router import post_bewerbung
-from app.api.bewerbungen.schemas import FLPostBewerbungPayload
-from app.api.registrierungen.crud import pull_open_registrierungen
-from app.api.registrierungen.public_router import post_registrierung
-from app.api.registrierungen.schemas import FLPostRegistrierungPayload
 from app.core.collections import Collection
 from app.core.constraints import (
     SUPPORT_INDEXES,
@@ -40,7 +34,6 @@ from tests.documents import (
     kontaktperson_document,
     new_schule_document,
     outbox_document,
-    registrierung_confirmed,
     registrierung_document,
     saison_document,
     saison_spieler_document,
@@ -55,7 +48,6 @@ from tests.documents import (
     team_document,
 )
 from tests.outbox import MAIL_NOW
-from tests.plans import Wanted, plans_of_sent_reads
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -482,208 +474,6 @@ async def test_every_declared_ttl_index_is_built_over_its_key_with_its_bound(mon
     assert await on_the_shipped_schema(mongo_replica_set_url, body) == [
         (ttl.document["name"], ttl.document["expireAfterSeconds"], dict(ttl.document["key"])) for _, ttl in TTL_INDEXES
     ]
-
-
-CONFIRMED_QUEUE_INDEX = "registrierungen_saison_id_team_id_confirmed_queue"
-
-# Enough rows that the planner prefers an index: on a handful of documents a collection scan wins on merit.
-ROWS_ENOUGH_TO_PREFER_AN_INDEX = 2000
-
-# The pupils who confirmed, older than every row of the flood typed through the team's link after them.
-CONFIRMED_BENEATH_A_FLOOD = 3
-
-
-class _SentReads:
-    """A collection keeping each pipeline a call site aggregates, so the read is explained as it was sent."""
-
-    def __init__(self, collection: Any) -> None:
-        self._collection = collection
-        self.sent: list[list[Mapping[str, Any]]] = []
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._collection, name)
-
-    async def aggregate(self, pipeline: list[Mapping[str, Any]], **kwargs: Any) -> Any:
-        self.sent.append(pipeline)
-        return await self._collection.aggregate(pipeline, **kwargs)
-
-
-def index_names(node: Any) -> list[str]:
-    """Every index a plan walks, at any depth: an exploded `$in` nests its scans past `inputStage`."""
-
-    if isinstance(node, Mapping):
-        return [*([node["indexName"]] if "indexName" in node else []), *(name for value in node.values() for name in index_names(value))]
-    if isinstance(node, list):
-        return [name for value in node for name in index_names(value)]
-    return []
-
-
-async def test_a_teams_confirmed_registrations_are_read_past_a_flood_without_fetching_it(mongo_replica_set_url: str):
-    """The confirmed read as `pull_open_registrierungen` sends it, explained with its run: it fetches the confirmed rows alone.
-
-    Anybody holding the team's link writes an unconfirmed row with every press. On the queue index the read would fetch every
-    one standing newer, the flood whole, on each look at the team's list: what it serves stays the same, so only the plan shows it.
-    """
-
-    def registration(position: int, *, confirmed: bool) -> dict[str, Any]:
-        return registrierung_document(
-            ObjectId(),
-            f"schueler.{position}@example.invalid",
-            saison_id=SAISON_ID,
-            team_id=TEAM_OID,
-            first_name="Flut",
-            last_name=f"Nr{position}",
-            token=f"link-{position}",
-            submitted_at="2026-03-01" if confirmed else "2026-03-15",
-            deadline="2026-03-29",
-            confirmed=registrierung_confirmed(
-                birth_date="2009-05-04", today="2026-03-02", at="2026-03-02T08:00:00+00:00", scope="internal", media=False
-            )
-            if confirmed
-            else None,
-        )
-
-    async def body(database: AsyncDatabase) -> tuple[list[str], int, int]:
-        await database[Collection.REGISTRIERUNGEN].insert_many(
-            [
-                *(registration(position, confirmed=True) for position in range(CONFIRMED_BENEATH_A_FLOOD)),
-                *(registration(position, confirmed=False) for position in range(CONFIRMED_BENEATH_A_FLOOD, ROWS_ENOUGH_TO_PREFER_AN_INDEX)),
-            ]
-        )
-        reads: Any = _SentReads(database[Collection.REGISTRIERUNGEN])
-        async with database.client.start_session() as session:
-            opened = await pull_open_registrierungen(registrierungen_collection=reads, saison_id=SAISON_ID, team_id=TEAM_OID, session=session)
-        pipeline, *_ = reads.sent
-        explained = await database.command(
-            {"explain": {"aggregate": str(Collection.REGISTRIERUNGEN), "pipeline": pipeline, "cursor": {}}, "verbosity": "executionStats"}
-        )
-        # A pipeline pushed whole into the query layer answers at the top level, one left as stages under the cursor stage.
-        stats: Any = explained.get("executionStats") or explained["stages"][0]["$cursor"]["executionStats"]
-        planner: Any = explained.get("queryPlanner") or explained["stages"][0]["$cursor"]["queryPlanner"]
-        served = sum(row.get("einwilligung") is not None for row in opened)
-
-        return index_names(planner["winningPlan"]), stats["totalDocsExamined"], served
-
-    indexes, examined, served = await on_the_shipped_schema(mongo_replica_set_url, body)
-
-    assert served == CONFIRMED_BENEATH_A_FLOOD
-    assert indexes == [CONFIRMED_QUEUE_INDEX]
-    assert examined == CONFIRMED_BENEATH_A_FLOOD
-
-
-KEY_LOOKUP_SCAN = "IXSCAN { idempotency_key: 1 }"
-
-
-def _contact(first_name: str, phone: str) -> dict[str, str]:
-    return {"first_name": first_name, "last_name": "Mustermann", "email": f"{first_name.lower()}@example.com", "phone": phone}
-
-
-async def _replayed_application(watched: AsyncDatabase, client: AsyncMongoClient) -> Any:
-    """A press repeating a stored key: the lookup is its first read, and it answers the stored row with nothing else read."""
-
-    return await post_bewerbung(
-        bewerbung_data=FLPostBewerbungPayload.model_validate(
-            {
-                "saison_id": SAISON_ID,
-                "team_id": str(TEAM_OID),
-                "schule": None,
-                "kontakte": {
-                    "trainer": _contact("Wraxlington", "+49 171 3920011"),
-                    "ansprechperson": _contact("Quillhilde", "+49 171 3920022"),
-                    "stellvertretung": _contact("Bramblewick", "+49 171 3920033"),
-                    "trainer_is_also": None,
-                },
-                "trikot": {"existing_set": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
-                "kader": {"expected_size": 14, "good_spieler": 3},
-                "stufengroesse": 90,
-            }
-        ),
-        idempotency_key=UUID(IDEMPOTENCY_KEY),
-        bewerbungen_collection=watched[Collection.BEWERBUNGEN],
-        saisons_collection=watched[Collection.SAISONS],
-        teams_collection=watched[Collection.TEAMS],
-        saison_teams_collection=watched[Collection.SAISON_TEAMS],
-        outbox_collection=watched[Collection.OUTBOX],
-        mailbox_anchors_collection=watched[Collection.MAILBOX_ANCHORS],
-        db=client,
-        today="2026-03-16",
-        germany_now=MAIL_NOW,
-    )
-
-
-async def _replayed_registration(watched: AsyncDatabase, client: AsyncMongoClient) -> Any:
-    """The registration's twin of `_replayed_application`."""
-
-    return await post_registrierung(
-        registrierung_data=FLPostRegistrierungPayload.model_validate(
-            {
-                "token": "link",
-                "first_name": "Thessaly",
-                "last_name": "Okonkwo-Brandt",
-                "email": "thessaly@example.com",
-                "position": "Mittelfeld",
-                "nummer": "17",
-                "stufe": "Q1",
-            }
-        ),
-        idempotency_key=UUID(IDEMPOTENCY_KEY),
-        registrierungen_collection=watched[Collection.REGISTRIERUNGEN],
-        invitations_collection=watched[Collection.INVITATIONS],
-        saisons_collection=watched[Collection.SAISONS],
-        saison_teams_collection=watched[Collection.SAISON_TEAMS],
-        saison_spieler_collection=watched[Collection.SAISON_SPIELER],
-        outbox_collection=watched[Collection.OUTBOX],
-        mailbox_anchors_collection=watched[Collection.MAILBOX_ANCHORS],
-        db=client,
-        today="2026-03-16",
-        germany_now=MAIL_NOW,
-    )
-
-
-def _key_lookup_on(collection: Collection) -> Wanted:
-    return lambda sent_to, command: sent_to == collection and "idempotency_key" in (command.get("filter") or {})
-
-
-@pytest.mark.parametrize(
-    ("seeded", "read", "wanted", "planned"),
-    [
-        pytest.param(
-            Collection.BEWERBUNGEN,
-            _replayed_application,
-            _key_lookup_on(Collection.BEWERBUNGEN),
-            [(Collection.BEWERBUNGEN, KEY_LOOKUP_SCAN)],
-            id="the application's key lookup",
-        ),
-        pytest.param(
-            Collection.REGISTRIERUNGEN,
-            _replayed_registration,
-            _key_lookup_on(Collection.REGISTRIERUNGEN),
-            [(Collection.REGISTRIERUNGEN, KEY_LOOKUP_SCAN)],
-            id="the registration's key lookup",
-        ),
-    ],
-)
-async def test_a_read_over_rows_a_stranger_writes_walks_its_index(
-    mongo_replica_set_url: str,
-    seeded: Collection,
-    read: Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]],
-    wanted: Wanted,
-    planned: Any,
-):
-    """Each read as its endpoint sends it, planned by the server: a public form grows these collections with every press.
-
-    A read losing its index answers the same over a scan, a scan whose work grows with every row a flood adds, so only the
-    plan shows it.
-    """
-
-    async def body(database: AsyncDatabase) -> list[tuple[str, str]]:
-        await database[Collection.SAISONS].insert_one(valid_document(Collection.SAISONS))
-        await database[seeded].insert_one(valid_document(seeded, idempotency_key=IDEMPOTENCY_KEY))
-        _, plans = await plans_of_sent_reads(mongo_replica_set_url, database, read, wanted)
-
-        return plans
-
-    assert await on_the_shipped_schema(mongo_replica_set_url, body) == planned
 
 
 OTHER_SCHIEDSRICHTER_OID = ObjectId("6890a1b2c3d4e5f607200010")

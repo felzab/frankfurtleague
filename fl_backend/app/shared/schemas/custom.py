@@ -186,7 +186,8 @@ SINGLE_LINE_PATTERN = r"^[^\x00\n\v\f\r\u0085\u2028\u2029]*$"
 # browser's text area sends before it, and the other characters `SINGLE_LINE_PATTERN` refuses still refused.
 PARAGRAPH_PATTERN = r"^[^\x00\v\f\u0085\u2028\u2029]*$"
 
-# Byte-for-byte the regex zod uses for `z.regexes.domain`, the shape a public hostname takes.
+# The shape a public hostname takes: labels of letters, digits and inner hyphens, ending in a top-level label of
+# letters alone, so an address of numbers, a bare machine name and a trailing dot are each refused.
 DOMAIN_REGEX = re.compile(r"^(?=.{1,253}$)([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}$")
 
 EXTERNAL_URL_SCHEMES = frozenset({"http", "https"})
@@ -324,5 +325,5 @@ CustomOptionalWebsiteUrl = Annotated[
 CustomSpielNr = Annotated[int, Field(gt=0)]
 
 # `[0-9]`, never `\d`: Python's `\d` matches Unicode decimal digits where the frontend mirror's
-# does not, and both ends parse this string for win/draw/loss.
+# does not, so the two ends would judge one score apart.
 CustomErgebnisString = Annotated[str, StringConstraints(pattern=r"^[0-9]+:[0-9]+$")]

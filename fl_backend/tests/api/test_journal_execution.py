@@ -6,7 +6,8 @@ A restore rolls the record back with the log, so this line is what says the pers
 """
 
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterable
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -287,25 +288,50 @@ PRESSES: dict[str, tuple[Press, str, Collection, ObjectId, list[str]]] = {
 }
 
 
-@pytest.mark.parametrize("press", PRESSES, ids=PRESSES)
-async def test_each_press_writes_one_line_naming_its_record_and_no_address(
-    mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture, press: str
-):
+@dataclass(frozen=True)
+class Pressed:
+    """What one press answered and wrote: its status, its journal lines and its Protokoll rows."""
+
+    status: int
+    lines: list[dict[str, Any]]
+    rows: list[dict[str, Any]]
+
+
+async def pressed_in_turn(url: str, caplog: pytest.LogCaptureFixture, presses: Iterable[str]) -> dict[str, Pressed]:
+    """Each press on one seeded league, in the order given, with what it alone wrote.
+
+    Every press writes a record of its own but the season row's two, which run in `PRESSES`' order: the Stellvertretung's
+    objection meets the row as the trainer's withdrawal left it.
+    """
+
+    pressed: dict[str, Pressed] = {}
+    async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_client, database):
+        await seeded(database)
+        async with app_client(url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
+            for press in presses:
+                earlier = await database[Collection.ACTION_LOG].distinct("_id")
+                caplog.clear()
+                with caplog.at_level(logging.INFO):
+                    status = (await PRESSES[press][0](http, database)).status_code
+                pressed[press] = Pressed(
+                    status=status,
+                    lines=[{key: vars(record)[key] for key in ("act", "records", "choices", "seats")} for record in journal_records(caplog)],
+                    rows=await database[Collection.ACTION_LOG].find({"_id": {"$nin": earlier}}).to_list(length=None),
+                )
+
+    return pressed
+
+
+async def test_each_press_writes_one_line_naming_its_record_and_no_address(mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
     """No address: the line outlives the erasure it may later have to sit beside. Its slots: a replay sets one person's block of three."""
 
-    act, kind, collection, record_id, slots = PRESSES[press]
+    pressed = await pressed_in_turn(mongo_replica_set_url, caplog, PRESSES)
 
-    async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True) as (_client, database):
-        await seeded(database)
-        async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
-            with caplog.at_level(logging.INFO):
-                status = (await act(http, database)).status_code
-    [record] = journal_records(caplog)
-    line = {key: vars(record)[key] for key in ("act", "records", "choices", "seats")}
-
-    assert status < 300
-    assert (line["act"], line["records"], line["seats"]) == (kind, [f"{collection}/{record_id}"], slots)
-    assert "@" not in str(line)
+    assert {press: outcome.status < 300 for press, outcome in pressed.items()} == dict.fromkeys(PRESSES, True)
+    assert {press: [(line["act"], line["records"], line["seats"]) for line in outcome.lines] for press, outcome in pressed.items()} == {
+        press: [(kind, [f"{collection}/{record_id}"], slots)] for press, (_act, kind, collection, record_id, slots) in PRESSES.items()
+    }
+    assert "@" not in str([outcome.lines for outcome in pressed.values()])
 
 
 # Each objection's one Protokoll row, as what was done, by whom, for which club, on which record and about which school.
@@ -317,17 +343,13 @@ OBJECTION_ROWS = {
 }
 
 
-@pytest.mark.parametrize("press", OBJECTION_ROWS, ids=OBJECTION_ROWS)
-async def test_each_objection_writes_one_protokoll_row(mongo_replica_set_url: str, press: str):
+async def test_each_objection_writes_one_protokoll_row(mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
     """Unrecorded, a refusal leaves the administration a chip on a seat at most, and on a referee erased at once nothing."""
 
-    act = PRESSES[press][0]
+    pressed = await pressed_in_turn(mongo_replica_set_url, caplog, OBJECTION_ROWS)
 
-    async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True) as (_client, database):
-        await seeded(database)
-        async with app_client(mongo_replica_set_url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
-            status = (await act(http, database)).status_code
-        rows = await database[Collection.ACTION_LOG].find().to_list(length=None)
-
-    assert status < 300
-    assert [(row["action"], row["by"], row["team"], row["record_id"], row["label"]) for row in rows] == [OBJECTION_ROWS[press]]
+    assert {press: outcome.status < 300 for press, outcome in pressed.items()} == dict.fromkeys(OBJECTION_ROWS, True)
+    assert {
+        press: [(row["action"], row["by"], row["team"], row["record_id"], row["label"]) for row in outcome.rows]
+        for press, outcome in pressed.items()
+    } == {press: [row] for press, row in OBJECTION_ROWS.items()}

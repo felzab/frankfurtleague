@@ -270,8 +270,8 @@ class _TeamWritable(BaseModel):
     # No default here, so the payloads inherit none: `PATCH` replaces the club wholesale, and an
     # omitted key would clear a school form and fan the clearing out as an edit somebody asked for.
     schulform: FLSchulform | None
-    # Rendered straight into an href on a public page, so the scheme is constrained here as well as
-    # in the frontend. Null where a school has no site: `""` renders as a link to the page it sits on.
+    # Rendered straight into an href on a public page, so the scheme is constrained here, on every read as on every
+    # write. Null where a school has no site: `""` renders as a link to the page it sits on.
     website_url: CustomOptionalExternalUrl
     # Public on every read, a data-protection expert consulted: a school's street stays on the base
     # tier, and the application form asking for it says so.
