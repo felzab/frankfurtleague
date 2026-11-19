@@ -30,11 +30,16 @@ from app.shared.schemas.responses import BasePayload, BaseReadModel
 # read models stay lax.
 
 
+# One member, and never free text: the reason reaches the pupil's mail, and a team's own words about
+# a pupil would be personal data the league then holds about them.
+FLRegistrierungDecisionReason = Literal["other_person"]
+
+
 class FLRegistrierungDecision(BaseModel):
     """When this registration was declined, and why."""
 
     made_at: CustomDateString
-    reason: str | None
+    reason: FLRegistrierungDecisionReason | None
 
 
 class FLRegistrierungEinwilligung(FLEinwilligung, BaseReadModel):
@@ -244,11 +249,6 @@ class FLRegistrierungAdmitPayload(BasePayload):
     # Required with no default: a client that omitted it would be read as answering "a new person",
     # which is the one answer that can put a returning pupil into the league twice.
     spieler_id: CustomObjectId | None
-
-
-# One member, and never free text: the reason reaches the pupil's mail, and a team's own words about
-# a pupil would be personal data the league then holds about them.
-FLRegistrierungDecisionReason = Literal["other_person"]
 
 
 class FLRegistrierungDeclinePayload(BasePayload):

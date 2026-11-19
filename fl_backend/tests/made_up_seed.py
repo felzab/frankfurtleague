@@ -1080,7 +1080,7 @@ class MadeUpLeague:
         self.registrierungen = [
             registration(self.pupil(ole["first_name"], ole["last_name"]), -1),
             registration(self.pupil("Pia", "Sander", -2), -3, confirmed=True),
-            registration(self.pupil("Ben", "Stark"), -4, decision={"made_at": self.day(-2), "reason": "Nicht an dieser Schule"}),
+            registration(self.pupil("Ben", "Stark"), -4, decision={"made_at": self.day(-2), "reason": "other_person"}),
             # The one waiting on each contact's journey's seat (`contact`'s `pupil`), confirmed yesterday.
             *(
                 registration(
