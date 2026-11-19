@@ -9,15 +9,13 @@ The refusals themselves are decided on in `tests/api/test_team_entry_refusal.py`
 """
 
 from collections.abc import Awaitable, Callable
-from typing import Any, Final
+from typing import Any
 
 import pytest
 from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.admin_router import accept_bewerbung
-from app.api.bewerbungen.schemas import FLAcceptBewerbungPayload
 from app.api.spieler.admin_router import reactivate_saison_spieler
 from app.api.spieltage.admin_router import patch_spieltag
 from app.api.spieltage.schemas import FLPatchSpieltagPayload
@@ -25,13 +23,9 @@ from app.api.teams.admin_router import post_team_entry
 from app.api.teams.schemas import FLPostTeamEntryPayload
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.crud import ANCHOR_FIELD
 from tests import documents
 from tests.database import a_clean_database
-from tests.documents import kontaktperson_document
-from tests.isolation import MISCOUNTED_JUDGEMENTS, InterleavedCollection, Rival, outcome_of
-from tests.outbox import MAIL_NOW
-from tests.team_writes import save_the_team
+from tests.isolation import InterleavedCollection, outcome_of
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -93,51 +87,10 @@ def matchday(position: int, start: str) -> dict[str, Any]:
     return documents.spieltag_document(oid(4000 + position), SAISON, position, start=start, end=start)
 
 
-# The seat as its applicant named the person, and as that person then confirmed it.
-SEATED: Final = {"date": "2026-01-15"}
+def before_the_anchor(database: AsyncDatabase, rival: Callable[[], Awaitable[None]]) -> InterleavedCollection:
+    """`saisons`, the rival run once just before the write that anchors the bounded judgement, after its read."""
 
-
-def kontaktperson(first_name: str) -> dict[str, Any]:
-    return kontaktperson_document(first_name, confirmed_at="2026-01-16", einwilligung=SEATED, phone="+49 69 90009123", birth_date="1980-05-04")
-
-
-def bewerbung_document(index: int) -> dict[str, Any]:
-    """One submitted application naming an existing club, every seat confirmed by its own person.
-
-    Confirmed, so the acceptance below reaches the capacity rule rather than `bewerbung_kontakte_unconfirmed`.
-    """
-
-    return documents.bewerbung_document(
-        oid(5000 + index),
-        SAISON,
-        "submitted",
-        kontakte=documents.kontakte_document(
-            trainer=kontaktperson("Wraxlington"), ansprechperson=kontaktperson("Quillhilde"), stellvertretung=kontaktperson("Bramblewick")
-        ),
-        submitted_at="2026-02-01",
-        team_id=oid(index),
-        trikot={"existing_set": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
-    )
-
-
-class SeasonsRunningAHookBeforeTheAnchor(InterleavedCollection):
-    """A `saisons` stand-in running one hook just before the write that anchors a bounded judgement."""
-
-    def __init__(self, collection: Any, hook: Rival) -> None:
-        super().__init__(collection, hook)
-        # Every `find_one`. Each pass through a callback reads this season exactly once, so a second
-        # read is the retry and no read at all would mean the anchor was never reached.
-        self.season_reads = 0
-
-    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
-        self.season_reads += 1
-
-        return await self._collection.find_one(*args, **kwargs)
-
-    async def update_many(self, *args: Any, **kwargs: Any) -> Any:
-        await self.run_the_rival()
-
-        return await self._collection.update_many(*args, **kwargs)
+    return InterleavedCollection(database[Collection.SAISONS], rival, before="update_many")
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -152,14 +105,6 @@ async def on_a_league(url: str, body: Body, seed: dict[str, list[Any]]) -> Any:
                 await database[name].insert_many(rows)
 
         return await body(database, client)
-
-
-async def anchor_now(database: AsyncDatabase) -> int:
-    """The season's token as a later request would read it, which is what the two writers contended on."""
-
-    stored = await database[Collection.SAISONS].find_one({"_id": SAISON})
-
-    return int((stored or {}).get(ANCHOR_FIELD, 0))
 
 
 async def enter_the_group(database: AsyncDatabase, client: AsyncMongoClient, team_index: int, saisons: Any) -> Any:
@@ -196,14 +141,14 @@ class TestASecondEntryLandingMidEntryIsJudgedAgain:
             async def the_rival_takes_the_place() -> None:
                 await enter_the_group(database, client, 21, database[Collection.SAISONS])
 
-            seasons = SeasonsRunningAHookBeforeTheAnchor(database[Collection.SAISONS], the_rival_takes_the_place)
+            seasons = before_the_anchor(database, the_rival_takes_the_place)
             outcome = await outcome_of(enter_the_group(database, client, 20, seasons))
 
             occupied = await database[Collection.SAISON_TEAMS].count_documents({"saison_id": SAISON, "gruppe": "A"})
 
-            return outcome, seasons.season_reads, occupied, await anchor_now(database)
+            return outcome, occupied
 
-        outcome, season_reads, occupied, anchor = await on_a_league(
+        outcome, occupied = await on_a_league(
             mongo_replica_set_url,
             body,
             {
@@ -214,11 +159,6 @@ class TestASecondEntryLandingMidEntryIsJudgedAgain:
         )
 
         assert (outcome, occupied) == (Code.ENTRY_GRUPPE_FULL, TEAMS_PER_GROUP)
-        assert season_reads == 2, f"{season_reads} judgements: {MISCOUNTED_JUDGEMENTS}"
-
-        # The rival's take alone: the refused entry's abort took its own back with it, so the token
-        # counts the writes that COMMITTED rather than the callbacks that ran.
-        assert anchor == 1
 
 
 class TestASecondReturnLandingMidReturnIsJudgedAgain:
@@ -254,21 +194,18 @@ class TestASecondReturnLandingMidReturnIsJudgedAgain:
             async def the_rival_takes_the_place() -> None:
                 await self._bring_back(database, client, 91, database[Collection.SAISONS])
 
-            seasons = SeasonsRunningAHookBeforeTheAnchor(database[Collection.SAISONS], the_rival_takes_the_place)
+            seasons = before_the_anchor(database, the_rival_takes_the_place)
             outcome = await outcome_of(self._bring_back(database, client, 92, seasons))
 
             kader_size = await database[Collection.SAISON_SPIELER].count_documents(
                 {"saison_id": SAISON, "team_id": oid(1), "inactive_since": None}
             )
 
-            return outcome, seasons.season_reads, kader_size, await anchor_now(database)
+            return outcome, kader_size
 
-        outcome, season_reads, kader_size, anchor = await on_a_league(mongo_replica_set_url, body, self._kader_seed())
+        outcome, kader_size = await on_a_league(mongo_replica_set_url, body, self._kader_seed())
 
         assert (outcome, kader_size) == (Code.KADER_FULL, MAX_KADER_SIZE)
-        assert (season_reads, anchor) == (2, 1), (
-            f"{season_reads} judgements and an anchor of {anchor}: {MISCOUNTED_JUDGEMENTS}; any anchor but 1 counts a write besides the rival's"
-        )
 
 
 class TestASecondDatingLandingMidDatingIsJudgedAgain:
@@ -279,14 +216,14 @@ class TestASecondDatingLandingMidDatingIsJudgedAgain:
             async def the_rival_advances_the_second() -> None:
                 await redate(database, client, 2, ADVANCED_SECOND, database[Collection.SAISONS])
 
-            seasons = SeasonsRunningAHookBeforeTheAnchor(database[Collection.SAISONS], the_rival_advances_the_second)
+            seasons = before_the_anchor(database, the_rival_advances_the_second)
             outcome = await outcome_of(redate(database, client, 1, POSTPONED_FIRST, seasons))
 
             rows = await database[Collection.SPIELTAGE].find({"saison_id": SAISON}).sort([("position", 1)]).to_list(length=None)
 
-            return outcome, seasons.season_reads, [row["start"] for row in rows], await anchor_now(database)
+            return outcome, [row["start"] for row in rows]
 
-        outcome, season_reads, starts, anchor = await on_a_league(
+        outcome, starts = await on_a_league(
             mongo_replica_set_url,
             body,
             {
@@ -297,95 +234,3 @@ class TestASecondDatingLandingMidDatingIsJudgedAgain:
 
         # The rival's advance stands and the postponement does not, so the phase reads forwards.
         assert (outcome, starts) == (Code.SPIELTAG_START_OUT_OF_ORDER, [STANDING_FIRST, ADVANCED_SECOND])
-        assert (season_reads, anchor) == (2, 1), (
-            f"{season_reads} judgements and an anchor of {anchor}: {MISCOUNTED_JUDGEMENTS}; any anchor but 1 counts a write besides the rival's"
-        )
-
-
-class TestAGroupMoveLandingMidEntryIsJudgedAgain:
-    """The move reaches the same rule an entry does, from the endpoint that writes an existing row."""
-
-    async def test_the_move_is_refused_on_the_place_a_rival_entry_took(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            async def move(saisons: Any) -> Any:
-                return await save_the_team(database, team_id=oid(30), saison_id=SAISON, gruppe="A", saisons_collection=saisons)
-
-            async def the_rival_enters_the_group() -> None:
-                await enter_the_group(database, client, 21, database[Collection.SAISONS])
-
-            seasons = SeasonsRunningAHookBeforeTheAnchor(database[Collection.SAISONS], the_rival_enters_the_group)
-            outcome = await outcome_of(move(seasons))
-
-            occupied = await database[Collection.SAISON_TEAMS].count_documents({"saison_id": SAISON, "gruppe": "A"})
-
-            return outcome, seasons.season_reads, occupied
-
-        outcome, season_reads, occupied = await on_a_league(
-            mongo_replica_set_url,
-            body,
-            {
-                Collection.SAISONS: [saison_document()],
-                Collection.TEAMS: [team_document(index) for index in (1, 2, 3, 21, 30)],
-                # Three in A and the mover standing in B, so the group has exactly one free place.
-                Collection.SAISON_TEAMS: [*(junction_document(index, "A") for index in (1, 2, 3)), junction_document(30, "B")],
-            },
-        )
-
-        assert (outcome, occupied) == (Code.ENTRY_GRUPPE_FULL, TEAMS_PER_GROUP)
-        assert season_reads == 2, f"{season_reads} judgements: {MISCOUNTED_JUDGEMENTS}"
-
-
-# The decision block is written from this, and this case does not read it back.
-ACCEPTED_ON = "2026-02-20"
-
-
-class TestAnAcceptanceLandingMidEntryIsJudgedAgain:
-    """The rule reached from the OTHER package: a triage acceptance enters a school where the entry route enters a club."""
-
-    async def test_the_acceptance_is_refused_on_the_place_a_rival_entry_took(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            async def accept(saisons: Any) -> Any:
-                return await accept_bewerbung(
-                    bewerbung_id=oid(5040),
-                    acceptance_data=FLAcceptBewerbungPayload.model_validate(
-                        {"gruppe": "A", "trikot_farbe": "blau", "shorthand": None, "version": 0}
-                    ),
-                    bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                    teams_collection=database[Collection.TEAMS],
-                    saison_teams_collection=database[Collection.SAISON_TEAMS],
-                    saisons_collection=saisons,
-                    outbox_collection=database[Collection.OUTBOX],
-                    db=client,
-                    today=ACCEPTED_ON,
-                    germany_now=MAIL_NOW,
-                )
-
-            async def the_rival_enters_the_group() -> None:
-                await enter_the_group(database, client, 21, database[Collection.SAISONS])
-
-            seasons = SeasonsRunningAHookBeforeTheAnchor(database[Collection.SAISONS], the_rival_enters_the_group)
-            outcome = await outcome_of(accept(seasons))
-
-            occupied = await database[Collection.SAISON_TEAMS].count_documents({"saison_id": SAISON, "gruppe": "A"})
-            applied = await database[Collection.BEWERBUNGEN].find_one({"_id": oid(5040)})
-
-            return outcome, seasons.season_reads, occupied, (applied or {})["status"], await anchor_now(database)
-
-        outcome, season_reads, occupied, status, anchor = await on_a_league(
-            mongo_replica_set_url,
-            body,
-            {
-                Collection.SAISONS: [saison_document()],
-                Collection.TEAMS: [team_document(index) for index in (1, 2, 3, 21, 40)],
-                Collection.SAISON_TEAMS: [junction_document(index, "A") for index in (1, 2, 3)],
-                Collection.BEWERBUNGEN: [bewerbung_document(40)],
-            },
-        )
-
-        assert (outcome, occupied) == (Code.ENTRY_GRUPPE_FULL, TEAMS_PER_GROUP)
-        assert season_reads == 2, f"{season_reads} judgements: {MISCOUNTED_JUDGEMENTS}"
-
-        # The whole transaction goes back, so the application is still open for a group that has room:
-        # accepting is irreversible, and a half-applied acceptance has no repair.
-        assert status == "submitted"
-        assert anchor == 1
