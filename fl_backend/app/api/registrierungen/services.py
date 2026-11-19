@@ -19,7 +19,6 @@ from app.shared.einwilligung_evidence import TextVersions, compose_initial, comp
 from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.links import deadline_passed
 from app.shared.mailbox import mailbox_pattern
-from app.shared.saison import season_has_ended
 from app.shared.schemas.bounds import CONFIRMATION_DEADLINE_DAYS
 from app.shared.schemas.literals import FLConfirmationState
 
@@ -337,66 +336,28 @@ _UNCONFIRMED: Final[Mapping[str, Any]] = {"einwilligung.confirmed_at": None}
 
 
 def build_undecided_filter(*, saison_id: str) -> Mapping[str, Any]:
-    """Every submitted row of this season, the clock taking each one once the season is `past`."""
+    """Every submitted row of this season, which the season's end takes whatever the pupil answered."""
 
     return {"saison_id": saison_id, "status": SUBMITTED}
 
 
 def build_unconfirmed_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
-    """Every submitted, unconfirmed row whose deadline is behind it.
+    """Every submitted row nobody confirmed whose link's deadline is behind it, the deadline's own day still answering.
 
-    A comparison matches one BSON type, so a row carrying no readable deadline is never read here --
-    and never due either, the predicate refusing exactly that row.
+    A comparison matches one BSON type, so a row carrying no readable deadline is never taken: the date the clock counts
+    from is the one thing it needs.
     """
 
     return {"saison_id": saison_id, "status": SUBMITTED, **_UNCONFIRMED, "confirmation.deadline": {"$lt": today}}
 
 
 def build_decline_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
-    """Every declined row whose days are behind it, as `decline_erasure_is_due` judges it.
+    """Every declined row whose days after the decision are behind it, the fourteenth day included.
 
-    In the query: a page of decisions still inside their days would fill the read ahead of a due
-    one, and the stall refuses the pass.
+    A comparison matches one BSON type, so a decision holding no day is never taken.
     """
 
     return {"saison_id": saison_id, "status": DECLINED, "decision.made_at": {"$lte": days_after(day=today, days=-CONFIRMATION_DEADLINE_DAYS)}}
-
-
-def confirmation_erasure_is_due(*, registrierung_raw: Mapping[str, Any], today: str) -> bool:
-    """Whether the deadline clock takes this registration, its link's deadline passed; a row holding none is never due.
-
-    No notice goes out either way.
-    """
-
-    if registrierung_raw.get("status") != SUBMITTED:
-        return False
-
-    if registrierung_is_confirmed(einwilligung=registrierung_raw.get("einwilligung")):
-        return False
-
-    return deadline_passed(deadline=stored_deadline(registrierung_raw.get("confirmation")), today=today)
-
-
-def undecided_erasure_is_due(*, registrierung_raw: Mapping[str, Any], saison_status: Any) -> bool:
-    """Whether the season's own end takes this registration.
-
-    Whatever the pupil answered and whether or not a message could reach them: no admission can be
-    taken for a season that is over.
-    """
-
-    return registrierung_raw.get("status") == SUBMITTED and season_has_ended(saison_status=saison_status)
-
-
-def decline_erasure_is_due(*, registrierung_raw: Mapping[str, Any], today: str) -> bool:
-    """Whether the decline clock takes this declined registration, counted from the day the decision was taken."""
-
-    if registrierung_raw.get("status") != DECLINED:
-        return False
-
-    decision = registrierung_raw.get("decision")
-    made_at = decision.get("made_at") if isinstance(decision, Mapping) else None
-
-    return isinstance(made_at, str) and days_after(day=made_at, days=CONFIRMATION_DEADLINE_DAYS) <= today
 
 
 def build_open_filter(*, saison_id: str, team_id: Any) -> Mapping[str, Any]:
