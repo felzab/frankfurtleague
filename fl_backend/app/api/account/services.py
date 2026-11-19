@@ -6,7 +6,8 @@ exactly as the PATCH it offers does.
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from http import HTTPStatus
-from typing import Any, Final, Literal, get_args
+from operator import itemgetter
+from typing import Any, Final, Literal
 
 from app.api.bewerbungen.services import build_own_bewerbung_filter, schule_name
 from app.api.identity.schemas import FLSubjectSeat
@@ -501,60 +502,57 @@ BEWERBUNG_ORDER: Final[Mapping[str, int]] = {"saison_id": -1, "_id": 1}
 REGISTRIERUNG_ORDER: Final[Mapping[str, int]] = {"saison_id": -1, "_id": 1}
 
 
-def _arm(arm: AccountArm, pipeline: Sequence[Mapping[str, Any]], *, order: Mapping[str, int]) -> list[Mapping[str, Any]]:
-    """`pipeline`'s rows, each tagged with its arm and its place in `order` as `_rank`.
+_ARM_ORDERS: Final[Mapping[AccountArm, Mapping[str, int]]] = {
+    "spieler": SELF_PUPIL_ORDER,
+    "schiedsrichter": SELF_REFEREE_ORDER,
+    "seats": SEAT_ORDER,
+    "bewerbungen": BEWERBUNG_ORDER,
+    "registrierungen": REGISTRIERUNG_ORDER,
+}
 
-    A union's order is unspecified, its arms' with it, so the place is stored: a `$push` after a `$sort` collects the
-    rows in that order (the manual's `$push` page guarantees it), and the unwind numbers them. Never
-    `$setWindowFields`'s `$documentNumber`, which the server refuses any `sortBy` of more than one key, and an arm's own
-    order needs a unique last key.
-    """
 
-    return [
-        *pipeline,
-        {"$sort": dict(order)},
-        {"$group": {"_id": None, "rows": {"$push": "$$ROOT"}}},
-        {"$unwind": {"path": "$rows", "includeArrayIndex": "_rank"}},
-        {"$replaceWith": {"$mergeObjects": ["$rows", {"_rank": "$_rank", "_arm": arm}]}},
-    ]
+def _arm(arm: AccountArm, pipeline: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+    """`pipeline`'s rows, each tagged with its arm: a union's order is unspecified, so `account_arms` sorts each arm."""
+
+    return [*pipeline, {"$addFields": {"_arm": arm}}]
 
 
 def build_account_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """The account page's read, run on `spieler`, each arm tagged and ranked.
+    """The account page's read, run on `spieler`, each arm tagged.
 
     The pupil's and the referee's rows by the selections their account entries read, and the season rows, pending applications and
-    registrations seating the address. Each arm is sorted last, after its lookups, so no stage after it moves its order.
+    registrations seating the address.
     """
 
     return [
-        *_arm("spieler", build_account_pupil_pipeline(identifier), order=SELF_PUPIL_ORDER),
-        {
-            "$unionWith": {
-                "coll": DbCollection.SCHIEDSRICHTER,
-                "pipeline": _arm("schiedsrichter", build_account_referee_pipeline(identifier), order=SELF_REFEREE_ORDER),
-            }
-        },
-        {"$unionWith": {"coll": DbCollection.SAISON_TEAMS, "pipeline": _arm("seats", build_self_seat_pipeline(identifier), order=SEAT_ORDER)}},
-        {
-            "$unionWith": {
-                "coll": DbCollection.BEWERBUNGEN,
-                "pipeline": _arm("bewerbungen", build_self_bewerbung_pipeline(identifier), order=BEWERBUNG_ORDER),
-            }
-        },
+        *_arm("spieler", build_account_pupil_pipeline(identifier)),
+        {"$unionWith": {"coll": DbCollection.SCHIEDSRICHTER, "pipeline": _arm("schiedsrichter", build_account_referee_pipeline(identifier))}},
+        {"$unionWith": {"coll": DbCollection.SAISON_TEAMS, "pipeline": _arm("seats", build_self_seat_pipeline(identifier))}},
+        {"$unionWith": {"coll": DbCollection.BEWERBUNGEN, "pipeline": _arm("bewerbungen", build_self_bewerbung_pipeline(identifier))}},
         {
             "$unionWith": {
                 "coll": DbCollection.REGISTRIERUNGEN,
-                "pipeline": _arm("registrierungen", build_self_registrierung_pipeline(identifier), order=REGISTRIERUNG_ORDER),
+                "pipeline": _arm("registrierungen", build_self_registrierung_pipeline(identifier)),
             }
         },
     ]
+
+
+def _in_order(rows: Sequence[Mapping[str, Any]], order: Mapping[str, int]) -> list[Mapping[str, Any]]:
+    """`rows` as a `$sort` by `order` returns them: one stable sort per key, the last key first.
+
+    Every key is one the record model requires, so none is missing; strings compare by code point as the server compares
+    their UTF-8 bytes.
+    """
+
+    ordered = list(rows)
+    for key, direction in reversed(list(order.items())):
+        ordered.sort(key=itemgetter(key), reverse=direction < 0)
+
+    return ordered
 
 
 def account_arms(rows: Sequence[Mapping[str, Any]]) -> dict[AccountArm, list[Mapping[str, Any]]]:
     """The read's rows by the arm that found them, each in its arm's own order."""
 
-    arms: dict[AccountArm, list[Mapping[str, Any]]] = {arm: [] for arm in get_args(AccountArm)}
-    for row in sorted(rows, key=lambda row: row["_rank"]):
-        arms[row["_arm"]].append(row)
-
-    return arms
+    return {arm: _in_order([row for row in rows if row["_arm"] == arm], order) for arm, order in _ARM_ORDERS.items()}
