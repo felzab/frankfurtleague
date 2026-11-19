@@ -9,7 +9,7 @@ the privacy notice gives it. Served against the shipped indexes, every write one
 import dataclasses
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -46,6 +46,7 @@ from app.shared.tokens import hash_token
 from tests import documents
 from tests.acts import deletions_of
 from tests.database import a_clean_database
+from tests.isolation import InterleavedCollection
 from tests.outbox import MAIL_NOW, drained
 from tests.stored import the_row
 from tests.worker import worker_database
@@ -590,6 +591,42 @@ class TestTheClock:
         assert deletions == [("system", None, 1, None)]
         assert {row["_id"] for row in left} >= {CONFIRMED_OID}
         assert SCHIEDSRICHTER_OID not in {row["_id"] for row in left}
+
+    async def test_an_entry_confirmed_after_the_pass_read_it_stays(self, mongo_replica_set_url: str):
+        """The pass reads its entries before any entry's own transaction, so it judges each again there.
+
+        Read as lapsed and erased all the same, a referee who confirmed in the last moment is gone.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await resend(database, client)
+            clock = (await stored(database))[ERASE_AT_FIELD].replace(tzinfo=UTC)
+
+            async def confirm_in_between() -> None:
+                await confirm(database, client, minted.token)
+
+            # The entry's transaction opens on this read: the confirmation commits after the pass's read of its entries
+            # and before the transaction's snapshot.
+            referees = InterleavedCollection(database[Collection.SCHIEDSRICHTER], confirm_in_between, before="find_one")
+            answer = await sweep_schiedsrichter(
+                schiedsrichter_collection=cast(Any, referees),
+                spiele_collection=database[Collection.SPIELE],
+                spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+                db=client,
+                germany_now=clock,
+            )
+
+            return (
+                (answer.erased, answer.failed),
+                referees.passes,
+                await database[Collection.SCHIEDSRICHTER].count_documents({"_id": SCHIEDSRICHTER_OID}),
+            )
+
+        swept, passes, standing = await on_a_league(mongo_replica_set_url, body)
+
+        # The premise: the pass read the entry as lapsed and reached its transaction.
+        assert passes == 1
+        assert (swept, standing) == ((0, 0), 1)
 
 
 # Against `TODAY`, 17 years and 364 days.
