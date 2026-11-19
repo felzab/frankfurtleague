@@ -25,8 +25,7 @@ SAISON_ID = "2026"
 SAISON_START = "2026-03-15"
 SAISON_END = "2026-06-30"
 
-# 4 groups of 4, which is 8 Gruppenphase fixtures a matchday. Widening the group is the edit under
-# test, so the seeded matchday stays under whatever the wider rules imply.
+# 4 groups of 4, which is 8 Gruppenphase fixtures a matchday. Widening the group is the edit under test.
 STORED_PER_GROUP = 4
 WIDER_PER_GROUP = 6
 DRAWN_SPIELE = 8
@@ -165,7 +164,7 @@ class TestTheDrawItselfIsWhatFreezesTheShape:
     """`rules_shape_after_spielplan` through the endpoint, whose count of the season's fixtures is the whole of what the rule turns on."""
 
     async def test_widening_a_group_after_the_draw_is_refused(self, mongo_replica_set_url: str):
-        """A widening crosses no other bound: `rules_capacity_below_use` reads the narrowing direction, and the matchday stays under it."""
+        """A widening crosses no other bound: `rules_capacity_below_use` reads the narrowing direction."""
 
         async def body(database: AsyncDatabase) -> APIError:
             with pytest.raises(APIError) as refusal:
