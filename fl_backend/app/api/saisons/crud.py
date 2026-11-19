@@ -1,6 +1,5 @@
-import re
 from collections.abc import Collection, Iterable, Mapping
-from typing import Any, Final, NamedTuple
+from typing import Any, NamedTuple
 
 from pymongo.asynchronous.client_session import AsyncClientSession
 
@@ -13,7 +12,6 @@ from app.core.crud import aggregate_many_from_db, pull_one_from_db, pull_whole_f
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.shared.saison import SAISON_NOT_ENDED_FILTER
-from app.shared.schemas.bounds import SAISON_ID_LENGTH
 
 CURRENT_SAISON_FILTER = {"status": "active"}
 
@@ -26,12 +24,6 @@ class CreateState(NamedTuple):
     future_stands: bool
 
 
-# A season id that is a year alone, the greatest by string order being the newest: one stored row of another shape,
-# written by hand, sorting after every year, would otherwise be read as the newest, whose id names no year to mint the
-# next from, answering 500 for the list serving that id and for every create.
-SAISON_YEAR_ID: Final = re.compile(f"[0-9]{{{SAISON_ID_LENGTH}}}")
-
-
 def listed_create_state(saisons_raw: Iterable[Mapping[str, Any]]) -> tuple[str, bool]:
     """The id the next create mints and whether a `future` season stands, judged over every season by `pull_create_state`'s rule.
 
@@ -39,7 +31,7 @@ def listed_create_state(saisons_raw: Iterable[Mapping[str, Any]]) -> tuple[str, 
     """
 
     seasons = list(saisons_raw)
-    newest = max((str(raw["_id"]) for raw in seasons if SAISON_YEAR_ID.fullmatch(str(raw["_id"]))), default=None)
+    newest = max((str(raw["_id"]) for raw in seasons), default=None)
 
     return next_saison_id(newest), any(raw["status"] == "future" for raw in seasons)
 
@@ -50,9 +42,7 @@ async def pull_create_state(*, saisons_collection: ReadCollection, session: Asyn
     The rules are the newest season's, the likeliest value, or the league's first season's where none is stored.
     """
 
-    newest = await saisons_collection.find_one(
-        {"_id": {"$regex": f"^{SAISON_YEAR_ID.pattern}$"}}, projection={"_id": 1, "rules": 1}, sort=[("_id", -1)], session=session
-    )
+    newest = await saisons_collection.find_one({}, projection={"_id": 1, "rules": 1}, sort=[("_id", -1)], session=session)
     future = await saisons_collection.find_one({"status": "future"}, projection={"_id": 1}, session=session)
 
     return CreateState(

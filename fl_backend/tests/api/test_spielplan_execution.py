@@ -58,9 +58,6 @@ QUALIFIERS = 2
 SHAPES: tuple[tuple[int, int, int], ...] = ((GROUPS, TEAMS_PER_GROUP, QUALIFIERS), (2, 3, 2))
 SHAPE_IDS = ("four groups of four into a quarter-final", "two odd groups into a semi-final")
 
-# Deliberately in no collection until a case seeds it.
-STORED_SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f607760001")
-
 
 def rules_document(*, groups: int = GROUPS, teams: int = TEAMS_PER_GROUP, qualifiers: int = QUALIFIERS) -> dict[str, Any]:
     return documents.rules_document(qualifiers_per_gruppe=qualifiers, number_of_gruppen=groups, teams_per_gruppe=teams)
@@ -109,12 +106,6 @@ def entry_rows(
     return rows
 
 
-def a_stored_matchday() -> dict[str, Any]:
-    """Undated, which is the shape the draw itself leaves: `spielplan_spieltage_held` counts rows and reads no field of one."""
-
-    return documents.spieltag_document(STORED_SPIELTAG_OID, SAISON_ID, 1)
-
-
 @dataclass(frozen=True)
 class Seed:
     """One season as the database holds it when the draw is asked for, and a second beside it where a case asks for one."""
@@ -122,7 +113,6 @@ class Seed:
     saison: dict[str, Any] = field(default_factory=saison_document)
     entered: list[dict[str, Any]] = field(default_factory=entry_rows)
     spiele: list[dict[str, Any]] = field(default_factory=list)
-    spieltage: list[dict[str, Any]] = field(default_factory=list)
     #: Seeded only by a case about what a removal must NOT reach: a database holding one season
     #: answers the same whether the removal was scoped or took the collection.
     neighbour: dict[str, Any] | None = None
@@ -147,8 +137,6 @@ async def on_a_seeded_saison(
     ) as (client, database):
         await database[Collection.SAISONS].insert_one(seeded.saison)
         await database[Collection.SAISON_TEAMS].insert_many(seeded.entered)
-        if seeded.spieltage:
-            await database[Collection.SPIELTAGE].insert_many(seeded.spieltage)
         if seeded.spiele:
             await database[Collection.SPIELE].insert_many(seeded.spiele)
 
@@ -428,7 +416,6 @@ class TestEachRefusalIsReachedThroughTheRoute:
     @pytest.mark.parametrize(
         ("code", "seed"),
         [
-            pytest.param(Code.SPIELPLAN_SPIELTAGE_HELD, Seed(spieltage=[a_stored_matchday()]), id="a season already holding a matchday"),
             pytest.param(Code.SAISON_PAST, Seed(saison=saison_document(status="past")), id="a season already finished"),
             # The other half of `spielplan_gruppen_off_rules`: these clubs stand in groups the season does not
             # offer, so the draw would put them in no round robin at all.
@@ -458,7 +445,7 @@ class TestEachRefusalIsReachedThroughTheRoute:
 
         assert refused.error_code == code
         # Exactly what the seed put there: a refusal reached after a write would read higher.
-        assert (refused.spieltage, refused.spiele) == (len(seed.spieltage), len(seed.spiele))
+        assert (refused.spieltage, refused.spiele) == (0, len(seed.spiele))
         assert refused.watermark is None
 
 

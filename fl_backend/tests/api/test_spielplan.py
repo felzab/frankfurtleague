@@ -542,7 +542,6 @@ def refusal_for(
     *,
     saison_status: str = "future",
     spiele_drawn: int = 0,
-    spieltage_held: int = 0,
     occupancy: Mapping[FLGruppenNames, int] = FULL,
     rules: FLSaisonRules = RULES,
     replace: bool = False,
@@ -551,22 +550,11 @@ def refusal_for(
     return find_spielplan_refusal(
         saison_status=saison_status,
         spiele_drawn=spiele_drawn,
-        spieltage_held=spieltage_held,
         rules=rules,
         occupancy_by_gruppe=occupancy,
         replace=replace,
         recorded_spiele=recorded,
     )
-
-
-class TestASeasonHoldingMatchdays:
-    """`spielplan_spieltage_held`: the draw writes the whole matchday list, so it cannot join one already there."""
-
-    def test_a_matchday_without_spiele_refuses_the_draw(self):
-        refusal = refusal_for(spieltage_held=1)
-
-        assert refusal is not None
-        assert refusal.error_code == Code.SPIELPLAN_SPIELTAGE_HELD
 
 
 class TestAFinishedSeason:
@@ -615,12 +603,12 @@ class TestWhetherEveryOfferedGroupHoldsItsSize:
 
 
 class TestAConfirmedReplaceStepsPastWhatItDeletes:
-    """`spielplan_already_drawn` and `spielplan_spieltage_held` name what a replace is about to remove, so neither may turn one away."""
+    """`spielplan_already_drawn` names what a replace is about to remove, so it may not turn one away."""
 
     def test_a_group_off_its_size_still_refuses_a_confirmed_replace(self):
         """Gate `spielplan_gruppen_off_rules` on `replace` too and this fails: a replace draws the same fixtures, so needs the same groups."""
 
-        refusal = refusal_for(replace=True, spiele_drawn=67, spieltage_held=8, occupancy={**FULL, "B": 4})
+        refusal = refusal_for(replace=True, spiele_drawn=67, occupancy={**FULL, "B": 4})
 
         assert refusal is not None
         assert refusal.error_code == Code.SPIELPLAN_GRUPPEN_OFF_RULES

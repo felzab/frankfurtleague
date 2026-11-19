@@ -286,7 +286,6 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   "rules_saison_started",
   "rules_shape_after_spielplan",
   "spielplan_already_drawn",
-  "spielplan_spieltage_held",
   "spielplan_replace_outside_its_window",
   "spielplan_undraw_outside_its_window",
   "spielplan_berichte_submitted",

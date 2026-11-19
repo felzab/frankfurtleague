@@ -217,7 +217,6 @@ class Code(StrEnum):
     BAN_LIST_NO_SAISON = auto()
     BAN_LIST_ADMIN = auto()
     SPIELPLAN_ALREADY_DRAWN = auto()
-    SPIELPLAN_SPIELTAGE_HELD = auto()
     # One code, because one repair reaches all three: every offered group holding exactly
     # `teams_per_gruppe`, short or over, and no club standing outside them.
     SPIELPLAN_GRUPPEN_OFF_RULES = auto()

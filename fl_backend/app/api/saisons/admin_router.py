@@ -306,7 +306,6 @@ async def get_saison_admin(
         return find_spielplan_refusal(
             saison_status=saison_status,
             spiele_drawn=len(recorded_rows),
-            spieltage_held=count_spieltage,
             rules=saison.rules,
             occupancy_by_gruppe=occupancy,
             replace=replace,
@@ -845,7 +844,6 @@ async def post_spielplan(
             find_spielplan_refusal(
                 saison_status=str(saison_raw["status"]),
                 spiele_drawn=len(stored_spiele),
-                spieltage_held=await spieltage_collection.count_documents({"saison_id": saison_id}, session=session),
                 rules=rules,
                 occupancy_by_gruppe=occupancy,
                 replace=spielplan_data.replace,

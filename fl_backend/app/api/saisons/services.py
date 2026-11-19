@@ -404,10 +404,7 @@ def _a_side_is_off_the_draw(spiel: Mapping[str, Any]) -> bool:
     emptied side.
     """
 
-    # A document with no `saison_phase` reads as a bracket, so every group fixture then counts as
-    # recorded: the projection always carries the key, and a missing one must refuse rather than
-    # widen the window it decides.
-    is_bracket = spiel.get("saison_phase") != DRAWN_HOLDING_ITS_SIDES
+    is_bracket = spiel["saison_phase"] != DRAWN_HOLDING_ITS_SIDES
 
     # Both directions in one comparison against the phase: "holds a side" alone is true of every
     # group fixture the draw wrote, and would shut the window on every drawn season.
@@ -437,9 +434,9 @@ def holds_a_recorded_fact(spiel: Mapping[str, Any]) -> bool:
     if _a_side_is_off_the_draw(spiel):
         return True
 
-    # Stripped, never compared to None: the draw writes no key, clearing a note stores null, and the fixture's save
-    # keeps "" off its route -- a hand edit can still leave one, and an empty note is not a record.
-    if (spiel.get("note") or "").strip():
+    # Absent or null where nothing is noted: the draw writes no key, clearing a note stores null, and the fixture's save
+    # keeps "" off its route.
+    if spiel.get("note") is not None:
         return True
 
     # A referee's booking by its block, never its id: one naming nobody keeps a played match's fee once its referee was
@@ -489,7 +486,6 @@ def find_spielplan_refusal(
     *,
     saison_status: str,
     spiele_drawn: int,
-    spieltage_held: int,
     rules: FLSaisonRules,
     occupancy_by_gruppe: Mapping[FLGruppenNames, int],
     # Neither defaults: a caller that forgot `recorded_spiele` would replace a season already played.
@@ -502,13 +498,10 @@ def find_spielplan_refusal(
     filling repairs first, because `spielplan_gruppen_off_rules` alone names work an admin can go and do.
     """
 
-    # What a confirmed replace is about to delete is no reason to turn it away, so `spielplan_already_drawn`
-    # and `spielplan_spieltage_held` step aside for one. `spielplan_replace_outside_its_window` below is what bounds it instead.
+    # What a confirmed replace is about to delete is no reason to turn it away, so `spielplan_already_drawn` steps aside
+    # for one. `spielplan_replace_outside_its_window` below is what bounds it instead.
     if spiele_drawn > 0 and not replace:
         return APIError(HTTPStatus.CONFLICT, Code.SPIELPLAN_ALREADY_DRAWN)
-
-    if spieltage_held > 0 and not replace:
-        return APIError(HTTPStatus.CONFLICT, Code.SPIELPLAN_SPIELTAGE_HELD)
 
     # Whether the season holds anything to delete or not: the flag is the operation the caller asked
     # for, and one flag meaning a replace here and a first draw there is the ambiguity this closes.
