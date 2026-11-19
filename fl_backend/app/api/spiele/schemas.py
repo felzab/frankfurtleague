@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Annotated, Any, Final, Literal
+from typing import Annotated, Any, Final, Literal, get_args
 
 from bson import ObjectId
 from pydantic import BaseModel, BeforeValidator, Field, TypeAdapter, model_validator
@@ -153,8 +153,9 @@ def team_id_of(spiel: Mapping[str, Any], side: FLSpielSide) -> ObjectId | None:
     return team_field.get("team_id") if isinstance(team_field, Mapping) else None
 
 
-# The one declaration of this competition's rounds; the order is the order they are played.
-PHASE_ORDER: tuple[FLSaisonPhase, ...] = ("gruppenphase", "achtelfinale", "viertelfinale", "halbfinale", "finale")
+# This competition's rounds, read off the `Literal` so no member can be missing: its declared order is the order they
+# are played, which the rank, the knockout rounds and the qualifier bounds below all read.
+PHASE_ORDER: tuple[FLSaisonPhase, ...] = get_args(FLSaisonPhase.__value__)
 
 PHASE_RANK: Mapping[FLSaisonPhase, int] = {phase: rank for rank, phase in enumerate(PHASE_ORDER)}
 
