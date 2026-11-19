@@ -403,6 +403,10 @@ def compose_schiedsrichter_account(row: Mapping[str, Any], *, givable: bool, tod
     }
 
 
+# What a held seat's entry serves of its person beside the address and the consent, which `_seat_persons` reads.
+_SEAT_PERSON_FIELDS: Final = ("first_name", "last_name", "phone", "birth_date")
+
+
 def build_self_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """Every season row one of whose seats names the address, `own_seats` judging each slot.
 
@@ -420,7 +424,7 @@ def build_self_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "shorthand": 1,
                 # Read by the Funktionen the page judges a grant by, which come from these rows.
                 "austritt": 1,
-                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SEATS for field in ("email", "birth_date", "einwilligung")},
+                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SEATS for field in ("email", "einwilligung", *_SEAT_PERSON_FIELDS)},
             }
         },
         # Read by the same Funktionen.
@@ -459,6 +463,12 @@ def _seat_choices_held(held: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     return {**seat_choices_of_row(blocks), "evidence_state": evidence_state_of(blocks=blocks)}
 
 
+def _seat_persons(row: Mapping[str, Any], slots: Sequence[str]) -> list[dict[str, Any]]:
+    """What each held seat stores of its person, in the seats' order: one person may be typed two ways on two seats."""
+
+    return [{"seat": slot, **{field: row["kontakte"][slot].get(field) for field in _SEAT_PERSON_FIELDS}} for slot in slots]
+
+
 def compose_seats_self(
     rows: Sequence[Mapping[str, Any]],
     identifier: str,
@@ -480,6 +490,7 @@ def compose_seats_self(
                 "team_name": row["name"],
                 "saison_id": row["saison_id"],
                 "seats": slots,
+                "persons": _seat_persons(row, slots),
                 **_seat_choices_held(held),
                 "media_offered": all(media_offered(birth_date=seat.get("birth_date"), today=today) for seat in held),
                 "givable": holds_a_seat(seats_with_panel, team_id=row["team_id"], saison_id=row["saison_id"]),
@@ -499,7 +510,7 @@ def build_self_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "saison_id": 1,
                 "team_id": 1,
                 "schule.team_name": 1,
-                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SEATS for field in ("email", "einwilligung")},
+                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SEATS for field in ("email", "einwilligung", *_SEAT_PERSON_FIELDS)},
             }
         },
         context_teams_lookup("team_id"),
@@ -525,6 +536,7 @@ def compose_bewerbung_seats_self(
                 "schule": schule,
                 "saison_id": row["saison_id"],
                 "seats": slots,
+                "persons": _seat_persons(row, slots),
                 **_seat_choices_held(held),
             }
         )

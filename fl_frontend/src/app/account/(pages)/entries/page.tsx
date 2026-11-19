@@ -11,7 +11,7 @@ import { pageMetadata } from "@/shared/utils/metadata";
 import { EntriesBoxes } from "./EntriesBoxes";
 
 import type { Copy } from "@/core/copy";
-import type { FLAccountEinwilligungenResponse } from "@/core/generated/client/types";
+import type { FLAccountEinwilligungenResponse, FLAccountSeatPerson } from "@/core/generated/client/types";
 import type { Fact } from "@/kit/Facts";
 import type { Metadata, ResolvingMetadata } from "next";
 import type { Entry } from "./EntriesBoxes";
@@ -30,6 +30,24 @@ const fact = (label: Copy, value: string | null): Fact => ({
 
 /** A birthdate as a list writes a day. */
 const birthday = (date: string | null): Fact => fact(COPY.shared.facts.birthday, date === null ? null : formatDate(dayOf(date)));
+
+/**
+ * A seat entry's facts in the referee box's order: name, birthday, the team or school, telephone. Seats storing the
+ * person alike list them once; a second spelling on another seat follows with its own name, birthday and telephone.
+ */
+function seatFacts(persons: readonly FLAccountSeatPerson[], affiliation: Fact): Fact[] {
+  const distinct = [
+    ...new Map(
+      persons.map((person) => [JSON.stringify([person.first_name, person.last_name, person.birth_date, person.phone]), person]),
+    ).values(),
+  ];
+  return distinct.flatMap((person, index) => [
+    fact(COPY.shared.name, `${person.first_name} ${person.last_name}`),
+    birthday(person.birth_date),
+    ...(index === 0 ? [affiliation] : []),
+    fact(COPY.shared.facts.phone, person.phone),
+  ]);
+}
 
 /** Why the media choice may not be given, where the record is short of its floor and the choice is not held. */
 const mediaFrom = (offered: boolean): Copy | null => (offered ? null : WORDS.mediaFrom(MEDIA_MIN_AGE));
@@ -99,7 +117,10 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
     id: `seat-${seat.team_id}-${seat.saison_id}`,
     title: { record: seat.team_name },
     description: WORDS.description.seat(seat.seats),
-    facts: [fact(COPY.shared.facts.team, WORDS.teamSeason({ record: seat.team_name }, COPY.shared.saisonName(seat.saison_id)))],
+    facts: seatFacts(
+      seat.persons,
+      fact(COPY.shared.facts.team, WORDS.teamSeason({ record: seat.team_name }, COPY.shared.saisonName(seat.saison_id))),
+    ),
     save: { kind: "seat", team_id: seat.team_id, saison_id: seat.saison_id },
     scope: seat.scope,
     media: seat.media,
@@ -112,7 +133,7 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
     // An application stands for no team yet: titled as its page is, by the season it applies for.
     title: COPY.page.bewerbung(bewerbung.saison_id),
     description: WORDS.description.seat(bewerbung.seats),
-    facts: [fact(COPY.shared.facts.school, bewerbung.schule)],
+    facts: seatFacts(bewerbung.persons, fact(COPY.shared.facts.school, bewerbung.schule)),
     save: { kind: "bewerbung", bewerbung_id: bewerbung.bewerbung_id },
     scope: bewerbung.scope,
     media: bewerbung.media,
