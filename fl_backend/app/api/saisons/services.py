@@ -3,7 +3,7 @@ from datetime import date, timedelta
 from http import HTTPStatus
 from typing import Any
 
-from app.api.saisons.schedule import expected_matches, knockout_phases_for, qualifier_count, schedule_for
+from app.api.saisons.schedule import knockout_phases_for, qualifier_count, schedule_for
 from app.api.saisons.schemas import FIRST_SAISON_YEAR, MAX_TEAMS_PER_GROUP, MIN_TEAMS_PER_GROUP, FLSaisonRules, FLSpielplanShape
 from app.api.spiele.schemas import FLSpielJoinedInternal, FLSpielTeamFieldJoinedInternal
 from app.api.spiele.services import podium_of
@@ -12,31 +12,18 @@ from app.api.teams.services import offered_gruppen
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus
-
-
-def with_schedule(saison_raw: Mapping[str, Any]) -> dict[str, Any]:
-    """Attach a season's derived `schedule` before validation.
-
-    Injected into the raw document, not computed on the model: `schedule_for` imports
-    `FLSaisonRules`, so a computed field there would close an import cycle.
-    """
-
-    return {**saison_raw, "schedule": [entry.__dict__ for entry in schedule_for(FLSaisonRules.model_validate(saison_raw["rules"]))]}
-
-
-# A season still being drawn up is the base tier's to know nothing about, its very existence included.
-WITHHELD_FROM_BASE_TIER: FLSaisonStatus = "future"
+from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase
 
 
 def base_tier_status_term() -> dict[str, Any]:
-    """The `status` term every base-tier season read runs.
+    """The `status` term every base-tier season read runs, withholding a `future` season.
 
-    Narrowed, never fetched then hidden: a withheld season matches nothing, so `document_not_found`'s 404
-    stays true and no 403 confirms the season exists.
+    A season still being drawn up is the base tier's to know nothing about, its very existence included. Narrowed, never
+    fetched then hidden: a withheld season matches nothing, so `document_not_found`'s 404 stays true and no 403 confirms
+    the season exists.
     """
 
-    return {"status": {"$ne": WITHHELD_FROM_BASE_TIER}}
+    return {"status": {"$ne": "future"}}
 
 
 SAISON_AS = "saison"
@@ -205,9 +192,7 @@ def find_saison_past_refusal(*, saison_status: str) -> APIError | None:
 # row holds.
 FROZEN_RULES_FIELDS: tuple[str, ...] = ("win_points", "draw_points", "loss_points", "qualifiers_per_gruppe", "tiebreak_order")
 
-# The three the fixtures were drawn from. A raise is what nothing else refuses: `count_spiele` is
-# derived per matchday, so every matchday would then expect matches nobody drew, and
-# `rules_spieltag_over_its_phase` reads the narrowing direction alone.
+# The three the fixtures were drawn from: changed either way, the rules would imply other matches than the ones drawn.
 SHAPE_RULES_FIELDS: tuple[str, ...] = ("number_of_gruppen", "teams_per_gruppe", "qualifiers_per_gruppe")
 
 
@@ -245,10 +230,7 @@ def find_rules_refusal(
     stored: FLSaisonRules | None,
     proposed: FLSaisonRules,
     occupancy_by_gruppe: dict[FLGruppenNames, int],
-    highest_wired_platz: int,
     largest_kader: int = 0,
-    # The largest count any single matchday of a phase holds, never the sum.
-    attached_by_phase: Mapping[FLSaisonPhase, int] | None = None,
     drawn_spiele: int = 0,
 ) -> APIError | None:
     """Why these rules must be refused, or `None`."""
@@ -331,25 +313,6 @@ def find_rules_refusal(
     if proposed.max_kader_size < stored.max_kader_size and largest_kader > proposed.max_kader_size:
         return APIError(HTTPStatus.CONFLICT, Code.RULES_KADER_BELOW_USE, fields=(("rules", "max_kader_size"),), bounds={"min": largest_kader})
 
-    # Only where the patch lowers it: `rules` is required, so a dates-only edit resubmits a count
-    # already under the wiring, and refusing that would leave the season unpatchable.
-    if proposed.qualifiers_per_gruppe < highest_wired_platz and proposed.qualifiers_per_gruppe < stored.qualifiers_per_gruppe:
-        return APIError(
-            HTTPStatus.CONFLICT,
-            Code.RULES_QUALIFIERS_BELOW_WIRING,
-            fields=(("rules", "qualifiers_per_gruppe"),),
-            bounds={"min": highest_wired_platz},
-        )
-
-    # Last, being the only check computing the whole schedule. Every phase: lowering the qualifier
-    # count shortens the ladder, so an unreached phase expects 0 while its matchdays keep fixtures.
-    for phase, attached in sorted((attached_by_phase or {}).items()):
-        expected = expected_matches(proposed, phase)
-        # Only where the step narrows the phase: a count nothing changed is not this edit's doing,
-        # and refusing it would leave the season unpatchable.
-        if attached > expected and expected < expected_matches(stored, phase):
-            return APIError(HTTPStatus.CONFLICT, Code.RULES_SPIELTAG_OVER_ITS_PHASE)
-
     return None
 
 
@@ -370,7 +333,7 @@ def workable_shapes(rules: FLSaisonRules) -> list[FLSpielplanShape]:
                 shape = FLSpielplanShape(number_of_gruppen=groups, teams_per_gruppe=teams, qualifiers_per_gruppe=qualifiers)
                 # `model_copy` skips validation, safely: the shape's own model declares the three under the rules' own types.
                 candidate = rules.model_copy(update=shape.model_dump())
-                if find_rules_refusal(stored=None, proposed=candidate, occupancy_by_gruppe={}, highest_wired_platz=0) is None:
+                if find_rules_refusal(stored=None, proposed=candidate, occupancy_by_gruppe={}) is None:
                     shapes.append(shape)
 
     return shapes
@@ -441,10 +404,7 @@ def _a_side_is_off_the_draw(spiel: Mapping[str, Any]) -> bool:
     emptied side.
     """
 
-    # A document with no `saison_phase` reads as a bracket, so every group fixture then counts as
-    # recorded: the projection always carries the key, and a missing one must refuse rather than
-    # widen the window it decides.
-    is_bracket = spiel.get("saison_phase") != DRAWN_HOLDING_ITS_SIDES
+    is_bracket = spiel["saison_phase"] != DRAWN_HOLDING_ITS_SIDES
 
     # Both directions in one comparison against the phase: "holds a side" alone is true of every
     # group fixture the draw wrote, and would shut the window on every drawn season.
@@ -474,9 +434,9 @@ def holds_a_recorded_fact(spiel: Mapping[str, Any]) -> bool:
     if _a_side_is_off_the_draw(spiel):
         return True
 
-    # Stripped, never compared to None: the draw writes no key, clearing a note stores null, and the fixture's save
-    # keeps "" off its route -- a hand edit can still leave one, and an empty note is not a record.
-    if (spiel.get("note") or "").strip():
+    # Absent or null where nothing is noted: the draw writes no key, clearing a note stores null, and the fixture's save
+    # keeps "" off its route.
+    if spiel.get("note") is not None:
         return True
 
     # A referee's booking by its block, never its id: one naming nobody keeps a played match's fee once its referee was
@@ -511,39 +471,21 @@ def find_activation_refusal(*, target_status: str, target_spiele: int, undated_s
     return APIError(HTTPStatus.CONFLICT, Code.ACTIVATE_SAISON_UNFINISHED)
 
 
-# The one status a draw, a replace and an undraw run on, and the one nothing returns a season to
-# -- which is what makes a shape frozen outside it frozen for good.
-PLANNING_STATUS: FLSaisonStatus = "future"
-
-
 def _planning_window_is_open(*, saison_status: str, recorded_spiele: int) -> bool:
-    """Whether this season's Spielplan may still be replaced or removed.
+    """Whether this season's Spielplan may still be replaced or removed: it is `future`, and nothing is recorded against it.
 
-    One predicate for every rule turning on it: a second copy is how a refusal comes to recommend a
-    write the product then turns away.
+    `future` is the one status nothing returns a season to, which is what makes a shape frozen outside it frozen for
+    good. One predicate for every rule turning on it: a second copy is how a refusal comes to recommend a write the
+    product then turns away.
     """
 
-    return saison_status == PLANNING_STATUS and recorded_spiele == 0
-
-
-def find_replace_window_refusal(*, saison_status: str, recorded_spiele: int) -> APIError | None:
-    """`spielplan_replace_outside_its_window`: a replace asked outside the planning window, or `None`.
-
-    Apart from `find_spielplan_refusal`, which asks it of every replace, because it is the part of a replace's judgement no
-    shape changes: the season editor serves it as the regeneration's state before any shape is picked.
-    """
-
-    if _planning_window_is_open(saison_status=saison_status, recorded_spiele=recorded_spiele):
-        return None
-
-    return APIError(HTTPStatus.CONFLICT, Code.SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW)
+    return saison_status == "future" and recorded_spiele == 0
 
 
 def find_spielplan_refusal(
     *,
     saison_status: str,
     spiele_drawn: int,
-    spieltage_held: int,
     rules: FLSaisonRules,
     occupancy_by_gruppe: Mapping[FLGruppenNames, int],
     # Neither defaults: a caller that forgot `recorded_spiele` would replace a season already played.
@@ -556,18 +498,15 @@ def find_spielplan_refusal(
     filling repairs first, because `spielplan_gruppen_off_rules` alone names work an admin can go and do.
     """
 
-    # What a confirmed replace is about to delete is no reason to turn it away, so `spielplan_already_drawn`
-    # and `spielplan_spieltage_held` step aside for one. `spielplan_replace_outside_its_window` below is what bounds it instead.
+    # What a confirmed replace is about to delete is no reason to turn it away, so `spielplan_already_drawn` steps aside
+    # for one. `spielplan_replace_outside_its_window` below is what bounds it instead.
     if spiele_drawn > 0 and not replace:
         return APIError(HTTPStatus.CONFLICT, Code.SPIELPLAN_ALREADY_DRAWN)
 
-    if spieltage_held > 0 and not replace:
-        return APIError(HTTPStatus.CONFLICT, Code.SPIELPLAN_SPIELTAGE_HELD)
-
     # Whether the season holds anything to delete or not: the flag is the operation the caller asked
     # for, and one flag meaning a replace here and a first draw there is the ambiguity this closes.
-    if replace and (window_refusal := find_replace_window_refusal(saison_status=saison_status, recorded_spiele=recorded_spiele)):
-        return window_refusal
+    if replace and not _planning_window_is_open(saison_status=saison_status, recorded_spiele=recorded_spiele):
+        return APIError(HTTPStatus.CONFLICT, Code.SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW)
 
     # `past` alone, never `future`-only: activation is one-way, so a season activated before its draw
     # would otherwise be unschedulable for good, and `activate_target_undrawn` keeps the state rare. A

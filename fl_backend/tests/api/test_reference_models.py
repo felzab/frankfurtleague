@@ -90,7 +90,7 @@ class TestTheSeasonsSpans:
 
     @staticmethod
     def payload(saison, **overrides: Any) -> dict[str, Any]:
-        """The stored season narrowed to the payload's keys: `extra="forbid"` refuses `_id`, `status` and `schedule`."""
+        """The stored season narrowed to the payload's keys: `extra="forbid"` refuses `_id` and `status`."""
 
         stored = saison()
 

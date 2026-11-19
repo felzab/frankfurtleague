@@ -158,7 +158,9 @@ class TestTheEditorSaysAFixtureHasTakenPlace:
         """Read wrong, the start date's box stands open to a save `saison_start_taken_place` refuses, or locked for nothing."""
 
         async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
-            await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "future", start_date=START))
+            await database[Collection.SAISONS].insert_one(
+                saison_document(SAISON_ID, "future", start_date=START, spielplan={"generated_at": TODAY})
+            )
             await database[Collection.SPIELE].insert_one(
                 spiel_document(
                     spiel_id=ObjectId(),

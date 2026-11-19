@@ -96,7 +96,6 @@ PICKED_TEAM_AS: Final = "picked_team"
 # of the rows serves the subset a card needs.
 ROW_PARTY: Final = "party"
 ROW_ANSWER: Final = "answer"
-ROW_DEADLINE: Final = "deadline"
 
 
 class FLOverviewSpielRow(BaseModel):
@@ -223,7 +222,7 @@ def build_overview_pipeline(*, saison_id: str, today: str) -> list[Mapping[str, 
                     {"$match": build_triage_rows_filter(saison_id=saison_id, today=today)},
                     # An inclusion of what the close's judgement and the cards read, so nothing else a row stores reaches
                     # this handler.
-                    {"$project": dict.fromkeys([*CLOSE_FIELDS, ROW_ANSWER, ROW_DEADLINE], 1)},
+                    {"$project": dict.fromkeys([*CLOSE_FIELDS, ROW_ANSWER, "deadline"], 1)},
                     # Each party by its own record's name, as the acts' recipients below are named.
                     *build_party_name_stages(saison_id=saison_id),
                 ],

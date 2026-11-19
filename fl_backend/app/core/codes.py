@@ -203,10 +203,8 @@ class Code(StrEnum):
     RULES_BRACKET_IMPOSSIBLE = auto()
     RULES_GRUPPEN_IN_USE = auto()
     RULES_CAPACITY_BELOW_USE = auto()
-    RULES_QUALIFIERS_BELOW_WIRING = auto()
     # The freeze on points, tiebreak and qualifiers, once the season has started or is `past`.
     RULES_SAISON_STARTED = auto()
-    RULES_SPIELTAG_OVER_ITS_PHASE = auto()
     RULES_QUALIFIERS_ABOVE_GRUPPE = auto()
     RULES_UNENTSCHIEDEN_OUTVALUES_WIN = auto()
     RULES_NIEDERLAGE_OUTVALUES_UNENTSCHIEDEN = auto()
@@ -219,7 +217,6 @@ class Code(StrEnum):
     BAN_LIST_NO_SAISON = auto()
     BAN_LIST_ADMIN = auto()
     SPIELPLAN_ALREADY_DRAWN = auto()
-    SPIELPLAN_SPIELTAGE_HELD = auto()
     # One code, because one repair reaches all three: every offered group holding exactly
     # `teams_per_gruppe`, short or over, and no club standing outside them.
     SPIELPLAN_GRUPPEN_OFF_RULES = auto()

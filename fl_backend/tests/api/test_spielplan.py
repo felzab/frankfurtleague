@@ -7,9 +7,8 @@ import pytest
 from bson import ObjectId
 
 from app.api.saisons.schedule import (
-    expected_matches,
-    group_matchdays,
-    group_matches_per_matchday,
+    group_spiele_per_spieltag,
+    group_spieltage,
     knockout_phases_for,
     qualifier_count,
     schedule_for,
@@ -117,13 +116,13 @@ class TestTheCircleMethodPairsAGroup:
     def test_it_plays_the_rounds_the_schedule_counts(self, teams: int):
         """The round count IS the matchday count, because round k of every group is matchday k."""
 
-        assert len(circle_rounds(teams)) == group_matchdays(teams)
+        assert len(circle_rounds(teams)) == group_spieltage(teams)
 
     @pytest.mark.parametrize("teams", range(2, 17))
     def test_every_round_holds_the_matches_a_matchday_expects(self, teams: int):
-        """One group's share of `count_spiele`; an odd group pairs all but the club on its bye."""
+        """One group's share of a group matchday's matches; an odd group pairs all but the club on its bye."""
 
-        assert [len(pairs) for pairs in circle_rounds(teams)] == [group_matches_per_matchday(1, teams)] * group_matchdays(teams)
+        assert [len(pairs) for pairs in circle_rounds(teams)] == [group_spiele_per_spieltag(1, teams)] * group_spieltage(teams)
 
     @pytest.mark.parametrize("teams", range(2, 17))
     def test_every_team_meets_every_other_exactly_once(self, teams: int):
@@ -163,7 +162,6 @@ def legal_combinations() -> set[tuple[int, int]]:
             stored=None,
             proposed=rules(groups=groups, teams=max(qualifiers, 2), qualifiers=qualifiers),
             occupancy_by_gruppe={},
-            highest_wired_platz=0,
         )
         is None
     }
@@ -270,7 +268,7 @@ class TestTheDrawIsTheSeasonTheRulesDescribe:
 
     @pytest.mark.parametrize("shape", SHAPES)
     def test_every_matchday_holds_the_matches_its_phase_expects(self, shape: tuple[int, int, int]):
-        """`count_spiele` is derived per matchday, so a matchday off this count reads as incomplete forever."""
+        """A matchday off this count plays a season its rules do not describe."""
 
         groups, teams, qualifiers = shape
         season = rules(groups=groups, teams=teams, qualifiers=qualifiers)
@@ -281,7 +279,9 @@ class TestTheDrawIsTheSeasonTheRulesDescribe:
         for spiel in plan.spiele:
             held[spiel["spieltag_id"]] += 1
 
-        assert held == {spieltag_id: expected_matches(season, phase) for spieltag_id, phase in phases.items()}
+        per_spieltag = {entry.phase: entry.spiele_per_spieltag for entry in schedule_for(season)}
+
+        assert held == {spieltag_id: per_spieltag[phase] for spieltag_id, phase in phases.items()}
 
     @pytest.mark.parametrize("shape", SHAPES)
     def test_the_bracket_halves_down_to_one_final(self, shape: tuple[int, int, int]):
@@ -542,7 +542,6 @@ def refusal_for(
     *,
     saison_status: str = "future",
     spiele_drawn: int = 0,
-    spieltage_held: int = 0,
     occupancy: Mapping[FLGruppenNames, int] = FULL,
     rules: FLSaisonRules = RULES,
     replace: bool = False,
@@ -551,22 +550,11 @@ def refusal_for(
     return find_spielplan_refusal(
         saison_status=saison_status,
         spiele_drawn=spiele_drawn,
-        spieltage_held=spieltage_held,
         rules=rules,
         occupancy_by_gruppe=occupancy,
         replace=replace,
         recorded_spiele=recorded,
     )
-
-
-class TestASeasonHoldingMatchdays:
-    """`spielplan_spieltage_held`: the draw writes the whole matchday list, so it cannot join one already there."""
-
-    def test_a_matchday_without_spiele_refuses_the_draw(self):
-        refusal = refusal_for(spieltage_held=1)
-
-        assert refusal is not None
-        assert refusal.error_code == Code.SPIELPLAN_SPIELTAGE_HELD
 
 
 class TestAFinishedSeason:
@@ -615,12 +603,12 @@ class TestWhetherEveryOfferedGroupHoldsItsSize:
 
 
 class TestAConfirmedReplaceStepsPastWhatItDeletes:
-    """`spielplan_already_drawn` and `spielplan_spieltage_held` name what a replace is about to remove, so neither may turn one away."""
+    """`spielplan_already_drawn` names what a replace is about to remove, so it may not turn one away."""
 
     def test_a_group_off_its_size_still_refuses_a_confirmed_replace(self):
         """Gate `spielplan_gruppen_off_rules` on `replace` too and this fails: a replace draws the same fixtures, so needs the same groups."""
 
-        refusal = refusal_for(replace=True, spiele_drawn=67, spieltage_held=8, occupancy={**FULL, "B": 4})
+        refusal = refusal_for(replace=True, spiele_drawn=67, occupancy={**FULL, "B": 4})
 
         assert refusal is not None
         assert refusal.error_code == Code.SPIELPLAN_GRUPPEN_OFF_RULES

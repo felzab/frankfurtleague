@@ -241,18 +241,11 @@ def saison() -> PayloadFactory:
             "start_date": "2026-01-01",
             "end_date": "2026-06-30",
             "status": "active",
-            # The points the model suites read back, and the shape the schedule below follows from, passed
-            # rather than left to the builder's default.
+            # The points the model suites read back, and the season's shape, passed rather than left to the builder's
+            # default.
             "rules": rules_document(win_points=3, number_of_gruppen=4, teams_per_gruppe=4, qualifiers_per_gruppe=2),
             "bewerbung": None,
             "registrierung": None,
-            # Derived and on no document; spelled out rather than computed, so a `schedule_for` change shows here.
-            "schedule": [
-                {"phase": "gruppenphase", "spieltage": 3, "spiele_per_spieltag": 8},
-                {"phase": "viertelfinale", "spieltage": 1, "spiele_per_spieltag": 4},
-                {"phase": "halbfinale", "spieltage": 1, "spiele_per_spieltag": 2},
-                {"phase": "finale", "spieltage": 1, "spiele_per_spieltag": 2},
-            ],
         }
     )
 

@@ -111,9 +111,7 @@ export const Code = {
   rules_bracket_impossible: "rules_bracket_impossible",
   rules_gruppen_in_use: "rules_gruppen_in_use",
   rules_capacity_below_use: "rules_capacity_below_use",
-  rules_qualifiers_below_wiring: "rules_qualifiers_below_wiring",
   rules_saison_started: "rules_saison_started",
-  rules_spieltag_over_its_phase: "rules_spieltag_over_its_phase",
   rules_qualifiers_above_gruppe: "rules_qualifiers_above_gruppe",
   rules_unentschieden_outvalues_win: "rules_unentschieden_outvalues_win",
   rules_niederlage_outvalues_unentschieden: "rules_niederlage_outvalues_unentschieden",
@@ -126,7 +124,6 @@ export const Code = {
   ban_list_no_saison: "ban_list_no_saison",
   ban_list_admin: "ban_list_admin",
   spielplan_already_drawn: "spielplan_already_drawn",
-  spielplan_spieltage_held: "spielplan_spieltage_held",
   spielplan_gruppen_off_rules: "spielplan_gruppen_off_rules",
   spielplan_replace_outside_its_window: "spielplan_replace_outside_its_window",
   spielplan_undraw_outside_its_window: "spielplan_undraw_outside_its_window",
@@ -2690,8 +2687,6 @@ export interface FLSpielJoined {
  * One matchday as the Spielplan shows it, holding its matches in the order the draw numbered them.
  */
 export interface FLSpielplanSpieltag {
-  /** @minimum 0 */
-  count_spiele: number;
   end: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
@@ -4041,20 +4036,6 @@ export interface FLSaisonBewerbung {
 }
 
 /**
- * One phase of a season: how many matchdays it takes, and how many matches each holds.
- *
- * A phase the bracket does not reach is absent rather than present with zeroes, so the list is the
- * phases the season plays, in playing order.
- */
-export interface FLSaisonPhaseSchedule {
-  phase: FLSaisonPhase;
-  /** @minimum 0 */
-  spiele_per_spieltag: number;
-  /** @minimum 0 */
-  spieltage: number;
-}
-
-/**
  * The same season for the admin surfaces, with whether it has started and whether a fixture of it has taken place.
  */
 export interface FLSaisonAdmin {
@@ -4063,10 +4044,13 @@ export interface FLSaisonAdmin {
   decided: boolean;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   end_date: string;
+  /**
+   * @minLength 4
+   * @maxLength 4
+   */
   id: string;
   registrierung: FLSaisonRegistrierung | null;
   rules: FLSaisonRules;
-  schedule: FLSaisonPhaseSchedule[];
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   start_date: string;
   status: FLSaisonStatus;
@@ -4097,10 +4081,13 @@ export interface FLSaisonAdminListed {
   decided: boolean;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   end_date: string;
+  /**
+   * @minLength 4
+   * @maxLength 4
+   */
   id: string;
   registrierung: FLSaisonRegistrierung | null;
   rules: FLSaisonRules;
-  schedule: FLSaisonPhaseSchedule[];
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   start_date: string;
   status: FLSaisonStatus;
@@ -4128,11 +4115,10 @@ export interface FLSpielplanShape {
 
 /**
  * A season's Spielplan as every write judges it: the matchdays and fixtures it holds, counted per read, and the draw's day.
- *
- * `generated_at` is `null` on a season whose rows no draw dated.
  */
 export interface FLSaisonDrawn {
-  generated_at: string | null;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  generated_at: string;
   /** @minimum 0 */
   spiele: number;
   /** @minimum 0 */
@@ -4155,7 +4141,7 @@ export interface FLSaisonAdminTeam {
  * What the season editor shows, in one read: its season, clubs, shapes and matchdays, its acts' states and its registration links.
  *
  * `shapes` is every shape the season's other rules admit, which its rules form offers;
- * `spielplan` is the Spielplan the season holds, `null` while it holds no matchday and no fixture; `invitations`
+ * `spielplan` is the Spielplan the season holds, `null` while it holds no fixture; `invitations`
  * holds one row per club, in `teams`' order.
  */
 export interface FLSaisonAdminResponse {
@@ -4970,8 +4956,6 @@ export interface FLSpieleAdminSingleResponse {
  * One matchday as the administrator's Spiele list shows it, its matches in the admin shape.
  */
 export interface FLSpielplanSpieltagAdmin {
-  /** @minimum 0 */
-  count_spiele: number;
   end: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
@@ -5177,8 +5161,6 @@ export interface FLSpielplanResponse {
  * A matchday as its editor reads it, with how many matchdays its phase holds, by which a page names a round's legs.
  */
 export interface FLSpieltagAdmin {
-  /** @minimum 0 */
-  count_spiele: number;
   /** @minimum 1 */
   count_spieltage_in_phase: number;
   end: string | null;

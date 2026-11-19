@@ -36,8 +36,8 @@ belongs to.\
 ### `Spieltag` — matchday, fixture round
 
 **Is:** a block of matches within one phase of a season, never a single `Spiel`, holding its
-`position` in that phase and, once somebody sets one, a date range. Its label and its match count
-are derived on read and stored nowhere.\
+`position` in that phase and, once somebody sets one, a date range. Its label is derived on read and
+stored nowhere.\
 **In code:** `fl_backend/app/api/spieltage/schemas.py :: FLSpieltag`; the label is
 `fl_frontend/src/features/spieltage/utils.ts :: spieltagLabel`.\
 **See:** [`domain.md`](domain.md#what-is-held-true-together).

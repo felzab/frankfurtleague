@@ -145,9 +145,7 @@
           "rules_bracket_impossible",
           "rules_gruppen_in_use",
           "rules_capacity_below_use",
-          "rules_qualifiers_below_wiring",
           "rules_saison_started",
-          "rules_spieltag_over_its_phase",
           "rules_qualifiers_above_gruppe",
           "rules_unentschieden_outvalues_win",
           "rules_niederlage_outvalues_unentschieden",
@@ -160,7 +158,6 @@
           "ban_list_no_saison",
           "ban_list_admin",
           "spielplan_already_drawn",
-          "spielplan_spieltage_held",
           "spielplan_gruppen_off_rules",
           "spielplan_replace_outside_its_window",
           "spielplan_undraw_outside_its_window",
@@ -9117,6 +9114,8 @@
             "type": "string"
           },
           "id": {
+            "maxLength": 4,
+            "minLength": 4,
             "title": "Id",
             "type": "string"
           },
@@ -9132,13 +9131,6 @@
           },
           "rules": {
             "$ref": "#/components/schemas/FLSaisonRules"
-          },
-          "schedule": {
-            "items": {
-              "$ref": "#/components/schemas/FLSaisonPhaseSchedule"
-            },
-            "title": "Schedule",
-            "type": "array"
           },
           "start_date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -9167,7 +9159,6 @@
           "id",
           "status",
           "version",
-          "schedule",
           "begun",
           "taken_place",
           "decided"
@@ -9237,6 +9228,8 @@
             "type": "string"
           },
           "id": {
+            "maxLength": 4,
+            "minLength": 4,
             "title": "Id",
             "type": "string"
           },
@@ -9252,13 +9245,6 @@
           },
           "rules": {
             "$ref": "#/components/schemas/FLSaisonRules"
-          },
-          "schedule": {
-            "items": {
-              "$ref": "#/components/schemas/FLSaisonPhaseSchedule"
-            },
-            "title": "Schedule",
-            "type": "array"
           },
           "start_date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -9287,7 +9273,6 @@
           "id",
           "status",
           "version",
-          "schedule",
           "begun",
           "taken_place",
           "decided",
@@ -9298,7 +9283,7 @@
         "type": "object"
       },
       "FLSaisonAdminResponse": {
-        "description": "What the season editor shows, in one read: its season, clubs, shapes and matchdays, its acts' states and its registration links.\n\n`shapes` is every shape the season's other rules admit, which its rules form offers;\n`spielplan` is the Spielplan the season holds, `null` while it holds no matchday and no fixture; `invitations`\nholds one row per club, in `teams`' order.",
+        "description": "What the season editor shows, in one read: its season, clubs, shapes and matchdays, its acts' states and its registration links.\n\n`shapes` is every shape the season's other rules admit, which its rules form offers;\n`spielplan` is the Spielplan the season holds, `null` while it holds no fixture; `invitations`\nholds one row per club, in `teams`' order.",
         "properties": {
           "incoming_teams": {
             "items": {
@@ -9450,19 +9435,12 @@
         "type": "object"
       },
       "FLSaisonDrawn": {
-        "description": "A season's Spielplan as every write judges it: the matchdays and fixtures it holds, counted per read, and the draw's day.\n\n`generated_at` is `null` on a season whose rows no draw dated.",
+        "description": "A season's Spielplan as every write judges it: the matchdays and fixtures it holds, counted per read, and the draw's day.",
         "properties": {
           "generated_at": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Generated At"
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Generated At",
+            "type": "string"
           },
           "spiele": {
             "minimum": 0.0,
@@ -9588,31 +9566,6 @@
           "finale"
         ],
         "type": "string"
-      },
-      "FLSaisonPhaseSchedule": {
-        "description": "One phase of a season: how many matchdays it takes, and how many matches each holds.\n\nA phase the bracket does not reach is absent rather than present with zeroes, so the list is the\nphases the season plays, in playing order.",
-        "properties": {
-          "phase": {
-            "$ref": "#/components/schemas/FLSaisonPhase"
-          },
-          "spiele_per_spieltag": {
-            "minimum": 0.0,
-            "title": "Spiele Per Spieltag",
-            "type": "integer"
-          },
-          "spieltage": {
-            "minimum": 0.0,
-            "title": "Spieltage",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "phase",
-          "spieltage",
-          "spiele_per_spieltag"
-        ],
-        "title": "FLSaisonPhaseSchedule",
-        "type": "object"
       },
       "FLSaisonRegistrierung": {
         "description": "When a pupil's entry is an ordinary one: from the season's activation to `end`, which falls before the season's start.\n\nPast `end` the link runs on until the season ends and an entry is a Nachnominierung; `open` pauses the link alone.",
@@ -14620,11 +14573,6 @@
       "FLSpielplanSpieltag": {
         "description": "One matchday as the Spielplan shows it, holding its matches in the order the draw numbered them.",
         "properties": {
-          "count_spiele": {
-            "minimum": 0.0,
-            "title": "Count Spiele",
-            "type": "integer"
-          },
           "end": {
             "anyOf": [
               {
@@ -14689,7 +14637,6 @@
           "saison_phase",
           "saison_id",
           "version",
-          "count_spiele",
           "spiele"
         ],
         "title": "FLSpielplanSpieltag",
@@ -14698,11 +14645,6 @@
       "FLSpielplanSpieltagAdmin": {
         "description": "One matchday as the administrator's Spiele list shows it, its matches in the admin shape.",
         "properties": {
-          "count_spiele": {
-            "minimum": 0.0,
-            "title": "Count Spiele",
-            "type": "integer"
-          },
           "end": {
             "anyOf": [
               {
@@ -14767,7 +14709,6 @@
           "saison_phase",
           "saison_id",
           "version",
-          "count_spiele",
           "spiele"
         ],
         "title": "FLSpielplanSpieltagAdmin",
@@ -14776,11 +14717,6 @@
       "FLSpieltagAdmin": {
         "description": "A matchday as its editor reads it, with how many matchdays its phase holds, by which a page names a round's legs.",
         "properties": {
-          "count_spiele": {
-            "minimum": 0.0,
-            "title": "Count Spiele",
-            "type": "integer"
-          },
           "count_spieltage_in_phase": {
             "minimum": 1.0,
             "title": "Count Spieltage In Phase",
@@ -14843,7 +14779,6 @@
           "saison_phase",
           "saison_id",
           "version",
-          "count_spiele",
           "count_spieltage_in_phase"
         ],
         "title": "FLSpieltagAdmin",

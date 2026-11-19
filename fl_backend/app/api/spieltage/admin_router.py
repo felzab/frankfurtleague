@@ -7,7 +7,6 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.grants.guard import ADMIN_TIER
-from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_saison_past_refusal
 from app.api.spieltage.schemas import (
     FLPatchSpieltagPayload,
@@ -15,13 +14,7 @@ from app.api.spieltage.schemas import (
     FLSpieltagAdminResponse,
     FLSpieltagRecord,
 )
-from app.api.spieltage.services import (
-    dated_neighbour,
-    dated_start,
-    find_spieltag_order_refusal,
-    find_spieltag_span_refusal,
-    with_expected_matches,
-)
+from app.api.spieltage.services import find_spieltag_order_refusal, find_spieltag_span_refusal
 from app.core.crud import anchor_in_db, patch_one_in_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     DBClient,
@@ -60,22 +53,14 @@ async def get_spieltag_admin(
 
     spieltag_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id})
 
-    # Its own season, as the base read resolves it: `count_spiele` derives from that season's rules, and its `status` is
-    # the one the re-dating judges.
-    saison_raw = await pull_one_from_db(
-        collection=saisons_collection, db_filter={"_id": spieltag_raw["saison_id"]}, projection=["rules", "status"]
-    )
+    # Its own season's `status`, the one the re-dating judges.
+    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": spieltag_raw["saison_id"]}, projection=["status"])
     count_spieltage_in_phase = await spieltage_collection.count_documents(
         {"saison_id": spieltag_raw["saison_id"], "saison_phase": spieltag_raw["saison_phase"]}
     )
 
     return FLSpieltagAdminResponse(
-        spieltag=FLSpieltagAdmin.model_validate(
-            {
-                **with_expected_matches(spieltag_raw, FLSaisonRules.model_validate(saison_raw["rules"])),
-                "count_spieltage_in_phase": count_spieltage_in_phase,
-            }
-        ),
+        spieltag=FLSpieltagAdmin.model_validate({**spieltag_raw, "count_spieltage_in_phase": count_spieltage_in_phase}),
         saison_status=saison_raw["status"],
     )
 
@@ -108,22 +93,21 @@ async def _refuse_an_out_of_order_start(
         "saison_phase": stored_raw["saison_phase"],
         "start": {"$ne": None},
     }
-    neighbour_fields = {"position": 1, "start": 1}
     previous_raw = await spieltage_collection.find_one(
-        {**neighbourhood, "position": {"$lt": stored_raw["position"]}}, neighbour_fields, sort=[("position", -1)], session=session
+        {**neighbourhood, "position": {"$lt": stored_raw["position"]}}, {"start": 1}, sort=[("position", -1)], session=session
     )
     following_raw = await spieltage_collection.find_one(
-        {**neighbourhood, "position": {"$gt": stored_raw["position"]}}, neighbour_fields, sort=[("position", 1)], session=session
+        {**neighbourhood, "position": {"$gt": stored_raw["position"]}}, {"start": 1}, sort=[("position", 1)], session=session
     )
 
     refuse(
         find_spieltag_order_refusal(
             start=start,
-            # The read its neighbours go through as well, so what an undated row means is decided in
-            # one place rather than at each side of the comparison.
-            stored_start=dated_start(stored_raw),
-            previous=dated_neighbour(previous_raw),
-            following=dated_neighbour(following_raw),
+            # Each `start` as stored, string or null, and never through `str()`, which would turn an undated row into a day
+            # above every ISO date.
+            stored_start=stored_raw["start"],
+            previous_start=None if previous_raw is None else previous_raw["start"],
+            following_start=None if following_raw is None else following_raw["start"],
         )
     )
 

@@ -70,7 +70,6 @@ from app.api.saisons.services import (
     find_undraw_refusal,
     has_started,
     holds_a_recorded_fact,
-    with_schedule,
     workable_shapes,
 )
 from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
@@ -191,7 +190,7 @@ async def get_saisons_admin(
     create_refusal = find_saison_create_refusal(future_stands=future_stands)
     saisons = [
         {
-            **with_schedule(raw),
+            **raw,
             "begun": has_started(start_date=str(raw["start_date"]), today=today),
             "taken_place": raw["_id"] in taken_place,
             "decided": decided_podium(finale_by_saison.get(str(raw["_id"]), [])) is not None,
@@ -273,15 +272,14 @@ async def get_saison_admin(
     )
     recorded_spiele = sum(1 for spiel in recorded_rows if holds_a_recorded_fact(spiel))
     # The rows a first draw refuses on, and the undraw and the replace remove: the season is drawn exactly while it holds
-    # one, whatever its watermark says, so the editor offers the draw's acts where their writes take them.
-    watermark = saison_raw.get("spielplan")
+    # one, so the editor offers the draw's acts where their writes take them. The draw that wrote them dated the season.
     spielplan = (
         None
-        if count_spieltage == 0 and not recorded_rows
+        if not recorded_rows
         else FLSaisonDrawn(
             spieltage=count_spieltage,
             spiele=len(recorded_rows),
-            generated_at=None if watermark is None else FLSaisonSpielplan.model_validate(watermark).generated_at,
+            generated_at=FLSaisonSpielplan.model_validate(saison_raw["spielplan"]).generated_at,
         )
     )
 
@@ -291,7 +289,7 @@ async def get_saison_admin(
     entered = {row["team_id"] for row in rows}
     saison = FLSaisonAdmin.model_validate(
         {
-            **with_schedule(saison_raw),
+            **saison_raw,
             "begun": has_started(start_date=str(saison_raw["start_date"]), today=today),
             "taken_place": any(has_taken_place(spiel) for spiel in recorded_rows),
             "decided": decided_podium(finale_by_saison.get(saison_id, [])) is not None,
@@ -307,7 +305,6 @@ async def get_saison_admin(
         return find_spielplan_refusal(
             saison_status=saison_status,
             spiele_drawn=len(recorded_rows),
-            spieltage_held=count_spieltage,
             rules=saison.rules,
             occupancy_by_gruppe=occupancy,
             replace=replace,
@@ -359,7 +356,7 @@ async def post_saison(
     async def enter_the_season(session: AsyncClientSession) -> InsertOneResult:
         state = await pull_create_state(saisons_collection=saisons_collection, session=session)
         refuse(find_saison_create_refusal(future_stands=state.future_stands))
-        refuse(find_rules_refusal(stored=None, proposed=state.rules, occupancy_by_gruppe={}, highest_wired_platz=0))
+        refuse(find_rules_refusal(stored=None, proposed=state.rules, occupancy_by_gruppe={}))
         # After the rules: an impossible bracket makes the implied matchday count meaningless.
         refuse(
             find_saison_span_refusal(
@@ -429,42 +426,9 @@ async def patch_saison(
                 occupancy[gruppe] = occupancy.get(gruppe, 0) + 1
             austritt_stored = austritt_stored or row.get("austritt") is not None
 
-        # Both sides, because a `quelle` sits on either; 0 where no slot is group-seeded. Judged on
-        # the snapshot and never re-read below: `rules_qualifiers_below_wiring`, the only refusal that reads it,
-        # cannot be reached at all.
-        highest_platz = 0
-        async for spiel in spiele_collection.find(
-            {"saison_id": saison_id, "$or": [{"team1_quelle.type": "gruppe"}, {"team2_quelle.type": "gruppe"}]},
-            {"team1_quelle": 1, "team2_quelle": 1},
-            session=session,
-        ):
-            for side in ("team1_quelle", "team2_quelle"):
-                quelle = spiel.get(side)
-                if isinstance(quelle, dict) and quelle.get("type") == "gruppe":
-                    highest_platz = max(highest_platz, int(quelle.get("platz", 0)))
-
-        # The fullest matchday of a phase, not the total, and keyed on the matchday's phase, which the
-        # fixture's can disagree with. Judged on the snapshot and never re-read below:
-        # `rules_spieltag_over_its_phase`, the only refusal that reads it, cannot be reached at all.
-        attached_by_phase: dict[Any, int] = {}
-        phase_of_spieltag: dict[Any, Any] = {}
-        async for spieltag in spieltage_collection.find({"saison_id": saison_id}, {"saison_phase": 1}, session=session):
-            phase_of_spieltag[spieltag["_id"]] = spieltag["saison_phase"]
-
-        per_spieltag: dict[Any, int] = {}
-        async for spiel in spiele_collection.find({"saison_id": saison_id}, ["spieltag_id"], session=session):
-            per_spieltag[spiel["spieltag_id"]] = per_spieltag.get(spiel["spieltag_id"], 0) + 1
-
-        # Every fixture, whichever matchday it hangs on: what `rules_shape_after_spielplan` freezes is the draw, and
-        # one on another season's matchday came out of this season's rules too. Only a draw or an
-        # undraw moves the count, and both write `saisons`, so both conflict.
-        drawn_spiele = sum(per_spieltag.values())
-
-        for spieltag_id, attached in per_spieltag.items():
-            phase = phase_of_spieltag.get(spieltag_id)
-            # A fixture pointing at another season's matchday, or at none, exceeds no count here.
-            if phase is not None:
-                attached_by_phase[phase] = max(attached_by_phase.get(phase, 0), attached)
+        # In the transaction's session: what `rules_shape_after_spielplan` freezes is the draw, and only a draw or an
+        # undraw moves the count, and both write `saisons`, so one landing under this save conflicts.
+        drawn_spiele = await spiele_collection.count_documents({"saison_id": saison_id}, session=session)
 
         largest_kader_rows = await (
             await saison_spieler_collection.aggregate(
@@ -527,9 +491,7 @@ async def patch_saison(
                 stored=stored_rules,
                 proposed=saison_data.rules,
                 occupancy_by_gruppe=occupancy,
-                highest_wired_platz=highest_platz,
                 largest_kader=largest_kader,
-                attached_by_phase=attached_by_phase,
                 drawn_spiele=drawn_spiele,
             )
         )
@@ -881,7 +843,6 @@ async def post_spielplan(
             find_spielplan_refusal(
                 saison_status=str(saison_raw["status"]),
                 spiele_drawn=len(stored_spiele),
-                spieltage_held=await spieltage_collection.count_documents({"saison_id": saison_id}, session=session),
                 rules=rules,
                 occupancy_by_gruppe=occupancy,
                 replace=spielplan_data.replace,
@@ -906,7 +867,7 @@ async def post_spielplan(
         # every save judge it whole against the rules they store.
         refuse(
             as_judged_on_stored_state(
-                find_rules_refusal(stored=None, proposed=rules, occupancy_by_gruppe=occupancy, highest_wired_platz=0),
+                find_rules_refusal(stored=None, proposed=rules, occupancy_by_gruppe=occupancy),
                 twins={},
             )
         )
@@ -993,8 +954,7 @@ async def delete_spielplan(
         # A season id naming nothing raises the 404 here.
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"], session=session)
 
-        # The stored rows, never the watermark: a season drawn outside this API carries none, and its
-        # fixtures are as much a record as one this endpoint wrote.
+        # The stored rows, never the watermark: they are what the window weighs and the undraw removes.
         stored_spiele = await _pull_recorded_fact_rows(spiele_collection=spiele_collection, saison_id=saison_id, session=session)
 
         # A report written since this snapshot anchors the season, which the undraw anchors below, so the two conflict and
@@ -1009,8 +969,8 @@ async def delete_spielplan(
             )
         )
 
-        # The season every report write anchors, so the two conflict: the `$unset` below changes nothing on a season
-        # holding no watermark, and the report's insert meets no delete here.
+        # The season every report write anchors, so the two conflict on it before the watermark's `$unset` below: the
+        # report's insert meets no delete here.
         await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=saison_id, session=session)
 
         # Fixtures first, the reverse of the draw's write order. Confirmations, reports and line-ups go first of

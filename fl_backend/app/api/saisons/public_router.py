@@ -343,7 +343,7 @@ async def _spielplan_of(
         aggregate_many_from_db(collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter=db_filter)),
     )
 
-    return saison, build_spielplan(spieltage_raw, spiele_raw, saison.rules)
+    return saison, build_spielplan(spieltage_raw, spiele_raw)
 
 
 @router.get("/{saison_id}/spielplan", summary="One Saison's Spielplan")

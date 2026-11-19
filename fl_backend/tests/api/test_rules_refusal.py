@@ -1,4 +1,3 @@
-from collections.abc import Mapping
 from typing import Any, Literal
 
 import pytest
@@ -7,7 +6,7 @@ from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_rules_freeze_refusal, find_rules_refusal, find_undraw_refusal
 from app.core.codes import Code
 from app.core.exceptions import APIError
-from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase
+from app.shared.schemas.literals import FLGruppenNames
 
 
 def rules_payload(
@@ -50,9 +49,7 @@ def judge(
     stored: FLSaisonRules | None = None,
     proposed: FLSaisonRules | None = None,
     occupancy: dict[FLGruppenNames, int] | None = None,
-    platz: int = 0,
     largest_kader: int = 0,
-    attached: Mapping[FLSaisonPhase, int] | None = None,
     drawn: int = 0,
     started: bool = False,
 ) -> APIError | None:
@@ -68,9 +65,7 @@ def judge(
         stored=stored,
         proposed=proposed,
         occupancy_by_gruppe=occupancy or {},
-        highest_wired_platz=platz,
         largest_kader=largest_kader,
-        attached_by_phase=attached,
         drawn_spiele=drawn,
     )
 
@@ -160,13 +155,6 @@ class TestEachRefusalNamesItsBound:
                 ("rules", "teams_per_gruppe"),
                 {"min": 6},
                 id="the capacity holds the fullest group",
-            ),
-            pytest.param(
-                {"stored": rules(qualifiers=2), "proposed": rules(qualifiers=1), "platz": 2},
-                Code.RULES_QUALIFIERS_BELOW_WIRING,
-                ("rules", "qualifiers_per_gruppe"),
-                {"min": 2},
-                id="the qualifiers reach the highest wired place",
             ),
             pytest.param(
                 {"proposed": rules(qualifiers=5, per_group=4)},
@@ -280,26 +268,6 @@ class TestTheUndrawWindow:
     @pytest.mark.parametrize(("status", "recorded", "undraw_runs"), UNDRAW_WINDOW_CASES, ids=WINDOW_IDS)
     def test_the_undraw_runs_only_inside_the_window(self, status: str, recorded: int, undraw_runs: bool):
         assert (find_undraw_refusal(saison_status=status, recorded_spiele=recorded) is None) is undraw_runs
-
-
-class TestNarrowingBelowAMatchdaysSpiele:
-    """A matchday's expected count derives from these rules; the input is the largest count one matchday holds."""
-
-    def test_narrowing_the_group_count_below_an_existing_matchday_is_refused(self):
-        """Nothing else refuses it: the groups are empty for `rules_gruppen_in_use`, and 2 x 4 is a bracket `rules_bracket_impossible` takes."""
-
-        refusal = judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=2, qualifiers=4), attached={"gruppenphase": 8})
-
-        assert refusal is not None
-        assert refusal.error_code == Code.RULES_SPIELTAG_OVER_ITS_PHASE
-
-    def test_shortening_the_ladder_strands_a_knockout_matchday(self):
-        """4 groups by 1 qualifier leaves a Viertelfinale matchday in a phase expecting 0, which is why every phase is checked."""
-
-        refusal = judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=4, qualifiers=1), attached={"viertelfinale": 4})
-
-        assert refusal is not None
-        assert refusal.error_code == Code.RULES_SPIELTAG_OVER_ITS_PHASE
 
 
 class TestAGroupCannotQualifyMoreThanItHolds:

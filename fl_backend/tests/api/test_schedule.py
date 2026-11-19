@@ -1,10 +1,6 @@
-from typing import get_args
-
 from app.api.saisons.schedule import schedule_for
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.spiele.schemas import PHASE_ORDER
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
-from app.shared.schemas.literals import FLSaisonPhase
 from tests.documents import rules_document
 
 
@@ -20,13 +16,6 @@ def ceiling(field: str) -> int:
     """The `le` a rules field states, read off the model so widening one moves the test below rather than leaving it under the old bound."""
 
     return next(constraint.le for constraint in FLSaisonRules.model_fields[field].metadata if hasattr(constraint, "le"))
-
-
-class TestThePhaseSet:
-    def test_every_phase_of_the_literal_is_ordered(self):
-        """A member added to the Literal and not to the order would sort and refuse unpredictably."""
-
-        assert set(PHASE_ORDER) == set(get_args(FLSaisonPhase.__value__))
 
 
 class TestTheWholeSeason:

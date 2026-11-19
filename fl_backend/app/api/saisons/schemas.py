@@ -26,7 +26,7 @@ from app.core.crud import Anchored
 from app.core.exceptions import Bound, rule_refusal
 from app.shared.schemas.bounds import KADER_SIZE_MAX, SAISON_ID_LENGTH
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomTimeString, CustomVersion, refuse_reversed_span
-from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus, FLSonderereignis, FLSpielerStufe
+from app.shared.schemas.literals import FLGruppenNames, FLSaisonStatus, FLSonderereignis, FLSpielerStufe
 from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 
@@ -123,18 +123,6 @@ class FLSaisonRegistrierung(BaseModel):
     end: CustomDateString
 
 
-class FLSaisonPhaseSchedule(BaseModel):
-    """One phase of a season: how many matchdays it takes, and how many matches each holds.
-
-    A phase the bracket does not reach is absent rather than present with zeroes, so the list is the
-    phases the season plays, in playing order.
-    """
-
-    phase: FLSaisonPhase
-    spieltage: int = Field(ge=0)
-    spiele_per_spieltag: int = Field(ge=0)
-
-
 # Private, so the read model and both payloads state these fields once, and the base itself
 # publishes no OpenAPI component.
 class _SaisonSpan(BaseModel):
@@ -213,9 +201,9 @@ class _SaisonPayload(_SaisonSpanPayload, _SaisonWritable):
 
 
 class _SaisonStored(_SaisonWritable):
-    # Echoed as stored, held to no length: one stored row of the wrong length would otherwise answer 500 for every list
-    # it appears in. The create mints the id, so no write takes one from a payload.
-    id: str = Field(validation_alias="_id", serialization_alias="id")
+    # Exactly `SAISON_ID_LENGTH` characters, as every `saison_id` referencing this one demands. The create mints the id,
+    # so no write takes one from a payload.
+    id: str = Field(validation_alias="_id", serialization_alias="id", min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
 
     status: FLSaisonStatus
 
@@ -223,17 +211,11 @@ class _SaisonStored(_SaisonWritable):
 
 
 class FLSaison(_SaisonStored, BaseReadModel):
-    # Derived, and on no document. Injected before validation, because a computed field would close
-    # an import cycle.
-    schedule: tuple[FLSaisonPhaseSchedule, ...]
+    """A season as a read serves it, its stored fields alone."""
 
 
 class FLSaisonRecord(_SaisonStored, Anchored):
-    """A season as `saisons` stores it: no derived schedule."""
-
-    # Exactly `SAISON_ID_LENGTH` characters, as every `saison_id` referencing this one demands, so the read-back names a
-    # stored id like "2026/27", whose every match and matchday fails to read.
-    id: str = Field(validation_alias="_id", serialization_alias="id", min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
+    """A season as `saisons` stores it."""
 
     # Defaulted: the season's creation writes no key, the draw being what writes it. Stored and never served: the
     # editor serves its day inside `FLSaisonDrawn`, beside the counts of what the season holds.
@@ -417,21 +399,18 @@ class FLSaisonActRefusals(BaseReadModel):
 
 
 class FLSaisonDrawn(BaseReadModel):
-    """A season's Spielplan as every write judges it: the matchdays and fixtures it holds, counted per read, and the draw's day.
-
-    `generated_at` is `null` on a season whose rows no draw dated.
-    """
+    """A season's Spielplan as every write judges it: the matchdays and fixtures it holds, counted per read, and the draw's day."""
 
     spieltage: int = Field(ge=0)
     spiele: int = Field(ge=0)
-    generated_at: CustomDateString | None
+    generated_at: CustomDateString
 
 
 class FLSaisonAdminResponse(BaseReadModel):
     """What the season editor shows, in one read: its season, clubs, shapes and matchdays, its acts' states and its registration links.
 
     `shapes` is every shape the season's other rules admit, which its rules form offers;
-    `spielplan` is the Spielplan the season holds, `null` while it holds no matchday and no fixture; `invitations`
+    `spielplan` is the Spielplan the season holds, `null` while it holds no fixture; `invitations`
     holds one row per club, in `teams`' order.
     """
 

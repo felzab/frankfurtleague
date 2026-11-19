@@ -12,7 +12,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure, PyMongoError
 
 from app.api.saisons.admin_router import delete_spielplan, patch_saison, post_spielplan
-from app.api.saisons.schedule import group_matchdays
+from app.api.saisons.schedule import group_spieltage
 from app.api.saisons.schemas import (
     FLGenerateSpielplanPayload,
     FLPatchSaisonPayload,
@@ -57,9 +57,6 @@ QUALIFIERS = 2
 # groups take a bye round and whose bracket opens at the semi-finals, the smallest the rules take.
 SHAPES: tuple[tuple[int, int, int], ...] = ((GROUPS, TEAMS_PER_GROUP, QUALIFIERS), (2, 3, 2))
 SHAPE_IDS = ("four groups of four into a quarter-final", "two odd groups into a semi-final")
-
-# Deliberately in no collection until a case seeds it.
-STORED_SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f607760001")
 
 
 def rules_document(*, groups: int = GROUPS, teams: int = TEAMS_PER_GROUP, qualifiers: int = QUALIFIERS) -> dict[str, Any]:
@@ -109,12 +106,6 @@ def entry_rows(
     return rows
 
 
-def a_stored_matchday() -> dict[str, Any]:
-    """Undated, which is the shape the draw itself leaves: `spielplan_spieltage_held` counts rows and reads no field of one."""
-
-    return documents.spieltag_document(STORED_SPIELTAG_OID, SAISON_ID, 1)
-
-
 @dataclass(frozen=True)
 class Seed:
     """One season as the database holds it when the draw is asked for, and a second beside it where a case asks for one."""
@@ -122,7 +113,6 @@ class Seed:
     saison: dict[str, Any] = field(default_factory=saison_document)
     entered: list[dict[str, Any]] = field(default_factory=entry_rows)
     spiele: list[dict[str, Any]] = field(default_factory=list)
-    spieltage: list[dict[str, Any]] = field(default_factory=list)
     #: Seeded only by a case about what a removal must NOT reach: a database holding one season
     #: answers the same whether the removal was scoped or took the collection.
     neighbour: dict[str, Any] | None = None
@@ -147,8 +137,6 @@ async def on_a_seeded_saison(
     ) as (client, database):
         await database[Collection.SAISONS].insert_one(seeded.saison)
         await database[Collection.SAISON_TEAMS].insert_many(seeded.entered)
-        if seeded.spieltage:
-            await database[Collection.SPIELTAGE].insert_many(seeded.spieltage)
         if seeded.spiele:
             await database[Collection.SPIELE].insert_many(seeded.spiele)
 
@@ -284,7 +272,7 @@ def expected_counts(rules: FLSaisonRules) -> tuple[int, int]:
     """
 
     bracket = bracket_rounds(rules)
-    spieltage = group_matchdays(rules.teams_per_gruppe) + len(bracket)
+    spieltage = group_spieltage(rules.teams_per_gruppe) + len(bracket)
 
     return spieltage, group_phase_count(rules) + sum(bracket)
 
@@ -428,7 +416,6 @@ class TestEachRefusalIsReachedThroughTheRoute:
     @pytest.mark.parametrize(
         ("code", "seed"),
         [
-            pytest.param(Code.SPIELPLAN_SPIELTAGE_HELD, Seed(spieltage=[a_stored_matchday()]), id="a season already holding a matchday"),
             pytest.param(Code.SAISON_PAST, Seed(saison=saison_document(status="past")), id="a season already finished"),
             # The other half of `spielplan_gruppen_off_rules`: these clubs stand in groups the season does not
             # offer, so the draw would put them in no round robin at all.
@@ -458,7 +445,7 @@ class TestEachRefusalIsReachedThroughTheRoute:
 
         assert refused.error_code == code
         # Exactly what the seed put there: a refusal reached after a write would read higher.
-        assert (refused.spieltage, refused.spiele) == (len(seed.spieltage), len(seed.spiele))
+        assert (refused.spieltage, refused.spiele) == (0, len(seed.spiele))
         assert refused.watermark is None
 
 
@@ -555,8 +542,8 @@ RECORDS_CLOSING_THE_WINDOW = (
     pytest.param({"note": A_NOTE}, id="an admin's note"),
 )
 
-# Wider than the drawn shape, so `rules_capacity_below_use` and `rules_spieltag_over_its_phase` both read the other way and
-# `rules_shape_after_spielplan` is the only rule that can answer.
+# Wider than the drawn shape, so `rules_capacity_below_use` reads the other way and `rules_shape_after_spielplan` is the
+# only rule that can answer.
 WIDER_PER_GROUP = 6
 
 
@@ -849,14 +836,11 @@ class TestAFirstReportCrossingADrawsRemovalMeetsItOnTheSeason:
         assert orphans == [], f"a report outlives the replace: the report {report!r}, the replace {replace!r}"
         assert COMMITTED in (report, replace), "neither side landed"
 
-    async def test_an_undraw_of_a_season_holding_no_watermark_landing_inside_a_report_never_leaves_it_orphaned(
-        self, mongo_replica_set_url: str
-    ):
-        """A season drawn outside this API holds no watermark, so the undraw's `$unset` changes nothing and only its anchor meets the report."""
+    async def test_an_undraw_landing_inside_a_report_never_leaves_it_orphaned(self, mongo_replica_set_url: str):
+        """The undraw's own anchor meets the report on the season, ahead of its watermark's `$unset`."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_draw(database, client)
-            await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$unset": {"spielplan": ""}})
             return await a_report_crossed_by(database, client, lambda saisons: call_undraw(database, client, saisons_collection=saisons))
 
         (report, undraw), orphans, conflicts = await on_a_seeded_saison(mongo_replica_set_url, body)

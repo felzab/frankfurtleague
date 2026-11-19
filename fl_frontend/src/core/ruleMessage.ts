@@ -67,7 +67,6 @@ const PATTERNED = {
   rules_gruppen_in_use: atLeast,
   rules_capacity_below_use: atLeast,
   rules_kader_below_use: atLeast,
-  rules_qualifiers_below_wiring: atLeast,
   // One mapping for both dates, the span the dated matchdays need, named on each side that falls short: the start no
   // later than the first matchday's start, the end no earlier than the last one's end.
   saison_span_below_spieltage: ({ start, end }: Context, [side]: Path) =>

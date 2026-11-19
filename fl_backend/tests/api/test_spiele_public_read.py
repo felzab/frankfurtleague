@@ -5,7 +5,6 @@ import pytest
 from bson import ObjectId
 from pydantic import BaseModel
 
-from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import (
     FLSpiel,
     FLSpielJoined,
@@ -16,7 +15,7 @@ from app.api.spiele.schemas import (
 )
 from app.api.spieltage.services import build_spielplan
 from tests.core.app_source import api_routes, application
-from tests.documents import AUSTRITT, rules_document, spiel_document, spieltag_document
+from tests.documents import AUSTRITT, spiel_document, spieltag_document
 
 # The two figures the base tier never serves, the rent and the fee, spelled as a DOCUMENT spells them: the
 # assertions below search published property names, where a model's field name need not match.
@@ -223,7 +222,7 @@ class TestTheScheduleServesTheRefereeByConsent:
         spieltag = spieltag_document(SPIELTAG_ID, SAISON_ID, 1)
         (route,) = [route for route in api_routes(application()) if route.path == path and route.methods == {"GET"}]
 
-        spieltage = build_spielplan([spieltag], [fixture], FLSaisonRules.model_validate(rules_document()))
+        spieltage = build_spielplan([spieltag], [fixture])
         answer = route.response_model.model_validate({"spieltage": spieltage, **beside}).model_dump(mode="json", by_alias=True)
 
         # The whole block, so the record id and the fee are refused as well as the name.
