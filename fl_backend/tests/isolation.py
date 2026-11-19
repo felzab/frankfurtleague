@@ -9,12 +9,6 @@ from app.core.exceptions import APIError
 # lands names the state it left instead of an exception that failed to arrive.
 COMMITTED = "the write committed"
 
-# Both ways a case's count of judgements can miss the one a rival landing inside makes, for its failure
-# to name whichever happened rather than the one its author had in mind.
-MISCOUNTED_JUDGEMENTS = (
-    "one short is a rival that landed outside the write or a conflict never judged again, one over a retry that conflicted again"
-)
-
 Rival = Callable[[], Awaitable[Any]]
 
 
@@ -98,6 +92,20 @@ class InterleavedCollection:
         if self._rival is not None:
             rival, self._rival = self._rival, None
             await rival()
+
+
+class SeasonsRunningARivalAfterTheSessionRead(InterleavedCollection):
+    """A `saisons` stand-in running its rival once, just after the first read made inside a transaction.
+
+    A read before the transaction, such as a route's 404 check, would place the rival ahead of any snapshot.
+    """
+
+    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
+        found = await self._collection.find_one(*args, **kwargs)
+        if kwargs.get("session") is not None:
+            await self.run_the_rival()
+
+        return found
 
 
 class RowsThenTheRival:

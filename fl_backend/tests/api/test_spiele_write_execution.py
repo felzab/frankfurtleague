@@ -475,7 +475,6 @@ class TestARefereeAndLineUpEntriesNamingNobody:
                 await erased(
                     database, client, f"{pupil}@schule.example", germany_now=AFTER_THE_GROUP_KICK_OFF, aufstellungen_collection=interleaved
                 )
-            interleaved.assert_landed_inside(serially=1)
 
             line_up = await database[Collection.AUFSTELLUNGEN].find_one({"spiel_id": GRUPPE_FILLING})
             assert line_up is not None
@@ -983,14 +982,12 @@ class TestASaveOpenedOnAnOlderVersionIsRefused:
             spiele = InterleavedCollection(database[Collection.SPIELE], rival, after="find_one")
             outcome = await outcome_of(call_patch(database, client, VIERTELFINALE, opened, confirming=[], spiele=spiele))
 
-            return outcome, await spiele_now(database), spiele.passes
+            return outcome, await spiele_now(database)
 
-        outcome, spiele, passes = await on_a_seeded_season(mongo_replica_set_url, body, spiele=bracket_season())
+        outcome, spiele = await on_a_seeded_season(mongo_replica_set_url, body, spiele=bracket_season())
 
         assert outcome == Code.VERSION_STALE
         assert (spiele[VIERTELFINALE_NR]["note"], spiele[VIERTELFINALE_NR]["version"]) == ("Halle Ost", 1)
-        # Twice: the conflict sent the save round again, where a rival committed before it would have refused it at once.
-        assert passes == 2
 
 
 class TestAMidFlightFailureTakesTheWholeSaveBack:

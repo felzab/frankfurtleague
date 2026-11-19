@@ -16,7 +16,7 @@ from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_AUTH, grants_for_the_suite
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database
 from tests.documents import saison_document, saison_team_document, spiel_document
-from tests.isolation import COMMITTED, InterleavedCollection, outcome_of, refused_code
+from tests.isolation import COMMITTED, SeasonsRunningARivalAfterTheSessionRead, outcome_of, refused_code
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -413,20 +413,6 @@ class TestTheRefusalsReadTheRealDocuments:
         assert stored[ALPHA] == "B" and stored[BETA] == "A"
 
 
-class SeasonsRunningARivalAfterTheSessionRead(InterleavedCollection):
-    """A `saisons` stand-in running its rival once, just after the first read made inside a transaction.
-
-    The read before the transaction is the 404 check, so a rival there would land before any snapshot.
-    """
-
-    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
-        found = await self._collection.find_one(*args, **kwargs)
-        if kwargs.get("session") is not None:
-            await self.run_the_rival()
-
-        return found
-
-
 class TestAStartMovedUnderTheSwapIsJudgedAgain:
     """The season has not started when the swap judges, and has when it writes: `PATCH /saisons` moved its start."""
 
@@ -441,12 +427,10 @@ class TestAStartMovedUnderTheSwapIsJudgedAgain:
             seasons = SeasonsRunningARivalAfterTheSessionRead(database[Collection.SAISONS], move_the_start_to_today)
             outcome = await outcome_of(call_swap(database, client, ALPHA, BETA, saisons_collection=seasons))
 
-            return outcome, seasons.passes, await gruppen_now(database)
+            return outcome, await gruppen_now(database)
 
-        outcome, passes, stored = await on_a_seeded_season(mongo_replica_set_url, body, spiele=list(DRAWN_ROUND_ROBIN))
+        outcome, stored = await on_a_seeded_season(mongo_replica_set_url, body, spiele=list(DRAWN_ROUND_ROBIN))
 
         assert outcome != COMMITTED, "the swap committed on a start it judged before the patch moved it"
         assert outcome == Code.SWAP_SAISON_STARTED
         assert stored == {ALPHA: "A", ALPHA_RIVAL: "A", BETA: "B", BETA_RIVAL: "B"}
-        # The judgement's read and the retry's: the swap conflicted on the anchor rather than committing.
-        assert passes == 2

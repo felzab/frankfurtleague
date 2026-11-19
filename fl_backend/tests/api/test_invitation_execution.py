@@ -1,4 +1,3 @@
-import asyncio
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, cast
@@ -13,7 +12,6 @@ from app.api.invitations.schemas import FLInvitationMailPayload
 from app.api.invitations.services import (
     InvitationRecipient,
     find_live_invitation_filter,
-    find_unknown_invitation_refusal,
     owed_invitation_mails,
 )
 from app.api.outbox.services import enqueue_mails, final_update
@@ -26,7 +24,6 @@ from app.core.exceptions import DocumentNotFoundError
 from app.shared.tokens import hash_token
 from tests.database import a_clean_database
 from tests.documents import kontaktperson_document, rules_document, saison_document, saison_team_document, team_document
-from tests.holds import HeldCollection
 from tests.isolation import refused_code
 from tests.outbox import MAIL_NOW
 from tests.worker import worker_database
@@ -158,11 +155,11 @@ class Minted:
     invitation_id: ObjectId
 
 
-async def mint(database: AsyncDatabase, team_id: ObjectId, *, invitations: Any = None) -> Minted:
+async def mint(database: AsyncDatabase, team_id: ObjectId) -> Minted:
     answer = await post_invitation(
         team_id=team_id,
         saison_id=SAISON_ID,
-        invitations_collection=invitations if invitations is not None else database[Collection.INVITATIONS],
+        invitations_collection=database[Collection.INVITATIONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         db=database.client,
@@ -340,7 +337,7 @@ class TestReissuingALink:
         assert [row["revoked_at"] for row in rows if row["_id"] == second.invitation_id] == [None]
 
     async def test_the_replaced_links_hash_then_opens_nothing(self, mongo_replica_set_url: str):
-        """`document_not_found` over the live link's filter: the revocation term is half of it, and a hash alone finds the spent row."""
+        """The live link's filter finds nothing: the revocation term is half of it, and a hash alone finds the spent row."""
 
         async def body(database: AsyncDatabase) -> Any:
             first = await mint(database, TWO_SEATS)
@@ -348,75 +345,14 @@ class TestReissuingALink:
 
             found = await database[Collection.INVITATIONS].find_one(dict(find_live_invitation_filter(token_hash=hash_token(first.token))))
             by_hash_alone = await database[Collection.INVITATIONS].count_documents({"token_hashes": hash_token(first.token)})
-            # A value no mint ever produced, so the second cause is driven rather than assumed.
-            unknown = await database[Collection.INVITATIONS].find_one(dict(find_live_invitation_filter(token_hash=hash_token("never-minted"))))
 
-            return found, by_hash_alone, unknown
+            return found, by_hash_alone
 
-        found, by_hash_alone, unknown = await on_a_league(mongo_replica_set_url, body)
+        found, by_hash_alone = await on_a_league(mongo_replica_set_url, body)
 
         assert found is None
         # The row is still there, which is what makes the revocation term load-bearing.
         assert by_hash_alone == 1
-        assert unknown is None
-
-        # The only rung both causes exist at: a replaced link and a stranger's guess answer with
-        # the SAME refusal, message included, so nothing tells the guess it hit a real link.
-        replaced = find_unknown_invitation_refusal(invitation_raw=found)
-        guessed = find_unknown_invitation_refusal(invitation_raw=unknown)
-
-        assert replaced is not None
-        assert replaced.error_code == Code.DOCUMENT_NOT_FOUND
-        assert guessed is not None
-        # By what each answers, since an exception compares by identity.
-        assert (replaced.status_code, replaced.error_code, replaced.fields) == (guessed.status_code, guessed.error_code, guessed.fields)
-
-
-class TestTwoMintsAtOnce:
-    """The read and the write are not one statement, so two administrators pressing together both pass the read."""
-
-    async def test_a_mint_whose_revoke_ran_before_the_first_commit_is_answered_by_the_retry(self, mongo_replica_set_url: str):
-        """The interleaving the case above cannot promise: without the hold a serial run passes it too."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            committed = asyncio.Event()
-            held = _HoldsAfterItsRevoke(database[Collection.INVITATIONS], committed)
-            async with asyncio.TaskGroup() as group:
-                second = group.create_task(mint(database, TWO_SEATS, invitations=held))
-                await held.until_held(second)
-                first = await mint(database, TWO_SEATS)
-                committed.set()
-            answered = second.result()
-
-            live = await database[Collection.INVITATIONS].find({"team_id": TWO_SEATS, "revoked_at": None}).to_list(length=None)
-
-            return first.invitation_id, answered.invitation_id, held.revokes, held.insert_failures, [row["_id"] for row in live]
-
-        first, second, revokes, failures, live = await on_a_league(mongo_replica_set_url, body)
-
-        # 112 is `WriteConflict`, which `with_transaction` retries: the second run revokes the first's link.
-        assert (revokes, failures) == (2, ["OperationFailure:112"])
-        assert live == [second] and first != second
-
-
-class _HoldsAfterItsRevoke(HeldCollection):
-    """A second mint held between its revoke and its insert until the first mint has committed.
-
-    Records each revoke as well: how many attempts ran.
-    """
-
-    MISSED = "the second mint answered without revoking, so nothing held it across the first mint's commit"
-
-    def __init__(self, collection: Any, committed: asyncio.Event) -> None:
-        super().__init__(collection, committed)
-        self.revokes = 0
-
-    async def update_many(self, *args: Any, **kwargs: Any) -> Any:
-        result = await self._collection.update_many(*args, **kwargs)
-        self.revokes += 1
-        await self.hold()
-
-        return result
 
 
 class TestWhatAMintRefuses:

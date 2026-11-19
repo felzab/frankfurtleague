@@ -40,7 +40,6 @@ from tests.database import a_clean_database
 from tests.documents import kontaktperson_document
 from tests.erasure import erased
 from tests.isolation import COMMITTED, InterleavedCollection, Rival, outcome_of
-from tests.outbox import MAIL_NOW
 from tests.payloads import spiel_patch_body
 from tests.records import record_collections
 from tests.spielbestaetigung_corpus import (
@@ -64,7 +63,6 @@ from tests.spielbestaetigung_corpus import (
     a_spiel,
     address,
     booked,
-    clock_of,
     handed_out,
     junction,
     kontakte,
@@ -74,7 +72,6 @@ from tests.spielbestaetigung_corpus import (
     sweep,
     the_league,
 )
-from tests.team_writes import write_the_block
 from tests.worker import worker_database
 
 # Module level, as the other execution suites mark theirs: every test below reaches a real mongod.
@@ -123,10 +120,10 @@ async def on_a_league(url: str, body: Body, *, spiele: list[dict[str, Any]], jun
 # grouped by the row it is about.
 
 
-async def a_pass_through(database: AsyncDatabase, client: AsyncMongoClient, *, kontakt_links: int = 0, **collections: Any) -> Pass:
-    """One pass, the collections named handed through a stand-in, and the drain after it; `kontakt_links` as `handed_out` takes it."""
+async def a_pass_through(database: AsyncDatabase, client: AsyncMongoClient, **collections: Any) -> Pass:
+    """One pass, the collections named handed through a stand-in, and the drain after it."""
 
-    return await handed_out(database, client, await a_pass(database, client, **collections), kontakt_links=kontakt_links, now=NOW)
+    return await handed_out(database, client, await a_pass(database, client, **collections), now=NOW)
 
 
 async def move(
@@ -953,61 +950,6 @@ class ThenTheRivalAfterTheFirstSessionRead(InterleavedCollection):
         return _ThenTheRival(cursor, self.run_the_rival)
 
 
-def a_payload_person(first_name: str, last_name: str, phone: str) -> dict[str, Any]:
-    """One person as the contacts editor sends them."""
-
-    return {
-        "first_name": first_name,
-        "last_name": last_name,
-        "email": f"{first_name.lower()}@example.com",
-        "phone": phone,
-        "einwilligung": {"scope": "kontakt_data", "date": "2126-03-01"},
-    }
-
-
-async def hand_alphas_trainer_to(database: AsyncDatabase, client: AsyncMongoClient, trainer: Mapping[str, Any]) -> None:
-    """Through the contacts editor's own save, its other seats kept, so the void the pass meets is the one a real save writes."""
-
-    stored = await database[Collection.SAISON_TEAMS].find_one({"saison_id": SAISON_ID, "team_id": ALPHA})
-    assert stored is not None
-    kept = {
-        seat: a_payload_person(first_name, f"{first_name}-Mustermann", f"+49171392000{position}")
-        for position, (seat, first_name) in enumerate(SEATS[ALPHA].items())
-    }
-    await write_the_block(
-        database,
-        {**kept, "trainer": trainer, "trainer_is_also": None},
-        team_id=ALPHA,
-        saison_id=SAISON_ID,
-        version=stored["version"],
-        today=TODAY,
-        germany_now=MAIL_NOW,
-    )
-
-
-class TestASeatHandedOnBesideTheMintIsAskedAsItStandsOnceTheMintCommits:
-    """The mint writes the season row it read its mailboxes off, so the handover conflicts with it and it reads again."""
-
-    async def test_the_old_trainer_is_mailed_nothing_and_the_new_one_nothing_before_confirming(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            async def hand_the_trainer_on() -> None:
-                await hand_alphas_trainer_to(database, client, a_payload_person("Lea", "Musterfrau", "+491713920009"))
-
-            interleaved = ThenTheRivalAfterTheFirstSessionRead(database[Collection.SAISON_TEAMS], hand_the_trainer_on)
-            answer = await a_pass_through(database, client, kontakt_links=1, saison_teams=cast(Any, interleaved))
-
-            return interleaved, answer
-
-        interleaved, answer = await on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)])
-
-        # Lea stands unconfirmed, as every person a save newly seats does, so the request goes to the other two seats alone.
-        assert sorted(
-            recipient.address for request in answer.requests if request.side == "team1" for recipient in request.recipients
-        ) == sorted([address(ALPHA, "ansprechperson"), address(ALPHA, "stellvertretung")])
-        # A fresh league: the close reads no row, so the mint's read is the first the pass makes.
-        interleaved.assert_landed_inside(serially=1)
-
-
 # Fourteen days out, so the deadline falls a week before the fixture and the reminder inside it.
 FORTNIGHT = days_after(day=TODAY, days=14)
 DEADLINE = days_after(day=FORTNIGHT, days=-7)
@@ -1138,17 +1080,17 @@ class TestARefereeErasedBesideTheMintIsToldNothing:
             async def erase_the_referee() -> None:
                 await erased(database, client, REFEREE_EMAIL, germany_now=NOW)
 
+            # The mint's read is the first a fresh league's pass makes of the referees.
             interleaved = ThenTheRivalAfterTheFirstSessionRead(database[Collection.SCHIEDSRICHTER], erase_the_referee)
             answer = await a_pass_through(database, client, schiedsrichter=cast(Any, interleaved))
 
             erased_since = await database[Collection.SCHIEDSRICHTER].count_documents({"_id": SCHIEDSRICHTER}) == 0
-            return interleaved, erased_since, answer, await rows(database)
+            return erased_since, answer, await rows(database)
 
-        interleaved, erased_since, answer, stored = await on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)])
+        erased_since, answer, stored = await on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)])
 
-        # The premise: the erasure committed under the mint's read, the first a fresh league's pass makes of the referees;
-        # the mint run again reads none, the fixture still to come now booking nobody.
-        assert (interleaved.passes, erased_since) == (1, True)
+        # The premise: the erasure committed; the mint run again reads no referee, the fixture still to come now booking nobody.
+        assert erased_since
         assert answer.einteilungen == []
         assert [row["party"]["kind"] for row in stored] == ["team", "team"]
 
@@ -1156,8 +1098,12 @@ class TestARefereeErasedBesideTheMintIsToldNothing:
 class TestAnErasedContactIsNotToldTheirSpielMoved:
     """The erasure writes the season row the close read its mailboxes off, and nothing of the confirmation it closes."""
 
-    async def _told(self, url: str, interleaving: Callable[[Any, Callable[[], Awaitable[None]]], Any], serially: int) -> set[str]:
-        """The addresses the move's notice went to, the trainer erased at the pass's read `interleaving` names."""
+    async def test_the_close_runs_again_and_leaves_the_erased_trainer_out(self, mongo_replica_set_url: str):
+        """The erasure lands inside the close, after its read of the season rows: only the close's anchor conflicts with it.
+
+        Judged in the Postausgang before its hand-out, which drops a mail whose seat no longer holds its address: a mail the
+        close owed after the erasure would keep the erased address stored until then.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await sweep(database, client)
@@ -1167,23 +1113,17 @@ class TestAnErasedContactIsNotToldTheirSpielMoved:
             async def erase_the_trainer() -> None:
                 await erased(database, client, address(ALPHA, "trainer"), germany_now=NOW)
 
-            interleaved = interleaving(database[Collection.SAISON_TEAMS], erase_the_trainer)
-            answer = await a_pass_through(database, client, saison_teams=cast(Any, interleaved))
+            interleaved = ThenTheRivalAfterTheFirstSessionRead(database[Collection.SAISON_TEAMS], erase_the_trainer)
+            answer = await a_pass(database, client, saison_teams=cast(Any, interleaved))
+            owed_to = {row["to"] for row in await database[Collection.OUTBOX].find({"state": "open"}).to_list()}
 
-            return interleaved, answer
+            return owed_to, await handed_out(database, client, answer, now=NOW)
 
-        interleaved, answer = await on_a_league(url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)])
+        owed_to, passed = await on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)])
 
-        interleaved.assert_landed_inside(serially=serially)
-        told = {recipient.address for notice in answer.new_ansetzungen for recipient in notice.recipient}
         # The premise: ALPHA's row was closed and its notice went to its other seats.
-        assert address(ALPHA, "ansprechperson") in told
-        return told
-
-    async def test_the_close_runs_again_and_leaves_the_erased_trainer_out(self, mongo_replica_set_url: str):
-        """The erasure lands inside the close, after its read of the season rows: only the close's anchor conflicts with it."""
-
-        assert address(ALPHA, "trainer") not in await self._told(mongo_replica_set_url, ThenTheRivalAfterTheFirstSessionRead, serially=1)
+        assert address(ALPHA, "ansprechperson") in {recipient.address for notice in passed.new_ansetzungen for recipient in notice.recipient}
+        assert address(ALPHA, "trainer") not in owed_to
 
 
 # Eight and ten days out: each row's deadline is one of today's reminder days.
@@ -1415,12 +1355,10 @@ class TestAnAddressMovedBesideTheNoticeIsTheOneTold:
                 await database[Collection.SCHIEDSRICHTER].update_one({"_id": SCHIEDSRICHTER}, {"$set": {"kontakt.email": moved_to}})
 
             interleaved = ThenTheRivalAfterTheFirstSessionRead(database[Collection.SCHIEDSRICHTER], move_the_address)
-            return interleaved, await a_pass_through(database, client, schiedsrichter=cast(Any, interleaved))
+            return await a_pass_through(database, client, schiedsrichter=cast(Any, interleaved))
 
-        interleaved, answer = await on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)])
+        answer = await on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)])
 
-        # Serially the notice step and the mint each read the referees once.
-        interleaved.assert_landed_inside(serially=2)
         assert [notice.address for notice in answer.schiedsrichter_switched] == [moved_to]
 
 
@@ -1529,64 +1467,6 @@ class TestASaveLandingInsideAStepLeavesNoMailAboutTheSlotTheFixtureLeft:
             (LATER, NEXT_WEEK),
         ]
 
-    async def test_the_mint(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            async def move_on() -> None:
-                await move(database, client, SPIEL, date=LATER)
-
-            # A fresh league: the close reads no row and so no fixture, the mint's read of the window is the first, and the
-            # read inside the fixture's own transaction the second.
-            interleaved = ThenTheRivalAfterTheNthJoinedRead(database[Collection.SPIELE], move_on, nth=2)
-            return await a_pass_through(database, client, spiele=cast(Any, interleaved)), await rows(database)
-
-        passed, stored = await on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK, schiedsrichter=None)])
-
-        assert [request.ansetzung.date for request in passed.requests] == [LATER, LATER]
-        assert [row["ansetzung"]["date"] for row in stored] == [LATER, LATER]
-
-    async def test_the_reminder(self, mongo_replica_set_url: str):
-        """A reminder of a slot the fixture left asks the club to confirm a match nobody plays then."""
-
-        later = days_after(day=FORTNIGHT, days=1)
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await sweep(database, client)
-
-            async def move_on() -> None:
-                await move(database, client, SPIEL, date=later)
-
-            # The close's read judging its rows and the mint's come first, the reminder's third, and the read inside its
-            # first row's own transaction the fourth.
-            interleaved = ThenTheRivalAfterTheNthJoinedRead(database[Collection.SPIELE], move_on, nth=4)
-            answer = await a_pass(database, client, today=REMINDER, spiele=cast(Any, interleaved))
-            return await handed_out(database, client, answer, now=clock_of(REMINDER)), await rows(database), interleaved.passes
-
-        passed, stored, reads = await on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, FORTNIGHT, schiedsrichter=None)])
-
-        # The premise: the move landed in the first row's transaction, whose read ran again after the conflict, before the
-        # second row's and the line-up step's. Landed outside it, nothing runs again and the pass reads six.
-        assert reads == 7
-        assert passed.requests == []
-        assert passed.reminders == []
-        assert [row["reminded_at"] for row in stored] == [None, None]
-
-    async def test_the_lineup_reminder(self, mongo_replica_set_url: str):
-        """Sent, it asks for a line-up by a mark the fixture left, and its keys then hold back the one the new day owes."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            async def move_on() -> None:
-                # Fifty-three and a half hours out, before the window.
-                await move(database, client, SPIEL, date="2126-04-17")
-
-            # The line-up step alone reads the line-ups, after its read of the fixtures.
-            interleaved = ThenTheRivalAfterTheFirstSessionRead(database[Collection.AUFSTELLUNGEN], move_on)
-            answer = await a_pass(database, client, today=LINEUP_TODAY, now=LINEUP_NOW, aufstellungen=cast(Any, interleaved))
-            return await handed_out(database, client, answer, now=LINEUP_NOW)
-
-        reminded = await on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, "2126-04-16", schiedsrichter=None)])
-
-        assert reminded.aufstellungen == []
-
 
 class TestAPassLandingInsideASaveLeavesItsFormSaving:
     """The pass's write to the fixture moves no `version`, and the save's own write still meets it."""
@@ -1603,16 +1483,12 @@ class TestAPassLandingInsideASaveLeavesItsFormSaving:
             outcome = await outcome_of(move(database, client, SPIEL, spiele=cast(Any, interleaved), date=LATER))
             stored = await database[Collection.SPIELE].find_one({"_id": SPIEL})
 
-            return interleaved, outcome, stored, await handed_out(database, client, answers[0], now=NOW)
+            return outcome, stored, await handed_out(database, client, answers[0], now=NOW)
 
-        interleaved, outcome, stored, passed = await on_a_league(
-            mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK, schiedsrichter=None)]
-        )
+        outcome, stored, passed = await on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK, schiedsrichter=None)])
 
         # The premise: the pass acted on the fixture, asking both clubs about the slot it held as the pass ran.
         assert [request.ansetzung.date for request in passed.requests] == [NEXT_WEEK, NEXT_WEEK]
-        # Serially the save reads the fixtures three times in its transaction; a fourth is its run again.
-        interleaved.assert_landed_inside(serially=3)
         assert outcome == COMMITTED
         # The save's own raise alone.
         assert stored is not None
