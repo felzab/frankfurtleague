@@ -20,7 +20,6 @@ from app.api.address_change.services import masked_address
 from app.api.grants.erasure import erase_grants_in_session
 from app.api.grants.services import compose_notice
 from app.api.identity.crud import erase_the_mails_in_session
-from app.api.outbox.schemas import FLGrantData
 from app.core.collections import Collection
 from app.readback import RECORD_MODELS
 from tests.database import a_clean_database
@@ -81,7 +80,7 @@ def notice(row_id: ObjectId, grant_id: ObjectId, change: Any, address: str | Non
     composed = compose_notice(grant_id=grant_id, change=change, stage="started", address=address)
     key = f"grant/{grant_id}/{change}/started/{QUEUED.isoformat()}/{DORA_ID}"
 
-    return outbox_document(key, to=DORA, now=QUEUED, data=FLGrantData.model_validate(composed.data), _id=row_id)
+    return outbox_document(key, to=DORA, now=QUEUED, data=composed.data, _id=row_id)
 
 
 async def a_league_she_administered(database: AsyncDatabase) -> None:

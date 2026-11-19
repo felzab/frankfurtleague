@@ -116,7 +116,7 @@ async def owe_in_session(
 
     mails: list[OwedMail] = []
     for notice in notices:
-        data = FLGrantData.model_validate(notice.data)
+        data = notice.data
         recipients = {address: "named" for address in _named_recipients(data)} | holders
         mails.extend(
             OwedMail(

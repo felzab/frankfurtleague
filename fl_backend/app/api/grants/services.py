@@ -7,6 +7,7 @@ from typing import Any, Final
 from bson import ObjectId
 
 from app.api.grants.schemas import FLGrantChange, FLGrantNoticeStage
+from app.api.outbox.schemas import FLGrantData
 from app.core.codes import Code
 from app.core.exceptions import APIError
 from app.shared.schemas.custom import as_utc
@@ -96,10 +97,10 @@ def find_handover_refusal(*, grant: Mapping[str, Any], grants: Sequence[Mapping[
 
 @dataclass(frozen=True)
 class Notice:
-    """One notice a grants write owes: the record it is keyed by, and its facts (`FLGrantData`)."""
+    """One notice a grants write owes: the record it is keyed by, and its facts."""
 
     grant_id: ObjectId
-    data: dict[str, Any]
+    data: FLGrantData
 
 
 def compose_notice(
@@ -113,14 +114,7 @@ def compose_notice(
 ) -> Notice:
     return Notice(
         grant_id=grant_id,
-        data={
-            "kind": "grant",
-            "change": change,
-            "stage": stage,
-            "address": address,
-            "new_address": new_address,
-            "effective_from": effective_from,
-        },
+        data=FLGrantData(kind="grant", change=change, stage=stage, address=address, new_address=new_address, effective_from=effective_from),
     )
 
 
