@@ -201,9 +201,11 @@ class _SaisonPayload(_SaisonSpanPayload, _SaisonWritable):
 
 
 class _SaisonStored(_SaisonWritable):
-    # Exactly `SAISON_ID_LENGTH` characters, as every `saison_id` referencing this one demands. The create mints the id,
-    # so no write takes one from a payload.
-    id: str = Field(validation_alias="_id", serialization_alias="id", min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
+    # Its year in exactly `SAISON_ID_LENGTH` ASCII digits, as every `saison_id` referencing this one demands, and as the
+    # ban's bound and the retention sweep's successor add to it and compare the sums as strings. `[0-9]`, never `\d`,
+    # which matches Arabic-Indic and fullwidth digits too. The create mints the id, so no write takes one from a payload,
+    # and the read-back names one a hand-written file stored.
+    id: str = Field(validation_alias="_id", serialization_alias="id", pattern=f"^[0-9]{{{SAISON_ID_LENGTH}}}$")
 
     status: FLSaisonStatus
 

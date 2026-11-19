@@ -40,7 +40,6 @@ from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
     BIRTH_DATE_MAX_AGE_YEARS,
     CONFIRMATION_DEADLINE_DAYS,
-    SAISON_ID_LENGTH,
     SIGNATORY_MIN_AGE_YEARS,
 )
 from app.shared.schemas.literals import KONTAKT_SEATS, FLKontaktKenntnisnahmeScope, FLKontaktSeat, FLTrikotFarbe
@@ -980,26 +979,15 @@ def compose_kontakt_seat_update(
 
 
 def next_saison_id(saison_id: str) -> str:
-    """The lowest id the next season can hold.
+    """The lowest id the next season can hold, a year being four ASCII digits as the season's record model holds it."""
 
-    Raises rather than answering nothing: the accepted clock and the contact block both hang off the
-    successor, so an absent one stops both for ever with nothing in any log.
-    """
-
-    # `isascii()` beside `isdigit()`, which alone is true of Arabic-Indic and fullwidth digits: `int`
-    # reads those as a year and returns an ASCII successor, naming a season the original cannot be
-    # matched to.
-    if not (saison_id.isascii() and saison_id.isdigit() and len(saison_id) == SAISON_ID_LENGTH):
-        raise ValueError(f"the retention sweep needs a season id of {SAISON_ID_LENGTH} ASCII digits, and this season's is not one")
-
-    return f"{int(saison_id) + 1:0{SAISON_ID_LENGTH}d}"
+    return str(int(saison_id) + 1)
 
 
 def build_ended_after_filter(saison_id: str) -> Mapping[str, Any]:
     """Every season later than this one that has ended, which the accepted clock and the season rows' contact blocks wait on.
 
-    Any later one rather than the next year's, as a squad row's pupil goes. Raises for an id that is no year, as
-    `next_saison_id` does.
+    Any later one rather than the next year's, as a squad row's pupil goes.
     """
 
     return {"_id": {"$gte": next_saison_id(saison_id)}, "status": "past"}
