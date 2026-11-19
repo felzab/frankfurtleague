@@ -979,7 +979,7 @@ class TestAMidFlightFailureTakesTheWholeSaveBack:
 
 @dataclass(frozen=True)
 class ReleaseRun:
-    """One release, seen five ways, so the assertions read outside the event loop."""
+    """One held fixture's releases, seen five ways, so the assertions read outside the event loop."""
 
     before: FLSpiel
     predicted: FLSpiel
@@ -995,18 +995,6 @@ class SplitReleaseRun:
 
     predicted: dict[int, FLSpiel]
     after_save: dict[int, FLSpiel]
-    saved: FLPatchSpielDataResponse
-
-
-@dataclass(frozen=True)
-class DoubleReleaseRun:
-    """`ReleaseRun` for two releases of one fixture."""
-
-    before: FLSpiel
-    predicted: FLSpiel
-    after_preview: FLSpiel
-    after_save: FLSpiel
-    preview: FLPatchSpielDataResponse
     saved: FLPatchSpielDataResponse
 
 
@@ -1106,7 +1094,7 @@ class TestAReleaseWritesWhatThePureModelPredicts:
 
             saved = await call_patch(database, client, GRUPPE_FILLING, spiel_data)
 
-            return DoubleReleaseRun(
+            return ReleaseRun(
                 before=before,
                 predicted=predicted,
                 after_preview=after_preview,
