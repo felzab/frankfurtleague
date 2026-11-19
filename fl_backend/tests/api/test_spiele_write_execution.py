@@ -301,13 +301,11 @@ def an_unbooked_spieltag() -> list[dict[str, Any]]:
 class TestTheBookingRefusalIsReachedThroughTheRoute:
     """That `find_booking_refusal` is WIRED, not merely written: an unwired refusal is a green suite and a dead rule."""
 
-    @pytest.mark.parametrize(
-        "chosen",
-        [pytest.param(SPIELORT_UNKNOWN, id="a ground no row answers to"), pytest.param(SPIELORT_RETIRED, id="a retired ground")],
-    )
-    async def test_booking_a_venue_the_league_cannot_offer_is_refused(self, mongo_replica_set_url: str, chosen: ObjectId):
+    async def test_booking_a_ground_no_row_answers_to_is_refused(self, mongo_replica_set_url: str):
+        """The rule's cases are `TestTheBookingRefusal`'s; a retired row reaches it through the lifted call-off below."""
+
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            spiel_data = await payload_for(database, GRUPPE_FILLING, spielort={"spielort_id": chosen, "mietpreis": 80})
+            spiel_data = await payload_for(database, GRUPPE_FILLING, spielort={"spielort_id": SPIELORT_UNKNOWN, "mietpreis": 80})
 
             return await refused_code(call_patch(database, client, GRUPPE_FILLING, spiel_data)), await spiele_now(database)
 
@@ -316,17 +314,6 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
         assert code == Code.BOOKING_UNKNOWN_RESOURCE
         # The whole save is taken back, so the booking does not land without the rule that judges it.
         assert spiele[GRUPPE_FILLING_NR]["spielort"] is None
-
-    async def test_booking_a_referee_the_league_cannot_offer_is_refused(self, mongo_replica_set_url: str):
-        """The other reference, because a rule reading one only would pass that one and miss this."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            assigned = {"schiedsrichter_id": SCHIEDSRICHTER_RETIRED, "payment": 20}
-            spiel_data = await payload_for(database, GRUPPE_FILLING, schiedsrichter=assigned)
-
-            return await refused_code(call_patch(database, client, GRUPPE_FILLING, spiel_data))
-
-        assert await on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag()) == Code.BOOKING_UNKNOWN_RESOURCE
 
     async def test_booking_a_referee_whose_person_has_not_confirmed_is_refused(self, mongo_replica_set_url: str):
         """The confirmation is read off the referee's own record in the save's transaction, never off the payload."""
@@ -367,32 +354,26 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
 
         assert (code, spiele[GRUPPE_FILLING_NR]["sonderereignis"]) == (Code.BOOKING_UNKNOWN_RESOURCE, "ausgefallen")
 
-    async def test_a_live_venue_is_stored_as_the_payload_books_it(self, mongo_replica_set_url: str):
-        """End to end: the ground and the rent are the payload's, and the document holds nothing the read joins."""
+    async def test_a_live_venue_and_referee_are_stored_as_the_payload_books_them(self, mongo_replica_set_url: str):
+        """End to end: the ground, the rent, the referee and their fee are the payload's, and the document holds nothing the read joins."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            spiel_data = await payload_for(database, GRUPPE_FILLING, spielort={"spielort_id": SPIELORT, "mietpreis": 95})
+            spiel_data = await payload_for(
+                database,
+                GRUPPE_FILLING,
+                spielort={"spielort_id": SPIELORT, "mietpreis": 95},
+                schiedsrichter={"schiedsrichter_id": SCHIEDSRICHTER, "payment": 35},
+            )
             await call_patch(database, client, GRUPPE_FILLING, spiel_data)
 
             return await spiele_now(database)
 
         spiele = await on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag())
 
-        assert spiele[GRUPPE_FILLING_NR]["spielort"] == booking(SPIELORT, mietpreis=95)
-
-    async def test_a_live_referee_is_stored_as_the_payload_books_them(self, mongo_replica_set_url: str):
-        """The same on the other reference, whose fee is what the league pays out -- and the venue's case cannot speak for it."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            assigned = {"schiedsrichter_id": SCHIEDSRICHTER, "payment": 35}
-            spiel_data = await payload_for(database, GRUPPE_FILLING, schiedsrichter=assigned)
-            await call_patch(database, client, GRUPPE_FILLING, spiel_data)
-
-            return await spiele_now(database)
-
-        spiele = await on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag())
-
-        assert spiele[GRUPPE_FILLING_NR]["schiedsrichter"] == assignment(SCHIEDSRICHTER, payment=35)
+        assert (spiele[GRUPPE_FILLING_NR]["spielort"], spiele[GRUPPE_FILLING_NR]["schiedsrichter"]) == (
+            booking(SPIELORT, mietpreis=95),
+            assignment(SCHIEDSRICHTER, payment=35),
+        )
 
 
 # An hour after the group fixtures' kick-off, at 18:00 in Berlin on their day.
