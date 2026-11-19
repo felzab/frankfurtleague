@@ -17,6 +17,7 @@ from app.api.teams.services import (
     build_team_spiele_filter,
     compose_saison_team,
     find_entry_refusal,
+    find_entry_saison_refusal,
     find_gruppe_move_refusal,
     find_shorthand_refusal,
     find_team_entry_refusal,
@@ -65,8 +66,9 @@ async def refuse_a_taken_colour(
     if trikot_farbe is None:
         return
 
-    # A count is a read, so two writes naming one colour pass unless they meet in one write set. Every caller has anchored
-    # the season already; this one holds the rule for a caller from either package that has not.
+    # A count is a read, so two writes naming one colour pass unless they meet in one write set. The team editor's save
+    # anchors the season itself, and the entry and the acceptance through `refuse_a_full_gruppe` just before; this one
+    # holds the rule for a caller that has not.
     await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
     other_rows = {} if own_id is None else {"_id": {"$ne": own_id}}
     held = await saison_teams_collection.count_documents(
@@ -82,13 +84,12 @@ async def refuse_a_full_gruppe(
     saisons_collection: AsyncCollection,
     saison_id: str,
     gruppe: FLGruppenNames,
-    saison_status: str,
     rules: FLSaisonRules,
     # Required: the anchor below is what closes the race, so forgetting the session has to be a
     # TypeError at the call rather than a silent reopening of it.
     session: AsyncClientSession,
 ) -> None:
-    """Refuse `entry_saison_not_future` through `entry_gruppe_full` for one entry into one group.
+    """Refuse `entry_gruppe_not_offered` and `entry_gruppe_full` for one club placed into one group, by an entry or a move.
 
     Its own module rather than a private helper, because a rule reached from two packages is one a
     package can enter past.
@@ -102,15 +103,9 @@ async def refuse_a_full_gruppe(
         session=session,
     )
 
-    occupied_rows = await pull_whole_from_db(
-        collection=saison_teams_collection,
-        db_filter={"saison_id": saison_id, "gruppe": gruppe},
-        what=f"season {saison_id}'s clubs in group {gruppe}",
-        projection=["_id"],
-        session=session,
-    )
+    occupied = await saison_teams_collection.count_documents({"saison_id": saison_id, "gruppe": gruppe}, session=session)
 
-    refuse(find_entry_refusal(saison_status=saison_status, gruppe=gruppe, rules=rules, occupied=len(occupied_rows)))
+    refuse(find_entry_refusal(gruppe=gruppe, rules=rules, occupied=occupied))
 
 
 async def pull_a_team_to_enter(
@@ -180,12 +175,12 @@ async def enter_a_team(
     entered = await saison_teams_collection.count_documents({"saison_id": saison_id, "team_id": team_id}, limit=1, session=session)
     refuse(find_already_entered_refusal(entered=entered > 0))
 
+    refuse(find_entry_saison_refusal(saison_status=str(saison_raw["status"])))
     await refuse_a_full_gruppe(
         saison_teams_collection=saison_teams_collection,
         saisons_collection=saisons_collection,
         saison_id=saison_id,
         gruppe=gruppe,
-        saison_status=str(saison_raw["status"]),
         # Validated, not read raw: a season missing the capacity keys fails here rather than admitting a team against a
         # bound nobody chose.
         rules=FLSaisonRules.model_validate(saison_raw["rules"]),
@@ -219,7 +214,7 @@ async def refuse_a_gruppe_move(
     rules: FLSaisonRules,
     session: AsyncClientSession,
 ) -> None:
-    """Refuse moving this club into `gruppe` while its fixtures are drawn or the group is full, its status gate aside."""
+    """Refuse moving this club into `gruppe` while its fixtures are drawn or the group is full, the entry's status gate aside."""
 
     spiele_drawn = await spiele_collection.count_documents(build_team_spiele_filter(saison_id=saison_id, team_id=team_id), session=session)
     refuse(find_gruppe_move_refusal(spiele_drawn=spiele_drawn))
@@ -229,9 +224,6 @@ async def refuse_a_gruppe_move(
         saisons_collection=saisons_collection,
         saison_id=saison_id,
         gruppe=gruppe,
-        # A move is not an entry -- the club already holds a row -- so the status gate on entering does not judge it, and
-        # only its two group gates apply.
-        saison_status="future",
         rules=rules,
         session=session,
     )

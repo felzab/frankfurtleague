@@ -10,6 +10,7 @@ from app.api.teams.admin_router import post_team_entry
 from app.api.teams.schemas import FLPostTeamEntryPayload
 from app.api.teams.services import (
     find_entry_refusal,
+    find_entry_saison_refusal,
     find_replacement_pair_refusal,
 )
 from app.core.codes import Code
@@ -40,17 +41,17 @@ RULES = FLSaisonRules(
 
 class TestEnteringASeason:
     def test_the_active_season_is_refused(self):
-        refusal = find_entry_refusal(saison_status="active", gruppe="A", rules=RULES, occupied=0)
+        refusal = find_entry_saison_refusal(saison_status="active")
         assert refusal is not None
         assert refusal.error_code == Code.ENTRY_SAISON_NOT_FUTURE
 
     def test_a_past_season_is_refused(self):
-        refusal = find_entry_refusal(saison_status="past", gruppe="A", rules=RULES, occupied=0)
+        refusal = find_entry_saison_refusal(saison_status="past")
         assert refusal is not None
         assert refusal.error_code == Code.ENTRY_SAISON_NOT_FUTURE
 
     def test_a_group_the_season_does_not_run_is_refused(self):
-        refusal = find_entry_refusal(saison_status="future", gruppe="C", rules=RULES, occupied=0)
+        refusal = find_entry_refusal(gruppe="C", rules=RULES, occupied=0)
         assert refusal is not None
         assert refusal.error_code == Code.ENTRY_GRUPPE_NOT_OFFERED
 
@@ -133,3 +134,11 @@ class TestEnteringATeamThroughTheEndpoint:
             return await junction_rows(database)
 
         assert await on_a_league(mongo_replica_set_url, body) == []
+
+    async def test_a_running_season_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
+        """The status gate is the entry's own call, so a route that skipped it would enter a club into a season under way."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            return await refused_code(enter(database, LIVE_OID)), await junction_rows(database)
+
+        assert await on_a_league(mongo_replica_set_url, body, saison_status="active") == (Code.ENTRY_SAISON_NOT_FUTURE, [])

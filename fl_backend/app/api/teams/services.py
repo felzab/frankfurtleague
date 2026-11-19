@@ -709,15 +709,21 @@ def find_austritt_refusal(*, start_date: str, started: bool) -> APIError | None:
     return APIError(HTTPStatus.CONFLICT, Code.AUSTRITT_BEFORE_SAISON_START, fields=(("date",),), bounds={"earliest": start_date})
 
 
-def find_entry_refusal(saison_status: str, gruppe: FLGruppenNames, rules: FLSaisonRules, occupied: int) -> APIError | None:
-    """Why entering this team into the season must be refused, or `None`.
+def find_entry_saison_refusal(*, saison_status: str) -> APIError | None:
+    """`entry_saison_not_future`: only a planned season takes an entry. Asked of an entry alone, never of a group move."""
+
+    if saison_status == "future":
+        return None
+
+    return APIError(HTTPStatus.CONFLICT, Code.ENTRY_SAISON_NOT_FUTURE)
+
+
+def find_entry_refusal(gruppe: FLGruppenNames, rules: FLSaisonRules, occupied: int) -> APIError | None:
+    """Why placing this team into the group must be refused, or `None`, an entry's and a group move's alike.
 
     `occupied` is the group's row count, rows carrying an `austritt` included: a team never leaves a
     season, so its place stays taken.
     """
-
-    if saison_status != "future":
-        return APIError(HTTPStatus.CONFLICT, Code.ENTRY_SAISON_NOT_FUTURE)
 
     if gruppe not in offered_gruppen(rules.number_of_gruppen):
         return APIError(HTTPStatus.CONFLICT, Code.ENTRY_GRUPPE_NOT_OFFERED)
