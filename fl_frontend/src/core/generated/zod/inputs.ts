@@ -736,7 +736,7 @@ export const BewerbungenPatchEinwilligungBody = zod
  * Write a person into one seat, whatever its state, and mail them a fresh link; an acceptance waits on their answer.
  *
  * Where one person holds two seats both are written, the last holder's link opens nothing afterwards, and the seat's
- * deadline starts again from today.
+ * deadline starts again from today. A finished season's application takes no write, as it takes no fresh link.
  * @summary Write the person one contact seat holds and mail them a fresh link
  */
 export const bewerbungenPostKontaktSeatPathBewerbungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");

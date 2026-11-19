@@ -17,7 +17,7 @@ const { shape } = BewerbungenPostKontaktSeatBody;
  * „Sitz bearbeiten“: writes the person into the seat on the version the page read, whatever its state but an erased one,
  * and owes them a fresh link with that seat's own 14 days, which the dialog says, naming the address the write stored.
  * An address or a number another person of the application holds is refused on its box, an address the ban list holds
- * on the status line.
+ * on the status line, and so is a finished season's application, which takes no write.
  */
 export const writeSeat = action({
   lane: "admin",
@@ -31,7 +31,7 @@ export const writeSeat = action({
     phone: shape.phone,
     version: numberBox(shape.version),
   }),
-  ownWords: ["kontakt_email_taken", "kontakt_phone_taken", "email_not_accepted"],
+  ownWords: ["kontakt_email_taken", "kontakt_phone_taken", "email_not_accepted", "saison_past"],
   paths: { email: "email", phone: "phone" },
   examples: {
     first_name: COPY.shared.field.exampleFirstName,
