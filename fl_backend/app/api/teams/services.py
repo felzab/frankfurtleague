@@ -17,7 +17,7 @@ from app.api.spiele.schemas import (
     SONDEREREIGNIS_WITHOUT_A_RESULT,
     FLSpielCommon,
 )
-from app.api.teams.schemas import FLKontaktMint, FLTeamGruppeOffer, FLTeamListState, FLTeamsAdminRow, FLTeamStatistik
+from app.api.teams.schemas import FLKontaktMint, FLTeamGruppeOffer, FLTeamListState, FLTeamMembership, FLTeamsAdminRow, FLTeamStatistik
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
@@ -187,51 +187,20 @@ def build_statistik_by_team(spiele: Iterable[FLSpielCommon], rules: FLSaisonRule
     return {team_id: FLTeamStatistik.model_validate(row) for team_id, row in figures.items()}
 
 
-def build_team_saisons_pipeline(team_id: Any) -> list[Mapping[str, Any]]:
-    """One club with every junction row it holds.
+def build_membership_pipeline(*, saison_id: str, team_id: Any) -> list[Mapping[str, Any]]:
+    """One club's row of one season as its editor reads it: the membership's fields and the row's id, which its links' mails are owed about.
 
-    Unlike `build_team_pipeline`: no season resolution, no strict join, no statistics -- the
-    question is club-centric, so a retired club stays in.
+    Read off `FLTeamMembership`, so a field added to the model reaches the read, and an allow-list, so a field added to the
+    row alone does not.
     """
 
     return [
-        {"$match": {"_id": team_id}},
-        {
-            "$lookup": {
-                "from": Collection.SAISON_TEAMS,
-                "localField": "_id",
-                "foreignField": "team_id",
-                # Admin-only, unlike `build_team_pipeline`'s join, so the contact records are in --
-                # they are what the club editor edits. Still an allow-list, so the next field added
-                # to the junction reaches this read only when somebody names it.
-                "pipeline": [
-                    {
-                        "$project": {
-                            # The row's id, which its links' mails are owed about.
-                            "_id": 1,
-                            "saison_id": 1,
-                            "gruppe": 1,
-                            "austritt": 1,
-                            "trikot_farbe": 1,
-                            "kontakte": 1,
-                            "confirmations": 1,
-                            "version": 1,
-                        }
-                    },
-                    # Each link's state and never its hash, which only the link's own lookup reads. Unset
-                    # rather than projected field by field: a sub-path projection drops a null seat's key.
-                    {"$unset": [f"confirmations.{seat}.token_hashes" for seat in KONTAKT_SEATS]},
-                ],
-                "as": "memberships",
-            }
-        },
+        {"$match": {"saison_id": saison_id, "team_id": team_id}},
+        {"$project": dict.fromkeys(["_id", *FLTeamMembership.model_fields], 1)},
+        # Each link's state and never its hash, which only the link's own lookup reads. Unset rather than projected field
+        # by field: a sub-path projection drops a null seat's key.
+        {"$unset": [f"confirmations.{seat}.token_hashes" for seat in KONTAKT_SEATS]},
     ]
-
-
-def membership_row_ids(teams_raw: Sequence[Mapping[str, Any]]) -> list[Any]:
-    """Every season row the memberships read holds a link on."""
-
-    return [row["_id"] for team in teams_raw for row in team.get("memberships", []) if isinstance(row.get("confirmations"), Mapping)]
 
 
 def _seat_state(row: Mapping[str, Any], seat: str) -> str:
@@ -249,36 +218,29 @@ def _seat_state(row: Mapping[str, Any], seat: str) -> str:
     return seat
 
 
-def with_link_state(
-    teams_raw: Sequence[Mapping[str, Any]], *, today: str, states: Mapping[tuple[Any, str | None], FLOutboxStatus]
-) -> list[dict[str, Any]]:
-    """The memberships read with each stored seat link judged as its press judges it, and what became of its mail.
+def with_link_state(row: Mapping[str, Any], *, today: str, states: Mapping[tuple[Any, str | None], FLOutboxStatus]) -> dict[str, Any]:
+    """The membership read with each stored seat link judged as its press judges it, and what became of its mail.
 
-    Lapsed only on an unanswered seat: an answered seat's link has nothing left to collect. The row's id goes here, the
-    membership naming its row by its season.
+    Lapsed only on an unanswered seat: an answered seat's link has nothing left to collect.
     """
 
-    def judged(row: Mapping[str, Any]) -> Any:
-        confirmations = row.get("confirmations")
-        if not isinstance(confirmations, Mapping):
-            return confirmations
+    confirmations = row.get("confirmations")
+    if not isinstance(confirmations, Mapping):
+        return dict(row)
 
-        def expired(seat: str, link: Mapping[str, Any]) -> bool:
-            open = not seat_is_answered(kontakte=row.get("kontakte"), confirmations=confirmations, seat=seat)
-            return open and deadline_passed(deadline=link.get("deadline"), today=today)
+    def expired(seat: str, link: Mapping[str, Any]) -> bool:
+        open = not seat_is_answered(kontakte=row.get("kontakte"), confirmations=confirmations, seat=seat)
+        return open and deadline_passed(deadline=link.get("deadline"), today=today)
 
-        return {
+    return {
+        **row,
+        "confirmations": {
             seat: {**link, "expired": expired(seat, link), "delivery": states.get((row["_id"], _seat_state(row, seat)))}
             if isinstance(link, Mapping)
             else link
             for seat, link in confirmations.items()
-        }
-
-    def served(row: Mapping[str, Any]) -> dict[str, Any]:
-        rest = {key: value for key, value in row.items() if key != "_id"}
-        return {**rest, "confirmations": judged(row)}
-
-    return [{**team, "memberships": [served(row) for row in team.get("memberships", [])]} for team in teams_raw]
+        },
+    }
 
 
 def as_unconfirmed(einwilligung: Mapping[str, Any]) -> dict[str, Any]:

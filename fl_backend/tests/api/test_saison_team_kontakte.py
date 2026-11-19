@@ -471,9 +471,9 @@ class TestWhatASeatsLinkReads:
     GIVEN_UP = FLOutboxStatus(state="abandoned", delivery=None)
 
     def read(self, *, kontakte: dict[str, Any], confirmations: dict[str, Any], states: dict[tuple[Any, str | None], FLOutboxStatus]) -> Any:
-        team = {"memberships": [{"_id": self.ROW, "kontakte": {"trainer_is_also": None, **kontakte}, "confirmations": confirmations}]}
+        row = {"_id": self.ROW, "kontakte": {"trainer_is_also": None, **kontakte}, "confirmations": confirmations}
 
-        return with_link_state([team], today=self.TODAY, states=states)[0]["memberships"][0]["confirmations"]
+        return with_link_state(row, today=self.TODAY, states=states)["confirmations"]
 
     def link(self, deadline: str) -> dict[str, Any]:
         return {"token_hashes": [], "sent_at": "2026-03-18", "declined_at": None, "deadline": deadline}
