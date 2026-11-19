@@ -46,7 +46,7 @@ from app.api.teams.schemas import FLTeamSeat
 from app.api.teams.services import build_team_spiele_filter
 from app.core.clock import utc_stamp
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db, patch_past_the_version_in_db, refuse
+from app.core.crud import aggregate_many_from_db, patch_past_the_version_in_db, pull_one_from_db, pull_whole_from_db, refuse
 from app.core.dependencies import (
     DBClient,
     GermanDay,
@@ -300,9 +300,14 @@ async def _pull_team_spiele(
         collection=spiele_collection, pipeline=_team_spiele_pipeline(saison_id=saison_id, team_id=team_id), session=session
     )
     team_ids = {(spiel.get(side) or {}).get("team_id") for spiel in spiele for side in ("team1", "team2")} - {None}
-    junctions = await saison_teams_collection.find(
-        {"saison_id": saison_id, "team_id": {"$in": sorted(team_ids, key=str)}}, JUDGED_JUNCTION_FIELDS, session=session
-    ).to_list(length=None)
+    # Bounded by the season's clubs, far below the read's cap.
+    junctions = await pull_whole_from_db(
+        collection=saison_teams_collection,
+        db_filter={"saison_id": saison_id, "team_id": {"$in": sorted(team_ids, key=str)}},
+        what=f"season {saison_id}'s clubs facing team {team_id}",
+        projection=JUDGED_JUNCTION_FIELDS,
+        session=session,
+    )
 
     return spiele, junctions
 
@@ -334,16 +339,16 @@ async def get_team_overview(
     refuse(find_role_refusal(seats=subject.seats, team_id=team_id, saison_id=saison_id))
 
     # The seat just judged lives on this row, read in the same snapshot, so it stands.
-    row = await saison_teams_collection.find_one(
-        {"saison_id": saison_id, "team_id": team_id},
-        [
+    row = await pull_one_from_db(
+        collection=saison_teams_collection,
+        db_filter={"saison_id": saison_id, "team_id": team_id},
+        projection=[
             "shorthand",
             *(f"kontakte.{slot}.{field}" for slot in KONTAKT_SEATS for field in ("first_name", "last_name", "einwilligung.confirmed_at")),
         ],
         session=session,
     )
-    team = await teams_collection.find_one({"_id": team_id}, ["full_name"], session=session)
-    assert row is not None and team is not None
+    team = await pull_one_from_db(collection=teams_collection, db_filter={"_id": team_id}, projection=["full_name"], session=session)
     spiele, junctions = await _pull_team_spiele(
         spiele_collection=spiele_collection,
         saison_teams_collection=saison_teams_collection,
