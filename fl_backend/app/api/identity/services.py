@@ -443,16 +443,13 @@ def find_role_refusal(*, seats: Iterable[FLSubjectSeat], team_id: ObjectId, sais
     return APIError(HTTPStatus.FORBIDDEN, Code.ROLE_NOT_HELD)
 
 
-def holds_an_owner_grant(identifier: str, grants: Iterable[Mapping[str, Any]]) -> bool:
-    """Whether this folded address holds one of these live grants as an `owner`."""
+def find_owner_erasure_refusal(*, identifier: str, grants: Sequence[Mapping[str, Any]]) -> APIError | None:
+    """`owner_erasure`: the owner erases their address only after a handover, nobody else being able to name an owner.
 
-    return any(grant["address"] == identifier and grant["admin_tier"] == OWNER for grant in grants)
+    Whatever the session's age: the owner's power alone decides, as `holds_an_owners_power` judges it.
+    """
 
-
-def find_owner_erasure_refusal(*, identifier: str, grants: Iterable[Mapping[str, Any]]) -> APIError | None:
-    """`owner_erasure`: the owner erases their address only after a handover, nobody else being able to name an owner."""
-
-    if not holds_an_owner_grant(identifier, grants):
+    if not holds_an_owners_power(actor=identifier, grants=grants):
         return None
 
     return APIError(HTTPStatus.CONFLICT, Code.OWNER_ERASURE)

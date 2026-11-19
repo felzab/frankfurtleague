@@ -10,6 +10,7 @@ from app.api.grants.schemas import FLGrantChange, FLGrantNoticeStage
 from app.api.outbox.schemas import FLGrantData
 from app.core.codes import Code
 from app.core.exceptions import APIError
+from app.core.security import refused_session, signed_in_since
 from app.shared.schemas.custom import as_utc
 from app.shared.schemas.literals import FLAdminTier
 
@@ -30,10 +31,9 @@ def admin_tier_of(address: str, grants: Sequence[Mapping[str, Any]]) -> FLAdminT
 
 
 def holds_an_owners_power(*, actor: str, grants: Sequence[Mapping[str, Any]]) -> bool:
-    """Whether the acting administrator's own row is `owner`.
+    """Whether this folded address's own row is `owner`, its session left to the caller.
 
-    One judgement for every refusal keyed on an owner's power, so no two of them can part on who holds it. The actor check
-    already refused a session older than the row's date, and a handover sets that date.
+    One judgement for every refusal keyed on an owner's power, so no two of them can part on who holds it.
     """
 
     return admin_tier_of(actor, grants) == OWNER
@@ -54,13 +54,23 @@ def find_exists_refusal(*, address: str, grants: Sequence[Mapping[str, Any]]) ->
     return APIError(HTTPStatus.CONFLICT, Code.GRANT_EXISTS, fields=(("email",),))
 
 
-def find_only_owner_refusal(*, actor: str, grants: Sequence[Mapping[str, Any]]) -> APIError | None:
-    """`grant_only_owner`: only the owner adds, removes, hands over or withdraws, judged inside the transaction."""
+def find_only_owner_refusal(*, actor: str, auth_time: int, grants: Sequence[Mapping[str, Any]]) -> APIError | None:
+    """`grant_only_owner`: only the owner adds, removes, hands over or withdraws, judged inside the transaction.
 
-    if holds_an_owners_power(actor=actor, grants=grants):
-        return None
+    The guard's refused session where the owner's row is dated after the sign-in: a handover completing between the
+    guard's read and this transaction dates the row anew, and a session older than it holds nothing of the role.
+    """
 
-    return APIError(HTTPStatus.FORBIDDEN, Code.GRANT_ONLY_OWNER)
+    if not holds_an_owners_power(actor=actor, grants=grants):
+        return APIError(HTTPStatus.FORBIDDEN, Code.GRANT_ONLY_OWNER)
+
+    # Here and never in `holds_an_owners_power`, whose other caller judges the owner's own erasure, which no session's
+    # age may let through.
+    own = next(grant for grant in grants if grant["address"] == actor)
+    if not signed_in_since(auth_time, as_utc(own["effective_from"])):
+        return refused_session()
+
+    return None
 
 
 def find_barred_refusal(*, barred: bool) -> APIError | None:
