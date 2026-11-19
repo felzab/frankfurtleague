@@ -13,12 +13,7 @@ from pydantic import (
 from app.api.outbox.schemas import FLOutboxStatus
 from app.core.crud import Anchored
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
-from app.shared.schemas.bounds import (
-    AUSTRITT_REASON_MAX_LENGTH,
-    TEAM_DESCRIPTION_MAX_LENGTH,
-    TEAM_FULL_NAME_MAX_LENGTH,
-    TEAM_NAME_MAX_LENGTH,
-)
+from app.shared.schemas.bounds import TEAM_FULL_NAME_MAX_LENGTH, TEAM_NAME_MAX_LENGTH
 from app.shared.schemas.custom import (
     PARAGRAPH_PATTERN,
     PHONE_REGEX,
@@ -56,6 +51,12 @@ MAX_NUMBER_OF_GROUPS: Final = len(get_args(FLGruppenNames.__value__))
 # Which second seat one person may hold beside the Trainer's. A closed set rather than a flag per seat: the
 # two are alternatives, and nothing can mean holding both.
 type FLTrainerAlso = Literal["ansprechperson", "stellvertretung"]
+
+TEAM_DESCRIPTION_MAX_LENGTH: Final = 4096
+
+# Why a team is out of a season, in an administrator's words on the team's public page: a sentence, as a
+# ban's reason is.
+AUSTRITT_REASON_MAX_LENGTH: Final = 500
 
 
 class FLAustritt(BaseModel):
