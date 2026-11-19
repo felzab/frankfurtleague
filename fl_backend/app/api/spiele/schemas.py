@@ -738,10 +738,6 @@ class FLSpielAdvancement(FLSpielVoidedErgebnis):
 class FLSpielReleasedSide(FLSpielVoidedErgebnis):
     """One side another fixture gave up so a team can play this Spieltag, and the result that destroyed."""
 
-    # English, like `type` on a quelle: it names a document field.
-    side: FLSpielSide
-    team_name: str = Field(min_length=1)
-
 
 # One party a fixture's Ansetzung asks to confirm it: a side, or the booked referee. Beside the fixture, since the
 # confirmation rows store it and the save's dry run names it.

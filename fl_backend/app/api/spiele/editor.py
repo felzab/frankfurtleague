@@ -235,7 +235,7 @@ async def _teams_of(
     def judged(row: Mapping[str, Any], member: SaisonMembership) -> FLSpielEditorTeam:
         team_id = row["team_id"]
         payload = _fielding(stored, team_id)
-        verdict = judge_spieltag_occupancy(spiel.id, payload, season, membership)
+        verdict = judge_spieltag_occupancy(spiel.id, payload, season)
         return FLSpielEditorTeam(
             id=team_id,
             name=member.name,

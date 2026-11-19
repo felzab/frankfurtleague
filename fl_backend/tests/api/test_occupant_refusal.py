@@ -206,7 +206,6 @@ def occupancy_for(saison_docs: list[dict[str, Any]], nr: int, **overrides: Any):
         ObjectId(stored["_id"]),
         payload_for(saison_docs, nr, **overrides),
         FLSpielListAdapter.validate_python(saison_docs),
-        {ObjectId(team_id): membership_of(team_id) for team_id in TEAMS},
     )
 
 
@@ -730,7 +729,7 @@ class TestSpieltagOccupancy:
         verdict = occupancy_for(saison, 1, team1=team(CRONBERG, "Cronberg"))
 
         assert verdict.refusal is None
-        assert [(release.spiel_nr, release.side, release.team_name) for release in verdict.releases] == [(2, "team1", "Cronberg")]
+        assert [(release.spiel_nr, release.side) for release in verdict.releases] == [(2, "team1")]
 
     def test_a_release_names_the_result_it_destroys(self, saison):
         (release,) = occupancy_for(saison, 1, team1=team(CRONBERG, "Cronberg")).releases

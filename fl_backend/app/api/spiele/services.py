@@ -936,7 +936,7 @@ def find_gruppen_not_run(spiele: Iterable[FLSpielCommon], *, number_of_gruppen: 
 class SaisonMembership:
     """One club's `saison_teams` row: the name this season is played under, and the day the club left it.
 
-    The season's name rather than the club's, for the release a save reports.
+    The season's name rather than the club's, for the clubs the match editor offers and the parties a dry run names.
     """
 
     name: str
@@ -1632,7 +1632,6 @@ class SpieltagRelease:
     spiel_id: CustomObjectId
     spiel_nr: int
     side: FLSpielSide
-    team_name: str
     other_side_present: bool
     voided_ergebnis: str | None
     voided_elfmeterschiessen: FLSpielElfmeterschiessen | None
@@ -1652,9 +1651,8 @@ def judge_spieltag_occupancy(
     spiel_id: CustomObjectId,
     payload: FLPatchSpielDataPayload,
     season: Sequence[FLSpiel],
-    teams: Mapping[CustomObjectId, SaisonMembership],
 ) -> SpieltagVerdict:
-    """Where this payload's teams already stand on the same Spieltag; `teams` names a released side as its season row does."""
+    """Where this payload's teams already stand on the same Spieltag."""
 
     stored = stored_in_slice(spiel_id, season)
 
@@ -1691,8 +1689,6 @@ def judge_spieltag_occupancy(
                     spiel_id=other.id,
                     spiel_nr=other.spiel_nr,
                     side=label,
-                    # The released club is the one this payload fields, so it holds a row this season.
-                    team_name=teams[occupant.team_id].name,
                     # The write path strips the other side's goals -- scored against the team being
                     # removed -- so it has to know whether a side is there to strip.
                     other_side_present=(other.team2 if label == "team1" else other.team1) is not None,

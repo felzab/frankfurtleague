@@ -12,7 +12,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.spiele.crud import apply_release_to_spiel, bracket_faults_of, pull_saison_membership
+from app.api.spiele.crud import apply_release_to_spiel, bracket_faults_of
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_NO_SHOW,
     FLBracketFault,
@@ -1083,9 +1083,7 @@ class TestAReleaseWritesWhatThePureModelPredicts:
 
             spiel_data = await payload_for(database, GRUPPE_FILLING, team1=side(ALPHA))
             # The handler's own judgement, over the season it is about to read: what the model is then handed.
-            (release,) = judge_spieltag_occupancy(
-                GRUPPE_FILLING, spiel_data, season, await pull_saison_membership(database[Collection.SAISON_TEAMS], SAISON_ID)
-            ).releases
+            (release,) = judge_spieltag_occupancy(GRUPPE_FILLING, spiel_data, season).releases
 
             preview = await call_patch(database, client, GRUPPE_FILLING, spiel_data, dry_run=True)
             after_preview = await read_spiel(database, GRUPPE_HELD)
@@ -1140,9 +1138,7 @@ class TestAReleaseWritesWhatThePureModelPredicts:
             before = next(spiel for spiel in season if spiel.id == GRUPPE_HELD)
 
             spiel_data = await payload_for(database, GRUPPE_FILLING, team1=side(ALPHA), team2=side(BETA))
-            releases = judge_spieltag_occupancy(
-                GRUPPE_FILLING, spiel_data, season, await pull_saison_membership(database[Collection.SAISON_TEAMS], SAISON_ID)
-            ).releases
+            releases = judge_spieltag_occupancy(GRUPPE_FILLING, spiel_data, season).releases
 
             # Folded rather than applied once, which is what the preview does with a repeated
             # `spiel_id`: the second release is modelled against the first one's result.
@@ -1194,9 +1190,7 @@ class TestAReleaseWritesWhatThePureModelPredicts:
             by_id = {spiel.id: spiel for spiel in season}
 
             spiel_data = await payload_for(database, GRUPPE_FILLING, team1=side(ALPHA), team2=side(BETA))
-            releases = judge_spieltag_occupancy(
-                GRUPPE_FILLING, spiel_data, season, await pull_saison_membership(database[Collection.SAISON_TEAMS], SAISON_ID)
-            ).releases
+            releases = judge_spieltag_occupancy(GRUPPE_FILLING, spiel_data, season).releases
 
             saved = await call_patch(database, client, GRUPPE_FILLING, spiel_data)
 
@@ -1239,9 +1233,7 @@ class TestAReleaseWritesWhatThePureModelPredicts:
             before = next(spiel for spiel in season if spiel.id == HALBFINALE)
 
             spiel_data = await payload_for(database, HALBFINALE_OPEN, team1=side(GAMMA))
-            (release,) = judge_spieltag_occupancy(
-                HALBFINALE_OPEN, spiel_data, season, await pull_saison_membership(database[Collection.SAISON_TEAMS], SAISON_ID)
-            ).releases
+            (release,) = judge_spieltag_occupancy(HALBFINALE_OPEN, spiel_data, season).releases
 
             await call_patch(database, client, HALBFINALE_OPEN, spiel_data)
 

@@ -527,8 +527,6 @@ def report_release(release: SpieltagRelease) -> FLSpielReleasedSide:
     return FLSpielReleasedSide(
         spiel_id=release.spiel_id,
         spiel_nr=release.spiel_nr,
-        side=release.side,
-        team_name=release.team_name,
         voided_ergebnis=release.voided_ergebnis,
         voided_elfmeterschiessen=release.voided_elfmeterschiessen,
         voided_sonderereignis=release.voided_sonderereignis,
@@ -707,7 +705,7 @@ async def _judge_spiel_save(
     # fact about its neighbours.
     refuse(find_result_removal_refusal(spiel_id, payload, season))
 
-    verdict = judge_spieltag_occupancy(spiel_id, payload, season, membership)
+    verdict = judge_spieltag_occupancy(spiel_id, payload, season)
     refuse(verdict.refusal)
 
     # The session is what makes a matchday widened by a concurrent write visible.
