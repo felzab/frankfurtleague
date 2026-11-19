@@ -91,8 +91,9 @@ async def read_back(client: AsyncMongoClient, database_name: str) -> int:
             try:
                 model.model_validate(document, extra="forbid")
             except ValidationError as error:
+                # A rule across fields raises with no location; it names the record as a whole rather than a blank.
                 locations += [
-                    ".".join(str(step) for step in detail["loc"])
+                    ".".join(str(step) for step in detail["loc"]) or "(the record as a whole)"
                     for detail in error.errors(include_input=False, include_context=False, include_url=False)
                 ]
             if locations:

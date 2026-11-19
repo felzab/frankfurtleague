@@ -155,8 +155,10 @@ credential from its own file under `SECRETS_DIR`; a required one missing refuses
 
 `uv run pytest` in `fl_backend/` runs the default tier, which needs no database.
 `uv run pytest -m db` runs the tier marked `@pytest.mark.db`, against a real `mongod` it starts in
-Docker; `fl_backend/pyproject.toml :: addopts` deselects that marker by default.
-`fl_backend/tests/README.md` lists what each support module provides.
+Docker; `fl_backend/pyproject.toml :: addopts` deselects that marker by default. Both need uv and
+the Python `fl_backend/pyproject.toml :: requires-python` names, and the database tier a running
+Docker daemon; `uv run pytest -m db <file>` runs one file of it. `fl_backend/tests/README.md` lists
+what each support module provides.
 
 ## Read next
 
