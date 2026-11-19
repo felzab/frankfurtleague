@@ -1568,10 +1568,6 @@ def with_delivery(row: Mapping[str, Any], states: Mapping[tuple[Any, str | None]
     The state is `state_of`'s, the one a reopened link shows, so the administrator's page and the person's never disagree.
     """
 
-    confirmations = row.get("confirmations")
-    if confirmations is None:
-        return dict(row)
-
     return {
         **row,
         "confirmations": {
@@ -1580,8 +1576,9 @@ def with_delivery(row: Mapping[str, Any], states: Mapping[tuple[Any, str | None]
                 "delivery": seat_state(row=row, states=states, seat=seat),
                 "state": state_of(bewerbung_raw=row, seat=seat, today=today),
             }
+            # An erasure nulls a seat's entry; the block itself is never null.
             if entry is not None
             else entry
-            for seat, entry in confirmations.items()
+            for seat, entry in row["confirmations"].items()
         },
     }
