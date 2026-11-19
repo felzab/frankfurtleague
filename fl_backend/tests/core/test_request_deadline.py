@@ -449,11 +449,7 @@ MAIL_PATH = f"/api/saisons/{SAISON_ID}/invitations/mail"
 
 @pytest.fixture(scope="module")
 def pressing_app() -> FastAPI:
-    """One app for every press.
-
-    The first request into a router branch builds it, and an app per press would pay that build inside every case. The
-    case that reaches the branch first pays it once, inside its deadline.
-    """
+    """One app for every press, whose first request builds every router branch once, before the trace layer sets a deadline."""
 
     return create_app(build_test_config().model_copy(update={"db_base_name": DATABASE_NAME}))
 
