@@ -603,6 +603,7 @@ async def post_kontakt_seat(
     seat_data: FLBewerbungKontaktSeatPayload,
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsCollection,
+    saisons_collection: SaisonsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
     today: GermanDay,
@@ -611,7 +612,7 @@ async def post_kontakt_seat(
     """Write a person into one seat, whatever its state, and mail them a fresh link; an acceptance waits on their answer.
 
     Where one person holds two seats both are written, the last holder's link opens nothing afterwards, and the seat's
-    deadline starts again from today.
+    deadline starts again from today. A finished season's application takes no write, as it takes no fresh link.
     """
 
     # Outside the callback, so a retried transaction owes the press's one mail and a second press its own.
@@ -633,6 +634,13 @@ async def post_kontakt_seat(
 
         kontakte, confirmations = bewerbung_raw.get("kontakte"), bewerbung_raw.get("confirmations")
         refuse(find_triage_refusal(status=str(bewerbung_raw["status"])))
+
+        # As the re-send judges it: the season's end deletes the application, so the person written here would be mailed
+        # a link to nothing. Unanchored, as the re-send's read is: the rollover reads nothing this write writes.
+        saison_raw = await pull_one_from_db(
+            collection=saisons_collection, db_filter={"_id": bewerbung_raw["saison_id"]}, projection=["status"], session=session
+        )
+        refuse(find_saison_past_refusal(saison_status=str(saison_raw["status"])))
 
         # The pair is claimed rather than read off the slots, so it holds on the emptied seats too, and it is judged
         # with the pressed seat: `claimed_pair_seat` adds a mirror in any state at all.

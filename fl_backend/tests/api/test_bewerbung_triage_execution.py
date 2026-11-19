@@ -1084,6 +1084,7 @@ async def write_seat(
         seat_data=FLBewerbungKontaktSeatPayload.model_validate({**person, "version": read}),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         teams_collection=database[Collection.TEAMS],
+        saisons_collection=database[Collection.SAISONS],
         outbox_collection=database[Collection.OUTBOX],
         germany_now=MAIL_NOW,
         db=client,
@@ -1558,6 +1559,20 @@ class TestAFinishedSeasonTakesNoFreshLink:
             return code, before, await stored_bewerbung(database, RESEND_BEWERBUNG), await drained(database, client)
 
         code, before, after, mails = await on_a_league(mongo_replica_set_url, body)
+
+        assert code == Code.SAISON_PAST
+        assert (after, mails) == (before, [])
+
+    async def test_a_seat_write_on_a_finished_season_writes_and_mails_nobody(self, mongo_replica_set_url: str):
+        """The seat write mails its person a fresh link too, so it is refused as the re-send is, its person left unwritten."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            before = await seed_an_open_ansprechperson_seat(database)
+            code = await refused_code(write_seat(database, client, "ansprechperson", RESEAT_PERSON, bewerbung_id=RESEND_BEWERBUNG))
+
+            return code, before, await stored_bewerbung(database, RESEND_BEWERBUNG), await drained(database, client)
+
+        code, before, after, mails = await on_a_league(mongo_replica_set_url, body, saison_status="past")
 
         assert code == Code.SAISON_PAST
         assert (after, mails) == (before, [])
