@@ -194,9 +194,8 @@ def find_saison_past_refusal(*, saison_status: str) -> APIError | None:
 # row holds.
 FROZEN_RULES_FIELDS: tuple[str, ...] = ("win_points", "draw_points", "loss_points", "qualifiers_per_gruppe", "tiebreak_order")
 
-# The three the fixtures were drawn from. A raise is what nothing else refuses: `count_spiele` is
-# derived per matchday, so every matchday would then expect matches nobody drew, and
-# `rules_spieltag_over_its_phase` reads the narrowing direction alone.
+# The three the fixtures were drawn from. A raise is what nothing else refuses: the rules would then
+# imply matches nobody drew, and `rules_spieltag_over_its_phase` reads the narrowing direction alone.
 SHAPE_RULES_FIELDS: tuple[str, ...] = ("number_of_gruppen", "teams_per_gruppe", "qualifiers_per_gruppe")
 
 

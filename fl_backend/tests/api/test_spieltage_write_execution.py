@@ -66,8 +66,6 @@ def saison_document() -> dict[str, Any]:
 
 
 def matchday() -> dict[str, Any]:
-    """No `count_spiele`, the shape a drawn schedule leaves, so the echo assertions are controls rather than readings of a stale key."""
-
     return documents.spieltag_document(SPIELTAG_OID, SAISON_ID, 1, start=SPIELTAG_START, end=SPIELTAG_END)
 
 

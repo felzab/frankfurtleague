@@ -8,7 +8,7 @@ from app.shared.schemas.responses import BasePayload, BaseReadModel
 
 
 class FLSpieltagRecord(BaseModel):
-    """A matchday as `spieltage` stores it, which `FLSpieltag` serves with its derived count."""
+    """A matchday as `spieltage` stores it, which `FLSpieltag` serves."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
 
@@ -27,9 +27,7 @@ class FLSpieltagRecord(BaseModel):
 
 
 class FLSpieltag(FLSpieltagRecord, BaseReadModel):
-    # Derived, on no document. `ge=0`, because a matchday in a phase the bracket does not reach
-    # expects none.
-    count_spiele: int = Field(ge=0)
+    """A matchday as a read serves it, its stored fields alone."""
 
 
 class FLSpieltagAdmin(FLSpieltag):

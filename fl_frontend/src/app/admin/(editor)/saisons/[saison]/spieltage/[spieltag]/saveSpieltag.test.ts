@@ -14,7 +14,6 @@ const STORED: FLSpieltagAdmin = {
   saison_phase: "gruppenphase",
   position: 2,
   count_spieltage_in_phase: 5,
-  count_spiele: 4,
   start: "2027-03-13",
   end: "2027-03-15",
   version: 4,

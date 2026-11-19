@@ -121,7 +121,7 @@ class TestTheCircleMethodPairsAGroup:
 
     @pytest.mark.parametrize("teams", range(2, 17))
     def test_every_round_holds_the_matches_a_matchday_expects(self, teams: int):
-        """One group's share of `count_spiele`; an odd group pairs all but the club on its bye."""
+        """One group's share of a group matchday's matches; an odd group pairs all but the club on its bye."""
 
         assert [len(pairs) for pairs in circle_rounds(teams)] == [group_matches_per_matchday(1, teams)] * group_matchdays(teams)
 
@@ -270,7 +270,7 @@ class TestTheDrawIsTheSeasonTheRulesDescribe:
 
     @pytest.mark.parametrize("shape", SHAPES)
     def test_every_matchday_holds_the_matches_its_phase_expects(self, shape: tuple[int, int, int]):
-        """`count_spiele` is derived per matchday, so a matchday off this count reads as incomplete forever."""
+        """A matchday off this count plays a season its rules do not describe."""
 
         groups, teams, qualifiers = shape
         season = rules(groups=groups, teams=teams, qualifiers=qualifiers)

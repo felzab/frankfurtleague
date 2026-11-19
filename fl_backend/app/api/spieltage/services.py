@@ -3,8 +3,6 @@ from dataclasses import dataclass
 from http import HTTPStatus
 from typing import Any
 
-from app.api.saisons.schedule import expected_matches
-from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import PHASE_RANK, is_unplayed
 from app.api.spieltage.schemas import (
     FLSpielplanSpieltag,
@@ -29,43 +27,29 @@ def order_spieltage[Spieltag: FLSpieltag](spieltage: list[Spieltag]) -> list[Spi
     return sorted(spieltage, key=lambda spieltag: (PHASE_RANK[spieltag.saison_phase], spieltag.position, str(spieltag.id)))
 
 
-def with_expected_matches(spieltag_raw: Mapping[str, Any], rules: FLSaisonRules) -> dict[str, Any]:
-    """One raw matchday with its derived `count_spiele` attached, ready to validate.
-
-    Every path validating a stored matchday goes through this, the echo included: the count is on
-    no document, so an echo skipping it reports a matchday with no matches.
-    """
-
-    return {**spieltag_raw, "count_spiele": expected_matches(rules, spieltag_raw["saison_phase"])}
-
-
-def _with_their_spiele(
-    spieltage_raw: Iterable[Mapping[str, Any]], spiele_raw: Iterable[Mapping[str, Any]], rules: FLSaisonRules
-) -> list[dict[str, Any]]:
+def _with_their_spiele(spieltage_raw: Iterable[Mapping[str, Any]], spiele_raw: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
     spiele_by_spieltag: dict[Any, list[Mapping[str, Any]]] = {}
     for spiel_raw in sorted(spiele_raw, key=lambda spiel_raw: spiel_raw["spiel_nr"]):
         spiele_by_spieltag.setdefault(spiel_raw["spieltag_id"], []).append(spiel_raw)
 
-    return [{**with_expected_matches(raw, rules), "spiele": spiele_by_spieltag.get(raw["_id"], [])} for raw in spieltage_raw]
+    return [{**raw, "spiele": spiele_by_spieltag.get(raw["_id"], [])} for raw in spieltage_raw]
 
 
-def build_spielplan(
-    spieltage_raw: Iterable[Mapping[str, Any]], spiele_raw: Iterable[Mapping[str, Any]], rules: FLSaisonRules
-) -> list[FLSpielplanSpieltag]:
+def build_spielplan(spieltage_raw: Iterable[Mapping[str, Any]], spiele_raw: Iterable[Mapping[str, Any]]) -> list[FLSpielplanSpieltag]:
     """A season's matchdays in the order they are played, each holding its matches by `spiel_nr`.
 
     `spiele_raw` is what `build_spiele_pipeline` yields for the same season.
     """
 
-    return order_spieltage(FLSpielplanSpieltagListAdapter.validate_python(_with_their_spiele(spieltage_raw, spiele_raw, rules)))
+    return order_spieltage(FLSpielplanSpieltagListAdapter.validate_python(_with_their_spiele(spieltage_raw, spiele_raw)))
 
 
 def build_admin_spielplan(
-    spieltage_raw: Iterable[Mapping[str, Any]], spiele_raw: Iterable[Mapping[str, Any]], rules: FLSaisonRules
+    spieltage_raw: Iterable[Mapping[str, Any]], spiele_raw: Iterable[Mapping[str, Any]]
 ) -> list[FLSpielplanSpieltagAdmin]:
     """`build_spielplan`'s matchdays, their matches in the admin shape: money, the referee's whole name and `version`."""
 
-    return order_spieltage(FLSpielplanSpieltagAdminListAdapter.validate_python(_with_their_spiele(spieltage_raw, spiele_raw, rules)))
+    return order_spieltage(FLSpielplanSpieltagAdminListAdapter.validate_python(_with_their_spiele(spieltage_raw, spiele_raw)))
 
 
 def current_spieltag_id(spieltage: Sequence[FLSpielplanSpieltag], *, saison_status: FLSaisonStatus) -> CustomObjectId | None:

@@ -7,7 +7,6 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.grants.guard import ADMIN_TIER
-from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_saison_past_refusal
 from app.api.spieltage.schemas import (
     FLPatchSpieltagPayload,
@@ -20,7 +19,6 @@ from app.api.spieltage.services import (
     dated_start,
     find_spieltag_order_refusal,
     find_spieltag_span_refusal,
-    with_expected_matches,
 )
 from app.core.crud import anchor_in_db, patch_one_in_db, pull_one_from_db, refuse
 from app.core.dependencies import (
@@ -60,22 +58,14 @@ async def get_spieltag_admin(
 
     spieltag_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id})
 
-    # Its own season, as the base read resolves it: `count_spiele` derives from that season's rules, and its `status` is
-    # the one the re-dating judges.
-    saison_raw = await pull_one_from_db(
-        collection=saisons_collection, db_filter={"_id": spieltag_raw["saison_id"]}, projection=["rules", "status"]
-    )
+    # Its own season's `status`, the one the re-dating judges.
+    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": spieltag_raw["saison_id"]}, projection=["status"])
     count_spieltage_in_phase = await spieltage_collection.count_documents(
         {"saison_id": spieltag_raw["saison_id"], "saison_phase": spieltag_raw["saison_phase"]}
     )
 
     return FLSpieltagAdminResponse(
-        spieltag=FLSpieltagAdmin.model_validate(
-            {
-                **with_expected_matches(spieltag_raw, FLSaisonRules.model_validate(saison_raw["rules"])),
-                "count_spieltage_in_phase": count_spieltage_in_phase,
-            }
-        ),
+        spieltag=FLSpieltagAdmin.model_validate({**spieltag_raw, "count_spieltage_in_phase": count_spieltage_in_phase}),
         saison_status=saison_raw["status"],
     )
 

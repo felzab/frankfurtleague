@@ -13,7 +13,6 @@ class TestSpieltageOrder:
                 "_id": ObjectId(oid),
                 "start": start,
                 "end": start,
-                "count_spiele": 4,
                 "position": position,
                 "saison_phase": phase,
                 "saison_id": "2026",

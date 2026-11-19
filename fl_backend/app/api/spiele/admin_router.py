@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, Query
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.grants.guard import ADMIN_TIER
-from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.crud import (
     SpielSaveCollections,
     preview_spiel_save,
@@ -74,12 +73,12 @@ async def get_spiele_spielplan(
     """
 
     saison_raw, spieltage_raw, spiele_raw = await concurrently(
-        pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules", "status"]),
+        pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"]),
         pull_many_from_db(collection=spieltage_collection, db_filter={"saison_id": saison_id}, limit=LIST_LIMIT_DEFAULT),
         aggregate_many_from_db(collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter={"saison_id": saison_id})),
     )
 
-    spieltage = build_admin_spielplan(spieltage_raw, spiele_raw, FLSaisonRules.model_validate(saison_raw["rules"]))
+    spieltage = build_admin_spielplan(spieltage_raw, spiele_raw)
 
     return FLSpieleSpielplanAdminResponse(
         spieltage=spieltage, current_spieltag_id=current_spieltag_id(spieltage, saison_status=saison_raw["status"])

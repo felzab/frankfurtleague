@@ -40,7 +40,6 @@ const matchday = (saison_phase: FLSaisonPhase, spiele: ReturnType<typeof spiel>[
     position: 1,
     start: null,
     end: null,
-    count_spiele: spiele.length,
     version: 1,
     spiele,
   }) as FLSpielplanSpieltag;
@@ -74,7 +73,7 @@ describe("the K.-o.-Baum read from the knockout matchdays", () => {
       sonderereignis: "nichtantreten_team2" as const,
     };
 
-    const [card] = treeOf([{ ...matchday("finale", []), count_spiele: 1, spiele: [forfeit] } as FLSpielplanSpieltag])?.rounds[0].matches ?? [];
+    const [card] = treeOf([{ ...matchday("finale", []), spiele: [forfeit] } as FLSpielplanSpieltag])?.rounds[0].matches ?? [];
 
     expect([card?.chip, card?.muted, card?.absent]).toStrictEqual([
       {

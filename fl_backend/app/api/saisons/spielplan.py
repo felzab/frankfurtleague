@@ -129,7 +129,7 @@ def _teams_by_gruppe(rules: FLSaisonRules, entered: Sequence[EnteredTeam]) -> di
         teams_by_gruppe[team.gruppe].append(team)
 
     # Raised rather than drawn as it stands: a group off its size shortens one round robin while
-    # every matchday's `count_spiele` goes on expecting the full one.
+    # the rules go on implying the full one.
     wrong = {gruppe: len(gruppe_teams) for gruppe, gruppe_teams in teams_by_gruppe.items() if len(gruppe_teams) != rules.teams_per_gruppe}
     if wrong:
         raise ValueError(f"this season plays groups of {rules.teams_per_gruppe}; these hold otherwise: {wrong}")
