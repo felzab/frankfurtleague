@@ -212,7 +212,7 @@ async def one_address_in_four_roles(database: AsyncDatabase) -> None:
 
 class TestThePupilsOwnDataAlone:
     async def test_the_pupil_goes_whole_and_every_other_role_at_the_address_stands(self, mongo_replica_set_url: str):
-        """Run in the full scope and this fails: the seat empties, the referee row and the grant go."""
+        """Run as the full erasure and this fails: the seat empties, the referee row and the grant go."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await one_address_in_four_roles(database)

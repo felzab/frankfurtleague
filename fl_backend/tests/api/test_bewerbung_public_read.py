@@ -19,7 +19,7 @@ from tests.worker import worker_database
 # collections from, and the home of the corpus every case sharing `seeded_url` reads.
 CORPUS_DATABASE = build_test_config().db_base_name
 
-# `served_with`'s own: it clears where it seeds, and the shared corpus is one nothing may clear under its cases.
+# A database of its own for `served_with`, which clears where it seeds: nothing may clear the shared corpus under its cases.
 WINDOW_DATABASE = worker_database("fl_bewerbung_window_test")
 
 PREFIX = "/api/bewerbungen"

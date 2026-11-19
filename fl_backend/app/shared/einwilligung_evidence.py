@@ -113,7 +113,7 @@ def evidence_state_of(*, blocks: Sequence[Any]) -> dict[str, str | None]:
     """
 
     state: dict[str, str | None] = {}
-    # Every choice, never a subset: a press moves both, so a stand over one would let the other move unseen.
+    # Every choice, never a subset: a press moves both, so a state over one would let the other move unseen.
     for choice in CHOICES:
         values_and_evidence = [[block.get(choice), _evidence_of(block, choice)] for block in blocks if isinstance(block, Mapping)]
         if all(receipt is None for _, receipt in values_and_evidence):

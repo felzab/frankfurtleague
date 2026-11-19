@@ -69,7 +69,6 @@ function mailTo(recipients: readonly (FLSpielRecipientTeam | FLSpielRecipientSch
   return names.length === 0 ? [] : [{ label: FACTS.mailTo, value: { record: formatList(names) } }];
 }
 
-/** A stored day and hour as the catalogue's sentences take a slot. */
 const slotOf = (date: string | null, time: string | null) => ({ day: dayOf(date), time: timeOf(time) });
 
 const BOOKED = { spielort: COPY.admin.spielort.object, schiedsrichter: COPY.shared.schiedsrichter } as const;

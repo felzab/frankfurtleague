@@ -218,7 +218,7 @@ async def on_a_league(url: str, body: Body) -> Any:
 
 
 async def erase_the_referee(database: AsyncDatabase, client: AsyncMongoClient, schiedsrichter_id: ObjectId = SCHIEDSRICHTER_OID) -> None:
-    """The registry's erasure of the address the referee's history left them holding: the erasure is keyed on a mailbox, never on an id."""
+    """The erasure of the address the referee's history left them holding: the erasure is keyed on a mailbox, never on an id."""
 
     await erased(database, client, KONTAKT[schiedsrichter_id]["email"], germany_now=NOW)
 

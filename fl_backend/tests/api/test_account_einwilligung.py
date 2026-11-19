@@ -134,7 +134,7 @@ def _payload(*, scope: str = "kader_public", media: bool = False, state: Mapping
     }
 
 
-# The retired referee's record is seeded granting media, so its page serves a stand of its own.
+# The retired referee's record is seeded granting media, so its page serves a state of its own.
 RETIRED_STATE = evidence_state_of(blocks=[_einwilligung(media=True)])
 
 
@@ -169,7 +169,7 @@ async def _editor_save(http: AsyncClient, database: AsyncDatabase, *, version: i
 
 
 async def _served_state(http: AsyncClient, email: str, arm: str, **key: str) -> Any:
-    """The stand the account read serves one record, by the ids naming it: what a page loaded after the last press posts.
+    """The state the account read serves one record, by the ids naming it: what a page loaded after the last press posts.
 
     A press answers nothing, so a second press reads its precondition where the page does.
     """
@@ -539,12 +539,12 @@ SEAT_WITHDRAWAL = {
 
 
 def _seated_state(held: int, **set_fields: Any) -> dict[str, str | None]:
-    """The stand a page serves for `held` of the asker's seats on one row as `_seat` seeds them, `set_fields` laid over each."""
+    """The state a page serves for `held` of the asker's seats on one row as `_seat` seeds them, `set_fields` laid over each."""
 
     return evidence_state_of(blocks=[{**_seat(REFEREE_STORED, media=True)["einwilligung"], **set_fields}] * held)
 
 
-# Per row the asker holds a confirmed seat on, how many: the stand a press echoes digests each of them.
+# Per row the asker holds a confirmed seat on, how many: the state a press echoes digests each of them.
 HELD_SEATS = {(TEAM_A_OID, PAST_SAISON): 2, (TEAM_B_OID, ACTIVE_SAISON): 1, (TEAM_A_OID, ACTIVE_SAISON): 1}
 
 
@@ -1102,7 +1102,7 @@ class TestAPendingRegistration:
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await _registrierungen(database)
             before = await _registrierung_docs(database)
-            # The own registration's stand and choices, so only the record the path names can refuse.
+            # The own registration's state and choices, so only the record the path names can refuse.
             body = _registrierung_body(before[REGISTRIERUNG_OWN], scope="internal")
             response = await http.patch(_registrierung_path(registrierung_id), json=body, headers=_person(IDENTIFIER))
             return response, before, await _registrierung_docs(database)

@@ -9,20 +9,20 @@ commit that makes the change.
 
 - **bracket** — Store the bracket's German label; flag an override beside `quelle`. _The frontend
   words every label, and a null `quelle` already marks a side set by hand._
-- **bracket** — Store a bracket fault; report a merely undecided placing. _A fault is derived on each
-  read, and an undecided placing is a running group's normal state._
+- **bracket** — Store a bracket fault; report a merely undecided placing. _A fault is derived on
+  each read, and an undecided placing is a running group's normal state._
 - **draw** — Hardcode the qualifier cap. _A knockout round added to the phases would leave a typed
   cap wrong._
 - **placings** — Recurse the tiebreak chain; seed a placing the group can still change. _A placing
   seeded early names the wrong team in the bracket once a later result overturns it._
 - **saisons** — Drop the rollover guard. _A closed season never reopens, so its unfinished fixtures
   would stay unplayed for good._
-- **spiele** — Denormalise season-scoped state into `spiele`. _A copy on each fixture goes stale when
-  the season's row changes._
+- **spiele** — Denormalise season-scoped state into `spiele`. _A copy on each fixture goes stale
+  when the season's row changes._
 - **spiele** — Store a shoot-out's winner; let the table read the shoot-out. _A stored winner can
   contradict the counts, and kicks after the match are no league result._
-- **spiele** — Refuse a `sonderereignis` that would overwrite a stored result; keep it out of the dry
-  run's report. _A result a save destroys is named to the administrator before it is lost._
+- **spiele** — Refuse a `sonderereignis` that would overwrite a stored result; keep it out of the
+  dry run's report. _A result a save destroys is named to the administrator before it is lost._
 - **spiele** — Add a POST or a DELETE to `/spiele`. _The draw creates every fixture, and the bracket
   is wired to their numbers._
 - **spieler** — Widen a squad row's `position` or `stufe` past their `Literal`s. _A value outside
@@ -63,10 +63,10 @@ commit that makes the change.
   backend, and a prefetched shell would carry what a session decides._
 - **saisons** — Offer in the form wiring the write path refuses. _A choice the save refuses fails
   only after the form is filled._
-- **spiele** — Guess a voided result rather than dry-running it. _A guess can name the wrong fixtures
-  whose results a save would delete._
-- **spiele** — Write from the „Spiele“ list; save a match outside `saveSpiel`. _Only `saveSpiel` asks
-  the dry run before a save deletes a later result._
+- **spiele** — Guess a voided result rather than dry-running it. _A guess can name the wrong
+  fixtures whose results a save would delete._
+- **spiele** — Write from the „Spiele“ list; save a match outside `saveSpiel`. _Only `saveSpiel`
+  asks the dry run before a save deletes a later result._
 - **structure** — Add a barrel file, an unrequired default export, a second nesting level below a
   slice's `components/<category>/`. _A barrel pulls a slice into client bundles, a default import
   compiles misnamed, and deeper folders scatter one kind._
@@ -87,16 +87,16 @@ commit that makes the change.
 
 ## Operations and CI
 
-- **ci** — Skip a scope on any event: every push and pull request runs every scope, whatever paths it
-  changed. _A map choosing scopes from changed paths left a scope unrun with every job green._
+- **ci** — Skip a scope on any event: every push and pull request runs every scope, whatever paths
+  it changed. _A map choosing scopes from changed paths left a scope unrun with every job green._
 - **ci** — Re-add `actions/cache` for an image. _buildx fetches only the layers a build needs, where
   a cache step downloads the whole tarball._
 - **exit codes** — Collapse a refusal into a failure; move one half of the exit contract alone. _A
   refusal judged nothing, and a code only one half knows passes in silence._
-- **format** — Let the gate write a formatted file. _A gate that rewrites the tree reports on a state
-  it was not pointed at._
-- **images** — Merge the two images into one package; make either package private. _The deploy
-  pulls with no registry login, and one package would mix two services' tags._
+- **format** — Let the gate write a formatted file. _A gate that rewrites the tree reports on a
+  state it was not pointed at._
+- **images** — Merge the two images into one package; make either package private. _The deploy pulls
+  with no registry login, and one package would mix two services' tags._
 - **logging** — Log our own lines outside the envelope; patch or rewrite a library's or Next's
   console output into it. _One envelope joins our lines, and rewriting Next's output doubled every
   crash line._
@@ -118,8 +118,8 @@ commit that makes the change.
   markup out._
 - **db** — Add a second direct `MongoClient`. _League data reaches the database only through the
   backend, which validates every write._
-- **grants** — Hold a second `owner`; make an owner outside the handover; make a removal wait; send a
-  wait's notice only to the person who started it. _A wait started from a hijacked session must
+- **grants** — Hold a second `owner`; make an owner outside the handover; make a removal wait; send
+  a wait's notice only to the person who started it. _A wait started from a hijacked session must
   reach people who can raise the alarm._
 - **migrations** — Add a one-off database migration to the tree, to a test or to a runbook. _It runs
   once against one database, then stays as code nothing runs again._

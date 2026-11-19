@@ -157,7 +157,7 @@ async def a_pupil_who_never_joined_a_kader(database: AsyncDatabase) -> ObjectId:
 
 
 async def erase_the_pupil(database: AsyncDatabase, client: AsyncMongoClient, spieler_id: ObjectId) -> None:
-    """The registry's erasure of the address this pupil's row holds: the erasure is keyed on a mailbox, never on an id."""
+    """The erasure of the address this pupil's row holds: the erasure is keyed on a mailbox, never on an id."""
 
     person = await database[Collection.SPIELER].find_one({"_id": spieler_id}, {"email": 1})
     assert person is not None, f"no pupil {spieler_id} to erase"

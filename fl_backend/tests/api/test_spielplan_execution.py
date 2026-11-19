@@ -47,7 +47,7 @@ pytestmark = pytest.mark.db
 DATABASE_NAME = worker_database("fl_spielplan_write_test")
 
 
-# `(number_of_groups, teams_per_group, qualifiers_per_group)`: the ordinary season, and one whose odd
+# `(number_of_gruppen, teams_per_gruppe, qualifiers_per_gruppe)`: the ordinary season, and one whose odd
 # groups take a bye round and whose bracket opens at the semi-finals, the smallest the rules take.
 SHAPES: tuple[tuple[int, int, int], ...] = ((GROUPS, TEAMS_PER_GROUP, QUALIFIERS), (2, 3, 2))
 SHAPE_IDS = ("four groups of four into a quarter-final", "two odd groups into a semi-final")

@@ -904,6 +904,8 @@ async def post_spielplan(
         await post_many_to_db(collection=spiele_collection, documents=drawn.spiele, session=session)
 
         watermark = FLSaisonSpielplan(generated_at=today)
+        # Raises the season's `version`, though no form saves `spielplan`: the draw fixes what the rules form may still
+        # save, so a form read before it is refused rather than saved over a drawn season.
         await patch_one_in_db(
             collection=saisons_collection,
             db_filter={"_id": saison_id},
@@ -974,7 +976,8 @@ async def delete_spielplan(
         await delete_many_from_db(collection=spieltage_collection, db_filter={"saison_id": saison_id}, session=session)
 
         # Inside the transaction holding both removals: a season keeping its watermark while its fixtures
-        # are gone would date a draw it no longer holds, and `$unset` is the shape a season nobody has drawn carries.
+        # are gone would date a draw it no longer holds, and `$unset` is the shape a season nobody has drawn carries. It
+        # raises the season's `version` as the draw's write does: the undraw reopens what the rules form may save.
         await patch_one_in_db(
             collection=saisons_collection,
             db_filter={"_id": saison_id},

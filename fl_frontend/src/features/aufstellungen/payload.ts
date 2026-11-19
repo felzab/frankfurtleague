@@ -5,7 +5,6 @@ import { byShirtNumber } from "@/features/spieler/constants";
 import type { ActionAnswer } from "@/core/action";
 import type { FLAufstellungEntry, FLAufstellungResponse } from "@/core/generated/client/types";
 
-/** The line-up an editor's draft holds: the pupils it names, and those of them who start. */
 type Drafted = { readonly picked: ReadonlyArray<string>; readonly starters: ReadonlyArray<string> };
 
 /**

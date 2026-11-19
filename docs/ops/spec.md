@@ -51,8 +51,8 @@ nginx declares none, so Compose counts it healthy while it runs.
 each Dockerfile's `FROM`, each compose file's `image:`, and the two images
 `.github/workflows/verify.yml` runs. A pull fetches the digest, so a tag rebuilt upstream changes
 nothing here until a pull request moves it. **Each tag names the exact release its digest is**,
-since a series tag (`mongo:8`) is a label no reader can hold to one release. Dependabot compares
-the tag to propose the next pair, in both Dockerfiles, both compose files and
+since a series tag (`mongo:8`) is a label no reader can hold to one release. Dependabot compares the
+tag to propose the next pair, in both Dockerfiles, both compose files and
 `scripts/gate/tools.Dockerfile`; the two workflow pins `.github/dependabot.yml` lists move by hand,
 no ecosystem reading a step's string.
 
@@ -72,8 +72,8 @@ production runs:
 
 - the frontend base's Node is the exact release `fl_frontend/package.json :: devEngines` names,
   which `pnpm/setup` installs for every CI job and `fl_frontend/pnpm-lock.yaml` records;
-- the backend base's Python lies inside the series `fl_backend/.python-version` pins, which every
-  CI job's interpreter comes from;
+- the backend base's Python lies inside the series `fl_backend/.python-version` pins, which every CI
+  job's interpreter comes from;
 - the backend image's uv is the release `.github/actions/backend-toolchain/action.yml` installs.
 
 Dependabot's `docker` ecosystem moves a tag alone, so its pull request for a new Node, Python series
@@ -104,33 +104,33 @@ observes it.
 its container's name (`docker-compose.yml :: x-logging`). The journal's age limit is a host setting
 ([`runbooks.md`](runbooks.md) §7).
 
-**Every service drops every capability and runs under `no-new-privileges:true`, and nginx alone
-adds any back**: three, each one its master, starting as root, fails to start without. `CHOWN` hands
-the workers their temp directories, and `SETUID` and `SETGID` make the workers their own user.
+**Every service drops every capability and runs under `no-new-privileges:true`, and nginx alone adds
+any back**: three, each one its master, starting as root, fails to start without. `CHOWN` hands the
+workers their temp directories, and `SETUID` and `SETGID` make the workers their own user.
 `NET_BIND_SERVICE` is not among them: a container's `net.ipv4.ip_unprivileged_port_start` is 0,
 which lets every user bind below 1024 (read 2026-09-27, on engine 29.8.0). With `NET_RAW` in no
 container, none can read the traffic crossing `frankfurtleague-app` (§4).
 
 **The frontend container also runs the background jobs, from one scheduler.**
 `fl_frontend/src/instrumentationNode.ts :: registerOnNode` arms `:: armScheduler` under a production
-build, which runs one pass a minute after start and then hourly, in the process that serves the site.
-A pass runs each job in turn:
+build, which runs one pass a minute after start and then hourly, in the process that serves the
+site. A pass runs each job in turn:
 
 - the retention sweep (`fl_frontend/src/features/bewerbungen/sweep.ts :: runBewerbungSweep`);
 - the account sweep (`fl_frontend/src/features/roles/sweep.ts :: runAccountSweep`);
 - the pupils' deletion (`fl_frontend/src/features/saisons/sweep.ts :: runErasureSweep`);
-- the fixture confirmations (`fl_frontend/src/features/spielbestaetigungen/sweep.ts ::
-runSpielSweep`);
+- the fixture confirmations
+  (`fl_frontend/src/features/spielbestaetigungen/sweep.ts :: runSpielSweep`);
 - the handover pass (`fl_frontend/src/features/grants/sweep.ts :: runHandoverPass`).
 
-Then the Postausgang's drain (`fl_frontend/src/core/mail.ts :: drainOutbox`) sends what they owed;
-a write that owes a mail drains at once besides. **No switch holds one job back**: every job runs
+Then the Postausgang's drain (`fl_frontend/src/core/mail.ts :: drainOutbox`) sends what they owed; a
+write that owes a mail drains at once besides. **No switch holds one job back**: every job runs
 wherever a production build runs, the local stack included, and `next dev` arms nothing.
-**`RESTORE_HOLD=on` in `fl_frontend/.env` holds them all**, while the data is not yet what the
-jobs may act on: after a migration until its read-back, and during a restore
-([`runbooks.md`](runbooks.md) §2, §13). Read once at the boot,
-it arms no pass and makes a write's drain send nothing
-(`fl_frontend/src/core/afterResponse.ts :: drainSoon`), the mail waiting in the Postausgang.
+**`RESTORE_HOLD=on` in `fl_frontend/.env` holds them all**, while the data is not yet what the jobs
+may act on: after a migration until its read-back, and during a restore
+([`runbooks.md`](runbooks.md) §2, §13). Read once at the boot, it arms no pass and makes a write's
+drain send nothing (`fl_frontend/src/core/afterResponse.ts :: drainSoon`), the mail waiting in the
+Postausgang.
 
 Production declares no replicas, so one process arms one timer, and an hour finding the previous
 pass still running is skipped with one line. Every job selects on dates, lapses or season statuses
@@ -165,9 +165,8 @@ flight.
 **Every credential the stack holds is a Compose file secret, and none is an environment variable**:
 `docker inspect` prints a container's environment, and never the contents of a mount. Each file has
 one name on the host, at `/run/secrets/` and in development, so the two database logins are two
-files. Who holds which is `scripts/checks/check_compose_model.py :: SECRET_HOLDERS`.
-**`./secrets/` is `.gitignore`d**, which keeps the credentials uncommittable from a checkout that
-has to hold them.
+files. Who holds which is `scripts/checks/check_compose_model.py :: SECRET_HOLDERS`. **`./secrets/`
+is `.gitignore`d**, which keeps the credentials uncommittable from a checkout that has to hold them.
 
 **Compose mounts a file secret as a bind mount and ignores its `uid`, `gid` and `mode`**, so the
 host file's own owner and mode are what the container sees (Docker's Compose file reference,
@@ -186,9 +185,9 @@ different users sharing one file, so neither service's copy can drift from the o
 readable by the wrong user leaves that service refusing to boot, and the connector restarting in a
 loop.
 
-**A key is printable ASCII without the space**: `secrets.compare_digest` raises on anything else,
-so a key outside the class would boot and then answer every internal request 500. Its file is its
-only reader, so `"`, `#`, `$`, `'`, `\` and the backtick are part of the class. A key from
+**A key is printable ASCII without the space**: `secrets.compare_digest` raises on anything else, so
+a key outside the class would boot and then answer every internal request 500. Its file is its only
+reader, so `"`, `#`, `$`, `'`, `\` and the backtick are part of the class. A key from
 `openssl rand -hex 32`, as [`runbooks.md`](runbooks.md) §16 generates one, is one every build takes.
 
 **The three keys differ from one another**: two tiers holding one key are one tier, every holder of
@@ -228,9 +227,9 @@ prefix; order in the file decides nothing.
 - `authapi`, 30 a minute, every method: the sign-in library's routes, its landing and the readiness
   probe, each reading a database. The code check spends it too, so a GET there meets a meter.
 - `linkpage`, 30 a minute, every method: every page a mailed or shared link opens.
-- `action`, 60 a minute: every server action, which Next runs for a POST carrying a
-  `Next-Action` header or either form content type, at any path. Every other request's key is empty,
-  so it meters no page load, asset or JSON post.
+- `action`, 60 a minute: every server action, which Next runs for a POST carrying a `Next-Action`
+  header or either form content type, at any path. Every other request's key is empty, so it meters
+  no page load, asset or JSON post.
 
 **A zone is named in every limited location, never once at server level.** nginx inherits
 `limit_req` only where a level declares none, so a server-level zone would be dropped by each
@@ -242,10 +241,10 @@ network map alone; keyed otherwise they would read as limited and be unlimited.
 `status` means the same thing whichever refused.
 
 **`$remote_addr` is the visitor rather than the connector**: nginx takes `CF-Connecting-IP` from the
-one address it trusts, the connector's, and from nothing else (`nginx/shared/http.conf ::
-set_real_ip_from`). Cloudflare's published ranges could never serve here, being every customer's
-egress rather than this account's. Where the header is absent or does not parse, the connector's own
-address stands, and every visitor shares one key.
+one address it trusts, the connector's, and from nothing else
+(`nginx/shared/http.conf :: set_real_ip_from`). Cloudflare's published ranges could never serve
+here, being every customer's egress rather than this account's. Where the header is absent or does
+not parse, the connector's own address stands, and every visitor shares one key.
 
 **The key is a network rather than an address**: the whole address on IPv4 and the /64 on IPv6
 (`nginx/shared/http.conf :: map $remote_addr $client_net`), since a /64 is the smallest block anyone
@@ -255,9 +254,9 @@ zones bound a household or a school, never such a holder.
 
 **`location /` takes a connection ceiling rather than a rate zone on every request**:
 `limit_conn conn 50` per network, which nginx counts from a request's header until its answer. A
-zone on every request would stall page loads, which fan out; behind a single connector, whose sockets
-no visitor controls, the ceiling is a backstop rather than a per-visitor control. `/_next/static/`
-takes none, the files every page load fetches at once
+zone on every request would stall page loads, which fan out; behind a single connector, whose
+sockets no visitor controls, the ceiling is a backstop rather than a per-visitor control.
+`/_next/static/` takes none, the files every page load fetches at once
 (`scripts/checks/check_public_routes.py :: UNCEILINGED`).
 
 **No location raises the action burst.** Next runs a server action by its header at any page's path,
@@ -267,23 +266,23 @@ stays bounded by its Turnstile check and the confirmation's by its single-use to
 
 **Every page a mailed or shared link opens is metered on every request and every method**, on
 `linkpage`: each request renders a page reading the database, or is the proxy's redirect into one
-(`fl_frontend/src/core/mailedLink.ts`). No page links to one, so a visit is one request or two, never
-a navigation's fan-out. **`/confirm/` is a prefix because every page under it is a link page**, so a
-page added there is metered the day it exists; a link page anywhere else needs an exact match, as
-`/registrierung` and `/erasure` have. **The burst of 440 is sized for the largest squad a season may
-set**, 50 (`fl_backend/app/shared/schemas/bounds.py :: KADER_SIZE_MAX`), behind one school's address
-in one break: each pupil opens the team's invite and their own link and sends each page's form, a
-retry each, 10N requests passing within two minutes at the zone's rate. That squad's 4N sends on the
-action key pass at `location /`'s burst in about three minutes, a send past it refused and sent
-again. A season's bound moving past 50 moves this burst by hand.
+(`fl_frontend/src/core/mailedLink.ts`). No page links to one, so a visit is one request or two,
+never a navigation's fan-out. **`/confirm/` is a prefix because every page under it is a link
+page**, so a page added there is metered the day it exists; a link page anywhere else needs an exact
+match, as `/registrierung` and `/erasure` have. **The burst of 440 is sized for the largest squad a
+season may set**, 50 (`fl_backend/app/shared/schemas/bounds.py :: KADER_SIZE_MAX`), behind one
+school's address in one break: each pupil opens the team's invite and their own link and sends each
+page's form, a retry each, 10N requests passing within two minutes at the zone's rate. That squad's
+4N sends on the action key pass at `location /`'s burst in about three minutes, a send past it
+refused and sent again. A season's bound moving past 50 moves this burst by hand.
 
 **A link page's location writes no error line at all** (`error_log /dev/null`). nginx writes every
 error line with the request line whole, the query and the referrer with it, and the open-source
 build has no switch over what a line carries, so a failing frontend or a body past the cap would
-write a live token. Its access line still carries the path, the status, both durations and the
-trace id. **A refusal writes no error line anywhere**, `limit_req_log_level` and
-`limit_conn_log_level` sitting below the error log's own level. **Every other error line repeats
-its request line**, an upstream failure's among them.
+write a live token. Its access line still carries the path, the status, both durations and the trace
+id. **A refusal writes no error line anywhere**, `limit_req_log_level` and `limit_conn_log_level`
+sitting below the error log's own level. **Every other error line repeats its request line**, an
+upstream failure's among them.
 
 **A link page withholds the referrer**: `Referrer-Policy` is `no-referrer` there and
 `strict-origin-when-cross-origin` elsewhere (`nginx/shared/http.conf :: map $uri $referrer_policy`).
@@ -314,14 +313,14 @@ server action's body (`serverActions.bodySizeLimit`, left at its default in
 `fl_frontend/next.config.ts`). A server action is posted at any path, so the bound holds everywhere.
 A route handler bounding its body tighter takes its own cap at its location, its reason at the line.
 
-**Every `429` the edge answers itself is one ASCII sentence under exactly `Content-Type: text/plain`,
-but a page load's.** The server block's `error_page 429` sends a refusal by what the request asks
-for (`nginx/shared/http.conf :: $edge_refusal_target`): a request naming `text/html` gets a page
-with its way back to the site, written inline in `nginx/shared/site.conf`, and anything else the
-sentence. Next hands a server action's caller a failed answer's body as the error only under
-exactly that type, and the frontend reads the sentence as a press that wrote nothing
-(`fl_frontend/src/kit/edgeRefusal.ts`); a `charset` would make every refused press read as an
-unclear save. The page withholds the referrer, its URL possibly carrying a link's token, and its
+**Every `429` the edge answers itself is one ASCII sentence under exactly
+`Content-Type: text/plain`, but a page load's.** The server block's `error_page 429` sends a refusal
+by what the request asks for (`nginx/shared/http.conf :: $edge_refusal_target`): a request naming
+`text/html` gets a page with its way back to the site, written inline in `nginx/shared/site.conf`,
+and anything else the sentence. Next hands a server action's caller a failed answer's body as the
+error only under exactly that type, and the frontend reads the sentence as a press that wrote
+nothing (`fl_frontend/src/kit/edgeRefusal.ts`); a `charset` would make every refused press read as
+an unclear save. The page withholds the referrer, its URL possibly carrying a link's token, and its
 colours are the site's, copied by hand from `fl_frontend/src/app/tokens.css`, which
 `scripts/checks/edge_test.sh` holds them to name by name.
 
@@ -332,9 +331,9 @@ address with no reload; until the cached answer lapses, a request sent to the ol
 `502`.
 
 **Every `/api/...` path but the two probes reaches Next**, some through a location naming it and the
-rest through `location /`, which answers Next's 404 where nothing routes the path. The two probes are
-exact matches so that nothing joins them. nginx merges slashes and resolves dot segments before it
-picks a location, then forwards the request line as written, so `/api//system/is_live` is
+rest through `location /`, which answers Next's 404 where nothing routes the path. The two probes
+are exact matches so that nothing joins them. nginx merges slashes and resolves dot segments before
+it picks a location, then forwards the request line as written, so `/api//system/is_live` is
 answered by FastAPI's own not-found body: no further route opens, but the body names the framework.
 
 **A location declaring any `proxy_set_header` replaces the whole inherited set rather than extending
@@ -348,9 +347,9 @@ the visitor's HTTPS from Cloudflare, so no certificate is held here (§1.8). An 
 answered `421`. `www.frankfurtleague.de` redirects to the apex with the security headers, since
 HSTS's `includeSubDomains` makes a returning browser ask for it over HTTPS, which Cloudflare answers
 and the connector hands here. The apex tells Next its visitor's protocol is `https`, this hop's own
-being plain HTTP. Both named blocks keep an idle connection 100 seconds, past the 90 the
-connector keeps by Cloudflare's default, so nginx never closes one in the instant the connector
-writes a request onto it.
+being plain HTTP. Both named blocks keep an idle connection 100 seconds, past the 90 the connector
+keeps by Cloudflare's default, so nginx never closes one in the instant the connector writes a
+request onto it.
 
 **A rule at Cloudflare may challenge a top-level navigation and never a server action's POST.** A
 server action is a `fetch()` POST carrying a `Next-Action` header, and a `fetch()` renders no
@@ -374,8 +373,8 @@ Every response carries four, each sent with `always`, from `nginx/shared/securit
 in each location adding a header of its own, because `add_header` in a location replaces the
 inherited set, and `nginx/prod/prod.conf`'s www redirect includes it too. The file also drops an
 upstream's copy of each header, so a response carries the edge's alone and never a second enforcing
-policy. `scripts/checks/edge_test.sh` asks every location and the www redirect for each header,
-and compares its value with the file's.
+policy. `scripts/checks/edge_test.sh` asks every location and the www redirect for each header, and
+compares its value with the file's.
 
 **`frame-ancestors 'none'` is the one framing rule.** CSP3 has it override `X-Frame-Options`, which
 a browser enforcing the policy ignores, so the edge sends no `X-Frame-Options`.
@@ -387,34 +386,33 @@ or a hash on the inline hydration scripts of a prerendered shell**, and every pa
 `integrity` on script files alone: the installed release's copy,
 `fl_frontend/node_modules/next/dist/docs/01-app/02-guides/content-security-policy.md`, and a Next
 maintainer's open correction to it, <https://github.com/vercel/next.js/pull/96281>, both read
-2026-09-25. A nonce for the stream beside build-time hashes for the shell and `'self'` for its chunks
-would cover every script, and is refused: three mechanisms is a patchwork rather than a rule. The
-compensating control is the `react/no-danger` rule in `fl_frontend/eslint.config.mjs`, which keeps
-every HTML sink out of the application. **Revisit when the application renders user-supplied markup,
-or when Next ships inline-script hashing that covers prerendered shells**, and at the first,
+2026-09-25. A nonce for the stream beside build-time hashes for the shell and `'self'` for its
+chunks would cover every script, and is refused: three mechanisms is a patchwork rather than a rule.
+The compensating control is the `react/no-danger` rule in `fl_frontend/eslint.config.mjs`, which
+keeps every HTML sink out of the application. **Revisit when the application renders user-supplied
+markup, or when Next ships inline-script hashing that covers prerendered shells**, and at the first,
 reconsider the policy, never the lint rule.
 
-**`style-src` keeps `'unsafe-inline'` too, because two libraries every page loads inject a
-`<style>` element at runtime**: React Aria's `usePress` adds its touch rule, which spares a tap the
-browser's double-tap-zoom delay, and `next-themes` adds the rule that suspends transitions while it
-applies the theme. Several components also set a runtime-computed inline `style` attribute, for
-which CSP offers no nonce or hash. A strict `style-src 'self'` drops both elements with nothing
-visibly broken and logs a violation on every page, and Next's own `_global-error` fallback would
-render unstyled. A nonce is refused (2026-10-28): both libraries take it from a per-request value,
-which a prerendered shell cannot carry. So is a hash of their style text, which changes with each
-library's release.
+**`style-src` keeps `'unsafe-inline'` too, because two libraries every page loads inject a `<style>`
+element at runtime**: React Aria's `usePress` adds its touch rule, which spares a tap the browser's
+double-tap-zoom delay, and `next-themes` adds the rule that suspends transitions while it applies
+the theme. Several components also set a runtime-computed inline `style` attribute, for which CSP
+offers no nonce or hash. A strict `style-src 'self'` drops both elements with nothing visibly broken
+and logs a violation on every page, and Next's own `_global-error` fallback would render unstyled. A
+nonce is refused (2026-10-28): both libraries take it from a per-request value, which a prerendered
+shell cannot carry. So is a hash of their style text, which changes with each library's release.
 
 **Cloudflare's `https://challenges.cloudflare.com` stands in `script-src` and in `frame-src`, and in
 no other directive**: the bot check on the sign-in and the two public forms loads its script from
 there and renders its widget in a frame of that origin. `scripts/checks/edge_test.sh` fails a
 response whose policy loses it from either. Cloudflare's own list for the check adds
 `connect-src 'self'` for pre-clearance alone, which the widget does not use
-(<https://developers.cloudflare.com/turnstile/reference/content-security-policy/>, read
-2026-10-04).
+(<https://developers.cloudflare.com/turnstile/reference/content-security-policy/>, read 2026-10-04).
 
-**The rest of the policy is load-bearing and does not depend on `script-src`:** `frame-ancestors
-'none'` blocks framing, `object-src 'none'` blocks plugin content, `base-uri 'self'` blocks base-tag
-hijacking, and `form-action 'self'` blocks exfiltration through a form post.
+**The rest of the policy is load-bearing and does not depend on `script-src`:**
+`frame-ancestors 'none'` blocks framing, `object-src 'none'` blocks plugin content,
+`base-uri 'self'` blocks base-tag hijacking, and `form-action 'self'` blocks exfiltration through a
+form post.
 
 ### 1.5 The environments
 
@@ -436,9 +434,9 @@ Linux.
 **Each application service reads its own package's `.env` and no other**, and every credential is a
 file under `secrets/` (§1.2). **On the server, the `.env` beside the compose file holds the deploy's
 pin alone** ([`runbooks.md`](runbooks.md) §1). Compose reads it for every command, and refuses to
-parse `docker-compose.yml` without a `TAG`. **The frontend's `dev` script sets `SECRETS_DIR` itself**,
-to the checkout's `secrets/`, because `fl_frontend/.env` also reaches the frontend container, where
-a path written there would turn the frontend away from the secret's mount.
+parse `docker-compose.yml` without a `TAG`. **The frontend's `dev` script sets `SECRETS_DIR`
+itself**, to the checkout's `secrets/`, because `fl_frontend/.env` also reaches the frontend
+container, where a path written there would turn the frontend away from the secret's mount.
 
 **The local stack is `docker-compose.local.yml` merged over `docker-compose.yml`**, so only what the
 override writes differs, and each difference is argued at its key. It builds both images from the
@@ -460,19 +458,18 @@ deletes the volume, and the database with it.
 **A seed is in place before anything renders a page**, so no empty read is cached. The made-up seed
 runs inside the backend container, copied there with the tests' builders. **It writes only to the
 database service the local and the end-to-end stacks each start and production lacks**:
-`scripts/ops/made_up_seed.sh` refuses any stack not running that service, and the
-seed refuses any server its settings name but that one, before it connects. **It writes a database
-nothing else writes**: the frontend is the one other writer, the backend running no pass of its
-own, so the script refuses a stack whose frontend is not stopped, and `local.sh` stops the frontend
-before each seed it loads. It reads every document through its record model before it empties
-anything, and loads once the backend's boot has built every index; only then do the frontend and
-nginx start.
+`scripts/ops/made_up_seed.sh` refuses any stack not running that service, and the seed refuses any
+server its settings name but that one, before it connects. **It writes a database nothing else
+writes**: the frontend is the one other writer, the backend running no pass of its own, so the
+script refuses a stack whose frontend is not stopped, and `local.sh` stops the frontend before each
+seed it loads. It reads every document through its record model before it empties anything, and
+loads once the backend's boot has built every index; only then do the frontend and nginx start.
 
 **The local stack starts with an empty `auth`, and a sign-in builds it.** The grants deciding which
-administrator may sign in arrive with the made-up seed, so a `--fresh` stack admits nobody until
-one is written, and anybody else is offered a sign-in only where the local backend holds records
-for their address (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`). **A sign-in alone does
-not reach `/admin` there**: the code stamps its session `code` where the admin guard wants `passkey`
+administrator may sign in arrive with the made-up seed, so a `--fresh` stack admits nobody until one
+is written, and anybody else is offered a sign-in only where the local backend holds records for
+their address (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`). **A sign-in alone does not
+reach `/admin` there**: the code stamps its session `code` where the admin guard wants `passkey`
 (`fl_frontend/src/core/auth/guards.ts :: isAdminSession`), so `/signin/passkey` offers an enrolment
 first, bound to this machine's own authenticator and to `localhost`, the relying party the local
 `AUTH_URL` gives. Every machine, and every `--fresh`, enrols again.
@@ -482,8 +479,8 @@ merged over the local stack's two files). **Its steps are `scripts/ops/e2e_stack
 journeys raise the stack with too, since `local.sh` refuses Linux: `local.sh` has it build the
 images, and CI loads the ones the `images` job built. The stack has:
 
-- a Compose project of its own, `frankfurtleague-e2e`, so its volume and its sign-in store are
-  never the local stack's;
+- a Compose project of its own, `frankfurtleague-e2e`, so its volume and its sign-in store are never
+  the local stack's;
 - its settings written in that file rather than read from either package's `.env`;
 - its keys generated under `.tmp-e2e/` on every start rather than read from `secrets/`, readable by
   the containers' own users on a Linux runner;
@@ -493,9 +490,9 @@ images, and CI loads the ones the `images` job built. The stack has:
   `scripts/checks/edge_test.sh` proves the limits instead.
 
 Both stacks publish ports 3000 and 27017, so one runs at a time. `--e2e --down` deletes the volume
-and `.tmp-e2e/`. The journeys run against it with `pnpm run e2e` in the `fl_frontend` of the checkout
-that started it, which reads that checkout's `.tmp-e2e/`, or from another checkout with `E2E_DIR`
-naming that folder (`fl_frontend/e2e/support/journey.ts :: E2E_DIR`).
+and `.tmp-e2e/`. The journeys run against it with `pnpm run e2e` in the `fl_frontend` of the
+checkout that started it, which reads that checkout's `.tmp-e2e/`, or from another checkout with
+`E2E_DIR` naming that folder (`fl_frontend/e2e/support/journey.ts :: E2E_DIR`).
 
 **`--e2e --landing=<state>` re-seeds the running end-to-end stack with the landing in that state**,
 one of `fl_backend/tests/made_up_seed.py :: LANDING_STATES`, the seed refusing any other: the seed
@@ -541,10 +538,10 @@ running `./scripts/gate/verify.sh` with that scope's flag. Beside them:
   `first-pass`, and `phone`.
 - **`verify`**, the required check, fails on a job that failed, was cancelled or was skipped, and on
   a job missing from its `needs:`.
-- **`publish`**, on a push to `main` that `verify` passed, pushes both images the `images` job
-  built and checked under their `sha-` tags, building nothing again. A change's read-back runs
-  against production after the deploy that puts it live ([`runbooks.md`](runbooks.md) §2), which
-  keeps the build before it to go back to.
+- **`publish`**, on a push to `main` that `verify` passed, pushes both images the `images` job built
+  and checked under their `sha-` tags, building nothing again. A change's read-back runs against
+  production after the deploy that puts it live ([`runbooks.md`](runbooks.md) §2), which keeps the
+  build before it to go back to.
 
 **Every CI job that needs the backend virtualenv creates it through
 `.github/actions/backend-toolchain/action.yml`**, on the uv the backend image copies in (§1.1).
@@ -582,13 +579,12 @@ is the run a pull request is called ready to merge on.
 `scripts/`**: a root configuration would become the nearest one for `fl_backend/` too, and a copy
 inside one of the five directories would reach that directory alone. `scripts/ruff.toml` `extend`s
 the backend's configuration and empties its banned list alone, whose bans guard the backend;
-`scripts/pyrightconfig.json` pins the Python version
-rather than letting pyright infer one per machine. **A checker resolves `scripts/lib/` for itself**,
-each entry point inserting it at its own top, and `pyrightconfig.json`'s `extraPaths` is the second
-listing of that fact.
+`scripts/pyrightconfig.json` pins the Python version rather than letting pyright infer one per
+machine. **A checker resolves `scripts/lib/` for itself**, each entry point inserting it at its own
+top, and `pyrightconfig.json`'s `extraPaths` is the second listing of that fact.
 
-**The ops scope exists because the compose files and the nginx configuration have no compiler.**
-A parse sees no response, so `scripts/checks/edge_test.sh` starts the checkout's own edges as
+**The ops scope exists because the compose files and the nginx configuration have no compiler.** A
+parse sees no response, so `scripts/checks/edge_test.sh` starts the checkout's own edges as
 `docker-compose.yml` starts nginx, fails a configuration either refuses to start on with nginx's own
 log, and grades what each wrote, sent and answered:
 
@@ -611,9 +607,9 @@ be left out of the standalone output. **Both test tiers run**: the `db`-marked t
 ### 1.7 Script conventions
 
 Every script sources `scripts/lib/_lib.sh`, which applies strict mode, installs the error and
-interrupt traps, and carries the guards and the output verbs below. A script resolves the
-repository root itself, so it behaves the same from any working directory, and parses its arguments
-before any environmental check, so a typo fails at once rather than after a Docker probe.
+interrupt traps, and carries the guards and the output verbs below. A script resolves the repository
+root itself, so it behaves the same from any working directory, and parses its arguments before any
+environmental check, so a typo fails at once rather than after a Docker probe.
 
 **A path answers what a file is before the file is opened**: the directory names the category, the
 prefix names the class, the stem names the subject, and the extension names the harness.
@@ -628,11 +624,11 @@ prefix names the class, the stem names the subject, and the extension names the 
 
 Two names the scheme does not classify: `scripts/lib/checker_kernel.py`, which every checker
 imports, and `scripts/lib/nginx_conf.py`, which the compose and route checkers import and the edge
-test runs, so neither the `_` of a sourced script nor the bare name of one run directly says what
-it is.
+test runs, so neither the `_` of a sourced script nor the bare name of one run directly says what it
+is.
 
-**The output standard.** One vocabulary, one verb per meaning, and no script writes formatting of its
-own:
+**The output standard.** One vocabulary, one verb per meaning, and no script writes formatting of
+its own:
 
 | Verb          | Means                                                                                                 |
 | ------------- | ----------------------------------------------------------------------------------------------------- |
@@ -670,28 +666,30 @@ change needs work" from "the check never ran" acts on the wrong one.
 | `interrupted` | 130       | Ctrl-C or a hangup: the sections that had opened are all there is, none a verdict      |
 
 **The gate reads a tool's status as most tools write it**: 0 a pass, 1 what it found, 130 an
-interrupt, and any other status a tool that never reached a verdict, a crash (`scripts/gate/verify.sh
-:: verdict`). Where a tool writes them otherwise, a function of a few lines beside its step turns its
-status into that reading: lychee's 2 and zizmor's 11 to 14 are findings and their 1 a crash, git
-grep's match is the finding, `git diff --check` finds with 2, and tsc's 1 and 2 are a finding only
-beside an error at a file's line and column. Two readings sit in `verdict` itself: pnpm answers 1 for
-a registry it could not reach as for a finding, so its `ERR_PNPM_META_FETCH_FAIL`, `NO_OFFLINE_META`
-and `FETCH_<status>` codes are a refusal, and its `ERR_PNPM_NO_SCRIPT`, where no tool ran, a crash.
+interrupt, and any other status a tool that never reached a verdict, a crash
+(`scripts/gate/verify.sh :: verdict`). Where a tool writes them otherwise, a function of a few lines
+beside its step turns its status into that reading: lychee's 2 and zizmor's 11 to 14 are findings
+and their 1 a crash, git grep's match is the finding, `git diff --check` finds with 2, and tsc's 1
+and 2 are a finding only beside an error at a file's line and column. Two readings sit in `verdict`
+itself: pnpm answers 1 for a registry it could not reach as for a finding, so its
+`ERR_PNPM_META_FETCH_FAIL`, `NO_OFFLINE_META` and `FETCH_<status>` codes are a refusal, and its
+`ERR_PNPM_NO_SCRIPT`, where no tool ran, a crash.
 
 **A refusal is the guards' and the checkers' to raise.** A guard, a function of `_lib.sh`'s Guards
 section asking one question of the machine (Docker answering, a plugin installed, pnpm starting, the
 virtualenv synced), refuses on any failure. A checker of ours answers 2 for an input it could not
-judge, on `scripts/lib/checker_kernel.py`'s scale, which fixes 0, 1, 2 and 3 in one place and answers
-an exception escaping a checker 3; the gate reads that 2 as a refusal only where a step names the
-program on this contract (`check --checker`), and a script calling another reads it through
-`run_contract`. A checker that fails to import answers Python's own 1, a finding with its traceback
-on screen, and the run is red either way. The made-up seed answers on the same scale, and so does
-`docker compose exec`, which runs it and answers its own failure 1.
+judge, on `scripts/lib/checker_kernel.py`'s scale, which fixes 0, 1, 2 and 3 in one place and
+answers an exception escaping a checker 3; the gate reads that 2 as a refusal only where a step
+names the program on this contract (`check --checker`), and a script calling another reads it
+through `run_contract`. A checker that fails to import answers Python's own 1, a finding with its
+traceback on screen, and the run is red either way. The made-up seed answers on the same scale, and
+so does `docker compose exec`, which runs it and answers its own failure 1.
 
 **A command run bare is plain bash under strict mode**: any status but 0 is a crash through the
 error trap, which names the line. Bash suspends `set -e` and that trap for every command a function
 or a list runs as a condition, on either side but the last of `&&` and `||`, or after `!`, so a
-function run there spells its every failure out, as `cmd || return 3` or `cmd || crash "<sentence>"`.
+function run there spells its every failure out, as `cmd || return 3` or
+`cmd || crash "<sentence>"`.
 
 **A run of several scopes ends on the class its scopes ended on**, each scope's own exit code
 deciding its row and its count of findings filling the row's column alone: an interrupt first, then
@@ -699,9 +697,9 @@ a finding, a refusal and a crash. One map, `_lib.sh :: RANK_OF_CLASS`, ranks a c
 and for that table alike.
 
 `deploy.sh` keeps the scale's meaning for a deploy: 1 a failed deploy, every failure once its start
-has begun going back to the build before but a pin left unrenamed after nginx's reload, which
-leaves the new build live, 2 a refusal and 3 or more a step before the start that crashed, each with
-the stack unchanged ([`runbooks.md`](runbooks.md) §1).
+has begun going back to the build before but a pin left unrenamed after nginx's reload, which leaves
+the new build live, 2 a refusal and 3 or more a step before the start that crashed, each with the
+stack unchanged ([`runbooks.md`](runbooks.md) §1).
 
 **Colour is decided centrally, through `FL_GATE_COLOR` ahead of everything else**: the gate's own
 variable, how `verify.sh` hands each scope's run its answer without exporting one every tool would
@@ -748,10 +746,10 @@ deliberately off.
   `/_next/static/` need no rule: Next names each by its content and sends it
   `public, max-age=31536000, immutable`. The check is the zone's list of cache rules, which holds
   none matching a page's path.
-- **A Turnstile widget serves the bot check**, in Managed mode, on the hostname
-  `frankfurtleague.de` alone, `www` redirecting before any form renders. Its site key is the
-  server's `TURNSTILE_SITE_KEY` and its secret `./secrets/turnstile_secret_key` (§1.2); that the
-  widget shows only when Cloudflare asks for a click is the page's own `appearance`
+- **A Turnstile widget serves the bot check**, in Managed mode, on the hostname `frankfurtleague.de`
+  alone, `www` redirecting before any form renders. Its site key is the server's
+  `TURNSTILE_SITE_KEY` and its secret `./secrets/turnstile_secret_key` (§1.2); that the widget shows
+  only when Cloudflare asks for a click is the page's own `appearance`
   (`fl_frontend/src/kit/useBotCheck.tsx`), and the mode the dashboard's.
 - **The mail provider's sending domain carries a delivery webhook**, whose endpoint the provider's
   dashboard holds, **and it points at production alone**: no other deployment holds the webhook's
@@ -771,14 +769,15 @@ be true there, a check the owner makes in its list of monitors:
     backend does. Every page answers 200 even then, its error page streaming after the headers. It
     names the apex host and no trailing slash, which would redirect and read green, and asks with
     `GET`, a `HEAD` being answered 405 (`fl_backend/app/api/system/router.py :: check_is_live`).
-  - **The readiness probe**, `GET https://frankfurtleague.de/api/system/is_ready`, answers 503
-    where the backend reaches no database. It asks no oftener than every two seconds, its location's
-    zone allowing no more (§1.3).
-  - **The heartbeat** fails where an hourly pass fails or none runs
-    ([`runbooks.md`](runbooks.md) §9).
+  - **The readiness probe**, `GET https://frankfurtleague.de/api/system/is_ready`, answers 503 where
+    the backend reaches no database. It asks no oftener than every two seconds, its location's zone
+    allowing no more (§1.3).
+  - **The heartbeat** fails where an hourly pass fails or none runs ([`runbooks.md`](runbooks.md)
+    §9).
 - **Every monitor alerts the owner's personal address, and nobody else.**
 - **No alert reads a log line**, and no hosted service receives one: the logs stay in the host's
-  journal ([`../logging/overview.md`](../logging/overview.md#where-the-logs-are-and-how-long-they-stay)).
+  journal
+  ([`../logging/overview.md`](../logging/overview.md#where-the-logs-are-and-how-long-they-stay)).
 
 ## 2. Invariants
 
@@ -866,8 +865,8 @@ Why a remedy is what it is, where a phrase cannot say:
 
 Each gap is open, waiting on work, or accepted, with its reason.
 
-- **A deploy's verdict reads no page.** Accepted: health is each container's healthcheck and
-  nginx's reload, so a site whose every page errors can pass ([`runbooks.md`](runbooks.md) §1).
+- **A deploy's verdict reads no page.** Accepted: health is each container's healthcheck and nginx's
+  reload, so a site whose every page errors can pass ([`runbooks.md`](runbooks.md) §1).
 - **Going back moves the images alone.** Accepted: the compose file and `nginx/` stay as pulled, so
   the newer configuration fronts the older build wherever nginx loads it: a start that recreated
   nginx, a reload nginx confirmed neither way, and any later restart.
@@ -900,5 +899,5 @@ Each gap is open, waiting on work, or accepted, with its reason.
 - **A runtime's security release waits for Dependabot's schedule.** Accepted: Dependabot has no
   base-image security updates, so a Node or Python fix waits for the weekly run and cooldown, eight
   days at worst.
-- **An unread `*Schema` passes both knip runs.** Open: the production run counts its inferred
-  type's `typeof` as its module's use, and both runs ignore that type, so reading alone finds it.
+- **An unread `*Schema` passes both knip runs.** Open: the production run counts its inferred type's
+  `typeof` as its module's use, and both runs ignore that type, so reading alone finds it.

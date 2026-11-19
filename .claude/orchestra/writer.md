@@ -61,8 +61,8 @@ question's options as pictures, holds you to these rules.
 - **A look, a layout or an interaction.** Read first the design systems your brief names, among
   Material 3, Apple's Human Interface Guidelines, GitHub Primer, Atlassian, Shopify Polaris, IBM
   Carbon and GOV.UK as fit the component, and put a short quote and a one-line finding from each in
-  your report. Build what they agree on, the same way on every surface you own: the site's own
-  pages say how to apply a pattern uniformly, not which pattern is right. Decide each detail by that
+  your report. Build what they agree on, the same way on every surface you own: the site's own pages
+  say how to apply a pattern uniformly, not which pattern is right. Decide each detail by that
   standard and the owner's stated taste, and cite the source. A stated preference binds as stated,
   so keep what the owner liked, and never read a complaint about one placement as a wish to remove
   the thing placed. An old ruling or an agent's recommendation is evidence, never the answer. Send
@@ -78,8 +78,8 @@ question's options as pictures, holds you to these rules.
 - **A review board.** Write it in English, its questions, option names, explanations and controls
   included, and show the site's German copy as it stands, since the owner works in English and
   judges the copy as a visitor reads it. Draw it in the dark theme alone, adding a light frame only
-  where the question is about the light theme and says so. It is reviewed on a phone, so it fits
-  375 px with no horizontal scroll, its controls work by touch at 44 px or more with nothing behind
+  where the question is about the light theme and says so. It is reviewed on a phone, so it fits 375
+  px with no horizontal scroll, its controls work by touch at 44 px or more with nothing behind
   hover, and it is reached by a URL, which a localhost page is not. Draw no outline or box over a
   picture, since it hides the edge being judged. Every option is one the owner could pick with
   pride: before you build the board, look at each question's recommended option in its phone frame
@@ -112,8 +112,8 @@ into your scratch folder and commit it with `git commit -F <file>`: the shell to
   that exact command.
 - Never run `./scripts/ops/local.sh`: its ports 3000 and 27017 are fixed, and the machine holds one
   stack.
-- Never run `pnpm run format` or any formatter over a folder, which rewrites files other agents
-  own. Format your own files by name, as `.claude/CLAUDE.md` section 6 says.
+- Never run `pnpm run format` or any formatter over a folder, which rewrites files other agents own.
+  Format your own files by name, as `.claude/CLAUDE.md` section 6 says.
 - A programme's rulings are numbered in its records outside this public repository, so no ruling's
   number goes into a tracked file: code, comment, test name or document. A commit body cites one
   only where your brief gives its number.

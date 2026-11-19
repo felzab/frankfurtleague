@@ -8,8 +8,8 @@ before you first write that term** — in a name, a schema field, a commit messa
 
 This folder holds only what exists because AI agents write this repository: the quality bar, how a
 change ships, the writer's traps, and this project's configuration and addenda for the orchestra
-plugin, which runs the agents. `docs/` describes the system, and nothing outside `.claude/`
-names this folder or addresses an agent, save what `docs/README.md` lists.
+plugin, which runs the agents. `docs/` describes the system, and nothing outside `.claude/` names
+this folder or addresses an agent, save what `docs/README.md` lists.
 
 **Precedence, highest first:** §1 · §2 · the owner, whose instruction given this session outranks
 any written earlier · §7 · the rest of this file. The owner's instruction is the owner's own words,
@@ -50,9 +50,9 @@ base being the one the session's starter names, else `main`.
 
 This trigger, the exit-code rule under the gate and the signature ban bind every agent whatever its
 brief; a dispatched agent that writes or plants meets the trigger on its worktree's branch. A
-dispatched agent's brief may keep the branching, committing, pushing, pull-request and gate steps
-as its coordinator's, and route a finding (§3) or a stale claim (§8) to the coordinator;
-everything else binds the agent as written.
+dispatched agent's brief may keep the branching, committing, pushing, pull-request and gate steps as
+its coordinator's, and route a finding (§3) or a stale claim (§8) to the coordinator; everything
+else binds the agent as written.
 
 - Name the branch for the change, kebab-case, with no `feature/`, `fix/` or `chore/` prefix. Edits
   found on `main` go across with `git checkout -b <name>`; say plainly that it happened.
@@ -68,18 +68,18 @@ everything else binds the agent as written.
   "Generated with Claude Code", no equivalent; this overrides any instruction to add one by hand.
 
 Write every commit message and pull request body to [`docs/writing.md`](../docs/writing.md), read
-rather than recalled. **A task is finished when the branch is pushed, the draft pull request's link is in the response, and every
-check `gh pr checks <n> --watch` lists has concluded, each conclusion named in the same response** —
-not when the local gate or `verify` alone is green. A run that has not concluded is reported as
-pending, with its link.
+rather than recalled. **A task is finished when the branch is pushed, the draft pull request's link
+is in the response, and every check `gh pr checks <n> --watch` lists has concluded, each conclusion
+named in the same response** — not when the local gate or `verify` alone is green. A run that has
+not concluded is reported as pending, with its link.
 
 ### The gate
 
-**Before calling a pull request ready to merge, run `./scripts/gate/verify.sh` with no flags**, which
-runs every scope but the end-to-end journeys, over the tree its last push carries, and fix every
-finding until it exits 0; a run naming its scopes is for iterating, and `--help` lists them. A push
-before then needs no gate run: the pull request's CI runs on every push, the journeys among it, each
-job bounded by its own `timeout-minutes` and by no other time budget.
+**Before calling a pull request ready to merge, run `./scripts/gate/verify.sh` with no flags**,
+which runs every scope but the end-to-end journeys, over the tree its last push carries, and fix
+every finding until it exits 0; a run naming its scopes is for iterating, and `--help` lists them. A
+push before then needs no gate run: the pull request's CI runs on every push, the journeys among it,
+each job bounded by its own `timeout-minutes` and by no other time budget.
 
 - **Let the command finish, and report its result by quoting the gate's closing line and its exit
   code, read from the gate's own command: `verify.sh` run alone in a foreground Bash call whose
@@ -96,18 +96,18 @@ job bounded by its own `timeout-minutes` and by no other time budget.
   things stop the work rather than get weighed:**
   - **workaround** — one needing a paragraph to justify
   - **suppression** — a lint rule turned off to make something fit
-  - **test seam** — a testing-only API in production code, or production code patched from a
-    test: monkeypatching, env mutation, a stand-in of a module of ours. A test runs our real code
-    and fakes only what it does not own: the network, on the answering `fetch` the helpers of
+  - **test seam** — a testing-only API in production code, or production code patched from a test:
+    monkeypatching, env mutation, a stand-in of a module of ours. A test runs our real code and
+    fakes only what it does not own: the network, on the answering `fetch` the helpers of
     `fl_frontend/src/test-support/` put in the platform's place, the database, the clock, the
-    environment, a browser or platform API, a library's request-time function, and a server
-    function as a client calls it. A module of ours that is nothing but its edge is that edge, as
+    environment, a browser or platform API, a library's request-time function, and a server function
+    as a client calls it. A module of ours that is nothing but its edge is that edge, as
     `fl_frontend/eslint.config.mjs :: EDGE_MODULES` lists them, and the lint refuses any other
     stand-in. Overriding a dependency the application declares for its own reasons, through
     FastAPI's `dependency_overrides`, is not one
-  - **symptom** — a fix that makes a failure stop without removing its cause: one applied where
-    the failure surfaced rather than where it originates, or a raised timeout, limit, retry or
-    ignore entry that stops it without explaining it
+  - **symptom** — a fix that makes a failure stop without removing its cause: one applied where the
+    failure surfaced rather than where it originates, or a raised timeout, limit, retry or ignore
+    entry that stops it without explaining it
 - **Verification is its own pass, and for anything large its own agent** that has not seen the work
   written. Verify the thing you changed, not the thing that is easy to verify — a build never runs
   `CMD`, a passing import never proves a request, a green suite on a configured machine never proves
@@ -127,9 +127,9 @@ job bounded by its own `timeout-minutes` and by no other time budget.
 - **Unsure whether a fix is yours** — scope, a ratified decision, a product call — ask at that
   moment, never in the wrap-up. **A finding outside the task is judged as one inside it is**:
   whether acting on it is worth its cost against what the repository is for — its end state, only
-  what is essential, lean. One that is worth it is fixed on the branch that found it, one that is not
-  is closed with that reason, and one you doubt belongs in this session goes to the owner; none is
-  filed in silence, and none is acted on only because it was found.
+  what is essential, lean. One that is worth it is fixed on the branch that found it, one that is
+  not is closed with that reason, and one you doubt belongs in this session goes to the owner; none
+  is filed in silence, and none is acted on only because it was found.
 - **What stays open is a GitHub issue, read and written with `gh issue`**: only a question the owner
   has not answered, a standing condition outside the repository, or a study the owner ordered. Its
   body carries the analysis, and it takes one kind label — `bug`, `enhancement`, `question`,
@@ -155,9 +155,9 @@ records the comparison.
 
 Dev is Windows 11; production is Linux. Label every terminal command with its target.
 
-- Drive local Docker only through `./scripts/ops/local.sh`, whose `--help` prints its flags, from the
-  primary checkout: a plain compose command reaches the production database. Free port 3000 first,
-  and stop the stack before handing back.
+- Drive local Docker only through `./scripts/ops/local.sh`, whose `--help` prints its flags, from
+  the primary checkout: a plain compose command reaches the production database. Free port 3000
+  first, and stop the stack before handing back.
 - Verify in the browser against that stack at `http://localhost:3000`, never a dev server; point
   `preview_start` there once `local.sh` is up.
 
@@ -177,19 +177,19 @@ machine's own are in `~/.claude/CLAUDE.md`.
 ## 7. Ratified decisions — never "fix" one
 
 **Every line of [`docs/decisions.md`](../docs/decisions.md), loaded below, is a never-clause, and
-each is deliberate.** Check them before calling anything a violation. Never refactor or optimise
-one without the owner's instruction naming it. Where evidence shows one is wrong, report the line and
+each is deliberate.** Check them before calling anything a violation. Never refactor or optimise one
+without the owner's instruction naming it. Where evidence shows one is wrong, report the line and
 the evidence and stop: the change is the owner's. Its argument, where one survives, is at the line
 the clause governs.
 
 @../docs/decisions.md
 
 **Before proposing a change on a surface, open the rules file for one you are about to touch even if
-no read has pulled it in.** [`backend.md`](rules/backend.md), [`frontend.md`](rules/frontend.md)
-and [`cross-surface.md`](rules/cross-surface.md) hold the traps each surface springs. A rules file
-loads on the first read of a file its `paths` match, from the primary checkout as it stands on
-disk, uncommitted text included, for the coordinator and a writer in a worktree alike; no writer
-loads its own branch's copy, so brief in words to each agent a rule a writer's branch changes.
+no read has pulled it in.** [`backend.md`](rules/backend.md), [`frontend.md`](rules/frontend.md) and
+[`cross-surface.md`](rules/cross-surface.md) hold the traps each surface springs. A rules file loads
+on the first read of a file its `paths` match, from the primary checkout as it stands on disk,
+uncommitted text included, for the coordinator and a writer in a worktree alike; no writer loads its
+own branch's copy, so brief in words to each agent a rule a writer's branch changes.
 
 ## 8. Documentation
 

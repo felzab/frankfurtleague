@@ -76,8 +76,6 @@ def _read_path(document: Mapping[str, Any], path: str) -> Any:
 
 
 def compose_ansetzung(spiel: Mapping[str, Any]) -> dict[str, Any]:
-    """The stored `ansetzung` of a row minted for this fixture: its five values, from one read, a missing one null."""
-
     return {key: _read_path(spiel, path) for key, path in ANSETZUNG_QUELLEN.items()}
 
 
@@ -93,8 +91,9 @@ def ansetzung_values_of(ansetzung: Mapping[str, Any]) -> tuple[Any, ...]:
 def build_answerable_filter() -> dict[str, Any]:
     """A row the answer may write: neither answered nor closed, the reach of `uniq_spielbestaetigung_open`.
 
-    Repeated on the write after the read's judgement; a rival answer committing between them conflicts, and the retry
-    judges.
+    Repeated on the write after the read's judgement as a deliberate second guard. A rival answer committing between them
+    conflicts, and the retry judges; the filter still keeps a second answer off the first should that judgement ever be
+    read outside the write's transaction, a race no case drives.
     """
 
     return {"answer": None, "closed": None}
@@ -142,8 +141,6 @@ def _joined_austritte(spiel: Mapping[str, Any]) -> list[str]:
 
 
 def joined_decision_of(spiel: Mapping[str, Any]) -> FLSpielbestaetigungClosedReason | None:
-    """`decision_of` for a fixture read through the name join, by its sides' own exit days and its own day."""
-
     return decision_of(spiel=spiel, austritte=_joined_austritte(spiel), tag=spiel.get("date"))
 
 
@@ -180,8 +177,6 @@ def _reason_now(
 
 
 def austritte_of(rows: Iterable[Mapping[str, Any]]) -> dict[Any, str]:
-    """Each club's exit day off its season row, as `reason_to_close` and `lapsed_on` take them; a row holding no exit day has none."""
-
     return {row.get("team_id"): str(date) for row in rows if (date := (row.get("austritt") or {}).get("date")) is not None}
 
 
@@ -371,8 +366,6 @@ def state_of(
 
 
 def unanswerable_refusal() -> APIError:
-    """`ansetzung_unanswerable`, built here alone: by the row's judgement and by an answer whose filtered write matched nothing."""
-
     return APIError(HTTPStatus.GONE, Code.ANSETZUNG_UNANSWERABLE)
 
 
@@ -430,8 +423,6 @@ def find_unanswerable_refusal(*, spielbestaetigung_raw: Mapping[str, Any], anset
 
 
 def find_vorschlag_past_refusal(*, vorschlag: FLSpielbestaetigungAppointment, today: str) -> APIError | None:
-    """`ansetzung_vorschlag_past`: a proposal names a day still to come or today."""
-
     if vorschlag.date >= today:
         return None
 
@@ -579,8 +570,6 @@ def compose_answer_update(
 
 
 def not_actionable_refusal() -> APIError:
-    """`ansetzung_not_actionable`, built here alone: by the row's judgement and by a settle or discard whose filtered write matched nothing."""
-
     return APIError(HTTPStatus.CONFLICT, Code.ANSETZUNG_NOT_ACTIONABLE)
 
 
@@ -653,8 +642,6 @@ def holds_an_open_proposal(*, spielbestaetigung_raw: Mapping[str, Any], ansetzun
 
 
 def find_proposal_refusal(*, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState, now: datetime) -> APIError | None:
-    """`not_actionable_refusal` unless the row holds an open proposal: what a discard and an adoption alike act on."""
-
     if holds_an_open_proposal(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, now=now):
         return None
 
@@ -676,8 +663,6 @@ def foreign_row_refusal() -> APIError:
 
 
 def find_foreign_row_refusal(*, spielbestaetigung_raw: Mapping[str, Any] | None, schiedsrichter_ids: Iterable[Any]) -> APIError | None:
-    """`foreign_row_refusal` unless the row's party is one of these referee records."""
-
     party = (spielbestaetigung_raw or {}).get("party") or {}
     if party.get("kind") == "schiedsrichter" and party.get("schiedsrichter_id") in set(schiedsrichter_ids):
         return None
@@ -747,8 +732,6 @@ def build_holding_filter() -> dict[str, Any]:
 
 
 def build_held_filter(*, saison_id: str, spiel_ids: Sequence[Any]) -> dict[str, Any]:
-    """These fixtures' rows holding their party's question about their Ansetzung."""
-
     return {"saison_id": saison_id, "spiel_id": {"$in": list(spiel_ids)}, **build_holding_filter()}
 
 
@@ -839,8 +822,6 @@ def request_is_due(*, spiel: Mapping[str, Any], austritte: Mapping[Any, str], no
 
 
 def parties_of(spiel: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """Every party a fixture's Ansetzung asks: both sides, and its referee where the booking names one."""
-
     parties: list[dict[str, Any]] = [{"kind": "team", "team_id": team_id_of(spiel, side)} for side in ("team1", "team2")]
     schiedsrichter_id = _referee_id(spiel)
     if schiedsrichter_id is not None:
@@ -900,8 +881,6 @@ def build_reminder_filter(*, saison_id: str, today: str) -> dict[str, Any]:
 
 
 def compose_reminder_update(*, today: str) -> dict[str, Any]:
-    """The day a row's one reminder was owed."""
-
     return {"$set": {"reminded_at": today}}
 
 
@@ -912,8 +891,6 @@ def build_unasked_filter() -> dict[str, Any]:
 
 
 def compose_asked_update(*, today: str) -> dict[str, Any]:
-    """The day a row's request was first owed."""
-
     return {"$set": {"asked_at": today}}
 
 
@@ -1021,8 +998,6 @@ def spiel_mail_appointment_of(*, spielbestaetigung_raw: Mapping[str, Any], names
 
 
 def spiel_mail_ansetzung_of(view: FLSpielbestaetigungViewAnsetzung) -> FLSpielMailAnsetzung:
-    """The fixture a request or an Einteilung asks about, as its mail states it."""
-
     return FLSpielMailAnsetzung(
         team1=view.team1_name,
         team2=view.team2_name,
@@ -1046,8 +1021,6 @@ def notice_data_of(*, reason: FLSpielbestaetigungClosedReason, party_kind: str, 
 
 
 def _recipient_of(party_kind: str) -> Literal["team", "schiedsrichter"]:
-    """Who a notice to a party of `party_kind` is worded for."""
-
     return "schiedsrichter" if party_kind == "schiedsrichter" else "team"
 
 
@@ -1100,8 +1073,6 @@ def spiel_mail_slot_of(spiel: Mapping[str, Any]) -> FLSpielMailAnsetzung | None:
 
 
 def still_a_party(*, row: Mapping[str, Any], spiel: Mapping[str, Any]) -> bool:
-    """Whether the row's party is one the fixture asks as it stands: a side, or its referee."""
-
     return party_key(row["party"]) in {party_key(party) for party in parties_of(spiel)}
 
 
@@ -1120,8 +1091,6 @@ def asked_with_its_move(*, row: Mapping[str, Any], spiel: Mapping[str, Any], aus
 
 
 def reference_of(*, spielbestaetigung_id: Any, seat: FLKontaktSeat | None) -> FLOutboxReference:
-    """The row a fixture mail is about, and the seat of its club it went to."""
-
     return FLOutboxReference(collection=Collection.SPIELBESTAETIGUNGEN, id=spielbestaetigung_id, seat=seat)
 
 

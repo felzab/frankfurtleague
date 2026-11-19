@@ -129,7 +129,7 @@ async def a_pass_through(database: AsyncDatabase, client: AsyncMongoClient, **co
 async def move(
     database: AsyncDatabase, client: AsyncMongoClient, spiel_id: ObjectId, *, spiele: Any = None, **overrides: Any
 ) -> FLPatchSpielDataResponse:
-    """Through the administrator's own save, so the stand the pass compares is the one a real edit leaves; its dry run's answer.
+    """Through the administrator's own save, so the state the pass compares is the one a real edit leaves; its dry run's answer.
 
     Confirming the later results its dry run says it deletes, as the editor's question does. `spiele` is the fixtures
     the save itself writes through, a stand-in where a case names one; the dry run reads the database's.

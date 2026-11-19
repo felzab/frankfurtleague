@@ -50,10 +50,7 @@ async def pull_named_spiele(
     limit: int | None = None,
     session: AsyncClientSession | None = None,
 ) -> list[Mapping[str, Any]]:
-    """The fixtures `db_filter` selects through the name join, `projection` of each.
-
-    The stored fixture holds no name, so a reader naming a side or the ground reads it here and never by `find`.
-    """
+    """Through the name join: the stored fixture holds no name, so a reader naming a side or the ground reads it here, never by `find`."""
 
     return await aggregate_many_from_db(
         collection=spiele_collection,
@@ -104,8 +101,6 @@ ADMIN_ROW_FIELDS: Final = ["party", "ansetzung", "deadline", "asked_at", "answer
 
 
 async def pull_admin_rows(*, spielbestaetigungen_collection: ReadCollection, db_filter: Mapping[str, Any]) -> list[Mapping[str, Any]]:
-    """The rows `db_filter` selects, newest first, as an administrator reads them."""
-
     return await pull_whole_from_db(
         collection=spielbestaetigungen_collection,
         db_filter=db_filter,
@@ -179,7 +174,7 @@ async def anchor_the_mailboxes_told(
     # Committed on its own, the anchor conflicts with no seat write.
     session: AsyncClientSession,
 ) -> None:
-    """Write the season rows a write read its mails' mailboxes off: a request's, a reminder's or a notice's.
+    """Write the season rows a write read its mails' mailboxes off.
 
     An erasure or a Widerspruch empties the seat on that row and writes nothing the mails' write writes.
     """
@@ -194,7 +189,7 @@ async def anchor_the_referees_told(
     # Committed on its own, the anchor conflicts with no erasure.
     session: AsyncClientSession,
 ) -> None:
-    """Write the referees a step tells: the mint's and the reminder's, the notice step's.
+    """Write the referees a step tells.
 
     A referee's erasure deletes only the rows its snapshot holds, never the mint's insert beside it, so this write conflicts.
     """
@@ -211,9 +206,9 @@ async def anchor_the_spiele_acted_on(
 ) -> None:
     """Write the fixtures a write judged and writes rows or owes mails about, as it read them.
 
-    The write is a step of the pass, a discard, or an answer or settle. A save moving one of them writes nothing else the
-    write writes, so without this write both commit and the write's mails name a slot the fixture has left. With it the
-    two conflict, and the retry judges the fixture as the save left it.
+    A save moving one of them writes nothing else the write writes, so without this write both commit and the write's
+    mails name a slot the fixture has left. With it the two conflict, and the retry judges the fixture as the save left
+    it.
     """
 
     await anchor_in_db(collection=spiele_collection, db_filter={"_id": {"$in": sorted(set(spiel_ids), key=str)}}, session=session)

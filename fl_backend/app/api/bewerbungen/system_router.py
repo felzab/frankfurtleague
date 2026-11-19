@@ -137,7 +137,7 @@ async def sweep_saison(
         return await save_each(db=db, rows=await due_ids(clock), save=erase_one, what="Application", clock="season's end")
 
     async def erase_the_unconfirmed() -> Saved[int]:
-        """The fourteen-day clock: owe the notice and erase, one application at a time."""
+        """The confirmation deadline's clock: owe the notice and erase, one application at a time."""
 
         clock = build_deletion_filter(saison_id=saison_id, today=today)
 
@@ -146,7 +146,7 @@ async def sweep_saison(
 
             return 0 if stored is None else await erase_with_its_notices(session, stored)
 
-        return await save_each(db=db, rows=await due_ids(clock), save=erase_one, what="Application", clock="fourteen-day")
+        return await save_each(db=db, rows=await due_ids(clock), save=erase_one, what="Application", clock="confirmation deadline")
 
     async def remind() -> Saved[int]:
         """Stamp each seat due its one reminder and owe its person the mail, one application at a time."""
@@ -201,7 +201,7 @@ async def sweep_saison(
 
             return len(mails)
 
-        # Oldest first, as near the fourteen-day clock's order as a key on the record comes, each seat keeping its own
+        # Oldest first, as near the confirmation deadline's order as a key on the record comes, each seat keeping its own
         # day; `_id` makes the read the same whichever plan the server picks.
         rows = await due_ids(clock, sort_by=[("submitted_at", ASCENDING), ("_id", ASCENDING)])
 
@@ -212,7 +212,7 @@ async def sweep_saison(
     # logged under the season.
 
     async def erase_declined() -> Saved[int]:
-        """The decline clock: a declined application goes fourteen days after the decision, that day included."""
+        """The decline clock: a declined application goes a confirmation deadline's days after the decision, that day included."""
 
         async def erase_them(session: AsyncClientSession, _: Mapping[str, Any]) -> int:
             rows = await pull_many_from_db(
@@ -251,7 +251,7 @@ async def sweep_saison(
         return await save_each(db=db, rows=the_season, save=erase_them, what="Season", clock="acceptance")
 
     steps: list[Callable[[], Awaitable[Saved[Any]]]] = []
-    # Ahead of the fourteen-day clock and the reminder, which read the collection after it: a season that has ended
+    # Ahead of the confirmation deadline's clock and the reminder, which read the collection after it: a season that has ended
     # leaves nobody to chase, and a notice about an application this pass erased is a notice about nothing.
     if season_has_ended(saison_status=saison_status):
         steps.append(erase_the_undecided)

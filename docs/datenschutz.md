@@ -27,15 +27,15 @@ stand in [section 11](#11-open-and-owed-a-decision). Other documents link sectio
 ## 1. Responsibility and the request route
 
 - **The controller is the association**, `fl_frontend/src/core/brand.ts :: VEREIN_NAME` at
-  `:: VEREIN_ADDRESS`, reached at `:: KONTAKT_EMAIL`, and represented by its board
-  (`:: VORSTAND`). No school and no individual is the controller. The league is run by its pupils as
-  an association, and a school-law basis is unavailable. No data protection officer is appointed.
+  `:: VEREIN_ADDRESS`, reached at `:: KONTAKT_EMAIL`, and represented by its board (`:: VORSTAND`).
+  No school and no individual is the controller. The league is run by its pupils as an association,
+  and a school-law basis is unavailable. No data protection officer is appointed.
 - **A person who signs in changes or withdraws their own consents on the account page.** Each record
   they hold is a box of its own on Konto's „Deine Einträge“, saved by its „Speichern“
   (`fl_frontend/src/app/account/(pages)/entries/EntriesBoxes.tsx :: EntriesBoxes`, each save an
   action of `fl_frontend/src/features/account/personActions.ts`).
-- **Every other request goes to the contact address**: access, rectification, erasure, objection
-  and a withdrawal by mail.
+- **Every other request goes to the contact address**: access, rectification, erasure, objection and
+  a withdrawal by mail.
   [`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)
   is the procedure that answers one.
 
@@ -51,11 +51,11 @@ stand in [section 11](#11-open-and-owed-a-decision). Other documents link sectio
   nameless slot is published on this basis, in a squad, a line-up or beside a goal or card. It
   carries no name, no number, no position and no record id linking the pupil's seasons. A line-up's
   slot says whether it starts, a goal's its minute, its side and whether it was an own goal, and a
-  card's its minute, its side and its colour
-  ([section 4](#4-what-is-published-and-on-what-basis)). It is weighed as personal data, since
-  teammates and classmates can very probably tell whose it is, and the notice says it stands
-  whatever the name's consent. No birthdate reaches a public read, and anyone may object
-  under Art. 21 or be erased by a mail. The notice tells each person what is kept and for how long.
+  card's its minute, its side and its colour ([section 4](#4-what-is-published-and-on-what-basis)).
+  It is weighed as personal data, since teammates and classmates can very probably tell whose it is,
+  and the notice says it stands whatever the name's consent. No birthdate reaches a public read, and
+  anyone may object under Art. 21 or be erased by a mail. The notice tells each person what is kept
+  and for how long.
 - **Contract, Art. 6(1)(b), is the basis refused**: a minor may not be able to conclude alone the
   agreement it would rest on.
 - **Every participant answers for themselves, and nobody consents on anybody else's behalf.** A
@@ -92,11 +92,11 @@ stand in [section 11](#11-open-and-owed-a-decision). Other documents link sectio
   The labels are `fl_frontend/src/core/consentWordings.ts :: CONSENT_WORDINGS`' keys, each frozen
   with its words. Only the person's own act grants a choice or stamps evidence under a label. An
   administrator's entry of a withdrawal the person asked for by mail withholds alone, its evidence
-  marked `via` `mail` in a label's place, since the person read none of the league's words. One paste, run
-  with the deploy that first serves the current wordings, re-points every label stored before it to
-  its consent's current wording. A record stamped before that deploy therefore names words its
-  person may not have been shown, which is [section 11](#11-open-and-owed-a-decision)'s first
-  question. A label stamped since names the words its person saw.
+  marked `via` `mail` in a label's place, since the person read none of the league's words. One
+  paste, run with the deploy that first serves the current wordings, re-points every label stored
+  before it to its consent's current wording. A record stamped before that deploy therefore names
+  words its person may not have been shown, which is [section 11](#11-open-and-owed-a-decision)'s
+  first question. A label stamped since names the words its person saw.
 - **Some refusals are taken by the code alone**, each before anything is written. Whether any meets
   Art. 22 is [section 11](#11-open-and-owed-a-decision)'s question. They are:
   - a birthdate outside a role's span;
@@ -113,11 +113,11 @@ stand in [section 11](#11-open-and-owed-a-decision). Other documents link sectio
     per-address counts under `fl_frontend/src/core/auth/signInRows.ts :: boundIdentifier`).
 - **A mailbox past the forms' bound is mailed nothing, and nobody is refused.** Once a mailbox holds
   three unanswered links of the season
-  (`fl_backend/app/shared/mailbox.py :: OPEN_LINKS_PER_MAILBOX`), its plus-tagged forms
-  among them, the next application or registration naming it sends it no link. That press stores as
-  any other and is answered alike. Each form counts its own and each season its own, so a mailbox
-  named on both forms, or in two running seasons, can hold three of each. The seat stands unmailed,
-  owed no reminder and no notice, until an administrator sends its link. Unsent, it goes with its
+  (`fl_backend/app/shared/mailbox.py :: OPEN_LINKS_PER_MAILBOX`), its plus-tagged forms among them,
+  the next application or registration naming it sends it no link. That press stores as any other
+  and is answered alike. Each form counts its own and each season its own, so a mailbox named on
+  both forms, or in two running seasons, can hold three of each. The seat stands unmailed, owed no
+  reminder and no notice, until an administrator sends its link. Unsent, it goes with its
   application on the application's day, and a registration on its own. A real person's seat can
   stand so behind a stranger's presses, which both administrators' lists say on its row („Nicht
   gesendet“).
@@ -130,8 +130,8 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
 - **Applications and contact seats** (`bewerbungen`; `saison_teams.kontakte`).
   - Purpose and basis: admitting a school's team to a season and reaching it while the season runs;
     Art. 6(1)(f), the WhatsApp scope and the media answer on consent.
-  - People and data: a school's three contact persons per application and per season row. Each has
-    a name, an address, a telephone number and the birthdate their own confirmation types, their
+  - People and data: a school's three contact persons per application and per season row. Each has a
+    name, an address, a telephone number and the birthdate their own confirmation types, their
     confirmation or Widerspruch, and each consent choice with its evidence. Beside them, the
     school's details, its address among them. The persons are named by whoever submits the
     application or by an administrator, so their data is taken from a third party (Art. 14).
@@ -194,7 +194,8 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   - Purpose and basis: who may administer the league, and refusing an address the league declined;
     Art. 6(1)(f).
   - People and data: a grant's address and tier, in plain, a waiting addition's or handover's date
-    among them; a ban's barred address, in plain, its free-text reason and the last season it covers.
+    among them; a ban's barred address, in plain, its free-text reason and the last season it
+    covers.
   - Recipients: administrators, of a grant's and a ban's rows. Every holder in effect and the person
     named, by mail, of each change of access. That mail names the address it concerns and nobody who
     acted (`fl_frontend/src/core/grantEmail.ts :: buildGrantEmail`).
@@ -213,8 +214,8 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
       an address or a name (`fl_backend/app/core/journal.py :: privacy_line`).
   - Recipients: administrators.
 - **Mail** (`outbox`; the league's mailbox; WhatsApp).
-  - Purpose and basis: telling people what concerns them, and answering them; Art. 6(1)(f),
-    WhatsApp on consent.
+  - Purpose and basis: telling people what concerns them, and answering them; Art. 6(1)(f), WhatsApp
+    on consent.
   - Data: each message's recipient, facts until it is sent, and its delivery state; what anyone
     writes to a league address, which arrives in the league's mailbox; a number and messages on
     WhatsApp.
@@ -228,8 +229,7 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
       (`nginx/shared/http.conf :: fl_json`). A mailed link carries its token in the query, so no
       token reaches the line, which `scripts/checks/edge_test.sh` holds;
     - nginx's error lines. A refusal writes none. An upstream failure's line repeats the request
-      line whole, its query and referrer with it
-      ([`ops/spec.md`](ops/spec.md#13-nginx-routing));
+      line whole, its query and referrer with it ([`ops/spec.md`](ops/spec.md#13-nginx-routing));
     - the application's log lines;
     - in the browser, the session cookie, a passkey ceremony's cookie, a mailed link's cookie
       holding its token for an hour (`fl_frontend/src/core/mailedLink.ts`), the theme in local
@@ -239,10 +239,10 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   - Purpose and basis: showing the league; consent, from 18 for media.
   - Data:
     - photographs, videos and interviews, on this site and the league's Instagram account;
-    - the organisers' first names (`fl_frontend/src/features/meta/constants.ts :: ORGANISERS`),
-      each on their own agreement;
-    - the board's full names in the Impressum (`fl_frontend/src/core/brand.ts :: VORSTAND`),
-      on § 18(1) MStV and, where it reaches this site, § 5 DDG.
+    - the organisers' first names (`fl_frontend/src/features/meta/constants.ts :: ORGANISERS`), each
+      on their own agreement;
+    - the board's full names in the Impressum (`fl_frontend/src/core/brand.ts :: VORSTAND`), on §
+      18(1) MStV and, where it reaches this site, § 5 DDG.
   - Recipients: the public; Meta (section 7).
 
 ## 4. What is published, and on what basis
@@ -257,22 +257,22 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   record be present, its `scope` `kader_public` and its `confirmed_at` stamped. Every other row is a
   nameless slot, „anonym“, served after the named rows. It carries no number, no position and no
   record id, which would say whose it is or link its seasons
-  (`fl_backend/app/api/spieler/services.py :: build_spieler_pipeline`). The gate fails closed. A squad's Kapitän and Co-Kapitän carry a mark after their name on
-  the public squad and in a match's line-ups, and a nameless slot carries none. The mark is served
-  only where the name is, so it publishes nothing about a pupil whose name is withheld.
-- **A referee's name stands on a fixture only on their own consent, and only once they agreed to
-  the booking** (`fl_backend/app/api/spiele/schemas.py :: _withheld_unless_agreed`, through the same
-  predicate). No fixture carries the referee's record id
-  (`:: FLSpielSchiedsrichterFieldPublic`).
+  (`fl_backend/app/api/spieler/services.py :: build_spieler_pipeline`). The gate fails closed. A
+  squad's Kapitän and Co-Kapitän carry a mark after their name on the public squad and in a match's
+  line-ups, and a nameless slot carries none. The mark is served only where the name is, so it
+  publishes nothing about a pupil whose name is withheld.
+- **A referee's name stands on a fixture only on their own consent, and only once they agreed to the
+  booking** (`fl_backend/app/api/spiele/schemas.py :: _withheld_unless_agreed`, through the same
+  predicate). No fixture carries the referee's record id (`:: FLSpielSchiedsrichterFieldPublic`).
 - **A match's page publishes the clubs' line-ups and, on an adopted report, each goal's and card's
   minute and pupil and each card's colour.** Every pupil passes the squad's rule above, and the
   remarks are never published
   (`fl_backend/app/api/spielberichte/services.py :: compose_public_bericht`). A report and a line-up
   store a pupil by record id alone, and the read joins the name from the pupil's row. A name
   therefore stands only while that row exists: the season rule or an erasure leaves the slot naming
-  nobody, as [section 5](#5-erasure-reaches-everyone-who-asks) says. Whether a card may stand
-  beside a named pupil of 16 or 17 is open ([section 11](#11-open-and-owed-a-decision)), and the
-  read is served while it is.
+  nobody, as [section 5](#5-erasure-reaches-everyone-who-asks) says. Whether a card may stand beside
+  a named pupil of 16 or 17 is open ([section 11](#11-open-and-owed-a-decision)), and the read is
+  served while it is.
 - **A photograph, a video or an interview needs its own consent, from 18**, published on this site
   and the league's Instagram account. A withdrawal takes it down from both, which the notice
   promises. No code publishes media, so the takedown is the organisers' step by hand.
@@ -323,11 +323,11 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     (`fl_backend/app/api/address_change/crud.py :: end_the_address_changes_in_session`);
   - every grant the address holds
     (`fl_backend/app/api/grants/erasure.py :: erase_grants_in_session`);
-  - the sign-in account at the address. An account at an earlier address goes with the account
-    sweep (section 6).
+  - the sign-in account at the address. An account at an earlier address goes with the account sweep
+    (section 6).
 - **What outlives an erasure:**
-  - the database's snapshots, about 8 days, taken daily (the provider's console, read 2026-09-01).
-    A restore runs every erasure since its snapshot again, found by the ids its lines name
+  - the database's snapshots, about 8 days, taken daily (the provider's console, read 2026-09-01). A
+    restore runs every erasure since its snapshot again, found by the ids its lines name
     ([`ops/runbooks.md`](ops/runbooks.md#13-after-a-restore-from-a-snapshot));
   - Resend's copies of every message, for its own period (section 7);
   - a message the person wrote to the league, deleted from the league's mailbox on request, for
@@ -361,8 +361,8 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   - a mailbox's hash in `mailbox_anchors`, for its hour (section 6).
 - **A retired row is never removed because of its age**: a confirmed referee who stopped, a club
   that left and a past season keep their rows. A person's row goes only by an erasure or by section
-  6's clocks, a pupil's season rule and a referee's unconfirmed entry.
-  **Datenschutzexperte consulted.**
+  6's clocks, a pupil's season rule and a referee's unconfirmed entry. **Datenschutzexperte
+  consulted.**
 
 ## 6. Retention is bounded where a bound was chosen
 
@@ -406,8 +406,8 @@ bound's conditions follow the table.
 - **A declined application or registration** goes 14 days after the decision. The decline's mail
   says so, for a registration to a confirmed pupil.
 - **An accepted application** goes once a season after the one it applied for has ended. Its
-  acceptance moves its three people to the season row and empties its own seats, keeping each
-  seat's link and the day its person confirmed it, which a reopened link shows.
+  acceptance moves its three people to the season row and empties its own seats, keeping each seat's
+  link and the day its person confirmed it, which a reopened link shows.
 - **A season row's contact seats** are cleared once the season after theirs has ended, their links
   with them. **Its unconfirmed seat** is emptied by the first hourly pass past its own 14 days,
   whatever the season's status, its link and any reason typed from it with it.
@@ -416,8 +416,8 @@ bound's conditions follow the table.
 - **An unconfirmed registration** goes the day after its stored deadline, 14 days from the link.
 - **An admitted registration** goes in the admission's own transaction, with every other pending
   registration of its address that season.
-- **A pupil** goes once the season after their last squad season has ended, by the hourly passes after
-  the activation.
+- **A pupil** goes once the season after their last squad season has ended, by the hourly passes
+  after the activation.
 - **A registration link's entry** has no clock: the link ends with its season, its team's Austritt,
   or when withdrawn or replaced.
 - **A referee unconfirmed** is erased by the first hourly pass past its stored deadline's day, 14
@@ -433,15 +433,15 @@ bound's conditions follow the table.
   the confirming press or by the next hourly pass
   (`fl_backend/app/api/address_change/system_router.py :: post_address_change_moves_done`). It then
   keeps no address, and goes 30 days after its end.
-- **A sign-in account and its passkeys** go within the hour of no league record or grant holding
-  the address; a ban holding it does not count.
-- **A session** serves a person's own pages until 14 days unused, 30 at most, and the
-  administration until 1 hour unused, 24 at most, each judged on every read
-  (`fl_frontend/src/core/sessionLifetimes.ts :: PERSON_LIFETIME`, `:: ADMIN_LIFETIME`). Its row
-  goes later, by the TTL index on `expiresAt`, 14 days after the session was last used
+- **A sign-in account and its passkeys** go within the hour of no league record or grant holding the
+  address; a ban holding it does not count.
+- **A session** serves a person's own pages until 14 days unused, 30 at most, and the administration
+  until 1 hour unused, 24 at most, each judged on every read
+  (`fl_frontend/src/core/sessionLifetimes.ts :: PERSON_LIFETIME`, `:: ADMIN_LIFETIME`). Its row goes
+  later, by the TTL index on `expiresAt`, 14 days after the session was last used
   (`:: SESSION_EXPIRES_IN_DAYS`).
-- **A sign-in code** lasts 10 minutes. Failed codes are counted for a day and requested codes for
-  an hour, under a keyed hash.
+- **A sign-in code** lasts 10 minutes. Failed codes are counted for a day and requested codes for an
+  hour, under a keyed hash.
 - **A Postausgang row** holds no facts once sent or given up, and goes 30 days after that. A row
   carrying a secret goes when the secret lapses.
 - **Mail to the league** is deleted from the league's mailbox six months after it arrives, by a
@@ -465,12 +465,12 @@ bound's conditions follow the table.
 - **A registration's deadline is stored at the mint**, so a raised bound never moves a link already
   in somebody's inbox. Every link asking a person to confirm being named or registered is ruled to
   live 14 days, and every unconfirmed or declined item to go 14 days after, which the notice states;
-  a Widerspruch erases a referee's entry at once.
-  An address change moving an unconfirmed registration mails a fresh link to the new address. It
-  stores a deadline 14 days on, which that mail states. A move mailing none keeps the stored
-  deadline, so a registration nobody can confirm is kept no day longer for the move
-  (`fl_backend/app/api/address_change/crud.py :: _move_the_registrierung_in_session`). A move
-  mails none where the new mailbox holds its three links or the registration's link is over.
+  a Widerspruch erases a referee's entry at once. An address change moving an unconfirmed
+  registration mails a fresh link to the new address. It stores a deadline 14 days on, which that
+  mail states. A move mailing none keeps the stored deadline, so a registration nobody can confirm
+  is kept no day longer for the move
+  (`fl_backend/app/api/address_change/crud.py :: _move_the_registrierung_in_session`). A move mails
+  none where the new mailbox holds its three links or the registration's link is over.
 - **A sent mail's row keeps its key alone once an address change replaces its address**
   (`fl_backend/app/api/outbox/services.py :: TOMBSTONE_UPDATE`). Its recipient, its delivery state
   and the record it was about go at the change. The key a pass decides by stays until the row's 30
@@ -498,8 +498,8 @@ the host's, which rests on its signed agreement.
     owner holds the signed copy.
   - Where: Nuremberg.
 - **Cloudflare.**
-  - What reaches it: every request, in plaintext at the edge. Turnstile's signals on three forms,
-    in analytics for 7 days: the window the Turnstile dashboard showed on 2026-11-04, rather than a
+  - What reaches it: every request, in plaintext at the edge. Turnstile's signals on three forms, in
+    analytics for 7 days: the window the Turnstile dashboard showed on 2026-11-04, rather than a
     period Cloudflare states.
   - Agreement: its standard addendum, every service included (read 2026-10-25). For Turnstile it is
     a processor for the check and a controller of the same signals for its own bot detection (read
@@ -553,8 +553,8 @@ Beside the list:
   longer**, on its Free, Pro and Scale plans alike (<https://resend.com/security/gdpr>, read
   2026-10-16); which plan this account is on is recorded nowhere here. No erasure reaches those
   copies.
-- **Google keeps a message deleted from the league's mailbox restorable for 30 days, and for 25
-  more by an administrator**
+- **Google keeps a message deleted from the league's mailbox restorable for 30 days, and for 25 more
+  by an administrator**
   (<https://knowledge.workspace.google.com/admin/support/troubleshooting/restore-a-users-permanently-deleted-email>,
   read 2026-11-12). It deletes what nobody can restore any longer from its systems within 180 days
   at most (the addendum's section 6.1).
@@ -572,15 +572,15 @@ Beside the list:
   figures (`fl_frontend/src/core/auth/guards.ts :: isAdminSession`). A grant is granted and revoked
   as [`ops/runbooks.md`](ops/runbooks.md#3-granting-or-revoking-admin-access) says. A person reaches
   only the records under their own address.
-- **The origin.** A remotely managed tunnel is the only route to the origin, so every request
-  passes Cloudflare first ([`ops/spec.md`](ops/spec.md#18-the-edges-declared-state)).
+- **The origin.** A remotely managed tunnel is the only route to the origin, so every request passes
+  Cloudflare first ([`ops/spec.md`](ops/spec.md#18-the-edges-declared-state)).
 - **Hashing.** A mailbox's document holds an unkeyed SHA-256 hash of the address rather than the
   address, which anyone can test against a guessed address, for its hour.
 - **Minimisation.** No birthdate reaches a public read; a public row names no record id that links a
   withheld person's seasons; an access line holds a request's path and never its query.
 - **Integrity and recovery.** Daily snapshots; the privacy lines naming what a restore undid
-  ([`ops/runbooks.md`](ops/runbooks.md#13-after-a-restore-from-a-snapshot)); the breach procedure
-  in [`ops/runbooks.md`](ops/runbooks.md#6-when-personal-data-has-been-exposed).
+  ([`ops/runbooks.md`](ops/runbooks.md#13-after-a-restore-from-a-snapshot)); the breach procedure in
+  [`ops/runbooks.md`](ops/runbooks.md#6-when-personal-data-has-been-exposed).
 
 ## 9. The deletion concept
 
@@ -588,8 +588,8 @@ Every store of section 6 ends by one of four triggers, each with its mechanism:
 
 - **A clock from a stored day**: the database deletes the row by a TTL index
   (`fl_backend/app/core/constraints.py :: TTL_INDEXES`, the sign-in store's in
-  [`ops/runbooks.md`](ops/runbooks.md#14-the-auth-databases-indexes)), or an hourly pass judges it due.
-  Mail to the league goes by Gmail's auto-deletion.
+  [`ops/runbooks.md`](ops/runbooks.md#14-the-auth-databases-indexes)), or an hourly pass judges it
+  due. Mail to the league goes by Gmail's auto-deletion.
 - **A condition on the league's calendar**: a season's `status`, judged by the hourly pass or at the
   activation, never a count of days, so a record lasts exactly as long as its purpose can.
 - **A person's request**: the erasure of section 5, run at once.
@@ -599,13 +599,13 @@ Every store of section 6 ends by one of four triggers, each with its mechanism:
 The hourly scheduler (`fl_frontend/src/instrumentationNode.ts :: armScheduler`) runs every pass. It
 pings the heartbeat monitor, naming on `/fail` each job that threw or left a due deletion. A claim
 that a period was honoured rests on that and on each job's line in the log
-([`ops/runbooks.md`](ops/runbooks.md#9-checking-that-the-hourly-passes-have-run)). One switch
-holds every pass back: `RESTORE_HOLD=on` in the server's `fl_frontend/.env`
+([`ops/runbooks.md`](ops/runbooks.md#9-checking-that-the-hourly-passes-have-run)). One switch holds
+every pass back: `RESTORE_HOLD=on` in the server's `fl_frontend/.env`
 (`fl_frontend/src/core/config.ts :: RESTORE_HOLD`), set only while a restore or a change to a stored
 shape is under way ([`ops/runbooks.md`](ops/runbooks.md#what-the-hold-stops)). While it holds, the
-heartbeat monitor alerts, since no pass pings it. A deletion
-takes the record outright, never nulling it, so no third state needs a clock. What a deletion
-cannot reach is section 5's list, each bounded by its own period.
+heartbeat monitor alerts, since no pass pings it. A deletion takes the record outright, never
+nulling it, so no third state needs a clock. What a deletion cannot reach is section 5's list, each
+bounded by its own period.
 
 ## 11. Open, and owed a decision
 
@@ -618,9 +618,10 @@ the notice and the procedures in [`ops/runbooks.md`](ops/runbooks.md) stand as t
    shown, and what is owed instead if it does not.
 2. **A card beside a named pupil of 16 or 17**: whether a booking's colour and minute may stand on
    the public match page beside the name a pupil's consent publishes (section 4).
-3. **What carries a pupil's own consent from 16**: Art. 8(1) or the pupil's own
-   Einsichtsfähigkeit, or a guardian's beside it. The EDPB's consent guidelines (05/2020, paragraph 127) read Art. 8 for a service offered directly to a child. Hesse's template for schools asks a
-   parent's signature too (both read 2026-09-22).
+3. **What carries a pupil's own consent from 16**: Art. 8(1) or the pupil's own Einsichtsfähigkeit,
+   or a guardian's beside it. The EDPB's consent guidelines (05/2020, paragraph 127) read Art. 8 for
+   a service offered directly to a child. Hesse's template for schools asks a parent's signature too
+   (both read 2026-09-22).
 4. **Whether the name's scope may be preselected**, and **whether one media switch over photographs,
    videos and interviews, on two sites, is specific enough**. And whether the case law on revoking a
    consent to one's image under the KUG changes the notice's promise that a withdrawal takes what is
@@ -630,11 +631,11 @@ the notice and the procedures in [`ops/runbooks.md`](ops/runbooks.md) stand as t
 6. **One act per choice as the proof**: whether the latest act and the grant a withdrawal ended
    prove a consent. The log holds no act from before 2026-10-28 08:25 (Europe/Berlin), and a contact
    seat's early WhatsApp grant carries evidence a hand paste copied from its confirmation's log row.
-7. **Art. 22**: whether any refusal of section 2 the code takes alone, Cloudflare's bot check
-   among them, meets Art. 22(1). If one does, which exception of Art. 22(2) it rests on, contract
-   being refused as a basis. The Working Party's WP251 rev.01 reaches access to education and does
-   not say whether a school league's place is it (read 2026-09-22). The notice says no automated
-   decision is taken.
+7. **Art. 22**: whether any refusal of section 2 the code takes alone, Cloudflare's bot check among
+   them, meets Art. 22(1). If one does, which exception of Art. 22(2) it rests on, contract being
+   refused as a basis. The Working Party's WP251 rev.01 reaches access to education and does not say
+   whether a school league's place is it (read 2026-09-22). The notice says no automated decision is
+   taken.
 8. **The refusals the notice does not name**: an address that is not plain ASCII, and the code
    sign-in's limits. Whether each is a limit of the service, named beside the full squad or not at
    all, and whether a refusal the person is not told of can be offered a review.
@@ -643,17 +644,17 @@ the notice and the procedures in [`ops/runbooks.md`](ops/runbooks.md) stand as t
     the barred person's erasure. And whether up to about six years is proportionate for a pupil of
     16 or 17, with no review on request.
 11. **14 days for an unconfirmed registration**
-    (`fl_backend/app/shared/schemas/bounds.py :: CONFIRMATION_DEADLINE_DAYS`): whether
-    it is proportionate.
+    (`fl_backend/app/shared/schemas/bounds.py :: CONFIRMATION_DEADLINE_DAYS`): whether it is
+    proportionate.
 12. **The referees entered before the confirmation link**, whose names stood on fixtures until their
     rows were deleted whole and who were never informed under Art. 14: whether Art. 14(5)(b) carries
     it, with the notice as its measure.
 13. **A delivery state with no bound**, on an invite entry and on a declined seat's link entry:
     whether it may stand, and whether a delivery record the provider can join to an address is still
     that person's data.
-14. **A nameless slot**, with no name, number or record id (section 2): whether it is personal
-    data, and so needs a basis of its own, and whether section 2's weighing carries it for pupils of
-    16 and 17.
+14. **A nameless slot**, with no name, number or record id (section 2): whether it is personal data,
+    and so needs a basis of its own, and whether section 2's weighing carries it for pupils of 16
+    and 17.
 15. **The notice's statements**:
     - one legitimate interest for every processing, against Art. 13(1)(d);
     - „als Chronik der Liga“ as a criterion under Art. 13(2)(a);
@@ -668,8 +669,7 @@ the notice and the procedures in [`ops/runbooks.md`](ops/runbooks.md) stand as t
     stands as written until the answer.
 17. **Cloudflare's own record of each request**, bounded by Cloudflare's plan rather than any
     setting here, and the server journal's age limit, a setting on the server that no deploy
-    verifies
-    ([`ops/runbooks.md`](ops/runbooks.md#7-the-journals-age-limit)).
+    verifies ([`ops/runbooks.md`](ops/runbooks.md#7-the-journals-age-limit)).
 18. **Instagram**: whether the league shares control of anything Meta records about the account's
     audience (C-210/16 held a Facebook page's operator a joint controller for its statistics), and
     what publishing there counts as under Chapter V.
@@ -678,8 +678,8 @@ the notice and the procedures in [`ops/runbooks.md`](ops/runbooks.md) stand as t
       all, and whether „e. V.“ in the name states the legal form;
     - whether e-mail alone meets the duty of a rapid, direct means of contact (C-298/07), or a
       telephone number or a form must stand beside it;
-    - whether the interviews the media consent foresees are journalistic-editorial content needing
-      a responsible person under § 18(2) MStV;
+    - whether the interviews the media consent foresees are journalistic-editorial content needing a
+      responsible person under § 18(2) MStV;
     - which basis the notice, the page's description and the lead the page opens with should cite,
       each citing § 5 DDG where this record cites § 18(1) MStV first
       (`fl_frontend/src/core/serverCopy.ts :: SERVER_COPY`'s `description.legalNotice`, the page's
@@ -689,9 +689,8 @@ the notice and the procedures in [`ops/runbooks.md`](ops/runbooks.md) stand as t
     separately from any other information“ under Art. 21(4).
 21. **A Widerspruch and naming the person again**: after one, an administrator can seat the same
     person or enter them as a referee again, and a new application can name them, which mails them
-    again. Nothing checks it, and only
-    a record id stays in a line. Whether a Widerspruch must prevent that, and whether a mark may be
-    kept to do so.
+    again. Nothing checks it, and only a record id stays in a line. Whether a Widerspruch must
+    prevent that, and whether a mark may be kept to do so.
 22. **An adult contact person's birthdate**: whether the one age check carries storing the date
     until the end of the following season, or a note of the check is enough (Art. 5(1)(c), (e)).
 23. **The source under Art. 14(2)(f)**: the form stores nobody as having sent it, the page saying
@@ -704,11 +703,11 @@ the notice and the procedures in [`ops/runbooks.md`](ops/runbooks.md) stand as t
     seats make the Ansprechperson a recipient under Art. 4(9), as section 3 and the notice treat
     them. The same holds for every seat holder of a season row, whom section 3 and the notice name
     as a recipient of the other seat holders' names, of the seats each holds and of whether each
-    confirmed. And if they are: an administrator can seat a person directly on a season row, and
-    the row's confirmed seat holders then read that person's name before the person has received
-    any mail, while the confirmation mail waits in the Postausgang or after its delivery failed.
-    Whether Art. 14(3)(c) owes the information before that first disclosure, or the name is held
-    back until the seat is confirmed.
+    confirmed. And if they are: an administrator can seat a person directly on a season row, and the
+    row's confirmed seat holders then read that person's name before the person has received any
+    mail, while the confirmation mail waits in the Postausgang or after its delivery failed. Whether
+    Art. 14(3)(c) owes the information before that first disclosure, or the name is held back until
+    the seat is confirmed.
 26. **A seat past the bound and Art. 14**: such a person is stored untold, the first mail being
     where the notice stands. That lasts at most the application's 14 days and one, or a
     registration's deadline, unless an administrator sends the link. Whether that is the reasonable
