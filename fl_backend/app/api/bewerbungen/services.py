@@ -124,10 +124,9 @@ def parse_new_team(*, composed_team: Mapping[str, Any]) -> dict[str, Any]:
 def saison_takes_bewerbungen(*, saison_status: Any, bewerbung: Any, today: str) -> bool:
     """Whether this season takes an application on `today`: a season not yet ended, its window not paused, `today` inside its span.
 
-    The window is null or the whole object the season form writes, both ends included. Both ends are compared rather
-    than assuming `start <= end`: span ordering is enforced on the season payload alone, so a stored reversal is
-    reachable. A finished season's window is over for good, whatever dates it still stores: the payload names the
-    season, and the dates alone would still admit an application into one that has ended.
+    The window is null or the whole object the season form writes, both ends included. A finished season's window is
+    over for good, whatever dates it still stores: the payload names the season, and the dates alone would still admit
+    an application into one that has ended.
     """
 
     if bewerbung is None or not bewerbung["open"] or season_has_ended(saison_status=saison_status):
