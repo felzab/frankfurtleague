@@ -233,25 +233,14 @@ class TestTheScheduleServesTheRefereeByConsent:
 class TestTheSpielShapes:
     """What each fixture model declares, and what survives validation of ONE raw document through it."""
 
-    @pytest.mark.parametrize(("schiedsrichter_id", "served"), [pytest.param(ObjectId(), False, id="a-referee")])
-    def test_a_booking_naming_nobody_is_served_nameless_where_a_referee_s_waits_for_their_agreement(self, schiedsrichter_id, served):
-        """A booked referee yet to agree is withheld whole."""
-
+    def test_a_booked_referee_yet_to_agree_is_withheld_whole(self):
         document = joined_document()
-        nobody_agreed = {
+        yet_to_agree = {
             **document,
-            "schiedsrichter": {
-                **document["schiedsrichter"],
-                "schiedsrichter_id": schiedsrichter_id,
-                "name": None,
-                "name_is_public": False,
-                "einsatz_confirmed": False,
-            },
+            "schiedsrichter": {**document["schiedsrichter"], "name": None, "name_is_public": False, "einsatz_confirmed": False},
         }
 
-        parsed = FLSpielJoined.model_validate(nobody_agreed)
-
-        assert (parsed.schiedsrichter is not None, None if parsed.schiedsrichter is None else parsed.schiedsrichter.name) == (served, None)
+        assert FLSpielJoined.model_validate(yet_to_agree).schiedsrichter is None
 
     def test_the_base_tier_spiel_declares_exactly_these_fields(self):
         """The tier's whole membership, since neither the admin nor the internal shape narrows it.

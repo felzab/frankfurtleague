@@ -233,8 +233,8 @@ def assignment(schiedsrichter_id: ObjectId | None, payment: int = 20) -> dict[st
     return {"schiedsrichter_id": schiedsrichter_id, "payment": payment}
 
 
-def one_venue_twice(*, sonderereignis: str | None) -> list[dict[str, Any]]:
-    """Two group fixtures at one ground on one matchday, the first carrying `sonderereignis`."""
+def one_venue_twice() -> list[dict[str, Any]]:
+    """Two group fixtures at one ground on one matchday, the first abandoned."""
 
     spielort = booking(SPIELORT)
 
@@ -243,7 +243,7 @@ def one_venue_twice(*, sonderereignis: str | None) -> list[dict[str, Any]]:
         spiel_id=GRUPPE_FILLING, spiel_nr=GRUPPE_FILLING_NR, spieltag_id=SPIELTAG_GRUPPE, team1=side(GAMMA), team2=side(DELTA)
     )
 
-    return [{**held, "spielort": spielort, "sonderereignis": sonderereignis}, {**filling, "spielort": spielort}]
+    return [{**held, "spielort": spielort, "sonderereignis": "abgebrochen"}, {**filling, "spielort": spielort}]
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -280,26 +280,16 @@ async def read_spiel(database: AsyncDatabase, spiel_id: ObjectId) -> FLSpiel:
 class TestTheBookingReadAsksWhoUsedTheGround:
     """The booking query's mapping, against a real read: set membership elsewhere cannot show which half a member falls in."""
 
-    @pytest.mark.parametrize(
-        ("sonderereignis", "refused"),
-        [("abgebrochen", True)],
-        ids=["abandoned-occupies"],
-    )
-    async def test_only_a_spiel_that_took_place_still_holds_its_slot(self, mongo_replica_set_url: str, sonderereignis: str, refused: bool):
+    async def test_an_abandoned_spiel_still_holds_its_slot(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             # At 18:30, off the hour both are seeded at: a claim the fixture already made is judged by nobody.
             spiel_data = await payload_for(database, GRUPPE_FILLING, time="18:30:00")
 
-            try:
-                await call_patch(database, client, GRUPPE_FILLING, spiel_data)
-            except APIError as conflict:
-                return conflict.error_code
+            return await refused_code(call_patch(database, client, GRUPPE_FILLING, spiel_data))
 
-            return None
+        answered = await on_a_seeded_season(mongo_replica_set_url, body, spiele=one_venue_twice())
 
-        answered = await on_a_seeded_season(mongo_replica_set_url, body, spiele=one_venue_twice(sonderereignis=sonderereignis))
-
-        assert (answered == Code.SPIEL_DOUBLE_BOOKED) is refused
+        assert answered == Code.SPIEL_DOUBLE_BOOKED
 
 
 def an_unbooked_spieltag() -> list[dict[str, Any]]:
@@ -355,7 +345,6 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
             None,
         )
 
-    @pytest.mark.parametrize("dry_run", [pytest.param(False, id="save")])
     @pytest.mark.parametrize(
         "kept",
         [
@@ -363,13 +352,13 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
             pytest.param({"schiedsrichter": assignment(SCHIEDSRICHTER_RETIRED)}, id="retired-referee"),
         ],
     )
-    async def test_lifting_a_call_off_books_the_row_it_kept_again(self, mongo_replica_set_url: str, kept: dict[str, Any], dry_run: bool):
+    async def test_lifting_a_call_off_books_the_row_it_kept_again(self, mongo_replica_set_url: str, kept: dict[str, Any]):
         """The lift books the venue or referee the call-off kept, so one retired since is refused as a fresh booking of it would be."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spiel_data = await payload_for(database, GRUPPE_FILLING, sonderereignis=None)
 
-            return await refused_code(call_patch(database, client, GRUPPE_FILLING, spiel_data, dry_run=dry_run)), await spiele_now(database)
+            return await refused_code(call_patch(database, client, GRUPPE_FILLING, spiel_data)), await spiele_now(database)
 
         held, filling = an_unbooked_spieltag()
         code, spiele = await on_a_seeded_season(
@@ -592,15 +581,14 @@ class TestTheSpielRulesAreReachedThroughTheRoute:
 class TestAFinishedSeasonsSpielIsRefused:
     """`saison_past` through the route: a finished season's record, its bracket included, is closed to the save."""
 
-    @pytest.mark.parametrize("dry_run", [False], ids=["the save"])
-    async def test_a_result_on_a_past_season_is_refused_and_writes_nothing(self, mongo_replica_set_url: str, dry_run: bool):
+    async def test_a_result_on_a_past_season_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"status": "past"}})
             before = await spiele_now(database)
             spiel_data = await payload_for(database, VIERTELFINALE, team1=side(ALPHA, 4), team2=side(BETA, 0))
 
             with pytest.raises(APIError) as refused:
-                await call_patch(database, client, VIERTELFINALE, spiel_data, dry_run=dry_run)
+                await call_patch(database, client, VIERTELFINALE, spiel_data)
 
             return refused.value, before, await spiele_now(database)
 
@@ -665,30 +653,19 @@ class TestTheEligibilityRefusalIsReachedThroughTheRoute:
     not vary with the input that moved.
     """
 
-    @pytest.mark.parametrize(
-        ("date", "error_code"),
-        [
-            pytest.param(GAMMA_DEPARTED_FROM, Code.ELIGIBILITY_DISQUALIFIED, id="moved onto the exit"),
-        ],
-    )
-    async def test_a_spiel_re_dated_past_its_own_occupants_exit_is_judged_as_a_newly_fielded_team_is(
-        self, mongo_replica_set_url: str, date: str, error_code: str
-    ):
+    async def test_a_spiel_moved_onto_its_own_occupants_exit_is_judged_as_a_newly_fielded_team_is(self, mongo_replica_set_url: str):
         """The WIDENED case: both sides stay exactly as stored and only `date` moves, which is the save `stays` would otherwise skip."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SAISON_TEAMS].update_one({"team_id": GAMMA}, {"$set": {"austritt": GAMMA_AUSTRITT}})
-            spiel_data = await payload_for(database, GRUPPE_FILLING, date=date)
+            spiel_data = await payload_for(database, GRUPPE_FILLING, date=GAMMA_DEPARTED_FROM)
 
-            with pytest.raises(APIError) as refused:
-                await call_patch(database, client, GRUPPE_FILLING, spiel_data)
+            return await refused_code(call_patch(database, client, GRUPPE_FILLING, spiel_data)), await spiele_now(database)
 
-            return refused.value, await spiele_now(database)
+        code, spiele = await on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag())
 
-        refused, spiele = await on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag())
-
-        assert refused.error_code == error_code
-        # Nothing written under either refusal: the judgement runs inside the transaction's callback.
+        assert code == Code.ELIGIBILITY_DISQUALIFIED
+        # Nothing written: the judgement runs inside the transaction's callback.
         assert spiele[GRUPPE_FILLING_NR]["date"] == SPIELTAGE[SPIELTAG_GRUPPE][1]
 
 

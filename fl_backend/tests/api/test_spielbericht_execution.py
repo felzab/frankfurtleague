@@ -329,31 +329,18 @@ async def move_to_tomorrow(database: AsyncDatabase) -> None:
     await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"date": "2027-05-15"}})
 
 
-async def nothing(_: AsyncDatabase) -> None:
-    return None
-
-
 async def end_the_season(database: AsyncDatabase) -> None:
     await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"status": "past"}})
 
 
 class TestEachRefusalWritesNothing:
-    @pytest.mark.parametrize(
-        ("email", "before", "body", "code"),
-        [
-            pytest.param(NOBODY, nothing, bericht(), Code.ROLE_NOT_HELD, id="no referee record"),
-        ],
-    )
-    async def test_the_referee_s_write_is_refused(
-        self, mongo_replica_set_url: str, email: str, before: Callable[[AsyncDatabase], Awaitable[None]], body: dict[str, Any], code: str
-    ):
+    async def test_a_write_from_an_address_holding_no_referee_record_is_refused(self, mongo_replica_set_url: str):
         async def run(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await before(database)
-            return await outcome_of(put(database, client, body, email=email)), await stored(database)
+            return await outcome_of(put(database, client, bericht(), email=NOBODY)), await stored(database)
 
         outcome, documents_now = await on_the_league(mongo_replica_set_url, run)
 
-        assert outcome == code
+        assert outcome == Code.ROLE_NOT_HELD
         assert documents_now == []
 
 
