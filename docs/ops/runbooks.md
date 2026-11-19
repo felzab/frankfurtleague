@@ -952,10 +952,10 @@ it:
 docker compose logs --since 2h frontend | grep scheduler.pass
 ```
 
-**A half of the retention sweep that did not finish, the applications' or the registrations', says
-why in the frontend's log.** Each files its own failure line,
-`bewerbung.sweep_failed` and `registrierung.sweep_failed`, naming the season, so the event name is what names the
-half. Every other half and season still runs, and the job then fails, which `scheduler.job_failed` names as
+**A half of the retention sweep that did not finish, the applications', the registrations' or the
+season rows', says why in the frontend's log.** Each files its own failure line,
+`bewerbung.sweep_failed`, `registrierung.sweep_failed` and `saison.sweep_failed`, naming the season, so
+the event name is what names the half. Every other half and season still runs, and the job then fails, which `scheduler.job_failed` names as
 `bewerbungen` and the heartbeat as `bewerbungen failed`. A pass that ran but passed rows over reaches the heartbeat
 as `bewerbungen left <n>`.
 
@@ -977,7 +977,7 @@ names the season**, as it takes an ended season's fixture confirmations whole: i
 theirs the season's end could not strip, the contact blocks clear all the same, and every later pass
 tries again.
 
-**A `bewerbung_failed` or `registrierung_failed` above zero is a clock passing rows
+**A `bewerbung_failed`, `registrierung_failed` or `saison_failed` above zero is a clock passing rows
 over, not a pass that ran clean.** A clock failing on every row still finishes its pass, so this
 count, summing the rows that half's clocks passed over across every season, a one-write clock that
 failed counting once, is the only sign of it. The backend's lines then name each row, as above.
