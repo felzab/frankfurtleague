@@ -9,6 +9,7 @@ from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterConfirmationViewConfirmed,
     FLSchiedsrichterConfirmationViewExpired,
     FLSchiedsrichterConfirmationViewValid,
+    FLSchiedsrichterEntryState,
     FLSchiedsrichterSpiel,
 )
 from app.api.spielberichte.services import takes_a_bericht
@@ -176,12 +177,6 @@ def build_token_filter(*, token_hash: str) -> Mapping[str, Any]:
     return {TOKEN_HASHES_PATH: token_hash}
 
 
-def confirmation_expired(block: Mapping[str, Any] | None, *, today: str) -> bool:
-    """Whether the link a referee holds has passed its deadline; false where they hold none."""
-
-    return block is not None and deadline_passed(deadline=block["deadline"], today=today)
-
-
 def state_of(*, einwilligung: Any, confirmation: Mapping[str, Any], today: str) -> FLConfirmationState:
     """What a reopened link shows: an answer over the deadline. An objection erased the entry, so no link of it opens.
 
@@ -192,6 +187,35 @@ def state_of(*, einwilligung: Any, confirmation: Mapping[str, Any], today: str) 
         return "confirmed"
 
     return "expired" if deadline_passed(deadline=confirmation["deadline"], today=today) else "valid"
+
+
+def entry_state_of(*, einwilligung: Any, confirmation: Mapping[str, Any] | None, today: str) -> FLSchiedsrichterEntryState:
+    """Where an entry stands as the administration reads it: `state_of`'s state, or `unasked` where no link was owed."""
+
+    if confirmation is not None:
+        return state_of(einwilligung=einwilligung, confirmation=confirmation, today=today)
+
+    return "confirmed" if is_confirmed(einwilligung=einwilligung) else "unasked"
+
+
+# What the administration's list reads of each referee: its row's fields, and what `entry_state_of` judges.
+ADMIN_ROW_FIELDS: Mapping[str, int] = {
+    "name": 1,
+    "kontakt": 1,
+    "inactive_since": 1,
+    f"{EINWILLIGUNG_FIELD}.confirmed_at": 1,
+    f"{CONFIRMATION_FIELD}.deadline": 1,
+}
+
+
+def compose_admin(schiedsrichter_raw: Mapping[str, Any], *, today: str) -> dict[str, Any]:
+    """A referee's stored row with where the entry stands, for the list's row and the editor alike."""
+
+    state = entry_state_of(
+        einwilligung=schiedsrichter_raw.get(EINWILLIGUNG_FIELD), confirmation=schiedsrichter_raw.get(CONFIRMATION_FIELD), today=today
+    )
+
+    return {**schiedsrichter_raw, "state": state}
 
 
 def confirmation_view(
@@ -244,7 +268,7 @@ def find_retired_refusal(*, inactive_since: Any) -> APIError | None:
 
 
 def find_missing_address_refusal(*, email: str) -> APIError | None:
-    """Why there is nobody to send to, or `None`: a stored address the fold cannot canonicalise, such as a placeholder.
+    """Why there is nobody to send to, or `None`: a stored address the fold no longer canonicalises, stored before the rule moved.
 
     Refused here and not at the calling surface alone: a mint that wrote `sent_at` for a row
     with no address would record a message that was never composed.

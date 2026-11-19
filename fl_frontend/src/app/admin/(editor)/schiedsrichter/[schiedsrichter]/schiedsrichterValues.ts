@@ -1,4 +1,4 @@
-import type { FLSchiedsrichter } from "@/core/generated/client/types";
+import type { FLSchiedsrichterAdmin } from "@/core/generated/client/types";
 
 /**
  * What the referee editor's fields hold: the name and the school, the address and the phone, and the fee, each as
@@ -12,11 +12,11 @@ export type SchiedsrichterValues = {
   default_payment: string;
 };
 
-export function valuesOf(referee: FLSchiedsrichter): SchiedsrichterValues {
+export function valuesOf(referee: FLSchiedsrichterAdmin): SchiedsrichterValues {
   return {
     name: referee.name,
     schule: referee.schule ?? "",
-    email: referee.kontakt.email ?? "",
+    email: referee.kontakt.email,
     phone: referee.kontakt.phone ?? "",
     default_payment: String(referee.default_payment),
   };
