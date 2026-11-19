@@ -496,7 +496,7 @@ class TestWhoMayArrive:
         assert code == Code.TEAM_RETIRED
 
     async def test_an_id_naming_no_team_is_a_404(self, mongo_replica_set_url: str):
-        """Kills pointing the row at a club that is not there, which every read of the season would then fail to name."""
+        """Kills pointing the row at a club that is not there: the season would field a club no `teams` document holds."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(DocumentNotFoundError):
