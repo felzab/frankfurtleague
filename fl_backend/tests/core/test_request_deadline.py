@@ -447,15 +447,8 @@ Pressed = tuple[int, float, tuple[int, int], dict[ObjectId, list[ObjectId]], dic
 MAIL_PATH = f"/api/saisons/{SAISON_ID}/invitations/mail"
 
 
-@pytest.fixture(scope="module")
-def pressing_app() -> FastAPI:
-    """One app for every press, whose first request builds every router branch once, before the trace layer sets a deadline."""
-
-    return create_app(build_test_config().model_copy(update={"db_base_name": DATABASE_NAME}))
-
-
-async def _pressed(served: FastAPI, url: str, stand_in: Callable[[AsyncCollection], Any]) -> Pressed:
-    """One press over ASGI, the route handed `stand_in` for its `invitations` collection.
+async def _pressed(url: str, stand_in: Callable[[AsyncCollection], Any]) -> Pressed:
+    """One press over ASGI on an app of its own, the route handed `stand_in` for its `invitations` collection.
 
     Answers the status, the time, the press's two counts, each team's live links and its seeded link.
     """
@@ -475,20 +468,16 @@ async def _pressed(served: FastAPI, url: str, stand_in: Callable[[AsyncCollectio
         await database[Collection.GRANTS].insert_many(grants_for_the_suite())
         await database[Collection.INVITATIONS].insert_many(list(seeded.values()))
 
+        served = create_app(build_test_config().model_copy(update={"db_base_name": DATABASE_NAME}))
         # The tier's shared client: closing it belongs to `tests/database.py :: close_the_shared_clients`.
         served.state.db_client = client
-        invitations = collection_dependency(Collection.INVITATIONS)
-        served.dependency_overrides[invitations] = lambda: stand_in(database[Collection.INVITATIONS])
+        served.dependency_overrides[collection_dependency(Collection.INVITATIONS)] = lambda: stand_in(database[Collection.INVITATIONS])
 
-        try:
-            transport = ASGITransport(app=served, raise_app_exceptions=False)
-            async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                started = time.monotonic()
-                response = await http.post(MAIL_PATH, headers=ADMIN_HEADERS)
-                elapsed = time.monotonic() - started
-        finally:
-            # The app outlives the case, so the stand-in goes with it.
-            del served.dependency_overrides[invitations]
+        transport = ASGITransport(app=served, raise_app_exceptions=False)
+        async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
+            started = time.monotonic()
+            response = await http.post(MAIL_PATH, headers=ADMIN_HEADERS)
+            elapsed = time.monotonic() - started
 
         answer = response.json()
         live = {
@@ -507,10 +496,10 @@ async def _pressed(served: FastAPI, url: str, stand_in: Callable[[AsyncCollectio
 
 @pytest.mark.db
 class TestTheSendPastItsDeadline:
-    async def test_no_team_is_revoked_after_the_page_has_stopped_waiting(self, pressing_app: FastAPI, mongo_replica_set_url: str):
+    async def test_no_team_is_revoked_after_the_page_has_stopped_waiting(self, mongo_replica_set_url: str):
         """The press whose database stops answering mid-loop: a link revoked after the deadline is one whose replacement nobody receives."""
 
-        status, elapsed, counts, live, seeded = await _pressed(pressing_app, mongo_replica_set_url, _StallsOneTeam)
+        status, elapsed, counts, live, seeded = await _pressed(mongo_replica_set_url, _StallsOneTeam)
 
         assert status == 200
         assert elapsed < ANSWERED_WITHIN_S
@@ -520,13 +509,11 @@ class TestTheSendPastItsDeadline:
         assert live[STALLED] == [seeded[STALLED]]
         assert live[AFTER_THE_DEADLINE] == [seeded[AFTER_THE_DEADLINE]]
 
-    async def test_a_commit_of_unknown_outcome_is_logged_as_unknown(
-        self, pressing_app: FastAPI, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
-    ):
+    async def test_a_commit_of_unknown_outcome_is_logged_as_unknown(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """Never as failed: that line tells the operator the earlier link still opens, where the commit may have revoked it."""
 
         with caplog.at_level(logging.ERROR, logger=fl_logger.name):
-            status, _, counts, _, _ = await _pressed(pressing_app, mongo_replica_set_url, _CommitOfUnknownOutcomeForOneTeam)
+            status, _, counts, _, _ = await _pressed(mongo_replica_set_url, _CommitOfUnknownOutcomeForOneTeam)
 
         assert status == 200
         assert counts == (2, 1)
