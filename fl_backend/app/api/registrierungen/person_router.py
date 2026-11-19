@@ -1,4 +1,5 @@
 from collections.abc import Mapping
+from functools import partial
 from typing import Any
 
 from bson import ObjectId
@@ -7,7 +8,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.account.services import compose_person_move, find_own_entry_refusal, press_withdrawal, withdrawal_line
+from app.api.account.services import press_own_einwilligung
 from app.api.identity.crud import refuse_without_a_seat
 from app.api.identity.lookup import RecordCollections, SubjectLookup
 from app.api.identity.services import is_own_registrierung
@@ -44,7 +45,6 @@ from app.api.registrierungen.services import (
 )
 from app.api.spieler.crud import pull_kader_room, refuse_a_full_kader
 from app.api.spieler.services import find_full_kader_refusal
-from app.core.clock import utc_stamp
 from app.core.collections import Collection
 from app.core.crud import (
     delete_many_from_db,
@@ -71,15 +71,13 @@ from app.core.dependencies import (
     SpielerReadCollection,
 )
 from app.core.exceptions import DocumentNotFoundError
-from app.core.journal import Journal
 from app.core.recording import ACT_BY_KONTAKT, record_act
 from app.core.routing import by_id
 from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transact
-from app.shared.einwilligung_evidence import FLEinwilligungChoice
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomObjectId
-from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload, by_choice
+from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload
 
 # A person's route in place of `bind_actor`: a seat holder signs in by code and holds no grant, so the
 # administrator's actor check would refuse every one of them.
@@ -481,40 +479,17 @@ async def patch_einwilligung(
     A grant is refused, and a request moving neither choice writes nothing.
     """
 
-    chosen: dict[FLEinwilligungChoice, object] = {"scope": einwilligung_data.scope, "media": einwilligung_data.media}
-    # One instant for every attempt.
-    at = utc_stamp(germany_now)
-    journal = Journal()
-
-    @journal.attempted
-    async def write(session: AsyncClientSession) -> None:
+    await press_own_einwilligung(
+        einwilligung_data=einwilligung_data,
+        kind=Collection.REGISTRIERUNGEN,
+        collection=registrierungen_collection,
         # By the id alone: the predicate judges the status, the fold, the confirmation and the choices.
-        row = await registrierungen_collection.find_one(
-            {"_id": registrierung_id}, projection={"status": 1, "email": 1, "einwilligung": 1}, session=session
-        )
-        refuse(find_own_entry_refusal(held=row is not None and is_own_registrierung(row, identifier)))
-        assert row is not None
-        saved = row["einwilligung"]
-
+        own_entry={"_id": registrierung_id},
+        projection={"status": 1, "email": 1, "einwilligung": 1},
+        owns=lambda row: is_own_registrierung(row, identifier),
         # Withdraw-only: a pending registration grants no panel to answer a grant against.
-        await press_withdrawal(
-            blocks=[saved],
-            chosen=chosen,
-            evidence_state=einwilligung_data.evidence_state.model_dump(),
-        )
-
-        update = compose_person_move(saved=saved, chosen=chosen, at=at, text_versions=by_choice(einwilligung_data.text_versions))
-        if update is not None:
-            await patch_one_in_db(
-                collection=registrierungen_collection,
-                db_filter={"_id": row["_id"]},
-                update=update,
-                session=session,
-                expected_version=None,
-                return_document=ReturnDocument.BEFORE,
-            )
-        if moved := withdrawal_line(blocks=[saved], chosen=chosen):
-            journal.note("withdrawal", [f"{Collection.REGISTRIERUNGEN}/{row['_id']}"], choices=list(moved))
-
-    async with journal:
-        await transact(db, write)
+        grants=None,
+        write=partial(patch_one_in_db, expected_version=None, return_document=ReturnDocument.BEFORE),
+        db=db,
+        now=germany_now,
+    )

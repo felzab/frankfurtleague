@@ -6,13 +6,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.account.services import (
-    compose_person_move,
-    find_own_entry_refusal,
-    may_always_give,
-    press_einwilligung,
-    withdrawal_line,
-)
+from app.api.account.services import Grants, find_own_entry_refusal, may_always_give, press_own_einwilligung
 from app.api.identity.crud import refuse_without_a_seat
 from app.api.identity.lookup import RecordCollections, SubjectLookup
 from app.api.identity.services import is_own_spieler
@@ -32,7 +26,6 @@ from app.api.spieler.services import (
     find_kader_stufe_refusal,
     mark_shared_nummern,
 )
-from app.core.clock import utc_stamp
 from app.core.collections import Collection
 from app.core.crud import (
     GERMAN_COLLATION,
@@ -55,15 +48,13 @@ from app.core.dependencies import (
     SpielerCollection,
     SpielerReadCollection,
 )
-from app.core.journal import Journal
 from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_KONTAKT, FLAction, record_act
 from app.core.routing import by_id
 from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transact
-from app.shared.einwilligung_evidence import FLEinwilligungChoice
 from app.shared.schemas.custom import CustomObjectId
-from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload, by_choice
+from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload
 from app.shared.schemas.literals import FLSpielerStufe
 
 # The person lane's identifier in place of `bind_actor` and the grants check, which a seat holder holding
@@ -319,39 +310,20 @@ async def patch_einwilligung(
     the scope decides whether a name is served.
     """
 
-    own_entry = build_self_pupil_filter(identifier)
-    chosen: dict[FLEinwilligungChoice, object] = {"scope": einwilligung_data.scope, "media": einwilligung_data.media}
-    at = utc_stamp(germany_now)
-    journal = Journal()
-
-    @journal.attempted
-    async def write(session: AsyncClientSession) -> None:
-        row = await spieler_collection.find_one(own_entry, projection={"einwilligung": 1, "birth_date": 1}, session=session)
-        refuse(find_own_entry_refusal(held=row is not None and is_own_spieler(row)))
-        assert row is not None
-        saved = row["einwilligung"]
-
-        await press_einwilligung(
-            blocks=[saved],
-            birth_dates=[row.get("birth_date")],
-            chosen=chosen,
-            evidence_state=einwilligung_data.evidence_state.model_dump(),
-            text_versions=einwilligung_data.text_versions,
-            may_give=may_always_give,
-            today=today,
-        )
-
-        update = compose_person_move(saved=saved, chosen=chosen, at=at, text_versions=by_choice(einwilligung_data.text_versions))
-        if update is not None:
-            # Past the count: no form saves the consent, so the Spieler editor's next save stands; this transaction's
-            # read above is what a second press is judged against.
-            await patch_past_the_version_in_db(collection=spieler_collection, db_filter={"_id": row["_id"]}, update=update, session=session)
-        choices = withdrawal_line(blocks=[saved], chosen=chosen)
-        if choices is not None:
-            journal.note("withdrawal", [f"{Collection.SPIELER}/{row['_id']}"], choices=list(choices))
-
-    async with journal:
-        await transact(db, write)
+    await press_own_einwilligung(
+        einwilligung_data=einwilligung_data,
+        kind=Collection.SPIELER,
+        collection=spieler_collection,
+        own_entry=build_self_pupil_filter(identifier),
+        projection={"einwilligung": 1, "birth_date": 1},
+        owns=is_own_spieler,
+        grants=Grants(may_give=may_always_give, today=today),
+        # Past the count: no form saves the consent, so the Spieler editor's next save stands; the press's read in its
+        # transaction is what a second press is judged against.
+        write=patch_past_the_version_in_db,
+        db=db,
+        now=germany_now,
+    )
 
 
 @spieler_router.get("/self/saisons", summary="The seasons a signed-in pupil holds a squad row in")

@@ -1,13 +1,21 @@
-"""One module for every kind of own record, deciding from what the routers pass and reading nothing.
+"""One module for every kind of own record, deciding from what the routers pass.
 
 One module, so the kinds' PATCHes cannot answer one press differently and the account page's read judges a grant
-exactly as the PATCH it offers does.
+exactly as the PATCH it offers does. It reads only through what a router passes: the one press a person's own block
+takes runs on the collection, the client and the write its router hands it.
 """
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence
+from dataclasses import dataclass
+from datetime import datetime
+from functools import partial
 from http import HTTPStatus
 from operator import itemgetter
-from typing import Any, Final, Literal
+from typing import Any, Final, Literal, Protocol
+
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.services import build_own_bewerbung_filter, schule_name
 from app.api.identity.schemas import FLSubjectSeat
@@ -17,13 +25,22 @@ from app.api.registrierungen.services import build_own_registrierung_filter
 from app.api.saisons.services import SAISON_LOOKUP
 from app.api.schiedsrichter.services import EINWILLIGUNG_FIELD, SELF_REFEREE_ORDER, build_self_referee_filter
 from app.api.spieler.services import SELF_PUPIL_ORDER, build_self_pupil_filter
+from app.core.clock import utc_stamp
 from app.core.codes import Code
 from app.core.collections import Collection as DbCollection
 from app.core.crud import refuse
 from app.core.exceptions import APIError
+from app.core.journal import Journal
+from app.core.transactions import transact
 from app.shared.einwilligung import find_self_media_refusal, media_offered
 from app.shared.einwilligung_evidence import CHOICES, FLEinwilligungChoice, TextVersions, compose_choices, evidence_state_of, is_given
-from app.shared.schemas.einwilligung import PressTextVersions, stale_grants
+from app.shared.schemas.einwilligung import (
+    FLAccountEinwilligungPayload,
+    FLSchiedsrichterAccountEinwilligungPayload,
+    PressTextVersions,
+    by_choice,
+    stale_grants,
+)
 from app.shared.schemas.literals import KONTAKT_SEATS
 
 
@@ -155,8 +172,8 @@ def find_evidence_state_refusal(*, expected: Mapping[str, Any], blocks: Sequence
 MayGive = Callable[[], Awaitable[bool]]
 
 
-async def may_always_give() -> bool:
-    """`MayGive` of a record no state of which refuses a grant: a pupil's, whose every confirmed record stands live."""
+async def may_always_give(_session: AsyncClientSession) -> bool:
+    """`Grants.may_give` of a record no state of which refuses a grant: a pupil's, whose every confirmed record stands live."""
 
     return True
 
@@ -223,6 +240,78 @@ async def press_withdrawal(
         evidence_state=evidence_state,
         may_give=None,
     )
+
+
+@dataclass(frozen=True, kw_only=True)
+class Grants:
+    """What a kind taking grants judges one by: whether its found record may take one, and the day the media age is reckoned on."""
+
+    # Asked in the press's own transaction, so a read behind it sees what the press's read saw.
+    may_give: Callable[[AsyncClientSession], Awaitable[bool]]
+    today: str
+
+
+class OwnWrite(Protocol):
+    """A kind's write of a press's move onto its found record; which count the write moves is the kind's (`docs/decisions.md`, versions)."""
+
+    def __call__(
+        self, *, collection: AsyncCollection, db_filter: Mapping[str, Any], update: Mapping[str, Any], session: AsyncClientSession
+    ) -> Awaitable[object]: ...
+
+
+async def press_own_einwilligung(
+    *,
+    einwilligung_data: FLAccountEinwilligungPayload | FLSchiedsrichterAccountEinwilligungPayload,
+    kind: DbCollection,
+    collection: AsyncCollection,
+    own_entry: Mapping[str, Any],
+    projection: Mapping[str, Any],
+    owns: Callable[[Mapping[str, Any]], bool],
+    grants: Grants | None,
+    write: OwnWrite,
+    db: AsyncMongoClient,
+    now: datetime,
+) -> None:
+    """One press on a person's own consent record of `kind`, found by `own_entry` and refused unless it `owns` it.
+
+    `grants` is `None` for a kind taking withdrawals alone. A refusal at any step writes nothing, and what the press
+    withdrew is journalled once its transaction lands.
+    """
+
+    chosen: dict[FLEinwilligungChoice, object] = {"scope": einwilligung_data.scope, "media": einwilligung_data.media}
+    evidence_state = einwilligung_data.evidence_state.model_dump()
+    # One instant for every attempt.
+    at = utc_stamp(now)
+    journal = Journal()
+
+    @journal.attempted
+    async def write_the_press(session: AsyncClientSession) -> None:
+        row = await collection.find_one(own_entry, projection=projection, session=session)
+        refuse(find_own_entry_refusal(held=row is not None and owns(row)))
+        assert row is not None
+        saved = row["einwilligung"]
+
+        if grants is None:
+            await press_withdrawal(blocks=[saved], chosen=chosen, evidence_state=evidence_state)
+        else:
+            await press_einwilligung(
+                blocks=[saved],
+                birth_dates=[row.get("birth_date")],
+                chosen=chosen,
+                evidence_state=evidence_state,
+                text_versions=einwilligung_data.text_versions,
+                may_give=partial(grants.may_give, session),
+                today=grants.today,
+            )
+
+        update = compose_person_move(saved=saved, chosen=chosen, at=at, text_versions=by_choice(einwilligung_data.text_versions))
+        if update is not None:
+            await write(collection=collection, db_filter={"_id": row["_id"]}, update=update, session=session)
+        if moved := withdrawal_line(blocks=[saved], chosen=chosen):
+            journal.note("withdrawal", [f"{kind}/{row['_id']}"], choices=list(moved))
+
+    async with journal:
+        await transact(db, write_the_press)
 
 
 def context_teams_lookup(local_field: str) -> Mapping[str, Any]:
