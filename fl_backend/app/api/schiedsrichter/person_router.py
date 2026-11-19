@@ -10,7 +10,7 @@ from app.api.account.services import (
 from app.api.identity.crud import roles_of
 from app.api.identity.lookup import SubjectLookup
 from app.api.identity.services import is_own_schiedsrichter, may_grant_on_schiedsrichter
-from app.api.saisons.schemas import FLOwnSaisonsResponse, FLSaisonFrameEntryListAdapter
+from app.api.saisons.schemas import FLOwnSaisonsResponse
 from app.api.schiedsrichter.schemas import FLSchiedsrichterSpieleResponse
 from app.api.schiedsrichter.services import (
     EINWILLIGUNG_FIELD,
@@ -160,4 +160,4 @@ async def get_self_saisons(
         session=session,
     )
 
-    return FLOwnSaisonsResponse(saisons=FLSaisonFrameEntryListAdapter.validate_python(saisons))
+    return FLOwnSaisonsResponse.model_validate({"saisons": saisons})

@@ -58,8 +58,8 @@ const HEAD: TableHead = {
 };
 
 async function readSpielorte() {
-  // Retired included: the list is the one way into a retired venue's page, whose danger box brings it back.
-  const { spielorte } = await getSpielorte({ include_inactive: true });
+  // Retired ones among them: the list is the one way into a retired venue's page, whose danger box brings it back.
+  const { spielorte } = await getSpielorte();
   return {
     table: {
       label: ROUTES.adminSpielorte.title,

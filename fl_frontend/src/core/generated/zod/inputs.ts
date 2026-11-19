@@ -1277,7 +1277,7 @@ export const saisonsPatchSaisonBodyRulesNumberOfGruppenMax = 16;
 export const saisonsPatchSaisonBodyRulesQualifiersPerGruppeExclusiveMin = 0;
 
 export const saisonsPatchSaisonBodyRulesTeamsPerGruppeMin = 2;
-export const saisonsPatchSaisonBodyRulesTeamsPerGruppeMax = 16;
+export const saisonsPatchSaisonBodyRulesTeamsPerGruppeMax = 8;
 
 export const saisonsPatchSaisonBodyRulesWinPointsExclusiveMin = 0;
 
@@ -1432,10 +1432,10 @@ export const SaisonsGetSpielplanParams = zod.object({
 });
 
 /**
- * Draw the whole season at once, every matchday and every fixture undated, from the stated `shape` or the season's rules.
+ * Draw the whole season at once, every matchday and every fixture undated, from the season's rules.
  *
- * A stated `shape` is stored in the rules, and `replace` first deletes what a planned season holds, its fixtures'
- * confirmations, reports and line-ups with it; nothing writes the removed rows back.
+ * `replace` first deletes what a planned season holds, its fixtures' confirmations, reports and line-ups with it;
+ * nothing writes the removed rows back.
  * @summary Draw this Saison's Spielplan
  */
 export const SaisonsPostSpielplanParams = zod.object({
@@ -1443,40 +1443,13 @@ export const SaisonsPostSpielplanParams = zod.object({
 });
 
 export const saisonsPostSpielplanBodyReplaceDefault = false;
-export const saisonsPostSpielplanBodyShapeOneNumberOfGruppenExclusiveMin = 0;
-export const saisonsPostSpielplanBodyShapeOneNumberOfGruppenMax = 16;
-
-export const saisonsPostSpielplanBodyShapeOneQualifiersPerGruppeExclusiveMin = 0;
-
-export const saisonsPostSpielplanBodyShapeOneTeamsPerGruppeMin = 2;
-export const saisonsPostSpielplanBodyShapeOneTeamsPerGruppeMax = 16;
 
 export const SaisonsPostSpielplanBody = zod
   .object({
     replace: zod.boolean().default(saisonsPostSpielplanBodyReplaceDefault),
-    shape: zod
-      .union([
-        zod
-          .object({
-            number_of_gruppen: zod
-              .int()
-              .gt(saisonsPostSpielplanBodyShapeOneNumberOfGruppenExclusiveMin)
-              .max(saisonsPostSpielplanBodyShapeOneNumberOfGruppenMax),
-            qualifiers_per_gruppe: zod.int().gt(saisonsPostSpielplanBodyShapeOneQualifiersPerGruppeExclusiveMin),
-            teams_per_gruppe: zod
-              .int()
-              .min(saisonsPostSpielplanBodyShapeOneTeamsPerGruppeMin)
-              .max(saisonsPostSpielplanBodyShapeOneTeamsPerGruppeMax),
-          })
-          .describe(
-            "The three rules a season's fixture list is a function of, as this draw is to run from.\n\nAll three or none: the draw is one function of the whole shape, and a payload naming half\nof it would take the rest off a season about to stop matching it.",
-          ),
-        zod.null(),
-      ])
-      .optional(),
   })
   .describe(
-    "Whether this draw may replace what the season already holds, and the shape it runs from.\n\nAn absent body is a first draw off the season's own rules: nothing is destroyed and no\nnumber moves by omission.",
+    "Whether this draw may replace what the season already holds; the draw runs on the season's stored rules.\n\nAn absent body is a first draw: nothing is destroyed by omission.",
   );
 
 /**
@@ -2361,16 +2334,6 @@ export const SpielerPatchKaderRowBody = zod
     version: zod.int().min(spielerPatchKaderRowBodyVersionMin),
   })
   .describe("A seat holder's edit of a squad row.");
-
-/**
- * Every venue in name order, the retired ones too where `include_inactive` asks for them.
- * @summary List Spielorte
- */
-export const spielorteGetSpielorteQueryIncludeInactiveDefault = false;
-
-export const SpielorteGetSpielorteQueryParams = zod.object({
-  include_inactive: zod.boolean().default(spielorteGetSpielorteQueryIncludeInactiveDefault),
-});
 
 /**
  * Create a venue, its `maps_query` derived from the name and the address.

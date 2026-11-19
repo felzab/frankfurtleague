@@ -16,13 +16,11 @@ from app.api.saisons.schemas import (
     FLLandingResponse,
     FLLandingRunning,
     FLLandingSide,
-    FLSaisonFrameEntryListAdapter,
     FLSaisonFrameResponse,
     FLSpielPageResponse,
     FLSpielSideStanding,
     FLSpielSideStandings,
     FLTeamPageResponse,
-    FLTeamPageSpielListAdapter,
     saison_start,
 )
 from app.api.saisons.services import (
@@ -92,7 +90,7 @@ async def get_frame(saisons_collection: SaisonsReadCollection) -> FLSaisonFrameR
     # season is the one write that moves it, so a finished season stays the site's until then.
     active_saison_id = next((str(raw["_id"]) for raw in saisons_raw if raw["status"] == "active"), None)
 
-    return FLSaisonFrameResponse(saisons=FLSaisonFrameEntryListAdapter.validate_python(saisons_raw), active_saison_id=active_saison_id)
+    return FLSaisonFrameResponse.model_validate({"saisons": saisons_raw, "active_saison_id": active_saison_id})
 
 
 # How many matches the landing's card shows while the season runs: one of each side where both hold one, else this many
@@ -142,63 +140,58 @@ async def _active_or_none(saisons_collection: ReadCollection) -> Mapping[str, An
         return None
 
 
-# Keeps a season's row in a count only where the public reads its season, joined on the row's `saison_id`: a planned
-# season's clubs and fixtures count once it starts being read, by the rule every base-tier season read narrows on.
-_IN_A_PUBLIC_SAISON: tuple[Mapping[str, Any], ...] = (
-    {
-        "$lookup": {
-            "from": Collection.SAISONS,
-            "localField": "saison_id",
-            "foreignField": "_id",
-            "pipeline": [{"$match": base_tier_status_term()}, {"$project": {"_id": 0, "status": 1}}],
-            "as": "public_saison",
-        }
-    },
-    {"$match": {"public_saison": {"$ne": []}}},
-)
+def _listed_team(past_ids: list[Any]) -> tuple[Mapping[str, Any], ...]:
+    """A club a season's Teams page lists: one that has not left the league, or one whose row is in a season now `past`."""
 
-# A club a season's Teams page lists: one that has not left the league, or one that left it after a season now `past`,
-# which keeps its place there.
-_LISTED_TEAM: tuple[Mapping[str, Any], ...] = (
-    {
-        "$lookup": {
-            "from": Collection.TEAMS,
-            "localField": "team_id",
-            "foreignField": "_id",
-            "pipeline": [{"$project": {"_id": 0, "inactive_since": 1}}],
-            "as": "team",
-        }
-    },
-    # `$elemMatch` rather than a `team.0.inactive_since` path, which a missing field "0" in the joined element matches as null.
-    {"$match": {"$or": [{"team": {"$elemMatch": {"inactive_since": None}}}, {"public_saison": {"$elemMatch": {"status": "past"}}}]}},
-)
+    return (
+        {
+            "$lookup": {
+                "from": Collection.TEAMS,
+                "localField": "team_id",
+                "foreignField": "_id",
+                "pipeline": [{"$project": {"_id": 0, "inactive_since": 1}}],
+                "as": "team",
+            }
+        },
+        # `$elemMatch` rather than a `team.0.inactive_since` path, which a missing field "0" in the joined element matches as null.
+        {"$match": {"$or": [{"team": {"$elemMatch": {"inactive_since": None}}}, {"saison_id": {"$in": past_ids}}]}},
+    )
 
 
 async def _league_counts(
     *, saisons_collection: ReadCollection, spiele_collection: ReadCollection, saison_teams_collection: ReadCollection
 ) -> FLLandingCounts:
-    """The league's figures over every season the public reads, three reads sent at once."""
+    """The league's figures over every season the public reads: those seasons read once, then the two counts over them at once."""
 
-    count_saisons, counted_raw, schulen_raw = await concurrently(
-        saisons_collection.count_documents(base_tier_status_term()),
+    # By the rule every base-tier season read narrows on, so a planned season's clubs and fixtures count once it is read.
+    # Whole: a season past the page would drop its clubs and matches from the figures in silence.
+    public = await pull_whole_from_db(
+        collection=saisons_collection, db_filter=base_tier_status_term(), what="the public seasons", projection=["status"]
+    )
+    in_a_public_saison = {"saison_id": {"$in": [row["_id"] for row in public]}}
+    counted_raw, schulen_raw = await concurrently(
         # The matches the Tabelle counts, every phase's: one group, so the goals and the matches stand on one basis.
         aggregate_many_from_db(
             collection=spiele_collection,
             pipeline=[
-                {"$match": counting_spiele_match()},
-                *_IN_A_PUBLIC_SAISON,
+                {"$match": {**counting_spiele_match(), **in_a_public_saison}},
                 {"$group": {"_id": None, "tore": {"$sum": {"$add": ["$team1.tore", "$team2.tore"]}}, "spiele": {"$sum": 1}}},
             ],
         ),
         # The clubs the seasons' Teams pages list, a club playing several seasons one school.
         aggregate_many_from_db(
             collection=saison_teams_collection,
-            pipeline=[*_IN_A_PUBLIC_SAISON, *_LISTED_TEAM, {"$group": {"_id": "$team_id"}}, {"$count": "schulen"}],
+            pipeline=[
+                {"$match": in_a_public_saison},
+                *_listed_team([row["_id"] for row in public if row["status"] == "past"]),
+                {"$group": {"_id": "$team_id"}},
+                {"$count": "schulen"},
+            ],
         ),
     )
 
     return FLLandingCounts(
-        count_saisons=count_saisons,
+        count_saisons=len(public),
         count_schulen=schulen_raw[0]["schulen"] if schulen_raw else 0,
         # No group row where no match counts yet.
         count_spiele=counted_raw[0]["spiele"] if counted_raw else 0,
@@ -499,11 +492,13 @@ async def get_team(
 
     standing = next((row for rows in tabelle.root.values() for row in rows if row.id == team_id), None)
 
-    return FLTeamPageResponse(
-        team=FLTeamPageTeam.model_validate(team_raw[0]),
-        standing=standing,
-        spiele=FLTeamPageSpielListAdapter.validate_python([{**spiel_raw, **matchday_of(spiel_raw)} for spiel_raw in spiele_raw]),
-        kader=FLSpielerListAdapter.validate_python(kader_raw),
+    return FLTeamPageResponse.model_validate(
+        {
+            "team": FLTeamPageTeam.model_validate(team_raw[0]),
+            "standing": standing,
+            "spiele": [{**spiel_raw, **matchday_of(spiel_raw)} for spiel_raw in spiele_raw],
+            "kader": FLSpielerListAdapter.validate_python(kader_raw),
+        }
     )
 
 

@@ -99,7 +99,6 @@
           "saison_span_below_spieltage",
           "saison_span_below_spielplan",
           "spieltag_start_out_of_order",
-          "saison_span_below_spielplan_as_stored",
           "saison_start_taken_place",
           "saison_start_austritt_stored",
           "invitation_team_not_entered",
@@ -155,8 +154,6 @@
           "rules_kader_below_use",
           "rules_forfeit_unentschieden_in_a_knockout",
           "rules_shape_after_spielplan",
-          "rules_spiele_over_one_read",
-          "rules_forfeit_unentschieden_in_a_knockout_as_stored",
           "schiedsrichter_retired",
           "schiedsrichter_no_address",
           "schiedsrichter_address_only_per_change",
@@ -5114,22 +5111,12 @@
       },
       "FLGenerateSpielplanPayload": {
         "additionalProperties": false,
-        "description": "Whether this draw may replace what the season already holds, and the shape it runs from.\n\nAn absent body is a first draw off the season's own rules: nothing is destroyed and no\nnumber moves by omission.",
+        "description": "Whether this draw may replace what the season already holds; the draw runs on the season's stored rules.\n\nAn absent body is a first draw: nothing is destroyed by omission.",
         "properties": {
           "replace": {
             "default": false,
             "title": "Replace",
             "type": "boolean"
-          },
-          "shape": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielplanShape"
-              },
-              {
-                "type": "null"
-              }
-            ]
           }
         },
         "title": "FLGenerateSpielplanPayload",
@@ -9123,7 +9110,7 @@
         "type": "object"
       },
       "FLSaisonAdminResponse": {
-        "description": "What the season editor shows, in one read: its season, clubs, shapes and matchdays, its acts' states and its registration links.\n\n`shapes` is every shape the season's other rules admit, judged as the draw judges a shape it is given;\n`spielplan` is the Spielplan the season holds, `null` while it holds no matchday and no fixture; `invitations`\nholds one row per club, in `teams`' order.",
+        "description": "What the season editor shows, in one read: its season, clubs, shapes and matchdays, its acts' states and its registration links.\n\n`shapes` is every shape the season's other rules admit, which its rules form offers;\n`spielplan` is the Spielplan the season holds, `null` while it holds no matchday and no fixture; `invitations`\nholds one row per club, in `teams`' order.",
         "properties": {
           "incoming_teams": {
             "items": {
@@ -9496,7 +9483,7 @@
             "type": "integer"
           },
           "teams_per_gruppe": {
-            "maximum": 16.0,
+            "maximum": 8.0,
             "minimum": 2.0,
             "title": "Teams Per Gruppe",
             "type": "integer"
@@ -14223,8 +14210,7 @@
         "type": "object"
       },
       "FLSpielplanShape": {
-        "additionalProperties": false,
-        "description": "The three rules a season's fixture list is a function of, as this draw is to run from.\n\nAll three or none: the draw is one function of the whole shape, and a payload naming half\nof it would take the rest off a season about to stop matching it.",
+        "description": "The three rules a season's fixture list is a function of, as one combination the season's other rules admit.",
         "properties": {
           "number_of_gruppen": {
             "exclusiveMinimum": 0.0,
@@ -14238,7 +14224,7 @@
             "type": "integer"
           },
           "teams_per_gruppe": {
-            "maximum": 16.0,
+            "maximum": 8.0,
             "minimum": 2.0,
             "title": "Teams Per Gruppe",
             "type": "integer"
@@ -19467,7 +19453,7 @@
         ]
       },
       "post": {
-        "description": "Draw the whole season at once, every matchday and every fixture undated, from the stated `shape` or the season's rules.\n\nA stated `shape` is stored in the rules, and `replace` first deletes what a planned season holds, its fixtures'\nconfirmations, reports and line-ups with it; nothing writes the removed rows back.",
+        "description": "Draw the whole season at once, every matchday and every fixture undated, from the season's rules.\n\n`replace` first deletes what a planned season holds, its fixtures' confirmations, reports and line-ups with it;\nnothing writes the removed rows back.",
         "operationId": "saisons_post_spielplan",
         "parameters": [
           {
@@ -21262,20 +21248,8 @@
     },
     "/api/spielorte": {
       "get": {
-        "description": "Every venue in name order, the retired ones too where `include_inactive` asks for them.",
+        "description": "Every venue in name order, the retired ones included, each with its `inactive_since`.",
         "operationId": "spielorte_get_spielorte",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "include_inactive",
-            "required": false,
-            "schema": {
-              "default": false,
-              "title": "Include Inactive",
-              "type": "boolean"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {

@@ -1,18 +1,17 @@
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from datetime import date, timedelta
 from http import HTTPStatus
 from typing import Any
 
 from app.api.saisons.schedule import expected_matches, knockout_phases_for, qualifier_count, schedule_for
 from app.api.saisons.schemas import FIRST_SAISON_YEAR, MAX_TEAMS_PER_GROUP, MIN_TEAMS_PER_GROUP, FLSaisonRules, FLSpielplanShape
-from app.api.spiele.schemas import FLSpiel, FLSpielJoinedInternal, FLSpielTeamFieldJoinedInternal, is_unplayed
+from app.api.spiele.schemas import FLSpielJoinedInternal, FLSpielTeamFieldJoinedInternal
 from app.api.spiele.services import podium_of
 from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS
 from app.api.teams.services import offered_gruppen
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError, Twins, as_judged_on_stored_state
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
+from app.core.exceptions import APIError
 from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus
 
 
@@ -212,16 +211,6 @@ FROZEN_RULES_FIELDS: tuple[str, ...] = ("win_points", "draw_points", "loss_point
 SHAPE_RULES_FIELDS: tuple[str, ...] = ("number_of_gruppen", "teams_per_gruppe", "qualifiers_per_gruppe")
 
 
-def total_season_spiele(rules: FLSaisonRules) -> int:
-    """Every match these rules imply, the bracket's rounds and its match for third place included.
-
-    One fold, so every reader weighs one number against the one read's page: a second reading of
-    `schedule_for` would drift the moment a phase moved.
-    """
-
-    return sum(entry.spieltage * entry.spiele_per_spieltag for entry in schedule_for(rules))
-
-
 def _forfeit_unentschieden_in_a_knockout(rules: FLSaisonRules) -> bool:
     """Whether these rules compose a knockout no-show as a level result.
 
@@ -267,8 +256,8 @@ def find_rules_refusal(
     # Early, as the freeze is: where a number cannot change at all, naming what it may not drop past
     # sends an admin to the wrong repair. Compared by value, so a resubmission passes.
     # Absolute, in every status and whatever is recorded: the shape and the fixtures drawn from it
-    # are one fact, so this path never moves half of it. The whole of it moves on the draw, which
-    # takes the three numbers on its own payload.
+    # are one fact, so this path never moves half of it. An undraw removes the fixtures, and the next
+    # draw runs from the shape saved after it.
     if stored is not None and drawn_spiele > 0:
         redrawn = [field for field in SHAPE_RULES_FIELDS if getattr(stored, field) != getattr(proposed, field)]
         if redrawn:
@@ -314,15 +303,6 @@ def find_rules_refusal(
     # alone lets the dates-only edit through, `rules` being required on the patch.
     if not knockout_phases_for(qualifiers) and qualifiers != stored_qualifiers:
         return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.RULES_BRACKET_IMPOSSIBLE)
-
-    # After the bracket rule, which is narrower and answers first: a product with no bracket plays
-    # no knockout round, so a count taken over one measures a season the admin has not asked for.
-    spiele = total_season_spiele(proposed)
-    stored_spiele = None if stored is None else total_season_spiele(stored)
-    # The excess, as the two rules above judge theirs: `rules` is required on the patch, so a dates-only edit
-    # resubmits a stored count unchanged and any step that shrinks one repairs the season.
-    if spiele > LIST_LIMIT_DEFAULT and (stored_spiele is None or spiele > stored_spiele):
-        return APIError(HTTPStatus.UNPROCESSABLE_CONTENT, Code.RULES_SPIELE_OVER_ONE_READ)
 
     # No shoot-out can break it: a composed forfeit discards one, so a level award leaves
     # `_outcome_of` advancing nobody. Only the step that pairs the two
@@ -381,11 +361,11 @@ def find_rules_refusal(
 
 
 def workable_shapes(rules: FLSaisonRules) -> list[FLSpielplanShape]:
-    """Every shape the draw would take beside these rules' others: each judged by `find_rules_refusal` as the draw judges it.
+    """Every shape these rules' others admit, each judged by `find_rules_refusal` as a create judges rules.
 
-    So the editor offers exactly the shapes the write admits, the bracket's sizes among them, rather than a copy of the
-    rules. A product the knockout ladder cannot halve to a final is skipped unjudged, the bracket rule refusing it on
-    every season; the occupancy and the span are the season's state, judged on the draw itself.
+    So the rules form offers exactly the shapes the write admits, the bracket's sizes among them, rather than a copy of
+    the rules. A product the knockout ladder cannot halve to a final is skipped unjudged, the bracket rule refusing it on
+    every season; the occupancy and the span are the season's state, judged on the save itself.
     """
 
     shapes: list[FLSpielplanShape] = []
@@ -395,7 +375,7 @@ def workable_shapes(rules: FLSaisonRules) -> list[FLSpielplanShape]:
                 if not knockout_phases_for(groups * qualifiers):
                     continue
                 shape = FLSpielplanShape(number_of_gruppen=groups, teams_per_gruppe=teams, qualifiers_per_gruppe=qualifiers)
-                # `model_copy` skips validation, safely as on the draw: the shape's own model declares the three.
+                # `model_copy` skips validation, safely: the shape's own model declares the three under the rules' own types.
                 candidate = rules.model_copy(update=shape.model_dump())
                 if find_rules_refusal(stored=None, proposed=candidate, occupancy_by_gruppe={}, highest_wired_platz=0) is None:
                     shapes.append(shape)
@@ -436,26 +416,6 @@ def find_saison_span_refusal(
         return APIError(HTTPStatus.CONFLICT, Code.SAISON_SPAN_BELOW_SPIELTAGE, fields=short, bounds={"start": first, "end": last})
 
     return None
-
-
-# The two rules a stated shape can break while the value they weigh is a stored one: the forfeit
-# award, once the shape's qualifiers give the season a bracket, and the span, once its matchdays
-# outgrow it. The draw answers each as a conflict with the season. Every other rule a draw asks
-# reads the shape alone, or a stored value only a hand-edited document breaks.
-DRAW_TWINS: Twins = {
-    Code.RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT: Code.RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT_AS_STORED,
-    Code.SAISON_SPAN_BELOW_SPIELPLAN: Code.SAISON_SPAN_BELOW_SPIELPLAN_AS_STORED,
-}
-
-
-def as_the_draw_answers(refusal: APIError | None) -> APIError | None:
-    """`refusal` as the draw answers it: under its twin where it weighed a stored value, else on the status line alone.
-
-    Never on a field: the draw's payload states the shape under `shape` or not at all, so a path under `rules` names
-    a box the draw has not got.
-    """
-
-    return as_judged_on_stored_state(refusal, twins=DRAW_TWINS)
 
 
 # The projection `holds_a_recorded_fact` reads, beside the predicate itself: a field in one and not
@@ -531,23 +491,12 @@ def holds_a_recorded_fact(spiel: Mapping[str, Any]) -> bool:
     return (spiel.get("spielort") or {}).get("spielort_id") is not None or spiel.get("schiedsrichter") is not None
 
 
-def unplayed_spiel_nrs(spiele: Iterable[FLSpiel]) -> list[int]:
-    """The fixture numbers of every match still waiting to be played, in order.
-
-    Unplayed means no result and not cancelled; one with no occupants counts too, an open bracket
-    slot being as unfinished as an unscored match.
-    """
-
-    return sorted(spiel.spiel_nr for spiel in spiele if is_unplayed(ergebnis=spiel.ergebnis, sonderereignis=spiel.sonderereignis))
-
-
-def find_activation_refusal(
-    *, target_status: str, target_spiele: int, undated_spieltage: int, outgoing_unplayed: Sequence[int]
-) -> APIError | None:
+def find_activation_refusal(*, target_status: str, target_spiele: int, undated_spieltage: int, outgoing_unplayed: bool) -> APIError | None:
     """Why this rollover must be refused, or `None`.
 
-    `undated_spieltage` counts the target season's matchdays holding no `start`; `outgoing_unplayed`
-    is the incumbent's alone, empty where there is none, and never the target's own fixtures.
+    `undated_spieltage` counts the target season's matchdays holding no `start`; `outgoing_unplayed` is whether the
+    incumbent still owes a match by `is_unplayed`, false where there is none, and never asks the target's own fixtures.
+    An open bracket slot owes one as an unscored match does, since neither holds a result.
     """
 
     # The target first: an incumbent an admin can go and finish is beside the point where the season

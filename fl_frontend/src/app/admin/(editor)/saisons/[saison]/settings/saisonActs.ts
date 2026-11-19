@@ -31,7 +31,7 @@ const TouchedOfSaison = z.object({ ...SAISON, ...PAGE_HOLDER });
  * editor closes both acts on the read's own judgement of the groups, so a press meets that refusal only where clubs
  * moved after the page was read.
  */
-const DRAW_WORDS = ["rules_bracket_impossible", "rules_spiele_over_one_read", "spielplan_gruppen_off_rules", "saison_past"] as const;
+const DRAW_WORDS = ["rules_bracket_impossible", "spielplan_gruppen_off_rules", "saison_past"] as const;
 
 /** Draws the season's Spielplan from its stored rules, a first draw, which the undraw takes back whole. */
 export const drawSpielplan = action({

@@ -23,7 +23,7 @@ Shape = tuple[int, int, int]
 
 # `(number_of_groups, teams_per_group, qualifiers_per_group)`. The last is the largest season
 # `FLSaisonRules` admits, so the widest bracket and the longest round robin are both judged here.
-SHAPES: tuple[Shape, ...] = ((1, 4, 4), (2, 3, 2), (4, 5, 1), (4, 4, 4), (4, 16, 4))
+SHAPES: tuple[Shape, ...] = ((1, 4, 4), (2, 3, 2), (4, 5, 1), (4, 4, 4), (16, 8, 1))
 SHAPE_IDS = (
     "one group of four into a semi-final",
     "two odd groups into a semi-final",

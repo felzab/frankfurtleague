@@ -17,18 +17,15 @@ from app.api.saisons.schemas import (
     FLGenerateSpielplanPayload,
     FLPatchSaisonPayload,
     FLSaisonRules,
-    FLSpielplanShape,
 )
 from app.api.spielberichte.person_router import put_spielbericht_bericht
 from app.api.spielberichte.schemas import FLSpielberichtBerichtPayload, FLSpielberichtPayload
-from app.api.spiele.schemas import KNOCKOUT_PHASES
 from app.api.teams.services import offered_gruppen
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from app.shared.schemas.responses import FLVersionResponse
 from tests import documents
-from tests.bracket_reference import BRACKET_SEEDING
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database
 from tests.isolation import COMMITTED, outcome_of, refused_code
 from tests.records import record_collections
@@ -169,7 +166,6 @@ async def call_draw(
     saison_id: str = SAISON_ID,
     replace: bool = False,
     today: str = TODAY,
-    shape: FLSpielplanShape | None = None,
     spielberichte_collection: Any = None,
     saisons_collection: Any = None,
 ) -> None:
@@ -183,7 +179,7 @@ async def call_draw(
         spielberichte_collection=database[Collection.SPIELBERICHTE] if spielberichte_collection is None else spielberichte_collection,
         aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
         db=client,
-        spielplan_data=FLGenerateSpielplanPayload(replace=replace, shape=shape),
+        spielplan_data=FLGenerateSpielplanPayload(replace=replace),
         today=today,
     )
 
@@ -201,12 +197,6 @@ async def call_undraw(
         aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
         db=client,
     )
-
-
-def a_shape(*, groups: int = GROUPS, teams: int = TEAMS_PER_GROUP, qualifiers: int = QUALIFIERS) -> FLSpielplanShape:
-    """The three the draw's payload carries, defaulting to the seed's own so a case states only the number it moves."""
-
-    return FLSpielplanShape(number_of_gruppen=groups, teams_per_gruppe=teams, qualifiers_per_gruppe=qualifiers)
 
 
 async def stored_rules(database: AsyncDatabase) -> dict[str, Any]:
@@ -667,14 +657,14 @@ class TestAReplaceTakesTheSeasonsReports:
 class TestASubmittedReportKeepsTheSpielplanFromAReplace:
     """`spielplan_berichte_submitted` wired: the replace counts the season's submitted reports in its transaction."""
 
-    async def test_the_reports_are_refused_ahead_of_the_shape_the_replace_proposes(self, mongo_replica_set_url: str):
-        """Drop the count and the replace lands over the report; move it after the rules and they refuse the shape first."""
+    async def test_the_reports_refuse_the_replace(self, mongo_replica_set_url: str):
+        """Drop the count and the replace lands over the report, deleting it with the fixture it is about."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
             await call_draw(database, client)
             await report_a_drawn_spiel(database)
 
-            return await refused_code(call_draw(database, client, replace=True, today=REDRAWN_TODAY, shape=a_shape(qualifiers=3)))
+            return await refused_code(call_draw(database, client, replace=True, today=REDRAWN_TODAY))
 
         assert await on_a_seeded_saison(mongo_replica_set_url, body) == Code.SPIELPLAN_BERICHTE_SUBMITTED
 
@@ -1061,11 +1051,11 @@ class TestTheReplaceWindowIsReachedThroughTheRoute:
         assert surviving == standing
 
 
-class TestTheDrawIsTheOnlyThingThatMovesTheShape:
+class TestADrawnSeasonKeepsItsShapeUntilItIsUndrawn:
     """`rules_shape_after_spielplan` WIRED, over the season the cases above judge the replace on.
 
     The patch writes the whole `rules` object, so a shape reaching it would stand beside fixtures no
-    longer drawn from it. The draw is where the three move instead.
+    longer drawn from it. An undraw opens the three again, and the next draw runs from what is saved.
     """
 
     async def test_a_drawn_future_season_with_nothing_recorded_is_refused_too(self, mongo_replica_set_url: str):
@@ -1084,262 +1074,3 @@ class TestTheDrawIsTheOnlyThingThatMovesTheShape:
         assert refused.error_code == Code.RULES_SHAPE_AFTER_SPIELPLAN
         # Read back, not inferred from the refusal: a rule raised after the write would refuse and store.
         assert rules["teams_per_gruppe"] == TEAMS_PER_GROUP
-
-
-# The narrowing that repairs a season drawn from the wrong numbers, and the one nothing else lets
-# through: `rules_qualifiers_below_wiring` reads the bracket's own wiring and `rules_spieltag_over_its_phase` its own matchdays, so
-# each refuses this exact step on the patch.
-NARROWED_QUALIFIERS = 1
-
-# A first draw's own shape, off a season created with placeholder numbers: two odd groups holding
-# every club that turned up, into a semi-final.
-SHORT_GROUPS = 2
-SHORT_PER_GROUP = 3
-SHORT_QUALIFIERS = 2
-
-
-@dataclass(frozen=True)
-class ReshapedSeason:
-    """One draw that carried its own shape, and the season it left."""
-
-    rules: dict[str, Any]
-    spieltage: list[dict[str, Any]]
-    spiele: list[dict[str, Any]]
-    watermark: Any
-
-
-async def a_season_drawn_from(
-    url: str, *, seed: Seed, shape: FLSpielplanShape | None, replace: bool = False, stores_a_refused_shape: str | None = None
-) -> ReshapedSeason:
-    """Draw `seed` from `shape`, twice where `replace` is set -- the first time off the seed's own rules."""
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> ReshapedSeason:
-        if replace:
-            await call_draw(database, client)
-
-        await call_draw(database, client, replace=replace, today=REDRAWN_TODAY if replace else TODAY, shape=shape)
-
-        return ReshapedSeason(
-            rules=await stored_rules(database),
-            spieltage=await database[Collection.SPIELTAGE].find({}).sort("_id", 1).to_list(length=None),
-            spiele=await database[Collection.SPIELE].find({}).sort("spiel_nr", 1).to_list(length=None),
-            watermark=await watermark_now(database),
-        )
-
-    return await on_a_seeded_saison(url, body, seed=seed, stores_a_refused_shape=stores_a_refused_shape)
-
-
-# A `rules` sub-key no model declares, which `FLSaisonRules` ignores on a read -- so only a write
-# that names its paths can leave it standing.
-UNDECLARED_RULE: dict[str, Any] = {"spielzeit_minuten": 25}
-
-
-def a_short_seed(*, extra_rules: Mapping[str, Any] | None = None) -> Seed:
-    """A season created with the placeholder shape, holding only the clubs that turned up: six, across two groups."""
-
-    # Laid over the builder's season, which refuses a rule no model declares.
-    season = saison_document()
-    return Seed(
-        saison={**season, "rules": {**season["rules"], **(extra_rules or {})}},
-        entered=entry_rows(groups=SHORT_GROUPS, teams=SHORT_PER_GROUP),
-    )
-
-
-def the_short_shape() -> FLSpielplanShape:
-    return a_shape(groups=SHORT_GROUPS, teams=SHORT_PER_GROUP, qualifiers=SHORT_QUALIFIERS)
-
-
-class TestADrawStoresTheShapeItRanFrom:
-    """`FLSpielplanShape`: the three the fixtures are a function of, on the draw's own payload.
-
-    Each case proves ONE object was judged, drawn and stored -- a season's rules and its fixture
-    list are one fact, and a draw leaving either behind splits them.
-    """
-
-    async def test_a_first_draw_narrows_the_placeholder_shape_the_season_was_created_with(self, mongo_replica_set_url: str):
-        """Judge `spielplan_gruppen_off_rules` off the stored rules and this fails: six clubs across two groups fill no group of four."""
-
-        drawn = await a_season_drawn_from(mongo_replica_set_url, seed=a_short_seed(), shape=the_short_shape())
-        expected = expected_counts(
-            FLSaisonRules.model_validate(rules_document(groups=SHORT_GROUPS, teams=SHORT_PER_GROUP, qualifiers=SHORT_QUALIFIERS))
-        )
-
-        assert [drawn.rules[rule] for rule in the_short_shape().model_dump()] == [SHORT_GROUPS, SHORT_PER_GROUP, SHORT_QUALIFIERS]
-        # The draw itself, not the numbers alone: a `$set` beside a draw off the stored rules would store one shape and play another.
-        assert (len(drawn.spieltage), len(drawn.spiele)) == expected
-
-    async def test_the_rules_the_draw_is_no_function_of_are_left_where_they_stand(self, mongo_replica_set_url: str):
-        """`$set` the shape as a whole `rules` object and this fails: the six rules it does not carry would be gone from the season."""
-
-        drawn = await a_season_drawn_from(mongo_replica_set_url, seed=a_short_seed(), shape=the_short_shape())
-        untouched = {rule: value for rule, value in rules_document().items() if rule not in the_short_shape().model_dump()}
-
-        assert {rule: drawn.rules[rule] for rule in untouched} == untouched
-
-    async def test_a_rules_sub_key_no_model_declares_survives_the_draw(self, mongo_replica_set_url: str):
-        """`$set` the MERGED `rules` object and this fails: it holds what `FLSaisonRules` declares, so a hand-added key is silently dropped."""
-
-        drawn = await a_season_drawn_from(
-            mongo_replica_set_url,
-            seed=a_short_seed(extra_rules=UNDECLARED_RULE),
-            shape=the_short_shape(),
-            stores_a_refused_shape="a season holding a rule no model declares, which the draw must leave standing",
-        )
-
-        assert {rule: drawn.rules.get(rule) for rule in UNDECLARED_RULE} == UNDECLARED_RULE
-        # Beside the shape it moved, so this cannot pass on a draw that wrote nothing at all.
-        assert drawn.rules["number_of_gruppen"] == SHORT_GROUPS
-
-
-class TestAReplaceRedrawsTheSeasonFromTheShapeItCarries:
-    """The operation `rules_shape_after_spielplan` names as the repair: the numbers and the fixtures move together, or neither moves."""
-
-    async def test_a_narrower_qualifier_count_is_stored_and_drawn(self, mongo_replica_set_url: str):
-        """No patch of a drawn season permits this step: `rules_qualifiers_below_wiring` and `rules_spieltag_over_its_phase` each refuse it."""
-
-        replaced = await a_season_drawn_from(mongo_replica_set_url, seed=Seed(), shape=a_shape(qualifiers=NARROWED_QUALIFIERS), replace=True)
-        expected = expected_counts(FLSaisonRules.model_validate(rules_document(qualifiers=NARROWED_QUALIFIERS)))
-        first_round = [row for row in replaced.spiele if row["saison_phase"] == KNOCKOUT_PHASES[-2]]
-
-        assert replaced.rules["qualifiers_per_gruppe"] == NARROWED_QUALIFIERS
-        assert (len(replaced.spieltage), len(replaced.spiele)) == expected
-        # The bracket the NEW number seeds: a redraw off the stored rules would wire eight slots naming platz 1 and platz 2.
-        assert [(quelle["gruppe"], quelle["platz"]) for row in first_round for quelle in (row["team1_quelle"], row["team2_quelle"])] == [
-            (gruppe, platz) for gruppe, platz in BRACKET_SEEDING[(GROUPS, NARROWED_QUALIFIERS)]
-        ]
-
-
-@dataclass(frozen=True)
-class RefusedReshape:
-    """A redraw refused before it wrote, and the season it left standing -- its rules included."""
-
-    error_code: str
-    rules: dict[str, Any]
-    kept_its_draw: bool
-    watermark: Any
-
-
-class TestAShapeTheSeasonCannotBeDrawnFromIsRefused:
-    """Every refusal reads the PROPOSED three, so a season never keeps numbers no draw of it could run from."""
-
-    @pytest.mark.parametrize(
-        ("code", "shape", "why"),
-        [
-            pytest.param(
-                Code.RULES_BRACKET_IMPOSSIBLE,
-                a_shape(qualifiers=3),
-                "four groups by three qualifiers is twelve, which halves to no final",
-                id="a shape that reaches no bracket",
-            ),
-        ],
-    )
-    async def test_the_season_keeps_both_its_rules_and_its_draw(self, mongo_replica_set_url: str, code: str, shape: FLSpielplanShape, why: str):
-        """Store the shape before these refusals and this fails: the season would hold numbers its standing fixtures contradict."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> RefusedReshape:
-            await call_draw(database, client)
-            standing = await document_ids(database)
-
-            code = await refused_code(call_draw(database, client, replace=True, today=REDRAWN_TODAY, shape=shape))
-
-            return RefusedReshape(
-                error_code=code,
-                rules=await stored_rules(database),
-                kept_its_draw=await document_ids(database) == standing,
-                watermark=await watermark_now(database),
-            )
-
-        refused = await on_a_seeded_saison(mongo_replica_set_url, body)
-
-        assert refused.error_code == code, why
-        assert refused.rules == rules_document()
-        assert refused.kept_its_draw, "a refused redraw removed the season's own draw"
-        assert refused.watermark["generated_at"] == TODAY
-
-
-# Two groups of four into a semi-final: three group matchdays, the semi-finals and the Finale, in a
-# season of exactly five days -- the shortest span `POST /saisons` accepts for those rules.
-TIGHT_GROUPS = 2
-TIGHT_PER_GROUP = 4
-TIGHT_QUALIFIERS = 2
-TIGHT_SPAN = ("2026-05-01", "2026-05-05")
-
-# The free lever: `spielplan_gruppen_off_rules` pins the other two to the clubs standing in the groups, while
-# each doubling of `number_of_gruppen` x `qualifiers_per_gruppe` adds a knockout round.
-WIDENED_QUALIFIERS = 4
-
-
-def a_tight_seed() -> Seed:
-    """A season as long as its own rules ask and no longer, every offered group full."""
-
-    return Seed(
-        saison=saison_document(
-            rules=rules_document(groups=TIGHT_GROUPS, teams=TIGHT_PER_GROUP, qualifiers=TIGHT_QUALIFIERS),
-            start_date=TIGHT_SPAN[0],
-            end_date=TIGHT_SPAN[1],
-        ),
-        entered=entry_rows(groups=TIGHT_GROUPS, teams=TIGHT_PER_GROUP),
-    )
-
-
-def the_tight_shape(*, qualifiers: int) -> FLSpielplanShape:
-    return a_shape(groups=TIGHT_GROUPS, teams=TIGHT_PER_GROUP, qualifiers=qualifiers)
-
-
-class TestASeasonIsNeverDrawnMoreMatchdaysThanItHasDays:
-    """`saison_span_below_spielplan_as_stored`, the draw's twin of `saison_span_below_spielplan`, WIRED over the draw's own three.
-
-    Those three decide how many matchdays a season takes. `POST /saisons` measured the span against the rules the season was
-    created with, and the draw replaces three of them.
-    """
-
-    async def test_a_shape_implying_more_matchdays_than_the_season_has_days_is_refused(self, mongo_replica_set_url: str):
-        """Drop the span call and this fails: six matchdays land in a five-day season, and no two may share a day."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(APIError) as refused:
-                await call_draw(database, client, shape=the_tight_shape(qualifiers=WIDENED_QUALIFIERS))
-
-            return refused.value, await stored_rules(database), await counts_now(database), await watermark_now(database)
-
-        refused, rules, counts, watermark = await on_a_seeded_saison(mongo_replica_set_url, body, seed=a_tight_seed())
-
-        # The draw twin: the span weighed is the stored one, which a season patch can widen.
-        assert refused.error_code == Code.SAISON_SPAN_BELOW_SPIELPLAN_AS_STORED
-        assert counts == (0, 0), "a refused draw wrote a schedule the season has no room for"
-        # Read back rather than inferred from the refusal: the shape stored beside no fixtures would
-        # come back `saison_span_below_spielplan` on the next patch of any rule at all.
-        assert rules == rules_document(groups=TIGHT_GROUPS, teams=TIGHT_PER_GROUP, qualifiers=TIGHT_QUALIFIERS)
-        assert watermark is None
-
-
-class TestAnAbortedRedrawLeavesTheOldRulesWithTheOldDraw:
-    """Why the shape is written inside the callback: one transaction holds the numbers and the fixtures they produced."""
-
-    async def test_the_season_keeps_the_shape_its_standing_spiele_were_drawn_from(self, mongo_replica_set_url: str):
-        """Write the shape outside the session, or before `with_transaction`, and this fails: the rules would move and the draw would not."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await call_draw(database, client)
-            standing = await document_ids(database)
-
-            # Narrowed AFTER the first draw, so what falls is the redraw's own insert, by which point
-            # both deletes have run and the shape has been decided.
-            await database.command(
-                "collMod", str(Collection.SPIELE), validator=NARROWED_VALIDATORS[Collection.SPIELE], validationLevel="strict"
-            )
-
-            with pytest.raises(OperationFailure) as failure:
-                await call_draw(database, client, replace=True, today=REDRAWN_TODAY, shape=a_shape(qualifiers=NARROWED_QUALIFIERS))
-
-            code, _ = refused_write(failure.value)
-
-            return code, await stored_rules(database), await document_ids(database) == standing, await watermark_now(database)
-
-        code, rules, kept_its_draw, watermark = await on_a_seeded_saison(mongo_replica_set_url, body, mutates_schema=True)
-
-        # On the code, so this cannot pass because the redraw fell before it had decided anything.
-        assert code == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the write, got {code}"
-        assert rules == rules_document(), "the season took a shape whose draw was rolled back"
-        assert kept_its_draw, "a rolled-back redraw left the season's own draw removed"
-        assert watermark == {"generated_at": TODAY}

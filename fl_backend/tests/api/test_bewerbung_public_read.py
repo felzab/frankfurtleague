@@ -269,17 +269,13 @@ class TestTheWindowReads:
         assert response.json()["bewerbung_opens_on"] is None
         assert response.json()["bewerbung_window_held"] is held
 
-    @pytest.mark.parametrize(
-        ("saison_id", "state"),
-        [pytest.param(NOT_YET_OPEN_SAISON, "upcoming", id="a span not yet begun")],
-    )
-    async def test_a_near_miss_is_served_as_not_running(self, seeded_url: str, saison_id: str, state: str):
+    async def test_a_window_whose_span_has_not_begun_is_served_upcoming(self, seeded_url: str):
         """The form's page names the opening day of an `upcoming` window, so one served as closed tells a school nothing of when it opens."""
 
-        response = await answered(seeded_url, f"{PREFIX}/saisons/{saison_id}/form")
+        response = await answered(seeded_url, f"{PREFIX}/saisons/{NOT_YET_OPEN_SAISON}/form")
 
         assert response.status_code == 200
-        assert response.json()["window"]["state"] == state
+        assert response.json()["window"]["state"] == "upcoming"
 
     async def test_the_body_for_a_season_recording_no_window_carries_no_field_of_the_season(self, seeded_url: str):
         """Existence is the whole of the narrowing, so the undecoded body is searched."""
@@ -295,11 +291,10 @@ class TestTheWindowReads:
 class TestTheColoursTaken:
     """What the Wunschfarbe picker closes. The ASSIGNMENTS on `saison_teams`, never another applicant's wish."""
 
-    @pytest.mark.parametrize("saison_id", [pytest.param(NOT_YET_OPEN_SAISON, id="a span not yet begun")])
-    async def test_a_season_not_taking_applications_tells_nothing(self, seeded_url: str, saison_id: str):
+    async def test_a_season_whose_window_has_not_begun_tells_nothing(self, seeded_url: str):
         """Gated on whether the season takes applications, so a closed one says neither its clubs nor its colours."""
 
-        body = (await answered(seeded_url, f"{PREFIX}/saisons/{saison_id}/form")).json()
+        body = (await answered(seeded_url, f"{PREFIX}/saisons/{NOT_YET_OPEN_SAISON}/form")).json()
 
         assert (body["schulen"], body["taken"]) == ([], [])
 

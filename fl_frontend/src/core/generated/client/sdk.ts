@@ -147,7 +147,6 @@ import type {
   SpieleGetSpieleSpielplanParams,
   SpielePatchSpielParams,
   SpielerGetSpielerAdminParams,
-  SpielorteGetSpielorteParams,
   TeamsGetTeamsAdminParams,
 } from "./types.ts";
 
@@ -1762,10 +1761,10 @@ export const getSaisonsPostSpielplanUrl = (saisonId: string) => {
 };
 
 /**
- * Draw the whole season at once, every matchday and every fixture undated, from the stated `shape` or the season's rules.
+ * Draw the whole season at once, every matchday and every fixture undated, from the season's rules.
  *
- * A stated `shape` is stored in the rules, and `replace` first deletes what a planned season holds, its fixtures'
- * confirmations, reports and line-ups with it; nothing writes the removed rows back.
+ * `replace` first deletes what a planned season holds, its fixtures' confirmations, reports and line-ups with it;
+ * nothing writes the removed rows back.
  * @summary Draw this Saison's Spielplan
  */
 export const saisonsPostSpielplan = async (
@@ -2636,21 +2635,16 @@ export const spielerPatchKaderRow = async (
   });
 };
 
-export const getSpielorteGetSpielorteUrl = (params?: SpielorteGetSpielorteParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0 ? `/api/spielorte?${stringifiedParams}` : `/api/spielorte`;
+export const getSpielorteGetSpielorteUrl = () => {
+  return `/api/spielorte`;
 };
 
 /**
- * Every venue in name order, the retired ones too where `include_inactive` asks for them.
+ * Every venue in name order, the retired ones included, each with its `inactive_since`.
  * @summary List Spielorte
  */
-export const spielorteGetSpielorte = async (
-  params?: SpielorteGetSpielorteParams,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielorteListResponse> => {
-  return adminKeyTransport<FLSpielorteListResponse>(getSpielorteGetSpielorteUrl(params), {
+export const spielorteGetSpielorte = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielorteListResponse> => {
+  return adminKeyTransport<FLSpielorteListResponse>(getSpielorteGetSpielorteUrl(), {
     ...options,
     method: "GET",
   });

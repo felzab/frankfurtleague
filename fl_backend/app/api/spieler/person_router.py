@@ -16,7 +16,7 @@ from app.api.account.services import (
 from app.api.identity.crud import refuse_without_a_seat
 from app.api.identity.lookup import RecordCollections, SubjectLookup
 from app.api.identity.services import is_own_spieler
-from app.api.saisons.schemas import FLOwnSaisonsResponse, FLSaisonFrameEntryListAdapter, FLSaisonRules, FLSpielerSaisonSelfResponse
+from app.api.saisons.schemas import FLOwnSaisonsResponse, FLSaisonRules, FLSpielerSaisonSelfResponse
 from app.api.saisons.services import matchday_of
 from app.api.spieler.crud import refuse_a_taken_rolle
 from app.api.spieler.schemas import (
@@ -364,7 +364,7 @@ async def get_self_saisons(identifier: PersonIdentifier, spieler_collection: Spi
 
     row = _own_pupil_row(await aggregate_many_from_db(collection=spieler_collection, pipeline=build_self_saisons_pipeline(identifier)))
 
-    return FLOwnSaisonsResponse(saisons=FLSaisonFrameEntryListAdapter.validate_python(row["saisons"]))
+    return FLOwnSaisonsResponse.model_validate({"saisons": row["saisons"]})
 
 
 @spieler_router.get(

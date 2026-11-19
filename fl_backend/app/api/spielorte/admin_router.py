@@ -1,6 +1,4 @@
-from typing import Annotated
-
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.results import InsertOneResult
@@ -10,10 +8,8 @@ from app.api.spielorte.schemas import (
     FLPatchSpielortPayload,
     FLPostSpielortPayload,
     FLSpielort,
-    FLSpielorteFilterParams,
     FLSpielorteListResponse,
     FLSpielorteSingleResponse,
-    FLSpielortListAdapter,
 )
 from app.api.spielorte.services import build_unplayed_booking_filter, compose_maps_query, find_venue_name_refusal, find_venue_retire_refusal
 from app.core.crud import (
@@ -43,22 +39,18 @@ router = APIRouter(
 
 
 @router.get("", summary="List Spielorte")
-async def get_spielorte(
-    spielorte_collection: SpielorteReadCollection,
-    filters: Annotated[FLSpielorteFilterParams, Depends()],
-) -> FLSpielorteListResponse:
-    """Every venue in name order, the retired ones too where `include_inactive` asks for them."""
+async def get_spielorte(spielorte_collection: SpielorteReadCollection) -> FLSpielorteListResponse:
+    """Every venue in name order, the retired ones included, each with its `inactive_since`."""
 
     spielorte_raw = await pull_whole_from_db(
         collection=spielorte_collection,
-        db_filter={} if filters.include_inactive else {"inactive_since": None},
+        db_filter={},
         what="the venues",
         sort_by=[("name", 1)],
         collation=GERMAN_COLLATION,
     )
-    spielorte = FLSpielortListAdapter.validate_python(spielorte_raw)
 
-    return FLSpielorteListResponse(spielorte=spielorte)
+    return FLSpielorteListResponse.model_validate({"spielorte": spielorte_raw})
 
 
 @router.get(by_id("spielort_id"), summary="One Spielort")
@@ -67,7 +59,7 @@ async def get_spielort(spielort_id: CustomObjectId, spielorte_collection: Spielo
 
     spielort_raw = await pull_one_from_db(collection=spielorte_collection, db_filter={"_id": spielort_id})
 
-    return FLSpielorteSingleResponse(spielort=FLSpielort(**spielort_raw))
+    return FLSpielorteSingleResponse(spielort=FLSpielort.model_validate(spielort_raw))
 
 
 @router.post("", status_code=201, summary="Create a Spielort")
@@ -139,7 +131,7 @@ async def patch_spielort(
             collection=spielorte_collection, action="spielort.changed", record_id=spielort_id, label=spielort_data.name, session=session
         )
 
-        return FLVersionResponse(version=FLSpielort(**updated_document_raw).version)
+        return FLVersionResponse(version=FLSpielort.model_validate(updated_document_raw).version)
 
     return await transact(db, save_the_venue)
 

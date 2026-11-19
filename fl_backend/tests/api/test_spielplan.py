@@ -37,7 +37,8 @@ SAISON_ID = "2026"
 Seeding = tuple[tuple[FLGruppenNames, int], ...]
 Score = tuple[tuple[int, ...], tuple[int, ...]]
 
-# `(number_of_groups, teams_per_group, qualifiers_per_group)`. Every `BRACKET_SEEDING` row is drawn by one of these.
+# `(number_of_groups, teams_per_group, qualifiers_per_group)`. Every `BRACKET_SEEDING` row the rules admit is drawn by
+# one of these; one group of sixteen qualifiers is a group past the rules' ceiling, held by its row to the construction alone.
 SHAPES: tuple[tuple[int, int, int], ...] = (
     (1, 7, 4),
     (1, 8, 8),
@@ -47,7 +48,6 @@ SHAPES: tuple[tuple[int, int, int], ...] = (
     (4, 5, 1),
     (4, 4, 4),
     (2, 8, 8),
-    (1, 16, 16),
 )
 
 
@@ -167,14 +167,6 @@ def legal_combinations() -> set[tuple[int, int]]:
         )
         is None
     }
-
-
-def bracket_slots(field: int) -> list[int]:
-    """The seed standing in each slot, left to right: seed s draws `field + 1 - s`, and each half is the same bracket again."""
-
-    if field == 1:
-        return [1]
-    return [seed for half in bracket_slots(field // 2) for seed in (half, field + 1 - half)]
 
 
 def meeting_round(slot: int, other: int) -> int:

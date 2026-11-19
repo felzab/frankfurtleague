@@ -159,6 +159,66 @@ async def test_a_running_season_serves_two_matches_the_nearest_first(
     assert ([spiel.spiel_nr for spiel in saison.recent], [spiel.spiel_nr for spiel in saison.upcoming]) == (recent, upcoming)
 
 
+FIGURES_DATABASE_NAME = worker_database("fl_saisons_landing_view_figures_test")
+
+# The finished season before the one the site is on, and the planned one after it, which the public may not read.
+PAST_SAISON, PLANNED_SAISON = "2025", "2027"
+# Two clubs that have left the league: Bea after playing the finished season, Cara after playing the running one.
+BEA, CARA = ObjectId("6890a1b2c3d4e5f607440006"), ObjectId("6890a1b2c3d4e5f607440007")
+
+
+def counted(saison_id: str, spiel_nr: int, sides: tuple[ObjectId, ObjectId], tore: tuple[int, int] | None) -> dict[str, Any]:
+    """A group match of `saison_id` between two of its clubs, played to `tore` or not yet played."""
+
+    return {
+        **match(spiel_nr, GROUP_DAY, f"{saison_id}-03-01", tore),
+        "saison_id": saison_id,
+        "team1": side(sides[0], None if tore is None else tore[0]),
+        "team2": side(sides[1], None if tore is None else tore[1]),
+    }
+
+
+@pytest.mark.db
+async def test_the_figures_count_the_seasons_the_public_reads_and_the_clubs_their_teams_pages_list(mongo_replica_set_url: str):
+    """Every figure an over-count or an under-count would leave plausible on the landing, so each is asked by value.
+
+    The planned season's result and club stay out; Bea, gone from the league, still counts for the finished season it
+    played, and Cara, gone from the league while the running season lists her row, counts for neither.
+    """
+
+    landed = await landing_over(
+        mongo_replica_set_url,
+        FIGURES_DATABASE_NAME,
+        {
+            Collection.SAISONS: [
+                documents.saison_document(PAST_SAISON, "past"),
+                documents.saison_document(PLANNED_SAISON, "future"),
+            ],
+            Collection.TEAMS: [
+                documents.team_document(ALPHA, "Alpha", "ALP"),
+                documents.team_document(BEA, "Bea", "BEA", inactive_since="2025-08-01"),
+                documents.team_document(CARA, "Cara", "CAR", inactive_since="2026-02-01"),
+                documents.team_document(DORA, "Dora", "DOR"),
+            ],
+            Collection.SAISON_TEAMS: [
+                documents.saison_team_document(PAST_SAISON, ALPHA, "Alpha", "ALP"),
+                documents.saison_team_document(PAST_SAISON, BEA, "Bea", "BEA"),
+                documents.saison_team_document(SAISON, ALPHA, "Alpha", "ALP"),
+                documents.saison_team_document(SAISON, CARA, "Cara", "CAR"),
+                documents.saison_team_document(PLANNED_SAISON, DORA, "Dora", "DOR"),
+            ],
+            Collection.SPIELE: [
+                counted(PAST_SAISON, 1, (ALPHA, BEA), (2, 1)),
+                counted(SAISON, 1, (ALPHA, CARA), (1, 1)),
+                counted(SAISON, 2, (CARA, ALPHA), None),
+                counted(PLANNED_SAISON, 1, (DORA, ALPHA), (4, 0)),
+            ],
+        },
+    )
+
+    assert landed.counts.model_dump() == {"count_saisons": 2, "count_schulen": 2, "count_spiele": 2, "count_tore": 5}
+
+
 # The numbers the draw gives a bracket with semi-finals: theirs, then the match for third place, then the final.
 THIRD_NR, FINAL_NR = 23, 24
 # The day both Finale matches are played on, the one an exit is ordered against.
