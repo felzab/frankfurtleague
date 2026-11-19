@@ -73,7 +73,7 @@ from app.api.saisons.services import (
     workable_shapes,
 )
 from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
-from app.api.spielberichte.crud import anchor_the_season_reported_in, count_submitted_berichte
+from app.api.spielberichte.crud import count_submitted_berichte
 from app.api.spiele.schemas import TAKEN_PLACE_FIELDS, has_taken_place, unplayed_filter
 from app.api.spieler.services import CAPPED_KADER_ROW
 from app.core.codes import Code
@@ -849,7 +849,8 @@ async def post_spielplan(
         )
         if spielplan_data.replace:
             # Ahead of the rules, so the administrator reads the reports first. A report written since this snapshot
-            # anchors the season, which the replace anchors below, so the two conflict and the retry counts it.
+            # anchors its fixture and the season, which the replace deletes and writes below, so the two conflict and the
+            # retry counts it.
             refuse(
                 find_berichte_refusal(
                     berichte=await count_submitted_berichte(
@@ -890,9 +891,6 @@ async def post_spielplan(
 
         # Both collections together, fixtures first, the reverse of the draw's write order, as the undraw removes them.
         if spielplan_data.replace:
-            # The season every report write anchors, so the two conflict: the watermark's `$set` below can change
-            # nothing on a same-day redraw, and the report's insert meets no delete here.
-            await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=saison_id, session=session)
             # Not extracted, though `delete_spielplan` repeats it: two sites are no pattern yet.
             await delete_many_from_db(collection=spielbestaetigungen_collection, db_filter={"saison_id": saison_id}, session=session)
             await delete_many_from_db(collection=spielberichte_collection, db_filter={"saison_id": saison_id}, session=session)
@@ -955,8 +953,8 @@ async def delete_spielplan(
         # The stored rows, never the watermark: they are what the window weighs and the undraw removes.
         stored_spiele = await _pull_recorded_fact_rows(spiele_collection=spiele_collection, saison_id=saison_id, session=session)
 
-        # A report written since this snapshot anchors the season, which the undraw anchors below, so the two conflict and
-        # the retry counts it.
+        # A report written since this snapshot anchors its fixture and the season, which the undraw deletes and writes below,
+        # so the two conflict and the retry counts it.
         refuse(
             _find_undraw_refusal_of(
                 saison_status=str(saison_raw["status"]),
@@ -966,10 +964,6 @@ async def delete_spielplan(
                 ),
             )
         )
-
-        # The season every report write anchors, so the two conflict on it before the watermark's `$unset` below: the
-        # report's insert meets no delete here.
-        await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=saison_id, session=session)
 
         # Fixtures first, the reverse of the draw's write order. Confirmations, reports and line-ups go first of
         # all, each naming the fixture it is about.
