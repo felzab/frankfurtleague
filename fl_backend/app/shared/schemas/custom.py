@@ -325,5 +325,5 @@ CustomOptionalWebsiteUrl = Annotated[
 CustomSpielNr = Annotated[int, Field(gt=0)]
 
 # `[0-9]`, never `\d`: Python's `\d` matches Unicode decimal digits where the frontend mirror's
-# does not, and both ends parse this string for win/draw/loss.
+# does not, so the two ends would judge one score apart.
 CustomErgebnisString = Annotated[str, StringConstraints(pattern=r"^[0-9]+:[0-9]+$")]
