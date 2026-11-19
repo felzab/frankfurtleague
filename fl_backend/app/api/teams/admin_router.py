@@ -559,10 +559,10 @@ async def patch_team_saison(
         )
         refuse(find_stale_save_refusal(team_raw, row_raw, version=team_data.version))
 
-        # Anchored, so the status belongs to this write set: `activate_saison` writes this document, so a rollover landing
-        # under the save conflicts and the retry reads `past`.
+        # Unanchored here: `write_the_team` below anchors every season it reads as open on every save, this one among them
+        # while it is not `past`, and `activate_saison` writes this document, so a rollover landing under the save
+        # conflicts and the retry reads `past`.
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
-        await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
 
         row_part = {"gruppe": team_data.gruppe, "trikot_farbe": team_data.trikot_farbe}
         moves_the_row = any(row_raw.get(field) != value for field, value in row_part.items())
