@@ -174,6 +174,18 @@ class FLBewerbungRecord(FLBewerbung):
     erasure_announced_at: str | None = None
     idempotency_key: str | None = None
 
+    @model_validator(mode="after")
+    def a_submitted_application_names_one_school(self) -> Self:
+        """No write stores both or neither, and acceptance no longer refuses either, so the read-back is what names one.
+
+        On the record alone: a served read refusing a hand-edited row would fail the whole triage list.
+        """
+
+        if self.status == "submitted" and (self.team_id is None) == (self.schule is None):
+            raise ValueError("a submitted application names its school by `team_id` or by `schule`, and not both")
+
+        return self
+
 
 class FLMailboxAnchorRecord(Anchored):
     """One mailbox a public form named, as `mailbox_anchors` stores it; no read serves it."""

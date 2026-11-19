@@ -683,7 +683,12 @@ async def held_by_another(database: AsyncDatabase, what: str) -> None:
             seat = confirmed if what == "a-confirmed-application-seat" else vera
             await database[Collection.BEWERBUNGEN].insert_one(
                 documents.bewerbung_document(
-                    ObjectId(), SAISON_ID, "submitted", kontakte=documents.kontakte_document(trainer=seat), submitted_at="2126-03-10"
+                    ObjectId(),
+                    SAISON_ID,
+                    "submitted",
+                    kontakte=documents.kontakte_document(trainer=seat),
+                    submitted_at="2126-03-10",
+                    schule=documents.new_schule_document("Zwirnbach"),
                 )
             )
         case "a-referee" | "an-unconfirmed-referee":
