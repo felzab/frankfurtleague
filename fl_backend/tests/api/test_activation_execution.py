@@ -7,13 +7,13 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.saisons.admin_router import activate_saison
 from app.core.codes import Code
 from app.core.collections import Collection
 from tests import documents
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database
 from tests.documents import saison_document, spiel_document
 from tests.isolation import refused_code
+from tests.season_routes import call_activate
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -84,17 +84,6 @@ async def on_a_league(
             await database[Collection.SPIELTAGE].insert_many(spieltage)
 
         return await body(database, client)
-
-
-async def call_activate(database: AsyncDatabase, client: AsyncMongoClient, saison_id: str) -> Any:
-    return await activate_saison(
-        saison_id=saison_id,
-        saisons_collection=database[Collection.SAISONS],
-        spiele_collection=database[Collection.SPIELE],
-        spieltage_collection=database[Collection.SPIELTAGE],
-        ban_list_collection=database[Collection.BAN_LIST],
-        db=client,
-    )
 
 
 async def statuses_now(database: AsyncDatabase) -> dict[str, str]:

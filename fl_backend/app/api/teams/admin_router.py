@@ -559,10 +559,10 @@ async def patch_team_saison(
         )
         refuse(find_stale_save_refusal(team_raw, row_raw, version=team_data.version))
 
-        # Anchored, so the status belongs to this write set: `activate_saison` writes this document, so a rollover landing
-        # under the save conflicts and the retry reads `past`.
+        # Unanchored here: `write_the_team` below anchors every season it reads as open on every save, this one among them
+        # while it is not `past`, and `activate_saison` writes this document, so a rollover landing under the save
+        # conflicts and the retry reads `past`.
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
-        await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
 
         row_part = {"gruppe": team_data.gruppe, "trikot_farbe": team_data.trikot_farbe}
         moves_the_row = any(row_raw.get(field) != value for field, value in row_part.items())
@@ -782,7 +782,7 @@ async def replace_saison_team(
 ) -> None:
     """Hand this season's row, and every fixture on it, to another club, keeping the schedule.
 
-    The row's exit, colour, contacts and their links are cleared, and the outgoing club's live squad rows retired.
+    The row's colour, contacts and their links are cleared, and the outgoing club's live squad rows retired.
     """
 
     # Before any read: this one is refused whatever the season holds.
@@ -793,9 +793,7 @@ async def replace_saison_team(
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
 
     async def hand_the_row_over(session: AsyncClientSession) -> None:
-        # For the 404, and deliberately not a read of the club it
-        # names: a replacement repairs a row whose `team_id` resolves to no `teams` document, so nothing
-        # here may require one.
+        # For the 404. The outgoing club's own document is never read: nothing below needs it.
         await pull_one_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "team_id": team_id},
@@ -861,9 +859,9 @@ async def replace_saison_team(
         updated_raw = await patch_one_in_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "team_id": team_id},
-            # `austritt` cleared: left standing it marks the incoming club withdrawn. The colour, the
-            # contacts and their links leave with the outgoing school.
-            update={"$set": {**incoming_side, "austritt": None, "trikot_farbe": None, "kontakte": None, "confirmations": None}},
+            # The colour, the contacts and their links leave with the outgoing school. The row holds no exit to clear: one is
+            # recorded only from the season's start, which refuses a replacement.
+            update={"$set": {**incoming_side, "trikot_farbe": None, "kontakte": None, "confirmations": None}},
             session=session,
             expected_version=None,
             return_document=ReturnDocument.AFTER,

@@ -5,14 +5,13 @@ import pytest
 from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.saisons.admin_router import patch_saison
-from app.api.saisons.schemas import FLPatchSaisonPayload, FLSaisonRules
 from app.api.spieltage.admin_router import patch_spieltag
 from app.api.spieltage.schemas import FLPatchSpieltagPayload
 from app.core.codes import Code
 from app.core.exceptions import APIError
 from tests import documents
 from tests.database import a_clean_database
+from tests.season_routes import call_season_save
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -88,24 +87,7 @@ async def on_a_database(url: str, body: Body) -> Any:
 async def move_the_seasons_end(database: AsyncDatabase, end_date: str) -> None:
     """Through `PATCH /saisons`, whose span refusal judges spans it reads out of `spieltage` itself."""
 
-    await patch_saison(
-        saison_id=SAISON_ID,
-        saison_data=FLPatchSaisonPayload(
-            start_date=SAISON_START,
-            end_date=end_date,
-            rules=FLSaisonRules.model_validate(RULES),
-            bewerbung=None,
-            registrierung=None,
-            version=(await database.saisons.find_one({"_id": SAISON_ID}, {"version": 1}) or {})["version"],
-        ),
-        saisons_collection=database.saisons,
-        saison_teams_collection=database.saison_teams,
-        spiele_collection=database.spiele,
-        spieltage_collection=database.spieltage,
-        saison_spieler_collection=database.saison_spieler,
-        db=database.client,
-        today=SAISON_START,
-    )
+    await call_season_save(database, saison_id=SAISON_ID, start_date=SAISON_START, end_date=end_date, rules=RULES, today=SAISON_START)
 
 
 async def re_date(database: AsyncDatabase, spieltag_id: ObjectId, *, start: str, end: str) -> Any:

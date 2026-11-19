@@ -145,9 +145,14 @@ LIVE_BLOCKS = blocks(live=True)
 SAISON_TEAM_OIDS = (ROW_A_EARLIER_OID, ROW_A_LATER_OID, ROW_B_OID)
 BEWERBUNG_OIDS = (BEWERBUNG_OID, OTHER_BEWERBUNG_OID)
 
-# Which rows the erasure must reach, and how many slots each one owes it. Stated here so a failure
-# names the expectation rather than a number computed beside the code under test.
-EXPECTED_SLOTS = {ROW_A_EARLIER_OID: 1, ROW_A_LATER_OID: 2, BEWERBUNG_OID: 1}
+# Which rows the erasure must reach, and which of their slots hold the person. Stated here so a failure
+# names the expectation rather than a set computed beside the code under test.
+ERASED_SEATS: dict[ObjectId, tuple[str, ...]] = {
+    ROW_A_EARLIER_OID: ("trainer",),
+    ROW_A_LATER_OID: ("trainer", "ansprechperson"),
+    BEWERBUNG_OID: ("ansprechperson",),
+}
+ERASED_SEAT_COUNT = sum(len(seats) for seats in ERASED_SEATS.values())
 
 
 def saison_team_document(row_id: ObjectId, saison_id: str, team_id: ObjectId) -> dict[str, Any]:
@@ -360,17 +365,40 @@ class TestTheSlotsAreReadOffTheModel:
         assert declared == KONTAKT_SEATS
 
 
+# What a row holds where it carries no bookkeeping block, as a junction row does.
+NO_BLOCK = "no bookkeeping block"
+
+
+def emptied(block: Any, seats: tuple[str, ...]) -> Any:
+    """A block with these seats emptied; one a row does not carry stays absent."""
+
+    return block if block == NO_BLOCK else {**block, **{seat: None for seat in seats}}
+
+
 @pytest.mark.db
-async def test_the_erased_seats_link_goes_with_the_person_and_no_other_seats_does(mongo_replica_set_url: str):
-    """Kills an erasure stopping at `kontakte`: a live link would outlive the person and confirm a slot naming nobody."""
+async def test_the_erasure_empties_their_seats_and_links_and_nothing_else(mongo_replica_set_url: str):
+    """Every seeded row after the erasure, against itself before with the person's own seats emptied."""
 
-    _, rows = await after_erasure(mongo_replica_set_url)
-    block = rows[BEWERBUNG_OID]["confirmations"]
+    before, after = await after_erasure(mongo_replica_set_url)
 
-    assert block["ansprechperson"] is None
-    assert block["trainer"] == CONFIRMATIONS["trainer"]
-    assert block["stellvertretung"] == CONFIRMATIONS["stellvertretung"]
-    assert rows[OTHER_BEWERBUNG_OID]["confirmations"] == CONFIRMATIONS
+    assert before[BEWERBUNG_OID]["confirmations"] == CONFIRMATIONS, "the seed carries no links, so the links' assertion proves nothing"
+    assert {row_id: row["kontakte"] for row_id, row in after.items()} == {
+        row_id: emptied(row["kontakte"], ERASED_SEATS.get(row_id, ())) for row_id, row in before.items()
+    }, (
+        "the blocks: each seat the person held is emptied, and the people beside them, the rows that never named them "
+        "and the form's own `trainer_is_also` stand"
+    )
+    assert {row_id: row.get("confirmations", NO_BLOCK) for row_id, row in after.items()} == {
+        row_id: emptied(row.get("confirmations", NO_BLOCK), ERASED_SEATS.get(row_id, ())) for row_id, row in before.items()
+    }, (
+        "the links: each of the person's goes with them so it cannot confirm a seat naming nobody, every other seat's stands, "
+        "and a junction row gains no bookkeeping block"
+    )
+
+    # As text, past the seats any filter names; a bystander's number is the floor under a database emptied wholesale.
+    rendered = str(sorted(after.items(), key=lambda pair: str(pair[0])))
+    assert [value for value in (ERASED_EMAIL, ERASED_PHONE, ERASED_LAST_NAME) if value in rendered] == [], "a value of theirs survives"
+    assert BYSTANDER_PHONE in rendered, "the sweep would pass over a database emptied wholesale"
 
 
 @pytest.mark.db
@@ -403,33 +431,11 @@ async def test_an_erasure_takes_the_notice_back_only_where_the_day_it_named_move
     assert (await on_a_league(mongo_replica_set_url, body))["erasure_announced_at"] == announced
 
 
-@pytest.mark.db
-async def test_a_junction_row_gains_no_bookkeeping_block(mongo_replica_set_url: str):
-    """Kills a clearing that nulls the seat's bookkeeping unconditionally: a dotted `$set` into an absent block creates one."""
-
-    _, rows = await after_erasure(mongo_replica_set_url)
-
-    assert all("confirmations" not in rows[row_id] for row_id in SAISON_TEAM_OIDS)
-
-
 def test_the_clearing_names_the_bookkeeping_only_where_told_to():
     """The pure half: a season row holding no block gets no key created."""
 
     assert build_clearing_update(("trainer",)) == {"$set": {"kontakte.trainer": None}}
     assert build_clearing_update(("trainer",), confirmations=True) == {"$set": {"kontakte.trainer": None, "confirmations.trainer": None}}
-
-
-@pytest.mark.db
-async def test_the_two_people_beside_them_are_untouched(mongo_replica_set_url: str):
-    """The over-breadth floor. Kills nulling the whole `kontakte` block, which would destroy two records nobody asked about."""
-
-    _, rows = await after_erasure(mongo_replica_set_url)
-    kontakte = rows[ROW_A_EARLIER_OID]["kontakte"]
-
-    assert kontakte["ansprechperson"] == LIVE_BLOCKS[ROW_A_EARLIER_OID]["ansprechperson"]
-    assert kontakte["stellvertretung"] == LIVE_BLOCKS[ROW_A_EARLIER_OID]["stellvertretung"]
-    # Kept through the erasure: it is a fact about the FORM, not about either slot's occupant.
-    assert kontakte["trainer_is_also"] is None
 
 
 @pytest.mark.db
@@ -462,18 +468,7 @@ async def test_a_spelling_handed_in_unfolded_still_clears(mongo_replica_set_url:
 
         return seats_cleared(before.values(), (await stored_rows(database)).values())
 
-    assert await on_a_league(mongo_replica_set_url, body) == sum(EXPECTED_SLOTS.values())
-
-
-@pytest.mark.db
-async def test_no_value_of_theirs_survives_anywhere_in_the_database(mongo_replica_set_url: str):
-    """Every seat and application row swept as text, not the seats a filter named; a bystander's number is the floor."""
-
-    _, rows = await after_erasure(mongo_replica_set_url)
-    rendered = str(sorted(rows.items(), key=lambda pair: str(pair[0])))
-
-    assert [value for value in (ERASED_EMAIL, ERASED_PHONE, ERASED_LAST_NAME) if value in rendered] == []
-    assert BYSTANDER_PHONE in rendered, "the sweep would pass over a database emptied wholesale"
+    assert await on_a_league(mongo_replica_set_url, body) == ERASED_SEAT_COUNT
 
 
 @pytest.mark.db
@@ -498,7 +493,7 @@ async def test_an_address_asked_unfolded_clears_its_stored_fold_and_no_near_miss
 
     assert cleared == [], "the match reached an address that is not this person"
     assert rows[MATCHED_ROW_OID]["kontakte"]["trainer"] is None, "the unfolded request missed the stored fold"
-    assert seats_cleared(before.values(), rows.values()) == sum(EXPECTED_SLOTS.values()) + 1, "a seat that is somebody else's was cleared"
+    assert seats_cleared(before.values(), rows.values()) == ERASED_SEAT_COUNT + 1, "a seat that is somebody else's was cleared"
 
 
 # Two domains to the sign-in fold, so two people an application may seat side by side.
@@ -564,5 +559,5 @@ async def test_the_reveal_lists_exactly_the_seats_the_erasure_then_clears(mongo_
     named = view.kontakt_seats + view.bewerbung_seats
 
     # Against the table above as well as the count: two figures agreeing on zero agree on nothing.
-    assert named == sum(EXPECTED_SLOTS.values())
+    assert named == ERASED_SEAT_COUNT
     assert named == cleared

@@ -22613,7 +22613,7 @@
     },
     "/api/teams/{team_id}/saisons/{saison_id}/replace": {
       "post": {
-        "description": "Hand this season's row, and every fixture on it, to another club, keeping the schedule.\n\nThe row's exit, colour, contacts and their links are cleared, and the outgoing club's live squad rows retired.",
+        "description": "Hand this season's row, and every fixture on it, to another club, keeping the schedule.\n\nThe row's colour, contacts and their links are cleared, and the outgoing club's live squad rows retired.",
         "operationId": "teams_replace_saison_team",
         "parameters": [
           {

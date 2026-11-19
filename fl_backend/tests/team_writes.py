@@ -80,7 +80,10 @@ async def write_the_block(
     germany_now: datetime,
     saison_teams_collection: Any = None,
 ) -> BlockWritten:
-    """What `put_kontakt_seat` stores, for a block it composes: several seats moving at once are the writer's own cases."""
+    """What `put_kontakt_seat` stores, for a block placed whole, several seats at once as no route sends them.
+
+    A seed or a rival write beside what a case is about; a case about what a seat's write does drives `put_kontakt_seat`.
+    """
 
     proposed = {slot: seat_sent(seat, today=today) if isinstance(seat, Mapping) else seat for slot, seat in block.items()}
     rows = database[Collection.SAISON_TEAMS] if saison_teams_collection is None else saison_teams_collection

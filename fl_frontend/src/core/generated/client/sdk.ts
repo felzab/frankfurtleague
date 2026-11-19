@@ -3311,7 +3311,7 @@ export const getTeamsReplaceSaisonTeamUrl = (teamId: string, saisonId: string) =
 /**
  * Hand this season's row, and every fixture on it, to another club, keeping the schedule.
  *
- * The row's exit, colour, contacts and their links are cleared, and the outgoing club's live squad rows retired.
+ * The row's colour, contacts and their links are cleared, and the outgoing club's live squad rows retired.
  * @summary Replace a club in a season, keeping its schedule
  */
 export const teamsReplaceSaisonTeam = async (

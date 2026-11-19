@@ -5,14 +5,13 @@ import pytest
 from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.saisons.admin_router import patch_saison
-from app.api.saisons.schemas import FLPatchSaisonPayload, FLSaisonRules
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from tests import documents
 from tests.database import a_clean_database
 from tests.isolation import refused_code
+from tests.season_routes import call_season_save
 from tests.stored import the_row
 from tests.worker import worker_database
 
@@ -121,25 +120,8 @@ async def stored_season(database: AsyncDatabase) -> Mapping[str, Any]:
 async def patch_the_rules(database: AsyncDatabase, *, today: str = THE_DAY_BEFORE, start_date: str = SAISON_START, **overrides: Any) -> Any:
     """The whole rules object every time, `rules` being required on the patch, so a case names only the value it changes."""
 
-    return await patch_saison(
-        saison_id=SAISON_ID,
-        saison_data=FLPatchSaisonPayload(
-            start_date=start_date,
-            end_date=SAISON_END,
-            rules=FLSaisonRules.model_validate(rules_document(**overrides)),
-            # Stated rather than omitted: the payload replaces the season wholesale, so neither
-            # window carries a default and this helper is about neither of them.
-            bewerbung=None,
-            registrierung=None,
-            version=(await database[Collection.SAISONS].find_one({"_id": SAISON_ID}, {"version": 1}) or {})["version"],
-        ),
-        saisons_collection=database[Collection.SAISONS],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        spiele_collection=database[Collection.SPIELE],
-        spieltage_collection=database[Collection.SPIELTAGE],
-        saison_spieler_collection=database[Collection.SAISON_SPIELER],
-        db=database.client,
-        today=today,
+    return await call_season_save(
+        database, saison_id=SAISON_ID, start_date=start_date, end_date=SAISON_END, rules=rules_document(**overrides), today=today
     )
 
 
@@ -231,10 +213,19 @@ class TestTheStartMovesNoLaterPastAStoredExit:
 class TestTheStartIsFixedOnceASpielHasTakenPlace:
     """`saison_start_taken_place` through the endpoint, over the in-session read of every fixture of the season."""
 
-    async def test_a_moved_start_on_a_played_season_is_refused(self, mongo_replica_set_url: str):
-        """One fixture holding a result fixes the start, and the refusal writes nothing."""
+    @pytest.mark.parametrize(
+        "taken_place",
+        [
+            pytest.param({"ergebnis": "1:0"}, id="a result"),
+            # A save keeps one side's goals while the other's are blank, and stores no result until both are in: read by
+            # `saisons_with_a_spiel_taken_place` through `TAKEN_PLACE_FIELDS`, whose projection drops what it leaves out.
+            pytest.param({"team1": {"team_id": TEAM_OID, "tore": 1}}, id="one side's goals"),
+        ],
+    )
+    async def test_a_moved_start_on_a_played_season_is_refused(self, mongo_replica_set_url: str, taken_place: dict[str, Any]):
+        """One fixture that has taken place fixes the start, and the refusal writes nothing."""
 
-        played = [*drawn_spiele()[1:], spiel_document(spiel_nr=1, date=FIRST_SPIEL_DAY, ergebnis="1:0")]
+        played = [*drawn_spiele()[1:], spiel_document(spiel_nr=1, date=FIRST_SPIEL_DAY, **taken_place)]
 
         async def body(database: AsyncDatabase) -> tuple[str, Mapping[str, Any]]:
             await date_the_matchday(database, A_WEEK_LATER)

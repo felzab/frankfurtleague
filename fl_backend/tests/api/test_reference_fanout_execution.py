@@ -111,38 +111,29 @@ def only_these_names(allowed: Iterable[str]) -> dict[str, Any]:
     return {"bsonType": "object", "properties": {"name": {"enum": sorted(allowed)}}}
 
 
-async def after_renaming(url: str) -> dict[tuple[Any, str], Mapping[str, Any]]:
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        await rename_the_team(database, client)
-
-        return await stored_junctions(database)
-
-    return await on_a_database(url, body)
-
-
 @pytest.mark.db
 class TestATeamRenameReachesTheJunctionRowsOfItsOpenSeasons:
     """The season's own copy of the identity: without this pass every table and fixture would read the club's old name."""
 
-    async def test_the_open_seasons_row_is_rewritten(self, mongo_replica_set_url: str):
-        junctions = await after_renaming(mongo_replica_set_url)
+    async def test_the_open_seasons_row_takes_the_new_name_and_nothing_else_moves(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await rename_the_team(database, client)
+
+            return await stored_junctions(database)
+
+        junctions = await on_a_database(mongo_replica_set_url, body)
         row = junctions[(TEAM_OID, SAISON_ID)]
 
-        assert (row["name"], row["shorthand"]) == (RENAMED_TEAM, RENAMED_SHORTHAND)
-        # A `past` season is the record of what happened, so its fixtures keep the name it was played under.
+        assert (row["name"], row["shorthand"]) == (RENAMED_TEAM, RENAMED_SHORTHAND), "the open season's row keeps the old name"
+        assert (row["gruppe"], row["austritt"]) == ("A", None), "the rename reached the row's own group or exit, which a rename never moves"
         closed = junctions[(TEAM_OID, PAST_SAISON_ID)]
-        assert (closed["name"], closed["shorthand"]) == TEAM_NAMES[TEAM_OID]
-        # Without this the rewrite above passes for a pass that ignores `team_id` and rewrites the season.
+        assert (closed["name"], closed["shorthand"]) == TEAM_NAMES[TEAM_OID], (
+            "a past season, the record of what happened, lost the name it was played under"
+        )
         other = junctions[(OTHER_TEAM_OID, SAISON_ID)]
-        assert (other["name"], other["shorthand"]) == TEAM_NAMES[OTHER_TEAM_OID]
-
-    async def test_the_group_survives_the_rewrite(self, mongo_replica_set_url: str):
-        """`gruppe` and `austritt` are the row's own state: a `$set` reaching them would move a club between groups on a rename."""
-
-        junctions = await after_renaming(mongo_replica_set_url)
-        row = junctions[(TEAM_OID, SAISON_ID)]
-
-        assert (row["gruppe"], row["austritt"]) == ("A", None)
+        assert (other["name"], other["shorthand"]) == TEAM_NAMES[OTHER_TEAM_OID], (
+            "the pass ignored `team_id` and renamed another club's row of the season"
+        )
 
 
 @pytest.mark.db

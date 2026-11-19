@@ -1,30 +1,44 @@
-from collections.abc import Awaitable, Callable, Mapping
-from dataclasses import dataclass, field
+from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import date, timedelta
-from itertools import combinations, product
+from itertools import combinations
 from typing import Any
 
 import pytest
-from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.saisons.admin_router import patch_saison, post_spielplan
 from app.api.saisons.schedule import group_spieltage
-from app.api.saisons.schemas import (
-    FLGenerateSpielplanPayload,
-    FLPatchSaisonPayload,
-    FLSaisonRules,
-)
-from app.api.teams.services import offered_gruppen
+from app.api.saisons.schemas import FLSaisonRules
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from app.shared.schemas.responses import FLVersionResponse
 from tests import documents
-from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database
+from tests.database import DOCUMENT_VALIDATION_FAILED
 from tests.isolation import refused_code
+from tests.season_routes import (
+    BESIDE_A_NEIGHBOUR,
+    GROUPS,
+    NEIGHBOUR_SAISON_ID,
+    QUALIFIERS,
+    SAISON_ID,
+    TEAMS_PER_GROUP,
+    TODAY,
+    Body,
+    Seed,
+    a_record_of_each_kind_on_both_seasons,
+    call_draw,
+    call_season_save,
+    counts_now,
+    entry_rows,
+    rules_document,
+    saison_document,
+    the_season_now,
+    watermark_now,
+)
+from tests.season_routes import on_a_seeded_saison as on_a_named_database
 from tests.stored import the_row
 from tests.worker import worker_database
 
@@ -33,137 +47,14 @@ pytestmark = pytest.mark.db
 DATABASE_NAME = worker_database("fl_spielplan_write_test")
 
 
-SAISON_ID = "2026"
-
-# A SECOND season, drawn beside the one under test and never asked to be redrawn: what a removal
-# that lost its `saison_id` would take with it.
-NEIGHBOUR_SAISON_ID = "2025"
-
-# Minted well clear of the subject rows, so only the filter can leave a neighbour standing.
-NEIGHBOUR_OID_OFFSET = 100
-
-# Fixed rather than the real day, so the watermark's date is a value this file chose.
-TODAY = "2026-08-21"
-
-GROUPS = 4
-TEAMS_PER_GROUP = 4
-QUALIFIERS = 2
-
 # `(number_of_groups, teams_per_group, qualifiers_per_group)`: the ordinary season, and one whose odd
 # groups take a bye round and whose bracket opens at the semi-finals, the smallest the rules take.
 SHAPES: tuple[tuple[int, int, int], ...] = ((GROUPS, TEAMS_PER_GROUP, QUALIFIERS), (2, 3, 2))
 SHAPE_IDS = ("four groups of four into a quarter-final", "two odd groups into a semi-final")
 
 
-def rules_document(*, groups: int = GROUPS, teams: int = TEAMS_PER_GROUP, qualifiers: int = QUALIFIERS) -> dict[str, Any]:
-    return documents.rules_document(qualifiers_per_gruppe=qualifiers, number_of_gruppen=groups, teams_per_gruppe=teams)
-
-
-def saison_document(
-    *,
-    saison_id: str = SAISON_ID,
-    status: str = "future",
-    rules: dict[str, Any] | None = None,
-    start_date: str = "2026-01-01",
-    end_date: str = "2026-06-30",
-) -> dict[str, Any]:
-    """The default span is half a year, so `saison_span_below_spielplan` is what no case not about it can be refused on."""
-
-    return documents.saison_document(saison_id, status, start_date=start_date, end_date=end_date, rules=rules or rules_document())
-
-
-def entry_rows(
-    *,
-    saison_id: str = SAISON_ID,
-    offset: int = 0,
-    groups: int = GROUPS,
-    teams: int = TEAMS_PER_GROUP,
-) -> list[dict[str, Any]]:
-    """Every club of a full season as its `saison_teams` row.
-
-    `offset` moves both ObjectId runs along, seeding a second season that shares no row and no club.
-    """
-
-    rows: list[dict[str, Any]] = []
-    # Interleaved, so entry order and group membership disagree: a draw partitioning by list
-    # position pairs clubs that never meet.
-    for index, (seat, gruppe) in enumerate(product(range(teams), offered_gruppen(groups))):
-        rows.append(
-            documents.saison_team_document(
-                saison_id,
-                ObjectId(f"6890a1b2c3d4e5f6075{index + offset:05d}"),
-                f"{gruppe}{seat + 1}-Schule",
-                f"{gruppe}S{chr(65 + seat)}",
-                _id=ObjectId(f"6890a1b2c3d4e5f6074{index + offset:05d}"),
-                gruppe=gruppe,
-            )
-        )
-
-    return rows
-
-
-@dataclass(frozen=True)
-class Seed:
-    """One season as the database holds it when the draw is asked for, and a second beside it where a case asks for one."""
-
-    saison: dict[str, Any] = field(default_factory=saison_document)
-    entered: list[dict[str, Any]] = field(default_factory=entry_rows)
-    spiele: list[dict[str, Any]] = field(default_factory=list)
-    #: Seeded only by a case about what a removal must NOT reach: a database holding one season
-    #: answers the same whether the removal was scoped or took the collection.
-    neighbour: dict[str, Any] | None = None
-    neighbour_entered: list[dict[str, Any]] = field(default_factory=list)
-
-
-Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
-
-
-async def on_a_seeded_saison(
-    url: str, body: Body, *, seed: Seed | None = None, mutates_schema: bool = False, stores_a_refused_shape: str | None = None
-) -> Any:
-    """The shipped unique indexes, so a document MongoDB would refuse in production fails here.
-
-    `mutates_schema=True` where the body installs a validator (`tests/database.py :: a_clean_database`).
-    """
-
-    seeded = seed or Seed()
-
-    async with a_clean_database(
-        url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema, stores_a_refused_shape=stores_a_refused_shape
-    ) as (client, database):
-        await database[Collection.SAISONS].insert_one(seeded.saison)
-        await database[Collection.SAISON_TEAMS].insert_many(seeded.entered)
-        if seeded.spiele:
-            await database[Collection.SPIELE].insert_many(seeded.spiele)
-
-        if seeded.neighbour is not None:
-            await database[Collection.SAISONS].insert_one(seeded.neighbour)
-            await database[Collection.SAISON_TEAMS].insert_many(seeded.neighbour_entered)
-
-        return await body(database, client)
-
-
-async def call_draw(
-    database: AsyncDatabase,
-    client: AsyncMongoClient,
-    *,
-    saison_id: str = SAISON_ID,
-    replace: bool = False,
-    today: str = TODAY,
-) -> None:
-    await post_spielplan(
-        saison_id=saison_id,
-        saisons_collection=database[Collection.SAISONS],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        spiele_collection=database[Collection.SPIELE],
-        spieltage_collection=database[Collection.SPIELTAGE],
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        spielberichte_collection=database[Collection.SPIELBERICHTE],
-        aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
-        db=client,
-        spielplan_data=FLGenerateSpielplanPayload(replace=replace),
-        today=today,
-    )
+async def on_a_seeded_saison(url: str, body: Body, *, seed: Seed | None = None, mutates_schema: bool = False) -> Any:
+    return await on_a_named_database(url, DATABASE_NAME, body, seed=seed, mutates_schema=mutates_schema)
 
 
 async def stored_rules(database: AsyncDatabase) -> dict[str, Any]:
@@ -181,41 +72,14 @@ async def call_patch_rules(database: AsyncDatabase, **overrides: Any) -> FLVersi
 
     seeded = saison_document()
 
-    return await patch_saison(
+    return await call_season_save(
+        database,
         saison_id=SAISON_ID,
-        saison_data=FLPatchSaisonPayload(
-            start_date=seeded["start_date"],
-            end_date=seeded["end_date"],
-            rules=FLSaisonRules.model_validate({**rules_document(), **overrides}),
-            # Stated rather than omitted: the payload replaces the season wholesale, so neither
-            # window carries a default and this helper is about neither of them.
-            bewerbung=None,
-            registrierung=None,
-            version=(await database[Collection.SAISONS].find_one({"_id": SAISON_ID}, {"version": 1}) or {})["version"],
-        ),
-        saisons_collection=database[Collection.SAISONS],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        spiele_collection=database[Collection.SPIELE],
-        spieltage_collection=database[Collection.SPIELTAGE],
-        saison_spieler_collection=database[Collection.SAISON_SPIELER],
-        db=database.client,
+        start_date=seeded["start_date"],
+        end_date=seeded["end_date"],
+        rules={**rules_document(), **overrides},
         today=str(date.fromisoformat(seeded["start_date"]) - timedelta(days=1)),
     )
-
-
-async def counts_now(database: AsyncDatabase, *, saison_id: str = SAISON_ID) -> tuple[int, int]:
-    """The season's matchdays and fixtures, read outside any transaction -- what a later request would see."""
-
-    return (
-        await database[Collection.SPIELTAGE].count_documents({"saison_id": saison_id}),
-        await database[Collection.SPIELE].count_documents({"saison_id": saison_id}),
-    )
-
-
-async def watermark_now(database: AsyncDatabase) -> Any:
-    stored = await database[Collection.SAISONS].find_one({"_id": SAISON_ID})
-
-    return (stored or {}).get("spielplan")
 
 
 def bracket_rounds(rules: FLSaisonRules) -> tuple[int, ...]:
@@ -424,7 +288,7 @@ class TestEachRefusalIsReachedThroughTheRoute:
 
         assert refused.error_code == code
         # Exactly what the seed put there: a refusal reached after a write would read higher.
-        assert (refused.spieltage, refused.spiele) == (0, len(seed.spiele))
+        assert (refused.spieltage, refused.spiele) == (0, 0)
         assert refused.watermark is None
 
 
@@ -531,64 +395,9 @@ async def document_ids(database: AsyncDatabase) -> set[Any]:
 
     found: set[Any] = set()
     for collection in (Collection.SPIELTAGE, Collection.SPIELE):
-        found |= {row["_id"] for row in await database[collection].find({}, {"_id": 1}).to_list(length=None)}
+        found |= {row["_id"] for row in await database[collection].find({"saison_id": SAISON_ID}, {"_id": 1}).to_list(length=None)}
 
     return found
-
-
-@dataclass(frozen=True)
-class ReplacedSeason:
-    """One season drawn, then drawn again over the top, as a later request would find it."""
-
-    first_ids: set[Any]
-    spieltage: list[dict[str, Any]]
-    spiele: list[dict[str, Any]]
-
-
-async def a_replaced_season(url: str) -> ReplacedSeason:
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> ReplacedSeason:
-        await call_draw(database, client)
-        # Read between the two calls: afterwards nothing tells a surviving row from a fresh one
-        # carrying the same numbers.
-        first_ids = await document_ids(database)
-
-        await call_draw(database, client, replace=True, today=REDRAWN_TODAY)
-
-        return ReplacedSeason(
-            first_ids=first_ids,
-            spieltage=await database[Collection.SPIELTAGE].find({}).sort("_id", 1).to_list(length=None),
-            spiele=await database[Collection.SPIELE].find({}).sort("spiel_nr", 1).to_list(length=None),
-        )
-
-    replaced = await on_a_seeded_saison(url, body)
-
-    assert replaced.first_ids, "the first draw wrote nothing, so the replace had nothing to remove"
-
-    return replaced
-
-
-def a_confirmation(saison_id: str) -> dict[str, Any]:
-    """An open team row of one season's fixture, as the sweep mints it; the fixture itself need not exist for the removal's filter."""
-
-    home = ObjectId()
-    spiel = documents.spiel_document(
-        spiel_id=ObjectId(),
-        saison_id=saison_id,
-        spiel_nr=1,
-        spieltag_id=ObjectId(),
-        team1={"team_id": home, "tore": None},
-        team2={"team_id": ObjectId(), "tore": None},
-        date="2026-05-01",
-        time="18:00:00",
-    )
-
-    return documents.spielbestaetigung_document(spiel, party={"kind": "team", "team_id": home})
-
-
-def a_report(saison_id: str) -> dict[str, Any]:
-    """A report document on no fixture, which no count of submitted reports joins: the removal's filter reads the season alone."""
-
-    return documents.spielbericht_document({"_id": ObjectId(), "saison_id": saison_id})
 
 
 async def report_a_drawn_spiel(database: AsyncDatabase) -> None:
@@ -597,27 +406,6 @@ async def report_a_drawn_spiel(database: AsyncDatabase) -> None:
     spiel = await database[Collection.SPIELE].find_one({"saison_id": SAISON_ID})
     assert spiel is not None, "the premise: the season is drawn"
     await database[Collection.SPIELBERICHTE].insert_one(documents.spielbericht_document(spiel))
-
-
-class TestAReplaceTakesTheSeasonsReports:
-    async def test_the_seasons_reports_go_and_the_neighbours_stay(self, mongo_replica_set_url: str):
-        """Drop the replace's report delete and this fails: a report document would name a fixture the replace removed.
-
-        The season's names no fixture the draw holds, so it refuses nothing; the neighbour's stands.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int]:
-            await call_draw(database, client)
-            await database[Collection.SPIELBERICHTE].insert_many([a_report(SAISON_ID), a_report(NEIGHBOUR_SAISON_ID)])
-            await call_draw(database, client, replace=True, today=REDRAWN_TODAY)
-
-            berichte = database[Collection.SPIELBERICHTE]
-            return (
-                await berichte.count_documents({"saison_id": SAISON_ID}),
-                await berichte.count_documents({"saison_id": NEIGHBOUR_SAISON_ID}),
-            )
-
-        assert await on_a_seeded_saison(mongo_replica_set_url, body) == (0, 1)
 
 
 class TestASubmittedReportKeepsTheSpielplanFromAReplace:
@@ -635,126 +423,80 @@ class TestASubmittedReportKeepsTheSpielplanFromAReplace:
         assert await on_a_seeded_saison(mongo_replica_set_url, body) == Code.SPIELPLAN_BERICHTE_SUBMITTED
 
 
-class TestAReplaceTakesTheSeasonsConfirmations:
-    async def test_the_seasons_rows_go_and_the_neighbours_stay(self, mongo_replica_set_url: str):
-        """Drop the replace's confirmation delete and this fails: a row would name a fixture the replace removed."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int]:
-            await call_draw(database, client)
-            await database[Collection.SPIELBESTAETIGUNGEN].insert_many([a_confirmation(SAISON_ID), a_confirmation(NEIGHBOUR_SAISON_ID)])
-            await call_draw(database, client, replace=True, today=REDRAWN_TODAY)
-
-            confirmations = database[Collection.SPIELBESTAETIGUNGEN]
-            return (
-                await confirmations.count_documents({"saison_id": SAISON_ID}),
-                await confirmations.count_documents({"saison_id": NEIGHBOUR_SAISON_ID}),
-            )
-
-        assert await on_a_seeded_saison(mongo_replica_set_url, body) == (0, 1)
-
-    async def test_the_seasons_line_ups_go_and_the_neighbours_stay(self, mongo_replica_set_url: str):
-        """Drop the line-ups' removal and this fails: one would name pupils for a fixture the replace removed."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[str]:
-            await call_draw(database, client)
-            await database[Collection.AUFSTELLUNGEN].insert_many(
-                [
-                    documents.aufstellung_document({"_id": ObjectId(), "saison_id": saison_id}, ObjectId(), starters=[ObjectId()])
-                    for saison_id in (SAISON_ID, NEIGHBOUR_SAISON_ID)
-                ]
-            )
-            await call_draw(database, client, replace=True, today=REDRAWN_TODAY)
-
-            return [row["saison_id"] async for row in database[Collection.AUFSTELLUNGEN].find()]
-
-        assert await on_a_seeded_saison(mongo_replica_set_url, body) == [NEIGHBOUR_SAISON_ID]
-
-
-class TestAConfirmedReplaceRedrawsTheWholeSeason:
-    """`spielplan_replace_outside_its_window`'s write half: the season's two lists are removed and drawn again inside one transaction."""
-
-    async def test_no_document_of_the_first_draw_survives(self, mongo_replica_set_url: str):
-        """Drop either delete and this fails: a replace is these rows being GONE, never as many fresh ones standing beside them."""
-
-        replaced = await a_replaced_season(mongo_replica_set_url)
-        surviving = {row["_id"] for row in (*replaced.spieltage, *replaced.spiele)}
-
-        assert surviving & replaced.first_ids == set()
-        assert surviving, "the replace removed the season and drew nothing back"
-
-        # Exactly one whole draw afterwards: delete only `spiele` and the fresh matchdays collide with the surviving ones
-        # on their own unique index.
-        expected = expected_counts(FLSaisonRules.model_validate(saison_document()["rules"]))
-        assert (len(replaced.spieltage), len(replaced.spiele)) == expected
-
-        # Every fixture hangs on a matchday the replace itself wrote: the two lists go as one set.
-        matchdays = {row["_id"] for row in replaced.spieltage}
-        assert [row["spiel_nr"] for row in replaced.spiele if row["spieltag_id"] not in matchdays] == []
-
-
 @dataclass(frozen=True)
-class NeighbouringSeasons:
-    """Two drawn seasons, one of them replaced, each collection counted for each season separately."""
+class ReplacedSeason:
+    """One season drawn, then drawn again over the top beside a finished season, as a later request would find both."""
 
-    subject_spieltage: int
-    subject_spiele: int
+    first_ids: set[Any]
+    spieltage: list[dict[str, Any]]
+    spiele: list[dict[str, Any]]
+    subject: dict[str, Any]
     # The neighbour's own two counts as its draw stored them, before the subject's replace.
     neighbour_drawn: tuple[int, int]
-    neighbour_spieltage: int
-    neighbour_spiele: int
+    neighbour: dict[str, Any]
 
 
-async def a_season_replaced_beside_another(url: str) -> NeighbouringSeasons:
-    """Draw both seasons, close the neighbour, then replace the subject's draw alone."""
+class TestAConfirmedReplaceRedrawsTheSeasonAndNothingElse:
+    """`spielplan_replace_outside_its_window`'s write half, inside one transaction, against a season standing beside it.
 
-    seed = Seed(
-        neighbour=saison_document(saison_id=NEIGHBOUR_SAISON_ID),
-        neighbour_entered=entry_rows(saison_id=NEIGHBOUR_SAISON_ID, offset=NEIGHBOUR_OID_OFFSET),
-    )
+    The season's draw and every record naming its fixtures go, and the draw comes back whole.
+    """
 
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> NeighbouringSeasons:
-        await call_draw(database, client, saison_id=NEIGHBOUR_SAISON_ID)
-        neighbour_drawn = await counts_now(database, saison_id=NEIGHBOUR_SAISON_ID)
+    async def test_no_document_of_the_first_draw_survives_and_the_neighbour_keeps_everything(self, mongo_replica_set_url: str):
+        """Drop any removal, or empty its `db_filter`, and this fails; with one season seeded, the filters' half never does."""
 
-        # Demoted to `past` after its draw: what an unscoped removal takes from a finished season is
-        # the fixture set its league table is scored from on every read.
-        await database[Collection.SAISONS].update_one({"_id": NEIGHBOUR_SAISON_ID}, {"$set": {"status": "past"}})
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> ReplacedSeason:
+            await call_draw(database, client, saison_id=NEIGHBOUR_SAISON_ID)
+            neighbour_drawn = await counts_now(database, saison_id=NEIGHBOUR_SAISON_ID)
+            # Demoted to `past` after its draw: what an unscoped removal takes from a finished season is
+            # the fixture set its league table is scored from on every read.
+            await database[Collection.SAISONS].update_one({"_id": NEIGHBOUR_SAISON_ID}, {"$set": {"status": "past"}})
+            await call_draw(database, client)
+            # Read between the two draws: afterwards nothing tells a surviving row from a fresh one carrying the same numbers.
+            first_ids = await document_ids(database)
+            await a_record_of_each_kind_on_both_seasons(database)
 
-        await call_draw(database, client)
-        await call_draw(database, client, replace=True, today=REDRAWN_TODAY)
+            await call_draw(database, client, replace=True, today=REDRAWN_TODAY)
 
-        subject_spieltage, subject_spiele = await counts_now(database)
-        neighbour_spieltage, neighbour_spiele = await counts_now(database, saison_id=NEIGHBOUR_SAISON_ID)
+            return ReplacedSeason(
+                first_ids=first_ids,
+                spieltage=await database[Collection.SPIELTAGE].find({"saison_id": SAISON_ID}).to_list(length=None),
+                spiele=await database[Collection.SPIELE].find({"saison_id": SAISON_ID}).to_list(length=None),
+                subject=await the_season_now(database),
+                neighbour_drawn=neighbour_drawn,
+                neighbour=await the_season_now(database, saison_id=NEIGHBOUR_SAISON_ID),
+            )
 
-        return NeighbouringSeasons(
-            subject_spieltage=subject_spieltage,
-            subject_spiele=subject_spiele,
-            neighbour_drawn=neighbour_drawn,
-            neighbour_spieltage=neighbour_spieltage,
-            neighbour_spiele=neighbour_spiele,
+        replaced = await on_a_seeded_saison(mongo_replica_set_url, body, seed=BESIDE_A_NEIGHBOUR)
+
+        assert replaced.first_ids, "the first draw wrote nothing, so the replace had nothing to remove"
+        assert replaced.neighbour_drawn[1] > 0, "the neighbour was drawn nothing, so its survival proves nothing"
+
+        surviving = {row["_id"] for row in (*replaced.spieltage, *replaced.spiele)}
+        assert surviving & replaced.first_ids == set(), "a document of the first draw survives: a replace is these rows GONE"
+        # Exactly one whole draw afterwards: delete only `spiele` and the fresh matchdays collide with the surviving ones
+        # on their own unique index.
+        spieltage, spiele = expected_counts(FLSaisonRules.model_validate(saison_document()["rules"]))
+        assert replaced.subject == {
+            "spieltage": spieltage,
+            "spiele": spiele,
+            "spielbestaetigungen": 0,
+            "spielberichte": 0,
+            "aufstellungen": 0,
+            "watermark": {"generated_at": REDRAWN_TODAY},
+        }, "the season holds other than one whole draw of the replace's own day, or a record naming a fixture the replace removed survives it"
+        matchdays = {row["_id"] for row in replaced.spieltage}
+        assert [row["spiel_nr"] for row in replaced.spiele if row["spieltag_id"] not in matchdays] == [], (
+            "a fixture hangs on a matchday the replace did not write: the two lists go as one set"
         )
-
-    neighbours = await on_a_seeded_saison(url, body, seed=seed)
-
-    assert neighbours.neighbour_drawn[1] > 0, "the neighbour was drawn nothing, so its survival proves nothing"
-
-    return neighbours
-
-
-class TestAConfirmedReplaceReachesNoOtherSeason:
-    """That the replace's two deletes are bounded by their `saison_id`, proved against a season standing beside the one redrawn."""
-
-    async def test_the_neighbours_spiele_and_matchdays_all_survive(self, mongo_replica_set_url: str):
-        """Empty either delete's `db_filter` in `post_spielplan` and this fails; with one season seeded, nothing does.
-
-        Each collection its own assertion, never a pair compared as one: a comparison of the two together passes while half
-        the neighbour is gone.
-        """
-
-        neighbours = await a_season_replaced_beside_another(mongo_replica_set_url)
-
-        assert neighbours.neighbour_spiele == neighbours.neighbour_drawn[1]
-        assert neighbours.neighbour_spieltage == neighbours.neighbour_drawn[0]
+        assert replaced.neighbour == {
+            "spieltage": replaced.neighbour_drawn[0],
+            "spiele": replaced.neighbour_drawn[1],
+            "spielbestaetigungen": 1,
+            "spielberichte": 1,
+            "aufstellungen": 1,
+            "watermark": {"generated_at": TODAY},
+        }, "the replace reached the season beside it, whose finished table is scored off these rows"
 
 
 class TestAnAbortedReplaceLeavesTheSeasonStanding:
