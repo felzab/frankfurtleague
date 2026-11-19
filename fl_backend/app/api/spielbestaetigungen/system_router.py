@@ -784,7 +784,7 @@ async def sweep_spielbestaetigungen(
                 team_id=team_id,
                 saison_id=saison_id,
                 # As the fixture's request states it, its ground among the rest.
-                appointment=spiel_mail_ansetzung_of(view_ansetzung_of(spiel)),
+                ansetzung=spiel_mail_ansetzung_of(view_ansetzung_of(spiel)),
                 due_at=marks.due_at,
             )
             owed_here = [

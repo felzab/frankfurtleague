@@ -213,7 +213,7 @@ class FLAufstellungReminderData(BaseReadModel):
     # That club and the fixture's season, which name the team's own pages: the reader enters it there, signed in.
     team_id: CustomObjectId
     saison_id: str
-    appointment: FLSpielMailAnsetzung
+    ansetzung: FLSpielMailAnsetzung
     # The moment the line-up is due, `AUFSTELLUNG_DUE_DAYS` before the kick-off: carried, so the mail states it and no
     # builder counts the days a second time.
     due_at: AwareDatetime

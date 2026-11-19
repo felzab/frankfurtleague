@@ -68,7 +68,7 @@ const FACTS: { [A in OutboxKind]: Member<OutboxData, A> } = {
   spiel_vorschlag_discarded: { kind: "spiel_vorschlag_discarded", appointment: APPOINTMENT },
   aufstellung_reminder: {
     kind: "aufstellung_reminder",
-    appointment: ANSETZUNG,
+    ansetzung: ANSETZUNG,
     due_at: "2026-10-23T14:00:00Z",
     saison_id: "2627",
     team: "Ahorn",

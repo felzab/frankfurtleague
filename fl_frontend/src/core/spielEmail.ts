@@ -247,7 +247,7 @@ export function buildSpielVorschlagDiscardedEmail({ appointment }: FLSpielVorsch
  * due at. No token: the reader enters it on the team's own pages, signed in.
  */
 export function buildAufstellungReminderEmail(
-  { team, team_id: teamId, saison_id: saison, appointment, due_at: dueAt }: FLAufstellungReminderData,
+  { team, team_id: teamId, saison_id: saison, ansetzung, due_at: dueAt }: FLAufstellungReminderData,
   { origin }: MailOrigin,
 ): Mail {
   const site = mailOrigin(origin);
@@ -255,10 +255,10 @@ export function buildAufstellungReminderEmail(
 
   return {
     kind: "notice",
-    subjectLine: words.reminderSubject(dayOf(appointment.date)),
+    subjectLine: words.reminderSubject(dayOf(ansetzung.date)),
     origin: site,
     paragraphs: [[words.missing({ record: team })]],
-    block: slotBlock(appointment, null),
+    block: slotBlock(ansetzung, null),
     afterBlock: [[around(words.dueUntil.before, formatInstant(dueAt), words.dueUntil.after)]],
     button: { label: COPY.shared.end.toOverview, href: `${site}${ROUTES.teamOverview.path(teamId, saison)}` },
   };
