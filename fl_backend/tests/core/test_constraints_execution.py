@@ -1,3 +1,4 @@
+import traceback
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
 from typing import Any, Final
@@ -309,12 +310,12 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
 # At import, and set equality rather than the `KeyError` the walk below would raise: that names a
 # declared index with no pair and nothing else, leaving a pair no declared index answers to as a
 # case nothing runs.
-assert DUPLICATE_PAIRS.keys() == {index.name for index in UNIQUE_INDEXES}
+assert DUPLICATE_PAIRS.keys() == {index.document["name"] for _, index in UNIQUE_INDEXES}
 
 
 @pytest.mark.parametrize(
     ("collection", "first", "second"),
-    [pytest.param(index.collection, *DUPLICATE_PAIRS[index.name], id=index.name) for index in UNIQUE_INDEXES],
+    [pytest.param(collection, *DUPLICATE_PAIRS[index.document["name"]], id=index.document["name"]) for collection, index in UNIQUE_INDEXES],
 )
 async def test_each_unique_index_refuses_the_second_document(
     mongo_replica_set_url: str, collection: str, first: dict[str, Any], second: dict[str, Any]
@@ -370,11 +371,16 @@ async def test_only_an_open_confirmation_meets_the_rule(mongo_replica_set_url: s
 
 
 def _raised(failure: RuntimeError, named: str) -> str:
-    """The refusal names what it was building and carries the driver's, as `app/core/constraints.py :: _apply_unique_index` raises it."""
+    """The refusal names the index it was building and answers the server's refusal, whose message its traceback leaves out.
+
+    For a duplicate that message quotes the duplicated value, and uvicorn logs a failed start's traceback whole.
+    """
 
     if named not in str(failure):
         return f"raised the wrong thing: {failure}"
-    return "raised" if isinstance(failure.__cause__, OperationFailure) else f"raised without its cause: {failure}"
+    if not isinstance(failure.__context__, OperationFailure):
+        return f"raised without the server's refusal: {failure}"
+    return "raised" if str(failure.__context__) not in "".join(traceback.format_exception(failure)) else "printed the server's message"
 
 
 async def test_the_startup_apply_fails_rather_than_skipping_a_broken_index(mongo_replica_set_url: str):
@@ -447,12 +453,13 @@ async def test_every_declared_support_index_is_built(mongo_replica_set_url: str)
     """`apply_constraints` creates each one, under the collation it is declared with."""
 
     async def body(database: AsyncDatabase) -> None:
-        for index in SUPPORT_INDEXES:
-            built = {existing["name"]: existing async for existing in await database[index.collection].list_indexes()}
-            assert index.name in built, f"{index.name} missing from {index.collection}: {sorted(built)}"
+        for collection, index in SUPPORT_INDEXES:
+            name, declared = index.document["name"], index.document.get("collation")
+            built = {existing["name"]: existing async for existing in await database[collection].list_indexes()}
+            assert name in built, f"{name} missing from {collection}: {sorted(built)}"
             # Read back too: one built under another collation serves none of the reads it is declared for.
-            locale = (built[index.name].get("collation") or {}).get("locale")
-            assert locale == (index.collation or {}).get("locale"), f"{index.name} is built under {locale}, declared {index.collation}"
+            locale = (built[name].get("collation") or {}).get("locale")
+            assert locale == (declared or {}).get("locale"), f"{name} is built under {locale}, declared {declared}"
 
     await on_the_shipped_schema(mongo_replica_set_url, body)
 
@@ -462,16 +469,19 @@ async def test_every_declared_ttl_index_is_built_over_its_key_with_its_bound(mon
 
     async def body(database: AsyncDatabase) -> list[tuple[str, Any, Any]]:
         read_back = []
-        for ttl in TTL_INDEXES:
-            built = {index["name"]: index async for index in await database[ttl.collection].list_indexes()}
-            assert ttl.name in built, f"{ttl.name} missing from {ttl.collection}: {sorted(built)}"
-            read_back.append((ttl.name, built[ttl.name].get("expireAfterSeconds"), dict(built[ttl.name]["key"])))
+        for collection, ttl in TTL_INDEXES:
+            name = ttl.document["name"]
+            built = {index["name"]: index async for index in await database[collection].list_indexes()}
+            assert name in built, f"{name} missing from {collection}: {sorted(built)}"
+            read_back.append((name, built[name].get("expireAfterSeconds"), dict(built[name]["key"])))
         return read_back
 
     # Read back rather than assumed: an index is only ever ADDED
     # (`app/core/constraints.py :: apply_constraints`), so a changed bound reaches the declaration
     # and never a database that already holds the name.
-    assert await on_the_shipped_schema(mongo_replica_set_url, body) == [(ttl.name, ttl.seconds, {ttl.key: 1}) for ttl in TTL_INDEXES]
+    assert await on_the_shipped_schema(mongo_replica_set_url, body) == [
+        (ttl.document["name"], ttl.document["expireAfterSeconds"], dict(ttl.document["key"])) for _, ttl in TTL_INDEXES
+    ]
 
 
 CONFIRMED_QUEUE_INDEX = "registrierungen_saison_id_team_id_confirmed_queue"

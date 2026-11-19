@@ -9,9 +9,13 @@ class TestTheActivationIsTheOneWriterOfTheStatus:
     def test_a_unique_index_holds_the_active_season_alone(self):
         """Filtered to `active`, since the league keeps every season it ever played beside the running one."""
 
-        covering = [(index.keys, index.partial_filter) for index in UNIQUE_INDEXES if index.collection == Collection.SAISONS]
+        covering = [
+            (dict(index.document["key"]), index.document.get("partialFilterExpression"))
+            for collection, index in UNIQUE_INDEXES
+            if collection == Collection.SAISONS
+        ]
 
-        assert covering == [(("status",), {"status": "active"})]
+        assert covering == [({"status": 1}, {"status": "active"})]
 
     def test_no_season_payload_carries_the_field(self):
         """The patch writes its payload wholesale, so a `status` field would ride along unnamed."""

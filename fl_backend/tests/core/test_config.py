@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 from pymongo import AsyncMongoClient
 
+from app.core.collections import Collection
 from app.core.config import INTERNAL_API_KEY_LENGTH, MONGODB_URI_FILE, SECRET_FILES
 from app.core.constraints import SUPPORT_INDEXES, TTL_INDEXES, UNIQUE_INDEXES
 from app.core.db import NO_SERVER, UNREACHABLE, new_client
@@ -168,7 +169,7 @@ class TestTheBoot:
         """A unique index is the one guard against two writes racing for a key, and one built elsewhere guards nothing."""
 
         database = worker_database("fl_boot_indexes")
-        declared = {(index.collection, index.name) for index in (*UNIQUE_INDEXES, *SUPPORT_INDEXES, *TTL_INDEXES)}
+        declared = {(collection, index.document["name"]) for collection, index in (*UNIQUE_INDEXES, *SUPPORT_INDEXES, *TTL_INDEXES)}
 
         client: AsyncMongoClient = new_client(mongo_replica_set_url)
         try:
@@ -191,3 +192,25 @@ class TestTheBoot:
 
         assert "system.started" in boot.events
         assert declared - indexes == set()
+
+    async def test_refused_by_a_duplicate_names_the_index_and_never_the_value(self, tmp_path: Path, mongo_replica_set_url: str):
+        """The server's message for a duplicate quotes the duplicated value, and a venue's name passes the address scrub."""
+
+        database = worker_database("fl_boot_duplicate")
+        doubled = Withheld({"venue": "Made-Up-Venue-7"})
+
+        client: AsyncMongoClient = new_client(mongo_replica_set_url)
+        try:
+            await client.drop_database(database)
+            await client[database][Collection.SPIELORTE].insert_many([{"name": doubled["venue"]}, {"name": doubled["venue"]}])
+
+            boot = (
+                await booted({"duplicate": (tmp_path, Withheld({MONGODB_URI_FILE: mongo_replica_set_url, **KEYS}), {"DB_BASE_NAME": database})})
+            )["duplicate"]
+        finally:
+            await client.drop_database(database)
+            await client.close()
+
+        assert (boot.code, boot.events) == (STARTUP_FAILED, ["db.indexes_failed"])
+        assert "uniq_spielort_name" in boot.record("db.indexes_failed")["refusal"]
+        assert boot.leaked(doubled) == []

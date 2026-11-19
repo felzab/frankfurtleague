@@ -51,9 +51,8 @@ def compose_receipt(*, saved: Mapping[str, Any], choice: FLEinwilligungChoice, v
             receipt[GIVEN_BEFORE] = before[1]
         return receipt
 
-    evidence_set = saved.get(EVIDENCE)
-    standing = evidence_set.get(choice) if isinstance(evidence_set, Mapping) else None
-    if isinstance(standing, Mapping) and isinstance(standing.get(GIVEN_BEFORE), Mapping):
+    standing = _evidence_of(saved, choice)
+    if standing is not None and isinstance(standing.get(GIVEN_BEFORE), Mapping):
         # A withdrawal restated keeps the grant the first one ended.
         receipt[GIVEN_BEFORE] = dict(standing[GIVEN_BEFORE])
 
@@ -86,10 +85,9 @@ def _evidence_of(block: Mapping[str, Any], choice: FLEinwilligungChoice) -> Mapp
 
 
 def _at_of(block: Mapping[str, Any], choice: FLEinwilligungChoice) -> datetime | None:
-    evidence_set = block.get(EVIDENCE)
-    receipt = evidence_set.get(choice) if isinstance(evidence_set, Mapping) else None
+    receipt = _evidence_of(block, choice)
 
-    return datetime.fromisoformat(receipt["at"]) if isinstance(receipt, Mapping) and isinstance(receipt.get("at"), str) else None
+    return datetime.fromisoformat(receipt["at"]) if receipt is not None and isinstance(receipt.get("at"), str) else None
 
 
 def evidence_state_of(*, blocks: Sequence[Any]) -> dict[str, str | None]:

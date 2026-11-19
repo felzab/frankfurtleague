@@ -73,5 +73,9 @@ class TestTheLinksLookups:
     def test_each_hash_a_stranger_drives_is_indexed(self, key: str):
         """Indexed, as a stranger sends the lookup: without one, every link opened scans the collection."""
 
-        keyed = [index for index in SUPPORT_INDEXES if index.collection == Collection.ADDRESS_CHANGES and index.keys == ((key, ASCENDING),)]
+        keyed = [
+            index
+            for collection, index in SUPPORT_INDEXES
+            if collection == Collection.ADDRESS_CHANGES and dict(index.document["key"]) == {key: ASCENDING}
+        ]
         assert len(keyed) == 1

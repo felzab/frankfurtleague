@@ -134,18 +134,12 @@ async def lifespan(app: FastAPI):
 
         # Reapplied on every boot, and a failure refuses the start.
         try:
-            constraints = await apply_constraints(app.state.db_client[config.db_base_name])
-        except Exception:
-            fl_logger.critical("db.indexes_failed", exc_info=True)
+            indexes = await apply_constraints(app.state.db_client[config.db_base_name])
+        except RuntimeError as refusal:
+            # Its message is the whole fact, naming the collection, the index and the server's code, so no `exc_info`.
+            fl_logger.critical("db.indexes_failed", extra={"refusal": str(refusal)})
             raise
-        fl_logger.info(
-            "db.indexes_applied",
-            extra={
-                "unique_indexes": constraints.unique_indexes,
-                "support_indexes": constraints.support_indexes,
-                "ttl_indexes": constraints.ttl_indexes,
-            },
-        )
+        fl_logger.info("db.indexes_applied", extra={"indexes": indexes})
 
         await warn_about_the_grants(app.state.db_client[config.db_base_name][Collection.GRANTS])
 
