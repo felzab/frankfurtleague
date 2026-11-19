@@ -29,26 +29,9 @@ from app.shared.schemas.literals import KONTAKT_SEATS, FLGruppenNames, FLKontakt
 
 AS_NAME = "saison_data"
 SAISON_PAST_AS_NAME = "saison_past_data"
-STATISTIK_AS_NAME = "statistik_data"
-CANCELLED_AS_NAME = "cancelled_data"
-CANCELLED_COUNT_NAME = "count"
 
 # Derived from the model, so a field added to `FLTeamStatistik` cannot be forgotten here.
 ZERO_STATISTIK: Mapping[str, int] = {field_name: 0 for field_name in FLTeamStatistik.model_fields}
-
-# For a `$lookup` whose `let` binds `team_oid`.
-_IS_THIS_TEAM_IN_SLOT_ONE: Mapping[str, Any] = {"$eq": ["$team1.team_id", "$$team_oid"]}
-
-
-def _spiele_of_this_team(saison_id: str) -> dict[str, Any]:
-    """Shared by the `$lookup` stages below: a `$match` per stage is another place to forget the phase filter."""
-
-    return {
-        "saison_id": saison_id,
-        # The group phase alone: a knockout result is no league result.
-        "saison_phase": "gruppenphase",
-        "$expr": {"$or": [_IS_THIS_TEAM_IN_SLOT_ONE, {"$eq": ["$team2.team_id", "$$team_oid"]}]},
-    }
 
 
 def counting_spiele_match() -> dict[str, Any]:
@@ -56,93 +39,9 @@ def counting_spiele_match() -> dict[str, Any]:
 
     return {
         "ergebnis": {"$ne": None},
-        # Both counts as well, as `counted_goals` asks them for its types: the two derivations agree.
+        # Both counts as well, as `counted_goals` asks them, so a count of played fixtures agrees with the table's.
         "team1.tore": {"$ne": None},
         "team2.tore": {"$ne": None},
-    }
-
-
-def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules) -> Mapping[str, Any]:
-    """One team's statistics, derived from the season's group-phase matches."""
-
-    return {
-        "$lookup": {
-            "from": Collection.SPIELE,
-            "let": {"team_oid": "$_id"},
-            "pipeline": [
-                {
-                    "$match": {
-                        **_spiele_of_this_team(saison_id),
-                        **counting_spiele_match(),
-                    }
-                },
-                {
-                    # Both teams sit in one document, so each match is turned to face this one first.
-                    "$project": {
-                        "_id": 0,
-                        "tore_self": {"$cond": [_IS_THIS_TEAM_IN_SLOT_ONE, "$team1.tore", "$team2.tore"]},
-                        "tore_opponent": {"$cond": [_IS_THIS_TEAM_IN_SLOT_ONE, "$team2.tore", "$team1.tore"]},
-                    }
-                },
-                {
-                    "$group": {
-                        "_id": None,
-                        "count_played_spiele": {"$sum": 1},
-                        "siege": {"$sum": {"$cond": [{"$gt": ["$tore_self", "$tore_opponent"]}, 1, 0]}},
-                        "unentschieden": {"$sum": {"$cond": [{"$eq": ["$tore_self", "$tore_opponent"]}, 1, 0]}},
-                        "niederlagen": {"$sum": {"$cond": [{"$lt": ["$tore_self", "$tore_opponent"]}, 1, 0]}},
-                        "tore_scored": {"$sum": "$tore_self"},
-                        "tore_conceded": {"$sum": "$tore_opponent"},
-                    }
-                },
-                {
-                    "$project": {
-                        "_id": 0,
-                        "count_played_spiele": 1,
-                        "siege": 1,
-                        "unentschieden": 1,
-                        "niederlagen": 1,
-                        "tore_scored": 1,
-                        "tore_conceded": 1,
-                        "punkte": {
-                            "$add": [
-                                {"$multiply": ["$siege", rules.win_points]},
-                                {"$multiply": ["$unentschieden", rules.draw_points]},
-                                {"$multiply": ["$niederlagen", rules.loss_points]},
-                            ]
-                        },
-                    }
-                },
-            ],
-            "as": STATISTIK_AS_NAME,
-        }
-    }
-
-
-def build_cancelled_lookup_stage(saison_id: str) -> Mapping[str, Any]:
-    """This team's fixtures that ended with no result, called off or struck out, counted in a stage of their own.
-
-    Never a second accumulator inside the counting `$lookup`: aggregation `$eq: [null, null]` is
-    true, so a goalless cancellation would score as a draw.
-    """
-
-    return {
-        "$lookup": {
-            "from": Collection.SPIELE,
-            "let": {"team_oid": "$_id"},
-            "pipeline": [
-                {
-                    "$match": {
-                        **_spiele_of_this_team(saison_id),
-                        # The flag is the whole rule: a fixture with no result and no event is
-                        # one still to play, never one called off.
-                        "sonderereignis": {"$in": list(SONDEREREIGNIS_WITHOUT_A_RESULT)},
-                    }
-                },
-                {"$count": CANCELLED_COUNT_NAME},
-            ],
-            "as": CANCELLED_AS_NAME,
-        }
     }
 
 
@@ -168,7 +67,6 @@ def build_retirement_stages(saison_id: str) -> list[Mapping[str, Any]]:
 def build_team_pipeline(
     *,
     saison_id: str,
-    rules: FLSaisonRules | None,
     team_id: Any | None = None,
     # Retired clubs, for a read handed one club's id rather than discovering one. Never on a base-tier list: a standings
     # row names no leaving date, so a list that un-hid a retired club would say nothing about which one had left.
@@ -207,15 +105,7 @@ def build_team_pipeline(
     # per season it played and a table of zeros that reads as an answer.
     pipeline.append({"$unwind": f"${AS_NAME}"})
 
-    # After the strict unwind, so the matches are only summed for teams that survive the join.
-    # A scoring rule is the table, so `rules=None` derives none -- `build_statistik_by_team` is
-    # the other way to one, over fixtures this collection has not stored.
-    if rules is not None:
-        pipeline.append(build_statistik_lookup_stage(saison_id=saison_id, rules=rules))
-        pipeline.append(build_cancelled_lookup_stage(saison_id=saison_id))
-
-    # One projection, one team shape: a reduced variant trims the response and saves no query work,
-    # since every lookup runs either way.
+    # No figures: a caller wanting a table counts them with `build_statistik_by_team` over the fixtures it reads.
     pipeline.append(
         {
             "$project": {
@@ -230,21 +120,6 @@ def build_team_pipeline(
                 "schulform": 1,
                 "website_url": 1,
                 "inactive_since": 1,
-                # `$group` emits nothing for an empty input rather than a row of zeros. Left out
-                # entirely without `rules`, so a row reaching `FLTeam` unfilled is refused rather
-                # than read as a table of zeros.
-                **(
-                    {
-                        "statistik": {
-                            "$mergeObjects": [
-                                {"$ifNull": [{"$first": f"${STATISTIK_AS_NAME}"}, ZERO_STATISTIK]},
-                                {"count_cancelled_spiele": {"$ifNull": [{"$first": f"${CANCELLED_AS_NAME}.{CANCELLED_COUNT_NAME}"}, 0]}},
-                            ]
-                        }
-                    }
-                    if rules is not None
-                    else {}
-                ),
                 "gruppe": f"${AS_NAME}.gruppe",
                 "austritt": f"${AS_NAME}.austritt",
             }
@@ -257,7 +132,7 @@ def build_team_pipeline(
 
 
 def counted_goals(spiel: FLSpielCommon) -> tuple[CustomObjectId, int, CustomObjectId, int] | None:
-    """`counting_spiele_match` restated in Python, for a standing asking it of a match the pipeline already summed."""
+    """Whether a fixture counts, as `counting_spiele_match` asks it of the collection: its two sides and their goals, else `None`."""
 
     if spiel.ergebnis is None or spiel.team1 is None or spiel.team2 is None:
         return None
@@ -268,17 +143,15 @@ def counted_goals(spiel: FLSpielCommon) -> tuple[CustomObjectId, int, CustomObje
 
 
 def build_statistik_by_team(spiele: Iterable[FLSpielCommon], rules: FLSaisonRules) -> Mapping[CustomObjectId, FLTeamStatistik]:
-    """Every team's figures over the fixtures given, for a caller holding a season the collection does not.
+    """Every team's figures over the fixtures given, the one count the Tabelle and the bracket share.
 
-    `build_statistik_lookup_stage` and `build_cancelled_lookup_stage` restated. It filters nothing:
-    pass exactly the fixtures the scope names.
+    It filters nothing: pass the season's group phase alone, since a knockout result is no league result.
     """
 
     figures: dict[CustomObjectId, dict[str, int]] = {}
 
     for spiel in spiele:
-        # Distinct, because the `$lookup` matches a fixture holding one club twice -- a fault state
-        # -- once, and a second count here would put the two tables at odds over it.
+        # Distinct, so a fixture holding one club twice, a fault state, counts once for it.
         sides = {side.team_id for side in (spiel.team1, spiel.team2) if side is not None}
         for team_id in sides:
             figures.setdefault(team_id, dict(ZERO_STATISTIK))
@@ -293,8 +166,7 @@ def build_statistik_by_team(spiele: Iterable[FLSpielCommon], rules: FLSaisonRule
 
         team1_id, tore1, _, tore2 = counted
         for team_id in sides:
-            # Slot one first, as the projection's `$cond` on `_IS_THIS_TEAM_IN_SLOT_ONE` is, so the
-            # degenerate fixture above is oriented the one way both derivations orient it.
+            # Slot one first, so the fixture holding one club twice is oriented one way.
             tore_self, tore_opponent = (tore1, tore2) if team_id == team1_id else (tore2, tore1)
 
             row = figures[team_id]

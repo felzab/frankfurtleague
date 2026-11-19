@@ -1011,7 +1011,7 @@ def compose_result(payload: FLPatchSpielDataPayload, rules: FLSaisonRules) -> Co
     """The result as the save composes it."""
 
     # An unresolved slot has nobody to score, so an unresolved fixture carries no goals rather than
-    # the partial result `build_statistik_lookup_stage` has to filter against.
+    # a partial result `counted_goals` has to pass over.
     both_sides_known = payload.team1 is not None and payload.team2 is not None
     team1_tore = payload.team1.tore if both_sides_known and payload.team1 is not None else None
     team2_tore = payload.team2.tore if both_sides_known and payload.team2 is not None else None

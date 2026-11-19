@@ -217,8 +217,7 @@ class TestTheBaseTierReadsWithholdTheJunctionsContactRecords:
         """The RAW documents, before any model sees them: what the driver returned is what a leak would have to travel in."""
 
         async def body(database: AsyncDatabase) -> Any:
-            rules = FLSaisonRules.model_validate(saison_document()["rules"])
-            pipeline = build_team_pipeline(saison_id=SAISON, rules=rules)
+            pipeline = build_team_pipeline(saison_id=SAISON)
             stored = await database[Collection.SAISON_TEAMS].find_one({"team_id": TEAM_OIDS["Helmholtz"]})
 
             return stored, await (await database[Collection.TEAMS].aggregate(pipeline)).to_list(length=None)

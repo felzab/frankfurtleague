@@ -7,8 +7,9 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.spiele.schemas import FLSpiel
+from app.api.teams.crud import pull_tabelle
 from app.api.teams.schemas import FLTeamStatistik
-from app.api.teams.services import ZERO_STATISTIK, build_statistik_by_team, build_team_pipeline
+from app.api.teams.services import build_statistik_by_team, build_team_pipeline
 from app.core.collections import Collection
 from app.shared.schemas.literals import FLSonderereignis, FLSpielerStufe
 from tests import documents
@@ -142,7 +143,7 @@ def spiel_documents() -> list[dict[str, Any]]:
 
 
 def group_phase() -> list[FLSpiel]:
-    """The fixtures a caller of `build_statistik_by_team` must hand it: the `$lookup`'s `$match`, spelled as a filter."""
+    """The fixtures a caller of `build_statistik_by_team` must hand it: the season's group phase."""
 
     return [
         FLSpiel.model_validate(document)
@@ -181,7 +182,7 @@ GRUPPENPHASE: Mapping[ObjectId, FLTeamStatistik] = {
 
 
 class TestEachBranchOfTheCountingRule:
-    """Unmarked: `build_statistik_by_team` reads a list, and the differential below ties the pipeline to it."""
+    """Unmarked: `build_statistik_by_team` reads a list, and the Tabelle's read below hands it the season's group phase."""
 
     def test_each_team_reads_the_figures_worked_by_hand(self):
         """The derivation filters nothing, so the figures move only through the fixtures the caller hands it."""
@@ -209,29 +210,23 @@ async def seeded(mongo_replica_set_url: str) -> AsyncIterator[AsyncDatabase]:
 
 
 async def standings(database: AsyncDatabase) -> dict[str, Mapping[str, Any]]:
-    pipeline = build_team_pipeline(saison_id=SAISON_ID, rules=RULES)
+    pipeline = build_team_pipeline(saison_id=SAISON_ID)
 
     return {row["name"]: row for row in await (await database[Collection.TEAMS].aggregate(pipeline)).to_list(length=None)}
 
 
 @pytest.mark.db
-class TestTheTwoDerivationsAgree:
-    """The pipeline reads the collection and `build_statistik_by_team` reads a list; the bracket resolution trusts the second."""
+class TestTheTabelleRead:
+    async def test_each_row_reads_the_figures_worked_by_hand(self, seeded: AsyncDatabase):
+        """The read narrows the season's fixtures to its group phase itself, so the knockout ones seeded here count nowhere."""
 
-    async def test_the_figures_match_the_pipelines_over_the_same_spiele(self, seeded: AsyncDatabase):
-        """The pipeline filters the season's fixtures to its group phase itself, so the knockout ones seeded here count nowhere."""
+        tabelle = await pull_tabelle(
+            teams_collection=seeded[Collection.TEAMS], spiele_collection=seeded[Collection.SPIELE], saison_id=SAISON_ID, rules=RULES
+        )
 
-        rows = await standings(seeded)
-
-        derived = build_statistik_by_team(group_phase(), RULES)
-
-        # Guarded rather than assumed: an empty read, or a table of zeros, would agree with anything.
-        assert set(rows) == {"Anna", "Bodo", "Caro", "Dirk", "Emil", "Frida"}
-        assert any(row["statistik"]["count_played_spiele"] > 0 for row in rows.values())
-
-        for row in rows.values():
-            expected = derived.get(row["_id"], ZERO_STATISTIK)
-            assert row["statistik"] == dict(expected), f"the two derivations disagree about {row['name']}"
+        rows = {row.name: row.statistik for gruppe in tabelle.root.values() for row in gruppe}
+        # Frida played only a knockout fixture, called off, so every figure of hers is zero.
+        assert rows == {NAMES[team_id]: GRUPPENPHASE.get(team_id, FLTeamStatistik()) for team_id in NAMES if team_id != EXTERN}
 
     async def test_the_season_row_supplies_the_name_the_gruppe_and_the_whole_austritt(self, seeded: AsyncDatabase):
         """The club's own name is one it took later; the record travels whole, as a flag would pass a presence check."""

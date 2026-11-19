@@ -418,8 +418,8 @@ both `retire` in code; leaving one season is an `austritt`.\
 
 **Is:** the league table's figures, computed per team and season from the group phase's `spiele` on
 every read and stored nowhere.\
-**In code:** `fl_backend/app/api/teams/schemas.py :: FLTeamStatistik`, built by
-`fl_backend/app/api/teams/services.py :: build_team_pipeline`.\
+**In code:** `fl_backend/app/api/teams/schemas.py :: FLTeamStatistik`, counted by
+`fl_backend/app/api/teams/services.py :: build_statistik_by_team`.\
 **See:** [`domain.md`](domain.md#what-is-stored-and-what-is-computed).
 
 ### `Sieg` · `Unentschieden` · `Niederlage` — what a played match gives a club

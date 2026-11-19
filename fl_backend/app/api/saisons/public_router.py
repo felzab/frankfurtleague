@@ -419,7 +419,7 @@ async def _teams_of(*, teams_collection: ReadCollection, saison_id: str) -> list
 
     teams_raw = await aggregate_many_from_db(
         collection=teams_collection,
-        pipeline=build_team_pipeline(saison_id=saison_id, rules=None),
+        pipeline=build_team_pipeline(saison_id=saison_id),
         collation=GERMAN_COLLATION,
     )
 
@@ -460,10 +460,9 @@ async def get_team(
     # Beside the resolve: each needs the path's id alone, and none is served before the resolve has passed.
     saison, team_raw, spiele_raw, kader_raw = await concurrently(
         resolve_public_saison(saisons_collection=saisons_collection, saison_id=saison_id),
-        # A club that left the league stays addressable by id, as `GET /teams/{team_id}` keeps it: a caller holding one
-        # was given it by something.
+        # A club that left the league stays addressable by id: a caller holding one was given it by something.
         aggregate_many_from_db(
-            collection=teams_collection, pipeline=build_team_pipeline(saison_id=saison_id, rules=None, team_id=team_id, include_inactive=True)
+            collection=teams_collection, pipeline=build_team_pipeline(saison_id=saison_id, team_id=team_id, include_inactive=True)
         ),
         aggregate_many_from_db(
             collection=spiele_collection,

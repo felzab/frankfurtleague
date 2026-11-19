@@ -11,6 +11,8 @@ from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import FLSpielListAdapter
 from app.api.teams.schemas import FLTabelle, FLTeamListAdapter
 from app.api.teams.services import (
+    ZERO_STATISTIK,
+    build_statistik_by_team,
     build_team_pipeline,
     build_team_spiele_filter,
     compose_saison_team,
@@ -289,24 +291,23 @@ async def pull_tabelle(
 ) -> FLTabelle:
     """One season's standing over the group phase, every row placed; the clubs and the group fixtures read at once.
 
-    The fixtures beside the clubs, because the tiebreak chain weighs a head-to-head table over the same set the
-    statistics counted.
+    Each club's figures are counted off the fixtures read here, the ones the tiebreak chain weighs, as the bracket counts
+    them: one derivation for both surfaces.
     """
 
     teams_raw, spiele_raw = await concurrently(
-        aggregate_many_from_db(
-            collection=teams_collection,
-            pipeline=build_team_pipeline(saison_id=saison_id, rules=rules),
-            collation=GERMAN_COLLATION,
-        ),
+        aggregate_many_from_db(collection=teams_collection, pipeline=build_team_pipeline(saison_id=saison_id), collation=GERMAN_COLLATION),
         pull_whole_from_db(
             collection=spiele_collection,
             db_filter={"saison_id": saison_id, "saison_phase": "gruppenphase"},
             what=f"season {saison_id}'s group fixtures",
         ),
     )
+    spiele = FLSpielListAdapter.validate_python(spiele_raw)
+    by_team = build_statistik_by_team(spiele, rules)
+    teams = FLTeamListAdapter.validate_python([{**team, "statistik": by_team.get(team["_id"], ZERO_STATISTIK)} for team in teams_raw])
 
-    return build_tabelle(teams=FLTeamListAdapter.validate_python(teams_raw), spiele=FLSpielListAdapter.validate_python(spiele_raw), rules=rules)
+    return build_tabelle(teams=teams, spiele=spiele, rules=rules)
 
 
 async def _pull_team_fields(
