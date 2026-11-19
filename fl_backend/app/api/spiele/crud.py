@@ -327,11 +327,11 @@ async def pull_booked_venue(
     if spielort_id is None:
         return None
 
-    row = await spielorte_collection.find_one({"_id": spielort_id}, {"name": 1, "maps_query": 1, "inactive_since": 1}, session=session)
+    row = await spielorte_collection.find_one({"_id": spielort_id}, {"inactive_since": 1}, session=session)
     if row is None:
         return None
 
-    return BookedVenue(name=row["name"], maps_query=row["maps_query"], inactive_since=row["inactive_since"])
+    return BookedVenue(inactive_since=row["inactive_since"])
 
 
 async def pull_booked_referee(
@@ -718,7 +718,6 @@ async def _judge_spiel_save(
     # Read whatever the payload names, unchanged reference included: the booking rule judges the row each reference
     # names, and judges the reference alone where it is new or reopened.
     resolved = ResolvedReferences(
-        teams=membership,
         spielort=await pull_booked_venue(
             spielorte_collection=collections.spielorte,
             spielort_id=payload.spielort.spielort_id if payload.spielort is not None else None,

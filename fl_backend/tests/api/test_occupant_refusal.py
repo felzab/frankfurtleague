@@ -59,7 +59,7 @@ from app.api.spiele.services import (
 )
 from app.core import clock
 from app.core.codes import Code
-from app.core.exceptions import APIError
+from app.core.exceptions import APIError, FieldPath
 from tests import documents
 from tests.isolation import refused_code
 from tests.payloads import PayloadFactory, sieger, spiel_patch_body
@@ -113,9 +113,9 @@ def membership_of(team_id: str, departed_from: str | None = None) -> SaisonMembe
 
 
 def references(**overrides: Any) -> ResolvedReferences:
-    """Every row a save judges its references by: the whole season entered, and no booking moved."""
+    """The rows a save judges its venue and referee by: none unless an override names one."""
 
-    return ResolvedReferences(teams={ObjectId(team_id): membership_of(team_id) for team_id in TEAMS}, **overrides)
+    return ResolvedReferences(**overrides)
 
 
 @pytest.fixture
@@ -206,7 +206,7 @@ def occupancy_for(saison_docs: list[dict[str, Any]], nr: int, **overrides: Any):
         ObjectId(stored["_id"]),
         payload_for(saison_docs, nr, **overrides),
         FLSpielListAdapter.validate_python(saison_docs),
-        references().teams,
+        {ObjectId(team_id): membership_of(team_id) for team_id in TEAMS},
     )
 
 
@@ -225,8 +225,8 @@ ANOTHER_SCHIEDSRICHTER = "6890a1b2c3d4e5f607230002"
 A_DIFFERENT_SPIELORT = {"spielort_id": ANOTHER_SPIELORT, "mietpreis": 95}
 A_DIFFERENT_SCHIEDSRICHTER = {"schiedsrichter_id": ANOTHER_SCHIEDSRICHTER, "payment": 35}
 
-LIVE_SPIELORT = BookedVenue(name="Sportplatz Nord", maps_query="Sportplatz Nord, Frankfurt", inactive_since=None)
-RETIRED_SPIELORT = BookedVenue(name="Sportplatz Nord", maps_query="Sportplatz Nord, Frankfurt", inactive_since="2026-02-01")
+LIVE_SPIELORT = BookedVenue(inactive_since=None)
+RETIRED_SPIELORT = BookedVenue(inactive_since="2026-02-01")
 LIVE_SCHIEDSRICHTER = BookedReferee(inactive_since=None, confirmed=True)
 RETIRED_SCHIEDSRICHTER = BookedReferee(inactive_since="2026-02-01", confirmed=True)
 # A referee an administrator entered whose own confirmation has not come in.
@@ -423,24 +423,32 @@ def booking_refusal(saison_docs: list[dict[str, Any]], nr: int, resolved: Resolv
     )
 
 
-def booking_refusal_for(saison_docs: list[dict[str, Any]], nr: int, resolved: ResolvedReferences, **overrides: Any) -> str | None:
+def booking_refusal_for(
+    saison_docs: list[dict[str, Any]], nr: int, resolved: ResolvedReferences, **overrides: Any
+) -> tuple[str, tuple[FieldPath, ...]] | None:
+    """The refusal's code and the fields it names, which pick the editor's sentence: one wording per booked row."""
+
     refusal = booking_refusal(saison_docs, nr, resolved, **overrides)
 
-    return None if refusal is None else refusal.error_code
+    return None if refusal is None else (refusal.error_code, refusal.fields)
+
+
+SPIELORT_PATH: FieldPath = ("spielort", "spielort_id")
+SCHIEDSRICHTER_PATH: FieldPath = ("schiedsrichter", "schiedsrichter_id")
 
 
 class TestTheBookingRefusal:
     """`booking_unknown_resource`: a fixture is booked into a venue and a referee the league still has, and only a MOVED reference is judged."""
 
     def test_a_newly_assigned_venue_that_resolves_to_no_row_is_refused(self, saison):
-        assert booking_refusal_for(saison, 1, references(), spielort=A_DIFFERENT_SPIELORT) == Code.BOOKING_UNKNOWN_RESOURCE
+        assert booking_refusal_for(saison, 1, references(), spielort=A_DIFFERENT_SPIELORT) == (Code.BOOKING_UNKNOWN_RESOURCE, (SPIELORT_PATH,))
 
     def test_a_newly_assigned_retired_venue_is_refused(self, saison):
         """Distinct from the case above, and it must not pass because the id resolved: retirement is the other half of the rule."""
 
-        assert (
-            booking_refusal_for(saison, 1, references(spielort=RETIRED_SPIELORT), spielort=A_DIFFERENT_SPIELORT)
-            == Code.BOOKING_UNKNOWN_RESOURCE
+        assert booking_refusal_for(saison, 1, references(spielort=RETIRED_SPIELORT), spielort=A_DIFFERENT_SPIELORT) == (
+            Code.BOOKING_UNKNOWN_RESOURCE,
+            (SPIELORT_PATH,),
         )
 
     @pytest.mark.parametrize(
@@ -452,7 +460,10 @@ class TestTheBookingRefusal:
 
         resolved = references(schiedsrichter=resolved_schiedsrichter)
 
-        assert booking_refusal_for(saison, 1, resolved, schiedsrichter=A_DIFFERENT_SCHIEDSRICHTER) == Code.BOOKING_UNKNOWN_RESOURCE
+        assert booking_refusal_for(saison, 1, resolved, schiedsrichter=A_DIFFERENT_SCHIEDSRICHTER) == (
+            Code.BOOKING_UNKNOWN_RESOURCE,
+            (SCHIEDSRICHTER_PATH,),
+        )
 
 
 # One row retired and the other live, so a refusal can only be the retired one's.
@@ -490,7 +501,10 @@ class TestASpielReopenedBooksWhatItKeeps:
     def test_a_save_reopening_the_spiel_books_the_retired_row_it_kept(self, saison, seasoned, nr, overrides, slot):
         """The retirement's case: the fixture it passed by would stand to be played by a row the league has taken out of service."""
 
-        assert booking_refusal_for(seasoned(saison), nr, references(**ONE_RETIRED[slot]), **overrides) == Code.BOOKING_UNKNOWN_RESOURCE
+        assert booking_refusal_for(seasoned(saison), nr, references(**ONE_RETIRED[slot]), **overrides) == (
+            Code.BOOKING_UNKNOWN_RESOURCE,
+            (SPIELORT_PATH if slot == "spielort" else SCHIEDSRICHTER_PATH,),
+        )
 
 
 class TestAnUnconfirmedRefereeIsNeverBooked:
@@ -499,13 +513,19 @@ class TestAnUnconfirmedRefereeIsNeverBooked:
     def test_a_newly_assigned_unconfirmed_referee_is_refused(self, saison):
         resolved = references(schiedsrichter=UNCONFIRMED_SCHIEDSRICHTER)
 
-        assert booking_refusal_for(saison, 1, resolved, schiedsrichter=A_DIFFERENT_SCHIEDSRICHTER) == Code.BOOKING_UNCONFIRMED_SCHIEDSRICHTER
+        assert booking_refusal_for(saison, 1, resolved, schiedsrichter=A_DIFFERENT_SCHIEDSRICHTER) == (
+            Code.BOOKING_UNCONFIRMED_SCHIEDSRICHTER,
+            (SCHIEDSRICHTER_PATH,),
+        )
 
     @pytest.mark.parametrize(("seasoned", "nr", "overrides"), REOPENING_SAVES[:1])
     def test_a_save_reopening_the_spiel_books_the_unconfirmed_referee_it_kept(self, saison, seasoned, nr, overrides):
         resolved = references(spielort=LIVE_SPIELORT, schiedsrichter=UNCONFIRMED_SCHIEDSRICHTER)
 
-        assert booking_refusal_for(seasoned(saison), nr, resolved, **overrides) == Code.BOOKING_UNCONFIRMED_SCHIEDSRICHTER
+        assert booking_refusal_for(seasoned(saison), nr, resolved, **overrides) == (
+            Code.BOOKING_UNCONFIRMED_SCHIEDSRICHTER,
+            (SCHIEDSRICHTER_PATH,),
+        )
 
 
 # As an erasure leaves a played fixture's booking: its fee, and nobody named.
@@ -1378,12 +1398,7 @@ class TestARetiredBookingOnAReopenedSpiel:
         (document,) = a_semi_final_played_at_a_retired_ground
         reopened_document = {**document, "team1": document["team2"], "team2": None, "ergebnis": None}
         unbooked_document = {**reopened_document, "spielort": None}
-        resolved = ResolvedReferences(
-            teams={},
-            spielort=BookedVenue(
-                name=RETIRED_GROUND_BOOKING["name"], maps_query=RETIRED_GROUND_BOOKING["maps_query"], inactive_since=GROUND_RETIRED_ON
-            ),
-        )
+        resolved = ResolvedReferences(spielort=BookedVenue(inactive_since=GROUND_RETIRED_ON))
 
         kept = find_booking_refusal(
             ObjectId(MATCH_ID.format(SLOT_NR)),

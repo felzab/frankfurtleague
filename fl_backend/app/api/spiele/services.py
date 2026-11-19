@@ -948,8 +948,6 @@ class SaisonMembership:
 class BookedVenue:
     """The `spielorte` row a fixture's venue reference names, as it stands now."""
 
-    name: str
-    maps_query: str
     inactive_since: str | None
 
 
@@ -964,13 +962,11 @@ class BookedReferee:
 
 @dataclass(frozen=True)
 class ResolvedReferences:
-    """Every row this payload's references name, read in the router to keep this module synchronous.
+    """The venue and the referee this payload's references name, read by the caller to keep this module synchronous.
 
-    What the booking and eligibility rules judge: whether a club holds a row this season, and whether a venue or a
-    referee stands, live and confirmed.
+    What the booking rule judges: whether each stands, live and confirmed.
     """
 
-    teams: Mapping[CustomObjectId, SaisonMembership]
     #: `None` where the payload names none, and where the id names no row at all.
     spielort: BookedVenue | None = None
     schiedsrichter: BookedReferee | None = None
@@ -1305,10 +1301,7 @@ def find_booking_refusal(
         if chosen is None:
             continue
 
-        if row is None:
-            return APIError(HTTPStatus.CONFLICT, Code.BOOKING_UNKNOWN_RESOURCE, fields=(path,))
-
-        if row.inactive_since is not None:
+        if row is None or row.inactive_since is not None:
             return APIError(HTTPStatus.CONFLICT, Code.BOOKING_UNKNOWN_RESOURCE, fields=(path,))
 
     # After both arms above, so a retired referee meets the retirement first.
@@ -1431,23 +1424,20 @@ def find_clash_refusal(*, date: str | None, time: str | None, booked: Sequence[B
     if date is None or time is None:
         return None
 
-    clash = _first_clash(date=date, time=time, booked=booked)
-    if clash is None:
+    slot = _first_clash(date=date, time=time, booked=booked)
+    if slot is None:
         return None
-
-    slot, gap = clash
 
     return APIError(HTTPStatus.CONFLICT, Code.SPIEL_DOUBLE_BOOKED, fields=(RESOURCE_PATHS[slot.resource],))
 
 
-def _first_clash(*, date: str, time: str, booked: Sequence[BookedSlot]) -> tuple[BookedSlot, int] | None:
-    """The earliest slot in `booked` less than the buffer away, and how far, for the refusal and the report alike."""
+def _first_clash(*, date: str, time: str, booked: Sequence[BookedSlot]) -> BookedSlot | None:
+    """The earliest slot in `booked` less than the buffer away, for the refusal and the report alike."""
 
     start = _minutes_of(date, time)
     for slot in sorted(booked, key=lambda entry: (entry.date, entry.time, entry.saison_id, entry.spiel_nr)):
-        gap = abs(_minutes_of(slot.date, slot.time) - start)
-        if gap < CLASH_BUFFER_MINUTES:
-            return slot, gap
+        if abs(_minutes_of(slot.date, slot.time) - start) < CLASH_BUFFER_MINUTES:
+            return slot
 
     return None
 
@@ -1606,11 +1596,10 @@ def find_double_bookings(spiele: Sequence[FLSpielJoinedAdmin], holders: Sequence
 
     for spiel in sorted(spiele, key=lambda entry: (entry.saison_id, entry.spiel_nr)):
         for claim in find_slot_claims(spiel):
-            clash = _first_clash(date=claim.date, time=claim.time, booked=slots_booked_against(claim, holders, spiel_id=spiel.id))
-            if clash is None:
+            slot = _first_clash(date=claim.date, time=claim.time, booked=slots_booked_against(claim, holders, spiel_id=spiel.id))
+            if slot is None:
                 continue
 
-            slot, _ = clash
             held = spiel.spielort if claim.resource == "Spielort" else spiel.schiedsrichter
 
             faults.append(
