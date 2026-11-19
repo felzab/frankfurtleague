@@ -1,4 +1,3 @@
-import hashlib
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -56,8 +55,9 @@ from app.shared.schemas.bounds import (
 )
 from app.shared.schemas.literals import FLKontaktSeat, FLSpielSide
 
-# Each stored `ansetzung` key and its fixture path: the one list the digest, the snapshot and the public
-# verdict's `$lookup` read, a key one lacks giving two answers to which Ansetzung a row is about.
+# Each stored `ansetzung` key and its fixture path: the one list the snapshot, the pass's comparison, the unique index
+# and the public verdict's `$lookup` read, a key one lacks giving two answers to which Ansetzung a row is about. The
+# ground on purpose: a confirmation binds it too.
 ANSETZUNG_QUELLEN: Final[Mapping[str, str]] = {
     "date": "date",
     "time": "time",
@@ -75,32 +75,19 @@ def _read_path(document: Mapping[str, Any], path: str) -> Any:
     return value
 
 
-def _ansetzung_values(spiel: Mapping[str, Any]) -> dict[str, Any]:
+def compose_ansetzung(spiel: Mapping[str, Any]) -> dict[str, Any]:
+    """The stored `ansetzung` of a row minted for this fixture: its five values, from one read, a missing one null."""
+
     return {key: _read_path(spiel, path) for key, path in ANSETZUNG_QUELLEN.items()}
 
 
-def _digest(values: Mapping[str, Any]) -> str:
-    # A missing value is the empty string; no input's own alphabet holds the separator.
-    canonical = "|".join("" if values[key] is None else str(values[key]) for key in ANSETZUNG_QUELLEN)
+def ansetzung_values_of(ansetzung: Mapping[str, Any]) -> tuple[Any, ...]:
+    """An Ansetzung as the values that tell it apart, in `ANSETZUNG_QUELLEN`'s order: what a row and its fixture compare by.
 
-    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-
-
-def ansetzung_digest_of(spiel: Mapping[str, Any]) -> str:
-    """The digest of a raw fixture's Ansetzung: `date`, `time`, `spielort.spielort_id`, `team1.team_id`, `team2.team_id`.
-
-    The ground on purpose: a confirmation binds it too. A sixth input changes every stored row's meaning.
+    A key missing reads as null, as the unique index reads it, so a row and a fixture differ only where a value does.
     """
 
-    return _digest(_ansetzung_values(spiel))
-
-
-def compose_ansetzung(spiel: Mapping[str, Any]) -> dict[str, Any]:
-    """The stored `ansetzung` of a row minted for this fixture: the digest's inputs and the digest, from one read."""
-
-    values = _ansetzung_values(spiel)
-
-    return {**values, "digest": _digest(values)}
+    return tuple(ansetzung.get(key) for key in ANSETZUNG_QUELLEN)
 
 
 def build_answerable_filter() -> dict[str, Any]:
@@ -324,7 +311,7 @@ def answers_at_its_end(
     if reason in REASONS_JUDGED_AT_THE_KICK_OFF:
         spiel = {**spiel, "time": spielbestaetigung_raw["ansetzung"]["time"]}
 
-    return spielbestaetigung_raw["ansetzung"]["digest"] == ansetzung_digest_of(spiel)
+    return ansetzung_values_of(spielbestaetigung_raw["ansetzung"]) == ansetzung_values_of(compose_ansetzung(spiel))
 
 
 def _answers_the_fixture(
@@ -759,7 +746,7 @@ def build_request_filter(*, saison_id: str, today: str, asked_ids: Sequence[Any]
 
 
 # A closing that settles the party's one answer about its Ansetzung rather than ending the question: a second answer
-# needs a new digest, which only a move mints. It ends where an agreement ends, a move among them (`reason_to_close`).
+# needs a new Ansetzung, which only a move makes. It ends where an agreement ends, a move among them (`reason_to_close`).
 REASONS_ANSWERING_THE_ANSETZUNG: Final = frozenset({"discarded"})
 
 
@@ -814,7 +801,7 @@ def reason_to_close(
     if decided is not None:
         return decided
 
-    if ansetzung_digest_of(spiel) != ansetzung["digest"]:
+    if ansetzung_values_of(compose_ansetzung(spiel)) != ansetzung_values_of(ansetzung):
         return "ansetzung_changed"
 
     # Last, so a move to or from a slot gone by is still announced. From the kick-off nobody answers: the match has

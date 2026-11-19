@@ -130,7 +130,7 @@ async def seed(database: AsyncDatabase, *, saison_status: str) -> None:
     await database[Collection.SPIELE].insert_many(SPIELE)
     # The booking Otto was first asked about moved since: only the fresh request is his to answer. Ute's row of his
     # fixture is not his at all.
-    moved = {**row(TO_ANSWER)["ansetzung"], "date": "2027-05-19", "digest": "alt"}
+    moved = {**row(TO_ANSWER)["ansetzung"], "date": "2027-05-19"}
     await database[Collection.SPIELBESTAETIGUNGEN].insert_many(
         [
             row(TO_ANSWER, _id=ObjectId("6890a1b2c3d4e5f607e50050"), ansetzung=moved, closed={"reason": "ansetzung_changed"}),

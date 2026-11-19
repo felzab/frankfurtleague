@@ -261,10 +261,7 @@ def joined_spiel_document(spiel: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def spielbestaetigung_document(spiel: Mapping[str, Any], *, party: Mapping[str, Any], **fields: Any) -> dict[str, Any]:
-    """An open, unanswered row as the pass mints it, its snapshot composed from `spiel` by the composer the mint calls.
-
-    So its `digest` is that of its own values, which a hand-written one never is.
-    """
+    """An open, unanswered row as the pass mints it, its snapshot composed from `spiel` by the composer the mint calls."""
 
     return read_back_document(
         Collection.SPIELBESTAETIGUNGEN,

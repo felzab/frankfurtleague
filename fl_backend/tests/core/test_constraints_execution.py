@@ -266,7 +266,7 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
         valid_documents()[Collection.GRANTS],
         valid_document(Collection.GRANTS, _id=TEAM_OID, admin_tier="administration"),
     ),
-    # Both rows open, one party, one digest, differing in when they were asked: the index refuses on its five keys
+    # Both rows open, one party, one Ansetzung, differing in when they were asked: the index refuses on its nine keys
     # alone, and a pair the partial filter reached on neither side would pass.
     "uniq_spielbestaetigung_open": (
         valid_documents()[Collection.SPIELBESTAETIGUNGEN],

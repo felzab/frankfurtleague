@@ -18,8 +18,9 @@ from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungTeamAnswerPayload,
 )
 from app.api.spielbestaetigungen.services import (
-    ansetzung_digest_of,
+    ansetzung_values_of,
     build_holding_filter,
+    compose_ansetzung,
     compose_answer_update,
     compose_closing_update,
     compose_spielbestaetigung,
@@ -516,7 +517,7 @@ class TestARefereeHoldsOneQuestionAcrossAMoveAndBack:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            seen: list[tuple[list[str], str, list[bool]]] = []
+            seen: list[tuple[list[tuple[Any, ...]], tuple[Any, ...], list[bool]]] = []
             for time in (None, "19:00:00", "18:00:00"):
                 if time is not None:
                     await move(database, client, SPIEL, time=time)
@@ -526,8 +527,8 @@ class TestARefereeHoldsOneQuestionAcrossAMoveAndBack:
                 held = await rows(database, spiel_id=SPIEL, **{"party.kind": "schiedsrichter"}, **build_holding_filter())
                 seen.append(
                     (
-                        [row["ansetzung"]["digest"] for row in held],
-                        ansetzung_digest_of(spiel),
+                        [ansetzung_values_of(row["ansetzung"]) for row in held],
+                        ansetzung_values_of(compose_ansetzung(spiel)),
                         [einteilung.moved_from is not None for einteilung in passed.einteilungen],
                     )
                 )
@@ -536,7 +537,7 @@ class TestARefereeHoldsOneQuestionAcrossAMoveAndBack:
 
         seen = await on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)])
 
-        assert [held for held, _, _ in seen] == [[digest] for _, digest, _ in seen]
+        assert [held for held, _, _ in seen] == [[current] for _, current, _ in seen]
         # Asked first, then told of each move in the Einteilung asking the slot it moved to.
         assert [told for _, _, told in seen] == [[False], [True], [True]]
 
