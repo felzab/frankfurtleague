@@ -35,6 +35,7 @@ from tests.config import grants_for_the_suite
 from tests.database import a_clean_database
 from tests.documents import saison_document, schiedsrichter_document, spieler_document
 from tests.handles import wired
+from tests.isolation import InterleavedCollection
 from tests.whole_database import where_held
 from tests.worker import worker_database
 
@@ -220,26 +221,6 @@ class TestADueChangeTakesEffect:
         assert deletions == [("system", None, 1, None)]
 
 
-class WrittenAfterTheRead:
-    """A collection writing `rival` once the call's page read has answered and before any change's own transaction."""
-
-    def __init__(self, collection: Any, rival: Callable[[], Awaitable[Any]]) -> None:
-        self._collection = collection
-        self._rival: Callable[[], Awaitable[Any]] | None = rival
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._collection, name)
-
-    async def aggregate(self, *args: Any, **kwargs: Any) -> Any:
-        cursor = await self._collection.aggregate(*args, **kwargs)
-        # The page read is the one read outside a session; every change's own reads carry theirs.
-        if self._rival is not None and kwargs.get("session") is None:
-            rival, self._rival = self._rival, None
-            await rival()
-
-        return cursor
-
-
 class TestEachChangeIsJudgedAgainInItsTransaction:
     async def test_a_link_sent_again_after_the_read_keeps_its_change(self, mongo_replica_set_url: str):
         """End the change by its id alone rather than its lapsed terms and this fails: the fresh link and its address go."""
@@ -252,9 +233,10 @@ class TestEachChangeIsJudgedAgainInItsTransaction:
                     {"_id": numbered(1)}, {"$set": {"valid_until": NOW + timedelta(hours=23)}}
                 )
 
-            answer = await sweep(
-                database, client, address_changes_collection=WrittenAfterTheRead(database[Collection.ADDRESS_CHANGES], send_it_again)
-            )
+            # Once the page read has answered and before any change's own transaction: the page read is the call's first
+            # `aggregate`, and the rival runs once.
+            changes = InterleavedCollection(database[Collection.ADDRESS_CHANGES], send_it_again, after="aggregate")
+            answer = await sweep(database, client, address_changes_collection=changes)
 
             return (answer.removed, answer.failed), await live(database)
 
