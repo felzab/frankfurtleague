@@ -272,7 +272,6 @@ def compose_confirmation(*, today: str) -> dict[str, Any]:
         "sent_at": today,
         "deadline": confirmation_deadline_from(today=today),
         "reminded_at": None,
-        "chase_closed_at": None,
         "declined_at": None,
     }
 
@@ -1006,22 +1005,22 @@ def seat_reminder_is_due(
     `unreachable` is `state_undeliverable` of the seat's last mail (`seat_state`).
 
     A re-sent seat carries a later `sent_at` and reaches its mark on its own; one already
-    reminded never is again, and a closed chase is owed nothing until something opens it.
+    reminded never is again.
     """
 
     entry = _entry_of(confirmations, seat)
     if entry is None or _seat_is_confirmed(kontakte, seat) or entry.get("declined_at") is not None:
         return False
 
-    if entry.get("reminded_at") is not None or entry.get("chase_closed_at") is not None or not isinstance(entry.get("sent_at"), str):
+    if entry.get("reminded_at") is not None or not isinstance(entry.get("sent_at"), str):
         return False
 
     if deadline_passed(deadline=entry.get("deadline"), today=today):
         return False
 
     # A seat gets one reminder, and spending it on an address the provider has refused, or whose person reported the mail
-    # as spam, spends it on nobody: the clock closes the chase (`closed_chases`), and a delivered mail to the seat's
-    # address (`reopened_chases`), a re-send or a seat write opens it again.
+    # as spam, spends it on nobody. Judged from the seat's last mail on every pass, so a seat whose later mail arrives is
+    # due again.
     if unreachable:
         return False
 
@@ -1046,35 +1045,6 @@ def reminder_seats(*, bewerbung_raw: Mapping[str, Any], today: str, unreachable:
     ]
 
 
-def closed_chases(*, bewerbung_raw: Mapping[str, Any], today: str, unreachable: Container[str]) -> list[FLKontaktSeat]:
-    """The seats due today but for a last mail that did not arrive, whose chase the clock closes.
-
-    No query reads the Postausgang, so left open they stay in the clock's read until their deadline, and a page of them
-    hides every newer row. `chase_closed_at` rather than `reminded_at`: a chase closed on a refused address owes its
-    reminder once that address takes a mail (`reopened_chases`), and a reminder owed is spent for good.
-    """
-
-    return [seat for seat in reminder_seats(bewerbung_raw=bewerbung_raw, today=today, unreachable=()) if seat in unreachable]
-
-
-def reopened_chases(*, bewerbung_raw: Mapping[str, Any], to: str) -> list[FLKontaktSeat]:
-    """The seats whose closed chase a mail delivered to this address opens again, every seat that person holds.
-
-    By the address rather than the mail's own seat: one that left the seat before an address change proves nothing of the
-    one it holds now. An erased or answered seat is left as it stands.
-    """
-
-    kontakte, confirmations = bewerbung_raw.get("kontakte"), bewerbung_raw.get("confirmations")
-
-    return [
-        seat
-        for seat in dict(people_with_address(kontakte=kontakte)).get(to, [])
-        if (entry := _entry_of(confirmations, seat)) is not None
-        and entry.get("chase_closed_at") is not None
-        and not seat_is_answered(kontakte=kontakte, confirmations=confirmations, seat=seat)
-    ]
-
-
 def group_seats_by_mailbox(*, kontakte: Mapping[str, Any] | None, seats: Sequence[FLKontaktSeat]) -> list[tuple[str, list[FLKontaktSeat]]]:
     """The seats as the mails go out: one message per stored address, in first-seen order."""
 
@@ -1095,12 +1065,6 @@ def compose_reminder_update(*, seats: Sequence[str], today: str) -> Mapping[str,
     """The reminder's stamp per seat. `sent_at` and the seat's deadline stay: a reminder is not a re-send, and its link joins the first."""
 
     return {"$set": {f"confirmations.{seat}.reminded_at": today for seat in seats}}
-
-
-def compose_chase_update(*, seats: Sequence[str], closed_at: str | None) -> Mapping[str, Any]:
-    """The closed chase's stamp per seat: the day the clock closes it, or null where a delivered mail opens it again."""
-
-    return {"$set": {f"confirmations.{seat}.chase_closed_at": closed_at for seat in seats}}
 
 
 def _earliest_deadline(*, confirmations: Mapping[str, Any] | None, seats: Iterable[str]) -> str | None:
@@ -1152,14 +1116,14 @@ def deletion_was_announced(*, bewerbung_raw: Mapping[str, Any]) -> bool:
     return isinstance(bewerbung_raw.get("erasure_announced_at"), str)
 
 
-# The terms `seat_reminder_is_due` asks of one seat, as a query, so a reminded seat or a closed chase leaves the read.
+# The terms `seat_reminder_is_due` asks of one seat, as a query, so a reminded seat leaves the read. Not its last mail's
+# state, which the Postausgang holds: a seat whose mail did not arrive stays in the read until its deadline.
 def _seat_reminder_term(*, seat: str, today: str) -> Mapping[str, Any]:
     return {
         f"confirmations.{seat}.sent_at": {"$lte": days_after(day=today, days=-BEWERBUNG_REMINDER_DAYS)},
         # `$not` rather than `$gte`: a seat carrying no readable deadline has a link that is not over.
         f"confirmations.{seat}.deadline": {"$not": {"$lt": today}},
         f"confirmations.{seat}.reminded_at": None,
-        f"confirmations.{seat}.chase_closed_at": None,
         f"confirmations.{seat}.declined_at": None,
         f"kontakte.{seat}.einwilligung.confirmed_at": None,
     }

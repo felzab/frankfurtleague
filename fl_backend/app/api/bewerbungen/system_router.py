@@ -11,8 +11,6 @@ from app.api.bewerbungen.services import (
     build_deletion_filter,
     build_ended_after_filter,
     build_reminder_filter,
-    closed_chases,
-    compose_chase_update,
     compose_reminder_update,
     decline_erasure_is_due,
     deletion_is_due,
@@ -159,10 +157,7 @@ async def sweep_saison(
         return await save_each(db=db, rows=await due_ids(clock), save=erase_one, what="Application", clock="fourteen-day")
 
     async def remind() -> Saved[int]:
-        """Stamp each seat due its one reminder and owe its person the mail, one application at a time.
-
-        A seat no mail reaches has its chase closed instead, so it leaves the read rather than hiding a newer row.
-        """
+        """Stamp each seat due its one reminder and owe its person the mail, one application at a time."""
 
         clock = build_reminder_filter(saison_id=saison_id, today=today)
 
@@ -179,7 +174,6 @@ async def sweep_saison(
             seats = reminder_seats(bewerbung_raw=stored, today=today, unreachable=unreachable)
             # One mail a person: an address is one person, whose one link answers every seat they hold.
             people = people_with_address(kontakte=stored.get("kontakte"), seats=seats)
-            closing = closed_chases(bewerbung_raw=stored, today=today, unreachable=unreachable)
 
             mails: list[OwedMail] = []
             if people:
@@ -202,19 +196,12 @@ async def sweep_saison(
                     )
                     for _, held in people
                 ]
-                # Past the version, the stamp and the chase both: mail bookkeeping no form saves, so a decision read
-                # before the pass still lands.
+                # Past the version: the stamp is mail bookkeeping no form saves, so a decision read before the pass
+                # still lands.
                 await patch_past_the_version_in_db(
                     collection=bewerbungen_collection,
                     db_filter={"_id": stored["_id"]},
                     update=compose_reminder_update(seats=[seat for _, held in people for seat in held], today=today),
-                    session=session,
-                )
-            if closing:
-                await patch_past_the_version_in_db(
-                    collection=bewerbungen_collection,
-                    db_filter={"_id": stored["_id"]},
-                    update=compose_chase_update(seats=closing, closed_at=today),
                     session=session,
                 )
             # In the stamp's own transaction: a stamp never stands without its mail, nor a mail without its stamp.
