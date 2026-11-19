@@ -5,14 +5,13 @@ import pytest
 from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.saisons.admin_router import patch_saison
-from app.api.saisons.schemas import FLPatchSaisonPayload, FLSaisonRules
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from tests import documents
 from tests.database import a_clean_database
 from tests.isolation import refused_code
+from tests.season_routes import call_season_save
 from tests.stored import the_row
 from tests.worker import worker_database
 
@@ -121,25 +120,8 @@ async def stored_season(database: AsyncDatabase) -> Mapping[str, Any]:
 async def patch_the_rules(database: AsyncDatabase, *, today: str = THE_DAY_BEFORE, start_date: str = SAISON_START, **overrides: Any) -> Any:
     """The whole rules object every time, `rules` being required on the patch, so a case names only the value it changes."""
 
-    return await patch_saison(
-        saison_id=SAISON_ID,
-        saison_data=FLPatchSaisonPayload(
-            start_date=start_date,
-            end_date=SAISON_END,
-            rules=FLSaisonRules.model_validate(rules_document(**overrides)),
-            # Stated rather than omitted: the payload replaces the season wholesale, so neither
-            # window carries a default and this helper is about neither of them.
-            bewerbung=None,
-            registrierung=None,
-            version=(await database[Collection.SAISONS].find_one({"_id": SAISON_ID}, {"version": 1}) or {})["version"],
-        ),
-        saisons_collection=database[Collection.SAISONS],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        spiele_collection=database[Collection.SPIELE],
-        spieltage_collection=database[Collection.SPIELTAGE],
-        saison_spieler_collection=database[Collection.SAISON_SPIELER],
-        db=database.client,
-        today=today,
+    return await call_season_save(
+        database, saison_id=SAISON_ID, start_date=start_date, end_date=SAISON_END, rules=rules_document(**overrides), today=today
     )
 
 

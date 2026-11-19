@@ -10,12 +10,6 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.saisons.admin_router import activate_saison, patch_saison, post_spielplan
-from app.api.saisons.schemas import (
-    FLGenerateSpielplanPayload,
-    FLPatchSaisonPayload,
-    FLSaisonRules,
-)
 from app.api.spiele.admin_router import patch_spiel
 from app.api.spiele.schemas import FLPatchSpielDataPayload
 from app.api.teams.crud import write_the_team
@@ -29,6 +23,7 @@ from tests.database import a_clean_database
 from tests.documents import ADDRESS, rules_document, saison_document, saison_team_document, team_document
 from tests.isolation import InterleavedCollection, Rival, outcome_of
 from tests.payloads import spiel_patch_body
+from tests.season_routes import call_activate, call_draw, call_season_save
 from tests.stored import the_row
 from tests.team_writes import save_the_team
 from tests.worker import worker_database
@@ -150,7 +145,7 @@ async def on_a_league(
         # Through the ROUTE rather than by hand: the fixtures an interference then adds to or
         # removes from are the ones a drawn season really holds, watermark included.
         for saison_id in drawn:
-            await call_draw(database, client, saison_id)
+            await call_draw(database, client, saison_id=saison_id, today=TODAY)
             # The draw leaves every matchday undated, so without this `activate_spieltage_undated` would
             # answer every case in this file before the interference it is about could be judged. Inside
             # the season's span, so a patch of its dates is not refused on them.
@@ -162,43 +157,6 @@ async def on_a_league(
             await database[Collection.SPIELE].update_many({"saison_id": saison_id}, {"$set": {"ergebnis": FINAL_SCORE}})
 
         return await body(database, client)
-
-
-async def call_draw(database: AsyncDatabase, client: AsyncMongoClient, saison_id: str) -> Any:
-    """No `shape` on the payload, so the draw runs on the rules the season already carries and moves none of them."""
-
-    return await post_spielplan(
-        saison_id=saison_id,
-        saisons_collection=database[Collection.SAISONS],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        spiele_collection=database[Collection.SPIELE],
-        spieltage_collection=database[Collection.SPIELTAGE],
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        spielberichte_collection=database[Collection.SPIELBERICHTE],
-        aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
-        db=client,
-        spielplan_data=FLGenerateSpielplanPayload(),
-        today=TODAY,
-    )
-
-
-async def call_activate(
-    database: AsyncDatabase,
-    client: AsyncMongoClient,
-    saison_id: str,
-    *,
-    saisons_collection: Any = None,
-) -> None:
-    """`saisons_collection` is overridable so a case can hand the endpoint the hooked stand-in and nothing else."""
-
-    await activate_saison(
-        saison_id=saison_id,
-        saisons_collection=saisons_collection if saisons_collection is not None else database[Collection.SAISONS],
-        spiele_collection=database[Collection.SPIELE],
-        spieltage_collection=database[Collection.SPIELTAGE],
-        ban_list_collection=database[Collection.BAN_LIST],
-        db=client,
-    )
 
 
 async def rollover_under(database: AsyncDatabase, client: AsyncMongoClient, hook: Callable[[], Awaitable[Any]]) -> str:
@@ -217,30 +175,19 @@ async def statuses_now(database: AsyncDatabase) -> dict[str, str]:
     return {row["_id"]: row["status"] for row in rows}
 
 
-async def call_patch_start(database: AsyncDatabase, client: AsyncMongoClient, *, saisons_collection: Any, start_date: str) -> FLVersionResponse:
+async def call_patch_start(database: AsyncDatabase, *, saisons_collection: Any, start_date: str) -> FLVersionResponse:
     """The target's seeded end and whole rules every time, `rules` being required on the patch, so the start is all it moves."""
 
     seeded = seeded_saison(TARGET, "future")
 
-    return await patch_saison(
+    return await call_season_save(
+        database,
         saison_id=TARGET,
-        saison_data=FLPatchSaisonPayload(
-            start_date=start_date,
-            end_date=str(seeded["end_date"]),
-            rules=FLSaisonRules.model_validate(seeded["rules"]),
-            # Stated rather than omitted: the payload replaces the season wholesale, so neither
-            # window carries a default and this helper is about neither of them.
-            bewerbung=None,
-            registrierung=None,
-            version=(await database[Collection.SAISONS].find_one({"_id": TARGET}, {"version": 1}) or {})["version"],
-        ),
-        saisons_collection=saisons_collection,
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        spiele_collection=database[Collection.SPIELE],
-        spieltage_collection=database[Collection.SPIELTAGE],
-        saison_spieler_collection=database[Collection.SAISON_SPIELER],
-        db=client,
+        start_date=start_date,
+        end_date=str(seeded["end_date"]),
+        rules=seeded["rules"],
         today=TODAY,
+        saisons_collection=saisons_collection,
     )
 
 
@@ -305,7 +252,7 @@ class TestAResultLandingMidPatchIsJudgedAgain:
             seasons = SeasonsRunningOneHook(database[Collection.SAISONS], score_between)
 
             with pytest.raises(APIError) as refusal:
-                await call_patch_start(database, client, saisons_collection=seasons, start_date=MOVED_START)
+                await call_patch_start(database, saisons_collection=seasons, start_date=MOVED_START)
 
             return refusal.value, await start_now(database), await results_entered(database)
 

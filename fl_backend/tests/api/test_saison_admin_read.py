@@ -6,13 +6,14 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.saisons.admin_router import activate_saison, delete_spielplan, get_saison_admin, post_spielplan
-from app.api.saisons.schemas import FLGenerateSpielplanPayload, FLSaisonAdminResponse
+from app.api.saisons.admin_router import get_saison_admin
+from app.api.saisons.schemas import FLSaisonAdminResponse
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from tests.database import a_clean_database
 from tests.documents import saison_document, saison_team_document, spiel_document, spielbericht_document
+from tests.season_routes import call_activate, call_draw, call_undraw
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -100,47 +101,11 @@ async def pressed(act: Act, database: AsyncDatabase, client: AsyncMongoClient) -
     """The act's own write, as its button presses it: a redraw confirmed with no shape, the season's stored one."""
 
     if act == "activate":
-        return await refused_by(
-            activate_saison(
-                saison_id=SAISON_ID,
-                saisons_collection=database[Collection.SAISONS],
-                spiele_collection=database[Collection.SPIELE],
-                spieltage_collection=database[Collection.SPIELTAGE],
-                ban_list_collection=database[Collection.BAN_LIST],
-                db=client,
-            )
-        )
+        return await refused_by(call_activate(database, client, SAISON_ID))
     if act == "undraw":
-        return await refused_by(
-            delete_spielplan(
-                saison_id=SAISON_ID,
-                saisons_collection=database[Collection.SAISONS],
-                spiele_collection=database[Collection.SPIELE],
-                spieltage_collection=database[Collection.SPIELTAGE],
-                spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-                spielberichte_collection=database[Collection.SPIELBERICHTE],
-                aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
-                db=client,
-            )
-        )
+        return await refused_by(call_undraw(database, client, saison_id=SAISON_ID))
 
-    return await refused_by(drawn(database, client, replace=act == "recreate"))
-
-
-def drawn(database: AsyncDatabase, client: AsyncMongoClient, *, replace: bool) -> Awaitable[Any]:
-    return post_spielplan(
-        saison_id=SAISON_ID,
-        saisons_collection=database[Collection.SAISONS],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        spiele_collection=database[Collection.SPIELE],
-        spieltage_collection=database[Collection.SPIELTAGE],
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        spielberichte_collection=database[Collection.SPIELBERICHTE],
-        aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
-        db=client,
-        spielplan_data=FLGenerateSpielplanPayload(replace=replace),
-        today=TODAY,
-    )
+    return await refused_by(call_draw(database, client, saison_id=SAISON_ID, replace=act == "recreate", today=TODAY))
 
 
 class TestTheEditorSaysAFixtureHasTakenPlace:
@@ -217,7 +182,7 @@ class TestTheEditorsActsAreRefusedAsTheirWritesRefuse:
                 ]
             )
             if draw:
-                await drawn(database, client, replace=False)
+                await call_draw(database, client, saison_id=SAISON_ID, today=TODAY)
             await state(database)
 
             served = getattr((await read(database)).refusals, act)

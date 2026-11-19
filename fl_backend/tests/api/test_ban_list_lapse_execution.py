@@ -14,7 +14,6 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.saisons.admin_router import activate_saison
 from app.api.saisons.crud import pull_governing_saison_id
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -23,6 +22,7 @@ from tests.bans import ban_through_the_route
 from tests.config import grants_for_the_suite
 from tests.database import a_clean_database
 from tests.isolation import refused_code
+from tests.season_routes import call_activate
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -92,17 +92,6 @@ async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str =
     return await ban_through_the_route(database, client, email=email, ban_reason=BAN_REASON, by=ADMIN, today=TODAY)
 
 
-async def activate(database: AsyncDatabase, client: AsyncMongoClient, saison_id: str) -> Any:
-    return await activate_saison(
-        saison_id=saison_id,
-        saisons_collection=database[Collection.SAISONS],
-        spiele_collection=database[Collection.SPIELE],
-        spieltage_collection=database[Collection.SPIELTAGE],
-        ban_list_collection=database[Collection.BAN_LIST],
-        db=client,
-    )
-
-
 class TestTheSeasonTheBanIsCountedFrom:
     async def test_the_running_season_is_read_through_the_session(self, mongo_replica_set_url: str):
         """A season the transaction wrote is seen through its session alone, so the helper answers it only when handed that session."""
@@ -160,7 +149,7 @@ class TestTheSweepAtAnActivation:
                 {"$set": {"barred_until_saison_id": FIRST_CLEAR}},
             )
 
-            await activate(database, client, FIRST_CLEAR)
+            await call_activate(database, client, FIRST_CLEAR)
 
             return [str(row["barred_until_saison_id"]) async for row in database[Collection.BAN_LIST].find()]
 
@@ -180,7 +169,7 @@ class TestTheSweepAtAnActivation:
             await ban(database, client)
             await ban(database, client, email=OTHER)
             await a_drawn_target(database, target)
-            await activate(database, client, target)
+            await call_activate(database, client, target)
 
             rows = database[Collection.ACTION_LOG].find({"action": "retention.bans"})
 
