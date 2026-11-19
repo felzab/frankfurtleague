@@ -122,9 +122,10 @@ class TestEachPassTakesItsOwnDeadline:
         assert marked, "no operation carries the mark, so this check judges nothing"
         assert [entry for entry in marked if entry[0] != "post" or entry[2] != [{"SystemKey": []}]] == []
 
-    @pytest.mark.parametrize("path", ["/api/identity/erasure/sweep", "/api/bewerbungen/saisons/2026/sweep"])
-    def test_a_pass_runs_under_the_pass_s_deadline(self, path: str):
-        assert _deadline_of("POST", path) == PASS_DEADLINE_S
+    @pytest.mark.parametrize(("method", "path"), sorted(PASSES), ids=lambda part: part)
+    def test_a_pass_runs_under_the_pass_s_deadline(self, method: str, path: str):
+        # A season's id where the operation takes one, as the scheduler sends it: a request names a season, never the template.
+        assert _deadline_of(method, path.format(saison_id="2026")) == PASS_DEADLINE_S
 
     @pytest.mark.parametrize(
         ("method", "path"),
