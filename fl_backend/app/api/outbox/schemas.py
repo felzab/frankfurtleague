@@ -420,10 +420,6 @@ type FLOutboxDeliveryState = Literal["delivered", "delayed", "undeliverable", "s
 # list, bounced for good, or marked as spam.
 UNDELIVERABLE: Final[frozenset[FLOutboxDeliveryState]] = frozenset({"undeliverable", "suppressed", "complaint"})
 
-# Wide over the 36 characters the provider's id spells today, and a ceiling all the same: the value arrives from outside
-# and is stored.
-CustomMessageId = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=128)]
-
 # The provider's own token for a refusal, bounded and on one line, never its prose.
 CustomDeliveryReason = Annotated[str, StringConstraints(strip_whitespace=True, max_length=128, pattern=SINGLE_LINE_PATTERN)]
 
@@ -510,7 +506,6 @@ class FLOutboxRow(BaseModel):
     leased_until: datetime | None
     # How many claims have handed the row out; each claim raises it in its own transaction.
     attempts: int = Field(ge=0)
-    message_id: str | None
     # The provider's own name for the refusal the last failed send met; defaulted, as a row a send never failed holds
     # none and a row owed before the field was written has none stored. Prefixed because a record's top level holds no
     # bare `reason`, the bracket fault's discriminator.
@@ -551,19 +546,12 @@ class FLOutboxResultPayload(BasePayload):
     lease: CustomStrippedNonEmptyString
     id: CustomObjectId
     result: FLOutboxResultKind
-    # The provider's id for the accepted message: an operator's one way from the row to the message there, by its dashboard
-    # or its retrieve call, the provider offering no search by tag. No event needs it, each finding its row by the row's
-    # own id.
-    message_id: CustomMessageId | None
     # The provider's own name for the refusal a failed send met, the row's one record of why.
     delivery_reason: CustomDeliveryReason | None
 
-    # Only a sent mail names a message, and a sent one may name none: the provider accepted it, and its answer carried no
-    # readable id. Only a failed send names a refusal, and one that never reached the provider names none.
+    # Only a failed send names a refusal, and one that never reached the provider names none.
     @model_validator(mode="after")
-    def each_outcome_names_only_its_own(self) -> Self:
-        if self.message_id is not None and self.result != "sent":
-            raise ValueError("Only a sent mail names a message.")
+    def only_a_failed_send_names_a_refusal(self) -> Self:
         if self.delivery_reason is not None and self.result not in ("retry", "abandon"):
             raise ValueError("Only a failed send names a refusal.")
 

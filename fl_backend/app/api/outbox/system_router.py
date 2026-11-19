@@ -286,7 +286,7 @@ async def post_result(
     # A send to be tried again ends here only where it may not be: a sign-in mail, or one past its deadline.
     ends = {"$or": [{"kind": {"$in": list(SIGN_IN_KINDS)}}, {"deadline": {"$lte": germany_now}}]} if result == "retry" else {}
     counted: str
-    if await settled(final_update(state, now=germany_now, message_id=result_data.message_id), ends):
+    if await settled(final_update(state, now=germany_now), ends):
         counted = state
     elif result == "retry" and await settled(retry_update(now=germany_now), {}):
         counted = "repeated"

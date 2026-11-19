@@ -1659,7 +1659,7 @@ class TestWhatTheEffectLeavesTheErasure:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             sent = row_of(OwedMail(key="reminder/sent", to=EMAIL, data=data, reference=reference), now=NOW, secret=None, valid_until=None)
-            sent |= {"state": "sent", "message_id": "provider-1", "delivery": {"state": "delivered", "reason": None, "at": NOW}}
+            sent |= {"state": "sent", "delivery": {"state": "delivered", "reason": None, "at": NOW}}
             owed = row_of(OwedMail(key="reminder/owed", to=EMAIL, data=data, reference=reference), now=NOW, secret=None, valid_until=None)
             await database[Collection.OUTBOX].insert_many([sent, owed])
             await confirmed_and_moved(database, client)
@@ -1677,13 +1677,7 @@ class TestWhatTheEffectLeavesTheErasure:
         assert applied is False
         tombstone, owed = rows["reminder/sent"], rows["reminder/owed"]
         assert tombstone is not None and owed is not None
-        assert (tombstone["state"], tombstone["to"], tombstone["reference"], tombstone["message_id"], tombstone["delivery"]) == (
-            "sent",
-            None,
-            None,
-            None,
-            None,
-        )
+        assert (tombstone["state"], tombstone["to"], tombstone["reference"], tombstone["delivery"]) == ("sent", None, None, None)
         assert owed["to"] == NEW_EMAIL
 
     async def test_an_earlier_effect_s_owed_carry_follows_the_person(self, mongo_replica_set_url: str):

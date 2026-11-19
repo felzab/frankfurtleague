@@ -364,7 +364,6 @@ def a_mail(kind: str, *, to: str) -> dict[str, Any]:
         "lease": None,
         "leased_until": None,
         "attempts": 1,
-        "message_id": None,
         "delivery": None,
     }
 
