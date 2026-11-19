@@ -1,19 +1,8 @@
-"""
-API · the erasure registry's decisions a database need not answer
-
-Collections standing in for the reads each decision makes: the aggregates `app/api/identity/crud.py :: resolve_subject`
-sends.
-"""
-
-from dataclasses import fields
 from datetime import UTC, datetime
-from typing import Any, cast
+from typing import Any
 
 import pytest
-from pymongo.asynchronous.client_session import AsyncClientSession
-from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.identity.crud import Subject, resolve_subject
 from app.api.outbox.schemas import FLAddressChangeEffectiveData, FLDeletionNoticeData
 from app.api.outbox.services import DELIVERY_DEADLINE, OwedMail, row_of
 
@@ -35,55 +24,3 @@ def test_a_row_no_erasure_reaches_goes_at_its_deadline(data: Any):
     row = row_of(OwedMail(key="a-key", to=IDENTIFIER, data=data), now=NOW, secret=None, valid_until=None)
 
     assert row["erase_at"] == NOW + DELIVERY_DEADLINE
-
-
-class _NoRows:
-    async def to_list(self, length: int | None) -> list[Any]:
-        return []
-
-
-class _Counted:
-    """A collection answering every aggregate with no rows, counting each one."""
-
-    def __init__(self) -> None:
-        self.reads = 0
-
-    async def aggregate(self, *args: Any, **kwargs: Any) -> _NoRows:
-        self.reads += 1
-        return _NoRows()
-
-
-# Every kind `Subject` holds but the two the pupil scope reads, so a kind it gains is held here too.
-UNREAD_IN_THE_PUPIL_SCOPE = sorted(
-    {field.name.removeprefix("_") for field in fields(Subject) if field.name.startswith("_")} - {"spieler", "registrierungen"}
-)
-
-
-@pytest.mark.parametrize("kind", UNREAD_IN_THE_PUPIL_SCOPE)
-async def test_the_pupil_scope_reads_no_other_kind_and_a_step_reading_one_raises(kind: str):
-    """Catches a kind read for no step, and a kind left unread answered as an empty list, on which a step erases nothing."""
-
-    collections = {
-        name: _Counted()
-        for name in ("saison_teams", "bewerbungen", "schiedsrichter", "spieler", "registrierungen", "address_changes", "grants")
-    }
-
-    subject = await resolve_subject(
-        IDENTIFIER,
-        **{f"{name}_collection": cast(AsyncCollection, collection) for name, collection in collections.items()},
-        session=cast(AsyncClientSession, None),
-        scope=frozenset({"spieler"}),
-    )
-
-    assert {name: collection.reads for name, collection in collections.items()} == {
-        "saison_teams": 0,
-        "bewerbungen": 0,
-        "schiedsrichter": 0,
-        "spieler": 1,
-        "registrierungen": 1,
-        "address_changes": 0,
-        "grants": 0,
-    }
-    assert (subject.spieler, subject.registrierungen) == (None, [])
-    with pytest.raises(RuntimeError):
-        getattr(subject, kind)

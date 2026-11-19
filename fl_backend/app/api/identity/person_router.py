@@ -3,7 +3,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.address_change.crud import known_to_the_new_mailbox, others_naming
 from app.api.grants.crud import read_grants
-from app.api.identity.crud import EACH_PERSON_GROUP, erase_everything, resolve_subject
+from app.api.identity.crud import erase_everything, resolve_subject
 from app.api.identity.lookup import ErasureHandles
 from app.api.identity.schemas import FLAccountErasureViewResponse
 from app.api.identity.services import build_season_team_pipeline, compose_account_erasure_view, find_owner_erasure_refusal
@@ -58,13 +58,7 @@ async def post_account_erasure(
         # erasure deletes, so the two conflict and the retry reads the new owner.
         refuse(find_owner_erasure_refusal(identifier=identifier, grants=grants))
 
-        erasure = await erase_everything(
-            identifier,
-            scope=EACH_PERSON_GROUP,
-            collections=collections,
-            now=germany_now,
-            session=session,
-        )
+        erasure = await erase_everything(identifier, collections=collections, now=germany_now, session=session)
         await record_act(collection=collections.action_log_collection, action="erasure.own", by=ACT_BY_PERSON, session=session)
         journal.note("erasure", erasure.records, seats=erasure.seats, rows=erasure.rows)
 
