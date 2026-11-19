@@ -12,20 +12,18 @@ from app.api.teams.services import offered_gruppen
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus
-
-# A season still being drawn up is the base tier's to know nothing about, its very existence included.
-WITHHELD_FROM_BASE_TIER: FLSaisonStatus = "future"
+from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase
 
 
 def base_tier_status_term() -> dict[str, Any]:
-    """The `status` term every base-tier season read runs.
+    """The `status` term every base-tier season read runs, withholding a `future` season.
 
-    Narrowed, never fetched then hidden: a withheld season matches nothing, so `document_not_found`'s 404
-    stays true and no 403 confirms the season exists.
+    A season still being drawn up is the base tier's to know nothing about, its very existence included. Narrowed, never
+    fetched then hidden: a withheld season matches nothing, so `document_not_found`'s 404 stays true and no 403 confirms
+    the season exists.
     """
 
-    return {"status": {"$ne": WITHHELD_FROM_BASE_TIER}}
+    return {"status": {"$ne": "future"}}
 
 
 SAISON_AS = "saison"
@@ -476,32 +474,15 @@ def find_activation_refusal(*, target_status: str, target_spiele: int, undated_s
     return APIError(HTTPStatus.CONFLICT, Code.ACTIVATE_SAISON_UNFINISHED)
 
 
-# The one status a draw, a replace and an undraw run on, and the one nothing returns a season to
-# -- which is what makes a shape frozen outside it frozen for good.
-PLANNING_STATUS: FLSaisonStatus = "future"
-
-
 def _planning_window_is_open(*, saison_status: str, recorded_spiele: int) -> bool:
-    """Whether this season's Spielplan may still be replaced or removed.
+    """Whether this season's Spielplan may still be replaced or removed: it is `future`, and nothing is recorded against it.
 
-    One predicate for every rule turning on it: a second copy is how a refusal comes to recommend a
-    write the product then turns away.
+    `future` is the one status nothing returns a season to, which is what makes a shape frozen outside it frozen for
+    good. One predicate for every rule turning on it: a second copy is how a refusal comes to recommend a write the
+    product then turns away.
     """
 
-    return saison_status == PLANNING_STATUS and recorded_spiele == 0
-
-
-def find_replace_window_refusal(*, saison_status: str, recorded_spiele: int) -> APIError | None:
-    """`spielplan_replace_outside_its_window`: a replace asked outside the planning window, or `None`.
-
-    Apart from `find_spielplan_refusal`, which asks it of every replace, because it is the part of a replace's judgement no
-    shape changes: the season editor serves it as the regeneration's state before any shape is picked.
-    """
-
-    if _planning_window_is_open(saison_status=saison_status, recorded_spiele=recorded_spiele):
-        return None
-
-    return APIError(HTTPStatus.CONFLICT, Code.SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW)
+    return saison_status == "future" and recorded_spiele == 0
 
 
 def find_spielplan_refusal(
@@ -531,8 +512,8 @@ def find_spielplan_refusal(
 
     # Whether the season holds anything to delete or not: the flag is the operation the caller asked
     # for, and one flag meaning a replace here and a first draw there is the ambiguity this closes.
-    if replace and (window_refusal := find_replace_window_refusal(saison_status=saison_status, recorded_spiele=recorded_spiele)):
-        return window_refusal
+    if replace and not _planning_window_is_open(saison_status=saison_status, recorded_spiele=recorded_spiele):
+        return APIError(HTTPStatus.CONFLICT, Code.SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW)
 
     # `past` alone, never `future`-only: activation is one-way, so a season activated before its draw
     # would otherwise be unschedulable for good, and `activate_target_undrawn` keeps the state rare. A
