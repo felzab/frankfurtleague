@@ -73,3 +73,10 @@ class FLSweepSaisonsResponse(BaseReadModel):
     """The seasons a system pass visits, for its caller to sweep one by one in the order given."""
 
     saison_ids: list[str]
+
+
+class FLSaisonRetentionResponse(BaseReadModel):
+    """One season's pass over its season rows, fixture answers and match reports: the rows it passed over, which the next pass meets again."""
+
+    # One sum over every clock rather than a count per clock: the line logging each row names its clock.
+    failed: int

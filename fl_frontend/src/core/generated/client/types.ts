@@ -577,6 +577,10 @@ export const FLAction = {
   retentionbans: "retention.bans",
 } as const;
 
+export interface FLActionLogByOptionsResponse {
+  by_options: string[];
+}
+
 /**
  * One recorded act.
  */
@@ -626,7 +630,6 @@ export interface FLActionLogFilterPayload {
 
 export interface FLActionLogListResponse {
   action_log: FLActionLogEntry[];
-  by_options: string[];
   cursor: string | null;
 }
 
@@ -4157,6 +4160,13 @@ export interface FLSaisonOverviewResponse {
 }
 
 /**
+ * One season's pass over its season rows, fixture answers and match reports: the rows it passed over, which the next pass meets again.
+ */
+export interface FLSaisonRetentionResponse {
+  failed: number;
+}
+
+/**
  * One seat's link as the contacts editor reads it: the stored link and whether it has lapsed.
  */
 export interface FLSaisonTeamConfirmationView {
@@ -5630,6 +5640,10 @@ export type FailureResponse = FLFailureBody;
 
 export type BewerbungenGetBewerbungenAdminParams = {
   saison_id: string;
+};
+
+export type SaisonsGetSweepSaisonsParams = {
+  status?: FLSaisonStatus | null;
 };
 
 export type SchiedsrichterGetSchiedsrichterParams = {

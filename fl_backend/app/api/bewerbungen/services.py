@@ -995,6 +995,16 @@ def next_saison_id(saison_id: str) -> str:
     return f"{int(saison_id) + 1:0{SAISON_ID_LENGTH}d}"
 
 
+def build_ended_after_filter(saison_id: str) -> Mapping[str, Any]:
+    """Every season later than this one that has ended, which the accepted clock and the season rows' contact blocks wait on.
+
+    Any later one rather than the next year's, as a squad row's pupil goes. Raises for an id that is no year, as
+    `next_saison_id` does.
+    """
+
+    return {"_id": {"$gte": next_saison_id(saison_id)}, "status": "past"}
+
+
 # The age at which one seat's link is due its single reminder, counted from the mint and set more
 # than a week inside `CONFIRMATION_DEADLINE_DAYS`, so a person reminded still has time to answer.
 BEWERBUNG_REMINDER_DAYS: Final = 3

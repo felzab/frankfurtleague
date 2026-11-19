@@ -44,6 +44,10 @@ INSIDE_OID = ObjectId("6890a1b2c3d4e5f607970003")
 CONFIRMED_OID = ObjectId("6890a1b2c3d4e5f607970004")
 DECLINED_OID = ObjectId("6890a1b2c3d4e5f607970005")
 OTHER_SEASON_OID = ObjectId("6890a1b2c3d4e5f607970006")
+UNDATED_OID = ObjectId("6890a1b2c3d4e5f607970007")
+DECIDED_INSIDE_OID = ObjectId("6890a1b2c3d4e5f607970008")
+DECIDED_ON_THE_DAY_OID = ObjectId("6890a1b2c3d4e5f607970009")
+DECIDED_UNDATED_OID = ObjectId("6890a1b2c3d4e5f60797000a")
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607970011")
 INVITATION_OID = ObjectId("6890a1b2c3d4e5f607970021")
 
@@ -91,19 +95,34 @@ def registrierung(registrierung_id: ObjectId, *, saison_id: str = SAISON_ID, **o
 
 
 def the_corpus() -> list[dict[str, Any]]:
-    """One registration per clock, plus one of another season that no call for `SAISON_ID` may touch."""
+    """Each clock's boundary from both sides, plus one of another season that no call for `SAISON_ID` may touch."""
 
     return [
         registrierung(WAITING_OID),
         registrierung(EXPIRED_OID, confirmation=confirmation(EXPIRED_OID, deadline=YESTERDAY)),
         # Its deadline is today, which the link still answers: the pair pins the clock's own boundary.
         registrierung(INSIDE_OID, confirmation=confirmation(INSIDE_OID, deadline=TODAY)),
-        registrierung(CONFIRMED_OID, birth_date="2008-05-09", einwilligung=einwilligung()),
+        # Past its deadline but confirmed, so it waits for the season's end.
+        registrierung(
+            CONFIRMED_OID, birth_date="2008-05-09", einwilligung=einwilligung(), confirmation=confirmation(CONFIRMED_OID, deadline=YESTERDAY)
+        ),
+        # No day to count from, so the deadline clock holds it rather than destroying it.
+        registrierung(UNDATED_OID, confirmation=None),
         registrierung(
             DECLINED_OID,
             status="declined",
             decision={"made_at": "2026-02-15", "reason": "kein Platz"},
         ),
+        # Decided thirteen days ago and fourteen: the decline clock's own boundary. The first is past its link's deadline
+        # too, which is the deadline clock's for a submitted row alone.
+        registrierung(
+            DECIDED_INSIDE_OID,
+            status="declined",
+            decision={"made_at": "2026-03-19", "reason": None},
+            confirmation=confirmation(DECIDED_INSIDE_OID, deadline=YESTERDAY),
+        ),
+        registrierung(DECIDED_ON_THE_DAY_OID, status="declined", decision={"made_at": "2026-03-18", "reason": None}),
+        registrierung(DECIDED_UNDATED_OID, status="declined", decision=None),
         registrierung(OTHER_SEASON_OID, saison_id=OTHER_SAISON_ID, confirmation=confirmation(OTHER_SEASON_OID, deadline=YESTERDAY)),
     ]
 
@@ -161,6 +180,24 @@ class TestTheDeadlineClock:
 
         assert OTHER_SEASON_OID in await on_a_league(mongo_replica_set_url, body)
 
+    async def test_a_running_seasons_pass_takes_exactly_the_rows_past_their_day(self, mongo_replica_set_url: str):
+        """Each clock's filter is its whole judgement: the deadline's own day still answers, and a decision's days end on the fourteenth."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await sweep(database, client)
+
+            return await standing(database)
+
+        assert await on_a_league(mongo_replica_set_url, body) == [
+            WAITING_OID,
+            INSIDE_OID,
+            CONFIRMED_OID,
+            OTHER_SEASON_OID,
+            UNDATED_OID,
+            DECIDED_INSIDE_OID,
+            DECIDED_UNDATED_OID,
+        ]
+
 
 class TestTheSeasonsOwnEnd:
     async def test_it_takes_every_undecided_row_whatever_the_pupil_answered(self, mongo_replica_set_url: str):
@@ -171,11 +208,11 @@ class TestTheSeasonsOwnEnd:
 
         erasures, left = await on_a_league(mongo_replica_set_url, body, status="past")
 
-        # The decline clock's one write, then the season's end's: its four undecided rows, confirmed or not.
-        assert [(label, count) for _, label, count, _ in erasures] == [(SAISON_ID, 1), (SAISON_ID, 4)]
-        # The other season's row alone: the declined one goes to the decline clock in the same pass,
-        # and every removal here names this season.
-        assert left == [OTHER_SEASON_OID]
+        # The decline clock's one write, then the season's end's: its five undecided rows, confirmed or not.
+        assert [(label, count) for _, label, count, _ in erasures] == [(SAISON_ID, 2), (SAISON_ID, 5)]
+        # The other season's row and the two declined ones the decline clock leaves: the season's end takes no decided
+        # row, and every removal here names this season.
+        assert left == [OTHER_SEASON_OID, DECIDED_INSIDE_OID, DECIDED_UNDATED_OID]
 
 
 async def refuse_writes_breaking(database: AsyncDatabase, collection: Collection, schema: Mapping[str, Any]) -> None:

@@ -9,6 +9,7 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.saisons.system_router import get_sweep_saisons
 from app.api.spielbestaetigungen.person_router import post_schiedsrichter_answer, post_team_answer
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAppointment,
@@ -23,7 +24,6 @@ from app.api.spielbestaetigungen.services import (
     compose_closing_update,
     compose_spielbestaetigung,
 )
-from app.api.spielbestaetigungen.system_router import get_sweep_saisons
 from app.api.spiele.admin_router import patch_spiel
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLPatchSpielDataResponse
 from app.api.spiele.services import ANSETZUNG_CONFIRMED, build_spiele_pipeline
@@ -219,7 +219,7 @@ class TestTheSweepAsksAboutNothingItCannotHelp:
         junctions = [junction(team_id, saison_id=saison_id) for saison_id in (SAISON_ID, PAST_SAISON_ID) for team_id in (ALPHA, BETA)]
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            listing = await get_sweep_saisons(saisons_collection=database[Collection.SAISONS])
+            listing = await get_sweep_saisons(saisons_collection=database[Collection.SAISONS], status="active")
             # As the timer runs it, and the past season asked directly as a mistyped call would.
             answers = [await sweep(database, client, saison_id=saison_id) for saison_id in [*listing.saison_ids, PAST_SAISON_ID]]
 

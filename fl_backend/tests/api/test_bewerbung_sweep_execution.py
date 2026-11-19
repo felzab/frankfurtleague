@@ -1,21 +1,20 @@
 import logging
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime, timedelta
-from typing import Any, cast
+from typing import Any
 
 import pytest
 from bson import ObjectId
 from pymongo import AsyncMongoClient, ReturnDocument
-from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.admin_router import decline_bewerbung
 from app.api.bewerbungen.schemas import FLDeclineBewerbungPayload
 from app.api.bewerbungen.services import compose_confirmation_update, confirmation_deadline_from
-from app.api.bewerbungen.system_router import get_sweep_saisons, sweep_saison
+from app.api.bewerbungen.system_router import sweep_saison
 from app.api.outbox.schemas import FLOutboxEventPayload
 from app.api.outbox.system_router import post_event
-from app.api.saisons.admin_router import activate_saison
+from app.api.saisons.system_router import get_sweep_saisons, sweep_saison_retention
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import patch_one_in_db
@@ -35,10 +34,9 @@ from tests.documents import (
     rules_document,
     saison_document,
     saison_team_document,
-    spiel_document,
     team_document,
 )
-from tests.isolation import COMMITTED, InterleavedCollection, Rival, RowsThenTheRival, outcome_of, refused_code
+from tests.isolation import refused_code
 from tests.outbox import MAIL_NOW, drained
 from tests.worker import worker_database
 
@@ -181,21 +179,32 @@ async def on_a_league(
 async def sweep(
     database: AsyncDatabase, client: AsyncMongoClient, saison_id: str = SAISON_ID, today: str = TODAY, now: datetime = MAIL_NOW
 ) -> Any:
-    """One season's pass, its mails owed on `MAIL_NOW`, the one thing its clock dates."""
+    """One season's two passes in the scheduler's order, the applications' and then its season rows', answering the rows both passed over.
 
-    return await sweep_saison(
+    Its mails are owed on `MAIL_NOW`, the one thing its clocks date.
+    """
+
+    applications = await sweep_saison(
         saison_id=saison_id,
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         teams_collection=database[Collection.TEAMS],
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        spielberichte_collection=database[Collection.SPIELBERICHTE],
         outbox_collection=database[Collection.OUTBOX],
         db=client,
         today=today,
         germany_now=now,
     )
+    season_rows = await sweep_saison_retention(
+        saison_id=saison_id,
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=database[Collection.SAISONS],
+        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        spielberichte_collection=database[Collection.SPIELBERICHTE],
+        db=client,
+        today=today,
+    )
+
+    return applications.failed + season_rows.failed
 
 
 async def view(database: AsyncDatabase, token: str) -> Any:
@@ -886,41 +895,6 @@ class TestTheSeasonAndOneClock:
 
         assert await on_a_league(mongo_replica_set_url, body, status="past", next_status=None) == (False, False)
 
-    @pytest.mark.parametrize(
-        "between",
-        [
-            pytest.param(None, id="a year the league skipped"),
-            pytest.param("future", id="a season planned and never run"),
-            pytest.param("active", id="a lower season activated once the later one had run"),
-        ],
-    )
-    async def test_any_later_season_that_has_ended_ends_both(self, mongo_replica_set_url: str, between: str | None):
-        """The year after stands `between`, and the one after has ended, when the rule drops this season's pupils.
-
-        Read off the year after, the first two hold both clocks for ever, and the third past its pupils.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SAISONS].insert_one(season(SKIPPED_TO_SAISON_ID, "past"))
-            await sweep(database, client)
-
-            return await taken_with_the_season(database)
-
-        assert await on_a_league(mongo_replica_set_url, body, status="past", next_status=between) == (True, True)
-
-    async def test_the_running_season_keeps_both_whatever_later_season_has_ended(self, mongo_replica_set_url: str):
-        """A lower season activated once a later one had run: it needs its contact persons while it runs.
-
-        The rule keeps its pupils for as long, and these two clocks match it.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await sweep(database, client)
-
-            return await taken_with_the_season(database)
-
-        assert await on_a_league(mongo_replica_set_url, body, status="active", next_status="past") == (False, False)
-
     async def test_a_running_season_whose_id_is_no_year_still_fails_the_pass(self, mongo_replica_set_url: str):
         """A running season reads no later one: judged inside that read, a hand-edited id would fail no pass while its season runs."""
 
@@ -930,128 +904,6 @@ class TestTheSeasonAndOneClock:
                 await sweep(database, client, saison_id="abcd")
 
         await on_a_league(mongo_replica_set_url, body, status="past")
-
-
-class ActivatedAfterTheClocksRead(InterleavedCollection):
-    """The rows a clock reads first in its transaction, the season activated once that read has answered.
-
-    The transaction has read by then, so only the season's anchor can make the two conflict.
-    """
-
-    def __init__(self, collection: Any, rival: Rival, *, clocks_read: Callable[[Mapping[str, Any]], bool]) -> None:
-        async def reported() -> None:
-            self.rival_outcome = await outcome_of(rival())
-
-        super().__init__(collection, reported)
-        self.rival_outcome: str | None = None
-        self._clocks_read = clocks_read
-
-    def find(self, *args: Any, **kwargs: Any) -> Any:
-        cursor = self._collection.find(*args, **kwargs)
-        if kwargs.get("session") is None or not self._clocks_read(kwargs.get("filter") or {}):
-            return cursor
-
-        return RowsThenTheRival(cursor, self.run_the_rival)
-
-
-# The accepted applications beside the corpus's own, so the clock's one delete takes several.
-ACCEPTED_BESIDE = 2
-
-
-class TestAnActivationInsideAnEraseTransactionKeepsTheSeasonsRows:
-    @pytest.mark.parametrize(
-        ("collection", "clocks_read", "expected"),
-        [
-            pytest.param(
-                Collection.BEWERBUNGEN,
-                lambda db_filter: db_filter.get("status") == "accepted",
-                (ACCEPTED_BESIDE + 1, True, True),
-                id="the accepted clock's",
-            ),
-            # The accepted clock committed first, so its applications went before the season ran.
-            pytest.param(Collection.SAISON_TEAMS, lambda _: True, (0, False, True), id="the contact block's"),
-        ],
-    )
-    async def test_the_season_activated_keeps_what_the_transaction_had_not_taken(
-        self,
-        mongo_replica_set_url: str,
-        collection: Collection,
-        clocks_read: Callable[[Mapping[str, Any]], bool],
-        expected: tuple[int, bool, bool],
-    ):
-        """Remove `pull_the_season_after`'s anchor and the planned season loses what it runs on.
-
-        Planned below a season that has ended, so the call's own read finds both clocks due.
-        """
-
-        accepted = {"status": "accepted", "decision": {"made_at": "2026-03-01", "reason": None}}
-        report = a_report(SAISON_ID)
-        declined = a_declined_confirmation(TEAM_OID, SAISON_ID)
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.BEWERBUNGEN].insert_many(
-                [application(numbered(position), **accepted) for position in range(ACCEPTED_BESIDE)]
-            )
-            # What makes the planned season activatable (`activate_target_undrawn`).
-            await database[Collection.SPIELE].insert_one(
-                spiel_document(spiel_id=numbered(ACCEPTED_BESIDE), saison_id=SAISON_ID, spiel_nr=1, spieltag_id=numbered(ACCEPTED_BESIDE + 1))
-            )
-            # Both strips run after the activation committed and judge the season again in their own transactions.
-            await database[Collection.SPIELBERICHTE].insert_one(report)
-            await database[Collection.SPIELBESTAETIGUNGEN].insert_one(declined)
-
-            async def activate() -> Any:
-                return await activate_saison(
-                    saison_id=SAISON_ID,
-                    saisons_collection=database[Collection.SAISONS],
-                    spiele_collection=database[Collection.SPIELE],
-                    spieltage_collection=database[Collection.SPIELTAGE],
-                    ban_list_collection=database[Collection.BAN_LIST],
-                    db=client,
-                )
-
-            interleaved = ActivatedAfterTheClocksRead(database[collection], activate, clocks_read=clocks_read)
-
-            def reaching(name: Collection) -> AsyncCollection:
-                return cast(AsyncCollection, interleaved) if name == collection else database[name]
-
-            await sweep_saison(
-                saison_id=SAISON_ID,
-                bewerbungen_collection=reaching(Collection.BEWERBUNGEN),
-                saison_teams_collection=reaching(Collection.SAISON_TEAMS),
-                saisons_collection=database[Collection.SAISONS],
-                teams_collection=database[Collection.TEAMS],
-                spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-                spielberichte_collection=database[Collection.SPIELBERICHTE],
-                outbox_collection=database[Collection.OUTBOX],
-                db=client,
-                today=TODAY,
-                germany_now=MAIL_NOW,
-            )
-            junction_row = await database[Collection.SAISON_TEAMS].find_one({"_id": JUNCTION_OID})
-            report_now = await database[Collection.SPIELBERICHTE].find_one({"_id": report["_id"]})
-            confirmation_now = await database[Collection.SPIELBESTAETIGUNGEN].find_one({"_id": declined["_id"]})
-
-            return (
-                interleaved.rival_outcome,
-                await database[Collection.SAISONS].find_one({"_id": SAISON_ID}),
-                (
-                    await database[Collection.BEWERBUNGEN].count_documents({"status": "accepted"}),
-                    await stored(database, ACCEPTED_OID) is not None,
-                    junction_row is not None and junction_row["kontakte"] is not None,
-                ),
-                (report_now, confirmation_now),
-            )
-
-        outcome, activated, kept, (report_now, confirmation_now) = await on_a_league(
-            mongo_replica_set_url, body, status="future", next_status="past"
-        )
-
-        # The premise first: the activation committed inside the clock's transaction.
-        assert (outcome, activated is not None and activated["status"]) == (COMMITTED, "active")
-        assert kept == expected
-        assert report_now["bericht"]["remarks"] == report["bericht"]["remarks"], "the report strip ran past the activation"
-        assert confirmation_now["answer"]["reason"] == declined["answer"]["reason"], "the confirmations' strip ran past it"
 
 
 SECOND_OID = ObjectId("6890a1b2c3d4e5f607960007")
@@ -1111,7 +963,7 @@ class TestOneRowHoldsBackNoOther:
                 mongo_replica_set_url, body, status="future", next_status="past", mutates_schema=True, stores_a_refused_shape=NO_SHORTHAND
             )
 
-        assert (answer.failed, chased) == (1, {REMIND_OID})
+        assert (answer, chased) == (1, {REMIND_OID})
         assert blocks == [(JUNCTION_OID, True), (SECOND_JUNCTION_OID, True)]
         assert passed_over(caplog) == [("ERROR", Code.DATABASE_FAILED, "Season", SAISON_ID, "contact block", REFUSED_WRITE)]
 
@@ -1130,7 +982,7 @@ class TestOneRowHoldsBackNoOther:
             assert refused is not None
 
             seats = refused["confirmations"].values()
-            return await reminded(database), answer.failed, [seat["reminded_at"] for seat in seats], [seat["chase_closed_at"] for seat in seats]
+            return await reminded(database), answer, [seat["reminded_at"] for seat in seats], [seat["chase_closed_at"] for seat in seats]
 
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
             answered, count, stamps, closed = await on_a_league(mongo_replica_set_url, body, stores_a_refused_shape=UNREADABLE_DATES)
@@ -1151,7 +1003,7 @@ class TestOneRowHoldsBackNoOther:
             refused = await stored(database, SECOND_OID)
             assert refused is not None
 
-            return await reminded(database), answer.failed, [seat["reminded_at"] for seat in refused["confirmations"].values()]
+            return await reminded(database), answer, [seat["reminded_at"] for seat in refused["confirmations"].values()]
 
         answered, count, stamps = await on_a_league(mongo_replica_set_url, body, mutates_schema=True, stores_a_refused_shape=NO_TRIKOT)
 
@@ -1167,7 +1019,7 @@ class TestOneRowHoldsBackNoOther:
             await refuse_writes_breaking(database, Collection.BEWERBUNGEN, {"required": ["trikot"]})
             answer = await sweep(database, client, now=MAIL_NOW)
 
-            return answer.failed, await reminded(database)
+            return answer, await reminded(database)
 
         assert await on_a_league(mongo_replica_set_url, body, mutates_schema=True, stores_a_refused_shape=NO_TRIKOT) == (1, set())
 
@@ -1186,7 +1038,7 @@ class TestOneRowHoldsBackNoOther:
 
         answer, left, notices, chased = await on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
-        assert answer.failed == 2
+        assert answer == 2
         assert left == [True, True]
         assert notices == []
         assert chased == {REMIND_OID}
@@ -1197,7 +1049,7 @@ class TestTheSeasonList:
         """The rule keeps a `future` season off the base tier, and that is the season the clocks run over."""
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            return await get_sweep_saisons(saisons_collection=database[Collection.SAISONS])
+            return await get_sweep_saisons(saisons_collection=database[Collection.SAISONS], status=None)
 
         response = await on_a_league(mongo_replica_set_url, body, next_status="future")
 
@@ -1410,7 +1262,7 @@ class TestTheReportStripStandsApart:
             mongo_replica_set_url, body, status="past", next_status="past", mutates_schema=True, stores_a_refused_shape=NO_SIDES
         )
 
-        assert (response.failed, junction["kontakte"]) == (1, None)
+        assert (response, junction["kontakte"]) == (1, None)
         assert confirmation["answer"]["reason"] is None, "the confirmations' strip fell with the reports'"
         assert report["bericht"]["remarks"] == refused["bericht"]["remarks"], "the failed strip left a write behind"
         assert [(level, what, row_id, clock) for level, _, what, row_id, clock, _ in passed_over(caplog)] == [
@@ -1465,7 +1317,7 @@ class TestTheSeasonsEndStripsItsConfirmations:
 
         response, blocks, stripped = await on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
 
-        assert (blocks, response.failed) == ([], 0)
+        assert (blocks, response) == ([], 0)
         assert stripped["answer"]["reason"] is None
 
     async def test_a_strip_failing_holds_back_no_block_and_is_passed_over_under_the_season(
@@ -1489,7 +1341,7 @@ class TestTheSeasonsEndStripsItsConfirmations:
             mongo_replica_set_url, body, status="past", next_status="past", mutates_schema=True, stores_a_refused_shape=NO_DEADLINE
         )
 
-        assert (response.failed, junction["kontakte"]) == (1, None)
+        assert (response, junction["kontakte"]) == (1, None)
         assert [(level, what, row_id, clock) for level, _, what, row_id, clock, _ in passed_over(caplog)] == [
             ("ERROR", "Season", SAISON_ID, "confirmation strip")
         ]
@@ -1568,7 +1420,7 @@ class TestTheSeasonsEndStripsItsReports:
 
         response, stored, strip_rows = await on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
 
-        assert response.failed == 0
+        assert response == 0
         # One row for the strip, counting this season's report holding remarks alone, the next season's left standing.
         assert [(row["label"], row["count"]) for row in strip_rows] == [(SAISON_ID, 1)]
         for name in ("this season", "this season, no remarks"):

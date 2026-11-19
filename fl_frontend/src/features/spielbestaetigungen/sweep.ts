@@ -1,6 +1,6 @@
 import "server-only";
 
-import { spielbestaetigungenGetSweepSaisons, spielbestaetigungenSweepSpielbestaetigungen } from "@/core/generated/client/sdk";
+import { saisonsGetSweepSaisons, spielbestaetigungenSweepSpielbestaetigungen } from "@/core/generated/client/sdk";
 
 import type { FLSpielbestaetigungSweepResponse } from "@/core/generated/client/types";
 
@@ -17,7 +17,8 @@ type Count = Pick<FLSpielbestaetigungSweepResponse, keyof FLSpielbestaetigungSwe
  * it did, the rows it passed over owing no deletion.
  */
 export async function runSpielSweep(): Promise<{ count: Count; open: number }> {
-  const { saison_ids: saisonIds } = await spielbestaetigungenGetSweepSaisons();
+  // The running seasons alone: a confirmation serves no purpose once its season is over.
+  const { saison_ids: saisonIds } = await saisonsGetSweepSaisons({ status: "active" });
 
   const count: Count = { closed: 0, asked: 0, reminded: 0, mails: 0, failed: 0 };
   // Season by season and never in parallel: one slow pass costs nothing, where a fan-out would put every season's

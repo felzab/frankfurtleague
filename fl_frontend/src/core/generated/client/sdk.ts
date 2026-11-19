@@ -19,6 +19,7 @@ import type {
   FLAccountEinwilligungenResponse,
   FLAccountEinwilligungPayload,
   FLAccountErasureViewResponse,
+  FLActionLogByOptionsResponse,
   FLActionLogFilterPayload,
   FLActionLogListResponse,
   FLAddressChangeAddressPayload,
@@ -106,6 +107,7 @@ import type {
   FLSaisonAdminResponse,
   FLSaisonFrameResponse,
   FLSaisonOverviewResponse,
+  FLSaisonRetentionResponse,
   FLSaisonsAdminListResponse,
   FLSaisonTeamsResponse,
   FLSchiedsrichterAccountEinwilligungPayload,
@@ -149,6 +151,7 @@ import type {
   FLTokenPayload,
   FLVersionResponse,
   ProbeResponse,
+  SaisonsGetSweepSaisonsParams,
   SchiedsrichterGetSchiedsrichterParams,
   SpieleGetSpieleSpielplanParams,
   SpielePatchSpielParams,
@@ -245,6 +248,23 @@ export const getAccountGetEinwilligungenUrl = () => {
  */
 export const accountGetEinwilligungen = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLAccountEinwilligungenResponse> => {
   return adminKeyTransport<FLAccountEinwilligungenResponse>(getAccountGetEinwilligungenUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getActionLogGetActionLogByOptionsUrl = () => {
+  return `/api/action_log/by_options`;
+};
+
+/**
+ * Every value `by` holds across the whole log, the who filter's options.
+ * @summary List who acted in the log
+ */
+export const actionLogGetActionLogByOptions = async (
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLActionLogByOptionsResponse> => {
+  return adminKeyTransport<FLActionLogByOptionsResponse>(getActionLogGetActionLogByOptionsUrl(), {
     ...options,
     method: "GET",
   });
@@ -765,11 +785,11 @@ export const getBewerbungenSweepSaisonUrl = (saisonId: string) => {
 };
 
 /**
- * Run one season's retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.
+ * Run one season's application clocks as of today, each reminder and deletion notice owed in the write it belongs to.
  *
  * A row that cannot be written is passed over, counted in `failed`, and met again by the next pass, as is a clock
  * written in one go whose write fails; what each clock erased is recorded in the action log.
- * @summary Run one season's retention clocks
+ * @summary Run one season's application clocks
  */
 export const bewerbungenSweepSaison = async (
   saisonId: string,
@@ -778,21 +798,6 @@ export const bewerbungenSweepSaison = async (
   return systemKeyPassTransport<FLBewerbungSweepResponse>(getBewerbungenSweepSaisonUrl(saisonId), {
     ...options,
     method: "POST",
-  });
-};
-
-export const getBewerbungenGetSweepSaisonsUrl = () => {
-  return `/api/bewerbungen/sweep`;
-};
-
-/**
- * Every season's id, oldest first, for the caller to sweep one at a time.
- * @summary Every season the sweep has to visit
- */
-export const bewerbungenGetSweepSaisons = async (options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLSweepSaisonsResponse> => {
-  return systemKeyTransport<FLSweepSaisonsResponse>(getBewerbungenGetSweepSaisonsUrl(), {
-    ...options,
-    method: "GET",
   });
 };
 
@@ -1564,6 +1569,26 @@ export const saisonsGetLanding = async (options?: Parameters<typeof baseKeyTrans
   });
 };
 
+export const getSaisonsGetSweepSaisonsUrl = (params?: SaisonsGetSweepSaisonsParams) => {
+  const stringifiedParams = serializeQuery(params);
+
+  return stringifiedParams.length > 0 ? `/api/saisons/sweep?${stringifiedParams}` : `/api/saisons/sweep`;
+};
+
+/**
+ * Every season's id, or every one of `status` where one is given, oldest first, for the caller to sweep one at a time.
+ * @summary List the seasons an hourly pass visits
+ */
+export const saisonsGetSweepSaisons = async (
+  params?: SaisonsGetSweepSaisonsParams,
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLSweepSaisonsResponse> => {
+  return systemKeyTransport<FLSweepSaisonsResponse>(getSaisonsGetSweepSaisonsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
 export const getSaisonsGetSaisonAdminUrl = (saisonId: string) => {
   return `/api/saisons/${encodeURIComponent(String(saisonId))}`;
 };
@@ -1706,6 +1731,28 @@ export const saisonsGetSaisonOverview = async (
   return adminKeyTransport<FLSaisonOverviewResponse>(getSaisonsGetSaisonOverviewUrl(saisonId), {
     ...options,
     method: "GET",
+  });
+};
+
+export const getSaisonsSweepSaisonRetentionUrl = (saisonId: string) => {
+  return `/api/saisons/${encodeURIComponent(String(saisonId))}/retention`;
+};
+
+/**
+ * Clear one season's contact blocks once a later season has ended, and each seat past its own day unconfirmed before.
+ *
+ * Once a later season has ended, the season's fixture answers and match reports keep the league's record alone. A row
+ * that cannot be written is passed over, counted in `failed`, and met again by the next pass, as is a clock written in
+ * one go whose write fails; what each clock cleared is recorded in the action log.
+ * @summary Run one season's retention clocks over its season rows, fixture answers and match reports
+ */
+export const saisonsSweepSaisonRetention = async (
+  saisonId: string,
+  options?: Parameters<typeof systemKeyPassTransport>[1],
+): Promise<FLSaisonRetentionResponse> => {
+  return systemKeyPassTransport<FLSaisonRetentionResponse>(getSaisonsSweepSaisonRetentionUrl(saisonId), {
+    ...options,
+    method: "POST",
   });
 };
 
@@ -2204,23 +2251,6 @@ export const spielbestaetigungenSweepSpielbestaetigungen = async (
   return systemKeyPassTransport<FLSpielbestaetigungSweepResponse>(getSpielbestaetigungenSweepSpielbestaetigungenUrl(saisonId), {
     ...options,
     method: "POST",
-  });
-};
-
-export const getSpielbestaetigungenGetSweepSaisonsUrl = () => {
-  return `/api/spielbestaetigungen/sweep`;
-};
-
-/**
- * Every `active` season's id, oldest first: a confirmation serves no purpose once its season is over.
- * @summary Every season the confirmation pass visits
- */
-export const spielbestaetigungenGetSweepSaisons = async (
-  options?: Parameters<typeof systemKeyTransport>[1],
-): Promise<FLSweepSaisonsResponse> => {
-  return systemKeyTransport<FLSweepSaisonsResponse>(getSpielbestaetigungenGetSweepSaisonsUrl(), {
-    ...options,
-    method: "GET",
   });
 };
 

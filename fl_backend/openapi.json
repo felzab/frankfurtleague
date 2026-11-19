@@ -1070,6 +1070,22 @@
         ],
         "type": "string"
       },
+      "FLActionLogByOptionsResponse": {
+        "properties": {
+          "by_options": {
+            "items": {
+              "type": "string"
+            },
+            "title": "By Options",
+            "type": "array"
+          }
+        },
+        "required": [
+          "by_options"
+        ],
+        "title": "FLActionLogByOptionsResponse",
+        "type": "object"
+      },
       "FLActionLogEntry": {
         "description": "One recorded act.",
         "properties": {
@@ -1216,13 +1232,6 @@
             "title": "Action Log",
             "type": "array"
           },
-          "by_options": {
-            "items": {
-              "type": "string"
-            },
-            "title": "By Options",
-            "type": "array"
-          },
           "cursor": {
             "anyOf": [
               {
@@ -1238,8 +1247,7 @@
         },
         "required": [
           "action_log",
-          "cursor",
-          "by_options"
+          "cursor"
         ],
         "title": "FLActionLogListResponse",
         "type": "object"
@@ -9560,6 +9568,20 @@
         "title": "FLSaisonRegistrierung",
         "type": "object"
       },
+      "FLSaisonRetentionResponse": {
+        "description": "One season's pass over its season rows, fixture answers and match reports: the rows it passed over, which the next pass meets again.",
+        "properties": {
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "failed"
+        ],
+        "title": "FLSaisonRetentionResponse",
+        "type": "object"
+      },
       "FLSaisonRules": {
         "properties": {
           "allowed_stufen": {
@@ -16550,6 +16572,37 @@
         ]
       }
     },
+    "/api/action_log/by_options": {
+      "get": {
+        "description": "Every value `by` holds across the whole log, the who filter's options.",
+        "operationId": "action_log_get_action_log_by_options",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLActionLogByOptionsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "$ref": "#/components/responses/Failure",
+            "description": "A refusal or a fault, its status naming which"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "List who acted in the log",
+        "tags": [
+          "action_log"
+        ]
+      }
+    },
     "/api/action_log/view": {
       "post": {
         "description": "The newest 50 acts the filters keep, starting after `cursor` where one is given.",
@@ -17569,7 +17622,7 @@
     },
     "/api/bewerbungen/saisons/{saison_id}/sweep": {
       "post": {
-        "description": "Run one season's retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.\n\nA row that cannot be written is passed over, counted in `failed`, and met again by the next pass, as is a clock\nwritten in one go whose write fails; what each clock erased is recorded in the action log.",
+        "description": "Run one season's application clocks as of today, each reminder and deletion notice owed in the write it belongs to.\n\nA row that cannot be written is passed over, counted in `failed`, and met again by the next pass, as is a clock\nwritten in one go whose write fails; what each clock erased is recorded in the action log.",
         "operationId": "bewerbungen_sweep_saison",
         "parameters": [
           {
@@ -17603,42 +17656,11 @@
             "SystemKey": []
           }
         ],
-        "summary": "Run one season's retention clocks",
+        "summary": "Run one season's application clocks",
         "tags": [
           "bewerbungen"
         ],
         "x-pass": true
-      }
-    },
-    "/api/bewerbungen/sweep": {
-      "get": {
-        "description": "Every season's id, oldest first, for the caller to sweep one at a time.",
-        "operationId": "bewerbungen_get_sweep_saisons",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSweepSaisonsResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "default": {
-            "$ref": "#/components/responses/Failure",
-            "description": "A refusal or a fault, its status naming which"
-          }
-        },
-        "security": [
-          {
-            "SystemKey": []
-          }
-        ],
-        "summary": "Every season the sweep has to visit",
-        "tags": [
-          "bewerbungen"
-        ]
       }
     },
     "/api/bewerbungen/{bewerbung_id}": {
@@ -19127,6 +19149,55 @@
         ]
       }
     },
+    "/api/saisons/sweep": {
+      "get": {
+        "description": "Every season's id, or every one of `status` where one is given, oldest first, for the caller to sweep one at a time.",
+        "operationId": "saisons_get_sweep_saisons",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/FLSaisonStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSweepSaisonsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "$ref": "#/components/responses/Failure",
+            "description": "A refusal or a fault, its status naming which"
+          }
+        },
+        "security": [
+          {
+            "SystemKey": []
+          }
+        ],
+        "summary": "List the seasons an hourly pass visits",
+        "tags": [
+          "saisons"
+        ]
+      }
+    },
     "/api/saisons/{saison_id}": {
       "get": {
         "description": "What the season editor shows in one read: its season, clubs, shapes and matchdays, its acts' states and its links.\n\nThe season is served a `future` one included, and every flag and every refusal is judged as the write it stands for\njudges it, so an act is offered exactly where its write takes it.",
@@ -19423,6 +19494,49 @@
         "tags": [
           "saisons"
         ]
+      }
+    },
+    "/api/saisons/{saison_id}/retention": {
+      "post": {
+        "description": "Clear one season's contact blocks once a later season has ended, and each seat past its own day unconfirmed before.\n\nOnce a later season has ended, the season's fixture answers and match reports keep the league's record alone. A row\nthat cannot be written is passed over, counted in `failed`, and met again by the next pass, as is a clock written in\none go whose write fails; what each clock cleared is recorded in the action log.",
+        "operationId": "saisons_sweep_saison_retention",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSaisonRetentionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "$ref": "#/components/responses/Failure",
+            "description": "A refusal or a fault, its status naming which"
+          }
+        },
+        "security": [
+          {
+            "SystemKey": []
+          }
+        ],
+        "summary": "Run one season's retention clocks over its season rows, fixture answers and match reports",
+        "tags": [
+          "saisons"
+        ],
+        "x-pass": true
       }
     },
     "/api/saisons/{saison_id}/spiele/{spiel_id}": {
@@ -20434,37 +20548,6 @@
           "spielbestaetigungen"
         ],
         "x-pass": true
-      }
-    },
-    "/api/spielbestaetigungen/sweep": {
-      "get": {
-        "description": "Every `active` season's id, oldest first: a confirmation serves no purpose once its season is over.",
-        "operationId": "spielbestaetigungen_get_sweep_saisons",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSweepSaisonsResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "default": {
-            "$ref": "#/components/responses/Failure",
-            "description": "A refusal or a fault, its status naming which"
-          }
-        },
-        "security": [
-          {
-            "SystemKey": []
-          }
-        ],
-        "summary": "Every season the confirmation pass visits",
-        "tags": [
-          "spielbestaetigungen"
-        ]
       }
     },
     "/api/spielbestaetigungen/{spielbestaetigung_id}/adopt": {

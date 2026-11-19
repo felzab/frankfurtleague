@@ -5,14 +5,7 @@ from fastapi import APIRouter
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.registrierungen.schemas import FLRegistrierungSweepResponse
-from app.api.registrierungen.services import (
-    build_decline_filter,
-    build_unconfirmed_filter,
-    build_undecided_filter,
-    confirmation_erasure_is_due,
-    decline_erasure_is_due,
-    undecided_erasure_is_due,
-)
+from app.api.registrierungen.services import build_decline_filter, build_unconfirmed_filter, build_undecided_filter
 from app.core.crud import delete_many_from_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
     DBClient,
@@ -75,47 +68,29 @@ async def sweep_registrierungen(
 
     # Each clock is one write rather than one a row: no validator guards what it deletes and no unique index the rows it
     # takes, so no row can fail alone, and a delete that fails leaves every row due and is logged under the season.
-    def clock_of(
-        db_filter: Mapping[str, Any], projection: list[str], due: Callable[[Mapping[str, Any]], bool]
-    ) -> Callable[[AsyncClientSession, Mapping[str, Any]], Awaitable[int]]:
-        """A clock's one transaction: its rows read, each judged, and the due ones erased in one write."""
+    def clock_of(db_filter: Mapping[str, Any]) -> Callable[[AsyncClientSession, Mapping[str, Any]], Awaitable[int]]:
+        """A clock's one transaction: one read's worth of the rows its filter selects, erased in one write.
+
+        The filter is the clock's whole judgement. The deadline ends the call long before a read's last row could, and
+        the rest are the next pass's.
+        """
 
         async def erase_the_due(session: AsyncClientSession, _: Mapping[str, Any]) -> int:
             rows = await pull_many_from_db(
-                collection=registrierungen_collection, db_filter=db_filter, projection=projection, limit=LIST_LIMIT_DEFAULT, session=session
+                collection=registrierungen_collection, db_filter=db_filter, projection=["_id"], limit=LIST_LIMIT_DEFAULT, session=session
             )
-            ids = [row["_id"] for row in rows if due(row)]
 
-            return await erase(ids, session) if ids else 0
+            return await erase([row["_id"] for row in rows], session) if rows else 0
 
         return erase_the_due
 
-    steps = [
-        (
-            "decline",
-            clock_of(
-                build_decline_filter(saison_id=saison_id, today=today),
-                ["status", "decision"],
-                lambda row: decline_erasure_is_due(registrierung_raw=row, today=today),
-            ),
-        )
-    ]
+    steps = [("decline", clock_of(build_decline_filter(saison_id=saison_id, today=today)))]
     # The season's end takes every row the deadline clock reads, whatever the pupil answered: no admission is taken for a
     # season that is over.
     if season_has_ended(saison_status=saison_status):
-        undecided = clock_of(
-            build_undecided_filter(saison_id=saison_id),
-            ["status"],
-            lambda row: undecided_erasure_is_due(registrierung_raw=row, saison_status=saison_status),
-        )
-        steps.append(("season's end", undecided))
+        steps.append(("season's end", clock_of(build_undecided_filter(saison_id=saison_id))))
     else:
-        unconfirmed = clock_of(
-            build_unconfirmed_filter(saison_id=saison_id, today=today),
-            ["status", "einwilligung", "confirmation"],
-            lambda row: confirmation_erasure_is_due(registrierung_raw=row, today=today),
-        )
-        steps.append(("deadline", unconfirmed))
+        steps.append(("deadline", clock_of(build_unconfirmed_filter(saison_id=saison_id, today=today))))
 
     failed = 0
     for clock, erase_the_due in steps:

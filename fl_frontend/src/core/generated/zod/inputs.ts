@@ -606,11 +606,11 @@ export const BewerbungenGetFormParams = zod.object({
 });
 
 /**
- * Run one season's retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.
+ * Run one season's application clocks as of today, each reminder and deletion notice owed in the write it belongs to.
  *
  * A row that cannot be written is passed over, counted in `failed`, and met again by the next pass, as is a clock
  * written in one go whose write fails; what each clock erased is recorded in the action log.
- * @summary Run one season's retention clocks
+ * @summary Run one season's application clocks
  */
 export const BewerbungenSweepSaisonParams = zod.object({
   saison_id: zod.string(),
@@ -1208,6 +1208,14 @@ export const SaisonsPostSaisonBody = zod.object({
 });
 
 /**
+ * Every season's id, or every one of `status` where one is given, oldest first, for the caller to sweep one at a time.
+ * @summary List the seasons an hourly pass visits
+ */
+export const SaisonsGetSweepSaisonsQueryParams = zod.object({
+  status: zod.union([zod.enum(["past", "active", "future"]), zod.null()]).optional(),
+});
+
+/**
  * What the season editor shows in one read: its season, clubs, shapes and matchdays, its acts' states and its links.
  *
  * The season is served a `future` one included, and every flag and every refusal is judged as the write it stands for
@@ -1368,6 +1376,18 @@ export const SaisonsGetKoRundeParams = zod.object({
  * @summary One Saison's open work, card by card
  */
 export const SaisonsGetSaisonOverviewParams = zod.object({
+  saison_id: zod.string(),
+});
+
+/**
+ * Clear one season's contact blocks once a later season has ended, and each seat past its own day unconfirmed before.
+ *
+ * Once a later season has ended, the season's fixture answers and match reports keep the league's record alone. A row
+ * that cannot be written is passed over, counted in `failed`, and met again by the next pass, as is a clock written in
+ * one go whose write fails; what each clock cleared is recorded in the action log.
+ * @summary Run one season's retention clocks over its season rows, fixture answers and match reports
+ */
+export const SaisonsSweepSaisonRetentionParams = zod.object({
   saison_id: zod.string(),
 });
 
