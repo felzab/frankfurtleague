@@ -163,8 +163,11 @@ function actsOf(read: FLBewerbungSingleResponse, standing: Standing) {
   ];
 }
 
-/** A person's row: nobody's on an emptied seat, and its acts while the application stands undecided and the seat can take them. */
-function seatRowsOf(bewerbung: FLBewerbung): SeatRow[] {
+/**
+ * A person's row: nobody's on an emptied seat, and its acts while the application stands undecided, its season not yet
+ * finished, and the seat can take them. A finished season's application takes no seat write and mails no link.
+ */
+function seatRowsOf(bewerbung: FLBewerbung, finished: boolean): SeatRow[] {
   return seatsOf(bewerbung).map(({ seat, seats, person, state, chips, day }) => {
     const row = {
       id: seat,
@@ -173,7 +176,7 @@ function seatRowsOf(bewerbung: FLBewerbung): SeatRow[] {
       chips,
       line: { record: COPY.admin.seatLine(seats, person?.email ?? null, day) },
     };
-    if (bewerbung.status !== "submitted" || state === "erased") return row;
+    if (bewerbung.status !== "submitted" || finished || state === "erased") return row;
     const link = state === "valid" || state === "expired" ? { send: sendSeatLink, seat: { bewerbung_id: bewerbung.id, seat } } : null;
     return {
       ...row,
@@ -206,7 +209,14 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
       // An accepted application's people are its team's, whose page its act leads to: the acceptance emptied its seats.
       ...(bewerbung.status === "accepted"
         ? []
-        : [{ title: COPY.team.kontakte, kind: "seats" as const, label: COPY.team.kontakte, rows: seatRowsOf(bewerbung) }]),
+        : [
+            {
+              title: COPY.team.kontakte,
+              kind: "seats" as const,
+              label: COPY.team.kontakte,
+              rows: seatRowsOf(bewerbung, read.saison.status === "past"),
+            },
+          ]),
       ...(bewerbung.schule === null ? [] : [{ title: FACTS.school, kind: "facts" as const, facts: schoolFacts(bewerbung.schule) }]),
     ],
     acts: actsOf(read, standing),
