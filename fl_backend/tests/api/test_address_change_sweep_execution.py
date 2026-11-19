@@ -36,6 +36,7 @@ from tests.database import a_clean_database
 from tests.documents import saison_document, schiedsrichter_document, spieler_document
 from tests.handles import wired
 from tests.isolation import InterleavedCollection
+from tests.passes import refuse_writes_breaking
 from tests.whole_database import where_held
 from tests.worker import worker_database
 
@@ -143,12 +144,6 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, **replaced: A
 
 async def live(database: AsyncDatabase) -> list[ObjectId]:
     return await database[Collection.ADDRESS_CHANGES].distinct("_id", {"ended": None})
-
-
-async def refuse_writes_breaking(database: AsyncDatabase, collection: Collection, schema: Mapping[str, Any]) -> None:
-    """How this suite forces one row's write to fail mid-pass: a `$jsonSchema` the planted row breaks and every other row keeps."""
-
-    await database.command("collMod", str(collection), validator={"$jsonSchema": dict(schema)}, validationLevel="strict")
 
 
 def refusing_a_move_to(positions: Sequence[int]) -> dict[str, Any]:

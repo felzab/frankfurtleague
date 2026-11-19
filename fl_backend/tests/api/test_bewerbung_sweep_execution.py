@@ -37,6 +37,7 @@ from tests.documents import (
 )
 from tests.isolation import refused_code
 from tests.outbox import MAIL_NOW, drained
+from tests.passes import refuse_writes_breaking
 from tests.worker import worker_database
 
 # Module level, as the other execution suites mark theirs: every test below reaches a real mongod.
@@ -873,12 +874,6 @@ class TestTheSeasonAndOneClock:
 SECOND_OID = ObjectId("6890a1b2c3d4e5f607960007")
 SECOND_TEAM_OID = ObjectId("6890a1b2c3d4e5f607960012")
 SECOND_JUNCTION_OID = ObjectId("6890a1b2c3d4e5f607960022")
-
-
-async def refuse_writes_breaking(database: AsyncDatabase, collection: Collection, schema: Mapping[str, Any]) -> None:
-    """How this suite forces one row's write to fail mid-pass: a `$jsonSchema` the planted row breaks and every other row keeps."""
-
-    await database.command("collMod", str(collection), validator={"$jsonSchema": dict(schema)}, validationLevel="strict")
 
 
 # What a write the validator refuses reads as on a passed-over line: the driver's type and the server's code. Each write

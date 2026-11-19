@@ -50,6 +50,7 @@ from tests.erasure_sweep_corpus import (
     the_league,
 )
 from tests.isolation import InterleavedCollection, Rival
+from tests.passes import refuse_writes_breaking
 from tests.whole_database import where_held
 from tests.worker import worker_database
 
@@ -77,12 +78,6 @@ async def on_a_league(url: str, body: Body, *, saisons: Mapping[str, str] = LEAG
 
 # A schema no seeded report meets, so any write to one is refused and a pupil no report names passes.
 NO_REPORT_WRITTEN: Final = {"required": ["a_field_no_report_holds"]}
-
-
-async def refuse_writes_breaking(database: AsyncDatabase, collection: Collection, schema: Mapping[str, Any]) -> None:
-    """How this suite forces one row's write to fail mid-pass: a `$jsonSchema` the planted row breaks and every other row keeps."""
-
-    await database.command("collMod", str(collection), validator={"$jsonSchema": dict(schema)}, validationLevel="strict")
 
 
 def counts(answer: Any) -> dict[str, Any]:
