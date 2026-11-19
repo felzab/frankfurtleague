@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Query
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.grants.guard import ADMIN_TIER
@@ -126,12 +126,6 @@ async def get_spiel_admin(
     )
 
 
-async def previewing(
-    dry_run: Annotated[bool, Query(description="Report what this payload would move and destroy, and write nothing")] = False,
-) -> bool:
-    return dry_run
-
-
 @router.patch(
     by_id("spiel_id"),
     summary="Update a Spiel",
@@ -157,7 +151,7 @@ async def patch_spiel(
         int | None,
         Query(ge=0, description="The `version` of the fixture's Spielbericht the editor was seeded from, to stamp it adopted"),
     ] = None,
-    dry_run: Annotated[bool, Depends(previewing)] = False,
+    dry_run: Annotated[bool, Query(description="Report what this payload would move and destroy, and write nothing")] = False,
 ) -> FLPatchSpielDataResponse:
     """
     Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.
