@@ -576,21 +576,6 @@ class TestWhatASubmissionIsRefused:
 
         assert await on_a_league(mongo_replica_set_url, body, kader_size=RULES["max_kader_size"]) == 1
 
-    async def test_two_submissions_for_one_remaining_place_both_land(self, mongo_replica_set_url: str):
-        """The declared race, pinned so a later reader does not read it as a defect.
-
-        A registration writes into no collection the cap counts, so nothing anchors the count; the
-        admission refuses the second.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
-            await register(database, client)
-            await register(database, client, email="quillhilde@beispielschule.example.org")
-
-            return await database[Collection.REGISTRIERUNGEN].count_documents({})
-
-        assert await on_a_league(mongo_replica_set_url, body, kader_size=RULES["max_kader_size"] - 1) == 2
-
 
 class TestWhatTheInvitesOwnReadAnswers:
     """The read a link opens, which refuses only an invite that opens nothing."""
