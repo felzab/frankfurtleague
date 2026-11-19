@@ -209,7 +209,7 @@ async def strip_the_seasons_reports(
     *,
     spielberichte_collection: AsyncCollection,
     saison_id: str,
-    # The following season's end judged in the same snapshot, so an activation since the caller's read keeps them.
+    # The caller has judged the season after ended, outside this session: a past season never reopens, so that still holds.
     session: AsyncClientSession,
 ) -> int:
     """Once the season after `saison_id` has ended, every report's remarks, answering how many reports it stripped."""

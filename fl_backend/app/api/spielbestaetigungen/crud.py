@@ -134,7 +134,7 @@ async def strip_the_seasons_confirmations(
     *,
     spielbestaetigungen_collection: AsyncCollection,
     saison_id: str,
-    # The season after judged ended in the same snapshot, so an activation since the caller's read keeps the rows.
+    # The caller has judged the season after ended, outside this session: a past season never reopens, so that still holds.
     session: AsyncClientSession,
 ) -> int:
     """Once the season after has ended, every reason left on the season's rows, answering how many rows that took.
