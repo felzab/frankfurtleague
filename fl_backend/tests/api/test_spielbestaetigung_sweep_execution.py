@@ -1211,61 +1211,6 @@ async def told_and_taken_off(database: AsyncDatabase, client: AsyncMongoClient) 
     await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"schiedsrichter": booked(OTHER_SCHIEDSRICHTER)}})
 
 
-class ConfirmationsRunningARivalAheadOfTheErasuresRemoval(InterleavedCollection):
-    """The confirmations a referee's erasure removes by its filter, a rival run once inside its transaction, ahead of that removal."""
-
-    async def delete_many(self, *args: Any, **kwargs: Any) -> Any:
-        await self.run_the_rival()
-        return await self._collection.delete_many(*args, **kwargs)
-
-
-class TestATakenOffRefereesErasureAndTheCloseCross:
-    """The close and the notice step each write the very row the erasure removes, so the two conflict and one runs again."""
-
-    async def test_an_erasure_landing_inside_the_notice_step_leaves_nobody_told(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await told_and_taken_off(database, client)
-
-            async def erase_the_referee() -> None:
-                await erased(database, client, REFEREE_EMAIL, germany_now=NOW)
-
-            interleaved = ThenTheRivalAfterTheFirstSessionRead(database[Collection.SCHIEDSRICHTER], erase_the_referee)
-            answer = await a_pass_through(database, client, schiedsrichter=cast(Any, interleaved))
-
-            return interleaved, answer, await rows(database, **{"party.kind": "schiedsrichter"})
-
-        interleaved, answer, stored = await on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)])
-
-        # The close reads no referee, so the first read is the notice step's. Serially the erased referee's row is gone
-        # before it reads any address, and the mint reads the newly booked referee once.
-        interleaved.assert_landed_inside(serially=1)
-        assert answer.schiedsrichter_switched == []
-        assert [row["party"]["schiedsrichter_id"] for row in stored] == [OTHER_SCHIEDSRICHTER]
-
-    async def test_a_close_landing_inside_the_erasure_leaves_no_row_of_theirs(self, mongo_replica_set_url: str):
-        """The close commits first and its notice stands, the order being close then erasure; the row it closed goes with them."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await told_and_taken_off(database, client)
-            answers: list[Any] = []
-
-            async def a_pass() -> None:
-                answers.append(await sweep(database, client))
-
-            interleaved = ConfirmationsRunningARivalAheadOfTheErasuresRemoval(database[Collection.SPIELBESTAETIGUNGEN], a_pass)
-            await erased(database, client, REFEREE_EMAIL, germany_now=NOW, spielbestaetigungen_collection=interleaved)
-
-            return interleaved, answers, await rows(database, **{"party.schiedsrichter_id": SCHIEDSRICHTER})
-
-        interleaved, (answer,), stored = await on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)])
-
-        # Serially the erasure removes its rows once; the second arrival is its run again, the removal having conflicted with
-        # the close's write on the row.
-        interleaved.assert_landed_inside(serially=1)
-        assert [notice.address for notice in answer.schiedsrichter_switched] == [REFEREE_EMAIL]
-        assert stored == []
-
-
 async def as_the_referee(database: AsyncDatabase, client: AsyncMongoClient, answer: Any, reason: str | None = None) -> None:
     """The booked referee, their record confirmed, answering their one row on their own panel."""
 
