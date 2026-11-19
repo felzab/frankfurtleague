@@ -7,7 +7,7 @@ from app.api.outbox.schemas import FLOutboxStatus
 
 # Imported rather than restated: an application's three people become the junction's three people at acceptance, so a
 # second declaration of the block is one the two would drift apart on. Acyclic: no model in `teams` imports this slice.
-from app.api.teams.schemas import FLSaisonTeamKontakte, FLSaisonTeamKontakteRecord, FLTrainerAlso, _KontaktpersonWritablePayload
+from app.api.teams.schemas import FLSaisonTeamKontakteAdmin, FLSaisonTeamKontakteRecord, FLTrainerAlso, _KontaktpersonWritablePayload
 from app.core.crud import Anchored
 from app.core.exceptions import rule_refusal
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
@@ -132,7 +132,9 @@ class FLBewerbung(BaseReadModel):
     # created club's id back here, so a decided application always names one.
     team_id: CustomObjectId | None
     schule: FLBewerbungSchule | None
-    kontakte: FLSaisonTeamKontakte
+    # As the team editor serves a season row's seats: no birthdate and no evidence, which no page of the administration
+    # shows. The record re-declares the stored block.
+    kontakte: FLSaisonTeamKontakteAdmin
     trikot: FLBewerbungTrikot
     kader: FLBewerbungKader
     # How many pupils the school's whole Abi-Jahrgang holds, which the applicant states and nothing

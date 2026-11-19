@@ -4,16 +4,16 @@ import { COPY } from "@/core/copy";
 
 import { seatsOf } from "./seats";
 
-import type { FLBewerbung, FLBewerbungConfirmation, FLKontaktperson } from "@/core/generated/client/types";
+import type { FLBewerbung, FLBewerbungConfirmation, FLKontaktpersonAdmin } from "@/core/generated/client/types";
 
-const person = (confirmedAt: string | null): FLKontaktperson =>
+const person = (confirmedAt: string | null): FLKontaktpersonAdmin =>
   ({
     first_name: "Anke",
     last_name: "Koerner",
     email: "a@example.net",
     phone: "069 1",
     einwilligung: { confirmed_at: confirmedAt },
-  }) as FLKontaktperson;
+  }) as FLKontaktpersonAdmin;
 
 const entry = (overrides: Partial<FLBewerbungConfirmation> = {}): FLBewerbungConfirmation => ({
   sent_at: "2026-11-01",

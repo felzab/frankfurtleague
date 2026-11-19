@@ -6,7 +6,7 @@ import { CONFIRMED_CHIP, ERASED_CHIP, EXPIRED_CHIP, NOT_SENT_CHIP, OBJECTED_CHIP
 import { deliveryChip } from "./deliveryState";
 
 import type { Copy } from "@/core/copy";
-import type { FLBewerbung, FLBewerbungConfirmation, FLKontaktperson, FLKontaktSeat } from "@/core/generated/client/types";
+import type { FLBewerbung, FLBewerbungConfirmation, FLKontaktpersonAdmin, FLKontaktSeat } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
 
 /** Where a seat's answer stands, as the link's own page says it, and an erasure's entry, which the read serves as none. */
@@ -17,7 +17,7 @@ export type SeatView = {
   seat: FLKontaktSeat;
   seats: readonly FLKontaktSeat[];
   /** Null on a seat a Widerspruch or an erasure emptied. */
-  person: FLKontaktperson | null;
+  person: FLKontaktpersonAdmin | null;
   state: SeatState;
   /** The chips after the name: the state, and the last mail's trouble where it met some. */
   chips: readonly [ChipProps, ...ChipProps[]];
