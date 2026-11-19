@@ -11,7 +11,7 @@ reads are the ones no aggregation can fold in.
 
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime
-from typing import Annotated, Any, Final, Literal, get_args
+from typing import Annotated, Any, Final, Literal, assert_never, get_args
 
 from pydantic import BaseModel, Field
 
@@ -35,7 +35,16 @@ from app.api.spielbestaetigungen.services import (
 )
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_OWING_NOTHING,
+    FLBookingResource,
     FLBracketFault,
+    FLBracketFaultBooking,
+    FLBracketFaultClash,
+    FLBracketFaultGruppe,
+    FLBracketFaultOccupant,
+    FLBracketFaultQuelle,
+    FLBracketFaultSlot,
+    FLBracketFaultSpiel,
+    FLBracketFaultSpieltag,
     FLSpielbestaetigungParty,
     FLSpielJoinedAdmin,
     FLSpielJoinedInternal,
@@ -45,7 +54,7 @@ from app.api.spiele.services import build_spiele_pipeline, recipients_named
 from app.core import clock
 from app.core.collections import Collection
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
-from app.shared.schemas.literals import KONTAKT_SEATS
+from app.shared.schemas.literals import KONTAKT_SEATS, FLAustrittType, FLGruppenNames
 from app.shared.schemas.responses import BaseReadModel
 
 # The four cards, in the urgency order the page shows them: what is due by a deadline, the results, the fixtures'
@@ -159,12 +168,77 @@ class FLOverviewSpielberichtRow(BaseModel):
     state: FLSpielberichtOpenState
 
 
+class FLOverviewFaultPlatz(BaseModel):
+    """A placing a slot waits on that its group cannot hand it: the group holds too few clubs, or no rule breaks a tie."""
+
+    reason: Literal["gruppe_too_small", "tie_unresolved"]
+    gruppe: FLGruppenNames
+    platz: int = Field(gt=0)
+
+
+class FLOverviewFaultWiring(BaseModel):
+    """Wiring of the bracket the season cannot hold, whatever its shape."""
+
+    reason: Literal["wiring"]
+
+
+class FLOverviewFaultDeparted(BaseModel):
+    """A club fielded on or after the day it left the season, by its name, the way it left and that day."""
+
+    reason: Literal["departed_occupant"]
+    team_name: str = Field(min_length=1)
+    austritt_type: FLAustrittType
+    exited_since: CustomDateString
+
+
+class FLOverviewFaultFieldedTwice(BaseModel):
+    """A club standing on another fixture of the same Spieltag too, by its name."""
+
+    reason: Literal["fielded_twice"]
+    team_name: str = Field(min_length=1)
+
+
+class FLOverviewFaultBooking(BaseModel):
+    """A venue or a referee the fixture books that has retired, or that another fixture holds at the same hour."""
+
+    reason: Literal["retired_booking", "double_booked"]
+    booking: FLBookingResource
+
+
+# What the Übersicht's line says of a fault, and nothing else of it: the fixture is the row's own.
+type FLOverviewFault = Annotated[
+    FLOverviewFaultPlatz | FLOverviewFaultWiring | FLOverviewFaultDeparted | FLOverviewFaultFieldedTwice | FLOverviewFaultBooking,
+    Field(discriminator="reason"),
+]
+
+
+def fault_line(fault: FLBracketFault) -> FLOverviewFault:
+    """One derived fault as its line words it: every shape of wiring the season cannot hold is one line, which no screen repairs."""
+
+    if isinstance(fault, FLBracketFaultGruppe):
+        if fault.reason == "gruppe_too_small" or fault.reason == "tie_unresolved":
+            return FLOverviewFaultPlatz(reason=fault.reason, gruppe=fault.gruppe, platz=fault.platz)
+        return FLOverviewFaultWiring(reason="wiring")
+    if isinstance(fault, FLBracketFaultQuelle | FLBracketFaultSlot | FLBracketFaultSpiel):
+        return FLOverviewFaultWiring(reason="wiring")
+    if isinstance(fault, FLBracketFaultOccupant):
+        return FLOverviewFaultDeparted(
+            reason=fault.reason, team_name=fault.team_name, austritt_type=fault.austritt_type, exited_since=fault.exited_since
+        )
+    if isinstance(fault, FLBracketFaultSpieltag):
+        return FLOverviewFaultFieldedTwice(reason=fault.reason, team_name=fault.team_name)
+    if isinstance(fault, FLBracketFaultBooking | FLBracketFaultClash):
+        return FLOverviewFaultBooking(reason=fault.reason, booking=fault.booking)
+
+    assert_never(fault)
+
+
 class FLOverviewBracketFaultRow(BaseModel):
     """One derived fault of the season's bracket or bookings, on the fixture it names."""
 
     kind: Literal["bracket_fault"]
     spiel: FLSpielJoinedAdmin
-    fault: FLBracketFault
+    fault: FLOverviewFault
 
 
 class FLOverviewBewerbungRow(BaseModel):
@@ -442,7 +516,7 @@ def overview_of(
         if is_open(state):
             rows.append(FLOverviewSpielberichtRow(kind="spielbericht_open", spiel=by_id[row["spiel_id"]], state=state))
 
-    rows.extend(FLOverviewBracketFaultRow(kind="bracket_fault", spiel=by_id[fault.spiel_id], fault=fault) for fault in faults)
+    rows.extend(FLOverviewBracketFaultRow(kind="bracket_fault", spiel=by_id[fault.spiel_id], fault=fault_line(fault)) for fault in faults)
 
     for bewerbung in read[BEWERBUNGEN_AS]:
         picked = bewerbung[PICKED_TEAM_AS]

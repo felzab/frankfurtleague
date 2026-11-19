@@ -23,7 +23,7 @@ import { ZusageDialog } from "./ZusageDialog";
 
 import type { Copy, Words } from "@/core/copy";
 import type {
-  FLBracketFault,
+  FLOverviewFault,
   FLOverviewParty,
   FLOverviewRow,
   FLSpielJoinedAdmin,
@@ -75,21 +75,13 @@ const slotOf = (date: string | null, time: string | null) => ({ day: dayOf(date)
 const BOOKED = { spielort: COPY.admin.spielort.object, schiedsrichter: COPY.shared.schiedsrichter } as const;
 
 /** A fault of the bracket or of the fixture's bookings, in one line. */
-function faultLine(fault: FLBracketFault): Copy {
+function faultLine(fault: FLOverviewFault): Copy {
   const words = WORDS.fault;
   switch (fault.reason) {
     case "gruppe_too_small":
     case "tie_unresolved":
       return words[fault.reason](fault.gruppe, fault.platz);
-    case "gruppe_not_run":
-    case "seed_past_the_opening_round":
-    case "spiel_missing":
-    case "reference_cycle":
-    case "gruppenphase_feeder":
-    case "feeder_not_played_first":
-    case "same_team":
-    case "gruppenphase_spiel_wired":
-    case "source_feeds_another_spiel":
+    case "wiring":
       return words.wiring;
     case "departed_occupant":
       return words.departed_occupant(
