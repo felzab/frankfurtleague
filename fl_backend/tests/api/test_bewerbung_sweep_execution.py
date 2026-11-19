@@ -1,7 +1,7 @@
 import logging
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from bson import ObjectId
@@ -35,7 +35,7 @@ from tests.documents import (
     saison_team_document,
     team_document,
 )
-from tests.isolation import refused_code
+from tests.isolation import InterleavedCollection, refused_code
 from tests.outbox import MAIL_NOW, drained
 from tests.passes import refuse_writes_breaking
 from tests.worker import worker_database
@@ -466,6 +466,37 @@ class TestTheFourteenDayClock:
             return await stored(database, DELETE_OID), await owed(database, "deletion_notice")
 
         assert await on_a_league(mongo_replica_set_url, body) == (None, [])
+
+    async def test_an_application_confirmed_after_the_pass_read_it_stays(self, mongo_replica_set_url: str):
+        """The pass reads its applications before any application's own transaction, so it judges each again there.
+
+        Read as lapsed and erased all the same, an application whose every seat confirmed in the last moment is gone.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            async def confirm_in_between() -> None:
+                await confirm_every_seat(database, DELETE_OID)
+
+            # On a running season the clock's own transaction is the first to read one application: the confirmation
+            # commits after the clock's read of its applications and before that transaction's snapshot.
+            applications = InterleavedCollection(database[Collection.BEWERBUNGEN], confirm_in_between, before="find_one")
+            await sweep_saison(
+                saison_id=SAISON_ID,
+                bewerbungen_collection=cast(Any, applications),
+                saisons_collection=database[Collection.SAISONS],
+                teams_collection=database[Collection.TEAMS],
+                outbox_collection=database[Collection.OUTBOX],
+                db=client,
+                today=TODAY,
+                germany_now=MAIL_NOW,
+            )
+
+            return await stored(database, DELETE_OID), await owed(database, "deletion_notice")
+
+        document, notices = await on_a_league(mongo_replica_set_url, body)
+
+        assert document is not None
+        assert notices == []
 
 
 class TestAnApplicationWhoseNoticeCannotArrive:

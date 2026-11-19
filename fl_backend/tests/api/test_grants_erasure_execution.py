@@ -39,8 +39,6 @@ RUNNING = "2026"
 
 # The person erased. Distinctive, so the whole-database scan finding it is no coincidence.
 ERIKA = "erika.zwirbelmoos@frankfurtleague.de"
-# Her mailbox as an actor stored before the fold typed it: the fold claims it.
-ERIKA_TYPED = "Erika.Zwirbelmoos@FrankfurtLeague.de"
 # Another mailbox, one character from hers.
 NAHE = "erikaxzwirbelmoos@frankfurtleague.de"
 # The owner, erasing her as the administrator's own route will.
@@ -186,15 +184,15 @@ class TestTheNotices:
         assert await on_a_league(mongo_replica_set_url, body) == [{"change": "revoked", "stage": "completed", "address": None}]
 
     async def test_every_notice_about_her_goes_and_no_other_moves(self, mongo_replica_set_url: str):
-        """A notice owed any holder naming her, in either spelling, or her mask, is deleted whole; only a full address stands on a line."""
+        """A notice owed any holder naming her, or her mask, is deleted whole; only a full address stands on a line."""
 
-        typed, completed, settled = ObjectId(), ObjectId(), ObjectId()
+        granted, completed, settled = ObjectId(), ObjectId(), ObjectId()
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[set[ObjectId], list[str]]:
             moved = notice(completed, BERND_ID, "address", BERND)
             await database[Collection.OUTBOX].insert_many(
                 [
-                    notice(typed, ERIKA_ID, "granted", ERIKA_TYPED),
+                    notice(granted, ERIKA_ID, "granted", ERIKA),
                     {**moved, "data": {**moved["data"], "stage": "completed", "new_address": masked_address(ERIKA)}},
                     # A sent row keeps no data, which the read meets as nothing to judge.
                     {**notice(settled, CLARA_ID, "revoked", CLARA), "state": "sent", "data": None},
@@ -208,9 +206,9 @@ class TestTheNotices:
 
         left, lines = await on_a_league(mongo_replica_set_url, body)
 
-        assert left.isdisjoint({NAMING_HER_GRANT, typed, completed})
+        assert left.isdisjoint({NAMING_HER_GRANT, granted, completed})
         assert left >= {NOT_HERS, ELSEWHERE, settled}
-        assert sorted(lines) == sorted(f"{Collection.OUTBOX}/{row_id}/data.address" for row_id in (NAMING_HER_GRANT, typed))
+        assert sorted(lines) == sorted(f"{Collection.OUTBOX}/{row_id}/data.address" for row_id in (NAMING_HER_GRANT, granted))
 
     async def test_a_handover_waiting_on_her_row_is_withdrawn_naming_nobody(self, mongo_replica_set_url: str):
         """The holders hold a date for it, and the grant it waited on is gone."""

@@ -63,6 +63,7 @@ from tests.spielbestaetigung_corpus import (
     a_spiel,
     address,
     booked,
+    clock_of,
     handed_out,
     junction,
     kontakte,
@@ -1347,6 +1348,64 @@ class TestASaveLandingInsideAStepLeavesNoMailAboutTheSlotTheFixtureLeft:
             (LATER, NEXT_WEEK),
             (LATER, NEXT_WEEK),
         ]
+
+    async def test_the_mint(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            async def move_on() -> None:
+                await move(database, client, SPIEL, date=LATER)
+
+            # A fresh league: the close reads no row and so no fixture, the mint's read of the window is the first, and the
+            # read inside the fixture's own transaction the second.
+            interleaved = ThenTheRivalAfterTheNthJoinedRead(database[Collection.SPIELE], move_on, nth=2)
+            return await a_pass_through(database, client, spiele=cast(Any, interleaved)), await rows(database)
+
+        passed, stored = await on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK, schiedsrichter=None)])
+
+        assert [request.ansetzung.date for request in passed.requests] == [LATER, LATER]
+        assert [row["ansetzung"]["date"] for row in stored] == [LATER, LATER]
+
+    async def test_the_reminder(self, mongo_replica_set_url: str):
+        """A reminder of a slot the fixture left asks the club to confirm a match nobody plays then."""
+
+        later = days_after(day=FORTNIGHT, days=1)
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await sweep(database, client)
+
+            async def move_on() -> None:
+                await move(database, client, SPIEL, date=later)
+
+            # The close's read judging its rows and the mint's come first, the reminder's third, and the read inside its
+            # first row's own transaction the fourth.
+            interleaved = ThenTheRivalAfterTheNthJoinedRead(database[Collection.SPIELE], move_on, nth=4)
+            answer = await a_pass(database, client, today=REMINDER, spiele=cast(Any, interleaved))
+            return await handed_out(database, client, answer, now=clock_of(REMINDER)), await rows(database), interleaved.passes
+
+        passed, stored, reads = await on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, FORTNIGHT, schiedsrichter=None)])
+
+        # The premise: the move landed in the first row's transaction, whose read ran again after the conflict, before the
+        # second row's and the line-up step's. Landed outside it, nothing runs again and the pass reads six.
+        assert reads == 7
+        assert passed.requests == []
+        assert passed.reminders == []
+        assert [row["reminded_at"] for row in stored] == [None, None]
+
+    async def test_the_lineup_reminder(self, mongo_replica_set_url: str):
+        """Sent, it asks for a line-up by a mark the fixture left, and its keys then hold back the one the new day owes."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            async def move_on() -> None:
+                # Fifty-three and a half hours out, before the window.
+                await move(database, client, SPIEL, date="2126-04-17")
+
+            # The line-up step alone reads the line-ups, after its read of the fixtures.
+            interleaved = ThenTheRivalAfterTheFirstSessionRead(database[Collection.AUFSTELLUNGEN], move_on)
+            answer = await a_pass(database, client, today=LINEUP_TODAY, now=LINEUP_NOW, aufstellungen=cast(Any, interleaved))
+            return await handed_out(database, client, answer, now=LINEUP_NOW)
+
+        reminded = await on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, "2126-04-16", schiedsrichter=None)])
+
+        assert reminded.aufstellungen == []
 
 
 class TestAPassLandingInsideASaveLeavesItsFormSaving:

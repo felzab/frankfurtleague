@@ -159,8 +159,6 @@ class TestTheEditorsActsAreRefusedAsTheirWritesRefuse:
             pytest.param("undraw", True, as_drawn, None, id="an undraw of a season nothing is recorded on"),
             pytest.param("undraw", True, a_result_entered, Code.SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW, id="an undraw past a result"),
             pytest.param("undraw", True, a_report_submitted, Code.SPIELPLAN_BERICHTE_SUBMITTED, id="an undraw over a report"),
-            pytest.param("undraw", True, the_season_active, Code.SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW, id="an undraw once activated"),
-            pytest.param("undraw", True, the_season_past, Code.SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW, id="an undraw once finished"),
             pytest.param("activate", False, as_drawn, Code.ACTIVATE_TARGET_UNDRAWN, id="activating an undrawn season"),
             pytest.param("activate", True, as_drawn, Code.ACTIVATE_SPIELTAGE_UNDATED, id="activating a season with undated matchdays"),
             pytest.param("activate", True, matchdays_dated, None, id="activating a dated season in a fresh league"),

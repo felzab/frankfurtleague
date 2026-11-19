@@ -179,7 +179,7 @@ def counted(saison_id: str, spiel_nr: int, sides: tuple[ObjectId, ObjectId], tor
 
 
 @pytest.mark.db
-async def test_the_figures_count_the_seasons_the_public_reads_and_the_clubs_their_teams_pages_list(mongo_replica_set_url: str):
+async def test_the_figures_count_the_seasons_the_public_reads_and_the_teams_their_pages_list(mongo_replica_set_url: str):
     """Every figure an over-count or an under-count would leave plausible on the landing, so each is asked by value.
 
     The planned season's result and club stay out; Bea, gone from the league, still counts for the finished season it

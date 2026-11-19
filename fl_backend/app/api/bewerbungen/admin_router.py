@@ -326,7 +326,6 @@ async def accept_bewerbung(
         )
         await refuse_a_taken_colour(
             saison_teams_collection=saison_teams_collection,
-            saisons_collection=saisons_collection,
             saison_id=saison_id,
             trikot_farbe=acceptance_data.trikot_farbe,
             own_id=None,

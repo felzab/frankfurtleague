@@ -15,7 +15,7 @@ from pymongo import AsyncMongoClient
 from app.core.collections import Collection
 from app.core.config import INTERNAL_API_KEY_LENGTH, MONGODB_URI_FILE, SECRET_FILES
 from app.core.constraints import SUPPORT_INDEXES, TTL_INDEXES, UNIQUE_INDEXES
-from app.core.db import NO_SERVER, UNREACHABLE, new_client
+from app.core.db import NO_SERVER, new_client
 from app.main import BOOT_REFUSED
 from tests.boot import SECRETS_FOLDER, Boot, Withheld, booted, names, serving
 from tests.worker import worker_database
@@ -67,13 +67,17 @@ STANDING_IN = Withheld(
     }
 )
 
-# The admin key holding the base key's value, every key valid alone.
-SHARED = Withheld({**KEYS, "internal_api_key_admin": KEYS["internal_api_key_base"]})
+# Each pair of tiers holding one key, every key valid alone: a later key holding an earlier one's value.
+SHARED = {
+    "admin_holds_base": Withheld({**KEYS, "internal_api_key_admin": KEYS["internal_api_key_base"]}),
+    "system_holds_base": Withheld({**KEYS, "internal_api_key_system": KEYS["internal_api_key_base"]}),
+    "admin_holds_system": Withheld({**KEYS, "internal_api_key_admin": KEYS["internal_api_key_system"]}),
+}
 
-# TEST-NET-1 (RFC 5737), which no host answers, on a port no `mongod` this repository starts listens on: the ping fails
-# for the one reason its case is about wherever it runs, after the driver's own server selection.
-UNREACHABLE_HOST = "192.0.2.1"
-UNREACHABLE_URI = Withheld({MONGODB_URI_FILE: f"mongodb://{UNREACHABLE_HOST}:27018"})
+# Under `.invalid` (RFC 2606), which no resolver answers: the driver's lookup of the service record fails as the client
+# is built, and its message quotes the host, without the wait for a server selection.
+UNKNOWN_HOST = "made-up-host-7.invalid"
+UNKNOWN_HOST_URI = Withheld({MONGODB_URI_FILE: f"mongodb+srv://{UNKNOWN_HOST}"})
 
 # A pasted key's line keeping the dotenv shape, which makes its text the name the settings refuse as undeclared. Lower
 # case, as the settings report the name, so a refusal naming it is a leak this finds.
@@ -88,8 +92,8 @@ BOOTS = {
     "stale": (Withheld({MONGODB_URI_FILE: NO_SERVER_URI, **KEYS}), Withheld({**VARIABLES, **STALE})),
     "missing": ({}, Withheld({**VARIABLES, **STANDING_IN})),
     "misspelled": (Withheld({MONGODB_URI_FILE: NO_SERVER_URI, **KEYS}), {"DB_BASE_NAMES": VARIABLES["DB_BASE_NAME"]}),
-    "unreachable": (Withheld({**UNREACHABLE_URI, **KEYS}), VARIABLES),
-    "shared": (Withheld({MONGODB_URI_FILE: NO_SERVER_URI, **SHARED}), VARIABLES),
+    "unknown_host": (Withheld({**UNKNOWN_HOST_URI, **KEYS}), VARIABLES),
+    **{pair: (Withheld({MONGODB_URI_FILE: NO_SERVER_URI, **keys}), VARIABLES) for pair, keys in SHARED.items()},
     "undeclared": (Withheld({MONGODB_URI_FILE: NO_SERVER_URI, **KEYS}), VARIABLES),
     "undecodable": (
         Withheld({MONGODB_URI_FILE: NO_SERVER_URI, **KEYS, "internal_api_key_base": f"{UNDECODABLE['internal_api_key_base']}\udcff"}),
@@ -105,7 +109,7 @@ BOOTS = {
 
 @pytest.fixture(scope="module")
 async def boots(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Boot]:
-    """Every case's boot at once, each from a folder of its own, so the others end inside the unreachable server's wait."""
+    """Every case's boot at once, each from a folder of its own, so the file waits about as long as its slowest boot."""
 
     folders = {name: tmp_path_factory.mktemp(name) for name in BOOTS}
     # The package's dotenv file, which the settings read from the folder a boot starts in.
@@ -180,14 +184,22 @@ class TestASecretFile:
 
 
 class TestTwoKeysHoldingOneValue:
-    def test_refuse_the_boot_naming_the_later_file(self, boots: dict[str, Boot]):
-        """Two tiers holding one key are one tier, so a holder of the base key would reach every signed-in route."""
+    @pytest.mark.parametrize(
+        ("pair", "later"),
+        [
+            ("admin_holds_base", "internal_api_key_admin"),
+            ("system_holds_base", "internal_api_key_system"),
+            ("admin_holds_system", "internal_api_key_admin"),
+        ],
+    )
+    def test_refuse_the_boot_naming_the_later_file(self, boots: dict[str, Boot], pair: str, later: str):
+        """Two tiers holding one key are one tier, so a holder of the lower key would reach the other's routes."""
 
-        boot = boots["shared"]
+        boot = boots[pair]
 
         assert (boot.code, boot.events) == (BOOT_REFUSED, ["system.config_refused"])
-        assert names(boot.record("system.config_refused")["refusal"], "Invalid secret files") == {"internal_api_key_admin"}
-        assert boot.leaked(SHARED) == []
+        assert names(boot.record("system.config_refused")["refusal"], "Invalid secret files") == {later}
+        assert boot.leaked(SHARED[pair]) == []
 
 
 class TestAMisspelledVariable:
@@ -203,15 +215,15 @@ class TestAMisspelledVariable:
         assert names(boot.record("system.config_refused")["refusal"], "Invalid environment variables") == {"DB_BASE_NAME"}
 
 
-class TestAServerThatCannotBeReached:
+class TestAServerThatCannotBeFound:
     def test_is_named_by_its_file_and_never_by_its_host(self, boots: dict[str, Boot]):
         """The driver's message carries the host it resolved out of the value, which is the half an operator must not be handed."""
 
-        boot = boots["unreachable"]
+        boot = boots["unknown_host"]
 
-        assert (boot.code, boot.events) == (STARTUP_FAILED, [UNREACHABLE.event])
-        assert boot.record(UNREACHABLE.event)["file"] == MONGODB_URI_FILE
-        assert boot.leaked(Withheld({"host": UNREACHABLE_HOST, **UNREACHABLE_URI})) == []
+        assert (boot.code, boot.events) == (STARTUP_FAILED, [NO_SERVER.event])
+        assert boot.record(NO_SERVER.event)["file"] == MONGODB_URI_FILE
+        assert boot.leaked(Withheld({"host": UNKNOWN_HOST, **UNKNOWN_HOST_URI})) == []
 
 
 @pytest.mark.db

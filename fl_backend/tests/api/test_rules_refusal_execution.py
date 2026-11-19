@@ -219,7 +219,8 @@ class TestTheStartIsFixedOnceASpielHasTakenPlace:
             pytest.param({"ergebnis": "1:0"}, id="a result"),
             # A save keeps one side's goals while the other's are blank, and stores no result until both are in: read by
             # `saisons_with_a_spiel_taken_place` through `TAKEN_PLACE_FIELDS`, whose projection drops what it leaves out.
-            pytest.param({"team1": {"team_id": TEAM_OID, "tore": 1}}, id="one side's goals"),
+            pytest.param({"team1": {"team_id": TEAM_OID, "tore": 1}}, id="the home side's goals"),
+            pytest.param({"team2": {"team_id": TEAM_OID, "tore": 1}}, id="the away side's goals"),
         ],
     )
     async def test_a_moved_start_on_a_played_season_is_refused(self, mongo_replica_set_url: str, taken_place: dict[str, Any]):
