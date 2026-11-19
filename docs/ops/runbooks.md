@@ -959,8 +959,8 @@ failure, with the file, line and function it was raised in. The rest of that clo
 the named one stays due: every later pass names it again until its record is repaired. **The
 clocks that only delete, the applications' declined and accepted ones and the registrations' three,
 and the contact blocks' clearing, are one write each**, as no row of theirs can fail alone: their
-line names the season, and every row of that clock stays due. **An application the fourteen-day clock passes over is owed no notice**: the notice is owed in the erasure's own
-write, so the application stands past its fourteen days, nobody told, until the erasure lands or its season is
+line names the season, and every row of that clock stays due. **An application the confirmation deadline's clock passes over is owed no notice**: the notice is owed in the erasure's own
+write, so the application stands past its deadline, nobody told, until the erasure lands or its season is
 `past`. Every reminder and deletion notice the sweep owes leaves through the Postausgang's drain, whose own lines
 report a mail that did not go. **The confirmation strip clock
 names the season**, as it takes an ended season's fixture confirmations whole: its line says what of

@@ -394,7 +394,7 @@ def _is_decided(status: Any) -> bool:
 def seat_deadline_of(*, confirmations: Mapping[str, Any] | None, seat: str) -> Any:
     """The deadline the seat's own link carries: each seat is minted on its own day, so the record holds none.
 
-    An erased seat holds none, which `deadline_passed` reads as not passed: the fourteen-day clock and the lapsed-seat
+    An erased seat holds none, which `deadline_passed` reads as not passed: the confirmation deadline's clock and the lapsed-seat
     clock both rely on it. A season row's link ends on its deadline alone, both in its press and in the editor.
     """
 
@@ -1123,7 +1123,7 @@ def _lapsed_seat_term(*, seat: str, today: str) -> Mapping[str, Any]:
 
 
 def build_deletion_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
-    """Every application the fourteen-day clock takes: undecided, with an outstanding seat past its own deadline.
+    """Every application the confirmation deadline's clock takes: undecided, with an outstanding seat past its own deadline.
 
     The clock's one statement, in the query, so a confirmed application never fills the read ahead of a due one.
 

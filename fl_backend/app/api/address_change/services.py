@@ -46,8 +46,8 @@ def valid_until_from(now: datetime) -> datetime:
 def wait_tier(grant: Mapping[str, Any] | None) -> FLAdminTier | None:
     """The tier whose wait a change of this grant's address serves, a waiting row's included.
 
-    A row a handover names serves the owner's: its 24 hours would end the wait on the role's mailbox days after the handover
-    made it the owner's, a wait that exists because nobody can take that role back.
+    A row a handover names serves the owner's: its own tier's shorter wait would end days early on a mailbox the handover
+    made the owner's, and the owner's wait exists because nobody can take that role back.
     """
 
     if grant is None:
