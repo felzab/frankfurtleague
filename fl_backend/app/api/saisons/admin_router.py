@@ -272,15 +272,14 @@ async def get_saison_admin(
     )
     recorded_spiele = sum(1 for spiel in recorded_rows if holds_a_recorded_fact(spiel))
     # The rows a first draw refuses on, and the undraw and the replace remove: the season is drawn exactly while it holds
-    # one, whatever its watermark says, so the editor offers the draw's acts where their writes take them.
-    watermark = saison_raw.get("spielplan")
+    # one, so the editor offers the draw's acts where their writes take them. The draw that wrote them dated the season.
     spielplan = (
         None
-        if count_spieltage == 0 and not recorded_rows
+        if not recorded_rows
         else FLSaisonDrawn(
             spieltage=count_spieltage,
             spiele=len(recorded_rows),
-            generated_at=None if watermark is None else FLSaisonSpielplan.model_validate(watermark).generated_at,
+            generated_at=FLSaisonSpielplan.model_validate(saison_raw["spielplan"]).generated_at,
         )
     )
 
@@ -955,8 +954,7 @@ async def delete_spielplan(
         # A season id naming nothing raises the 404 here.
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"], session=session)
 
-        # The stored rows, never the watermark: a season drawn outside this API carries none, and its
-        # fixtures are as much a record as one this endpoint wrote.
+        # The stored rows, never the watermark: they are what the window weighs and the undraw removes.
         stored_spiele = await _pull_recorded_fact_rows(spiele_collection=spiele_collection, saison_id=saison_id, session=session)
 
         # A report written since this snapshot anchors the season, which the undraw anchors below, so the two conflict and
@@ -971,8 +969,8 @@ async def delete_spielplan(
             )
         )
 
-        # The season every report write anchors, so the two conflict: the `$unset` below changes nothing on a season
-        # holding no watermark, and the report's insert meets no delete here.
+        # The season every report write anchors, so the two conflict on it before the watermark's `$unset` below: the
+        # report's insert meets no delete here.
         await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=saison_id, session=session)
 
         # Fixtures first, the reverse of the draw's write order. Confirmations, reports and line-ups go first of

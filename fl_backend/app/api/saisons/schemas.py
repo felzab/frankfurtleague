@@ -399,21 +399,18 @@ class FLSaisonActRefusals(BaseReadModel):
 
 
 class FLSaisonDrawn(BaseReadModel):
-    """A season's Spielplan as every write judges it: the matchdays and fixtures it holds, counted per read, and the draw's day.
-
-    `generated_at` is `null` on a season whose rows no draw dated.
-    """
+    """A season's Spielplan as every write judges it: the matchdays and fixtures it holds, counted per read, and the draw's day."""
 
     spieltage: int = Field(ge=0)
     spiele: int = Field(ge=0)
-    generated_at: CustomDateString | None
+    generated_at: CustomDateString
 
 
 class FLSaisonAdminResponse(BaseReadModel):
     """What the season editor shows, in one read: its season, clubs, shapes and matchdays, its acts' states and its registration links.
 
     `shapes` is every shape the season's other rules admit, which its rules form offers;
-    `spielplan` is the Spielplan the season holds, `null` while it holds no matchday and no fixture; `invitations`
+    `spielplan` is the Spielplan the season holds, `null` while it holds no fixture; `invitations`
     holds one row per club, in `teams`' order.
     """
 

@@ -182,7 +182,10 @@ async def _seed(database: AsyncDatabase, phase: Phase) -> None:
     await database[Collection.GRANTS].insert_many(grants_for_the_suite())
     await database[Collection.SAISONS].insert_many(
         [
-            documents.saison_document(SAISON, "active", rules=documents.rules_document(**RULES), start_date=phase.start_date),
+            # Dated by its draw, as every season holding fixtures is.
+            documents.saison_document(
+                SAISON, "active", rules=documents.rules_document(**RULES), start_date=phase.start_date, spielplan={"generated_at": "2126-01-10"}
+            ),
             documents.saison_document(NEXT_SAISON, "future"),
         ]
     )

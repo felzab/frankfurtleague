@@ -836,14 +836,11 @@ class TestAFirstReportCrossingADrawsRemovalMeetsItOnTheSeason:
         assert orphans == [], f"a report outlives the replace: the report {report!r}, the replace {replace!r}"
         assert COMMITTED in (report, replace), "neither side landed"
 
-    async def test_an_undraw_of_a_season_holding_no_watermark_landing_inside_a_report_never_leaves_it_orphaned(
-        self, mongo_replica_set_url: str
-    ):
-        """A season drawn outside this API holds no watermark, so the undraw's `$unset` changes nothing and only its anchor meets the report."""
+    async def test_an_undraw_landing_inside_a_report_never_leaves_it_orphaned(self, mongo_replica_set_url: str):
+        """The undraw's own anchor meets the report on the season, ahead of its watermark's `$unset`."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_draw(database, client)
-            await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$unset": {"spielplan": ""}})
             return await a_report_crossed_by(database, client, lambda saisons: call_undraw(database, client, saisons_collection=saisons))
 
         (report, undraw), orphans, conflicts = await on_a_seeded_saison(mongo_replica_set_url, body)
