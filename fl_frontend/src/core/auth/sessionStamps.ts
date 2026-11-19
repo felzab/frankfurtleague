@@ -3,17 +3,18 @@ import "server-only";
 import { now } from "../clock";
 import { PASSKEY_TOUCH_SECONDS, PERSON_LIFETIME } from "../sessionLifetimes";
 
+import type { FLAuthFactor } from "../generated/client/types";
 import type { Lifetime } from "../sessionLifetimes";
 
 // The library's `freshAge`, which it holds both halves of a passkey enrolment to, measured from `createdAt`: a passkey
 // outlives the session adding it, so a session borrowed for longer than this adds none.
 export const FRESH_SIGN_IN_SECONDS = 5 * 60;
 
-/** What made a session, stamped on its row. */
-export const PASSKEY_FACTOR = "passkey";
+/** What made a session, stamped on its row, each a factor the backend publishes. */
+export const PASSKEY_FACTOR = "passkey" satisfies FLAuthFactor;
 
 /** A code mailed to the address: whoever holds the mailbox holds this factor. */
-export const CODE_FACTOR = "code";
+export const CODE_FACTOR = "code" satisfies FLAuthFactor;
 
 export type AuthFactor = typeof PASSKEY_FACTOR | typeof CODE_FACTOR;
 

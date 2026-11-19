@@ -56,6 +56,7 @@ from app.core.exception_handlers import register_exception_handlers
 from app.core.logging import fl_logger
 from app.core.middlewares import TracedApp
 from app.core.recording import FLActorRole, FLErasedActorMarker
+from app.core.security import FLAuthFactor
 from app.shared.schemas.bounds import (
     ADDRESS_CHANGE_BOUNDS,
     CONSENT_BOUNDS,
@@ -149,6 +150,7 @@ MIRRORED_CONSTANTS: Final = (
     FLActionLogPageSize,
     FLActorRole,
     FLAufstellungStartersMax,
+    FLAuthFactor,
     FLBanDurationSaisons,
     FLErasedActorMarker,
     FLTeamShorthandLength,

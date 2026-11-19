@@ -25,7 +25,7 @@ from app.core.security import (
     AUTH_FACTOR_HEADER,
     AUTH_TIME_HEADER,
     PASSKEY_FACTOR,
-    Factor,
+    FLAuthFactor,
     bind_actor,
     get_actor_email,
     get_person_identifier,
@@ -54,7 +54,7 @@ def answer(response: Any) -> tuple[int, str]:
     return response.status_code, response.json()["error_code"]
 
 
-def signed_in_before(age_s: int, *, email: str = ACTOR, factor: Factor = PASSKEY_FACTOR) -> dict[str, str]:
+def signed_in_before(age_s: int, *, email: str = ACTOR, factor: FLAuthFactor = PASSKEY_FACTOR) -> dict[str, str]:
     return {**ADMIN_KEY, **actor_headers(email, signed_in_before_s=age_s, factor=factor)}
 
 
@@ -164,7 +164,7 @@ MIXED_CASE = "Anna@BeispielSchule.EXAMPLE.ORG"
 PERSON_READ_PATH = "/api/spieler/self/saisons"
 
 
-def as_person(email: str = KNOWN_IDENTIFIER, *, age_s: int = SESSION_AGE_S, factor: Factor = "code") -> dict[str, str]:
+def as_person(email: str = KNOWN_IDENTIFIER, *, age_s: int = SESSION_AGE_S, factor: FLAuthFactor = "code") -> dict[str, str]:
     return {**ADMIN_KEY, **actor_headers(email, signed_in_before_s=age_s, factor=factor)}
 
 

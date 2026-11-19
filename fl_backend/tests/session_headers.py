@@ -14,7 +14,7 @@ from app.core.security import (
     AUTH_FACTOR_HEADER,
     AUTH_TIME_HEADER,
     PASSKEY_FACTOR,
-    Factor,
+    FLAuthFactor,
     SessionActor,
     actor_header_value,
 )
@@ -27,22 +27,24 @@ SESSION_AGE_S: Final = 60
 SESSION_HEADERS: Final = (ACTOR_HEADER, AUTH_TIME_HEADER, AUTH_FACTOR_HEADER)
 
 
-def factor_of(lane: Lane) -> Factor:
+def factor_of(lane: Lane) -> FLAuthFactor:
     return PASSKEY_FACTOR if lane == "admin" else "code"
 
 
-def session_headers(email: str, *, auth_time: int, factor: Factor) -> dict[str, str]:
+def session_headers(email: str, *, auth_time: int, factor: FLAuthFactor) -> dict[str, str]:
     # Encoded as the frontend sends it, so an address beyond ASCII reaches the binder as one would in production.
     return {ACTOR_HEADER: actor_header_value(email), AUTH_TIME_HEADER: str(auth_time), AUTH_FACTOR_HEADER: factor}
 
 
-def actor_headers(email: str, *, lane: Lane = "admin", signed_in_before_s: int = SESSION_AGE_S, factor: Factor | None = None) -> dict[str, str]:
+def actor_headers(
+    email: str, *, lane: Lane = "admin", signed_in_before_s: int = SESSION_AGE_S, factor: FLAuthFactor | None = None
+) -> dict[str, str]:
     """The three headers of a session made `signed_in_before_s` ago, by `lane`'s factor unless `factor` names another."""
 
     return session_headers(email, auth_time=int(time.time()) - signed_in_before_s, factor=factor or factor_of(lane))
 
 
-def verified_actor(email: str, *, signed_in_before_s: int = SESSION_AGE_S, factor: Factor = PASSKEY_FACTOR) -> SessionActor:
+def verified_actor(email: str, *, signed_in_before_s: int = SESSION_AGE_S, factor: FLAuthFactor = PASSKEY_FACTOR) -> SessionActor:
     """An administrator's session as the binder reads it, for a handler called without a request."""
 
     return SessionActor(email=email, auth_time=int(time.time()) - signed_in_before_s, factor=factor)
@@ -62,13 +64,13 @@ class StampedHeaders(Mapping[str, str]):
         *,
         lane: Lane = "admin",
         signed_in_before_s: int = SESSION_AGE_S,
-        factor: Factor | None = None,
+        factor: FLAuthFactor | None = None,
     ) -> None:
         self.email = email
         self.base = dict(base or {})
         self.lane: Lane = lane
         self.signed_in_before_s = signed_in_before_s
-        self.factor: Factor | None = factor
+        self.factor: FLAuthFactor | None = factor
 
     def __getitem__(self, name: str) -> str:
         if name not in SESSION_HEADERS:

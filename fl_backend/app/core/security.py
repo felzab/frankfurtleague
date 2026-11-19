@@ -79,10 +79,11 @@ ACTOR_HEADER: Final = "X-FL-Actor"
 AUTH_TIME_HEADER: Final = "X-FL-Auth-Time"
 AUTH_FACTOR_HEADER: Final = "X-FL-Auth-Factor"
 
-# The two factors the frontend's sessions are made by.
-Factor = Literal["passkey", "code"]
-FACTORS: Final[tuple[Factor, ...]] = get_args(Factor)
-PASSKEY_FACTOR: Final = "passkey"
+# The two factors the frontend's sessions are made by. Published, since the frontend stamps each on its session rows,
+# so neither spelling moves on one side alone.
+type FLAuthFactor = Literal["passkey", "code"]
+FACTORS: Final[tuple[FLAuthFactor, ...]] = get_args(FLAuthFactor.__value__)
+PASSKEY_FACTOR: Final[FLAuthFactor] = "passkey"
 
 
 # The actor's own scheme on every 401 the session's facts earn, beside the tier key's `Bearer`.
@@ -95,7 +96,7 @@ class SessionActor:
     email: str
     # When the session was made, in whole seconds since the epoch.
     auth_time: int
-    factor: Factor
+    factor: FLAuthFactor
 
 
 # What ECMAScript's `encodeURIComponent` leaves unescaped beyond the letters, digits and `_.-~` `quote` always keeps.
