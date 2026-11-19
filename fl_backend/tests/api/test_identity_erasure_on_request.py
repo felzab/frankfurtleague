@@ -67,10 +67,6 @@ ANOTHER_ADMINISTRATOR = ADMINISTRATORS[3]
 
 REASON = "Mail vom 30.03.2026, Betreff: Bitte löscht alle meine Daten"
 
-
-# A grant typed in the person's capitals, which admits nobody and goes with their erasure.
-# Another such row, of an address nobody erases: no request matches it, so it stands.
-
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
@@ -410,33 +406,19 @@ def aside_the_grants_own_rows(held: Mapping[str, list[str]]) -> dict[str, list[s
 # --- Refused by the payload, which the route validates before any read.
 
 
-class TestTheReasonIsRefusedAtTheBox:
+def test_a_reason_of_spaces_alone_is_refused_at_its_box():
     """A refusal alone tells nothing: one refused for another field is refused too, so the location is asserted."""
 
-    @pytest.mark.parametrize(
-        "body",
-        [
-            pytest.param(erasure_of(reason="   "), id="spaces alone"),
-        ],
-    )
-    def test_the_erasure_is_refused_naming_it(self, body: dict[str, str]):
-        with pytest.raises(ValidationError) as raised:
-            FLErasurePayload.model_validate(body)
+    with pytest.raises(ValidationError) as raised:
+        FLErasurePayload.model_validate(erasure_of(reason="   "))
 
-        assert [error["loc"] for error in raised.value.errors()] == [("reason",)]
+    assert [error["loc"] for error in raised.value.errors()] == [("reason",)]
 
 
-class TestADomainIsRefusedBeyondAscii:
+def test_a_domain_beyond_ascii_is_refused_by_the_address_rule_at_its_box():
     """Every stored domain is ASCII, so a lookup typing one in Unicode would find nothing and say nothing is held."""
 
-    @pytest.mark.parametrize(
-        ("payload", "body"),
-        [
-            pytest.param(FLErasurePayload, erasure_of("anna@müller.example.org"), id="the erasure"),
-        ],
-    )
-    def test_the_address_rule_s_own_refusal_names_the_box(self, payload: type[FLErasureAddressPayload], body: dict[str, str]):
-        with pytest.raises(ValidationError) as raised:
-            payload.model_validate(body)
+    with pytest.raises(ValidationError) as raised:
+        FLErasurePayload.model_validate(erasure_of("anna@müller.example.org"))
 
-        assert [(error["loc"], error["type"]) for error in raised.value.errors()] == [(("email",), "email_not_accepted")]
+    assert [(error["loc"], error["type"]) for error in raised.value.errors()] == [(("email",), "email_not_accepted")]
