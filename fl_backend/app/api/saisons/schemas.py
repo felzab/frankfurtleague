@@ -222,22 +222,28 @@ class FLSaisonRecord(_SaisonStored, Anchored):
     spielplan: FLSaisonSpielplan | None = None
 
 
-class FLSaisonAdmin(FLSaison):
-    """The same season for the admin surfaces, with whether it has started and whether a fixture of it has taken place."""
+class _SaisonAdminStates(FLSaison):
+    # The two states the list's chip and the editor both read.
 
     # Derived per read by `has_started` off the stored `start_date`, the predicate every start lock reads, so a control
     # closed on it closes exactly what the endpoint refuses.
     begun: bool
-    # Derived per read by `has_taken_place` over every fixture of the season: true, the start date is fixed
-    # (`saison_start_taken_place`), so the field closes exactly where the edit refuses.
-    taken_place: bool
     # Derived per read by `decided_podium` over the season's Finale, the rule the landing reads its `decided` state by,
     # so the list, the editor and the landing say one word of one season.
     decided: bool
 
 
-class FLSaisonAdminListed(FLSaisonAdmin):
-    """One season as the admin list shows it: the editor's season and how many clubs and matches it holds."""
+class FLSaisonAdmin(_SaisonAdminStates):
+    """The season as its editor reads it, with whether it has started, whether a fixture of it has taken place and whether it is decided."""
+
+    # Derived per read by `has_taken_place` over every fixture of the season: true, the start date is fixed
+    # (`saison_start_taken_place`), so the field closes exactly where the edit refuses. The editor's alone, since the
+    # list offers no edit it would close.
+    taken_place: bool
+
+
+class FLSaisonAdminListed(_SaisonAdminStates):
+    """One season as the admin list shows it: whether it has started and is decided, and how many clubs and matches it holds."""
 
     # Counted per read off `saison_teams`, never stored: every row, a club that left included, since a team never leaves
     # a season and the season's Teams page lists it with its Austritt.

@@ -180,8 +180,7 @@ async def get_saisons_admin(
     saisons_raw = await pull_whole_from_db(collection=saisons_collection, db_filter={}, what="the seasons", sort_by=[("_id", 1)])
 
     saison_ids = [str(raw["_id"]) for raw in saisons_raw]
-    taken_place, finale_by_saison, teams_by_saison, spiele_by_saison = await concurrently(
-        saisons_with_a_spiel_taken_place(spiele_collection=spiele_collection, saison_ids=saison_ids, session=None),
+    finale_by_saison, teams_by_saison, spiele_by_saison = await concurrently(
         pull_finale_by_saison(spiele_collection=spiele_collection, saison_ids=saison_ids),
         count_teams_by_saison(saison_teams_collection=saison_teams_collection, saison_ids=saison_ids),
         count_spiele_by_saison(spiele_collection=spiele_collection, saison_ids=saison_ids),
@@ -192,7 +191,6 @@ async def get_saisons_admin(
         {
             **raw,
             "begun": has_started(start_date=str(raw["start_date"]), today=today),
-            "taken_place": raw["_id"] in taken_place,
             "decided": decided_podium(finale_by_saison.get(str(raw["_id"]), [])) is not None,
             "count_teams": teams_by_saison.get(str(raw["_id"]), 0),
             "count_spiele": spiele_by_saison.get(str(raw["_id"]), 0),
