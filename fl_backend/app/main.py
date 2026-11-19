@@ -222,8 +222,10 @@ def mount_api(app: FastAPI) -> None:
     publish_document(app)
 
 
-# The exit a settings refusal ends the boot with, apart from a fault's 1: the frontend's boot refusal
-# takes the same code, and `docker compose ps` shows it on the restarting container.
+# The exit a settings refusal ends the boot with, raised in place of the refusal, whose traceback uvicorn would print as
+# plain text beside the JSON lines. Uvicorn exits 3 for any start that fails, a lifespan's included, so the code says
+# only that the boot never served, and the `system.config_refused` line says why. The frontend's boot refusal takes
+# the same code.
 BOOT_REFUSED: Final = 3
 
 
