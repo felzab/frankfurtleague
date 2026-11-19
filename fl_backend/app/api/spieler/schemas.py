@@ -8,6 +8,7 @@ from app.shared.schemas.einwilligung import FLEinwilligungEvidenceSet, FLSpieler
 from app.shared.schemas.kontakt import CustomKontaktName, CustomStoredAddress
 from app.shared.schemas.literals import (
     FLEinwilligungScope,
+    FLSaisonStatus,
     FLSpielerPosition,
     FLSpielerStufe,
 )
@@ -186,6 +187,8 @@ class FLSpielerSaisonAdminResponse(BaseReadModel):
     allowed_stufen: list[FLSpielerStufe] = Field(min_length=1)
     # The roles another live row of the squad holds, which the save refuses.
     taken_rollen: list[FLSpielerRolle]
+    # Whether the season has finished, which fixes the squad row and leaves the person's own facts open.
+    saison_status: FLSaisonStatus
 
 
 class FLKaderRow(BaseReadModel):
