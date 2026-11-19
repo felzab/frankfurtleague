@@ -62,8 +62,10 @@ stand in [section 11](#11-open-and-owed-a-decision). Other documents link sectio
   pupil registers themselves. A referee is entered by an administrator, and a contact person by
   whoever submits their school's application or by an administrator on a team's season row. Each
   confirms their own entry through their own link and enters their own birthdate there. No
-  administrative payload carries a consent choice. The one write creating a player is a team's
-  admission of the pupil's own confirmed registration
+  administrative payload grants a consent choice; the one naming a choice, an administrator's entry
+  of a withdrawal asked for by mail, withholds alone
+  (`fl_backend/app/shared/schemas/einwilligung.py :: FLEinwilligungWithdrawalPayload`). The one
+  write creating a player is a team's admission of the pupil's own confirmed registration
   (`fl_backend/app/api/registrierungen/person_router.py :: admit`). There is no guardian workflow:
   the record names nobody else as its source
   (`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung`).
@@ -91,12 +93,16 @@ stand in [section 11](#11-open-and-owed-a-decision). Other documents link sectio
   label, and on a withdrawal the grant it ended (`fl_backend/app/shared/einwilligung_evidence.py`).
   The labels are `fl_frontend/src/core/consentWordings.ts :: CONSENT_WORDINGS`' keys, each frozen
   with its words. Only the person's own act grants a choice or stamps evidence under a label. An
-  administrator's entry of a withdrawal the person asked for by mail withholds alone, its evidence
-  marked `via` `mail` in a label's place, since the person read none of the league's words. One
-  paste, run with the deploy that first serves the current wordings, re-points every label stored
-  before it to its consent's current wording. A record stamped before that deploy therefore names
-  words its person may not have been shown, which is [section 11](#11-open-and-owed-a-decision)'s
-  first question. A label stamped since names the words its person saw.
+  administrator's entry of a withdrawal the person asked for by mail
+  (`fl_backend/app/api/account/services.py :: withdraw_by_mail`) marks its evidence `via` `mail` in
+  a label's place, since the person read none of the league's words. No page of the administration
+  calls it yet; until one does, a withdrawal by mail is answered as
+  [`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)
+  says. One paste, run with the deploy that first serves the current wordings, re-points every label
+  stored before it to its consent's current wording. A record stamped before that deploy therefore
+  names words its person may not have been shown, which is
+  [section 11](#11-open-and-owed-a-decision)'s first question. A label stamped since names the words
+  its person saw.
 - **Some refusals are taken by the code alone**, each before anything is written. Whether any meets
   Art. 22 is [section 11](#11-open-and-owed-a-decision)'s question. They are:
   - a birthdate outside a role's span;
@@ -208,9 +214,9 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
       joining it to the edge's line for that request, stored and never served
       (`fl_backend/app/core/recording.py :: record_act`);
     - in a privacy line, its act, the random id joining an act's lines, the request's `trace_id` and
-      record ids. An erasure's line adds its seats, a confirmed one with that slot's confirmation
+      record ids. An erasure's line adds its seats, a confirmed one with that seat's confirmation
       day, and each other field it took the person off, by row id and field name. A withdrawal's
-      line adds its choices, and a seat's withdrawal or objection the slots it took. No line holds
+      line adds its choices, and a seat's withdrawal or objection the seats it took. No line holds
       an address or a name (`fl_backend/app/core/journal.py :: privacy_line`).
   - Recipients: administrators.
 - **Mail** (`outbox`; the league's mailbox; WhatsApp).
@@ -314,7 +320,8 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   - their address wherever the action log names it, replaced by the marker naming nobody
     (`fl_backend/app/api/action_log/crud.py :: reattribute_administrator_in_session`);
   - every reason typed in a fixture answer from a seat they hold, found by team, season and seat
-    (`fl_backend/app/api/kontakte/crud.py :: remove_the_seats_reasons`), with their seats' links;
+    (`fl_backend/app/api/kontakte/crud.py :: remove_the_seats_reasons`), with their seats' links,
+    save an accepted application's (below);
   - every mail owed or sent to them but the deletion link that asked for the erasure and the notice
     telling them of it, and every access notice still owed about them
     (`fl_backend/app/api/identity/crud.py :: erase_the_mails_in_session`);
@@ -342,6 +349,10 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     (section 6);
   - a reason they typed in a fixture answer from a seat they have since left, the answer recording
     the seat and never its holder, until that season's contact seats are cleared (section 6);
+  - the link of each seat they confirmed on an accepted application, with the day they confirmed it,
+    naming no name or address: reopened, it shows that day alone
+    (`fl_backend/app/api/bewerbungen/services.py :: compose_acceptance_seats`, `:: seat_view`),
+    until the application goes once a later season has ended (section 6);
   - free text typed about others and keyed on no address. Only a name search could find it, and a
     name search would take a namesake's text with it. It covers:
     - a fixture's note;
