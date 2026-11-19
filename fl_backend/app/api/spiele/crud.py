@@ -804,7 +804,7 @@ async def preview_spiel_save(
     told = parties_mailed(told, kontakte={row["team_id"]: row.get("kontakte") for row in seats})
     names = await pull_party_names(
         parties=told,
-        club_names={team_id: member.name for team_id, member in judged.membership.items()},
+        team_names={team_id: member.name for team_id, member in judged.membership.items()},
         schiedsrichter_collection=collections.schiedsrichter,
         session=session,
     )

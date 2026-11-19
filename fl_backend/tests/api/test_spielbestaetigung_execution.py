@@ -316,7 +316,7 @@ async def inside_a_fixture_save(database: AsyncDatabase, client: AsyncMongoClien
     return outcome, (stored["note"], stored["version"] - loaded.get("version", 0))
 
 
-class TestAClubsAnswerAndAFixtureSaveCrossing:
+class TestATeamsAnswerAndAFixtureSaveCrossing:
     """The answer anchors the fixture it judged, so a fixture's save landing either side of it conflicts with it."""
 
     async def test_a_move_inside_the_answer_refuses_it_and_writes_nothing(self, mongo_replica_set_url: str):
@@ -1068,7 +1068,7 @@ class TestTheDryRunNamesWhomTheSaveHasThePassMail:
         assert sorted((party.model_dump() for party in recipients), key=str) == sorted([TEAM1_PARTY, TEAM2_PARTY, OTTOS], key=str)
         assert time == TIME, "the dry run wrote the fixture"
 
-    async def test_a_club_holding_no_confirmed_seat_is_not_named(self, mongo_replica_set_url: str):
+    async def test_a_team_holding_no_confirmed_seat_is_not_named(self, mongo_replica_set_url: str):
         """The pass mails a club through its confirmed seats alone: named here, the question would promise a mail never sent."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

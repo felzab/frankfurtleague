@@ -826,7 +826,7 @@ class TestASideReFieldedNamesThePairingEachPartyWasAskedAbout:
         assert [(einteilung.address, einteilung.moved_from) for einteilung in second.einteilungen] == [(REFEREE_EMAIL, left)]
 
 
-class TestASideReFieldedWithADepartedClubIsToldAtOnce:
+class TestASideReFieldedWithADepartedTeamIsToldAtOnce:
     """No request can ask about a pairing fielding a club out by the fixture's day, so the close tells of it at once.
 
     Judged by its rows' own clubs alone, the close would leave the change to the mint, which asks nothing about such a

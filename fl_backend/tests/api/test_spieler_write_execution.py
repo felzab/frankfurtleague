@@ -357,7 +357,7 @@ class TestReactivatingIntoASeasonTheTeamHasLeft:
         assert stored["inactive_since"] == "2026-03-01"
 
 
-class TestAFinishedSeasonsSquadRow:
+class TestAFinishedSeasonsKaderRow:
     """`saison_past` on every write moving a finished season's squad row, while the person's own facts stay open."""
 
     async def seated_in_a_finished_season(self, database: AsyncDatabase, *, inactive_since: str | None = None) -> ObjectId:

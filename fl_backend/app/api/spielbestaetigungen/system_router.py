@@ -67,9 +67,9 @@ from app.api.spielbestaetigungen.services import (
     reference_of,
     request_is_due,
     side_of,
+    spiel_mail_ansetzung_from_spiel,
     spiel_mail_ansetzung_of,
     spiel_mail_appointment_of,
-    spiel_mail_slot_of,
     still_a_party,
     team_mails,
     view_ansetzung_of,
@@ -360,7 +360,10 @@ async def sweep_spielbestaetigungen(
                 # Its new slot not asked today: told at once, as it stands, a slot to come being asked by the mint.
                 stays = still_a_party(row=stored, spiel=spiel)
                 data = moved_notice_of(
-                    party_kind=party["kind"], appointment=appointment, moved_to=spiel_mail_slot_of(spiel) if stays else None, stays=stays
+                    party_kind=party["kind"],
+                    appointment=appointment,
+                    moved_to=spiel_mail_ansetzung_from_spiel(spiel) if stays else None,
+                    stays=stays,
                 )
             elif reason == "cancelled":
                 data = cancelled_notice_of(party_kind=party["kind"], appointment=appointment, sonderereignis=spiel["sonderereignis"])

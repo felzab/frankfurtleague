@@ -352,7 +352,7 @@ class TestAReplacementHandsTheWholePlaceOver:
     A replacement touching some of them is half done, and each half passes the other's assertions.
     """
 
-    async def test_everything_the_outgoing_club_held_moves_or_retires_and_nothing_else_changes(self, mongo_replica_set_url: str):
+    async def test_everything_the_outgoing_team_held_moves_or_retires_and_nothing_else_changes(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[League, League]:
             await database[Collection.AUFSTELLUNGEN].insert_many(
                 [
@@ -413,7 +413,7 @@ class TestAReplacementHandsTheWholePlaceOver:
 
 
 class TestAnAbortTakesTheRetirementBack:
-    async def test_the_squad_stays_live_when_a_later_write_fails(self, mongo_replica_set_url: str):
+    async def test_the_kader_stays_live_when_a_later_write_fails(self, mongo_replica_set_url: str):
         """Kills dropping `session=`, which retires a squad for a replacement that never landed. The line-ups' removal fails after it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

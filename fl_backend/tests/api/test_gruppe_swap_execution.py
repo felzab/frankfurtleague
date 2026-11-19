@@ -200,7 +200,7 @@ def uncounted(spiel: Mapping[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in spiel.items() if key not in (VERSION_FIELD, ANCHOR_FIELD)}
 
 
-class TestASwapExchangesTheTwoClubsAndNothingElse:
+class TestASwapExchangesTheTwoTeamsAndNothingElse:
     async def test_the_rows_and_the_drawn_sides_exchange_and_everything_else_stands(self, mongo_replica_set_url: str):
         """The rows, the round robin, a fixture of neither club and a bracket slot naming one, each fixture booked, as one after-image.
 

@@ -271,7 +271,7 @@ AUSTRITT_RECIPIENT_SPIEL_FIELDS: Final = [*AUSTRITT_SPIEL_FIELDS, "spielort.spie
 async def pull_party_names(
     *,
     parties: Sequence[Mapping[str, Any]],
-    club_names: Mapping[Any, str | None],
+    team_names: Mapping[Any, str | None],
     schiedsrichter_collection: ReadCollection,
     session: AsyncClientSession,
 ) -> dict[tuple[str, Any], str | None]:
@@ -295,7 +295,7 @@ async def pull_party_names(
     )
 
     return {
-        **{("team", team_id): name for team_id, name in club_names.items()},
+        **{("team", team_id): name for team_id, name in team_names.items()},
         **{("schiedsrichter", row["_id"]): row["name"] for row in referees},
     }
 
@@ -342,7 +342,7 @@ async def pull_austritt_recipients(
 
     names = await pull_party_names(
         parties=[party for _, party in reached],
-        club_names={junction_team_id: row.get("name") for junction_team_id, row in junctions.items()},
+        team_names={junction_team_id: row.get("name") for junction_team_id, row in junctions.items()},
         schiedsrichter_collection=schiedsrichter_collection,
         session=session,
     )

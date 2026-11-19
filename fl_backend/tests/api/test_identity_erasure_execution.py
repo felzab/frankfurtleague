@@ -375,7 +375,7 @@ class TestTheJournal:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
-            team_row = await the_row(database, Collection.SAISON_TEAMS, {"team_id": HOME_TEAM_OID})
+            junction_row = await the_row(database, Collection.SAISON_TEAMS, {"team_id": HOME_TEAM_OID})
             mail = await the_row(database, Collection.OUTBOX, {"kind": "spiel_request"})
             await database[Collection.BEWERBUNGEN].update_one(
                 {"_id": BLOCKLESS_BEWERBUNG_OID}, {"$set": {"kontakte.ansprechperson.einwilligung.confirmed_at": None}}
@@ -387,7 +387,7 @@ class TestTheJournal:
             else:
                 response = await erased_over_http(mongo_replica_set_url, headers=by_passkey(TYPED))
 
-            return response.status_code, team_row["_id"], mail["_id"]
+            return response.status_code, junction_row["_id"], mail["_id"]
 
         with caplog.at_level(logging.INFO):
             status, team_row_id, mail_id = await on_a_league(mongo_replica_set_url, body)

@@ -736,7 +736,7 @@ class TestWhoADeclineMails:
 
         assert sorted(mail.to for mail in mails) == sorted([KONTAKTE["trainer"]["email"], KONTAKTE["ansprechperson"]["email"]])
 
-    async def test_the_mail_names_a_picked_club_as_the_league_holds_it(self, mongo_replica_set_url: str):
+    async def test_the_mail_names_a_picked_team_as_the_league_holds_it(self, mongo_replica_set_url: str):
         """The application holds the club's id alone, so a read that skipped the club would mail every person an empty name."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
