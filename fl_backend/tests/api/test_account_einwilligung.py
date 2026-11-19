@@ -767,9 +767,9 @@ class TestTheSeatsWhatsAppChoice:
         assert seat[EVIDENCE]["scope"] == SEAT_WITHDRAWAL["scope"]
 
 
-# The unanswered application reads first in the season, which `app/api/account/services.py :: BEWERBUNG_ORDER` sorts
-# by id: a read stopping at an application holding none of the person's confirmed seats, rather than passing it,
-# then drops the pending one.
+# The unanswered application reads first in the season, the account read sorting a season's applications by id: a
+# read stopping at an application holding none of the person's confirmed seats, rather than passing it, then drops the
+# pending one.
 UNANSWERED_OID = ObjectId("6890a1b2c3d4e5f607850050")
 PENDING_OID = ObjectId("6890a1b2c3d4e5f607850051")
 DECIDED_OID = ObjectId("6890a1b2c3d4e5f607850052")

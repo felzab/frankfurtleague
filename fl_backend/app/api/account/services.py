@@ -11,8 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from functools import partial
 from http import HTTPStatus
-from operator import itemgetter
-from typing import Any, Final, Literal, Protocol
+from typing import Any, Final, Protocol
 
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -428,6 +427,7 @@ def build_account_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     return [
         {"$match": build_self_pupil_filter(identifier)},
         {"$project": {"first_name": 1, "last_name": 1, "birth_date": 1, "einwilligung": 1}},
+        {"$sort": SELF_PUPIL_ORDER},
     ]
 
 
@@ -468,6 +468,7 @@ def build_account_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 EINWILLIGUNG_FIELD: 1,
             }
         },
+        {"$sort": SELF_REFEREE_ORDER},
     ]
 
 
@@ -508,6 +509,8 @@ def build_self_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SEATS for field in ("email", "einwilligung", *_SEAT_PERSON_FIELDS)},
             }
         },
+        # A past season's row after a running one's, the last key unique so no two rows tie.
+        {"$sort": {"saison_id": -1, "name": 1, "team_id": 1}},
         # Read by the same Funktionen.
         SAISON_LOOKUP,
     ]
@@ -594,6 +597,7 @@ def build_self_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_SEATS for field in ("email", "einwilligung", *_SEAT_PERSON_FIELDS)},
             }
         },
+        {"$sort": {"saison_id": -1, "_id": 1}},
         context_teams_lookup("team_id"),
     ]
 
@@ -645,6 +649,7 @@ def build_self_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]
                 )
             }
         },
+        {"$sort": {"saison_id": -1, "_id": 1}},
         context_teams_lookup("team_id"),
     ]
 
@@ -673,68 +678,3 @@ def compose_registrierungen_self(
         )
 
     return entries
-
-
-AccountArm = Literal["spieler", "schiedsrichter", "seats", "bewerbungen", "registrierungen"]
-
-
-# Each arm's own order, the last key unique so no two rows tie: a past season's row after a running one's.
-SEAT_ORDER: Final[Mapping[str, int]] = {"saison_id": -1, "name": 1, "team_id": 1}
-BEWERBUNG_ORDER: Final[Mapping[str, int]] = {"saison_id": -1, "_id": 1}
-REGISTRIERUNG_ORDER: Final[Mapping[str, int]] = {"saison_id": -1, "_id": 1}
-
-
-_ARM_ORDERS: Final[Mapping[AccountArm, Mapping[str, int]]] = {
-    "spieler": SELF_PUPIL_ORDER,
-    "schiedsrichter": SELF_REFEREE_ORDER,
-    "seats": SEAT_ORDER,
-    "bewerbungen": BEWERBUNG_ORDER,
-    "registrierungen": REGISTRIERUNG_ORDER,
-}
-
-
-def _arm(arm: AccountArm, pipeline: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
-    """`pipeline`'s rows, each tagged with its arm: a union's order is unspecified, so `account_arms` sorts each arm."""
-
-    return [*pipeline, {"$addFields": {"_arm": arm}}]
-
-
-def build_account_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """The account page's read, run on `spieler`, each arm tagged.
-
-    The pupil's and the referee's rows by the selections their account entries read, and the season rows, pending applications and
-    registrations seating the address.
-    """
-
-    return [
-        *_arm("spieler", build_account_pupil_pipeline(identifier)),
-        {"$unionWith": {"coll": DbCollection.SCHIEDSRICHTER, "pipeline": _arm("schiedsrichter", build_account_referee_pipeline(identifier))}},
-        {"$unionWith": {"coll": DbCollection.SAISON_TEAMS, "pipeline": _arm("seats", build_self_seat_pipeline(identifier))}},
-        {"$unionWith": {"coll": DbCollection.BEWERBUNGEN, "pipeline": _arm("bewerbungen", build_self_bewerbung_pipeline(identifier))}},
-        {
-            "$unionWith": {
-                "coll": DbCollection.REGISTRIERUNGEN,
-                "pipeline": _arm("registrierungen", build_self_registrierung_pipeline(identifier)),
-            }
-        },
-    ]
-
-
-def _in_order(rows: Sequence[Mapping[str, Any]], order: Mapping[str, int]) -> list[Mapping[str, Any]]:
-    """`rows` as a `$sort` by `order` returns them: one stable sort per key, the last key first.
-
-    Every key is one the record model requires, so none is missing; strings compare by code point as the server compares
-    their UTF-8 bytes.
-    """
-
-    ordered = list(rows)
-    for key, direction in reversed(list(order.items())):
-        ordered.sort(key=itemgetter(key), reverse=direction < 0)
-
-    return ordered
-
-
-def account_arms(rows: Sequence[Mapping[str, Any]]) -> dict[AccountArm, list[Mapping[str, Any]]]:
-    """The read's rows by the arm that found them, each in its arm's own order."""
-
-    return {arm: _in_order([row for row in rows if row["_arm"] == arm], order) for arm, order in _ARM_ORDERS.items()}
