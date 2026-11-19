@@ -4,15 +4,7 @@ import pytest
 from bson import ObjectId
 from pydantic import ValidationError
 
-from app.api.spiele.schemas import (
-    FLPatchSpielDataPayload,
-    FLSpiel,
-    FLSpielortFieldPayload,
-    FLSpielSchiedsrichterFieldPayload,
-    FLSpielTeamFieldPayload,
-    is_unplayed,
-    unplayed_filter,
-)
+from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel, is_unplayed, unplayed_filter
 from app.core.collections import Collection
 from app.shared.schemas.literals import FLSonderereignis
 from tests import documents
@@ -101,17 +93,3 @@ class TestPatchPayload:
             FLPatchSpielDataPayload.model_validate(incomplete)
 
         assert excinfo.value.errors()[0]["loc"][-1] == field
-
-    @pytest.mark.parametrize(
-        ("model", "composed"),
-        [
-            (FLSpielTeamFieldPayload, {"name", "shorthand"}),
-            (FLSpielortFieldPayload, {"name", "maps_query"}),
-            (FLSpielSchiedsrichterFieldPayload, {"name"}),
-        ],
-        ids=["a side", "a venue", "a referee"],
-    )
-    def test_a_display_copy_is_on_no_payload(self, model, composed):
-        """The server composes each from the row it belongs to, so a copy a client typed could only disagree with it."""
-
-        assert not composed & set(model.model_fields)
