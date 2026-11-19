@@ -86,12 +86,7 @@ async def enter_spielbestaetigung(
     """
 
     async def settle_for_the_party(session: AsyncClientSession) -> None:
-        row = await pull_one_from_db(
-            collection=spielbestaetigungen_collection,
-            db_filter={"_id": spielbestaetigung_id},
-            projection=["saison_id", "spiel_id", "party", "ansetzung", "answer", "closed"],
-            session=session,
-        )
+        row = await pull_one_from_db(collection=spielbestaetigungen_collection, db_filter={"_id": spielbestaetigung_id}, session=session)
         # The fixture and the clubs' exits, as the pass's close judges them: an agreement it would shut settles nothing.
         state = await pull_ansetzung_state(
             spiele_collection=spiele_collection,
@@ -158,12 +153,7 @@ async def discard_spielbestaetigung(
     """
 
     async def discard_the_proposal(session: AsyncClientSession) -> None:
-        row = await pull_one_from_db(
-            collection=spielbestaetigungen_collection,
-            db_filter={"_id": spielbestaetigung_id},
-            projection=["saison_id", "spiel_id", "party", "ansetzung", "answer", "closed"],
-            session=session,
-        )
+        row = await pull_one_from_db(collection=spielbestaetigungen_collection, db_filter={"_id": spielbestaetigung_id}, session=session)
         # The close's own read, through the name join: the notice names the clubs as the fixture fields them.
         found = await pull_named_spiele(
             spiele_collection=spiele_collection, db_filter={"_id": row["spiel_id"]}, projection=JUDGED_SPIEL_FIELDS, session=session
@@ -261,12 +251,7 @@ async def adopt_spielbestaetigung(
     )
 
     async def adopt_the_proposal(session: AsyncClientSession) -> None:
-        row = await pull_one_from_db(
-            collection=spielbestaetigungen_collection,
-            db_filter={"_id": spielbestaetigung_id},
-            projection=["saison_id", "spiel_id", "party", "ansetzung", "answer", "closed"],
-            session=session,
-        )
+        row = await pull_one_from_db(collection=spielbestaetigungen_collection, db_filter={"_id": spielbestaetigung_id}, session=session)
         # The whole fixture, which the save carries every field of but the day and the hour, and the clubs' exits.
         state = await pull_ansetzung_state(
             spiele_collection=spiele_collection,
