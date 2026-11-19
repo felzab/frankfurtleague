@@ -26,6 +26,7 @@ from app.api.identity.person_router import router as identity_person_router
 from app.api.identity.system_router import router as identity_system_router
 from app.api.outbox.services import FLDeliveryDeadlineDays, FLOutboxRetentionDays
 from app.api.outbox.system_router import router as outbox_system_router
+from app.api.registrierungen.admin_router import router as registrierungen_admin_router
 from app.api.registrierungen.person_router import router as registrierungen_person_router
 from app.api.registrierungen.person_router import spieler_router as registrierungen_person_spieler_router
 from app.api.registrierungen.public_router import router as registrierungen_public_router
@@ -88,6 +89,7 @@ ROUTERS: Mapping[str, tuple[APIRouter, ...]] = {
     "account": (account_person_router,),
     "outbox": (outbox_system_router,),
     "registrierungen": (
+        registrierungen_admin_router,
         registrierungen_public_router,
         registrierungen_person_router,
         registrierungen_person_spieler_router,

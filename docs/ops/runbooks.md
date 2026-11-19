@@ -728,7 +728,7 @@ that seat's own link, not by the person's role; a seat on a team's season row is
   already answered, the route is „Löschungen“.
 
 **A pupil withdrawing the consent that publishes their name does it on their account page.**
-`PATCH /spieler/self/einwilligung` moves the record, and no administrator route writes it. A request arriving
+`PATCH /spieler/self/einwilligung` moves the record, and no administration page writes it. A request arriving
 by mail instead has two answers, and which one you give is the person's to choose:
 
 - **They want off the website and out of the league.** „Löschungen“ on the address their

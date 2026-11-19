@@ -227,6 +227,8 @@ const DELETED_BY_PASS = "Nach Frist gelöscht";
 // One word for every person's objection through their own link, a seat's and a referee's alike: the act's question was
 // „Eintrag widersprechen?“.
 const ENTRY_OBJECTED = "Eintrag widersprochen";
+// One word for every withdrawal an administrator entered from a person's mail, on any kind of record.
+const WITHDRAWAL_ENTERED = "Widerruf eingetragen";
 
 /**
  * A wait a sentence states, in the unit its bound is published in. Each figure is a literal, so a bound that moves fails
@@ -1669,6 +1671,7 @@ export const COPY = catalogue({
         "team.austritt_entered": "Austritt eingetragen",
         "team.seat_changed": "Sitz geändert",
         "team.seat_objected": ENTRY_OBJECTED,
+        "team.seat_einwilligung_withdrawn": WITHDRAWAL_ENTERED,
         "team.replaced": "Team ersetzt",
         "team.invitation_created": "Registrierungslink angelegt",
         "team.invitation_withdrawn": "Registrierungslink zurückgezogen",
@@ -1676,16 +1679,20 @@ export const COPY = catalogue({
         "bewerbung.declined": "Bewerbung abgelehnt",
         "bewerbung.seat_changed": "Sitz geändert",
         "bewerbung.seat_objected": ENTRY_OBJECTED,
+        "bewerbung.seat_einwilligung_withdrawn": WITHDRAWAL_ENTERED,
         "spieler.changed": "Spieler geändert",
         "spieler.deregistered": "Spieler ausgetragen",
         "spieler.reactivated": "Spieler reaktiviert",
+        "spieler.einwilligung_withdrawn": WITHDRAWAL_ENTERED,
         "registrierung.admitted": "Spieler aufgenommen",
         "registrierung.declined": "Registrierung abgelehnt",
+        "registrierung.einwilligung_withdrawn": WITHDRAWAL_ENTERED,
         "schiedsrichter.created": "Schiedsrichter angelegt",
         "schiedsrichter.changed": "Schiedsrichter geändert",
         "schiedsrichter.retired": "Schiedsrichter stillgelegt",
         "schiedsrichter.reactivated": "Schiedsrichter reaktiviert",
         "schiedsrichter.objected": ENTRY_OBJECTED,
+        "schiedsrichter.einwilligung_withdrawn": WITHDRAWAL_ENTERED,
         "spielort.created": "Spielort angelegt",
         "spielort.changed": "Spielort geändert",
         "spielort.retired": "Spielort stillgelegt",

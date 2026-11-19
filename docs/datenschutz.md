@@ -90,7 +90,9 @@ stand in [section 11](#11-open-and-owed-a-decision). Other documents link sectio
 - **Each consent choice keeps its own evidence**: when its person last set it, under which wording's
   label, and on a withdrawal the grant it ended (`fl_backend/app/shared/einwilligung_evidence.py`).
   The labels are `fl_frontend/src/core/consentWordings.ts :: CONSENT_WORDINGS`' keys, each frozen
-  with its words. Only the person's own act grants a choice or stamps its evidence. One paste, run
+  with its words. Only the person's own act grants a choice or stamps evidence under a label. An
+  administrator's entry of a withdrawal the person asked for by mail withholds alone, its evidence
+  marked `via` `mail` in a label's place, since the person read none of the league's words. One paste, run
   with the deploy that first serves the current wordings, re-points every label stored before it to
   its consent's current wording. A record stamped before that deploy therefore names words its
   person may not have been shown, which is [section 11](#11-open-and-owed-a-decision)'s first
