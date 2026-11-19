@@ -9,7 +9,7 @@ from app.api.outbox.services import OwedMail
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from app.shared.einwilligung import is_confirmed
+from app.shared.einwilligung import seat_is_confirmed
 from app.shared.schemas.literals import KONTAKT_SEATS, FLKontaktSeat
 
 # An exclusion rather than an inclusion list: what it subtracts is the whole credential, where a list of everything
@@ -103,16 +103,6 @@ def invitation_is_sent(invitation_raw: Mapping[str, Any] | None) -> bool:
     return invitation_raw is not None and invitation_raw.get("sent_at") is not None
 
 
-def _confirmed_seat(kontakte: Any, seat: str) -> Mapping[str, Any] | None:
-    """One seat whose own person has confirmed it, or `None`: an address nobody has proven gets no credential."""
-
-    entry = kontakte.get(seat) if isinstance(kontakte, Mapping) else None
-    if not isinstance(entry, Mapping):
-        return None
-
-    return entry if is_confirmed(entry.get("einwilligung")) else None
-
-
 class InvitationRecipient(NamedTuple):
     """One mailbox a link goes to, and the seat it is addressed as."""
 
@@ -127,9 +117,10 @@ def confirmed_recipients(*, kontakte: Any) -> list[InvitationRecipient]:
     seen: set[str] = set()
 
     for seat in KONTAKT_SEATS:
-        entry = _confirmed_seat(kontakte, seat)
+        entry = kontakte.get(seat) if isinstance(kontakte, Mapping) else None
         named = seat_named(seat)
-        if entry is None or named is None:
+        # An address nobody has proven gets no credential.
+        if not seat_is_confirmed(entry) or named is None:
             continue
 
         address = str(entry.get("email") or "")

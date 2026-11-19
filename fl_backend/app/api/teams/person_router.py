@@ -16,7 +16,7 @@ from app.api.aufstellungen.schemas import FLAufstellungMarks
 from app.api.aufstellungen.services import aufstellung_marks, aufstellung_stands
 from app.api.identity.crud import roles_of
 from app.api.identity.lookup import SubjectLookup
-from app.api.identity.services import find_role_refusal, holds_a_seat, own_seats, seat_is_confirmed
+from app.api.identity.services import find_role_refusal, holds_a_seat, own_seats
 from app.api.registrierungen.crud import pull_open_registrierungen
 from app.api.registrierungen.services import registrierung_is_confirmed
 from app.api.saisons.services import SPIELTAG_POSITION_LOOKUP, matchday_of
@@ -63,6 +63,7 @@ from app.core.readonly import ReadCollection
 from app.core.routing import by_id
 from app.core.security import PERSON_TIER, PersonIdentifier
 from app.core.transactions import transact
+from app.shared.einwilligung import seat_is_confirmed
 from app.shared.einwilligung_evidence import FLEinwilligungChoice
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.einwilligung import FLSeatEinwilligungPayload, by_choice
@@ -83,7 +84,7 @@ def _as_seat(kontakte: Mapping[str, Any], slot: FLKontaktSeat, *, also: FLKontak
         {
             "seats": [slot] if also is None else [slot, also],
             "name": " ".join(str(person.get(field) or "").strip() for field in ("first_name", "last_name")).strip() or None,
-            "confirmed": seat_is_confirmed({"kontakte": kontakte}, slot),
+            "confirmed": seat_is_confirmed(person),
         }
     )
 

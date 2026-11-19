@@ -1,6 +1,6 @@
 from collections.abc import Mapping
 from http import HTTPStatus
-from typing import Any, Final
+from typing import Any, Final, TypeGuard
 
 from app.core.codes import Code
 from app.core.exceptions import APIError
@@ -18,6 +18,13 @@ def is_confirmed(einwilligung: Any) -> bool:
     # `confirmed_at` alone: the one key a seat's `Kenntnisnahme` and a person's `Einwilligung` share. A seat's
     # record is null until its person answers.
     return isinstance(einwilligung, Mapping) and einwilligung.get("confirmed_at") is not None
+
+
+def seat_is_confirmed(seat: Any) -> TypeGuard[Mapping[str, Any]]:
+    """Whether one stored contact seat's own person has confirmed it; an emptied seat is null and confirms nothing."""
+
+    # `TypeGuard` rather than `TypeIs`: a false answer may still be a seat, one its person has not confirmed.
+    return isinstance(seat, Mapping) and is_confirmed(seat.get("einwilligung"))
 
 
 # Whether a base-tier read may serve a person's name: their record present, its scope `kader_public` and its

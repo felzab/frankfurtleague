@@ -21,7 +21,7 @@ from app.api.teams.schemas import FLKontaktMint, FLTeamGruppeOffer, FLTeamListSt
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from app.shared.einwilligung import is_confirmed
+from app.shared.einwilligung import seat_is_confirmed
 from app.shared.folding import normalise_phone, person_name_key, sign_in_identifier
 from app.shared.links import deadline_passed
 from app.shared.schemas.custom import CustomObjectId
@@ -268,12 +268,6 @@ def _identity_of(seat: Mapping[str, Any]) -> tuple[str, ...]:
     )
 
 
-def _seat_is_stamped(seat: Mapping[str, Any]) -> bool:
-    """Whether this seat's own person has confirmed it."""
-
-    return is_confirmed(seat.get("einwilligung"))
-
-
 def _seat_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> Mapping[str, Any] | None:
     """The stored seat where it holds the same person as the one being written, else `None`."""
 
@@ -303,7 +297,7 @@ def _confirmation_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> Mappi
     # The record stays the server's: only a seat's own stamp
     # confirms it, and a stored blank stamp is none.
     einwilligung = held["einwilligung"]
-    return dict(einwilligung) if _seat_is_stamped(held) else as_unconfirmed(einwilligung)
+    return dict(einwilligung) if seat_is_confirmed(held) else as_unconfirmed(einwilligung)
 
 
 def _birth_date_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> str | None:
@@ -437,7 +431,7 @@ def links_owed(*, kontakte: Any, stored: Any) -> list[tuple[FLKontaktSeat, ...]]
             continue
 
         # A seat of the pair this person has already confirmed keeps its stamp and its link.
-        unconfirmed: tuple[FLKontaktSeat, ...] = tuple(seat for seat in person if not _seat_is_stamped(block[seat]))
+        unconfirmed: tuple[FLKontaktSeat, ...] = tuple(seat for seat in person if not seat_is_confirmed(block[seat]))
         if unconfirmed:
             owed.append(unconfirmed)
 
@@ -510,7 +504,7 @@ def seats_one_link_answers(*, kontakte: Any, seat: FLKontaktSeat) -> tuple[FLKon
 
     for person in people_of(kontakte):
         if seat in person:
-            return tuple(held for held in person if held == seat or not _seat_is_stamped(kontakte[held]))
+            return tuple(held for held in person if held == seat or not seat_is_confirmed(kontakte[held]))
 
     return (seat,)
 
@@ -544,7 +538,7 @@ def find_kontakt_seat_refusal(*, kontakte: Any, seat: str) -> APIError | None:
 
     slot = kontakte.get(seat) if isinstance(kontakte, Mapping) else None
 
-    if not isinstance(slot, Mapping) or _seat_is_stamped(slot):
+    if not isinstance(slot, Mapping) or seat_is_confirmed(slot):
         return APIError(HTTPStatus.CONFLICT, Code.KONTAKT_SEAT_WITHOUT_CONFIRMATION)
 
     return None

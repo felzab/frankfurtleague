@@ -54,7 +54,7 @@ from app.api.identity.services import (
     own_seats,
     referee_address,
     referenced_addresses,
-    seat_is_confirmed,
+    seat_of,
     seat_saisons,
     seats_naming,
     statuses_of,
@@ -71,7 +71,7 @@ from app.core.concurrency import concurrently
 from app.core.crud import aggregate_many_from_db, anchor_in_db, delete_many_from_db, refuse
 from app.core.readonly import ReadCollection
 from app.core.recording import ERASED_ACTOR_MARKER
-from app.shared.einwilligung import is_confirmed
+from app.shared.einwilligung import is_confirmed, seat_is_confirmed
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.literals import FLSaisonStatus
 
@@ -138,7 +138,7 @@ def _judged(identifier: str, seat_rows: Rows, referee_rows: Rows, pupil_rows: Ro
         # seat on a `past` season opens nothing, so it neither raises the flag nor holds it down.
         unconfirmed=awaits_confirmation(
             [
-                seat_is_confirmed(row, slot)
+                seat_is_confirmed(seat_of(row, slot))
                 for row, slot in seats_naming(live_seat_rows, identifier)
                 if grants_a_panel(saisons[row["saison_id"]]["status"])
             ]
@@ -287,7 +287,7 @@ def _read(rows: Rows | None, kind: str) -> Rows:
 def _seat_entry(collection: Collection, row: Mapping[str, Any], slot: str) -> str:
     entry = f"{collection}/{row['_id']}/{slot}"
 
-    return f"{entry}/{row['kontakte'][slot]['einwilligung']['confirmed_at']}" if seat_is_confirmed(row, slot) else entry
+    return f"{entry}/{row['kontakte'][slot]['einwilligung']['confirmed_at']}" if seat_is_confirmed(seat_of(row, slot)) else entry
 
 
 @dataclass(frozen=True, kw_only=True)
