@@ -6,6 +6,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aufstellungen.crud import erase_pupil_from_aufstellungen_in_session
 from app.api.saisons.schemas import FLSaisonRules
+from app.api.saisons.services import find_saison_past_refusal
 from app.api.spielberichte.crud import empty_pupil_entries_in_session
 from app.api.spieler.schemas import FLSpielerRolle
 from app.api.spieler.services import (
@@ -88,6 +89,27 @@ async def pull_kader_room(
     )
 
     return KaderRoom(size=size, cap=rules.max_kader_size)
+
+
+async def refuse_a_closed_kader(
+    *,
+    saisons_collection: AsyncCollection,
+    saison_id: str,
+    # Required: the anchor below closes the race.
+    session: AsyncClientSession,
+) -> None:
+    """Refuse `saison_past` when the season has finished: its squad rows are its record, as its other records are.
+
+    For a write moving a squad row, its number, position, level or role, or taking it out or back; a person's own facts
+    belong to no season and stay open.
+    """
+
+    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"], session=session)
+    # Anchored, so the status belongs to this write set: `activate_saison` writes this document, so a rollover landing
+    # under the write conflicts and the retry reads `past`.
+    await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
+
+    refuse(find_saison_past_refusal(saison_status=str(saison_raw["status"])))
 
 
 async def refuse_a_taken_rolle(

@@ -7,7 +7,9 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.grants.guard import ADMIN_TIER
 from app.api.saisons.schemas import FLSaisonRules
+from app.api.saisons.services import find_saison_past_refusal
 from app.api.spieler.crud import (
+    refuse_a_closed_kader,
     refuse_a_full_kader,
     refuse_a_taken_rolle,
 )
@@ -179,6 +181,11 @@ async def patch_spieler_saison(
         )
         refuse(find_stale_save_refusal(person_raw, row_raw, version=spieler_data.version))
 
+        moves_the_row = any(row_raw.get(field) != value for field, value in row_part.items())
+        # Judged per part, as the team editor's save is: the person's own facts belong to no season.
+        if moves_the_row:
+            await refuse_a_closed_kader(saisons_collection=saisons_collection, saison_id=saison_id, session=session)
+
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules"], session=session)
         refuse(
             find_kader_stufe_refusal(
@@ -207,7 +214,7 @@ async def patch_spieler_saison(
                 session=session,
                 return_document=ReturnDocument.AFTER,
             )
-        if any(row_raw.get(field) != value for field, value in row_part.items()):
+        if moves_the_row:
             row_raw = await patch_one_in_db(
                 collection=saison_spieler_collection,
                 db_filter=row_filter,
@@ -233,16 +240,26 @@ async def delete_saison_spieler(
     spieler_id: CustomObjectId,
     saison_id: str,
     saison_spieler_collection: SaisonSpielerCollection,
+    saisons_collection: SaisonsCollection,
     db: DBClient,
     today: GermanDay,
 ) -> None:
     """
     Take a player out of a season's squad, the row staying, marked by `inactive_since`.
 
-    The row records that this player wore this number in this squad, which stays true after they leave.
+    The row records that this player wore this number in this squad, which stays true after they leave. A finished
+    season's squad is its record and is refused.
     """
 
     async def take_the_player_out(session: AsyncClientSession) -> None:
+        # The row first, so an id no squad of the season holds answers 404 rather than a refusal about its season.
+        await pull_one_from_db(
+            collection=saison_spieler_collection,
+            db_filter={"spieler_id": spieler_id, "saison_id": saison_id},
+            projection=["_id"],
+            session=session,
+        )
+        await refuse_a_closed_kader(saisons_collection=saisons_collection, saison_id=saison_id, session=session)
         deregistered = await set_inactive_since(
             collection=saison_spieler_collection,
             db_filter={"spieler_id": spieler_id, "saison_id": saison_id},
@@ -270,7 +287,10 @@ async def reactivate_saison_spieler(
     saisons_collection: SaisonsCollection,
     db: DBClient,
 ) -> None:
-    """Clear a squad row's `inactive_since`, the row returning with the number, position and role it had."""
+    """Clear a squad row's `inactive_since`, the row returning with the number, position and role it had.
+
+    A finished season's squad is its record and is refused.
+    """
 
     async def bring_the_player_back(session: AsyncClientSession) -> None:
         # Read for its `team_id` and its `rolle`: the row names the squad it is returning to and the
@@ -282,6 +302,12 @@ async def reactivate_saison_spieler(
             projection=["team_id", "rolle", "is_nachnominiert"],
             session=session,
         )
+        saison_raw = await pull_one_from_db(
+            collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules", "status"], session=session
+        )
+        # Judged here rather than by `refuse_a_closed_kader`, whose anchor the cap's below already takes: one anchor
+        # puts the status in this write set.
+        refuse(find_saison_past_refusal(saison_status=str(saison_raw["status"])))
 
         # The stored club, no payload naming one: a replacement hands a junction row to another club and
         # retires this one's squad, so the club this row returns to may stand outside that season by now.
@@ -293,7 +319,6 @@ async def reactivate_saison_spieler(
         if not team_in_saison:
             raise APIError(HTTPStatus.CONFLICT, Code.KADER_TEAM_NOT_IN_SAISON)
 
-        saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules"], session=session)
         await refuse_a_full_kader(
             saison_spieler_collection=saison_spieler_collection,
             saisons_collection=saisons_collection,

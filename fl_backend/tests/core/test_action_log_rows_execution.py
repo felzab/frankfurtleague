@@ -197,6 +197,7 @@ async def _take_the_pupil_out(database: AsyncDatabase, client: AsyncMongoClient)
         spieler_id=SPIELER_OID,
         saison_id=SAISON_ID,
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
+        saisons_collection=database[Collection.SAISONS],
         db=client,
         today=TODAY,
     )

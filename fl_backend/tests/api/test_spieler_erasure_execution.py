@@ -124,6 +124,9 @@ async def a_pupil_with_a_history(database: AsyncDatabase, *, first_name: str, te
     await database[Collection.SPIELER].insert_one(document)
     spieler_id = document["_id"]
 
+    # The earlier season's history is written while it ran, since the endpoints refuse a finished season's squad
+    # row, and the season closes once it is written. `future` rather than `active`: one season is active at a time.
+    await database[Collection.SAISONS].update_one({"_id": FORMER_SAISON_ID}, {"$set": {"status": "future"}})
     for saison_id, worn, then_worn in ((FORMER_SAISON_ID, "41", "42"), (SAISON_ID, "10", "7")):
         await database[Collection.SAISON_SPIELER].insert_one(saison_spieler_document(spieler_id, saison_id, team_id, nummer=worn))
         await save(database, spieler_id, saison_id, last_name=document["last_name"], nummer=then_worn)
@@ -134,9 +137,11 @@ async def a_pupil_with_a_history(database: AsyncDatabase, *, first_name: str, te
         spieler_id=spieler_id,
         saison_id=FORMER_SAISON_ID,
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
+        saisons_collection=database[Collection.SAISONS],
         today=TODAY,
         db=database.client,
     )
+    await database[Collection.SAISONS].update_one({"_id": FORMER_SAISON_ID}, {"$set": {"status": "past"}})
     await save(database, spieler_id, SAISON_ID, last_name=f"{first_name}-Musterfrau", nummer="7")
 
     return spieler_id

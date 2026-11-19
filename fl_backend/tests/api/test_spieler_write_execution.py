@@ -5,7 +5,7 @@ import pytest
 from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.spieler.admin_router import get_spieler_saison, patch_spieler_saison, reactivate_saison_spieler
+from app.api.spieler.admin_router import delete_saison_spieler, get_spieler_saison, patch_spieler_saison, reactivate_saison_spieler
 from app.api.spieler.schemas import FLPatchSpielerSaisonPayload, FLSaisonSpielerRow
 from app.core.codes import Code
 from app.core.crud import composite_version
@@ -355,6 +355,70 @@ class TestReactivatingIntoASeasonTheTeamHasLeft:
         assert refusal.error_code == Code.KADER_TEAM_NOT_IN_SAISON
         # The second half kills a refusal asked after the write, which reports a state it has already created.
         assert stored["inactive_since"] == "2026-03-01"
+
+
+class TestAFinishedSeasonsSquadRow:
+    """`saison_past` on every write moving a finished season's squad row, while the person's own facts stay open."""
+
+    async def seated_in_a_finished_season(self, database: AsyncDatabase, *, inactive_since: str | None = None) -> ObjectId:
+        spieler_id = spieler_id_for(90)
+        await database.spieler.insert_one(person_row(spieler_number=90))
+        await database.saison_spieler.insert_one(kader_row(spieler_id=spieler_id, team_id=HOME_TEAM_OID, inactive_since=inactive_since))
+        await database.saisons.update_one({"_id": SAISON_ID}, {"$set": {"status": "past"}})
+        return spieler_id
+
+    async def test_a_save_moving_the_row_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
+        """Written in one transaction with the person's half, so the name moved beside the number stays as stored too."""
+
+        async def body(database: AsyncDatabase) -> tuple[Any, Any, Any]:
+            spieler_id = await self.seated_in_a_finished_season(database)
+            return (
+                await refused_code(save(database, spieler_id, first_name="Maximilian", nummer="9")),
+                await database.spieler.find_one({"_id": spieler_id}),
+                await database.saison_spieler.find_one({"spieler_id": spieler_id}),
+            )
+
+        code, person, row = await on_a_database(mongo_replica_set_url, body)
+
+        assert (code, person["first_name"], row["nummer"]) == (Code.SAISON_PAST, "Max", None)
+
+    async def test_the_persons_own_facts_are_saved(self, mongo_replica_set_url: str):
+        """A person's name and birthday belong to no season, so a page opened under a finished one still corrects them."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            spieler_id = await self.seated_in_a_finished_season(database)
+            await save(database, spieler_id, first_name="Maximilian", birth_date="2008-05-18")
+            return await database.spieler.find_one({"_id": spieler_id})
+
+        person = await on_a_database(mongo_replica_set_url, body)
+
+        assert (person["first_name"], person["birth_date"]) == ("Maximilian", "2008-05-18")
+
+    async def test_taking_the_row_out_is_refused(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase) -> tuple[Any, Any]:
+            spieler_id = await self.seated_in_a_finished_season(database)
+            removal = delete_saison_spieler(
+                spieler_id=spieler_id,
+                saison_id=SAISON_ID,
+                saison_spieler_collection=database.saison_spieler,
+                saisons_collection=database.saisons,
+                db=database.client,
+                today="2026-12-01",
+            )
+            return await refused_code(removal), await database.saison_spieler.find_one({"spieler_id": spieler_id})
+
+        code, row = await on_a_database(mongo_replica_set_url, body)
+
+        assert (code, row["inactive_since"]) == (Code.SAISON_PAST, None)
+
+    async def test_bringing_the_row_back_is_refused(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase) -> tuple[Any, Any]:
+            spieler_id = await self.seated_in_a_finished_season(database, inactive_since="2026-03-01")
+            return await refused_code(revive(database, spieler_id)), await database.saison_spieler.find_one({"spieler_id": spieler_id})
+
+        code, row = await on_a_database(mongo_replica_set_url, body)
+
+        assert (code, row["inactive_since"]) == (Code.SAISON_PAST, "2026-03-01")
 
 
 class TestTheStoredMarker:
