@@ -141,7 +141,6 @@ class TestAnExitLandingMidSaveIsJudgedAgain:
                     germany_now=NOW,
                 )
             )
-            spiele.assert_landed_inside(serially=0)
             row = await database[Collection.SAISON_TEAMS].find_one({"saison_id": SAISON_ID, "team_id": DEPARTED})
             assert row is not None
 

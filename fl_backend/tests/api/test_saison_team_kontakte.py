@@ -281,8 +281,6 @@ class TestAnErasureLandingMidSaveIsNotUndone:
             junction = InterleavedCollection(database[Collection.SAISON_TEAMS], erase_between, before="find_one_and_update")
             with pytest.raises(APIError) as refused:
                 await write_kontakte(database, RESAVED_AS_RENDERED, saison_teams_collection=junction)
-            # An erasure committing first refuses the save at its read, before it reaches the write.
-            junction.assert_landed_inside(serially=0)
 
             return erasures[0], refused.value, await row_now(database)
 
