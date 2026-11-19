@@ -332,7 +332,7 @@ class TestTheRefereeIsServedOnceAgreed:
         assert await on_a_refereed_spiel(mongo_replica_set_url, rows, einsatz, spiel=spiel) is False
 
     async def test_their_latest_answer_about_a_slot_the_spiel_left_withholds_them(self, mongo_replica_set_url: str):
-        """The pass closed the agreement for the move: read without its stand, it publishes a referee who never agreed to this slot."""
+        """The pass closed the agreement for the move: read without its state, it publishes a referee who never agreed to this slot."""
 
         spiel = a_refereed_spiel()
         rows = [

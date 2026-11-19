@@ -341,7 +341,7 @@ async def test_two_ended_changes_of_one_address_are_both_kept(mongo_replica_set_
 
 
 async def test_only_an_open_confirmation_meets_the_rule(mongo_replica_set_url: str):
-    """An answered row, a closed one and the other club's open one stand beside a party's open row on one stand.
+    """An answered row, a closed one and the other club's open one stand beside a party's open row on one Ansetzung.
 
     A dropped filter or a lost team key refuses one, and with it a reinstated fixture's fresh request.
     """
