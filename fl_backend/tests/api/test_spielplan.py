@@ -7,8 +7,8 @@ import pytest
 from bson import ObjectId
 
 from app.api.saisons.schedule import (
-    group_matchdays,
-    group_matches_per_matchday,
+    group_spiele_per_spieltag,
+    group_spieltage,
     knockout_phases_for,
     qualifier_count,
     schedule_for,
@@ -116,13 +116,13 @@ class TestTheCircleMethodPairsAGroup:
     def test_it_plays_the_rounds_the_schedule_counts(self, teams: int):
         """The round count IS the matchday count, because round k of every group is matchday k."""
 
-        assert len(circle_rounds(teams)) == group_matchdays(teams)
+        assert len(circle_rounds(teams)) == group_spieltage(teams)
 
     @pytest.mark.parametrize("teams", range(2, 17))
     def test_every_round_holds_the_matches_a_matchday_expects(self, teams: int):
         """One group's share of a group matchday's matches; an odd group pairs all but the club on its bye."""
 
-        assert [len(pairs) for pairs in circle_rounds(teams)] == [group_matches_per_matchday(1, teams)] * group_matchdays(teams)
+        assert [len(pairs) for pairs in circle_rounds(teams)] == [group_spiele_per_spieltag(1, teams)] * group_spieltage(teams)
 
     @pytest.mark.parametrize("teams", range(2, 17))
     def test_every_team_meets_every_other_exactly_once(self, teams: int):

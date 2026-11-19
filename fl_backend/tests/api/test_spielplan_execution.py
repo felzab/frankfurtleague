@@ -12,7 +12,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure, PyMongoError
 
 from app.api.saisons.admin_router import delete_spielplan, patch_saison, post_spielplan
-from app.api.saisons.schedule import group_matchdays
+from app.api.saisons.schedule import group_spieltage
 from app.api.saisons.schemas import (
     FLGenerateSpielplanPayload,
     FLPatchSaisonPayload,
@@ -284,7 +284,7 @@ def expected_counts(rules: FLSaisonRules) -> tuple[int, int]:
     """
 
     bracket = bracket_rounds(rules)
-    spieltage = group_matchdays(rules.teams_per_gruppe) + len(bracket)
+    spieltage = group_spieltage(rules.teams_per_gruppe) + len(bracket)
 
     return spieltage, group_phase_count(rules) + sum(bracket)
 
