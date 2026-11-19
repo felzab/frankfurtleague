@@ -24,6 +24,7 @@ from app.api.grants.system_router import router as grants_system_router
 from app.api.identity.admin_router import router as identity_admin_router
 from app.api.identity.person_router import router as identity_person_router
 from app.api.identity.system_router import router as identity_system_router
+from app.api.outbox.services import FLDeliveryDeadlineDays, FLOutboxRetentionDays
 from app.api.outbox.system_router import router as outbox_system_router
 from app.api.registrierungen.person_router import router as registrierungen_person_router
 from app.api.registrierungen.person_router import spieler_router as registrierungen_person_spieler_router
@@ -61,9 +62,13 @@ from app.shared.schemas.bounds import (
     ADDRESS_CHANGE_BOUNDS,
     CONSENT_BOUNDS,
     GRANT_BOUNDS,
+    RETENTION_BOUNDS,
+    SESSION_BOUNDS,
     FLActionLogPageSize,
     FLAufstellungStartersMax,
     FLBanDurationSaisons,
+    FLKontaktEmailMaxLength,
+    FLSaisonIdLength,
     FLTeamShorthandLength,
 )
 from app.shared.schemas.einwilligung import CURRENT_TEXT_VERSIONS
@@ -147,12 +152,18 @@ MIRRORED_CONSTANTS: Final = (
     *ADDRESS_CHANGE_BOUNDS,
     *GRANT_BOUNDS,
     *CONSENT_BOUNDS,
+    *RETENTION_BOUNDS,
+    *SESSION_BOUNDS,
     FLActionLogPageSize,
     FLActorRole,
     FLAufstellungStartersMax,
     FLAuthFactor,
     FLBanDurationSaisons,
+    FLDeliveryDeadlineDays,
     FLErasedActorMarker,
+    FLKontaktEmailMaxLength,
+    FLOutboxRetentionDays,
+    FLSaisonIdLength,
     FLTeamShorthandLength,
     Rule,
 )

@@ -71,8 +71,8 @@ const REFEREE_STORED =
   "Wir speichern deinen Namen, deine Kontaktdaten, dein Honorar, dein Geburtsdatum und deine Schule, wenn sie angegeben ist, bis du oder die Liga den Eintrag beendet.";
 
 /**
- * The bounds the frontend's code holds that the privacy notice's retention table states, passed by its page. An hour
- * read „1 Stunde“ is typed as its one figure, the singular being the sentence's.
+ * The bounds the code holds that the privacy notice's retention table states, the frontend's and the ones the backend
+ * publishes, passed by its page. An hour read „1 Stunde“ is typed as its one figure, the singular being the sentence's.
  */
 type RetentionBounds = {
   bewerbungDays: number;
@@ -85,7 +85,19 @@ type RetentionBounds = {
   sessionDays: number;
   /** How many seasons after its own a ban runs, the backend's `BAN_DURATION_SAISONS`. */
   banSaisons: number;
+  /** The days an ended address change's record stands. */
+  addressChangeRetentionDays: number;
+  /** The years the Protokoll keeps a row, which the table states in months. */
+  actionLogYears: number;
+  /** The days a sent or given-up mail's row stands. */
+  outboxRetentionDays: number;
 };
+
+/** A period of whole years as the notice states it, in months: the Protokoll's year reads „12 Monate“. */
+const monthsOf = (years: number) => formatNumber(12 * years);
+
+/** An hour the notice spells out as a word, typed by its figure, so a bound that moves fails the type check here. */
+const HOURS_IN_WORDS = { 1: "eine Stunde" } as const;
 
 /**
  * The catalogue's entries only the server reads, so no client bundle carries them: `COPY` is one object, and a
@@ -931,8 +943,8 @@ export const SERVER_COPY = catalogue({
 
   /**
    * The two legal pages' text, which their pages set as the kit's `Prose` blocks under their titles; the copy
-   * standard's legal section governs it. A bound the frontend's code holds is a parameter, so the text states the one
-   * the code keeps; a provider's period, and a bound only the backend holds, is written out. A
+   * standard's legal section governs it. Every bound the code holds, the frontend's or one the backend publishes, is a
+   * parameter, so the text states the one the code keeps; a period a provider or the host holds is written out. A
    * paragraph with a link stands in parts around it, `before` and `after`, which the page sets the link between.
    */
   legal: {
@@ -958,10 +970,10 @@ export const SERVER_COPY = catalogue({
         heading: "Website und Browser",
         requests:
           "Jede Anfrage an die Website läuft zuerst über Cloudflare, Inc.; Cloudflare sieht dabei deine IP-Adresse, die aufgerufene Adresse, die Angaben deines Browsers und jedes Formular, das du abschickst. Bei jedem Aufruf speichert unser Server deine IP-Adresse, den Zeitpunkt, die aufgerufene Seite, den Statuscode und die Kennung deines Browsers.",
-        // The passkey cookie's 5 minutes are Better Auth's own, which the library sets and exports no name for; the mailed
-        // link's hour is the proxy's `MAILED_LINK_SECONDS`.
-        browser:
-          "In deinem Browser legt die Website nur ab, was ihr Betrieb braucht: ein Sitzungs-Cookie, sobald du dich anmeldest, ein Cookie für die Anmeldung mit einem Passkey, das 5\u00A0Minuten gilt, ein Cookie, das einen Link aus einer E-Mail eine Stunde lang hält, bis du ihn benutzt, und im lokalen Speicher die Darstellung, hell oder dunkel, die du wählst. Auf der Anmeldeseite, im Bewerbungsformular und im Registrierungsformular prüft Cloudflare Turnstile, ob ein Mensch das Formular abschickt, und fragt dafür Merkmale deines Browsers und deiner Verbindung ab; Cloudflare nutzt sie auch in eigener Verantwortung, um seine Erkennung automatisierter Zugriffe zu verbessern. Beides ist nach\u00A0§\u00A025 Abs.\u00A02 Nr.\u00A02 TDDDG ohne Einwilligung zulässig.",
+        // The passkey cookie's 5 minutes are Better Auth's own, which the library sets and exports no name for. The mailed
+        // link's hour is typed as its one figure, which the sentence spells out as a word.
+        browser: (mailedLinkHours: 1) =>
+          `In deinem Browser legt die Website nur ab, was ihr Betrieb braucht: ein Sitzungs-Cookie, sobald du dich anmeldest, ein Cookie für die Anmeldung mit einem Passkey, das 5\u00A0Minuten gilt, ein Cookie, das einen Link aus einer E-Mail ${HOURS_IN_WORDS[mailedLinkHours]} lang hält, bis du ihn benutzt, und im lokalen Speicher die Darstellung, hell oder dunkel, die du wählst. Auf der Anmeldeseite, im Bewerbungsformular und im Registrierungsformular prüft Cloudflare Turnstile, ob ein Mensch das Formular abschickt, und fragt dafür Merkmale deines Browsers und deiner Verbindung ab; Cloudflare nutzt sie auch in eigener Verantwortung, um seine Erkennung automatisierter Zugriffe zu verbessern. Beides ist nach\u00A0§\u00A025 Abs.\u00A02 Nr.\u00A02 TDDDG ohne Einwilligung zulässig.`,
       },
       bewerbung: {
         heading: "Bewerbung einer Schule",
@@ -976,9 +988,8 @@ export const SERVER_COPY = catalogue({
       },
       schiedsrichter: {
         heading: "Schiedsrichterinnen und Schiedsrichter",
-        // The referee's minimum age is the backend's alone, so the text writes it out.
-        text: (days: number) =>
-          `Pfeifst du für die Liga, trägt sie dich mit Name, Kontaktdaten, Schule und Honorar ein, so wie du oder die Person, die dich genannt hat, sie uns mitteilt. Über einen Link bestätigst du den Eintrag innerhalb ${boundBy("von", formatNumber(days), "Tagen")} mit deinem Geburtsdatum; pfeifen kann, wer mindestens\u00A016\u00A0Jahre alt ist. ${OBJECTION_DELETES_ENTRY} Löschen wir deinen Eintrag, steht an deinen gespielten Spielen „anonym“ mit dem Honorar, und aus angesetzten Spielen nehmen wir dich heraus.`,
+        text: (days: number, minAge: number) =>
+          `Pfeifst du für die Liga, trägt sie dich mit Name, Kontaktdaten, Schule und Honorar ein, so wie du oder die Person, die dich genannt hat, sie uns mitteilt. Über einen Link bestätigst du den Eintrag innerhalb ${boundBy("von", formatNumber(days), "Tagen")} mit deinem Geburtsdatum; pfeifen kann, wer ${boundBy("mindestens", formatNumber(minAge), "Jahre")} alt ist. ${OBJECTION_DELETES_ENTRY} Löschen wir deinen Eintrag, steht an deinen gespielten Spielen „anonym“ mit dem Honorar, und aus angesetzten Spielen nehmen wir dich heraus.`,
       },
       spiele: {
         heading: "Spiele und Spielberichte",
@@ -1000,8 +1011,8 @@ export const SERVER_COPY = catalogue({
       },
       mail: {
         heading: "E-Mail und WhatsApp",
-        senders:
-          "Unsere E-Mails verschicken wir über Resend, Codes und Sicherheitshinweise von anmeldung@frankfurtleague.de, alle anderen von liga@frankfurtleague.de; Resend meldet uns, ob eine E-Mail ankommt, und wir speichern das bei der Nachricht.",
+        senders: (signIn: string, league: string) =>
+          `Unsere E-Mails verschicken wir über Resend, Codes und Sicherheitshinweise von ${signIn}, alle anderen von ${league}; Resend meldet uns, ob eine E-Mail ankommt, und wir speichern das bei der Nachricht.`,
         forwarding:
           "E-Mails an die Liga kommen in ihr Postfach bei Google Workspace, das ein Mitglied des Vorstands liest und das jede Nachricht an ein Mitglied des Vorstands weiterleitet. Im Postfach der Liga löschen wir jede Nachricht 6\u00A0Monate nach ihrem Eingang.",
         whatsapp:
@@ -1035,10 +1046,10 @@ export const SERVER_COPY = catalogue({
           "In die Vereinigten Staaten übermitteln wir auf Grundlage des Angemessenheitsbeschlusses zum EU-US Data Privacy Framework (Art.\u00A045 DSGVO), für Cloudflare und Resend auch der Standardvertragsklauseln der Europäischen Kommission (Art.\u00A046 Abs.\u00A02 lit.\u00A0c DSGVO); in andere Länder ohne Angemessenheitsbeschluss übermittelt Google auf Grundlage dieser Klauseln. Eine Kopie der Klauseln schicken wir dir auf Anfrage. Ein privates Postfach kann in einem Land ohne Angemessenheitsbeschluss liegen; für diese Übermittlung gibt es keine geeigneten Garantien. Darüber hinaus geben wir keine Daten weiter, auch nicht an unsere Sponsoren.",
       },
       /**
-       * The retention table: each store's name, what it holds and how long. A bound the frontend's code holds is a
-       * parameter; the rest, which the backend, a host script or a provider holds, are written out. A declined item's
-       * days are `declinedDays`; where one figure stands for an unconfirmed and a declined item, the confirmation
-       * link's days stand for both, which the backend holds equal at import.
+       * The retention table: each store's name, what it holds and how long. A bound the code holds is a parameter; a
+       * period a host script or a provider holds is written out. A declined item's days are `declinedDays`; where one
+       * figure stands for an unconfirmed and a declined item, the confirmation link's days stand for both, which the
+       * backend holds equal at import.
        */
       retention: {
         heading: "Speicherdauer",
@@ -1108,14 +1119,17 @@ export const SERVER_COPY = catalogue({
             content: "Beginn, letzte Nutzung, Art der Anmeldung",
             period: (bound: RetentionBounds) => `${boundBy(formatNumber(bound.sessionDays), "Tage")} nach der letzten Nutzung`,
           },
-          // The ended change's 30 days are the backend's `ADDRESS_CHANGE_RETENTION_DAYS` alone, so they are written out.
           {
             name: "Adressänderung",
             content: "Beide Adressen",
             period: (bound: RetentionBounds) =>
-              `jeder Link ${boundBy(formatNumber(bound.addressChangeLinkHours), "Stunden")}; Adressen bis zu ihrem Ende, der Rest 30\u00A0Tage danach`,
+              `jeder Link ${boundBy(formatNumber(bound.addressChangeLinkHours), "Stunden")}; Adressen bis zu ihrem Ende, der Rest ${boundBy(formatNumber(bound.addressChangeRetentionDays), "Tage")} danach`,
           },
-          { name: "Protokoll der Liga", content: "Wer was wann geändert hat, ohne Inhalte; beim Zugang die Adresse", period: "12\u00A0Monate" },
+          {
+            name: "Protokoll der Liga",
+            content: "Wer was wann geändert hat, ohne Inhalte; beim Zugang die Adresse",
+            period: (bound: RetentionBounds) => boundBy(monthsOf(bound.actionLogYears), "Monate"),
+          },
           // The erasure journal is written as the server's own journald lines, kept nine days.
           {
             name: "Protokolle des Servers",
@@ -1123,7 +1137,12 @@ export const SERVER_COPY = catalogue({
               "Aufrufe, Anmeldungen; Löschungen, Widerrufe und Widersprüche mit der Nummer des Eintrags, bei Kontaktpersonen auch dem Tag der Bestätigung",
             period: "9\u00A0Tage",
           },
-          { name: "Unsere E-Mails", content: "Inhalt, Adresse, Zustellstand", period: "Inhalt bis zum Versand, der Rest 30\u00A0Tage danach" },
+          {
+            name: "Unsere E-Mails",
+            content: "Inhalt, Adresse, Zustellstand",
+            period: (bound: RetentionBounds) =>
+              `Inhalt bis zum Versand, der Rest ${boundBy(formatNumber(bound.outboxRetentionDays), "Tage")} danach`,
+          },
           {
             name: "E-Mails bei Resend",
             content: "Adresse, Betreff, Inhalt",
@@ -1139,8 +1158,10 @@ export const SERVER_COPY = catalogue({
       },
       erasure: {
         heading: "Löschung",
-        text: "Löschen wir Daten, auf deinen Wunsch oder nach ihrer Frist, verschwinden sie sofort aus der Datenbank und nach etwa\u00A08\u00A0Tagen aus den Sicherungskopien; spielen wir eine ältere Sicherung ein, löschen wir sie erneut. Es bleiben die Kopien bei Resend und, von deinen E-Mails an uns, bei Google bis zu ihren Fristen und im Postfach des Mitglieds des Vorstands, an das wir sie weiterleiten, bis wir sie dort auf deine Anfrage löschen, die Protokolle des Servers mit der Nummer eines Eintrags und, bei Kontaktpersonen, dem Tag der Bestätigung bis zu ihrer Frist, eine Sperre deiner Adresse bis zu ihrem Ende, die E-Mail mit dem Link zur Löschung, bis er abläuft, unsere Nachricht über die Löschung höchstens 2\u00A0Tage, deine Adresse pseudonymisiert 1\u00A0Stunde lang, Mitteilungen zum Zugang zur Verwaltung, die andere schon erhalten haben, und freie Texte, die nicht unter deiner Adresse stehen. Löschen wir ein bestätigtes Konto, schreiben wir dir das, ebenso, wenn wir eine Bewerbung löschen, die nicht zustande kam und in der du deinen Eintrag bestätigt hast, außer an eine gesperrte Adresse; eine Absage nennt die Löschung schon selbst.",
-        log: "Was die Verwaltung an den Daten der Liga ändert, halten wir 12\u00A0Monate im Protokoll der Liga fest, ebenso, was Kontaktpersonen und Schiedsrichter für andere ändern, und die Löschung von Einträgen. Ein Eintrag sagt, wer es war, was geschah und wann, ohne alten oder neuen Inhalt. Beim Zugang zur Verwaltung steht darin die Adresse der genannten Person, auch wenn der Zugang nie galt. Die Verwaltung steht darin mit ihrer Adresse, alle anderen ohne Namen und Adresse. Zu einer Löschung stehen dort, wer sie veranlasst hat, und ein Verweis auf die Anfrage. Löschen wir deine Daten, ersetzt ein fester Vermerk deine Adresse.",
+        text: (deliveryDays: number, anchorHours: 1) =>
+          `Löschen wir Daten, auf deinen Wunsch oder nach ihrer Frist, verschwinden sie sofort aus der Datenbank und nach etwa\u00A08\u00A0Tagen aus den Sicherungskopien; spielen wir eine ältere Sicherung ein, löschen wir sie erneut. Es bleiben die Kopien bei Resend und, von deinen E-Mails an uns, bei Google bis zu ihren Fristen und im Postfach des Mitglieds des Vorstands, an das wir sie weiterleiten, bis wir sie dort auf deine Anfrage löschen, die Protokolle des Servers mit der Nummer eines Eintrags und, bei Kontaktpersonen, dem Tag der Bestätigung bis zu ihrer Frist, eine Sperre deiner Adresse bis zu ihrem Ende, die E-Mail mit dem Link zur Löschung, bis er abläuft, unsere Nachricht über die Löschung höchstens ${boundBy(formatNumber(deliveryDays), "Tage")}, deine Adresse pseudonymisiert ${boundBy(formatNumber(anchorHours), "Stunde")} lang, Mitteilungen zum Zugang zur Verwaltung, die andere schon erhalten haben, und freie Texte, die nicht unter deiner Adresse stehen. Löschen wir ein bestätigtes Konto, schreiben wir dir das, ebenso, wenn wir eine Bewerbung löschen, die nicht zustande kam und in der du deinen Eintrag bestätigt hast, außer an eine gesperrte Adresse; eine Absage nennt die Löschung schon selbst.`,
+        log: (logYears: number) =>
+          `Was die Verwaltung an den Daten der Liga ändert, halten wir ${boundBy(monthsOf(logYears), "Monate")} im Protokoll der Liga fest, ebenso, was Kontaktpersonen und Schiedsrichter für andere ändern, und die Löschung von Einträgen. Ein Eintrag sagt, wer es war, was geschah und wann, ohne alten oder neuen Inhalt. Beim Zugang zur Verwaltung steht darin die Adresse der genannten Person, auch wenn der Zugang nie galt. Die Verwaltung steht darin mit ihrer Adresse, alle anderen ohne Namen und Adresse. Zu einer Löschung stehen dort, wer sie veranlasst hat, und ein Verweis auf die Anfrage. Löschen wir deine Daten, ersetzt ein fester Vermerk deine Adresse.`,
       },
       rights: {
         heading: "Deine Rechte",

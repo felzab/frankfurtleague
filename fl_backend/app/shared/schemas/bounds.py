@@ -18,10 +18,11 @@ ADDRESS_DISTRICT_MAX_LENGTH: Final = 80
 # alphabet of digits, a hyphen and a/b/c can spell as a real address. Anything longer is not one.
 ADDRESS_HOUSE_NUMBER_MAX_LENGTH: Final = 16
 
-# RFC 5321's whole-address ceiling, the one email-validator already applies.
-# Named so the frontend mirror refuses at the same length: past it the API's payload_refused marks the
-# box with a generic sentence rather than the length's own German.
-KONTAKT_EMAIL_MAX_LENGTH: Final = 254
+# RFC 5321's whole-address ceiling, the one email-validator already applies. Published, so the frontend's address rule
+# refuses at the same length: past it the API's payload_refused marks the box with a generic sentence rather than the
+# length's own German.
+type FLKontaktEmailMaxLength = Literal[254]
+KONTAKT_EMAIL_MAX_LENGTH: Final[FLKontaktEmailMaxLength] = 254
 
 TEAM_DESCRIPTION_MAX_LENGTH: Final = 4096
 
@@ -101,7 +102,10 @@ BEWERBUNG_STUFENGROESSE_MAX: Final = 999
 type FLTeamShorthandLength = Literal[3]
 TEAM_SHORTHAND_LENGTH: Final[FLTeamShorthandLength] = 3
 
-SAISON_ID_LENGTH: Final = 4
+# Published: `saisons._id` is the string every `saison_id` references, and the frontend reads a season's address
+# against this width before it asks the backend.
+type FLSaisonIdLength = Literal[4]
+SAISON_ID_LENGTH: Final[FLSaisonIdLength] = 4
 
 # The most rows one list read takes: no request names a page size, so a list is cut here and a whole read refuses a set past it.
 LIST_LIMIT_DEFAULT: Final = 1024
@@ -110,10 +114,12 @@ LIST_LIMIT_DEFAULT: Final = 1024
 # request deadline on a slow server.
 REFERENCES_ADDRESSES_MAX: Final = 250
 
-# How long the action log keeps a row, counted from the write it recorded. Seconds because that is
-# the unit `create_index(expireAfterSeconds=)` takes, and a plain year because the database counts
-# no calendar months.
-ACTION_LOG_ENTRY_RETENTION_SECONDS: Final = 365 * 24 * 60 * 60
+# How long the action log keeps a row, counted from the write it recorded. Published in years, which the privacy notice
+# states in months; a plain year of seconds below, because the database counts no calendar months and seconds are the
+# unit `create_index(expireAfterSeconds=)` takes.
+type FLActionLogRetentionYears = Literal[1]
+ACTION_LOG_RETENTION_YEARS: Final[FLActionLogRetentionYears] = 1
+ACTION_LOG_ENTRY_RETENTION_SECONDS: Final = ACTION_LOG_RETENTION_YEARS * 365 * 24 * 60 * 60
 
 # One page of the Protokoll. Published as a schema of its own: „Weitere 50 laden“ states the figure, and the frontend
 # checks its constant against this alias.
@@ -178,11 +184,17 @@ OWNER_WAIT_DAYS: Final[FLOwnerWaitDays] = 7
 GRANT_BOUNDS: Final = (FLGrantWaitHours, FLOwnerWaitDays)
 
 # How long an ended change's record is kept, holding no address, so each link answers what became of it.
-ADDRESS_CHANGE_RETENTION_DAYS: Final = 30
+type FLAddressChangeRetentionDays = Literal[30]
+ADDRESS_CHANGE_RETENTION_DAYS: Final[FLAddressChangeRetentionDays] = 30
 
 # How long a mailbox's document outlives the last press naming it: far past a transaction's life, the one thing it must
 # outlast, and a document gone costs the next press an insert, which conflicts as the update does.
-MAILBOX_ANCHOR_RETENTION_SECONDS: Final = 60 * 60
+type FLMailboxAnchorRetentionHours = Literal[1]
+MAILBOX_ANCHOR_RETENTION_HOURS: Final[FLMailboxAnchorRetentionHours] = 1
+MAILBOX_ANCHOR_RETENTION_SECONDS: Final = MAILBOX_ANCHOR_RETENTION_HOURS * 60 * 60
+
+# Published as schemas of their own: the privacy notice states each, and the frontend checks its constants against them.
+RETENTION_BOUNDS: Final = (FLActionLogRetentionYears, FLAddressChangeRetentionDays, FLMailboxAnchorRetentionHours)
 
 # A row stores the deadline it was given, so raising this moves no request already sent; a fixture
 # dated inside it is due the day it is asked.
@@ -225,7 +237,8 @@ AUFSTELLUNG_STARTERS_MAX: Final[FLAufstellungStartersMax] = 11
 # The age a referee consents at. Its own constant rather than the application contact's, though the
 # numbers agree: the two floors are separate judgements, so raising one must not silently raise the
 # other.
-SCHIEDSRICHTER_MIN_AGE_YEARS: Final = 16
+type FLSchiedsrichterMinAgeYears = Literal[16]
+SCHIEDSRICHTER_MIN_AGE_YEARS: Final[FLSchiedsrichterMinAgeYears] = 16
 
 # The age a pupil consents at. Its own constant rather than the referee's or the application
 # contact's, though the numbers agree: the floors are separate judgements, so raising one must not
@@ -245,6 +258,7 @@ CONSENT_BOUNDS: Final = (
     FLConfirmationDeadlineDays,
     FLBewerbungKontaktMinAgeYears,
     FLSignatoryMinAgeYears,
+    FLSchiedsrichterMinAgeYears,
     FLRegistrierungMinAgeYears,
     FLMediaMinAgeYears,
 )
@@ -252,8 +266,14 @@ CONSENT_BOUNDS: Final = (
 # The frontend's administrator cap, NIST SP 800-63B-4 §2.2.3's AAL2 overall timeout:
 # the backend refuses an administrator's session whose sign-in is older, as a looser backend honours a
 # session the frontend believes gone.
-ADMIN_WINDOW_HOURS: Final = 24
+type FLAdminWindowHours = Literal[24]
+ADMIN_WINDOW_HOURS: Final[FLAdminWindowHours] = 24
 
 # The frontend ends a person's session this long after its sign-in however recently it was used, and
 # the backend refuses a person-lane token whose sign-in is older, lest it honour a session the frontend believes gone.
-PERSON_WINDOW_DAYS: Final = 30
+type FLPersonWindowDays = Literal[30]
+PERSON_WINDOW_DAYS: Final[FLPersonWindowDays] = 30
+
+# Published as schemas of their own: the frontend ends its sessions at these figures and the privacy notice states
+# them, so a window moved here alone fails the frontend's type check rather than the two tiers ending a session apart.
+SESSION_BOUNDS: Final = (FLAdminWindowHours, FLPersonWindowDays)

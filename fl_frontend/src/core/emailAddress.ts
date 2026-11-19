@@ -1,10 +1,12 @@
+import type { FLKontaktEmailMaxLength } from "./generated/client/types";
+
 /**
  * In `core`, because the sign-in fold and the mailer read these rules, and the lint's layer boundary refuses `core` an
  * import from `shared`.
  */
 
-/** The whole-address ceiling, mirrored from the backend's bounds. */
-export const KONTAKT_EMAIL_MAX_LENGTH = 254;
+/** The whole-address ceiling the backend publishes. */
+export const KONTAKT_EMAIL_MAX_LENGTH = 254 satisfies FLKontaktEmailMaxLength;
 
 /**
  * RFC 5322 3.2.3's atext and nothing above ASCII, as the HTML standard's `type=email` address takes
