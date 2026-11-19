@@ -36,21 +36,13 @@ async def address_is_barred(
     address: str,
     session: AsyncClientSession | None = None,
 ) -> bool:
-    """Whether a ban holds this address, `uniq_ban_list_address` serving the equality.
+    """Whether a ban holds this address, asked of the one reader that folds it.
 
     A row's presence is the whole answer: the activation that runs past a ban removes it in the
     transaction moving the season.
     """
 
-    found = await pull_many_from_db(
-        collection=ban_list_collection,
-        db_filter={"address": sign_in_identifier(address)},
-        limit=1,
-        projection=["_id"],
-        session=session,
-    )
-
-    return bool(found)
+    return bool(await read_barred_addresses([address], ban_list_collection=ban_list_collection, session=session))
 
 
 async def read_barred_addresses(
@@ -59,7 +51,10 @@ async def read_barred_addresses(
     ban_list_collection: ReadCollection,
     session: AsyncClientSession | None = None,
 ) -> set[str]:
-    """Which of these addresses a ban holds, each answered in the spelling it was asked in, in one read."""
+    """Which of these addresses a ban holds, each answered in the spelling it was asked in, in one read.
+
+    Folded here alone, so no reader asks a ban by a spelling it was not stored in; `uniq_ban_list_address` serves the `$in`.
+    """
 
     folded = {address: sign_in_identifier(address) for address in set(addresses)}
     if not folded:
