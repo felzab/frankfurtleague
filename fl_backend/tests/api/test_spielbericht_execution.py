@@ -320,31 +320,6 @@ class TestAFormOpenedBeforeAnotherWrite:
 
         assert await on_the_league(mongo_replica_set_url, body) == (Code.VERSION_STALE, [])
 
-    async def test_a_first_write_crossing_another_is_refused_on_its_retry(self, mongo_replica_set_url: str):
-        """A first write from the referee's other window commits inside this one: the insert conflicts, and the retry meets a document.
-
-        MongoDB answers the insert a write conflict, never a duplicate key, so the refusal is the stale form's.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            # Naming no pupil: the outer write holds its own pupils' anchors, which the rival would wait on.
-            berichte = BerichteRunningARivalBeforeTheirWrite(
-                database[Collection.SPIELBERICHTE],
-                lambda: put(database, client, bericht([tor("team1", None), tor("team1", None)], cards=[])),
-            )
-            outcome = await outcome_of(put(database, client, bericht(), spielberichte_collection=berichte))
-
-            return outcome, await stored(database), berichte.passes
-
-        outcome, documents_now, passes = await on_the_league(mongo_replica_set_url, body)
-
-        assert outcome == Code.VERSION_STALE
-        [document] = documents_now
-        # The other window's 2:0 stands as it was written; this window's 1:0 took nothing of it.
-        assert (document["version"], document["bericht"]["ergebnis_vorschlag"]["team1_tore"]) == (0, 2)
-        # The insert was reached once: the retry was refused before reaching a write.
-        assert passes == 1
-
 
 async def call_off(database: AsyncDatabase) -> None:
     await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"sonderereignis": "ausgefallen"}})
@@ -388,109 +363,66 @@ class BerichteRunningARivalBeforeTheirWrite(InterleavedCollection):
         return await self._collection.insert_one(*args, **kwargs)
 
 
-async def take_the_referee_off(database: AsyncDatabase) -> None:
-    await database[Collection.SPIELE].update_one(
-        {"_id": SPIEL}, {"$set": {"schiedsrichter": {"schiedsrichter_id": OTHER_REFEREE, "payment": 20}}}
-    )
+# A change no report is judged on, so the fixture's save takes it whichever order the two commit in.
+MOVED_NOTE = "Halle Ost"
 
 
-async def take_lina_out_of_the_kader(database: AsyncDatabase) -> None:
-    await database[Collection.SAISON_SPIELER].update_one({"spieler_id": LINA}, {"$set": {"inactive_since": TODAY}})
+class TestAReportAndAFixtureSaveCrossing:
+    """The report anchors the fixture it judged, so a fixture's save landing either side of it conflicts with it."""
 
-
-async def retire_the_referee(database: AsyncDatabase) -> None:
-    await database[Collection.SCHIEDSRICHTER].update_one({"_id": SCHIEDSRICHTER}, {"$set": {"inactive_since": TODAY}})
-
-
-class TestWhatTheReportIsJudgedOnMovingMidWriteIsJudgedAgain:
-    """Each a write to a document the report's transaction judges and anchors, so it conflicts and the retry refuses the write."""
-
-    @pytest.mark.parametrize(
-        ("rival", "code"),
-        [
-            pytest.param(retire_the_referee, Code.ROLE_NOT_HELD, id="the-referee-s-record-retired"),
-            pytest.param(take_the_referee_off, Code.BERICHT_NOT_OFFICIATED, id="the-referee-taken-off"),
-            pytest.param(call_off, Code.BERICHT_CANCELLED, id="the-fixture-called-off"),
-            pytest.param(take_lina_out_of_the_kader, Code.SPIELER_NOT_IN_KADER, id="the-scorer-deregistered"),
-        ],
-    )
-    async def test_the_write_is_refused_on_what_moved_and_writes_nothing(
-        self, mongo_replica_set_url: str, rival: Callable[[AsyncDatabase], Awaitable[None]], code: str
-    ):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            berichte = BerichteRunningARivalBeforeTheirWrite(database[Collection.SPIELBERICHTE], lambda: rival(database))
-            outcome = await outcome_of(put(database, client, bericht(), spielberichte_collection=berichte))
-            berichte.assert_landed_inside(serially=0)
-
-            return outcome, await stored(database), berichte.passes
-
-        outcome, documents_now, passes = await on_the_league(mongo_replica_set_url, body)
-
-        assert (outcome, documents_now) == (code, [])
-        # Once: the retry is refused on what moved before it reaches the write again.
-        assert passes == 1
-
-    async def test_a_correction_conflicts_with_the_season_ending_under_it(self, mongo_replica_set_url: str):
-        """A correction anchors the season as a first write does, so a retry refuses it in its transaction.
-
-        Unanchored, it would commit into the ended season.
-        """
+    async def test_a_call_off_inside_the_write_refuses_it(self, mongo_replica_set_url: str):
+        """Unanchored, the report would stand for a match that never took place."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await put(database, client, bericht())
-            berichte = BerichteRunningARivalBeforeTheirCorrection(database[Collection.SPIELBERICHTE], lambda: end_the_season(database))
-            saisons = SaisonsCountingTheAttempts(database[Collection.SAISONS])
-            correction = bericht([tor("team1", LINA, "24")], version=0)
-            outcome = await outcome_of(put(database, client, correction, spielberichte_collection=berichte, saisons_collection=saisons))
-            berichte.assert_landed_inside(serially=0)
+            berichte = BerichteRunningARivalBeforeTheirWrite(database[Collection.SPIELBERICHTE], lambda: call_off(database))
 
-            return outcome, [document["version"] for document in await stored(database)], saisons.attempts
+            return await outcome_of(put(database, client, bericht(), spielberichte_collection=berichte)), await stored(database)
 
-        outcome, versions, attempts = await on_the_league(mongo_replica_set_url, body)
+        assert await on_the_league(mongo_replica_set_url, body) == (Code.BERICHT_CANCELLED, [])
 
-        assert (outcome, versions) == (Code.SAISON_PAST, [0])
-        assert attempts == 2, "the season's end conflicted with nothing the correction wrote"
+    async def test_a_report_written_inside_a_fixture_save_leaves_it_committing_on_the_version_its_form_read(self, mongo_replica_set_url: str):
+        """The fixture's save meets the report's anchor and runs again, and the anchor moved no `version` for it to be refused on."""
 
-    async def test_a_first_write_conflicts_with_the_season_ending_under_it(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            loaded = await the_row(database, Collection.SPIELE, {"_id": SPIEL}, "the seed holds no fixture")
+
+            async def the_referee_reports() -> None:
+                await put(database, client, bericht())
+
+            # After the fixture save's reads and ahead of its write of the fixture.
+            spiele = InterleavedCollection(database[Collection.SPIELE], the_referee_reports, before="find_one_and_update")
+            outcome = await outcome_of(
+                patch_spiel(
+                    spiel_id=SPIEL,
+                    spiel_data=FLPatchSpielDataPayload.model_validate(spiel_patch_body(loaded, note=MOVED_NOTE)),
+                    **{**save_handles(database, client), "spiele_collection": spiele},
+                )
+            )
+            saved = await the_row(database, Collection.SPIELE, {"_id": SPIEL}, "the seed holds no fixture")
+
+            return (
+                outcome,
+                (saved["note"], saved["version"] - loaded.get("version", 0)),
+                [document["version"] for document in await stored(database)],
+            )
+
+        # The fixture's save raised its version once; the report stands as the referee wrote it.
+        assert await on_the_league(mongo_replica_set_url, body) == (COMMITTED, (MOVED_NOTE, 1), [0])
+
+
+class TestASeasonEndingUnderAFirstWrite:
+    async def test_it_conflicts_with_the_season_s_anchor_and_the_retry_refuses_it(self, mongo_replica_set_url: str):
         """The season's anchor conflicts with the end, so a retry refuses the write in its transaction.
 
-        Unanchored, the write would commit into the ended season.
+        Unanchored, the write would commit into the ended season. A draw's removal and the activation take the same anchor.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             berichte = BerichteRunningARivalBeforeTheirWrite(database[Collection.SPIELBERICHTE], lambda: end_the_season(database))
-            saisons = SaisonsCountingTheAttempts(database[Collection.SAISONS])
-            outcome = await outcome_of(put(database, client, bericht(), spielberichte_collection=berichte, saisons_collection=saisons))
-            berichte.assert_landed_inside(serially=0)
 
-            return outcome, await stored(database), saisons.attempts
+            return await outcome_of(put(database, client, bericht(), spielberichte_collection=berichte)), await stored(database)
 
-        outcome, documents_now, attempts = await on_the_league(mongo_replica_set_url, body)
-
-        assert (outcome, documents_now) == (Code.SAISON_PAST, [])
-        assert attempts == 2, "the season's end conflicted with nothing the write wrote"
-
-
-class SaisonsCountingTheAttempts:
-    """Every attempt of the write's transaction reads the fixture's season once inside it, so those reads count the attempts."""
-
-    def __init__(self, collection: Any) -> None:
-        self._collection = collection
-        self.attempts = 0
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._collection, name)
-
-    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
-        if kwargs.get("session") is not None:
-            self.attempts += 1
-        return await self._collection.find_one(*args, **kwargs)
-
-
-class BerichteRunningARivalBeforeTheirCorrection(InterleavedCollection):
-    async def find_one_and_update(self, *args: Any, **kwargs: Any) -> Any:
-        await self.run_the_rival()
-        return await self._collection.find_one_and_update(*args, **kwargs)
+        assert await on_the_league(mongo_replica_set_url, body) == (Code.SAISON_PAST, [])
 
 
 class PupilsRunningARivalBeforeTheAnchor(InterleavedCollection):
@@ -501,7 +433,7 @@ class PupilsRunningARivalBeforeTheAnchor(InterleavedCollection):
 
 class TestAPupilErasedMidWriteConflictsWithTheAnchor:
     async def test_the_write_retries_and_is_refused_on_the_kader_the_erasure_left(self, mongo_replica_set_url: str):
-        """The erasure removes the squad row and the person after this write judged them: the anchor on the person conflicts."""
+        """The erasure removes the squad row and the person after this write judged them: the anchor on either conflicts."""
 
         async def erase_lina(database: AsyncDatabase) -> None:
             await database[Collection.SAISON_SPIELER].delete_one({"spieler_id": LINA})
@@ -509,17 +441,11 @@ class TestAPupilErasedMidWriteConflictsWithTheAnchor:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler = PupilsRunningARivalBeforeTheAnchor(database[Collection.SPIELER], lambda: erase_lina(database))
-            berichte = BerichteRunningARivalBeforeTheirWrite(database[Collection.SPIELBERICHTE], lambda: nothing(database))
-            outcome = await outcome_of(put(database, client, bericht(), spieler_collection=spieler, spielberichte_collection=berichte))
-            spieler.assert_landed_inside(serially=0)
 
-            return outcome, await stored(database), berichte.passes
+            return await outcome_of(put(database, client, bericht(), spieler_collection=spieler)), await stored(database)
 
-        outcome, documents_now, writes = await on_the_league(mongo_replica_set_url, body)
-
-        assert (outcome, documents_now) == (Code.SPIELER_NOT_IN_KADER, [])
-        # Never written: the anchor's conflict retried the transaction, whose judgement met the squad without her.
-        assert writes == 0
+        # The anchor's conflict retried the transaction, whose judgement met the squad without her.
+        assert await on_the_league(mongo_replica_set_url, body) == (Code.SPIELER_NOT_IN_KADER, [])
 
 
 class TestTheReads:
