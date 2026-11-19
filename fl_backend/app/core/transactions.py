@@ -4,6 +4,7 @@ import time
 import traceback
 from collections.abc import AsyncGenerator, Awaitable, Callable, Iterable, Mapping, Sequence
 from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
 from typing import Any, Final
 
 import anyio
@@ -139,6 +140,68 @@ async def transact[T](client: AsyncMongoClient, callback: Callable[[AsyncClientS
 
     async with transaction_session(client) as session:
         return await session.with_transaction(callback)
+
+
+def _of_row[Row, T](save: Callable[[AsyncClientSession, Row], Awaitable[T]], row: Row) -> Callable[[AsyncClientSession], Awaitable[T]]:
+    """`save` bound to one row, the callback `transact` runs and may run again."""
+
+    return lambda session: save(session, row)
+
+
+@dataclass
+class Saved[T]:
+    """What an hourly pass's step saved, row by row: each row's answer, the rows passed over, and whether the deadline cut it."""
+
+    answers: list[T] = field(default_factory=list)
+    failed: int = 0
+    cut: bool = False
+
+
+async def save_each[Row: Mapping[str, Any], T](
+    *,
+    db: AsyncMongoClient,
+    rows: Iterable[Row],
+    # Run in a transaction of its own for each row, which it judges again there: the read naming the rows was taken
+    # outside any.
+    save: Callable[[AsyncClientSession, Row], Awaitable[T]],
+    what: str,
+    clock: str,
+) -> Saved[T]:
+    """Each row saved in a transaction of its own: one that fails is logged and passed over, and the rest are saved.
+
+    The deadline ends the step at the row it cuts, which stays due with every row after it for the next pass.
+    """
+
+    saved: Saved[T] = Saved()
+    for row in rows:
+        # Caught outside the row's session: a failure the session never saw leaves its transaction open.
+        try:
+            saved.answers.append(await transact(db, _of_row(save, row)))
+        # Any class, or the next pass stops at this row again and holds back every one behind it; not `BaseException`,
+        # so a cancellation still ends the call.
+        except Exception as failure:
+            # The only branch an unanswered commit reaches: `transact` retries one until the deadline and raises it as a
+            # timeout keeping the label.
+            if isinstance(failure, PyMongoError) and failure.timeout:
+                uncertain = failure.has_error_label(UNKNOWN_COMMIT_RESULT)
+                # Below a failed row's ERROR: no record is at fault, and every later row would fail the same way.
+                fl_logger.warning(
+                    "transactions.pass_cut",
+                    extra={
+                        "error_code": Code.UNKNOWN_OUTCOME if uncertain else Code.DATABASE_FAILED,
+                        "what": what,
+                        "row_id": str(row["_id"]),
+                        "clock": clock,
+                        "unanswered": uncertain,
+                    },
+                )
+                saved.cut = True
+                return saved
+
+            log_passed(what=what, row_id=row["_id"], clock=clock, failure=failure)
+            saved.failed += 1
+
+    return saved
 
 
 # A pass's page: one read's ceiling, and one past it tells a full page from a truncated one.

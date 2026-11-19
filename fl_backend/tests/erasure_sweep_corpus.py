@@ -14,7 +14,6 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identity.schemas import FLErasureSweepParams
 from app.api.identity.system_router import sweep_erasure
 from app.api.registrierungen.services import compose_decline_update
 from app.core.collections import Collection
@@ -104,9 +103,8 @@ async def the_league(database: AsyncDatabase, *, saisons: Mapping[str, str] = LE
     await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, "Lindenschule", "LSX"))
 
 
-async def run(database: AsyncDatabase, client: AsyncMongoClient, *, after: Any = None, **replaced: Any) -> Any:
+async def run(database: AsyncDatabase, client: AsyncMongoClient, **replaced: Any) -> Any:
     return await sweep_erasure(
-        params=FLErasureSweepParams(after=after),
         saisons_collection=replaced.pop("saisons_collection", database[Collection.SAISONS]),
         collections=erasure_collections(database, **replaced),
         db=client,

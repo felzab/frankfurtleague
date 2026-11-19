@@ -21,7 +21,7 @@ type PassedOver = { bewerbung: number; registrierung: number };
  * entries'. The scheduler runs one pass at a time.
  *
  * Every reminder and notice the backend owed is the Postausgang's drain to send. Answers the rows each half passed over
- * and what the address changes and the referee clock did, `open` the erasures passed over and the lapsed changes left,
+ * and what the address changes and the referee clock did, `open` the erasures passed over and the changes it could not end,
  * and the seasons' failure, once both halves have run, as `error`; a lapsed address the half could not end, or a
  * referee clock that failed, rejects, for the heartbeat to name.
  */
@@ -40,11 +40,11 @@ export async function runBewerbungSweep() {
       address_change_removed: adressen.removed,
       address_change_effective: adressen.effective,
       address_change_discarded: adressen.discarded,
-      address_change_remaining: adressen.remaining,
+      address_change_failed: adressen.failed,
       schiedsrichter_erased: schiedsrichter.erased,
       schiedsrichter_failed: schiedsrichter.failed,
     },
-    open: saisons.passedOver.bewerbung + saisons.passedOver.registrierung + adressen.remaining + schiedsrichter.failed,
+    open: saisons.passedOver.bewerbung + saisons.passedOver.registrierung + adressen.failed + schiedsrichter.failed,
     error: saisons.error,
   };
 }

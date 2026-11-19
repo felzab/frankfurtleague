@@ -663,14 +663,7 @@ def build_erasure_due_pipeline(*, kept: frozenset[str], pending_addresses: Abstr
     ]
 
 
-def build_erasure_due_page_pipeline(
-    *, kept: frozenset[str], pending_addresses: AbstractSet[str], after: ObjectId | None, size: int
-) -> list[Mapping[str, Any]]:
-    """The due pupils after `after` in `_id` order, at most `size`, beside how many are due in all, as one document."""
+def build_erasure_due_page_pipeline(*, kept: frozenset[str], pending_addresses: AbstractSet[str], size: int) -> list[Mapping[str, Any]]:
+    """The first `size` due pupils in `_id` order."""
 
-    page: list[Mapping[str, Any]] = [{"$sort": {"_id": 1}}, {"$limit": size}]
-
-    return [
-        *build_erasure_due_pipeline(kept=kept, pending_addresses=pending_addresses),
-        {"$facet": {"page": page if after is None else [{"$match": {"_id": {"$gt": after}}}, *page], "count": [{"$count": "count"}]}},
-    ]
+    return [*build_erasure_due_pipeline(kept=kept, pending_addresses=pending_addresses), {"$sort": {"_id": 1}}, {"$limit": size}]

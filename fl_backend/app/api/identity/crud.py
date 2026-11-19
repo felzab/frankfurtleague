@@ -721,26 +721,22 @@ async def _pending_addresses(registrierungen_collection: AsyncCollection) -> fro
 async def erasure_due_page(
     statuses: Mapping[str, FLSaisonStatus],
     *,
-    after: ObjectId | None,
     size: int,
     spieler_collection: AsyncCollection,
     registrierungen_collection: AsyncCollection,
-) -> tuple[list[Mapping[str, Any]], int]:
-    """The due pupils after `after`, at most `size` with their id and address, and how many are due in all.
+) -> list[Mapping[str, Any]]:
+    """The first `size` due pupils with their id and address.
 
     Read outside any transaction; each erasure judges its pupil again in its own.
     """
 
     kept = kept_saison_ids(statuses)
     if kept is None:
-        return [], 0
+        return []
 
-    pipeline = build_erasure_due_page_pipeline(
-        kept=kept, pending_addresses=await _pending_addresses(registrierungen_collection), after=after, size=size
-    )
-    [read] = await aggregate_many_from_db(collection=spieler_collection, pipeline=pipeline)
+    pipeline = build_erasure_due_page_pipeline(kept=kept, pending_addresses=await _pending_addresses(registrierungen_collection), size=size)
 
-    return read["page"], sum(row["count"] for row in read["count"])
+    return await aggregate_many_from_db(collection=spieler_collection, pipeline=pipeline)
 
 
 async def erase_if_still_due(

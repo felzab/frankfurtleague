@@ -30,7 +30,6 @@ from app.api.address_change.public_router import get_address_change_view, post_a
 from app.api.address_change.schemas import (
     FLAddressChangeAdminPayload,
     FLAddressChangeAnswerPayload,
-    FLAddressChangeSweepParams,
 )
 from app.api.address_change.services import build_address_filter
 from app.api.address_change.system_router import sweep_address_change
@@ -397,8 +396,8 @@ def view(database: AsyncDatabase, client: AsyncMongoClient, token: str | None, *
     return call(get_address_change_view, database, client, view_data=FLTokenPayload(token=_handed(token)), **given)
 
 
-def sweep(database: AsyncDatabase, client: AsyncMongoClient, *, after: Any = None, **given: Any) -> Awaitable[Any]:
-    return call(sweep_address_change, database, client, params=FLAddressChangeSweepParams(after=after), **given)
+def sweep(database: AsyncDatabase, client: AsyncMongoClient, **given: Any) -> Awaitable[Any]:
+    return call(sweep_address_change, database, client, **given)
 
 
 async def change(database: AsyncDatabase, address_change_id: ObjectId) -> Mapping[str, Any]:

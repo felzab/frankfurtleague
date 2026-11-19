@@ -240,14 +240,8 @@ class FLErasureViewResponse(BaseReadModel):
     grants: int = Field(ge=0)
 
 
-class FLErasureSweepParams(BaseModel):
-    """Where in one pass the call starts: after the pupil the call before it reached, or at the lowest id where none is named."""
-
-    after: CustomObjectId | None = None
-
-
 class FLErasureSweepResponse(BaseReadModel):
-    """One call's share of the season-after rule: what it erased, whom it passed over, and how many are still due."""
+    """One pass of the season-after rule: what it erased and whom it passed over; a pass the deadline cut leaves the rest due."""
 
     # The latest `past` season, which the rule keeps a squad row in; null where none is `past`, nobody then being due.
     completed_saison_id: str | None
@@ -256,8 +250,5 @@ class FLErasureSweepResponse(BaseReadModel):
     registrierungen: int
     # Due when the call read them and not in their own transaction: a squad row or a registration arrived between.
     skipped: int
+    # A person whose erasure failed stays due for the next pass.
     failed: int
-    # The failed among them: a person whose erasure failed stays due, so a caller looping on this alone never ends.
-    remaining: int
-    # The last pupil this call reached, for the next call's `after`; null once it reached the end, which ends the pass.
-    after: CustomObjectId | None
