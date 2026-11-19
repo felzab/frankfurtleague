@@ -6,6 +6,7 @@ container would hold and the code it would exit with. Every secret here is made 
 which no name a refusal lists can carry.
 """
 
+import os
 from pathlib import Path
 
 import pytest
@@ -16,7 +17,7 @@ from app.core.config import INTERNAL_API_KEY_LENGTH, MONGODB_URI_FILE, SECRET_FI
 from app.core.constraints import SUPPORT_INDEXES, TTL_INDEXES, UNIQUE_INDEXES
 from app.core.db import NO_SERVER, UNREACHABLE, new_client
 from app.main import BOOT_REFUSED
-from tests.boot import Boot, Withheld, booted, names, serving
+from tests.boot import SECRETS_FOLDER, Boot, Withheld, booted, names, serving
 from tests.worker import worker_database
 
 # What uvicorn exits with when the application's start fails, the code a refusal at the import takes too.
@@ -74,6 +75,13 @@ SHARED = Withheld({**KEYS, "internal_api_key_admin": KEYS["internal_api_key_base
 UNREACHABLE_HOST = "192.0.2.1"
 UNREACHABLE_URI = Withheld({MONGODB_URI_FILE: f"mongodb://{UNREACHABLE_HOST}:27018"})
 
+# A pasted key's line keeping the dotenv shape, which makes its text the name the settings refuse as undeclared. Lower
+# case, as the settings report the name, so a refusal naming it is a leak this finds.
+PASTED = Withheld({"name": "made-up-pasted-key-7"})
+
+# A key file holding a byte UTF-8 cannot decode at its end: a decode error's text quotes what it failed on.
+UNDECODABLE = Withheld({"internal_api_key_base": a_key("Made-Up-Undecodable-7", INTERNAL_API_KEY_LENGTH - 1)})
+
 # Each case's secret files and whole environment.
 BOOTS = {
     "refused": (REFUSED, VARIABLES),
@@ -82,6 +90,16 @@ BOOTS = {
     "misspelled": (Withheld({MONGODB_URI_FILE: NO_SERVER_URI, **KEYS}), {"DB_BASE_NAMES": VARIABLES["DB_BASE_NAME"]}),
     "unreachable": (Withheld({**UNREACHABLE_URI, **KEYS}), VARIABLES),
     "shared": (Withheld({MONGODB_URI_FILE: NO_SERVER_URI, **SHARED}), VARIABLES),
+    "undeclared": (Withheld({MONGODB_URI_FILE: NO_SERVER_URI, **KEYS}), VARIABLES),
+    "undecodable": (
+        Withheld({MONGODB_URI_FILE: NO_SERVER_URI, **KEYS, "internal_api_key_base": f"{UNDECODABLE['internal_api_key_base']}\udcff"}),
+        VARIABLES,
+    ),
+    # The base key's file is a directory, which the fixture leaves.
+    "directory": (
+        Withheld({MONGODB_URI_FILE: NO_SERVER_URI, **{file: key for file, key in KEYS.items() if file != "internal_api_key_base"}}),
+        VARIABLES,
+    ),
 }
 
 
@@ -89,7 +107,12 @@ BOOTS = {
 async def boots(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Boot]:
     """Every case's boot at once, each from a folder of its own, so the others end inside the unreachable server's wait."""
 
-    return await booted({name: (tmp_path_factory.mktemp(name), files, variables) for name, (files, variables) in BOOTS.items()})
+    folders = {name: tmp_path_factory.mktemp(name) for name in BOOTS}
+    # The package's dotenv file, which the settings read from the folder a boot starts in.
+    (folders["undeclared"] / ".env").write_bytes(f"{PASTED['name']}=1\n".encode())
+    (folders["directory"] / SECRETS_FOLDER / "internal_api_key_base").mkdir(parents=True)
+
+    return await booted({name: (folders[name], files, variables) for name, (files, variables) in BOOTS.items()})
 
 
 class TestARefusal:
@@ -101,6 +124,34 @@ class TestARefusal:
         assert (boot.code, boot.events) == (BOOT_REFUSED, ["system.config_refused"])
         assert names(boot.record("system.config_refused")["refusal"], "Invalid secret files") == set(SECRET_FILES)
         assert boot.leaked(REFUSED) == []
+
+    def test_counts_an_undeclared_name_and_never_names_it(self, boots: dict[str, Boot]):
+        """The settings refuse an undeclared name by naming it, and a pasted key keeping the dotenv shape is that name."""
+
+        boot = boots["undeclared"]
+
+        assert (boot.code, boot.events) == (BOOT_REFUSED, ["system.config_refused"])
+        assert boot.record("system.config_refused")["refusal"] == "Undeclared environment variables: 1"
+        assert boot.leaked(PASTED) == []
+
+    def test_names_an_undecodable_file_by_its_failure_alone(self, boots: dict[str, Boot]):
+        """The settings' wrapper and the decode error under it each quote what they failed on, so neither text is logged."""
+
+        boot = boots["undecodable"]
+
+        assert (boot.code, boot.events) == (BOOT_REFUSED, ["system.config_refused"])
+        assert boot.record("system.config_refused")["refusal"] == "The environment could not be read: UnicodeDecodeError"
+        assert boot.leaked(Withheld({**KEYS, **UNDECODABLE})) == []
+
+    def test_names_a_directory_at_a_file_s_path_by_its_path(self, boots: dict[str, Boot]):
+        """What Docker leaves where a bind mount's source file was missing, which the settings only warn about."""
+
+        boot = boots["directory"]
+
+        assert (boot.code, boot.events) == (BOOT_REFUSED, ["system.config_refused"])
+        refusal = boot.record("system.config_refused")["refusal"]
+        assert refusal.startswith("Unreadable secret files: ") and refusal.endswith(f"{SECRETS_FOLDER}{os.sep}internal_api_key_base (EISDIR)")
+        assert boot.leaked(KEYS) == []
 
 
 class TestASecretFile:

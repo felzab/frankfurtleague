@@ -80,12 +80,18 @@ def environment(secrets: Path, variables: Mapping[str, str]) -> Withheld:
     return environment
 
 
+# The folder in a boot's directory its secrets are written to.
+SECRETS_FOLDER: Final = "run-secrets"
+
+
 def secrets_folder(directory: Path, files: Mapping[str, str]) -> Path:
-    secrets = directory / "run-secrets"
-    secrets.mkdir()
+    secrets = directory / SECRETS_FOLDER
+    # A case may have made it already, to leave there what no value writes: a directory at a file's path.
+    secrets.mkdir(exist_ok=True)
     for name, value in files.items():
-        # Bytes: a text-mode write would end each file in a carriage return on Windows.
-        (secrets / name).write_bytes(value.encode())
+        # Bytes: a text-mode write would end each file in a carriage return on Windows. A lone surrogate writes the byte
+        # it escapes, so a value can end in one UTF-8 cannot decode.
+        (secrets / name).write_bytes(value.encode(errors="surrogateescape"))
 
     return secrets
 
