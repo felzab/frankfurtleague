@@ -11,9 +11,10 @@ from app.api.outbox.schemas import FLGrantData
 from app.core.codes import Code
 from app.core.exceptions import APIError
 from app.shared.schemas.custom import as_utc
+from app.shared.schemas.literals import FLAdminTier
 
-OWNER: Final = "owner"
-ADMINISTRATION: Final = "administration"
+OWNER: Final[FLAdminTier] = "owner"
+ADMINISTRATION: Final[FLAdminTier] = "administration"
 
 
 def in_effect(row: Mapping[str, Any], now: datetime) -> bool:
@@ -22,10 +23,10 @@ def in_effect(row: Mapping[str, Any], now: datetime) -> bool:
     return as_utc(row["effective_from"]) <= now.astimezone(UTC)
 
 
-def admin_tier_of(address: str, grants: Sequence[Mapping[str, Any]]) -> str | None:
+def admin_tier_of(address: str, grants: Sequence[Mapping[str, Any]]) -> FLAdminTier | None:
     """The tier this folded address's row carries, in effect or waiting, or `None`."""
 
-    return next((str(grant["admin_tier"]) for grant in grants if grant["address"] == address), None)
+    return next((grant["admin_tier"] for grant in grants if grant["address"] == address), None)
 
 
 def holds_an_owners_power(*, actor: str, grants: Sequence[Mapping[str, Any]]) -> bool:
