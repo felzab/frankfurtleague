@@ -321,7 +321,7 @@ class TestARolloverLandingMidSaveIsJudgedAgain:
         assert (outcome, statuses) == (Code.SAISON_PAST, {OUTGOING: "past", TARGET: "active"})
 
     async def test_a_team_row_save_is_refused_on_the_rollover_that_landed_under_it(self, mongo_replica_set_url: str):
-        """Drop both anchors the save takes on the season and this fails: the colour's and the rename's each conflict alone."""
+        """Drop the open seasons' anchor from `write_the_team`, the one anchor the save takes on the season, and this fails."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def roll_over_between() -> None:
@@ -379,8 +379,7 @@ class TestARolloverLandingMidRenameIsJudgedAgain:
             # rival commits after the snapshot and before the rename reads which seasons are still open.
             teams = InterleavedCollection(database[Collection.TEAMS], roll_over_between, after="find_one_and_update")
 
-            # The writer rather than the save over it: a save moving the colour anchors its own season first, so a rollover
-            # of that season would wait on it inside this hook.
+            # The writer alone rather than the save over it, so nothing but the rename's own anchor can meet the rollover.
             async def rename(session: AsyncClientSession) -> Any:
                 return await write_the_team(
                     # The stand-in delegates every call, which the helper's collection type cannot say.

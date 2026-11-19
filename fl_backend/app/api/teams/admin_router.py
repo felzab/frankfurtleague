@@ -588,7 +588,6 @@ async def patch_team_saison(
         if team_data.trikot_farbe != row_raw.get("trikot_farbe"):
             await refuse_a_taken_colour(
                 saison_teams_collection=saison_teams_collection,
-                saisons_collection=saisons_collection,
                 saison_id=saison_id,
                 trikot_farbe=team_data.trikot_farbe,
                 own_id=row_raw["_id"],
